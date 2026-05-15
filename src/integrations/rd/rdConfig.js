@@ -7,6 +7,10 @@ window.RDConfig = {
     return {
       enabled: false,
       status: "not_configured",
+      // V21.4.3 — Token estático do RD CRM legacy API (gerado no painel
+      // CRM → Integrações). Usado para chamadas em crm.rdstation.com/api/v1
+      // via query string ?token=X. NÃO confundir com accessToken do OAuth.
+      crmPersonalToken: "",
       clientId: "",
       clientSecret: "",
       redirectUri: "",

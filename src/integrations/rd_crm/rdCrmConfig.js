@@ -110,5 +110,16 @@ window.RdCrmConfig = {
 
   oauthCredentials() {
     return window.App?.state?.integrations?.rd || {};
+  },
+
+  // V21.4.3 — Token estático do RD CRM legacy (gerado no painel CRM →
+  // Integrações). É o que de fato autentica chamadas em crm.rdstation.com/api/v1.
+  // O accessToken do OAuth é da família Marketing e não vale aqui.
+  crmToken() {
+    return (window.App?.state?.integrations?.rd?.crmPersonalToken || '').trim();
+  },
+
+  hasCrmToken() {
+    return Boolean(this.crmToken());
   }
 };

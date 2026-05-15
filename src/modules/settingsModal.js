@@ -72,6 +72,8 @@ var SettingsModal = {
       ['accountName','Conta / Workspace','Nome da conta RD','text']
     ];
 
+    const hasCrmToken = Boolean((cfg.crmPersonalToken || '').trim());
+
     return `<div class="space-y-5">
       <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
         <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-5">
@@ -85,8 +87,34 @@ var SettingsModal = {
           <span class="px-3 py-2 rounded-2xl border text-xs font-black ${statusClass}">${Utils.escape(cfg.status || 'not_configured')}</span>
         </div>
 
+        <!-- V21.4.3 — CRM Personal Token em destaque: é o que de fato libera tudo do CRM -->
+        <div class="rounded-2xl border ${hasCrmToken ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'} p-4 mb-4">
+          <div class="flex items-start gap-3">
+            <i data-lucide="key-round" class="w-5 h-5 ${hasCrmToken ? 'text-emerald-700' : 'text-amber-700'} mt-0.5"></i>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1">
+                <h4 class="font-black ${hasCrmToken ? 'text-emerald-900' : 'text-amber-900'}">CRM Personal Token</h4>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${hasCrmToken ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-200 text-amber-900'}">${hasCrmToken ? 'configurado' : 'obrigatório'}</span>
+              </div>
+              <p class="text-xs ${hasCrmToken ? 'text-emerald-800' : 'text-amber-800'} mb-3">
+                Gerado em <b>RD CRM → Configurações → Todas as configurações → Integrações</b>. É <b>obrigatório</b> para qualquer feature do CRM (pipeline, stages, deals, scoring). Diferente do Access Token do OAuth abaixo, que é da família Marketing.
+              </p>
+              ${this._input('crmPersonalToken','','Cole aqui o token gerado no painel do CRM','password',cfg.crmPersonalToken)}
+            </div>
+          </div>
+        </div>
+
+        <details class="rounded-2xl border border-slate-200 bg-white mb-4">
+          <summary class="cursor-pointer px-4 py-3 font-black text-sm text-slate-700 flex items-center gap-2">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            OAuth do RD Marketing (opcional — futuro: emails, contatos, KPIs)
+          </summary>
+          <div class="px-4 pb-4 pt-2 grid md:grid-cols-2 gap-4">
+            ${fields.map(([field, label, placeholder, type]) => this._input(field, label, placeholder, type, cfg[field])).join('')}
+          </div>
+        </details>
+
         <div class="grid md:grid-cols-2 gap-4">
-          ${fields.map(([field, label, placeholder, type]) => this._input(field, label, placeholder, type, cfg[field])).join('')}
           <div>
             <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Frequência padrão</label>
             <select onchange="Actions.updateRDConfig('syncFrequency', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-slate-900">

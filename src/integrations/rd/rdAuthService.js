@@ -44,8 +44,9 @@ window.RDAuthService = {
     // V21.4 — Ping REAL no RD CRM via proxy /api/rd-proxy (CORS workaround).
     // V21.4.1 — Usa a base legacy (crm.rdstation.com/api/v1) que é a oficial do CRM.
     // V21.4.2 — Usa ?token=X (esquema legacy) em vez de Authorization: Bearer.
-    //            Erro exibe corpo real do RD pra debug.
-    if (cfg.accessToken) {
+    // V21.4.3 — Usa o Personal Access Token do CRM (não o accessToken do OAuth).
+    const crmToken = (cfg.crmPersonalToken || '').trim();
+    if (crmToken) {
       try {
         const res = await fetch("/api/rd-proxy", {
           method: "POST",
@@ -53,7 +54,7 @@ window.RDAuthService = {
           body: JSON.stringify({
             method: "GET",
             path: "/deal_pipelines",
-            token: cfg.accessToken,
+            token: crmToken,
             legacy: true,
             useQueryToken: true
           })
@@ -78,14 +79,12 @@ window.RDAuthService = {
       }
     }
 
-    const hasCode = Boolean(cfg.authorizationCode);
+    // V21.4.3 — Sem PAT do CRM, não há como testar conexão real.
     return {
-      ok: true,
+      ok: false,
       provider: "rd_station",
-      status: hasCode ? "ready_for_exchange" : "ready_for_oauth",
-      message: hasCode
-        ? "Code presente. Clique em 'Trocar code por token' para finalizar o OAuth."
-        : "RD configurado. Gere a URL OAuth, autorize e cole o code retornado.",
+      status: "no_crm_token",
+      message: "CRM Personal Token ausente. Gere em RD CRM → Configurações → Integrações e cole no campo 'CRM Personal Token'.",
       testedAt: new Date().toISOString()
     };
   },

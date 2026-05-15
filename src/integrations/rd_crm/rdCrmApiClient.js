@@ -33,14 +33,20 @@ window.RdCrmApiClient = {
   },
 
   async request(method, path, options = {}) {
-    const credentials = RdCrmConfig.oauthCredentials();
-    const token = credentials.accessToken || '';
+    // V21.4.3 — Para chamadas CRM (legacy=true, default), usa o Personal Access
+    // Token do CRM. Para outras (api.rd.services / Marketing), usa accessToken OAuth.
+    const useLegacyForToken = options.legacy !== false;
+    const token = useLegacyForToken
+      ? RdCrmConfig.crmToken()
+      : (RdCrmConfig.oauthCredentials().accessToken || '');
     if (!token) {
       return {
         ok: false,
         dryRun: true,
         status: 'missing_token',
-        message: 'Access Token RD não configurado. Conecte o RD Station em Configurações → RD Station.',
+        message: useLegacyForToken
+          ? 'CRM Personal Token ausente. Gere um em RD CRM → Configurações → Integrações e cole em Configurações → RD Station.'
+          : 'Access Token OAuth ausente. Conecte o RD Station em Configurações → RD Station.',
         data: null
       };
     }
