@@ -1,0 +1,510 @@
+var SettingsModal = {
+  input(path, label, placeholder = '', type = 'text') {
+    const value = this.get(path) || '';
+    return `
+      <label class="block">
+        <span class="text-xs font-black text-slate-500 uppercase tracking-wide">${label}</span>
+        <input type="${type}" value="${Utils.escape(String(value))}" placeholder="${Utils.escape(placeholder)}" oninput="Actions.updateDatabaseConfig('${path}', this.value, false)" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white/80 border border-slate-200 font-semibold outline-none focus:ring-2 focus:ring-slate-900/10" />
+      </label>`;
+  },
+  get(path) {
+    return String(path || '').split('.').reduce((acc, key) => acc && acc[key], App.state.databaseConfig || {});
+  },
+  renderProviderCards(cfg) {
+    return `<div class="grid md:grid-cols-3 gap-3">${DatabaseService.providers.map(provider => `
+      <button onclick="Actions.selectDatabaseProvider('${provider.id}')" class="p-4 rounded-3xl border text-left transition ${cfg.provider === provider.id ? 'bg-slate-900 text-white border-slate-900 shadow-xl' : 'bg-white/75 border-slate-200 hover:bg-white'}">
+        <div class="flex items-center gap-3 mb-2">
+          <i data-lucide="${provider.icon}" class="w-5 h-5"></i>
+          <span class="font-black">${provider.label}</span>
+        </div>
+        <p class="text-xs ${cfg.provider === provider.id ? 'text-slate-300' : 'text-slate-500'}">${provider.id === 'local' ? 'Um banco local no navegador para começar agora.' : provider.id === 'supabase' ? 'Postgres gerenciado com API pronta para produção inicial.' : 'RDS, Aurora ou DynamoDB preparados para escalar.'}</p>
+      </button>`).join('')}</div>`;
+  },
+  renderFields(cfg) {
+    if (cfg.provider === 'local') return `
+      <div class="space-y-4">
+        <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <div class="flex items-start gap-3">
+            <i data-lucide="folder-lock" class="w-5 h-5 text-slate-700 mt-0.5"></i>
+            <div>
+              <h4 class="font-black text-slate-900">Local agora é uma pasta no seu computador</h4>
+              <p class="text-sm text-slate-500 mt-1">${DatabaseService.isDesktop() ? 'Modo Desktop ativo: você pode digitar o caminho exato da pasta ou escolher pelo seletor. O app grava direto no computador.' : 'Modo navegador: digite o caminho para referência e clique em escolher pasta para conceder permissão real.'} O arquivo será salvo como <b>${cfg.local.fileName || DatabaseService.localFileName}</b>.</p>
+            </div>
+          </div>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <label class="block md:col-span-2">
+            <span class="text-xs font-black text-slate-500 uppercase tracking-wide">Caminho da pasta local definido por você</span>
+            <input type="text" value="${Utils.escape(String(cfg.local.folderPath || ''))}" placeholder="Ex.: C:/LeadJourneyData ou D:/Projetos/LeadScoreDB" oninput="Actions.updateDatabaseConfig('local.folderPath', this.value, false)" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white/80 border border-slate-200 font-semibold outline-none focus:ring-2 focus:ring-slate-900/10" />
+            <p class="text-xs text-slate-400 mt-2">${DatabaseService.isDesktop() ? 'No desktop, este caminho é usado diretamente para gravar em /database e gerar backups em /backups.' : 'Observação: por segurança, browser puro não grava só pelo texto do caminho. Use o botão abaixo para autorizar a pasta.'}</p>
+          </label>
+          ${this.input('local.fileName', 'Arquivo do banco local', DatabaseService.localFileName)}
+          ${this.input('local.namespace', 'Namespace fallback do navegador', 'leadscore_local_db')}
+          <label class="block">
+            <span class="text-xs font-black text-slate-500 uppercase tracking-wide">Fallback no navegador</span>
+            <select onchange="Actions.updateDatabaseConfig('local.browserStorageFallback', this.value === 'true')" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white/80 border border-slate-200 font-semibold">
+              <option value="true" ${cfg.local.browserStorageFallback ? 'selected' : ''}>Ativado</option>
+              <option value="false" ${!cfg.local.browserStorageFallback ? 'selected' : ''}>Desativado</option>
+            </select>
+          </label>
+          <label class="block">
+            <span class="text-xs font-black text-slate-500 uppercase tracking-wide">Sincronização local</span>
+            <select onchange="Actions.updateDatabaseConfig('local.autosync', this.value === 'true')" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white/80 border border-slate-200 font-semibold">
+              <option value="true" ${cfg.local.autosync ? 'selected' : ''}>Ativada</option>
+              <option value="false" ${!cfg.local.autosync ? 'selected' : ''}>Desativada</option>
+            </select>
+          </label>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <button onclick="Actions.chooseLocalDatabaseFolder()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black hover:bg-slate-800 flex items-center gap-2"><i data-lucide="folder-open" class="w-4 h-4"></i> Escolher pasta no computador</button>
+          <button onclick="Actions.writeLocalFolderSnapshot()" class="px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-black hover:bg-slate-50 flex items-center gap-2"><i data-lucide="download" class="w-4 h-4"></i> Salvar snapshot na pasta</button>
+          <button onclick="Actions.readLocalFolderSnapshot()" class="px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-black hover:bg-slate-50 flex items-center gap-2"><i data-lucide="upload" class="w-4 h-4"></i> Ler snapshot da pasta</button>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white/70 p-4 text-sm text-slate-600">
+          <b>Pasta vinculada:</b> ${Utils.escape(cfg.local.folderLabel || 'nenhuma pasta autorizada ainda')}<br>
+          <b>Última gravação:</b> ${cfg.local.lastFolderWriteAt ? new Date(cfg.local.lastFolderWriteAt).toLocaleString('pt-BR') : '-'}
+        </div>
+      </div>`;
+    if (cfg.provider === 'supabase') return `
+      <div class="grid md:grid-cols-2 gap-4">
+        ${this.input('supabase.url', 'Project URL', 'https://xxxxx.supabase.co')}
+        ${this.input('supabase.anonKey', 'Anon public key', 'eyJ...')}
+        ${this.input('supabase.schema', 'Schema', 'public')}
+      </div>`;
+    return `
+      <div class="grid md:grid-cols-2 gap-4">
+        <label class="block md:col-span-2">
+          <span class="text-xs font-black text-slate-500 uppercase tracking-wide">Tipo Amazon</span>
+          <select onchange="Actions.selectAmazonDatabaseType(this.value)" class="mt-2 w-full px-4 py-3 rounded-2xl bg-white/80 border border-slate-200 font-semibold">
+            ${DatabaseService.amazonTypes.map(type => `<option value="${type.id}" ${cfg.amazon.type === type.id ? 'selected' : ''}>${type.label}</option>`).join('')}
+          </select>
+        </label>
+        ${this.input('amazon.region', 'Região', 'sa-east-1')}
+        ${this.input('amazon.endpoint', cfg.amazon.type === 'dynamodb' ? 'Endpoint/API opcional' : 'Endpoint do banco', 'leadscore.xxxxx.sa-east-1.rds.amazonaws.com')}
+        ${cfg.amazon.type === 'dynamodb' ? this.input('amazon.tablePrefix', 'Prefixo das tabelas', 'leadscore_') : `${this.input('amazon.port', 'Porta', cfg.amazon.type === 'rds-mysql' ? '3306' : '5432')}${this.input('amazon.database', 'Database', 'leadscore')}${this.input('amazon.username', 'Usuário', 'admin')}${this.input('amazon.password', 'Senha', '', 'password')}`}
+        <div class="md:col-span-2">${this.input('amazon.apiGatewayUrl', 'API Gateway / backend proxy opcional', 'https://api.seudominio.com/db/health')}</div>
+      </div>`;
+  },
+  renderTutorial(cfg) {
+    const items = DatabaseService.tutorial(cfg.provider, cfg.amazon?.type);
+    return `<div class="rounded-3xl bg-slate-900 text-white p-5">
+      <div class="flex items-center gap-2 mb-3"><i data-lucide="book-open" class="w-5 h-5"></i><h3 class="font-black">Tutorial rápido de conexão</h3></div>
+      <ol class="space-y-2 text-sm text-slate-200 list-decimal pl-5">${items.map(item => `<li>${item}</li>`).join('')}</ol>
+    </div>`;
+  },
+  renderStatus(cfg) {
+    const result = cfg.lastTest || App.state.databaseTestResult;
+    if (!result) return `<div class="rounded-2xl border border-slate-200 bg-white/70 p-4 text-sm text-slate-500 font-semibold">Nenhum teste executado ainda.</div>`;
+    return `<div class="rounded-2xl border ${result.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'} p-4 text-sm font-bold">
+      <div class="flex items-center gap-2"><i data-lucide="${result.ok ? 'check-circle-2' : 'alert-triangle'}" class="w-5 h-5"></i><span>${result.message}</span></div>
+      <p class="text-xs mt-1 opacity-75">Testado em: ${result.testedAt ? new Date(result.testedAt).toLocaleString('pt-BR') : '-'}</p>
+    </div>`;
+  },
+  render() {
+    if (!App.state.showSettingsModal) return '';
+    const cfg = DatabaseService.normalize(App.state.databaseConfig);
+    return `
+      <div class="fixed inset-0 z-[999] bg-slate-950/70 backdrop-blur-sm p-4 lg:p-8 overflow-y-auto">
+        <div class="max-w-5xl mx-auto rounded-[2rem] bg-slate-50 shadow-2xl border border-white overflow-hidden">
+          <header class="bg-slate-900 text-white p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-xs font-black mb-3"><i data-lucide="settings" class="w-4 h-4"></i> Configurações do sistema</div>
+              <h2 class="text-3xl font-black">Banco de Dados</h2>
+              <p class="text-slate-300 mt-1">Escolha Local, Supabase ou Amazon e deixe o LeadScore pronto para sincronizar.</p>
+            </div>
+            <button onclick="Actions.closeSettingsModal()" class="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/15 font-black flex items-center gap-2"><i data-lucide="x" class="w-4 h-4"></i> Fechar</button>
+          </header>
+
+          <div class="p-6 space-y-6">
+            <div class="grid md:grid-cols-[220px_1fr] gap-5">
+              <aside class="space-y-2">
+                <button class="w-full px-4 py-3 rounded-2xl bg-slate-900 text-white font-black text-left flex items-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> Banco de Dados</button>
+                <button class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-500 font-black text-left flex items-center gap-2 opacity-70 cursor-not-allowed"><i data-lucide="archive" class="w-4 h-4"></i> Backup em breve</button>
+                <button class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-500 font-black text-left flex items-center gap-2 opacity-70 cursor-not-allowed"><i data-lucide="plug" class="w-4 h-4"></i> Integrações em breve</button>
+              </aside>
+
+              <section class="space-y-5">
+                ${this.renderProviderCards(cfg)}
+                <div class="rounded-3xl bg-white border border-slate-200 p-5 space-y-5">
+                  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                      <h3 class="text-xl font-black">Configurar ${DatabaseService.providerLabel(cfg.provider)}</h3>
+                      <p class="text-sm text-slate-500">As credenciais ficam salvas localmente por enquanto. Não compartilhe senhas reais em prints.</p>
+                    </div>
+                    <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-black uppercase">${cfg.provider === 'amazon' ? DatabaseService.amazonTypeLabel(cfg.amazon.type) : DatabaseService.providerLabel(cfg.provider)}</span>
+                  </div>
+                  ${this.renderFields(cfg)}
+                  ${this.renderStatus(cfg)}
+                  <div class="flex flex-wrap gap-3">
+                    <button onclick="Actions.testDatabaseConnection()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black hover:bg-slate-800 flex items-center gap-2"><i data-lucide="activity" class="w-4 h-4"></i> Testar conexão</button>
+                    <button onclick="Actions.saveDatabaseConfig()" class="px-5 py-3 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700 flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Salvar configuração</button>
+                    <button onclick="Actions.syncDatabaseNow()" class="px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-black hover:bg-slate-50 flex items-center gap-2"><i data-lucide="refresh-cw" class="w-4 h-4"></i> Sincronizar dados</button>
+                  </div>
+                </div>
+                ${this.renderTutorial(cfg)}
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+};
+window.SettingsModal = SettingsModal;
+
+
+// V13 — RD Station panel inside Settings.
+Object.assign(SettingsModal, {
+  rdPanel() {
+    const cfg = (App.state.integrations && App.state.integrations.rd) || (window.RDConfig ? RDConfig.defaultConfig() : {});
+    const statusClass = ['ready_for_api_test','ready_for_oauth','configured','connected'].includes(cfg.status) ? 'lj-rd-status-ready' : 'lj-rd-status-pending';
+
+    const input = (field, label, placeholder = '', type = 'text') => `<div>
+      <label class="text-xs font-black text-slate-500">${label}</label>
+      <input type="${type}" value="${Utils.escape(cfg[field] || '')}" oninput="Actions.updateRDConfig('${field}', this.value)" placeholder="${Utils.escape(placeholder)}" class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold" />
+    </div>`;
+
+    return `<section class="lj-rd-panel">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 class="lj-rd-title">Integração RD Station</h3>
+          <p class="lj-rd-help">Fase 1: configure OAuth, teste conexão e deixe o app pronto para ações RD Email.</p>
+        </div>
+        <span class="${statusClass} text-xs font-black">${Utils.escape(cfg.status || 'not_configured')}</span>
+      </div>
+
+      <div class="lj-rd-grid">
+        ${input('clientId','Client ID','Client ID do app RD')}
+        ${input('clientSecret','Client Secret','Client Secret do app RD','password')}
+        ${input('redirectUri','Redirect URI','http://localhost:3000/rd/callback')}
+        ${input('authorizationCode','Authorization Code','Cole aqui o code retornado pelo OAuth')}
+        ${input('accessToken','Access Token','Opcional para teste interno','password')}
+        ${input('refreshToken','Refresh Token','Opcional para teste interno','password')}
+        ${input('accountName','Conta / Workspace','Nome da conta RD')}
+
+        <div>
+          <label class="text-xs font-black text-slate-500">Frequência padrão</label>
+          <select onchange="Actions.updateRDConfig('syncFrequency', this.value)" class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold">
+            ${['manual','daily','weekly'].map(v => `<option value="${v}" ${cfg.syncFrequency === v ? 'selected' : ''}>${v}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-3 mt-4">
+        <button onclick="Actions.generateRDAuthUrl()" class="lj-btn lj-btn-secondary">Gerar URL OAuth</button>
+        <button onclick="Actions.testRDConnection()" class="lj-btn lj-btn-primary">Testar conexão</button>
+        <button onclick="Actions.clearRDConfig()" class="lj-btn lj-btn-danger">Limpar RD</button>
+      </div>
+
+      ${cfg.authUrl ? `<div class="mt-4 rounded-2xl bg-slate-950/70 border border-white/10 p-3"><p class="text-xs text-slate-400 font-black mb-1">URL OAuth gerada</p><p class="text-xs break-all text-sky-100">${Utils.escape(cfg.authUrl)}</p></div>` : ''}
+
+      <div class="mt-4 rounded-2xl bg-white/10 border border-white/10 p-3">
+        <p class="text-xs font-black text-sky-100 mb-1">Tutorial rápido</p>
+        <ol class="text-xs text-slate-200 list-decimal pl-4 space-y-1">
+          <li>Crie um app no painel de desenvolvedores do RD Station.</li>
+          <li>Copie Client ID, Client Secret e Redirect URI.</li>
+          <li>Gere a URL OAuth e autorize a conta.</li>
+          <li>Cole o Authorization Code retornado.</li>
+          <li>Crie uma ação com canal RD Email para mapear campanha, assunto, CTA e tags.</li>
+        </ol>
+      </div>
+    </section>`;
+  }
+});
+
+const __LJ_Settings_render_v13_real = SettingsModal.render;
+SettingsModal.render = function() {
+  const html = __LJ_Settings_render_v13_real.call(this);
+  if (!App.state.showSettingsModal || !this.rdPanel) return html;
+
+  const insert = this.rdPanel();
+
+  if (html.includes('<div class="p-5 lg:p-6 space-y-4">')) {
+    return html.replace('<div class="p-5 lg:p-6 space-y-4">', '<div class="p-5 lg:p-6 space-y-4">' + insert);
+  }
+
+  if (html.includes('<div class="p-5')) {
+    return html.replace('<div class="p-5', insert + '<div class="p-5');
+  }
+
+  return html + insert;
+};
+
+
+// V13.0.2 — RD Settings UI Injection Fix
+// Robust DOM injection independent from the original SettingsModal HTML structure.
+window.RDSettingsInjection = {
+  renderPanel() {
+    const cfg = (App.state.integrations && App.state.integrations.rd) || (window.RDConfig ? RDConfig.defaultConfig() : {});
+    const statusClass = ['ready_for_api_test','ready_for_oauth','configured','connected'].includes(cfg.status) ? 'lj-rd-status-ready' : 'lj-rd-status-pending';
+
+    const input = (field, label, placeholder = '', type = 'text') => `
+      <div>
+        <label class="text-xs font-black text-slate-500">${label}</label>
+        <input type="${type}" value="${Utils.escape(cfg[field] || '')}" oninput="Actions.updateRDConfig('${field}', this.value)" placeholder="${Utils.escape(placeholder)}" class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-slate-900" />
+      </div>
+    `;
+
+    return `
+      <section id="rd-settings-panel" class="lj-rd-panel mt-4">
+        <div class="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 class="lj-rd-title">Integração RD Station</h3>
+            <p class="lj-rd-help">Configure OAuth para conectar ações RD Email ao RD Station.</p>
+          </div>
+          <span class="${statusClass} text-xs font-black">${Utils.escape(cfg.status || 'not_configured')}</span>
+        </div>
+
+        <div class="lj-rd-grid">
+          ${input('clientId','Client ID','Client ID do app RD')}
+          ${input('clientSecret','Client Secret','Client Secret do app RD','password')}
+          ${input('redirectUri','Redirect URI','http://localhost:3000/rd/callback')}
+          ${input('authorizationCode','Authorization Code','Cole aqui o code retornado pelo OAuth')}
+          ${input('accessToken','Access Token','Opcional para teste interno','password')}
+          ${input('refreshToken','Refresh Token','Opcional para teste interno','password')}
+          ${input('accountName','Conta / Workspace','Nome da conta RD')}
+
+          <div>
+            <label class="text-xs font-black text-slate-500">Frequência padrão</label>
+            <select onchange="Actions.updateRDConfig('syncFrequency', this.value)" class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-slate-900">
+              ${['manual','daily','weekly'].map(v => `<option value="${v}" ${cfg.syncFrequency === v ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 mt-4">
+          <button onclick="Actions.generateRDAuthUrl()" class="lj-btn lj-btn-secondary">Gerar URL OAuth</button>
+          <button onclick="Actions.testRDConnection()" class="lj-btn lj-btn-primary">Testar conexão</button>
+          <button onclick="Actions.clearRDConfig()" class="lj-btn lj-btn-danger">Limpar RD</button>
+        </div>
+
+        ${cfg.authUrl ? `
+          <div class="mt-4 rounded-2xl bg-slate-950/70 border border-white/10 p-3">
+            <p class="text-xs text-slate-400 font-black mb-1">URL OAuth gerada</p>
+            <p class="text-xs break-all text-sky-100">${Utils.escape(cfg.authUrl)}</p>
+          </div>
+        ` : ''}
+
+        <div class="mt-4 rounded-2xl bg-white/10 border border-white/10 p-3">
+          <p class="text-xs font-black text-sky-100 mb-1">Tutorial rápido</p>
+          <ol class="text-xs text-slate-200 list-decimal pl-4 space-y-1">
+            <li>Crie um app no painel de desenvolvedores do RD Station.</li>
+            <li>Copie Client ID, Client Secret e Redirect URI.</li>
+            <li>Gere a URL OAuth e autorize a conta.</li>
+            <li>Cole o Authorization Code retornado.</li>
+            <li>Crie uma ação com canal RD Email para mapear campanha, assunto, CTA e tags.</li>
+          </ol>
+        </div>
+      </section>
+    `;
+  },
+
+  inject() {
+    if (!App?.state?.showSettingsModal) return;
+
+    const existing = document.getElementById('rd-settings-panel');
+    if (existing) existing.remove();
+
+    const html = this.renderPanel();
+
+    const candidates = [
+      document.querySelector('[data-settings-content]'),
+      document.querySelector('.settings-content'),
+      document.querySelector('#settingsModal .p-5'),
+      document.querySelector('#settingsModal'),
+      document.querySelector('.fixed.inset-0.z-50'),
+      document.querySelector('body')
+    ].filter(Boolean);
+
+    const target = candidates[0];
+    if (!target) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = html;
+    const panel = wrapper.firstElementChild;
+
+    // Prefer inserting near the top of modal content, but not before a header if possible.
+    if (target.tagName === 'BODY') {
+      const floating = document.createElement('div');
+      floating.className = 'fixed right-6 bottom-6 z-[9999] max-w-3xl w-[calc(100vw-3rem)] max-h-[80vh] overflow-auto';
+      floating.appendChild(panel);
+      target.appendChild(floating);
+    } else {
+      target.appendChild(panel);
+    }
+  }
+};
+
+// Wrap App.render once so the RD panel is injected immediately after every render.
+if (window.App && !App.__rdSettingsInjectionPatched) {
+  const __LJ_App_render_before_rd_injection = App.render.bind(App);
+  App.render = function() {
+    const result = __LJ_App_render_before_rd_injection();
+    setTimeout(() => window.RDSettingsInjection?.inject?.(), 0);
+    return result;
+  };
+  App.__rdSettingsInjectionPatched = true;
+}
+
+// Also wrap SettingsModal.render as a fallback for string rendering.
+if (window.SettingsModal && !SettingsModal.__rdRenderFallbackPatched) {
+  const __LJ_Settings_render_before_rd_fallback = SettingsModal.render.bind(SettingsModal);
+  SettingsModal.render = function() {
+    const html = __LJ_Settings_render_before_rd_fallback();
+    if (!App.state.showSettingsModal || html.includes('id="rd-settings-panel"')) return html;
+
+    const panel = window.RDSettingsInjection?.renderPanel?.() || '';
+    if (!panel) return html;
+
+    if (html.includes('</section>')) {
+      return html.replace('</section>', panel + '</section>');
+    }
+
+    if (html.includes('</div>')) {
+      const idx = html.lastIndexOf('</div>');
+      return html.slice(0, idx) + panel + html.slice(idx);
+    }
+
+    return html + panel;
+  };
+  SettingsModal.__rdRenderFallbackPatched = true;
+}
+
+
+// V13.0.3 — RD Modal Layout Fix
+// Corrige o painel RD para abrir dentro do modal como aba própria, sem overlay fora do layout.
+(function(){
+  if (!window.SettingsModal || SettingsModal.__rdLayoutFixV1303) return;
+
+  SettingsModal.activeSection = function() {
+    return App.state.settingsActiveSection || 'database';
+  };
+
+  SettingsModal.sectionButton = function(section, label, icon) {
+    const active = this.activeSection() === section;
+    return `<button onclick="Actions.setSettingsSection('${section}')" class="w-full text-left rounded-2xl px-4 py-4 border transition ${active ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}">
+      <div class="flex items-center gap-3">
+        <i data-lucide="${icon}" class="w-4 h-4"></i>
+        <span class="font-black">${label}</span>
+      </div>
+    </button>`;
+  };
+
+  SettingsModal.rdPanelFixed = function() {
+    const cfg = (App.state.integrations && App.state.integrations.rd) || (window.RDConfig ? RDConfig.defaultConfig() : {});
+    const statusClass = ['ready_for_api_test','ready_for_oauth','configured','connected'].includes(cfg.status) ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-amber-600 bg-amber-50 border-amber-200';
+
+    const input = (field, label, placeholder = '', type = 'text') => `<div>
+      <label class="text-xs font-black text-slate-500 uppercase tracking-wide">${label}</label>
+      <input type="${type}" value="${Utils.escape(cfg[field] || '')}" oninput="Actions.updateRDConfig('${field}', this.value)" placeholder="${Utils.escape(placeholder)}" class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-slate-900 placeholder:text-slate-400" />
+    </div>`;
+
+    return `<div class="space-y-5">
+      <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-5">
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <i data-lucide="plug-zap" class="w-5 h-5 text-sky-600"></i>
+              <h3 class="text-2xl font-black text-slate-950">Integração RD Station</h3>
+            </div>
+            <p class="text-sm text-slate-500 max-w-2xl">Configure OAuth para conectar ações RD Email ao RD Station. Esta aba fica dentro do modal de configurações e segue o layout do sistema.</p>
+          </div>
+          <span class="px-3 py-2 rounded-2xl border text-xs font-black ${statusClass}">${Utils.escape(cfg.status || 'not_configured')}</span>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-4">
+          ${input('clientId','Client ID','Client ID do app RD')}
+          ${input('clientSecret','Client Secret','Client Secret do app RD','password')}
+          ${input('redirectUri','Redirect URI','http://localhost:3000/rd/callback')}
+          ${input('authorizationCode','Authorization Code','Cole aqui o code retornado pelo OAuth')}
+          ${input('accessToken','Access Token','Opcional para teste interno','password')}
+          ${input('refreshToken','Refresh Token','Opcional para teste interno','password')}
+          ${input('accountName','Conta / Workspace','Nome da conta RD')}
+          <div>
+            <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Frequência padrão</label>
+            <select onchange="Actions.updateRDConfig('syncFrequency', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-slate-900">
+              ${['manual','daily','weekly'].map(v => `<option value="${v}" ${cfg.syncFrequency === v ? 'selected' : ''}>${v}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-3 mt-5">
+          <button onclick="Actions.generateRDAuthUrl()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black hover:bg-slate-800">Gerar URL OAuth</button>
+          <button onclick="Actions.testRDConnection()" class="px-5 py-3 rounded-2xl bg-sky-600 text-white font-black hover:bg-sky-700">Testar conexão</button>
+          <button onclick="Actions.clearRDConfig()" class="px-5 py-3 rounded-2xl bg-red-50 border border-red-200 text-red-600 font-black hover:bg-red-100">Limpar RD</button>
+        </div>
+
+        ${cfg.authUrl ? `<div class="mt-5 rounded-2xl bg-slate-950 p-4"><p class="text-xs text-slate-400 font-black mb-1">URL OAuth gerada</p><p class="text-xs break-all text-sky-100">${Utils.escape(cfg.authUrl)}</p></div>` : ''}
+      </div>
+
+      <div class="rounded-3xl bg-slate-50 border border-slate-100 p-5">
+        <h4 class="font-black text-slate-950 mb-3">Tutorial rápido</h4>
+        <ol class="text-sm text-slate-600 list-decimal pl-5 space-y-2">
+          <li>Crie um app no painel de desenvolvedores do RD Station.</li>
+          <li>Copie Client ID, Client Secret e Redirect URI.</li>
+          <li>Gere a URL OAuth e autorize a conta.</li>
+          <li>Cole o Authorization Code retornado.</li>
+          <li>Crie uma ação com canal <strong>RD Email</strong> para mapear campanha, assunto, CTA e tags.</li>
+        </ol>
+      </div>
+    </div>`;
+  };
+
+  SettingsModal.databasePanelFixed = function() {
+    if (typeof this.databasePanel === 'function') return this.databasePanel();
+    if (typeof this.localPanel === 'function') return this.localPanel();
+    return `<div class="rounded-3xl bg-white border border-slate-100 p-5"><h3 class="text-2xl font-black text-slate-950">Banco de Dados</h3><p class="text-sm text-slate-500 mt-2">Configurações locais preservadas.</p></div>`;
+  };
+
+  SettingsModal.backupPanelFixed = function() {
+    return `<div class="rounded-3xl bg-white border border-slate-100 p-5"><h3 class="text-2xl font-black text-slate-950">Backup em breve</h3><p class="text-sm text-slate-500 mt-2">Área reservada para backups automáticos e restauração.</p></div>`;
+  };
+
+  SettingsModal.render = function() {
+    if (!App.state.showSettingsModal) return '';
+
+    const active = this.activeSection();
+    let content = '';
+    if (active === 'rd') content = this.rdPanelFixed();
+    else if (active === 'backup') content = this.backupPanelFixed();
+    else content = this.databasePanelFixed();
+
+    return `<div class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm p-4 overflow-auto">
+      <section id="settingsModal" class="max-w-6xl mx-auto rounded-[2rem] bg-slate-50 shadow-2xl overflow-hidden border border-white/20">
+        <header class="bg-slate-950 text-white p-6 flex items-start justify-between gap-4">
+          <div>
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-xs font-black mb-4">
+              <i data-lucide="settings" class="w-4 h-4"></i>
+              Configurações do sistema
+            </div>
+            <h2 class="text-3xl font-black">${active === 'rd' ? 'Integrações' : 'Banco de Dados'}</h2>
+            <p class="text-slate-300 mt-2">${active === 'rd' ? 'Conecte provedores externos como RD Station.' : 'Escolha Local, Supabase ou Amazon e deixe o LeadScore pronto para sincronizar.'}</p>
+          </div>
+          <button onclick="Actions.closeSettingsModal()" class="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/15 font-black flex items-center gap-2">
+            <i data-lucide="x" class="w-4 h-4"></i>
+            Fechar
+          </button>
+        </header>
+
+        <main class="grid lg:grid-cols-[260px_1fr] min-h-[620px]">
+          <aside class="bg-white border-r border-slate-200 p-5 space-y-3">
+            ${this.sectionButton('database','Banco de Dados','database')}
+            ${this.sectionButton('rd','RD Station','plug-zap')}
+            ${this.sectionButton('backup','Backup em breve','archive')}
+          </aside>
+
+          <section class="p-5 lg:p-6 overflow-auto">
+            ${content}
+          </section>
+        </main>
+      </section>
+    </div>`;
+  };
+
+  SettingsModal.__rdLayoutFixV1303 = true;
+})();
+
+
+// V13.0.3 — Disable previous floating RD overlay
+if (window.RDSettingsInjection) {
+  RDSettingsInjection.inject = function() {};
+}

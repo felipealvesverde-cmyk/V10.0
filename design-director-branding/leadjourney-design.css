@@ -1,0 +1,161 @@
+/* LeadJourney V12 Design Director
+   Esta camada não substitui a UI existente; ela padroniza novas criações. */
+
+:root {
+  --lj-bg: #071326;
+  --lj-bg-secondary: #0F172A;
+  --lj-glass: rgba(255,255,255,.055);
+  --lj-glass-hover: rgba(255,255,255,.085);
+  --lj-border: rgba(255,255,255,.10);
+  --lj-text: #FFFFFF;
+  --lj-text-secondary: #CBD5E1;
+  --lj-text-muted: #94A3B8;
+
+  --lj-marketing: #8B5CF6;
+  --lj-marketing-soft: #A78BFA;
+  --lj-sales: #0EA5E9;
+  --lj-sales-soft: #38BDF8;
+  --lj-cs: #10B981;
+  --lj-cs-soft: #34D399;
+  --lj-cx: #F59E0B;
+  --lj-cx-soft: #FBBF24;
+  --lj-revops: #6366F1;
+  --lj-revops-soft: #818CF8;
+
+  --lj-success: #10B981;
+  --lj-warning: #F59E0B;
+  --lj-danger: #EF4444;
+  --lj-info: #3B82F6;
+
+  --lj-radius-input: 14px;
+  --lj-radius-button: 18px;
+  --lj-radius-card: 24px;
+  --lj-radius-modal: 32px;
+  --lj-radius-hero: 40px;
+
+  --lj-shadow-default: 0 18px 36px rgba(0,0,0,.22);
+  --lj-shadow-premium: 0 24px 60px rgba(0,0,0,.32);
+
+  --lj-motion-fast: .18s ease;
+  --lj-motion: .22s ease;
+  --lj-motion-slow: .32s ease;
+}
+
+.lj-card {
+  background: var(--lj-glass);
+  border: 1px solid var(--lj-border);
+  border-radius: var(--lj-radius-card);
+  box-shadow: var(--lj-shadow-default);
+  backdrop-filter: blur(18px);
+}
+
+.lj-card-clickable {
+  transition: transform var(--lj-motion), background var(--lj-motion), border-color var(--lj-motion);
+  cursor: pointer;
+}
+
+.lj-card-clickable:hover {
+  transform: translateY(-3px);
+  background: var(--lj-glass-hover);
+}
+
+.lj-btn {
+  min-height: 44px;
+  border-radius: var(--lj-radius-button);
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 800;
+  transition: transform var(--lj-motion), background var(--lj-motion), border-color var(--lj-motion);
+}
+
+.lj-btn:hover {
+  transform: translateY(-1px);
+}
+
+.lj-btn-primary {
+  background: rgba(99,102,241,.22);
+  border: 1px solid rgba(129,140,248,.35);
+  color: #E0E7FF;
+}
+
+.lj-btn-secondary {
+  background: var(--lj-glass);
+  border: 1px solid var(--lj-border);
+  color: var(--lj-text);
+}
+
+.lj-btn-danger {
+  background: rgba(239,68,68,.12);
+  border: 1px solid rgba(239,68,68,.35);
+  color: #FCA5A5;
+}
+
+.lj-input {
+  min-height: 44px;
+  border-radius: var(--lj-radius-input);
+  background: rgba(15,23,42,.82);
+  border: 1px solid var(--lj-border);
+  color: var(--lj-text);
+  padding: 0 14px;
+  outline: none;
+}
+
+.lj-input:focus {
+  border-color: rgba(129,140,248,.7);
+  box-shadow: 0 0 0 3px rgba(99,102,241,.18);
+}
+
+.lj-badge {
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  border: 1px solid var(--lj-border);
+}
+
+.lj-badge-marketing {
+  color: var(--lj-marketing-soft);
+  background: rgba(139,92,246,.14);
+  border-color: rgba(167,139,250,.28);
+}
+
+.lj-badge-sales {
+  color: var(--lj-sales-soft);
+  background: rgba(14,165,233,.14);
+  border-color: rgba(56,189,248,.28);
+}
+
+.lj-badge-cs {
+  color: var(--lj-cs-soft);
+  background: rgba(16,185,129,.14);
+  border-color: rgba(52,211,153,.28);
+}
+
+.lj-badge-cx {
+  color: var(--lj-cx-soft);
+  background: rgba(245,158,11,.14);
+  border-color: rgba(251,191,36,.28);
+}
+
+.lj-modal-shell {
+  border-radius: var(--lj-radius-modal);
+  background: var(--lj-glass);
+  border: 1px solid var(--lj-border);
+  box-shadow: var(--lj-shadow-premium);
+  backdrop-filter: blur(18px);
+}
+
+.lj-flow-drop {
+  background: rgba(127,29,29,.20);
+  border: 1px solid rgba(248,113,113,.80);
+  color: #FECACA;
+  border-radius: 18px;
+}
+
+.lj-design-note {
+  color: var(--lj-text-muted);
+  font-size: 12px;
+}

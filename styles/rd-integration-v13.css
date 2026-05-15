@@ -1,0 +1,94 @@
+.lj-rd-panel {
+  border: 1px solid rgba(56,189,248,.24);
+  background: rgba(14,165,233,.08);
+  border-radius: var(--lj-radius-card, 24px);
+  padding: 18px;
+}
+
+.lj-rd-title {
+  color: #bae6fd;
+  font-weight: 950;
+}
+
+.lj-rd-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 12px;
+}
+
+.lj-rd-help {
+  font-size: 12px;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.lj-rd-kpi-chip {
+  border: 1px solid rgba(56,189,248,.22);
+  background: rgba(14,165,233,.10);
+  color: #bae6fd;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.lj-rd-status-ready { color: #34d399; }
+.lj-rd-status-pending { color: #fbbf24; }
+
+@media (max-width: 900px) {
+  .lj-rd-grid { grid-template-columns: 1fr; }
+}
+
+
+/* V13.0.2 — RD UI injection visibility fix */
+#rd-settings-panel {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+#rd-settings-panel input,
+#rd-settings-panel select {
+  color: #0f172a !important;
+  background: #ffffff !important;
+}
+
+#rd-settings-panel .lj-btn-primary {
+  background: rgba(14,165,233,.22);
+  border: 1px solid rgba(56,189,248,.35);
+  color: #e0f2fe;
+}
+
+
+/* V13.0.3 — RD Settings modal layout correction */
+#settingsModal #rd-settings-panel,
+#settingsModal .lj-rd-panel {
+  position: static !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  transform: none !important;
+}
+
+#settingsModal input,
+#settingsModal select,
+#settingsModal textarea {
+  color: #0f172a !important;
+}
+
+
+/* V13.0.4 — Settings Merge Fix */
+#settingsModal {
+  color: #0f172a;
+}
+
+#settingsModal input,
+#settingsModal select,
+#settingsModal textarea {
+  color: #0f172a !important;
+  background: #ffffff !important;
+}
+
+#settingsModal .bg-slate-900 input,
+#settingsModal .bg-slate-950 input {
+  color: #0f172a !important;
+}

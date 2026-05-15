@@ -1,0 +1,9 @@
+/* V12.2 — OKRs x KPIs visual separation */
+.lj-okr-section{background:rgba(139,92,246,.10);border:1px solid rgba(167,139,250,.24);border-radius:var(--lj-radius-card,24px);padding:18px}
+.lj-kpi-section{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.10);border-radius:var(--lj-radius-card,24px);padding:18px}
+.lj-okr-title{color:#ddd6fe;font-weight:950}
+.lj-kpi-title{color:#cbd5e1;font-weight:900}
+.lj-projected-value{color:#c4b5fd;font-weight:950}
+.lj-current-value{color:#fff;font-weight:950}
+.lj-gap-positive{color:#34d399}.lj-gap-warning{color:#fbbf24}.lj-gap-negative{color:#fca5a5}
+.lj-kpi-context-note{color:#94a3b8;font-size:12px}

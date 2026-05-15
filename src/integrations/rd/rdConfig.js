@@ -1,0 +1,48 @@
+// LeadJourney V13 — RD Station integration configuration
+window.RDConfig = {
+  authBaseUrl: "https://api.rd.services/auth/dialog",
+  apiBaseUrl: "https://api.rd.services",
+
+  defaultConfig() {
+    return {
+      enabled: false,
+      status: "not_configured",
+      clientId: "",
+      clientSecret: "",
+      redirectUri: "",
+      authorizationCode: "",
+      accessToken: "",
+      refreshToken: "",
+      expiresAt: "",
+      accountName: "",
+      workspaceId: "",
+      lastTestAt: "",
+      lastSyncAt: "",
+      syncFrequency: "manual",
+      authUrl: ""
+    };
+  },
+
+  emailDefaults() {
+    return {
+      provider: "RD Station",
+      listId: "",
+      listName: "",
+      emailCampaignId: "",
+      emailCampaignName: "",
+      emailSubject: "",
+      sendDate: "",
+      ctaUrl: "",
+      appliedTags: "",
+      leadIdentifierField: "email",
+      sourceStageId: "",
+      destinationStageId: "",
+      syncFrequency: "manual",
+      notes: ""
+    };
+  },
+
+  emailKpiDefaults() {
+    return window.RDKpiMapper ? RDKpiMapper.mapStatsToKpis(RDKpiMapper.emptyStatsTemplate()) : ["Enviados","Entregues","Aberturas","Cliques","CTR","CTOR","Bounces","Descadastros","Conversões"].map(name => ({ type:"kpi", name, current:0, trend:"stable", context:"RD Email" }));
+  }
+};

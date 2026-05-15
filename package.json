@@ -1,0 +1,32 @@
+{
+  "name": "leadscore-journey-modular",
+  "version": "13.1.1",
+  "private": true,
+  "scripts": {
+    "start": "python -m http.server 8000",
+    "dev": "vercel dev",
+    "desktop": "electron .",
+    "electron": "electron ."
+  },
+  "main": "electron/main.cjs",
+  "devDependencies": {
+    "electron": "^33.2.1"
+  },
+  "leadjourney": {
+    "masterNavigationRefactor": "v12.1-real-applied",
+    "contrastFix": "v12.1.1",
+    "okrKpiSeparation": "v12.2",
+    "operationalFlowNavigation": "v12.4.1",
+    "base": "v12.4.6-produtos-criados-alinhado",
+    "rdStationPhase": "1-5",
+    "rdStatus": "phase_1_2_front_config_and_action_fields",
+    "rdKpiMapping": "enabled",
+    "rdSync": "enabled",
+    "revopsAI": "stable-guarded",
+    "stabilityPass": "v13.0.1",
+    "uiInjectionFix": "rd-settings-v13.0.2",
+    "rdModalLayoutFix": "v13.0.3",
+    "settingsMergeFix": "v13.0.4",
+    "oauthRuntimeFix": "v13.1.1"
+  }
+}

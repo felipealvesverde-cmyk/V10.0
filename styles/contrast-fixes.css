@@ -1,0 +1,435 @@
+
+/* LeadJourney V12.1 — Contrast Fix Sweep
+   Corrige padrões de texto branco em containers claros/brancos sem alterar lógica. */
+
+/* Cards e blocos realmente claros precisam forçar texto escuro */
+.bg-white,
+[class*="bg-white "],
+[class*="bg-white/90"],
+[class*="bg-white/95"],
+[class*="bg-white/100"],
+[class*="from-white"],
+[class*="to-white"] {
+  color: #0f172a !important;
+}
+
+/* Herança dentro de blocos claros */
+.bg-white *,
+[class*="bg-white/90"] *,
+[class*="bg-white/95"] *,
+[class*="bg-white/100"] *,
+[class*="from-white"] *,
+[class*="to-white"] * {
+  color: inherit;
+}
+
+/* Ajustes específicos de textos em blocos claros */
+.bg-white .text-white,
+.bg-white .text-slate-50,
+.bg-white .text-slate-100,
+.bg-white .text-slate-200,
+[class*="bg-white/90"] .text-white,
+[class*="bg-white/95"] .text-white,
+[class*="bg-white/100"] .text-white,
+[class*="from-white"] .text-white,
+[class*="to-white"] .text-white {
+  color: #0f172a !important;
+}
+
+.bg-white .text-white\/80,
+.bg-white .text-white\/70,
+.bg-white .text-white\/60,
+[class*="bg-white/90"] .text-white\/80,
+[class*="bg-white/90"] .text-white\/70,
+[class*="bg-white/90"] .text-white\/60,
+[class*="from-white"] .text-white\/80,
+[class*="to-white"] .text-white\/80 {
+  color: #334155 !important;
+}
+
+/* Cards glass translúcidos escuros continuam claros */
+.bg-white\/5,
+.bg-white\/10,
+.bg-white\/\[0\.045\],
+.bg-white\/\[0\.055\],
+.glass,
+.lj-card,
+.lj-modal-shell {
+  color: #ffffff;
+}
+
+/* Inputs/selects: evita branco sobre option branco em navegadores */
+select,
+option {
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.lj-input,
+.lj-input option,
+select.lj-input,
+select.lj-input option,
+.bg-slate-900 select,
+.bg-slate-950 select {
+  color: #ffffff;
+  background: #0f172a;
+}
+
+/* Botões claros acidentais */
+button.bg-white,
+a.bg-white {
+  color: #0f172a !important;
+}
+
+button.bg-white .text-white,
+a.bg-white .text-white {
+  color: #0f172a !important;
+}
+
+/* Badges claros */
+.bg-slate-50,
+.bg-slate-100,
+.bg-gray-50,
+.bg-gray-100 {
+  color: #0f172a !important;
+}
+
+.bg-slate-50 *,
+.bg-slate-100 *,
+.bg-gray-50 *,
+.bg-gray-100 * {
+  color: inherit;
+}
+
+/* Safelist para ícones em cards claros: mantém acento quando for explícito */
+.bg-white .text-emerald-600 { color: #059669 !important; }
+.bg-white .text-amber-600 { color: #d97706 !important; }
+.bg-white .text-violet-600 { color: #7c3aed !important; }
+.bg-white .text-sky-600 { color: #0284c7 !important; }
+.bg-white .text-red-600 { color: #dc2626 !important; }
+
+/* LeadJourney V12.3.2 — Dark button/header contrast sweep
+   A regra de herança dos cards claros não pode escurecer botões ou cabeçalhos escuros dentro deles. */
+button.bg-slate-900,
+button.bg-slate-950,
+a.bg-slate-900,
+a.bg-slate-950,
+.bg-slate-900,
+.bg-slate-950,
+[class*="bg-slate-900"],
+[class*="bg-slate-950"] {
+  color: #ffffff !important;
+}
+
+button.bg-slate-900 *,
+button.bg-slate-950 *,
+a.bg-slate-900 *,
+a.bg-slate-950 *,
+.bg-slate-900 .text-white,
+.bg-slate-950 .text-white,
+.bg-slate-900 .text-slate-50,
+.bg-slate-950 .text-slate-50,
+.bg-slate-900 .text-slate-100,
+.bg-slate-950 .text-slate-100,
+.bg-slate-900 .text-slate-200,
+.bg-slate-950 .text-slate-200,
+.bg-slate-900 .text-slate-300,
+.bg-slate-950 .text-slate-300 {
+  color: #ffffff !important;
+}
+
+.bg-slate-900 .text-slate-300,
+.bg-slate-950 .text-slate-300,
+.bg-slate-900 .text-white\/70,
+.bg-slate-950 .text-white\/70,
+.bg-slate-900 .text-white\/80,
+.bg-slate-950 .text-white\/80 {
+  color: #cbd5e1 !important;
+}
+
+button.bg-slate-100,
+button.bg-slate-50,
+a.bg-slate-100,
+a.bg-slate-50 {
+  color: #0f172a !important;
+}
+
+button:disabled.bg-slate-200,
+button:disabled.bg-slate-100 {
+  color: #64748b !important;
+}
+
+/* LeadJourney V12.3.3 — Product tab dark button lettering hard fix */
+.lj-dark-button,
+button.lj-dark-button,
+button.lj-dark-button *,
+.bg-slate-900.lj-dark-button,
+.bg-slate-950.lj-dark-button {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+
+/* v12.3.4 - Product button contrast sweep */
+#app button.bg-slate-900,
+#app button.bg-slate-950,
+#app .bg-slate-900 button,
+#app .bg-slate-950 button,
+#app .lj-dark-button,
+button.lj-dark-button {
+  color: #ffffff !important;
+}
+
+#app button.bg-slate-900 *,
+#app button.bg-slate-950 *,
+#app .lj-dark-button * {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+#app button:disabled.bg-slate-200,
+#app button:disabled.bg-slate-100 {
+  color: #64748b !important;
+}
+
+
+/* LeadJourney V12.4.2 — Operational symmetry and anchored navigation
+   Mantém os CTAs no mesmo ponto visual enquanto o conteúdo se adapta ao grid. */
+.lj-operational-rail {
+  position: sticky;
+  top: 16px;
+  z-index: 20;
+}
+
+.lj-flow-step {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.lj-entity-card {
+  min-height: 156px;
+}
+
+.lj-entity-card-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 260px) minmax(360px, 520px);
+  gap: 16px;
+  align-items: center;
+}
+
+.lj-entity-copy {
+  min-width: 0;
+}
+
+.lj-entity-metrics {
+  align-self: stretch;
+  display: grid;
+  align-content: center;
+}
+
+.lj-card-actions {
+  justify-self: end;
+  width: 100%;
+  max-width: 520px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+
+.lj-card-actions > button,
+.lj-card-actions > span,
+.lj-card-actions > a {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.05;
+}
+
+.lj-card-actions-5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  max-width: 620px;
+}
+
+.lj-card-actions-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 360px;
+}
+
+.lj-panel-equal {
+  height: 100%;
+}
+
+@media (max-width: 1279px) {
+  .lj-entity-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .lj-card-actions,
+  .lj-card-actions-5,
+  .lj-card-actions-2 {
+    justify-self: stretch;
+    max-width: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .lj-operational-rail {
+    position: relative;
+    top: auto;
+  }
+  .lj-card-actions,
+  .lj-card-actions-5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lj-card-actions-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* LeadJourney V12.4.3 — fixed four-step operational rail
+   Garante que os passos 1, 2, 3 e 4 existam, ocupem a mesma largura e fiquem alinhados. */
+.lj-flow-rail-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+}
+
+.lj-flow-step {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 86px !important;
+  height: 100% !important;
+  display: grid !important;
+  grid-template-columns: 34px minmax(0, 1fr) !important;
+  align-items: center !important;
+  justify-content: initial !important;
+  gap: 10px !important;
+  text-align: left !important;
+  overflow: visible !important;
+}
+
+.lj-flow-step-number {
+  width: 34px !important;
+  height: 34px !important;
+  border-radius: 999px !important;
+  display: grid !important;
+  place-items: center !important;
+  font-weight: 900 !important;
+  background: rgba(15,23,42,.08) !important;
+  color: inherit !important;
+  flex: none !important;
+}
+
+.lj-flow-step-title,
+.lj-flow-step-subtitle {
+  display: block !important;
+  min-width: 0 !important;
+}
+
+.lj-flow-step-title {
+  font-size: 14px !important;
+  line-height: 1.1 !important;
+  font-weight: 900 !important;
+}
+
+.lj-flow-step-subtitle {
+  margin-top: 4px !important;
+  font-size: 11px !important;
+  line-height: 1.15 !important;
+  font-weight: 700 !important;
+  opacity: .72 !important;
+}
+
+.lj-flow-step.bg-slate-900 .lj-flow-step-number {
+  background: rgba(255,255,255,.14) !important;
+  color: #fff !important;
+}
+
+@media (max-width: 767px) {
+  .lj-flow-rail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .lj-flow-step {
+    min-height: 82px !important;
+    grid-template-columns: 30px minmax(0, 1fr) !important;
+  }
+  .lj-flow-step-number {
+    width: 30px !important;
+    height: 30px !important;
+  }
+}
+
+
+/* LeadJourney V12.4.4 — hard fix for rail and product card action symmetry */
+#app .lj-flow-rail-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+  align-items: stretch !important;
+  width: 100% !important;
+}
+#app .lj-flow-rail-grid > .lj-flow-step {
+  display: grid !important;
+  grid-template-columns: 36px minmax(0, 1fr) !important;
+  min-height: 88px !important;
+  width: 100% !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 0 !important;
+}
+#app .lj-flow-rail-grid > .lj-flow-step:nth-child(1),
+#app .lj-flow-rail-grid > .lj-flow-step:nth-child(2),
+#app .lj-flow-rail-grid > .lj-flow-step:nth-child(3),
+#app .lj-flow-rail-grid > .lj-flow-step:nth-child(4) {
+  grid-row: 1 !important;
+}
+#app .lj-flow-rail-grid > .lj-flow-step:nth-child(1) { grid-column: 1 !important; }
+#app .lj-flow-rail-grid > .lj-flow-step:nth-child(2) { grid-column: 2 !important; }
+#app .lj-flow-rail-grid > .lj-flow-step:nth-child(3) { grid-column: 3 !important; }
+#app .lj-flow-rail-grid > .lj-flow-step:nth-child(4) { grid-column: 4 !important; display: grid !important; visibility: visible !important; opacity: 1 !important; }
+#app .lj-card-actions {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  align-items: stretch !important;
+}
+#app .lj-card-actions > button {
+  min-height: 44px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+}
+@media (max-width: 767px) {
+  #app .lj-flow-rail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  #app .lj-flow-rail-grid > .lj-flow-step:nth-child(1),
+  #app .lj-flow-rail-grid > .lj-flow-step:nth-child(2),
+  #app .lj-flow-rail-grid > .lj-flow-step:nth-child(3),
+  #app .lj-flow-rail-grid > .lj-flow-step:nth-child(4) { grid-row: auto !important; grid-column: auto !important; }
+  #app .lj-card-actions { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+}
+
+/* V12.4.6 — Produtos Criados alinhado e seleção simples */
+#app .lj-product-created-card {
+  min-height: auto !important;
+  overflow: hidden !important;
+}
+#app .lj-product-created-card * {
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+}
+#app .lj-product-card-actions > button {
+  min-height: 44px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  line-height: 1.05 !important;
+}

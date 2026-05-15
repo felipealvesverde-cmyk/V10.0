@@ -1,0 +1,133 @@
+* { font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { background: #071326; }
+    .glass { background: rgba(255,255,255,.88); backdrop-filter: blur(14px); }
+    .card-enter { animation: cardEnter .22s ease-out; }
+    .funnel-fill { animation: funnelGrow .75s ease-out both; }
+    .pulse-soft { animation: pulseSoft 1.8s ease-in-out infinite; }
+    @keyframes cardEnter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes funnelGrow { from { width: 0; opacity: .45; } to { opacity: 1; } }
+    @keyframes pulseSoft { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.025); opacity: .86; } }
+
+.journey-pipeline .jp-hero {
+  background:
+    radial-gradient(circle at 10% 20%, rgba(59,130,246,.38), transparent 30%),
+    radial-gradient(circle at 88% 10%, rgba(16,185,129,.25), transparent 28%),
+    #0f172a;
+  box-shadow: 0 24px 80px rgba(15,23,42,.16);
+}
+.journey-pipeline .jp-dark-glass {
+  background: rgba(15,23,42,.92);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(255,255,255,.1);
+  box-shadow: 0 24px 80px rgba(15,23,42,.25);
+}
+.journey-pipeline .jp-pipeline-line {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.journey-pipeline .jp-pipeline-path {
+  fill: none;
+  stroke: url(#pipelineGradient);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 16px rgba(37,99,235,.26));
+}
+.journey-pipeline .jp-pipeline-scan {
+  fill: none;
+  stroke: rgba(255,255,255,.88);
+  stroke-width: 5;
+  stroke-linecap: round;
+  stroke-dasharray: 130 980;
+  animation: jpPathScan 4.4s infinite linear;
+  filter: drop-shadow(0 0 10px rgba(255,255,255,.6));
+}
+@keyframes jpPathScan {
+  from { stroke-dashoffset: 1080; }
+  to { stroke-dashoffset: 0; }
+}
+.journey-pipeline .jp-sector-label {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(71,85,105,.72);
+  background: rgba(255,255,255,.72);
+  border: 1px solid rgba(226,232,240,.85);
+  padding: 6px 10px;
+  border-radius: 999px;
+  backdrop-filter: blur(10px);
+}
+.journey-pipeline .jp-stage-node {
+  position: absolute;
+  isolation: isolate;
+  cursor: pointer;
+  transition: transform .28s ease, filter .28s ease, opacity .28s ease;
+}
+.journey-pipeline .jp-stage-node:hover { filter: saturate(1.08); }
+.journey-pipeline .jp-stage-node:hover .jp-stage-core { transform: scale(1.08); }
+.journey-pipeline .jp-stage-core {
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: white;
+  font-weight: 950;
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,.42),
+    0 22px 52px rgba(15,23,42,.24);
+  animation: jpPulseNode 2.4s infinite ease-in-out;
+}
+.journey-pipeline .jp-stage-aura {
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  z-index: -1;
+  filter: blur(2px);
+  opacity: .28;
+  animation: jpAuraPulse 2.4s infinite ease-in-out;
+}
+@keyframes jpPulseNode {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.055); }
+}
+@keyframes jpAuraPulse {
+  0%, 100% { transform: scale(.96); opacity: .18; }
+  50% { transform: scale(1.04); opacity: .32; }
+}
+.journey-pipeline .jp-particle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 0 18px rgba(255,255,255,.9), 0 0 28px rgba(59,130,246,.55);
+  z-index: 1;
+  offset-path: path('M 80 90 L 230 160 L 380 230 Q 435 255 500 230 L 650 160 L 800 90 Q 855 65 920 90 L 1070 160 L 1220 230');
+  offset-rotate: 0deg;
+  animation: jpParticleFlow 7s infinite linear;
+}
+.journey-pipeline .jp-particle.p2 { animation-delay: -1.1s; animation-duration: 8.4s; }
+.journey-pipeline .jp-particle.p3 { animation-delay: -2.6s; animation-duration: 6.6s; }
+.journey-pipeline .jp-particle.p4 { animation-delay: -4s; animation-duration: 9.2s; }
+.journey-pipeline .jp-particle.p5 { animation-delay: -5.2s; animation-duration: 7.6s; }
+@keyframes jpParticleFlow {
+  0% { offset-distance: 0%; opacity: 0; }
+  8% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+.journey-pipeline .jp-health-dot { animation: jpDotBreath 1.8s infinite ease-in-out; }
+@keyframes jpDotBreath {
+  0%, 100% { transform: scale(1); opacity: .88; }
+  50% { transform: scale(1.22); opacity: 1; }
+}
+.journey-pipeline .jp-bar-fill { animation: jpGrowBar .8s ease-out both; }
+@keyframes jpGrowBar { from { width: 0; } }
+.journey-pipeline .jp-floating-card { animation: jpFloatCard 5.5s infinite ease-in-out; }
+@keyframes jpFloatCard {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}

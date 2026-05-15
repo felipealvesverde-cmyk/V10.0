@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeadJourney — Revenue Operating System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="styles/app.css" />
+  <link rel="stylesheet" href="styles/design-director.css" />
+  <link rel="stylesheet" href="styles/contrast-fixes.css">
+  <link rel="stylesheet" href="styles/okrs-kpis-v12.2.css">
+  <link rel="stylesheet" href="styles/rd-integration-v13.css">
+</head>
+<body class="lj-app-body min-h-screen">
+  <div class="lj-master-shell">
+    <aside class="lj-master-nav" data-master-nav>
+      <div class="lj-master-brand">
+        <div class="lj-master-brand-mark"><i data-lucide="activity" class="w-5 h-5"></i></div>
+        <div>
+          <div class="lj-master-brand-title">LeadJourney</div>
+          <div class="lj-master-brand-subtitle">Revenue Operating System</div>
+        </div>
+      </div>
+
+      <div id="mainNav" class="lj-master-nav-group"></div>
+
+      <div class="lj-master-nav-footer">
+        <button onclick="Actions.openSettingsModal()" class="lj-master-nav-item lj-nav-utility">
+          <i data-lucide="settings" class="lj-master-nav-icon"></i>
+          <span>Configurações</span>
+        </button>
+        <button onclick="Actions.resetDemo()" class="lj-master-nav-item lj-nav-utility lj-nav-danger">
+          <i data-lucide="refresh-cw" class="lj-master-nav-icon"></i>
+          <span>Resetar dados</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="lj-master-content">
+      <section class="lj-page-container">
+        <header id="pageHeader" class="lj-page-header"></header>
+        <main id="app" class="card-enter"></main>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:w-96 hidden rounded-2xl bg-slate-900 text-white px-5 py-4 shadow-2xl font-semibold z-50"></div>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="src/config/config.js"></script>
+  <script src="src/core/storage.js"></script>
+  <script src="src/core/supabaseClient.js"></script>
+  <script src="src/services/campaignService.js"></script>
+  <script src="src/services/actionService.js"></script>
+  <script src="src/services/scoreService.js"></script>
+  <script src="src/services/leadService.js"></script>
+  <script src="src/services/databaseService.js"></script>
+  <script src="src/services/leadBaseService.js"></script>
+  <script src="src/database/databaseProviderRegistry.js"></script>
+  <script src="src/database/railwayConnectionParser.js"></script>
+  <script src="src/database/railwayDatabaseProvider.js"></script>
+  <script src="src/database/railwayConnectionTester.js"></script>
+  <script src="src/database/databaseSnapshotService.js"></script>
+  <script src="src/database/databaseFallbackService.js"></script>
+  <script src="src/utils/utils.js"></script>
+  <script src="src/execution/executionProviderRegistry.js"></script>
+  <script src="src/execution/executionTaskStore.js"></script>
+  <script src="src/execution/executionStatusEngine.js"></script>
+  <script src="src/execution/executionActionBridge.js"></script>
+  <script src="src/execution/executionProviderSelector.js"></script>
+  <script src="src/execution/executionTaskEngine.js"></script>
+  <script src="src/execution/executionSyncEngine.js"></script>
+  <script src="src/execution/providers/manualProvider.js"></script>
+  <script src="src/execution/providers/clickupProvider.js"></script>
+  <script src="src/execution/providers/trelloProvider.js"></script>
+  <script src="src/execution/providers/mondayProvider.js"></script>
+  <script src="src/execution/providers/jiraProvider.js"></script>
+  <script src="src/execution/providers/notionProvider.js"></script>
+  <script src="src/execution/providers/providerSyncEngine.js"></script>
+  <script src="src/agents/agentRegistry.js"></script>
+  <script src="src/agents/railwayAgentClient.js"></script>
+  <script src="src/agents/executionContextEngine.js"></script>
+  <script src="src/agents/executionPromptBuilder.js"></script>
+  <script src="src/agents/executionResponseParser.js"></script>
+  <script src="src/agents/executionAgentBridge.js"></script>
+  <script src="src/agents/agentHealthMonitor.js"></script>
+  <script src="src/core/state.js"></script>
+  <script src="src/engines/scoreEngine.js"></script>
+  <script src="src/engines/okrSuggestionEngine.js"></script>
+  <script src="src/engines/flowResolutionEngine.js"></script>
+  <script src="src/engines/leadIdentityEngine.js"></script>
+  <script src="src/engines/operationalAggregationEngine.js"></script>
+  <script src="src/engines/productRevenueEngine.js"></script>
+  <script src="src/engines/okrKpiRevenueEngine.js"></script>
+  <script src="src/engines/leadParser.js"></script>
+  <script src="src/engines/analytics.js"></script>
+  <script src="src/ui/components.js"></script>
+  <script src="src/modules/djowModal.js"></script>
+  <script src="src/modules/tasksModal.js"></script>
+  <script src="src/strategic-map/strategicMapEngine.js"></script>
+  <script src="src/strategic-map/strategicObjectiveEngine.js"></script>
+  <script src="src/strategic-map/strategicOkrEngine.js"></script>
+  <script src="src/strategic-map/strategicFlowBridge.js"></script>
+  <script src="src/strategic-map/strategicRevenueBridge.js"></script>
+  <script src="src/strategic-map/strategicZoomNavigation.js"></script>
+  <script src="src/strategic-map/strategicOnboarding.js"></script>
+  <script src="src/strategic-map/djowStrategicAssistant.js"></script>
+  <script src="src/strategic-map/strategicMapRenderer.js"></script>
+  <script src="src/modules/strategicMapModal.js"></script>
+  <script src="src/modules/strategicOverviewModal.js"></script>
+  <script src="src/modules/quickActionModal.js"></script>
+  <script src="src/revenue-score/revenueScoreEngine.js"></script>
+  <script src="src/revenue-score/icpConversationFlow.js"></script>
+  <script src="src/revenue-score/icpIntelligenceAgent.js"></script>
+  <script src="src/revenue-score/icpBlueprintGenerator.js"></script>
+  <script src="src/revenue-score/revenueScoreBlueprintEngine.js"></script>
+  <script src="src/revenue-score/engagementSignalEngine.js"></script>
+  <script src="src/revenue-score/revenueFitEngine.js"></script>
+  <script src="src/revenue-score/revenueLeadClassification.js"></script>
+  <script src="src/revenue-score/revenueScoreInsights.js"></script>
+  <script src="src/revenue-score/revenueScoreDashboard.js"></script>
+  <script src="src/lead-scoring-v2/negativeSelectionEngine.js"></script>
+  <script src="src/lead-scoring-v2/signalDecayEngine.js"></script>
+  <script src="src/lead-scoring-v2/scoreHistoryEngine.js"></script>
+  <script src="src/lead-scoring-v2/outcomeTracker.js"></script>
+  <script src="src/lead-scoring-v2/fitEngine.js"></script>
+  <script src="src/lead-scoring-v2/intentEngine.js"></script>
+  <script src="src/lead-scoring-v2/accountAggregator.js"></script>
+  <script src="src/lead-scoring-v2/lifecycleEngine.js"></script>
+  <script src="src/lead-scoring-v2/cohortEngine.js"></script>
+  <script src="src/lead-scoring-v2/tierEngine.js"></script>
+  <script src="src/lead-scoring-v2/meddicEngine.js"></script>
+  <script src="src/lead-scoring-v2/behavioralTriggers.js"></script>
+  <script src="src/lead-scoring-v2/touchAttribution.js"></script>
+  <script src="src/lead-scoring-v2/buyingGroupEngine.js"></script>
+  <script src="src/lead-scoring-v2/abTestEngine.js"></script>
+  <script src="src/lead-scoring-v2/conceptDriftMonitor.js"></script>
+  <script src="src/lead-scoring-v2/handoffProtocol.js"></script>
+  <script src="src/lead-scoring-v2/nurtureTracksEngine.js"></script>
+  <script src="src/lead-scoring-v2/leadRecyclingEngine.js"></script>
+  <script src="src/lead-scoring-v2/calibrationCurveEngine.js"></script>
+  <script src="src/lead-scoring-v2/coldStartEngine.js"></script>
+  <script src="src/lead-scoring-v2/triggerEventEngine.js"></script>
+  <script src="src/lead-scoring-v2/leadScoringV2.js"></script>
+  <script src="src/modules/leadDetailModal.js"></script>
+  <script src="src/modules/revenueScoreCreatorModal.js"></script>
+  <script src="src/modules/revenueScoreDashboardModal.js"></script>
+  <script src="src/modules/revenueScoreCenter.js"></script>
+  <script src="src/modules/products.js"></script>
+  <script src="src/modules/campaigns.js"></script>
+  <script src="src/modules/actions.js"></script>
+  <script src="src/modules/scores.js"></script>
+  <script src="src/modules/results.js"></script>
+  <script src="src/modules/actionFlowModal.js"></script>
+  <script src="src/modules/actionEditModal.js"></script>
+  <script src="src/modules/campaignFlowModal.js"></script>
+  <script src="src/modules/settingsModal.js"></script>
+  <script src="src/modules/journeyPipeline.js"></script>
+  <script src="src/engines/profileFinder.js"></script>
+  <script src="src/search/aiSearchClient.js"></script>
+  <script src="src/modules/leads.js"></script>
+  <script src="src/modules/dashboard.js"></script>
+  <script src="src/modules/okrKpiWorkspace.js"></script>
+  <script src="src/actions/appActions.js"></script>
+  <script src="design-director-branding/designTokens.js"></script>
+  <script src="src/layouts/masterLayout.js"></script>
+  <script src="src/integrations/rd/rdConfig.js"></script>
+  <script src="src/integrations/rd/rdAuthService.js"></script>
+  <script src="src/integrations/rd/rdTokenStore.js"></script>
+  <script src="src/integrations/rd/rdKpiMapper.js"></script>
+  <script src="src/integrations/rd/rdKpiAggregation.js"></script>
+  <script src="src/integrations/rd/rdMapper.js"></script>
+  <script src="src/integrations/rd/rdEmailService.js"></script>
+  <script src="src/integrations/rd/rdApiClient.js"></script>
+  <script src="src/integrations/rd/rdEmailStatsService.js"></script>
+  <script src="src/integrations/rd/rdSyncEngine.js"></script>
+  <script src="src/integrations/rd_crm/rdCrmConfig.js"></script>
+  <script src="src/integrations/rd_crm/rdCrmApiClient.js"></script>
+  <script src="src/integrations/rd_crm/rdCrmPipelineService.js"></script>
+  <script src="src/integrations/rd_crm/rdCrmStageService.js"></script>
+  <script src="src/integrations/rd_crm/rdCrmTagService.js"></script>
+  <script src="src/integrations/rd_crm/rdCrmLeadScoringBridge.js"></script>
+  <script src="src/integrations/rd_crm/rdCrmActionMapper.js"></script>
+  <script src="src/integrations/rd_crm/rdCrmSyncEngine.js"></script>
+  <script src="src/integrations/rd_crm_events/rdCrmTagNormalizer.js"></script>
+  <script src="src/integrations/rd_crm_events/rdCrmContactService.js"></script>
+  <script src="src/integrations/rd_crm_events/rdCrmDealService.js"></script>
+  <script src="src/integrations/rd_crm_events/rdCrmLeadBaseBridge.js"></script>
+  <script src="src/integrations/rd_crm_events/rdCrmOutcomeBridge.js"></script>
+  <script src="src/integrations/rd_crm_events/rdCrmScoreBridge.js"></script>
+  <script src="src/integrations/rd_crm_events/rdCrmEventIngestor.js"></script>
+  <script src="src/integrations/rd_crm_events/rdCrmWebhookHandler.js"></script>
+  <script src="src/integrations/rd_crm_events/rdCrmLiveSyncEngine.js"></script>
+  <script src="src/flows/flowEngine.js"></script>
+  <script src="src/flows/flowConnectionEngine.js"></script>
+  <script src="src/flows/flowConversionEngine.js"></script>
+  <script src="src/flows/flowForecastEngine.js"></script>
+  <script src="src/flows/flowCheckpointEngine.js"></script>
+  <script src="src/flows/flowLeadScoringBridge.js"></script>
+  <script src="src/flows/flowSyncEngine.js"></script>
+  <script src="src/flows/flowRenderer.js"></script>
+  <script src="src/flows/actionFlowBuilder.js"></script>
+  <script src="src/tracking/lpRegistry.js"></script>
+  <script src="src/tracking/leadIdentityResolver.js"></script>
+  <script src="src/tracking/eventCollector.js"></script>
+  <script src="src/tracking/checkpointEngine.js"></script>
+  <script src="src/tracking/attributionEngine.js"></script>
+  <script src="src/tracking/lpAnalyticsEngine.js"></script>
+  <script src="src/tracking/rdCrmMovementEngine.js"></script>
+  <script src="src/tracking/revenueEventBridge.js"></script>
+  <script src="src/modules/actionLpModal.js"></script>
+  <script src="src/integrations/revops_ai/revopsAIEngine.js"></script>
+  <script src="src/engines/revopsFinanceEngine.js"></script>
+  <script src="src/modules/revopsGovernance/revopsPinkDashboard.js"></script>
+  <script src="src/modules/revopsGovernance/revopsOkrModal.js"></script>
+  <script src="src/modules/revopsGovernance/revopsFixedCostsModal.js"></script>
+  <script src="src/modules/revopsGovernance/revopsAcquisitionCostsModal.js"></script>
+  <script src="src/modules/revopsGovernance/revopsImpactMap.js"></script>
+  <script src="src/modules/revopsGovernance/revopsGovernanceModule.js"></script>
+  <script src="src/modules/revopsGovernance/revopsSimulationModal.js"></script>
+  <script src="src/modules/revopsGovernance/revopsScenariosModal.js"></script>
+  <script src="src/main.js"></script>
+  <script src="src/integrations/rd/rdSettingsBootstrap.js"></script>
+  <script src="src/engines/okrProjectionEngine.js"></script>
+  <script src="src/engines/kpiContextEngine.js"></script>
+  <script src="src/engines/okrKpiAdapter.js"></script>
+  <script src="src/modules/okrs/okrsModule.js"></script>
+  <script src="src/modules/kpis/kpisModule.js"></script>\n</body>
+</html>
