@@ -75,6 +75,12 @@ window.RdCrmSyncEngine = {
       return { ok: false, message: ensure.message || 'Falha nas etapas.' };
     }
     if (ensure.created?.length) this._log('info', `[${campaign.name}] etapas criadas: ${ensure.created.join(', ')}`);
+    // V21.4.5 — Loga falhas de delete (mesmo em caso de sucesso) pra entender
+    // se etapas default do RD estão sendo ignoradas/protegidas.
+    if (ensure.deleteFailures?.length) {
+      this._log('warn', `[${campaign.name}] falhas de delete: ${ensure.deleteFailures.join('; ')}`);
+    }
+    if (ensure.deleted?.length) this._log('info', `[${campaign.name}] etapas removidas: ${ensure.deleted.join(', ')}`);
     cfg.pipelinesByCampaign[campaign.id] = {
       pipelineId,
       pipelineName,
