@@ -335,6 +335,7 @@ var State = {
       showDatabaseTutorial: false,
       // V21.4 BUGFIX — campos persistidos que somem se não forem preservados aqui:
       // V21.6 ADD — pipelinesByCampaign preservado explicitamente (objeto aninhado).
+      // V22.0 ADD — dealsByLead preservado (mapa de leadKey→campaign→dealId).
       integrations: raw.integrations && typeof raw.integrations === 'object'
         ? {
             rd: { ...(base.integrations?.rd || {}), ...(raw.integrations.rd || {}) },
@@ -343,7 +344,10 @@ var State = {
               ...(raw.integrations.rdCrm || {}),
               pipelinesByCampaign: (raw.integrations.rdCrm?.pipelinesByCampaign && typeof raw.integrations.rdCrm.pipelinesByCampaign === 'object')
                 ? raw.integrations.rdCrm.pipelinesByCampaign
-                : (base.integrations?.rdCrm?.pipelinesByCampaign || {})
+                : (base.integrations?.rdCrm?.pipelinesByCampaign || {}),
+              dealsByLead: (raw.integrations.rdCrm?.dealsByLead && typeof raw.integrations.rdCrm.dealsByLead === 'object')
+                ? raw.integrations.rdCrm.dealsByLead
+                : (base.integrations?.rdCrm?.dealsByLead || {})
             }
           }
         : (base.integrations || {}),

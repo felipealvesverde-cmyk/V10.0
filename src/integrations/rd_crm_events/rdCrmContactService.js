@@ -23,6 +23,51 @@ window.RdCrmContactService = {
     } catch (_) { return null; }
   },
 
+  // V22.0 — Busca contato no RD CRM por email. Retorna canonical ou null.
+  async findByEmail(email) {
+    if (!window.RdCrmApiClient?.request || !email) return null;
+    try {
+      const res = await RdCrmApiClient.get(`/contacts?email=${encodeURIComponent(email)}`);
+      if (!res?.ok) return null;
+      const raw = res.data?.contacts || res.data?.data || [];
+      const list = Array.isArray(raw) ? raw : [];
+      const found = list.find(c => {
+        const e = (c?.emails?.[0]?.email || c?.email || '').toLowerCase();
+        return e === email.toLowerCase();
+      });
+      return found ? this._toCanonical(found) : null;
+    } catch (_) { return null; }
+  },
+
+  // V22.0 — Upsert: procura por email; se acha reutiliza; se não cria.
+  // Body do POST baseia-se no schema legacy do RD CRM:
+  //   { name, emails: [{email}], phones: [{phone}] }
+  // Retorna { ok, rdContactId, created, contact, message? }
+  async upsertContact(lead) {
+    if (!window.RdCrmApiClient?.request) return { ok: false, message: 'API client indisponível.' };
+    const email = String(lead?.email || '').trim();
+    const name = String(lead?.name || lead?.email || '').trim();
+    const phone = String(lead?.phone || '').trim();
+    if (!email) return { ok: false, message: 'Lead sem email — não dá pra fazer upsert no RD.' };
+    const existing = await this.findByEmail(email);
+    if (existing?.rdContactId) {
+      return { ok: true, rdContactId: existing.rdContactId, created: false, contact: existing };
+    }
+    const body = { name: name || email };
+    if (email) body.emails = [{ email }];
+    if (phone) body.phones = [{ phone }];
+    const res = await RdCrmApiClient.post('/contacts', body);
+    if (!res?.ok) {
+      return { ok: false, message: res?.message || `HTTP ${res?.status} ao criar contato.` };
+    }
+    const created = res.data?.contact || res.data;
+    const canonical = this._toCanonical(created);
+    if (!canonical?.rdContactId) {
+      return { ok: false, message: 'Contato criado mas sem ID retornado.', raw: res.data };
+    }
+    return { ok: true, rdContactId: canonical.rdContactId, created: true, contact: canonical };
+  },
+
   _toCanonical(raw) {
     if (!raw) return null;
     const email = (raw.emails && raw.emails[0]?.email) || raw.email || '';

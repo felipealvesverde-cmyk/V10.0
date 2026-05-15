@@ -1108,6 +1108,100 @@ Object.assign(Actions, {
     Utils.toast(result.ok ? `✓ ${result.message}` : `Falha: ${result.message}`);
   },
 
+  // V22.0 — Alias semântico do botão "Gerar Pipeline" no card da campanha.
+  // Encapsula a mesma lógica de syncCampaignPipeline mas com toast de UX
+  // mais direto pra esse contexto.
+  async generateCampaignPipeline(campaignId) {
+    if (!RdCrmConfig.hasCrmToken()) return Utils.toast('Configure o CRM Personal Token em Configurações → RD Station primeiro.');
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
+    if (!campaign) return Utils.toast('Campanha não encontrada.');
+    Utils.toast(`Gerando pipeline no RD para "${campaign.name}"...`);
+    const result = await RdCrmSyncEngine.runSync({ campaignId: campaign.id });
+    if (result.ok) {
+      Utils.toast(`✓ Pipeline criado no RD: "${campaign.name}".`);
+    } else {
+      Utils.toast(`Falha ao gerar pipeline: ${result.message}`);
+    }
+  },
+
+  // V22.0 — Envia ICP da campanha (todos os leads vinculados a ela) pro RD.
+  // Para cada lead: upsertContact + createDeal no Marketing TOF da campanha.
+  // Reusa deals existentes via dealsByLead (idempotente).
+  async pushCampaignICPToRD(campaignId) {
+    if (!RdCrmConfig.hasCrmToken()) return Utils.toast('Configure o CRM Personal Token primeiro.');
+    if (!RdCrmConfig.hasPipelineForCampaign(campaignId)) {
+      return Utils.toast('Gere o pipeline da campanha antes de enviar leads.');
+    }
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
+    if (!campaign) return Utils.toast('Campanha não encontrada.');
+    const pipelineInfo = RdCrmConfig.pipelineInfoForCampaign(campaignId);
+    const stageMap = pipelineInfo?.stageMap || {};
+    // V22.0 — Stage inicial: Marketing TOF (primeira do funil).
+    const initialStage = stageMap.mkt_tof;
+    if (!initialStage?.rdStageId) {
+      return Utils.toast('Stage "Marketing TOF" não encontrada. Resincronize o pipeline.');
+    }
+    // V22.0 — Produto da campanha p/ derivar ticket médio inicial.
+    const product = (App.state.products || []).find(p => Number(p.id) === Number(campaign.productId));
+    const productPrice = window.ProductRevenueEngine?.parseMoney
+      ? ProductRevenueEngine.parseMoney(product?.price || product?.ticket || 0)
+      : Number(String(product?.price || product?.ticket || '0').replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+
+    const leads = window.LeadBaseService?.forCampaign?.(campaignId) || [];
+    if (!leads.length) {
+      return Utils.toast('Nenhum lead vinculado a essa campanha.');
+    }
+
+    Utils.toast(`Enviando ${leads.length} lead(s) pro RD...`);
+    let success = 0, skipped = 0, failed = 0;
+    const failures = [];
+
+    for (const lead of leads) {
+      const leadKey = LeadBaseService.keyOf(lead);
+      if (!leadKey) { failed += 1; continue; }
+      // Já tem deal pra esse lead nessa campanha? Skip (idempotência).
+      const existing = RdCrmConfig.dealForLead(leadKey, campaignId);
+      if (existing?.rdDealId) { skipped += 1; continue; }
+      try {
+        const contactRes = await RdCrmContactService.upsertContact(lead);
+        if (!contactRes.ok) {
+          failed += 1;
+          failures.push(`${lead.email || lead.name}: ${contactRes.message}`);
+          continue;
+        }
+        const dealName = `${lead.name || lead.email} – ${lead.id || leadKey}`;
+        const dealRes = await RdCrmDealService.createDeal({
+          rdContactId: contactRes.rdContactId,
+          pipelineId: pipelineInfo.pipelineId,
+          stageId: initialStage.rdStageId,
+          name: dealName,
+          amount: productPrice
+        });
+        if (!dealRes.ok) {
+          failed += 1;
+          failures.push(`${lead.email || lead.name}: ${dealRes.message}`);
+          continue;
+        }
+        RdCrmConfig.setDealForLead(leadKey, campaignId, {
+          rdDealId: dealRes.rdDealId,
+          rdContactId: contactRes.rdContactId,
+          currentStageCode: 'mkt_tof',
+          amount: productPrice,
+          createdAt: new Date().toISOString(),
+          lastMovedAt: new Date().toISOString()
+        });
+        success += 1;
+      } catch (err) {
+        failed += 1;
+        failures.push(`${lead.email || lead.name}: ${err?.message || err}`);
+      }
+    }
+    App.save();
+    App.render();
+    const msg = `${success} enviado(s), ${skipped} já existente(s), ${failed} falha(s).${failures.length ? ` Detalhes: ${failures.slice(0, 3).join('; ')}` : ''}`;
+    Utils.toast(failed ? `⚠ ${msg}` : `✓ ${msg}`);
+  },
+
   // V21.6 — Sincroniza TODAS as campanhas elegíveis (com ações, leads ou blueprint).
   async syncAllCampaignPipelines() {
     if (!RdCrmConfig.isOAuthReady()) return Utils.toast('Conecte o OAuth do RD Station primeiro.');

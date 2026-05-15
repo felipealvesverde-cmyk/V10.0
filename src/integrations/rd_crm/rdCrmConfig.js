@@ -36,6 +36,10 @@ window.RdCrmConfig = {
       // próprio com 9 stages. Schema:
       // pipelinesByCampaign: { [campaignId]: { pipelineId, pipelineName, stageMap, createdAt, lastSyncAt, lastSyncStatus } }
       pipelinesByCampaign: {},
+      // V22.0 — Mapa lead→deal por campanha. Sabemos qual deal mover quando um
+      // checkpoint dispara. Schema:
+      // dealsByLead: { [leadKey]: { [campaignId]: { rdDealId, rdContactId, currentStageCode, amount, createdAt, lastMovedAt } } }
+      dealsByLead: {},
       autoSync: false,
       autoSyncMode: 'frontend',
       lastSyncAt: '',
@@ -121,5 +125,35 @@ window.RdCrmConfig = {
 
   hasCrmToken() {
     return Boolean(this.crmToken());
+  },
+
+  // V22.0 — dealsByLead helpers
+  dealsByLead() {
+    return (window.App?.state?.integrations?.rdCrm?.dealsByLead) || {};
+  },
+
+  dealForLead(leadKey, campaignId) {
+    if (!leadKey || campaignId == null) return null;
+    const all = this.dealsByLead();
+    return all?.[leadKey]?.[campaignId] || all?.[leadKey]?.[Number(campaignId)] || null;
+  },
+
+  setDealForLead(leadKey, campaignId, dealEntry) {
+    if (!leadKey || campaignId == null) return;
+    const state = window.App?.state;
+    if (!state) return;
+    state.integrations = state.integrations || {};
+    state.integrations.rdCrm = state.integrations.rdCrm || this.defaultConfig();
+    state.integrations.rdCrm.dealsByLead = state.integrations.rdCrm.dealsByLead || {};
+    state.integrations.rdCrm.dealsByLead[leadKey] = state.integrations.rdCrm.dealsByLead[leadKey] || {};
+    state.integrations.rdCrm.dealsByLead[leadKey][campaignId] = {
+      ...(state.integrations.rdCrm.dealsByLead[leadKey][campaignId] || {}),
+      ...dealEntry
+    };
+  },
+
+  hasPipelineForCampaign(campaignId) {
+    const info = this.pipelineInfoForCampaign(campaignId);
+    return Boolean(info?.pipelineId && Object.keys(info?.stageMap || {}).length > 0);
   }
 };

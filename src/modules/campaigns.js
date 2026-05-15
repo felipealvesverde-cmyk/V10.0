@@ -138,13 +138,23 @@ var CampaignModule = {
     }
     const conversion = totalLeads ? Math.round((converted / totalLeads) * 1000) / 10 : 0;
     const product = App.state.products.find(p => Number(p.id) === Number(campaign.productId));
+
+    // V22.0 — Estado do pipeline RD da campanha (gate de "Criar Ação" e visual do botão).
+    const hasPipeline = Boolean(window.RdCrmConfig?.hasPipelineForCampaign?.(campaign.id));
+    const pipelineInfo = hasPipeline ? RdCrmConfig.pipelineInfoForCampaign(campaign.id) : null;
+    const pipelineOutline = hasPipeline ? 'border-emerald-500' : 'border-red-500';
+    const pipelineLabel = hasPipeline ? 'Pipeline OK' : 'Gerar Pipeline';
+    const pipelineIcon = hasPipeline ? 'check-circle-2' : 'git-branch';
+
     return `<div onclick="Actions.goToCampaignActions(${campaign.id})" class="lj-entity-card relative p-4 rounded-3xl border ${App.state.selectedCampaignId === campaign.id ? 'border-slate-900 bg-slate-50' : 'border-slate-100 bg-slate-50'} hover:bg-slate-100 cursor-pointer transition">
       <button onclick="event.stopPropagation(); Actions.openCampaignEditModal(${campaign.id})" title="Editar Campanha" aria-label="Editar Campanha" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm"><i data-lucide="settings" class="w-4 h-4"></i></button>
+      ${hasPipeline ? `<span class="absolute bottom-3 right-3 text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Pipeline criado</span>` : ''}
       <div class="lj-entity-card-grid">
         <div class="lj-entity-copy pr-12">
           <h3 class="font-black text-lg">${Utils.escape(campaign.name)}</h3>
           <p class="text-sm text-slate-500 mt-1">${Utils.escape(campaign.objective || 'Sem objetivo')}</p>
           <p class="text-xs text-slate-400 mt-2">Produto: ${Utils.escape(product?.name || 'não vinculado')} • ${actions.length} ação(ões) • ${totalLeads} lead(s) • ${conversion}% conversão</p>
+          ${hasPipeline ? `<p class="text-[11px] text-emerald-600 mt-1">Pipeline RD: <b>${Utils.escape(pipelineInfo?.pipelineName || '')}</b></p>` : ''}
         </div>
         <div class="lj-entity-metrics">
           <div class="grid grid-cols-3 gap-2 text-center">
@@ -154,7 +164,9 @@ var CampaignModule = {
           </div>
         </div>
         <div class="lj-card-actions grid grid-cols-2 gap-2">
-          <button onclick="event.stopPropagation(); Actions.prepareActionForCampaign(${campaign.id})" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black lj-dark-button" style="color:#fff!important;">Criar Ação</button>
+          <button onclick="event.stopPropagation(); Actions.generateCampaignPipeline(${campaign.id})" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black border-2 ${pipelineOutline} lj-dark-button flex items-center justify-center gap-1.5" style="color:#fff!important;"><i data-lucide="${pipelineIcon}" class="w-3.5 h-3.5"></i> ${pipelineLabel}</button>
+          <button onclick="event.stopPropagation(); Actions.pushCampaignICPToRD(${campaign.id})" ${hasPipeline ? '' : 'disabled'} class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed lj-dark-button flex items-center justify-center gap-1.5" ${hasPipeline ? 'style="color:#fff!important;"' : ''}><i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar ICP pro RD</button>
+          <button onclick="event.stopPropagation(); Actions.prepareActionForCampaign(${campaign.id})" ${hasPipeline ? '' : 'disabled'} title="${hasPipeline ? '' : 'Gere o pipeline antes de criar ações'}" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed lj-dark-button" ${hasPipeline ? 'style="color:#fff!important;"' : ''}>Criar Ação</button>
           <button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${campaign.id})" ${actions.length ? '' : 'disabled'} class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed lj-dark-button" style="color:#fff!important;">Fluxo da Campanha</button>
         </div>
       </div>
