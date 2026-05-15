@@ -3,12 +3,19 @@
   "version": "13.1.1",
   "private": true,
   "scripts": {
-    "start": "python -m http.server 8000",
+    "start": "node server.js",
     "dev": "vercel dev",
+    "serve": "python -m http.server 8000",
     "desktop": "electron .",
     "electron": "electron ."
   },
   "main": "electron/main.cjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
   "devDependencies": {
     "electron": "^33.2.1"
   },
