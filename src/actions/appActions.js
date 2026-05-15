@@ -1592,6 +1592,15 @@ Object.assign(Actions, {
     }
   },
 
+  // V23.1.0 — Troca aba ativa do painel "Conexão RD" (CRM | Marketing).
+  // Estado persiste em App.state pra preservar entre re-renders.
+  setRdActiveTab(tab) {
+    if (!['crm', 'marketing'].includes(tab)) return;
+    App.state.settingsRdActiveTab = tab;
+    App.save();
+    App.render();
+  },
+
   // V23.0.0 — Liga/desliga o assistente de conexão RD no painel de configurações.
   toggleRdAssistant() {
     App.state.rdAssistantDismissed = !App.state.rdAssistantDismissed;

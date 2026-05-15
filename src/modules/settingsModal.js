@@ -58,43 +58,307 @@ var SettingsModal = {
     </button>`;
   },
 
-  // V22.2 — Painel unificado de conexão RD Station.
-  // Substitui rdPanel + rdCrmPanel. Estrutura: Hero/Stepper, Token CRM (core),
-  // Pipelines por campanha (operacional), OAuth Marketing (opcional, colapsado),
-  // Diagnóstico (último card, dobrável).
+  // V23.1.0 — Painel "Conexão RD" com 2 tabs (CRM | Marketing).
+  // Cada tab tem seu próprio assistente, seu próprio fluxo, sua própria
+  // navegação. O header é comum (identidade da conta + status agregado).
+  // Justificativa arquitetural: as duas conexões usam credenciais e fluxos
+  // fundamentalmente diferentes (PAT estático vs OAuth multi-step). Forçar
+  // uma UX unificada confundia o usuário.
   rdConnectionPanel() {
     const rdCfg = (App.state.integrations && App.state.integrations.rd) || (window.RDConfig ? RDConfig.defaultConfig() : {});
     const crmCfg = (App.state.integrations && App.state.integrations.rdCrm) || (window.RdCrmConfig ? RdCrmConfig.defaultConfig() : {});
+    const activeTab = App.state.settingsRdActiveTab || 'crm';
 
-    const hasCrmToken = Boolean((rdCfg.crmPersonalToken || '').trim());
-    // V22.3.2/V22.3.6 — Conexão "validada" = teste do PAT CRM passou
-    // (crmTestStatus='connected'). É campo separado do `status` (que pertence
-    // ao fluxo OAuth Marketing). Assim falha de OAuth não derruba validação
-    // do CRM.
-    const isValidated = hasCrmToken && rdCfg.crmTestStatus === 'connected' && Boolean(rdCfg.crmTestAt);
-    const pipelineCount = Object.keys(crmCfg.pipelinesByCampaign || {}).length;
-    const dealCount = Object.values(crmCfg.dealsByLead || {})
-      .reduce((acc, byCamp) => acc + Object.keys(byCamp || {}).length, 0);
-    const hasOAuth = Boolean(rdCfg.accessToken);
+    return `<div class="space-y-4">
+      ${this._rdAccountHeader(rdCfg, crmCfg)}
+      ${this._rdTabsBar(rdCfg, crmCfg, activeTab)}
+      <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
+        ${activeTab === 'marketing'
+          ? this._rdMarketingTabContent(rdCfg)
+          : this._rdCrmTabContent(rdCfg, crmCfg)}
+      </div>
+    </div>`;
+  },
 
-    // Estado de cada passo do Stepper. Passo 1 vira ✓ só após validar
-    // (não apenas salvar o token).
-    const steps = {
-      step1: isValidated,
-      step2: pipelineCount > 0,
-      step3: dealCount > 0,
-      step4: hasOAuth
+  // V23.1.0 — Header comum mostrando identidade RD + status dos 2 lados.
+  _rdAccountHeader(rdCfg, crmCfg) {
+    const crmConnected = rdCfg.crmTestStatus === 'connected' && Boolean(rdCfg.crmTestAt);
+    const mktConnected = Boolean(rdCfg.accessToken);
+    const accountLabel = (rdCfg.accountName || '').trim() || 'Conta RD não identificada';
+    const crmAt = rdCfg.crmTestAt ? new Date(rdCfg.crmTestAt).toLocaleString('pt-BR') : null;
+
+    return `<div class="rounded-3xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-5">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-2xl bg-white/10 grid place-items-center"><i data-lucide="plug-zap" class="w-6 h-6"></i></div>
+          <div>
+            <p class="text-[10px] font-black text-sky-300 uppercase tracking-widest">Conta RD Station</p>
+            <p class="text-base font-black">${Utils.escape(accountLabel)}</p>
+            ${crmAt ? `<p class="text-[10px] text-slate-400">CRM validado em ${Utils.escape(crmAt)}</p>` : ''}
+          </div>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="px-3 py-1.5 rounded-full text-[11px] font-black ${crmConnected ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30' : 'bg-slate-600/20 text-slate-300 border border-slate-500/30'}">
+            CRM: ${crmConnected ? '✓ ativo' : '—'}
+          </span>
+          <span class="px-3 py-1.5 rounded-full text-[11px] font-black ${mktConnected ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30' : 'bg-slate-600/20 text-slate-300 border border-slate-500/30'}">
+            Marketing: ${mktConnected ? '✓ ativo' : '— (opcional)'}
+          </span>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V23.1.0 — Barra de tabs com indicador de status em cada uma.
+  _rdTabsBar(rdCfg, crmCfg, active) {
+    const crmStatus = this._rdCrmTabStatus(rdCfg);
+    const mktStatus = this._rdMarketingTabStatus(rdCfg);
+    const tab = (key, label, icon, status) => {
+      const isActive = active === key;
+      const chipTone = status === 'ok' ? 'bg-emerald-100 text-emerald-800'
+        : status === 'warning' ? 'bg-amber-100 text-amber-800'
+        : status === 'error' ? 'bg-red-100 text-red-800'
+        : 'bg-slate-100 text-slate-600';
+      const chipLabel = status === 'ok' ? 'ativo'
+        : status === 'warning' ? 'pendente'
+        : status === 'error' ? 'falha'
+        : 'inativo';
+      return `<button onclick="Actions.setRdActiveTab('${key}')" class="flex-1 px-4 py-3 rounded-2xl flex items-center justify-center gap-2 font-black text-sm transition ${isActive ? 'bg-slate-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'}" ${isActive ? 'style="color:#fff;"' : ''}>
+        <i data-lucide="${icon}" class="w-4 h-4"></i>
+        <span>${label}</span>
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${chipTone}">${chipLabel}</span>
+      </button>`;
     };
-    const allCore = steps.step1 && steps.step2 && steps.step3;
+    return `<div class="flex gap-2">
+      ${tab('crm', 'CRM', 'database', crmStatus)}
+      ${tab('marketing', 'Marketing', 'mail', mktStatus)}
+    </div>`;
+  },
+
+  _rdCrmTabStatus(rdCfg) {
+    const hasToken = Boolean((rdCfg.crmPersonalToken || '').trim());
+    if (!hasToken) return 'inactive';
+    if (rdCfg.crmTestStatus === 'connected') return 'ok';
+    if (rdCfg.crmTestStatus && rdCfg.crmTestStatus !== 'not_tested') return 'error';
+    return 'warning';
+  },
+
+  _rdMarketingTabStatus(rdCfg) {
+    if (App.state.rdMarketingSkipped) return 'inactive';
+    if (rdCfg.accessToken) return 'ok';
+    if (rdCfg.status === 'exchange_failed') return 'error';
+    if (rdCfg.clientId || rdCfg.clientSecret) return 'warning';
+    return 'inactive';
+  },
+
+  // V23.1.0 — Conteúdo da aba CRM (com seu próprio assistente).
+  _rdCrmTabContent(rdCfg, crmCfg) {
+    const hasToken = Boolean((rdCfg.crmPersonalToken || '').trim());
+    const isValidated = hasToken && rdCfg.crmTestStatus === 'connected' && Boolean(rdCfg.crmTestAt);
+    return `<div class="space-y-5">
+      ${this._rdCrmAssistantBullets(rdCfg, crmCfg, hasToken, isValidated)}
+      ${this._rdCoreCrmTokenBlock(rdCfg, hasToken, isValidated)}
+      ${isValidated ? this._rdCrmCampaignPipelinesBlock(crmCfg, isValidated) : this._rdLockedHint('Pipelines bloqueados', hasToken ? 'Termine o Passo 2 (testar conexão) para liberar.' : 'Cole o token CRM acima para começar.')}
+      ${this._rdDiagnosticsBlock(rdCfg, crmCfg, hasToken, Boolean(rdCfg.accessToken))}
+    </div>`;
+  },
+
+  // V23.1.0 — Assistente CRM em bullets, 3 passos.
+  _rdCrmAssistantBullets(rdCfg, crmCfg, hasToken, isValidated) {
+    if (App.state.rdAssistantDismissed) return '';
+    const campaigns = Array.isArray(App.state.campaigns) ? App.state.campaigns : [];
+    const eligibles = campaigns.filter(c => window.RdCrmSyncEngine?._shouldSyncCampaign?.(c));
+    const byCampaign = crmCfg.pipelinesByCampaign || {};
+    const provisioned = eligibles.filter(c => Boolean(byCampaign[c.id]));
+    const pending = eligibles.filter(c => !byCampaign[c.id]);
+    const step1Done = hasToken;
+    const step2Done = isValidated;
+    const step3Done = step2Done && eligibles.length > 0 && pending.length === 0;
+    const currentStep = !step1Done ? 1 : !step2Done ? 2 : !step3Done ? 3 : 0;
+    return `<div class="rounded-3xl bg-white border-2 border-sky-200 shadow-md overflow-hidden">
+      <div class="bg-gradient-to-r from-sky-600 to-indigo-600 px-5 py-3 flex items-center justify-between text-white">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          <span class="font-black text-xs uppercase tracking-wider">Assistente CRM · 3 passos</span>
+        </div>
+        <button onclick="Actions.toggleRdAssistant()" class="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 grid place-items-center text-white"><i data-lucide="x" class="w-3 h-3"></i></button>
+      </div>
+      <div class="p-5 space-y-3">
+        ${this._rdBulletStep(1, currentStep, step1Done, 'Gerar Token no RD CRM', [
+          'Abra <a href="https://crm.rdstation.com" target="_blank" class="underline text-sky-700 font-black">crm.rdstation.com</a> e faça login',
+          'Topo direito → <b>engrenagem ⚙</b> → <b>Todas as configurações</b>',
+          'Menu lateral → <b>Integrações</b> → <b>Token de API</b>',
+          'Clique <b>Gerar token</b> e copie (só aparece 1 vez)',
+          'Cole abaixo no campo <b>Token pessoal do CRM ↓</b>'
+        ])}
+        ${this._rdBulletStep(2, currentStep, step2Done, 'Validar conexão', [
+          'Clique em <b>Testar conexão</b> no card abaixo',
+          'Espera o RD retornar 200 OK',
+          'Se falhar com 401: token revogado/inválido — gere outro no Passo 1'
+        ])}
+        ${this._rdBulletStep(3, currentStep, step3Done, eligibles.length === 0 ? 'Criar uma campanha primeiro' : `Provisionar pipelines (${pending.length} pendente${pending.length === 1 ? '' : 's'})`, eligibles.length === 0 ? [
+          'Vá em <b>Menu → Campanhas</b> e crie uma campanha',
+          'Adicione pelo menos 1 ação OU vincule 1 lead pra ela ser elegível',
+          'Volte aqui e o Passo 3 fica disponível'
+        ] : [
+          `${eligibles.length} campanha(s) elegível(eis) detectada(s)`,
+          'Use o card <b>"Pipelines por campanha"</b> abaixo',
+          'Clique <b>"Sincronizar todas"</b> ou <b>"Provisionar"</b> individual',
+          'Cada campanha vira pipeline com 9 etapas no RD CRM'
+        ])}
+      </div>
+    </div>`;
+  },
+
+  // V23.1.0 — Conteúdo da aba Marketing (com assistente próprio e opção de pular).
+  _rdMarketingTabContent(rdCfg) {
+    const hasOAuth = Boolean(rdCfg.accessToken);
+    const skipped = Boolean(App.state.rdMarketingSkipped);
+
+    if (skipped) {
+      return `<div class="space-y-4">
+        <div class="rounded-3xl bg-slate-50 border border-slate-200 p-5 flex items-start gap-3">
+          <i data-lucide="skip-forward" class="w-5 h-5 text-slate-600 mt-0.5"></i>
+          <div class="flex-1">
+            <h4 class="font-black text-slate-900 mb-1">RD Marketing está pulado</h4>
+            <p class="text-sm text-slate-600 mb-3">Você optou por não conectar o módulo Marketing. O CRM continua funcionando normalmente. Mude de ideia quando precisar de features de e-mail (KPIs, tracking, sync de contatos).</p>
+            <button onclick="Actions.unskipMarketingOAuth()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center gap-1.5 lj-dark-button" style="color:#fff;"><i data-lucide="undo-2" class="w-3.5 h-3.5"></i>Retomar conexão Marketing</button>
+          </div>
+        </div>
+      </div>`;
+    }
 
     return `<div class="space-y-5">
-      ${this._rdHeroBlock(steps, allCore, pipelineCount, dealCount)}
-      ${this._rdAssistantBlock(rdCfg, crmCfg)}
-      ${this._rdStepperBlock(steps)}
-      ${this._rdCoreCrmTokenBlock(rdCfg, hasCrmToken, isValidated)}
-      ${isValidated ? this._rdCrmCampaignPipelinesBlock(crmCfg, isValidated) : this._rdLockedHint('Pipelines bloqueados', hasCrmToken ? 'Teste a conexão CRM acima para liberar.' : 'Configure o token CRM acima primeiro.')}
-      ${this._rdMarketingOAuthBlock(rdCfg, hasOAuth)}
-      ${this._rdDiagnosticsBlock(rdCfg, crmCfg, hasCrmToken, hasOAuth)}
+      <div class="rounded-2xl bg-slate-50 border border-slate-100 p-3 flex items-start justify-between gap-3">
+        <div class="flex items-start gap-2 text-xs text-slate-600">
+          <i data-lucide="info" class="w-4 h-4 text-slate-500 mt-0.5"></i>
+          <span><b>Opcional.</b> Conecte se for usar features de e-mail (KPIs, tracking, sync de contatos). Se não, pule sem culpa.</span>
+        </div>
+        <button onclick="Actions.skipMarketingOAuth()" class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 shrink-0">Pular Marketing</button>
+      </div>
+      ${this._rdMarketingAssistantBullets(rdCfg, hasOAuth)}
+      ${this._rdMarketingOAuthInlineCard(rdCfg, hasOAuth)}
+    </div>`;
+  },
+
+  // V23.1.0 — Assistente Marketing em bullets, 4 passos.
+  _rdMarketingAssistantBullets(rdCfg, hasOAuth) {
+    if (App.state.rdAssistantDismissed) return '';
+    const origin = window.location.origin || 'https://leadjourney.up.railway.app';
+    const step1Done = Boolean(rdCfg.clientId && rdCfg.clientSecret);
+    const step2Done = step1Done && Boolean(rdCfg.authUrl);
+    const step3Done = step2Done && Boolean(rdCfg.authorizationCode);
+    const step4Done = hasOAuth;
+    const currentStep = !step1Done ? 1 : !step2Done ? 2 : !step3Done ? 3 : !step4Done ? 4 : 0;
+    const exchangeFailed = rdCfg.status === 'exchange_failed';
+
+    if (step4Done) {
+      return `<div class="rounded-3xl bg-emerald-50 border-2 border-emerald-200 p-5 flex items-start gap-3">
+        <i data-lucide="check-check" class="w-5 h-5 text-emerald-600 mt-0.5"></i>
+        <div>
+          <h4 class="font-black text-emerald-900">Marketing conectado</h4>
+          <p class="text-sm text-emerald-800">access_token e refresh_token salvos. Token renova automático a cada 24h.</p>
+        </div>
+      </div>`;
+    }
+
+    return `<div class="rounded-3xl bg-white border-2 border-sky-200 shadow-md overflow-hidden">
+      <div class="bg-gradient-to-r from-sky-600 to-indigo-600 px-5 py-3 flex items-center justify-between text-white">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          <span class="font-black text-xs uppercase tracking-wider">Assistente Marketing · 4 passos</span>
+        </div>
+        <button onclick="Actions.toggleRdAssistant()" class="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 grid place-items-center text-white"><i data-lucide="x" class="w-3 h-3"></i></button>
+      </div>
+      <div class="p-5 space-y-3">
+        ${this._rdBulletStep(1, currentStep, step1Done, 'Criar app no Publisher RD', [
+          'Abra <a href="https://appstore.rdstation.com/pt-BR/publisher" target="_blank" class="underline text-sky-700 font-black">appstore.rdstation.com/publisher</a>',
+          'Clique <b>Criar app</b> → Nome livre, Tipo <b>Privado</b>',
+          'Produto: <b class="text-red-700">⚠ RD Station Marketing</b> (NÃO CRM — erro comum)',
+          `URL de Callback: <code class="px-1.5 py-0.5 rounded bg-slate-100 text-[11px]">${Utils.escape(origin)}</code> <button onclick="navigator.clipboard.writeText('${Utils.escape(origin)}'); Utils.toast('URL copiada')" class="ml-1 text-sky-700 underline text-[10px]">copiar</button>`,
+          'Marque <b>todas as permissões</b> disponíveis e salve',
+          'Copie <b>Client ID</b> e <b>Client Secret</b> → cole nos campos abaixo'
+        ])}
+        ${this._rdBulletStep(2, currentStep, step2Done, 'Gerar URL OAuth', [
+          'Cole Client ID + Client Secret nos campos abaixo',
+          'Confira Redirect URI: igual à do app no RD',
+          'Clique <b>Gerar URL OAuth</b> abaixo'
+        ])}
+        ${this._rdBulletStep(3, currentStep, step3Done, 'Autorizar e copiar o code', [
+          'Clique <b>Abrir URL OAuth</b> — nova aba abre no RD',
+          'Faça login no RD se pedir',
+          'Clique <b>Autorizar / Conectar</b> na tela de consentimento',
+          `RD redireciona pra <code class="text-[10px]">${Utils.escape(origin)}/?code=<b>XYZ…</b></code>`,
+          'Copie SÓ o que vem depois de <code>?code=</code> (até <code>&</code> se houver)',
+          '<b>NÃO atualize</b> a aba — code é one-shot, expira em 5min',
+          'Cole no campo <b>Authorization Code</b> abaixo'
+        ])}
+        ${this._rdBulletStep(4, currentStep, step4Done, 'Trocar code por token', [
+          'Clique <b>Trocar code por token</b> abaixo',
+          'Aguarde — Journey troca o code via proxy interno',
+          'Se aparecer ACCESS_DENIED: app criado como CRM (deve ser Marketing). Volta ao Passo 1 e recria o app',
+          'Se aparecer invalid_grant: code expirou. Volta ao Passo 3'
+        ])}
+        ${exchangeFailed ? `<div class="mt-2 rounded-2xl bg-red-50 border border-red-200 p-3 text-xs text-red-900">
+          <b>Última troca falhou.</b> Cheque se o app no RD foi criado com produto <b>Marketing</b> (não CRM). Ou clique em <b>Pular Marketing</b> acima — não bloqueia o CRM.
+        </div>` : ''}
+      </div>
+    </div>`;
+  },
+
+  // V23.1.0 — Card inline com os campos OAuth + botões. Substitui o
+  // _rdMarketingOAuthBlock que era um <details> colapsado.
+  _rdMarketingOAuthInlineCard(rdCfg, hasOAuth) {
+    const fields = [
+      ['clientId','Client ID','Cole o Client ID do app Marketing','text'],
+      ['clientSecret','Client Secret','Cole o Client Secret','password'],
+      ['redirectUri','Redirect URI','https://leadjourney.up.railway.app','text'],
+      ['authorizationCode','Authorization Code','Cole o code retornado pelo RD','text'],
+      ['accountName','Conta / Workspace','Rótulo da conta (opcional)','text']
+    ];
+    const expiresAt = rdCfg.expiresAt ? new Date(rdCfg.expiresAt) : null;
+    const expired = expiresAt && expiresAt.getTime() <= Date.now();
+    const minsLeft = expiresAt ? Math.round((expiresAt.getTime() - Date.now()) / 60000) : null;
+    return `<div class="rounded-3xl bg-white border border-slate-200 p-5 shadow-sm space-y-4">
+      <div class="flex items-center gap-2">
+        <i data-lucide="key-square" class="w-5 h-5 text-slate-700"></i>
+        <h3 class="font-black text-slate-900">Credenciais OAuth</h3>
+        ${hasOAuth ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-black ${expired ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'}">${expired ? 'expirado' : `token ativo · ${minsLeft} min`}</span>` : ''}
+      </div>
+      <div class="grid md:grid-cols-2 gap-3">
+        ${fields.map(([f, l, p, t]) => this._input(f, l, p, t, rdCfg[f])).join('')}
+      </div>
+      <div class="flex flex-wrap gap-2 pt-1">
+        <button onclick="Actions.generateRDAuthUrl()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black lj-dark-button" style="color:#fff;">1) Gerar URL OAuth</button>
+        <button onclick="Actions.openRDAuthUrl()" class="px-4 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-black" style="color:#fff;">2) Abrir URL</button>
+        <button onclick="Actions.exchangeRDAuthorizationCode()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black" style="color:#fff;">3) Trocar code por token</button>
+        ${hasOAuth ? `<button onclick="Actions.refreshRDAccessToken()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black" style="color:#fff;">Renovar token</button>` : ''}
+        ${rdCfg.clientId ? `<button onclick="Actions.clearRDConfig()" class="px-4 py-2 rounded-xl bg-white border border-red-200 text-red-700 text-xs font-black">Limpar Marketing</button>` : ''}
+      </div>
+      ${rdCfg.authUrl ? `<div class="rounded-xl bg-slate-950 p-3">
+        <p class="text-[10px] text-slate-400 font-black mb-1">URL OAuth gerada</p>
+        <textarea readonly class="w-full min-h-[60px] rounded bg-slate-900 border border-white/10 text-sky-100 text-[10px] p-2 font-mono">${Utils.escape(rdCfg.authUrl)}</textarea>
+      </div>` : ''}
+    </div>`;
+  },
+
+  // V23.1.0 — Renderiza UM bullet step do assistente (CRM ou Marketing).
+  _rdBulletStep(n, currentStep, done, title, bullets) {
+    const isActive = !done && currentStep === n;
+    const iconBg = done ? 'bg-emerald-500' : isActive ? 'bg-sky-500' : 'bg-slate-200';
+    const iconText = done ? 'text-white' : isActive ? 'text-white' : 'text-slate-500';
+    const titleColor = done ? 'text-slate-900' : isActive ? 'text-slate-900' : 'text-slate-500';
+    const bulletColor = done ? 'text-slate-600' : isActive ? 'text-slate-800' : 'text-slate-400';
+    return `<div class="rounded-2xl ${isActive ? 'bg-sky-50 border-2 border-sky-200' : 'bg-slate-50 border border-slate-200'} p-4">
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 rounded-full ${iconBg} grid place-items-center font-black text-sm ${iconText} shrink-0">${done ? '<i data-lucide="check" class="w-4 h-4"></i>' : n}</div>
+        <div class="flex-1 min-w-0">
+          <h4 class="font-black ${titleColor} mb-2">Passo ${n}: ${title}</h4>
+          <ul class="space-y-1.5 ml-1">
+            ${bullets.map(b => `<li class="text-xs ${bulletColor} flex items-start gap-2"><span class="mt-1 w-1 h-1 rounded-full bg-current shrink-0"></span><span>${b}</span></li>`).join('')}
+          </ul>
+        </div>
+      </div>
     </div>`;
   },
 
