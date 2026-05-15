@@ -365,153 +365,242 @@ var SettingsModal = {
     return { stage: 'marketing', step: 'm4' };
   },
 
-  // V22.3 — Assistente principal: renderiza o card guiado do passo atual.
-  // Auto-avança quando o usuário completa a ação do passo.
+  // V22.3.1 — Assistente focado em ENSINO. Cards visuais grandes,
+  // CTA principal sempre visível, instruções passo-a-passo claras.
+  // Diagnóstico (status/breadcrumb) removido — fica no Stepper acima.
   _rdAssistantBlock(rdCfg, crmCfg) {
     if (App.state.rdAssistantDismissed) return '';
     const state = this._rdAssistantState(rdCfg, crmCfg);
     const origin = window.location.origin || 'https://leadjourney.up.railway.app';
 
-    // CRM done + Marketing optional + done state têm conteúdo próprio.
-    if (state.stage === 'done') {
-      return this._rdAssistantDoneCard();
-    }
-
-    const totalSteps = state.stage === 'marketing' ? 4 : 3;
-    const stepNum = state.stage === 'marketing' ? Number(String(state.step).replace('m', '')) : state.step;
-    const stepLabel = state.stage === 'crm' ? 'CRM' : 'Marketing';
+    if (state.stage === 'done') return this._rdAssistantDoneCard();
 
     const body = state.stage === 'crm'
       ? this._rdAssistantCrmContent(state, origin)
       : this._rdAssistantMarketingContent(state, rdCfg, origin);
 
-    return `<div class="rounded-3xl bg-white border-2 border-sky-200 shadow-sm p-5 relative overflow-hidden">
-      <button onclick="Actions.toggleRdAssistant()" title="Dispensar assistente" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 grid place-items-center text-slate-500"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
-      <div class="flex items-start gap-3 mb-3">
-        <div class="w-10 h-10 rounded-2xl bg-sky-500 grid place-items-center text-white shrink-0"><i data-lucide="sparkles" class="w-5 h-5"></i></div>
-        <div class="flex-1 min-w-0 pr-8">
-          <p class="text-[10px] font-black text-sky-600 uppercase tracking-wider">Assistente · Passo ${stepNum} de ${totalSteps} · ${stepLabel}</p>
-          ${this._rdAssistantBreadcrumb(state)}
+    return `<div class="rounded-3xl bg-white border-2 border-sky-300 shadow-md relative overflow-hidden">
+      <div class="bg-gradient-to-r from-sky-600 to-indigo-600 px-6 py-3 flex items-center justify-between text-white">
+        <div class="flex items-center gap-2">
+          <i data-lucide="sparkles" class="w-5 h-5"></i>
+          <span class="font-black text-sm uppercase tracking-wider">Assistente · te ensina a conectar</span>
         </div>
+        <button onclick="Actions.toggleRdAssistant()" title="Fechar assistente" class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 grid place-items-center text-white"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
       </div>
-      ${body}
+      <div class="p-6">
+        ${body}
+      </div>
     </div>`;
   },
 
-  _rdAssistantBreadcrumb(state) {
-    const items = [];
-    if (state.stage === 'crm') {
-      items.push({ label: 'Token CRM', done: Number(state.step) > 1 });
-      items.push({ label: 'Pipelines', done: Number(state.step) > 2 });
-      items.push({ label: 'Leads', done: Number(state.step) > 3 });
-    } else if (state.stage === 'marketing') {
-      const n = Number(String(state.step).replace('m', ''));
-      items.push({ label: 'App RD', done: n > 1 });
-      items.push({ label: 'URL OAuth', done: n > 2 });
-      items.push({ label: 'Code', done: n > 3 });
-      items.push({ label: 'Token', done: false });
+  // V22.3.1 — Helper: renderiza UM substep visual com circle número + texto.
+  _rdAssistantSubstep(num, html) {
+    return `<div class="flex items-start gap-3 py-2">
+      <div class="w-7 h-7 rounded-full bg-sky-100 text-sky-900 grid place-items-center text-sm font-black shrink-0 mt-0.5">${num}</div>
+      <div class="text-sm text-slate-800 leading-relaxed flex-1 min-w-0">${html}</div>
+    </div>`;
+  },
+
+  // V22.3.1 — Botão CTA gigante usado no topo de cada passo.
+  _rdAssistantBigButton(href, label, icon, action) {
+    if (href) {
+      return `<a href="${href}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-sm no-underline transition shadow-lg" style="color:#fff;">
+        <i data-lucide="${icon}" class="w-5 h-5"></i>
+        <span>${Utils.escape(label)}</span>
+        <i data-lucide="arrow-right" class="w-4 h-4 ml-1"></i>
+      </a>`;
     }
-    return `<div class="flex items-center gap-1.5 flex-wrap mt-1">
-      ${items.map(i => `<span class="text-[10px] font-black ${i.done ? 'text-emerald-700' : 'text-slate-400'}">${i.done ? '✓' : '○'} ${Utils.escape(i.label)}</span>`).join('<span class="text-slate-300">·</span>')}
+    return `<button onclick="${action}" class="inline-flex items-center gap-2 px-6 py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-sm transition shadow-lg" style="color:#fff;">
+      <i data-lucide="${icon}" class="w-5 h-5"></i>
+      <span>${Utils.escape(label)}</span>
+      <i data-lucide="arrow-right" class="w-4 h-4 ml-1"></i>
+    </button>`;
+  },
+
+  // V22.3.1 — Card de aviso amber (pegadinhas que descobrimos em produção).
+  _rdAssistantWarning(html) {
+    return `<div class="mt-4 rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+      <i data-lucide="alert-triangle" class="w-5 h-5 text-amber-600 mt-0.5 shrink-0"></i>
+      <div class="text-sm text-amber-900 leading-relaxed">${html}</div>
     </div>`;
   },
 
-  // V22.3 — Conteúdo dos passos CRM
+  // V22.3.1 — Indicador "olhe ali embaixo" apontando pro próximo input.
+  _rdAssistantArrowDown(text) {
+    return `<div class="mt-4 rounded-2xl bg-sky-50 border-2 border-dashed border-sky-300 p-4 flex items-center gap-3 animate-pulse">
+      <i data-lucide="arrow-down-circle" class="w-6 h-6 text-sky-600 shrink-0"></i>
+      <div class="text-sm font-black text-sky-900">${Utils.escape(text)}</div>
+    </div>`;
+  },
+
+  // V22.3.1 — Conteúdo dos passos CRM (versão pedagógica).
   _rdAssistantCrmContent(state, origin) {
     if (state.step === 1) {
-      return `<h4 class="font-black text-slate-900 mb-2">Gerar Token pessoal no RD CRM</h4>
-      <ol class="text-sm text-slate-700 space-y-2 ml-4 list-decimal">
-        <li>Abra o painel do RD CRM:<br><a href="https://crm.rdstation.com" target="_blank" class="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black no-underline hover:bg-slate-800" style="color:#fff;"><i data-lucide="external-link" class="w-3.5 h-3.5"></i>Abrir crm.rdstation.com</a></li>
-        <li>No topo direito, clique na <b>engrenagem</b> → <b>Todas as configurações</b>.</li>
-        <li>Procure por <b>Integrações</b> ou <b>API</b> no menu lateral.</li>
-        <li>Encontre <b>Token de API</b> e clique em <b>Gerar token</b>.</li>
-        <li>Copie o valor — ele só aparece <b>uma vez</b>.</li>
-        <li>Cole no campo <b>"Token pessoal do CRM"</b> logo abaixo.</li>
-      </ol>
-      <div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
-        <b>⚠ Atenção:</b> esse token NÃO é o Client ID/Secret do OAuth (que aparece em outro lugar). É um token estático específico do CRM.
+      return `<div>
+        <p class="text-[10px] font-black text-sky-700 uppercase tracking-widest mb-1">Passo 1 de 3</p>
+        <h3 class="text-2xl font-black text-slate-950 mb-2">Pegar seu Token no RD CRM</h3>
+        <p class="text-sm text-slate-600 mb-5">Leva ~45 segundos. Esse token autoriza o Journey a criar pipelines, mover deals e ler tags no seu RD CRM.</p>
+
+        <div class="mb-5">
+          ${this._rdAssistantBigButton('https://crm.rdstation.com', 'Abrir RD CRM agora', 'external-link')}
+        </div>
+
+        <p class="text-sm font-black text-slate-700 mb-2">Depois de abrir, faça nessa ordem:</p>
+        <div class="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2 divide-y divide-slate-200">
+          ${this._rdAssistantSubstep(1, 'No topo direito do RD CRM, clique no ícone de <b>engrenagem ⚙</b>.')}
+          ${this._rdAssistantSubstep(2, 'Clique em <b>Todas as configurações</b> (link azul no fim do dropdown).')}
+          ${this._rdAssistantSubstep(3, 'No menu lateral da nova tela, procure por <b>Integrações</b> ou <b>API</b>.')}
+          ${this._rdAssistantSubstep(4, 'Encontre <b>Token de API</b> e clique em <b>Gerar token</b>.')}
+          ${this._rdAssistantSubstep(5, 'Copie o valor exibido — <b>ele só aparece UMA vez</b>.')}
+          ${this._rdAssistantSubstep(6, 'Volte aqui e cole abaixo, no campo <b>"Token pessoal do CRM"</b>.')}
+        </div>
+
+        ${this._rdAssistantArrowDown('Cole o token no campo abaixo ↓')}
+
+        ${this._rdAssistantWarning('<b>Esse token NÃO é Client ID/Secret.</b> Aquele fluxo (OAuth) é só para o RD Marketing, fica colapsado mais abaixo e é OPCIONAL. Você pode ignorar.')}
       </div>`;
     }
+
     if (state.step === 2) {
-      const list = (state.pending || []).map(c => `<li class="flex items-center justify-between gap-2 py-1.5"><span class="text-sm font-black text-slate-900">${Utils.escape(c.name)}</span><button onclick="Actions.generateCampaignPipeline(${c.id})" class="px-3 py-1 rounded-lg bg-sky-600 text-white text-xs font-black" style="color:#fff;">Provisionar →</button></li>`).join('');
-      return `<h4 class="font-black text-slate-900 mb-2">Provisionar pipelines no RD CRM</h4>
-      <p class="text-sm text-slate-600 mb-3">${state.pending.length} campanha(s) elegíveis aguardando pipeline:</p>
-      <ul class="rounded-xl bg-slate-50 border border-slate-200 px-3 divide-y divide-slate-200">
-        ${list}
-      </ul>
-      <div class="mt-3 flex flex-wrap gap-2">
-        <button onclick="Actions.syncAllCampaignPipelines()" class="px-4 py-2 rounded-xl bg-sky-600 text-white text-xs font-black" style="color:#fff;"><i data-lucide="zap" class="w-3.5 h-3.5 inline mr-1"></i>Provisionar todos (${state.pending.length})</button>
-      </div>
-      <div class="mt-3 rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-600">
-        <b>ℹ O que acontece:</b> o Journey cria <b>1 pipeline por campanha</b> no seu RD CRM, com <b>9 etapas</b> (Mkt TOF/MOF/BOF, Vendas TOF/MOF/BOF, CS Onboarding/Retenção/Expansão). Pipelines já existentes na sua conta não são tocados — usamos sufixo numérico em caso de colisão de nome.
+      const list = (state.pending || []).map(c => `<div class="flex items-center justify-between gap-2 py-2.5">
+        <div class="flex items-center gap-2 min-w-0">
+          <i data-lucide="git-branch" class="w-4 h-4 text-slate-500 shrink-0"></i>
+          <span class="text-sm font-black text-slate-900 truncate">${Utils.escape(c.name)}</span>
+        </div>
+        <button onclick="Actions.generateCampaignPipeline(${c.id})" class="px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff;">Provisionar <i data-lucide="arrow-right" class="w-3 h-3"></i></button>
+      </div>`).join('');
+      return `<div>
+        <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">✓ Token CRM autorizado · Passo 2 de 3</p>
+        <h3 class="text-2xl font-black text-slate-950 mb-2">Criar pipelines no RD para suas campanhas</h3>
+        <p class="text-sm text-slate-600 mb-5">Cada campanha vira um pipeline próprio no RD CRM com <b>9 etapas</b> (Mkt/Vendas/CS × TOF/MOF/BOF).</p>
+
+        <div class="mb-5">
+          ${this._rdAssistantBigButton(null, `Provisionar todas (${state.pending.length})`, 'zap', 'Actions.syncAllCampaignPipelines()')}
+        </div>
+
+        <p class="text-sm font-black text-slate-700 mb-2">Ou provisione uma de cada vez:</p>
+        <div class="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-1 divide-y divide-slate-200">
+          ${list}
+        </div>
+
+        <div class="mt-4 rounded-2xl bg-slate-50 border border-slate-100 p-4 text-sm text-slate-600 leading-relaxed">
+          <b class="text-slate-900">ℹ O que acontece:</b><br>
+          Pipelines existentes na sua conta RD <b>não são tocados</b> — usamos sufixo numérico se houver colisão de nome. Etapas default do RD são <b>renomeadas</b> pra Marketing TOF/MOF/BOF (não deletadas).
+        </div>
       </div>`;
     }
+
     if (state.step === 3) {
-      const list = (state.breakdown || []).map(b => `<li class="flex items-center justify-between gap-2 py-1.5"><span class="text-sm font-black text-slate-900">${Utils.escape(b.campaign.name)}</span><div class="flex items-center gap-2"><span class="text-xs text-slate-500">${b.count} lead(s)</span><button onclick="Actions.pushCampaignICPToRD(${b.campaign.id})" class="px-3 py-1 rounded-lg bg-sky-600 text-white text-xs font-black" style="color:#fff;">Enviar →</button></div></li>`).join('');
-      return `<h4 class="font-black text-slate-900 mb-2">Enviar leads ICP ao RD</h4>
-      <p class="text-sm text-slate-600 mb-3">${state.leadsAwaitingPush} lead(s) aguardando envio:</p>
-      <ul class="rounded-xl bg-slate-50 border border-slate-200 px-3 divide-y divide-slate-200">
-        ${list}
-      </ul>
-      <div class="mt-3 rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-600">
-        <b>ℹ O que acontece:</b> cada lead vira um <b>deal</b> no RD CRM, posicionado em <b>Marketing TOF</b> do pipeline correspondente. O valor inicial do deal vem do Ticket Médio do produto da campanha. Conforme o lead avança no fluxo das ações, o Journey move o deal entre as etapas automaticamente.
+      const list = (state.breakdown || []).map(b => `<div class="flex items-center justify-between gap-2 py-2.5">
+        <div class="flex items-center gap-2 min-w-0">
+          <i data-lucide="users" class="w-4 h-4 text-slate-500 shrink-0"></i>
+          <div class="min-w-0">
+            <span class="block text-sm font-black text-slate-900 truncate">${Utils.escape(b.campaign.name)}</span>
+            <span class="block text-[11px] text-slate-500">${b.count} lead(s) prontos</span>
+          </div>
+        </div>
+        <button onclick="Actions.pushCampaignICPToRD(${b.campaign.id})" class="px-4 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff;">Enviar <i data-lucide="send" class="w-3 h-3"></i></button>
+      </div>`).join('');
+      return `<div>
+        <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">✓ Token CRM · ✓ Pipelines · Passo 3 de 3</p>
+        <h3 class="text-2xl font-black text-slate-950 mb-2">Enviar leads para o RD CRM</h3>
+        <p class="text-sm text-slate-600 mb-5">Cada lead vira um <b>deal</b> em Marketing TOF do pipeline da sua campanha. O valor inicial vem do Ticket Médio do produto.</p>
+
+        <p class="text-sm font-black text-slate-700 mb-2">${state.leadsAwaitingPush} lead(s) aguardando envio:</p>
+        <div class="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-1 divide-y divide-slate-200">
+          ${list}
+        </div>
+
+        <div class="mt-4 rounded-2xl bg-slate-50 border border-slate-100 p-4 text-sm text-slate-600 leading-relaxed">
+          <b class="text-slate-900">ℹ Depois disso:</b><br>
+          Conforme o lead avança no fluxo das ações (ex: clica no link da LP), o Journey move o deal entre as etapas do pipeline RD automaticamente. Sem clique manual.
+        </div>
       </div>`;
     }
     return '';
   },
 
-  // V22.3 — Conteúdo dos passos Marketing (OAuth opcional)
+  // V22.3.1 — Conteúdo dos passos Marketing (versão pedagógica).
   _rdAssistantMarketingContent(state, rdCfg, origin) {
     if (state.step === 'm1') {
-      return `<h4 class="font-black text-slate-900 mb-2">Criar app no Publisher do RD</h4>
-      <ol class="text-sm text-slate-700 space-y-2 ml-4 list-decimal">
-        <li>Abra o publisher do RD:<br><a href="https://appstore.rdstation.com/pt-BR/publisher" target="_blank" class="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black no-underline" style="color:#fff;"><i data-lucide="external-link" class="w-3.5 h-3.5"></i>Abrir publisher RD</a></li>
-        <li>Clique em <b>Criar app</b> e preencha:
-          <ul class="ml-4 mt-1 text-xs list-disc space-y-1">
-            <li>Nome: <b>LeadJourney Marketing</b> (ou outro)</li>
-            <li>Tipo: <b>Privado</b></li>
-            <li>Produto: <b>RD Station Marketing</b></li>
-            <li>URL de Callback: <code class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 font-mono text-[11px]">${Utils.escape(origin)}</code> <button onclick="navigator.clipboard.writeText('${Utils.escape(origin)}'); Utils.toast('URL copiada')" class="ml-1 text-sky-600 underline text-[10px]">copiar</button></li>
-          </ul>
-        </li>
-        <li>Marque <b>todas as permissões</b> disponíveis e salve.</li>
-        <li>Na próxima tela, copie <b>Client ID</b> e <b>Client Secret</b>.</li>
-        <li>Cole eles no bloco <b>RD Marketing</b> abaixo (clique pra expandir).</li>
-      </ol>
-      <div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
-        <b>⚠ Atenção:</b> a URL de Callback deve ser <b>exatamente</b> a do origin (sem barra no final, sem path). Senão o OAuth falha com <code class="text-[10px]">invalid_redirect_uri</code>.
+      return `<div>
+        <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">✓ CRM completo · OAuth Marketing · Passo 1 de 4</p>
+        <h3 class="text-2xl font-black text-slate-950 mb-2">Criar o app no Publisher do RD</h3>
+        <p class="text-sm text-slate-600 mb-5">Este é <b>opcional</b>. Só conecte se for usar features de e-mail/marketing no Journey no futuro.</p>
+
+        <div class="mb-5">
+          ${this._rdAssistantBigButton('https://appstore.rdstation.com/pt-BR/publisher', 'Abrir Publisher RD', 'external-link')}
+        </div>
+
+        <p class="text-sm font-black text-slate-700 mb-2">No publisher, faça:</p>
+        <div class="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2 divide-y divide-slate-200">
+          ${this._rdAssistantSubstep(1, 'Clique em <b>Criar app</b>.')}
+          ${this._rdAssistantSubstep(2, 'Nome: <b>LeadJourney Marketing</b> (ou outro). Tipo: <b>Privado</b>. Produto: <b>RD Station Marketing</b>.')}
+          ${this._rdAssistantSubstep(3, `URL de Callback: <code class="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-slate-800 font-mono text-[11px]">${Utils.escape(origin)}</code><button onclick="navigator.clipboard.writeText('${Utils.escape(origin)}'); Utils.toast('URL copiada')" class="ml-2 px-2 py-0.5 rounded bg-sky-600 text-white text-[10px] font-black" style="color:#fff;">copiar</button>`)}
+          ${this._rdAssistantSubstep(4, 'Marque <b>TODAS</b> as permissões disponíveis.')}
+          ${this._rdAssistantSubstep(5, 'Salve. Copie <b>Client ID</b> e <b>Client Secret</b> da próxima tela.')}
+          ${this._rdAssistantSubstep(6, 'Cole eles no bloco <b>RD Marketing</b> mais abaixo nesta página (clique pra expandir).')}
+        </div>
+
+        ${this._rdAssistantWarning('A URL de Callback deve ser <b>exatamente</b> a do origin — sem barra no final, sem path. Erro mais comum: <code>invalid_redirect_uri</code>.')}
       </div>`;
     }
+
     if (state.step === 'm2') {
-      return `<h4 class="font-black text-slate-900 mb-2">Gerar URL de autorização</h4>
-      <p class="text-sm text-slate-600 mb-3">Você já preencheu Client ID e Secret. Agora vamos gerar a URL OAuth.</p>
-      <div class="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-700 mb-3">
-        Client ID detectado: <code class="bg-white px-1.5 py-0.5 rounded font-mono text-[10px]">${Utils.escape(String(rdCfg.clientId || '').slice(0, 12))}...</code>
-      </div>
-      <button onclick="Actions.generateRDAuthUrl()" class="px-4 py-2 rounded-xl bg-sky-600 text-white text-xs font-black" style="color:#fff;"><i data-lucide="link" class="w-3.5 h-3.5 inline mr-1"></i>Gerar URL OAuth</button>
-      <div class="mt-3 rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-600">
-        Após clicar, a URL aparece dentro do bloco RD Marketing abaixo. O próximo passo será abrir essa URL.
+      return `<div>
+        <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Marketing · Passo 2 de 4</p>
+        <h3 class="text-2xl font-black text-slate-950 mb-2">Gerar URL de autorização</h3>
+        <p class="text-sm text-slate-600 mb-5">Você já preencheu Client ID e Secret. Vamos gerar a URL OAuth.</p>
+
+        <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3 mb-5">
+          <p class="text-[10px] font-black text-slate-500 uppercase">Client ID detectado</p>
+          <code class="block mt-1 font-mono text-xs text-slate-800">${Utils.escape(String(rdCfg.clientId || '').slice(0, 16))}…</code>
+        </div>
+
+        <div class="mb-3">
+          ${this._rdAssistantBigButton(null, 'Gerar URL OAuth agora', 'link', 'Actions.generateRDAuthUrl()')}
+        </div>
+
+        <p class="text-xs text-slate-500">Após clicar, a URL gerada aparece no bloco RD Marketing abaixo. O próximo passo será abri-la.</p>
       </div>`;
     }
+
     if (state.step === 'm3') {
-      return `<h4 class="font-black text-slate-900 mb-2">Autorizar e copiar o code</h4>
-      <ol class="text-sm text-slate-700 space-y-2 ml-4 list-decimal">
-        <li>Clique abaixo para abrir a tela de autorização do RD:<br><button onclick="Actions.openRDAuthUrl()" class="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-xl bg-sky-600 text-white text-xs font-black" style="color:#fff;"><i data-lucide="external-link" class="w-3.5 h-3.5"></i>Abrir URL OAuth</button></li>
-        <li>Faça login na sua conta RD e clique em <b>Autorizar / Conectar</b>.</li>
-        <li>O RD redireciona para uma URL parecida com:<br><code class="block mt-1 p-2 rounded bg-slate-100 text-[10px] font-mono break-all">${Utils.escape(origin)}/?code=<b>XYZ123...</b></code></li>
-        <li><b>NÃO atualize</b> a página. Copie só o que vem depois de <code>?code=</code> (até o <code>&</code> se houver).</li>
-        <li>Volte aqui e cole no campo <b>Authorization Code</b> no bloco RD Marketing.</li>
-      </ol>
-      <div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
-        <b>⚠ O code expira em ~5 min</b> e é one-shot. Se demorar, refaça o passo 2.
+      return `<div>
+        <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Marketing · Passo 3 de 4</p>
+        <h3 class="text-2xl font-black text-slate-950 mb-2">Autorizar no RD e copiar o "code"</h3>
+        <p class="text-sm text-slate-600 mb-5">Vamos abrir a tela de autorização do RD Marketing. Depois de autorizar, o RD te devolve um <code>code</code> que cola aqui.</p>
+
+        <div class="mb-5">
+          ${this._rdAssistantBigButton(null, 'Abrir URL OAuth no RD', 'external-link', 'Actions.openRDAuthUrl()')}
+        </div>
+
+        <p class="text-sm font-black text-slate-700 mb-2">Na nova aba do RD:</p>
+        <div class="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2 divide-y divide-slate-200">
+          ${this._rdAssistantSubstep(1, 'Faça login na sua conta RD se pedir.')}
+          ${this._rdAssistantSubstep(2, 'Clique em <b>Autorizar / Conectar</b>.')}
+          ${this._rdAssistantSubstep(3, `O RD redireciona pra uma URL tipo:<br><code class="block mt-1 p-2 rounded bg-white border border-slate-200 text-[10px] font-mono break-all">${Utils.escape(origin)}/?code=<b class="text-sky-700">XYZ123…</b></code>`)}
+          ${this._rdAssistantSubstep(4, '<b>NÃO atualize</b> a página. Selecione SÓ o que vem depois de <code>?code=</code> (até o próximo <code>&</code> se houver) e copie.')}
+          ${this._rdAssistantSubstep(5, 'Volte aqui e cole no campo <b>Authorization Code</b> dentro do bloco RD Marketing.')}
+        </div>
+
+        ${this._rdAssistantWarning('O code <b>expira em ~5 minutos</b> e só funciona uma vez. Se demorar, gere uma URL nova (volta ao passo 2).')}
       </div>`;
     }
+
     if (state.step === 'm4') {
-      return `<h4 class="font-black text-slate-900 mb-2">Trocar code por token</h4>
-      <p class="text-sm text-slate-600 mb-3">Code recebido. Último passo: trocar pelo access_token + refresh_token (via proxy interno).</p>
-      <button onclick="Actions.exchangeRDAuthorizationCode()" class="px-4 py-2 rounded-xl bg-violet-600 text-white text-xs font-black" style="color:#fff;"><i data-lucide="repeat" class="w-3.5 h-3.5 inline mr-1"></i>Trocar code por token</button>
-      <div class="mt-3 rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-600">
-        Se der erro <code>invalid_grant</code>, o code já expirou. Volte ao passo 3 (Autorizar) e refaça com um code novo.
+      return `<div>
+        <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Marketing · Passo 4 de 4</p>
+        <h3 class="text-2xl font-black text-slate-950 mb-2">Trocar o code por um token de verdade</h3>
+        <p class="text-sm text-slate-600 mb-5">Último passo. Vamos pedir ao RD pra trocar o code que você colou por um access_token + refresh_token (válido por 24h, com renovação automática).</p>
+
+        <div class="mb-5">
+          ${this._rdAssistantBigButton(null, 'Trocar code por token', 'repeat', 'Actions.exchangeRDAuthorizationCode()')}
+        </div>
+
+        <div class="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-sm text-slate-600 leading-relaxed">
+          <b class="text-slate-900">Se der erro:</b> a mensagem mais comum é <code>invalid_grant</code>, que significa que o code expirou (>5min) ou já foi usado. Solução: volte ao passo 3 e gere um code novo.
+        </div>
       </div>`;
     }
     return '';
