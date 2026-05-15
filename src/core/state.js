@@ -523,7 +523,15 @@ var State = {
       actions: Array.isArray(raw.actions) ? raw.actions.map((action, index) => this.normalizeAction(action, index, fallbackScoreId, base)) : base.actions,
       schemaVersion: raw.schemaVersion || base.schemaVersion,
       dataCreatedAt: raw.dataCreatedAt || base.dataCreatedAt,
-      lastMigrationAt: raw.lastMigrationAt || base.lastMigrationAt
+      lastMigrationAt: raw.lastMigrationAt || base.lastMigrationAt,
+      // V23.1.1 — Campos novos do V23 que estavam sumindo no normalize
+      // (auditor detectou em produção).
+      lastSavedAt: raw.lastSavedAt || base.lastSavedAt || null,
+      settingsRdActiveTab: ['crm','marketing'].includes(raw.settingsRdActiveTab)
+        ? raw.settingsRdActiveTab
+        : (base.settingsRdActiveTab || 'crm'),
+      rdAssistantDismissed: Boolean(raw.rdAssistantDismissed),
+      rdMarketingSkipped: Boolean(raw.rdMarketingSkipped)
     };
   },
   load() {
