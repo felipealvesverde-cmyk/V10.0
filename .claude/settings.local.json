@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"\\(Get-Content 'c:\\\\Users\\\\felip\\\\Desktop\\\\LeadJourneyv2\\\\V10.0\\\\src\\\\modules\\\\settingsModal.js' | Measure-Object -Line\\).Lines\")"
+    ]
+  }
+}
