@@ -58,93 +58,265 @@ var SettingsModal = {
     </button>`;
   },
 
-  rdPanel() {
-    const cfg = (App.state.integrations && App.state.integrations.rd) || (window.RDConfig ? RDConfig.defaultConfig() : {});
-    const statusClass = ['ready_for_api_test','ready_for_oauth','configured','connected'].includes(cfg.status) ? 'text-emerald-600 bg-emerald-50 border-emerald-200' : 'text-amber-600 bg-amber-50 border-amber-200';
+  // V22.2 — Painel unificado de conexão RD Station.
+  // Substitui rdPanel + rdCrmPanel. Estrutura: Hero/Stepper, Token CRM (core),
+  // Pipelines por campanha (operacional), OAuth Marketing (opcional, colapsado),
+  // Diagnóstico (último card, dobrável).
+  rdConnectionPanel() {
+    const rdCfg = (App.state.integrations && App.state.integrations.rd) || (window.RDConfig ? RDConfig.defaultConfig() : {});
+    const crmCfg = (App.state.integrations && App.state.integrations.rdCrm) || (window.RdCrmConfig ? RdCrmConfig.defaultConfig() : {});
 
-    const fields = [
-      ['clientId','Client ID','Client ID do app RD','text'],
-      ['clientSecret','Client Secret','Client Secret do app RD','password'],
-      ['redirectUri','Redirect URI','http://localhost:3000/rd/callback','text'],
-      ['authorizationCode','Authorization Code','Cole aqui o code retornado pelo OAuth','text'],
-      ['accessToken','Access Token','Opcional para teste interno','password'],
-      ['refreshToken','Refresh Token','Opcional para teste interno','password'],
-      ['accountName','Conta / Workspace','Nome da conta RD','text']
-    ];
+    const hasCrmToken = Boolean((rdCfg.crmPersonalToken || '').trim());
+    const pipelineCount = Object.keys(crmCfg.pipelinesByCampaign || {}).length;
+    const dealCount = Object.values(crmCfg.dealsByLead || {})
+      .reduce((acc, byCamp) => acc + Object.keys(byCamp || {}).length, 0);
+    const hasOAuth = Boolean(rdCfg.accessToken);
 
-    const hasCrmToken = Boolean((cfg.crmPersonalToken || '').trim());
+    // V22.2 — Estado de cada um dos 4 passos do stepper:
+    //   1. Token CRM autorizado
+    //   2. Pelo menos 1 pipeline provisionado no RD
+    //   3. Pelo menos 1 deal enviado ao RD
+    //   4. OAuth Marketing (opcional)
+    const steps = {
+      step1: hasCrmToken,
+      step2: pipelineCount > 0,
+      step3: dealCount > 0,
+      step4: hasOAuth
+    };
+    const allCore = steps.step1 && steps.step2 && steps.step3;
 
     return `<div class="space-y-5">
-      <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
-        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-5">
-          <div>
-            <div class="flex items-center gap-2 mb-2">
-              <i data-lucide="plug-zap" class="w-5 h-5 text-sky-600"></i>
-              <h3 class="text-2xl font-black text-slate-950">Integração RD Station</h3>
-            </div>
-            <p class="text-sm text-slate-500 max-w-2xl">Configure OAuth para conectar ações RD Email ao RD Station.</p>
-          </div>
-          <span class="px-3 py-2 rounded-2xl border text-xs font-black ${statusClass}">${Utils.escape(cfg.status || 'not_configured')}</span>
-        </div>
+      ${this._rdHeroBlock(steps, allCore, pipelineCount, dealCount)}
+      ${this._rdStepperBlock(steps)}
+      ${this._rdCoreCrmTokenBlock(rdCfg, hasCrmToken)}
+      ${steps.step1 ? this._rdCrmCampaignPipelinesBlock(crmCfg, hasCrmToken) : this._rdLockedHint('pipelines', 'Configure o token CRM acima primeiro.')}
+      ${this._rdMarketingOAuthBlock(rdCfg, hasOAuth)}
+      ${this._rdDiagnosticsBlock(rdCfg, crmCfg, hasCrmToken, hasOAuth)}
+    </div>`;
+  },
 
-        <!-- V21.4.3 — CRM Personal Token em destaque: é o que de fato libera tudo do CRM -->
-        <div class="rounded-2xl border ${hasCrmToken ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'} p-4 mb-4">
-          <div class="flex items-start gap-3">
-            <i data-lucide="key-round" class="w-5 h-5 ${hasCrmToken ? 'text-emerald-700' : 'text-amber-700'} mt-0.5"></i>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-1">
-                <h4 class="font-black ${hasCrmToken ? 'text-emerald-900' : 'text-amber-900'}">CRM Personal Token</h4>
-                <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${hasCrmToken ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-200 text-amber-900'}">${hasCrmToken ? 'configurado' : 'obrigatório'}</span>
-              </div>
-              <p class="text-xs ${hasCrmToken ? 'text-emerald-800' : 'text-amber-800'} mb-3">
-                Gerado em <b>RD CRM → Configurações → Todas as configurações → Integrações</b>. É <b>obrigatório</b> para qualquer feature do CRM (pipeline, stages, deals, scoring). Diferente do Access Token do OAuth abaixo, que é da família Marketing.
-              </p>
-              ${this._input('crmPersonalToken','','Cole aqui o token gerado no painel do CRM','password',cfg.crmPersonalToken)}
-            </div>
+  // V22.2 — Hero card: muda de tom conforme estado da configuração.
+  // Zero state (recém-reset): card grande, escuro, com CTA forte.
+  // Estado operacional: card discreto com KPIs.
+  _rdHeroBlock(steps, allCore, pipelineCount, dealCount) {
+    if (allCore) {
+      // Estado operacional: card slim com KPIs
+      return `<div class="rounded-3xl bg-gradient-to-r from-emerald-50 to-sky-50 border border-emerald-200 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-500 grid place-items-center text-white"><i data-lucide="check-check" class="w-6 h-6"></i></div>
+          <div>
+            <h3 class="font-black text-emerald-900 text-lg">RD Station conectado</h3>
+            <p class="text-xs text-emerald-800">${pipelineCount} pipeline(s) ativo(s) · ${dealCount} deal(s) sincronizado(s)</p>
           </div>
         </div>
+        <button onclick="Actions.runRdCrmSyncNow()" class="px-4 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black flex items-center gap-2 lj-dark-button" style="color:#fff!important;"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar agora</button>
+      </div>`;
+    }
+    // Zero/parcial: card de onboarding
+    const nextAction = !steps.step1 ? { label: 'Gerar Token CRM no painel RD', icon: 'key-round' }
+      : !steps.step2 ? { label: 'Criar pipelines nas campanhas elegíveis', icon: 'git-branch' }
+      : { label: 'Enviar leads ICP ao RD', icon: 'send' };
+    return `<div class="rounded-3xl bg-slate-950 text-white p-6 relative overflow-hidden">
+      <div class="absolute inset-y-0 right-0 w-64 opacity-20 pointer-events-none"><i data-lucide="workflow" class="w-full h-full"></i></div>
+      <div class="relative">
+        <p class="text-xs font-black text-sky-300 uppercase tracking-wider mb-2">Onboarding — Conexão RD Station</p>
+        <h3 class="text-2xl font-black mb-2">Conecte o RD Station em 2 minutos.</h3>
+        <p class="text-sm text-slate-300 max-w-xl mb-4">Sincronize pipelines, deals e leads entre o Journey e o RD CRM. Para usar o módulo de e-mail (opcional), conecte também o RD Marketing.</p>
+        <div class="flex items-center gap-2 text-sm">
+          <i data-lucide="${nextAction.icon}" class="w-4 h-4 text-amber-300"></i>
+          <span class="font-black text-amber-200">Próximo passo:</span>
+          <span>${Utils.escape(nextAction.label)}</span>
+        </div>
+      </div>
+    </div>`;
+  },
 
-        <details class="rounded-2xl border border-slate-200 bg-white mb-4">
-          <summary class="cursor-pointer px-4 py-3 font-black text-sm text-slate-700 flex items-center gap-2">
-            <i data-lucide="chevron-right" class="w-4 h-4"></i>
-            OAuth do RD Marketing (opcional — futuro: emails, contatos, KPIs)
-          </summary>
-          <div class="px-4 pb-4 pt-2 grid md:grid-cols-2 gap-4">
-            ${fields.map(([field, label, placeholder, type]) => this._input(field, label, placeholder, type, cfg[field])).join('')}
+  // V22.2 — Stepper com 4 passos. Passo 4 é (opcional) e não bloqueia.
+  _rdStepperBlock(steps) {
+    const list = [
+      { key: 'step1', n: 1, label: 'Token CRM', icon: 'key-round' },
+      { key: 'step2', n: 2, label: 'Pipelines', icon: 'git-branch' },
+      { key: 'step3', n: 3, label: 'Leads sincronizados', icon: 'users' },
+      { key: 'step4', n: 4, label: 'RD Marketing', icon: 'mail', optional: true }
+    ];
+    return `<div class="rounded-3xl bg-white border border-slate-100 p-4">
+      <div class="grid grid-cols-4 gap-2">
+        ${list.map((s, idx) => {
+          const done = steps[s.key];
+          const isOptionalUndone = s.optional && !done;
+          const tone = done ? 'bg-emerald-500 text-white' : isOptionalUndone ? 'bg-slate-100 text-slate-400' : 'bg-amber-100 text-amber-700';
+          const textTone = done ? 'text-emerald-900' : isOptionalUndone ? 'text-slate-500' : 'text-amber-900';
+          return `<div class="flex flex-col items-center text-center gap-1">
+            <div class="w-9 h-9 rounded-full grid place-items-center ${tone} font-black text-sm">
+              ${done ? `<i data-lucide="check" class="w-4 h-4"></i>` : `<span>${s.n}</span>`}
+            </div>
+            <span class="text-[11px] font-black ${textTone} leading-tight">${Utils.escape(s.label)}${s.optional ? ' <span class="opacity-60">(opcional)</span>' : ''}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  },
+
+  // V22.2 — Card central: input do CRM Personal Token + ações principais.
+  _rdCoreCrmTokenBlock(cfg, hasCrmToken) {
+    const masked = hasCrmToken ? `${cfg.crmPersonalToken.slice(0, 4)}••••${cfg.crmPersonalToken.slice(-4)}` : '';
+    return `<div class="rounded-3xl border-2 ${hasCrmToken ? 'border-emerald-300 bg-emerald-50/40' : 'border-amber-300 bg-amber-50/40'} p-5 shadow-sm">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-2xl ${hasCrmToken ? 'bg-emerald-500' : 'bg-amber-500'} grid place-items-center text-white shrink-0"><i data-lucide="key-round" class="w-6 h-6"></i></div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1 flex-wrap">
+            <h3 class="font-black text-lg ${hasCrmToken ? 'text-emerald-900' : 'text-amber-900'}">Token pessoal do CRM</h3>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${hasCrmToken ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-200 text-amber-900'}">${hasCrmToken ? 'autorizado' : 'obrigatório'}</span>
           </div>
-        </details>
+          <p class="text-xs ${hasCrmToken ? 'text-emerald-800' : 'text-amber-800'} mb-3 max-w-2xl">
+            Esse token autoriza o Journey a criar pipelines, mover deals e ler tags no seu RD CRM. Não usa OAuth — é um token estático gerado dentro do próprio CRM.
+          </p>
+          <details class="text-xs mb-3 ${hasCrmToken ? 'text-emerald-800' : 'text-amber-900'}">
+            <summary class="cursor-pointer font-black underline">Como gerar este token (45 s)</summary>
+            <ol class="mt-2 ml-4 list-decimal space-y-1">
+              <li>Abra <a href="https://crm.rdstation.com" target="_blank" class="underline">crm.rdstation.com</a> e faça login.</li>
+              <li>Clique na engrenagem → <b>Todas as configurações</b>.</li>
+              <li>Procure <b>Integrações</b> ou <b>API</b>.</li>
+              <li>Clique em <b>Gerar token</b> e copie o valor.</li>
+              <li>Volte aqui e cole abaixo. Não precisa fazer mais nada.</li>
+            </ol>
+          </details>
+          ${this._input('crmPersonalToken','','Cole o token aqui','password',cfg.crmPersonalToken)}
+          ${hasCrmToken ? `<p class="text-[10px] font-mono text-emerald-700 mt-2">Token salvo: ${Utils.escape(masked)}</p>` : ''}
+          <div class="flex flex-wrap gap-2 mt-3">
+            <button onclick="Actions.testRDConnection()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center gap-1.5 lj-dark-button" style="color:#fff!important;"><i data-lucide="activity" class="w-3.5 h-3.5"></i> Testar conexão</button>
+            ${hasCrmToken ? `<button onclick="Actions.updateRDConfig('crmPersonalToken','')" class="px-4 py-2 rounded-xl bg-white border border-red-200 text-red-700 text-xs font-black flex items-center gap-1.5"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Substituir token</button>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  },
 
-        <div class="grid md:grid-cols-2 gap-4">
+  // V22.2 — RD Marketing OAuth (opcional, colapsado). Não conta como bloqueio.
+  _rdMarketingOAuthBlock(cfg, hasOAuth) {
+    const fields = [
+      ['clientId','Client ID','Client ID do app RD Marketing','text'],
+      ['clientSecret','Client Secret','Client Secret do app','password'],
+      ['redirectUri','Redirect URI','https://leadjourney.up.railway.app','text'],
+      ['authorizationCode','Authorization Code','Code retornado após autorizar','text'],
+      ['accountName','Conta / Workspace','Rótulo da conta','text']
+    ];
+    const expiresAt = cfg.expiresAt ? new Date(cfg.expiresAt) : null;
+    const expired = expiresAt && expiresAt.getTime() <= Date.now();
+    const minsLeft = expiresAt ? Math.round((expiresAt.getTime() - Date.now()) / 60000) : null;
+    return `<details class="rounded-3xl border border-slate-200 bg-white p-0 shadow-sm" ${hasOAuth && !expired ? '' : ''}>
+      <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-3 list-none">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl ${hasOAuth ? (expired ? 'bg-amber-500' : 'bg-emerald-500') : 'bg-slate-200'} grid place-items-center ${hasOAuth ? 'text-white' : 'text-slate-500'}"><i data-lucide="mail" class="w-5 h-5"></i></div>
           <div>
-            <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Frequência padrão</label>
-            <select onchange="Actions.updateRDConfig('syncFrequency', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-slate-900">
-              ${['manual','daily','weekly'].map(v => `<option value="${v}" ${cfg.syncFrequency === v ? 'selected' : ''}>${v}</option>`).join('')}
+            <div class="flex items-center gap-2">
+              <h3 class="font-black text-slate-900">RD Marketing</h3>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-600">opcional</span>
+              ${hasOAuth ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-black ${expired ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'}">${expired ? 'expirado' : 'conectado'}</span>` : ''}
+            </div>
+            <p class="text-[11px] text-slate-500">${hasOAuth ? (expired ? `Token expirou há ${Math.abs(minsLeft)} min · clique pra renovar` : `Token ativo · expira em ${minsLeft} min`) : 'Conecte para automações de e-mail no futuro · não bloqueia CRM'}</p>
+          </div>
+        </div>
+        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400"></i>
+      </summary>
+      <div class="px-5 pb-5 pt-2 border-t border-slate-100">
+        <p class="text-xs text-slate-500 mb-3 max-w-2xl">OAuth do RD Marketing serve para futuras integrações com e-mail, contatos e KPIs. Não é necessário para CRM. <b>Você pode ignorar este passo sem perder nada.</b></p>
+        <div class="grid md:grid-cols-2 gap-3 mb-4">
+          ${fields.map(([f, l, p, t]) => this._input(f, l, p, t, cfg[f])).join('')}
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="Actions.generateRDAuthUrl()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black lj-dark-button" style="color:#fff!important;">1) Gerar URL OAuth</button>
+          <button onclick="Actions.openRDAuthUrl()" class="px-4 py-2 rounded-xl bg-sky-600 text-white text-xs font-black" style="color:#fff!important;">2) Abrir URL</button>
+          <button onclick="Actions.exchangeRDAuthorizationCode()" class="px-4 py-2 rounded-xl bg-violet-600 text-white text-xs font-black" style="color:#fff!important;">3) Trocar code por token</button>
+          ${hasOAuth ? `<button onclick="Actions.refreshRDAccessToken()" class="px-4 py-2 rounded-xl bg-amber-500 text-white text-xs font-black" style="color:#fff!important;">Renovar token</button>` : ''}
+          ${cfg.clientId ? `<button onclick="Actions.clearRDConfig()" class="px-4 py-2 rounded-xl bg-white border border-red-200 text-red-700 text-xs font-black">Limpar Marketing</button>` : ''}
+        </div>
+        ${cfg.authUrl ? `<div class="mt-3 rounded-xl bg-slate-950 p-3">
+          <p class="text-[10px] text-slate-400 font-black mb-1">URL OAuth gerada</p>
+          <textarea readonly class="w-full min-h-[60px] rounded bg-slate-900 border border-white/10 text-sky-100 text-[10px] p-2 font-mono">${Utils.escape(cfg.authUrl)}</textarea>
+          <p class="text-[10px] text-slate-400 mt-1">Após autorizar, copie o valor depois de <b>?code=</b> e cole em Authorization Code.</p>
+        </div>` : ''}
+      </div>
+    </details>`;
+  },
+
+  // V22.2 — Card de diagnóstico consolidado: logs de sync, status do Live Bridge,
+  // configuração de auto-sync e log de eventos RD. Tudo dobrável.
+  _rdDiagnosticsBlock(rdCfg, crmCfg, hasCrmToken, hasOAuth) {
+    if (!hasCrmToken && !hasOAuth) return '';
+    const lastSync = crmCfg.lastSyncAt ? new Date(crmCfg.lastSyncAt).toLocaleString('pt-BR') : '—';
+    const liveLastSync = App.state.rdLastSyncAt ? new Date(App.state.rdLastSyncAt).toLocaleString('pt-BR') : '—';
+    const eventCount = (App.state.rdEventLog || []).length;
+    return `<details class="rounded-3xl border border-slate-200 bg-white p-0 shadow-sm">
+      <summary class="cursor-pointer px-5 py-4 flex items-center justify-between gap-3 list-none">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-slate-100 grid place-items-center text-slate-700"><i data-lucide="activity" class="w-5 h-5"></i></div>
+          <div>
+            <h3 class="font-black text-slate-900">Diagnóstico</h3>
+            <p class="text-[11px] text-slate-500">Logs de sync · Live Bridge · auto-sync · eventos RD</p>
+          </div>
+        </div>
+        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400"></i>
+      </summary>
+      <div class="px-5 pb-5 pt-2 border-t border-slate-100 space-y-4">
+        <div class="grid md:grid-cols-3 gap-3">
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3">
+            <p class="text-[10px] font-black text-slate-500 uppercase">Último sync CRM</p>
+            <p class="text-sm font-black text-slate-900 mt-1">${Utils.escape(lastSync)}</p>
+          </div>
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3">
+            <p class="text-[10px] font-black text-slate-500 uppercase">Live Bridge</p>
+            <p class="text-sm font-black text-slate-900 mt-1">${Utils.escape(liveLastSync)}</p>
+          </div>
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3">
+            <p class="text-[10px] font-black text-slate-500 uppercase">Eventos RD</p>
+            <p class="text-sm font-black text-slate-900 mt-1">${eventCount}</p>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-3">
+          <label class="flex items-center justify-between gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-200">
+            <span>
+              <span class="block text-sm font-black text-slate-900">Auto-sync a cada 5 min</span>
+              <span class="block text-[11px] text-slate-500">Atualiza pipelines, deals e leads automaticamente.</span>
+            </span>
+            <button onclick="Actions.toggleRdCrmAutoSync()" class="relative w-12 h-7 rounded-full transition ${crmCfg.autoSync ? 'bg-emerald-500' : 'bg-slate-300'}">
+              <span class="absolute top-1 ${crmCfg.autoSync ? 'right-1' : 'left-1'} w-5 h-5 rounded-full bg-white shadow"></span>
+            </button>
+          </label>
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3">
+            <p class="text-[10px] font-black text-slate-500 uppercase">Driver de sync</p>
+            <select onchange="Actions.setRdCrmAutoSyncMode(this.value)" class="mt-1 w-full px-3 py-2 rounded-xl bg-white border border-slate-200 font-bold text-sm">
+              <option value="frontend" ${crmCfg.autoSyncMode === 'frontend' ? 'selected' : ''}>Aba aberta (frontend)</option>
+              <option value="electron" ${crmCfg.autoSyncMode === 'electron' ? 'selected' : ''}>Desktop (Electron)</option>
+              <option value="backend" ${crmCfg.autoSyncMode === 'backend' ? 'selected' : ''}>Cron externo (backend)</option>
             </select>
           </div>
         </div>
 
-        <div class="flex flex-wrap gap-3 mt-5">
-          <button onclick="Actions.generateRDAuthUrl()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black hover:bg-slate-800" style="color:#fff!important;">1) Gerar URL OAuth</button>
-          <button onclick="Actions.openRDAuthUrl()" class="px-5 py-3 rounded-2xl bg-sky-600 text-white font-black hover:bg-sky-700" style="color:#fff!important;">2) Abrir URL OAuth</button>
-          <button onclick="Actions.copyRDAuthUrl()" class="px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-900 font-black hover:bg-slate-50">Copiar URL</button>
-          <button onclick="Actions.exchangeRDAuthorizationCode()" class="px-5 py-3 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black" style="color:#fff!important;">3) Trocar code por token</button>
-          <button onclick="Actions.refreshRDAccessToken()" class="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black" style="color:#fff!important;">Renovar token</button>
-          <button onclick="Actions.testRDConnection()" class="px-5 py-3 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700" style="color:#fff!important;">Testar conexão</button>
-          <button onclick="Actions.clearRDConfig()" class="px-5 py-3 rounded-2xl bg-red-50 border border-red-200 text-red-600 font-black hover:bg-red-100">Limpar RD</button>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="Actions.runRdCrmSyncNow()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black lj-dark-button" style="color:#fff!important;"><i data-lucide="refresh-cw" class="w-3.5 h-3.5 inline mr-1"></i>Sincronizar CRM agora</button>
+          <button onclick="Actions.syncRdCrmNow()" class="px-4 py-2 rounded-xl bg-violet-600 text-white text-xs font-black" style="color:#fff!important;"><i data-lucide="radio-tower" class="w-3.5 h-3.5 inline mr-1"></i>Disparar Live Bridge</button>
+          <button onclick="Actions.downloadStateSnapshot()" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-black"><i data-lucide="download" class="w-3.5 h-3.5 inline mr-1"></i>Baixar snapshot</button>
         </div>
 
-        ${this._rdTokenStatusBlock(cfg)}
-
-        ${cfg.authUrl ? `<div class="mt-5 rounded-2xl bg-slate-950 p-4">
-          <div class="flex items-center justify-between gap-3 mb-2">
-            <p class="text-xs text-slate-400 font-black">URL OAuth gerada</p>
-            <button onclick="Actions.copyRDAuthUrl()" class="px-3 py-1 rounded-xl bg-white/10 text-white text-xs font-black">Copiar</button>
+        <div>
+          <p class="text-[10px] font-black text-slate-500 uppercase mb-2">Logs recentes</p>
+          <div class="rounded-2xl bg-slate-950 text-slate-200 p-3 max-h-60 overflow-auto text-[11px] font-mono space-y-1">
+            ${(crmCfg.syncLogs || []).length ? (crmCfg.syncLogs || []).map(log => `<div><span class="text-slate-500">${new Date(log.at).toLocaleTimeString('pt-BR')}</span> <span class="${log.level === 'error' ? 'text-red-300' : log.level === 'warn' ? 'text-amber-300' : 'text-sky-300'}">[${log.level}]</span> ${Utils.escape(log.message)}</div>`).join('') : '<div class="text-slate-500">Sem logs ainda.</div>'}
           </div>
-          <textarea readonly class="w-full min-h-[92px] rounded-xl bg-slate-900 border border-white/10 text-sky-100 text-xs p-3">${Utils.escape(cfg.authUrl)}</textarea>
-          <p class="text-xs text-slate-400 mt-2">Depois de autorizar, copie o valor depois de <strong>?code=</strong> e cole em Authorization Code.</p>
-        </div>` : `<div class="mt-5 rounded-2xl bg-slate-50 border border-slate-100 p-4">
-          <p class="text-sm text-slate-600"><strong>Próximo passo:</strong> preencha Client ID e Redirect URI, depois clique em Gerar URL OAuth.</p>
-        </div>`}
+        </div>
+      </div>
+    </details>`;
+  },
+
+  // V22.2 — Placeholder visual quando uma seção depende de outra ainda não preenchida.
+  _rdLockedHint(label, msg) {
+    return `<div class="rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-5 flex items-center gap-3 text-slate-500">
+      <i data-lucide="lock" class="w-5 h-5"></i>
+      <div>
+        <p class="text-sm font-black text-slate-700">${Utils.escape(label)}</p>
+        <p class="text-xs">${Utils.escape(msg)}</p>
       </div>
     </div>`;
   },
@@ -1070,23 +1242,24 @@ var SettingsModal = {
     if (!App.state.showSettingsModal) return '';
 
     const active = this.activeSection();
-    const titleMap = { rd: 'RD Station', rdCrm: 'API RD CRM', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', agents: 'Agentes Externos' };
+    // V22.2 — Consolidação: 'rd' e 'rdCrm' viraram uma seção só "Conexão RD Station".
+    // Mantemos o alias 'rdCrm' redirecionando p/ 'rd' por compat de bookmarks/links.
+    const resolvedActive = active === 'rdCrm' ? 'rd' : active;
+    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', agents: 'Agentes Externos' };
     const subtitleMap = {
-      rd: 'Conecte o RD Station Marketing (OAuth, RD Email).',
-      rdCrm: 'Provisione pipelines, etapas e sync de leads via API RD Station CRM.',
+      rd: 'Token CRM, pipelines por campanha, sincronização de leads e (opcional) RD Marketing — tudo em um lugar.',
       backup: 'Prepare snapshots, restauração e segurança dos dados.',
       database: 'Escolha Local, Supabase ou Amazon e deixe o LeadScore pronto para sincronizar.',
       execution: 'Configure ClickUp, Trello, Monday, Jira, Notion ou modo Manual para onde as tarefas devem ser criadas.',
       agents: 'Configure o Djow (Railway) e outros agentes que interpretam comandos em linguagem natural.'
     };
-    const title = titleMap[active] || titleMap.database;
-    const subtitle = subtitleMap[active] || subtitleMap.database;
+    const title = titleMap[resolvedActive] || titleMap.database;
+    const subtitle = subtitleMap[resolvedActive] || subtitleMap.database;
 
-    const content = active === 'rd' ? this.rdPanel()
-      : active === 'rdCrm' ? this.rdCrmPanel()
-      : active === 'execution' ? this.executionPanel()
-      : active === 'agents' ? this.agentsPanel()
-      : active === 'backup' ? this.backupPanel()
+    const content = resolvedActive === 'rd' ? this.rdConnectionPanel()
+      : resolvedActive === 'execution' ? this.executionPanel()
+      : resolvedActive === 'agents' ? this.agentsPanel()
+      : resolvedActive === 'backup' ? this.backupPanel()
       : this.databasePanel();
 
     return `<div class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm p-4 overflow-auto">
@@ -1109,8 +1282,7 @@ var SettingsModal = {
         <main class="grid lg:grid-cols-[260px_1fr] min-h-[620px]">
           <aside class="bg-white border-r border-slate-200 p-5 space-y-3">
             ${this.sectionButton('database','Banco de Dados','database')}
-            ${this.sectionButton('rd','RD Station','plug-zap')}
-            ${this.sectionButton('rdCrm','API RD CRM','workflow')}
+            ${this.sectionButton('rd','Conexão RD Station','plug-zap')}
             ${this.sectionButton('execution','Execução Operacional','kanban')}
             ${this.sectionButton('agents','Agentes Externos','cpu')}
             ${this.sectionButton('backup','Backup em breve','archive')}

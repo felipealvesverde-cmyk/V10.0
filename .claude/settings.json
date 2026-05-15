@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -c src/modules/settingsModal.js)",
+      "Bash(echo \"exit code: $?\")"
+    ]
+  }
+}
