@@ -14,12 +14,40 @@ window.LoginScreen = {
     messageTone: 'info'    // 'info' | 'success' | 'error'
   },
 
+  // V23.0.1 — Não re-renderiza em cada keystroke (destruía o input + perdia foco).
+  // O browser mantém o valor digitado no DOM; só guardamos no state pra submit.
   setField(field, value) {
     this.state[field] = value;
+  },
+
+  // V23.0.1 — Mudança de modo (radio) PRECISA re-renderizar pra atualizar
+  // o destaque visual do card selecionado. Antes de re-renderizar, sincroniza
+  // os valores dos inputs de texto que estavam no DOM mas não no state.
+  setMode(modeValue) {
+    this._syncDomToState();
+    this.state.registerMode = modeValue;
     this.render();
   },
 
+  // V23.0.1 — Captura valores atuais dos inputs do DOM e atualiza state.
+  // Necessário antes de qualquer render() pra não perder o que o usuário digitou.
+  _syncDomToState() {
+    const ids = ['loginUsernameField', 'loginPwdField', 'registerUsernameField', 'registerEmailField'];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const map = {
+        loginUsernameField: 'loginUsername',
+        loginPwdField: 'loginPassword',
+        registerUsernameField: 'registerUsername',
+        registerEmailField: 'registerEmail'
+      };
+      if (map[id] && el.value !== undefined) this.state[map[id]] = el.value;
+    });
+  },
+
   setTab(tab) {
+    this._syncDomToState();
     this.state.tab = tab;
     this.state.message = '';
     this.render();
@@ -121,7 +149,7 @@ window.LoginScreen = {
             <div class="space-y-4">
               <div>
                 <label class="text-xs font-black text-slate-400 uppercase tracking-wide">Username / Email</label>
-                <input type="text" autocomplete="username" value="${this._esc(s.loginUsername)}"
+                <input type="text" id="loginUsernameField" autocomplete="username" value="${this._esc(s.loginUsername)}"
                   oninput="LoginScreen.setField('loginUsername', this.value)"
                   onkeydown="if(event.key==='Enter'){document.getElementById('loginPwdField')?.focus()}"
                   class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-800/80 border border-white/10 text-white font-semibold placeholder:text-slate-500" placeholder="felipe@w2c.pro.br" />
@@ -133,7 +161,7 @@ window.LoginScreen = {
                   onkeydown="if(event.key==='Enter'){LoginScreen.submitLogin()}"
                   class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-800/80 border border-white/10 text-white font-semibold placeholder:text-slate-500" placeholder="••••••••" />
               </div>
-              <button onclick="LoginScreen.submitLogin()" ${s.loading ? 'disabled' : ''} class="w-full px-4 py-3.5 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-black flex items-center justify-center gap-2 disabled:opacity-50" style="color:#fff;">
+              <button onclick="LoginScreen._syncDomToState(); LoginScreen.submitLogin()" ${s.loading ? 'disabled' : ''} class="w-full px-4 py-3.5 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-black flex items-center justify-center gap-2 disabled:opacity-50" style="color:#fff;">
                 ${s.loading ? '<span class="w-4 h-4 rounded-full border-2 border-white border-r-transparent animate-spin"></span> Entrando...' : '<i data-lucide="log-in" class="w-4 h-4"></i> Entrar'}
               </button>
             </div>
@@ -142,13 +170,13 @@ window.LoginScreen = {
               <p class="text-sm text-slate-300 leading-relaxed">Solicite acesso ao LeadJourney. Seu cadastro fica pendente até o administrador aprovar.</p>
               <div>
                 <label class="text-xs font-black text-slate-400 uppercase tracking-wide">Username desejado</label>
-                <input type="text" value="${this._esc(s.registerUsername)}"
+                <input type="text" id="registerUsernameField" value="${this._esc(s.registerUsername)}"
                   oninput="LoginScreen.setField('registerUsername', this.value)"
                   class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-800/80 border border-white/10 text-white font-semibold placeholder:text-slate-500" placeholder="seu.nome" />
               </div>
               <div>
                 <label class="text-xs font-black text-slate-400 uppercase tracking-wide">Email <span class="font-normal text-slate-500">(opcional)</span></label>
-                <input type="email" value="${this._esc(s.registerEmail)}"
+                <input type="email" id="registerEmailField" value="${this._esc(s.registerEmail)}"
                   oninput="LoginScreen.setField('registerEmail', this.value)"
                   class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-800/80 border border-white/10 text-white font-semibold placeholder:text-slate-500" placeholder="seu@email.com" />
               </div>
@@ -156,18 +184,18 @@ window.LoginScreen = {
                 <label class="text-xs font-black text-slate-400 uppercase tracking-wide">Modo desejado</label>
                 <div class="mt-1 grid grid-cols-2 gap-2">
                   <label class="rounded-2xl p-3 cursor-pointer border ${s.registerMode === 'sandbox' ? 'border-sky-400 bg-sky-500/15' : 'border-white/10 bg-slate-800/50'} text-white">
-                    <input type="radio" name="regMode" value="sandbox" ${s.registerMode === 'sandbox' ? 'checked' : ''} onchange="LoginScreen.setField('registerMode', 'sandbox')" class="mr-2" />
+                    <input type="radio" name="regMode" value="sandbox" ${s.registerMode === 'sandbox' ? 'checked' : ''} onchange="LoginScreen.setMode('sandbox')" class="mr-2" />
                     <span class="font-black text-sm">Sandbox</span>
                     <span class="block text-[10px] text-slate-400 mt-0.5">Não grava no banco</span>
                   </label>
                   <label class="rounded-2xl p-3 cursor-pointer border ${s.registerMode === 'production' ? 'border-emerald-400 bg-emerald-500/15' : 'border-white/10 bg-slate-800/50'} text-white">
-                    <input type="radio" name="regMode" value="production" ${s.registerMode === 'production' ? 'checked' : ''} onchange="LoginScreen.setField('registerMode', 'production')" class="mr-2" />
+                    <input type="radio" name="regMode" value="production" ${s.registerMode === 'production' ? 'checked' : ''} onchange="LoginScreen.setMode('production')" class="mr-2" />
                     <span class="font-black text-sm">Produção</span>
                     <span class="block text-[10px] text-slate-400 mt-0.5">Grava tudo no banco</span>
                   </label>
                 </div>
               </div>
-              <button onclick="LoginScreen.submitRegister()" ${s.loading ? 'disabled' : ''} class="w-full px-4 py-3.5 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-black flex items-center justify-center gap-2 disabled:opacity-50" style="color:#fff;">
+              <button onclick="LoginScreen._syncDomToState(); LoginScreen.submitRegister()" ${s.loading ? 'disabled' : ''} class="w-full px-4 py-3.5 rounded-2xl bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-600 hover:to-indigo-700 text-white font-black flex items-center justify-center gap-2 disabled:opacity-50" style="color:#fff;">
                 ${s.loading ? '<span class="w-4 h-4 rounded-full border-2 border-white border-r-transparent animate-spin"></span> Enviando...' : '<i data-lucide="user-plus" class="w-4 h-4"></i> Solicitar acesso'}
               </button>
             </div>
