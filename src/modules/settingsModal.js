@@ -96,12 +96,16 @@ var SettingsModal = {
         </div>
 
         <div class="flex flex-wrap gap-3 mt-5">
-          <button onclick="Actions.generateRDAuthUrl()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black hover:bg-slate-800">Gerar URL OAuth</button>
-          <button onclick="Actions.openRDAuthUrl()" class="px-5 py-3 rounded-2xl bg-sky-600 text-white font-black hover:bg-sky-700">Abrir URL OAuth</button>
+          <button onclick="Actions.generateRDAuthUrl()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black hover:bg-slate-800" style="color:#fff!important;">1) Gerar URL OAuth</button>
+          <button onclick="Actions.openRDAuthUrl()" class="px-5 py-3 rounded-2xl bg-sky-600 text-white font-black hover:bg-sky-700" style="color:#fff!important;">2) Abrir URL OAuth</button>
           <button onclick="Actions.copyRDAuthUrl()" class="px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-900 font-black hover:bg-slate-50">Copiar URL</button>
-          <button onclick="Actions.testRDConnection()" class="px-5 py-3 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700">Testar conexão</button>
+          <button onclick="Actions.exchangeRDAuthorizationCode()" ${cfg.authorizationCode ? '' : 'disabled'} class="px-5 py-3 rounded-2xl ${cfg.authorizationCode ? 'bg-violet-600 hover:bg-violet-700 text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'} font-black" ${cfg.authorizationCode ? 'style="color:#fff!important;"' : ''}>3) Trocar code por token</button>
+          <button onclick="Actions.refreshRDAccessToken()" ${cfg.refreshToken ? '' : 'disabled'} class="px-5 py-3 rounded-2xl ${cfg.refreshToken ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'} font-black" ${cfg.refreshToken ? 'style="color:#fff!important;"' : ''}>Renovar token</button>
+          <button onclick="Actions.testRDConnection()" class="px-5 py-3 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700" style="color:#fff!important;">Testar conexão</button>
           <button onclick="Actions.clearRDConfig()" class="px-5 py-3 rounded-2xl bg-red-50 border border-red-200 text-red-600 font-black hover:bg-red-100">Limpar RD</button>
         </div>
+
+        ${this._rdTokenStatusBlock(cfg)}
 
         ${cfg.authUrl ? `<div class="mt-5 rounded-2xl bg-slate-950 p-4">
           <div class="flex items-center justify-between gap-3 mb-2">
@@ -113,6 +117,29 @@ var SettingsModal = {
         </div>` : `<div class="mt-5 rounded-2xl bg-slate-50 border border-slate-100 p-4">
           <p class="text-sm text-slate-600"><strong>Próximo passo:</strong> preencha Client ID e Redirect URI, depois clique em Gerar URL OAuth.</p>
         </div>`}
+      </div>
+    </div>`;
+  },
+
+  // V21.8 — Card mostrando status do OAuth: tem accessToken? quando expira?
+  _rdTokenStatusBlock(cfg) {
+    const hasAccess = Boolean(cfg.accessToken);
+    const hasRefresh = Boolean(cfg.refreshToken);
+    const expiresAt = cfg.expiresAt ? new Date(cfg.expiresAt) : null;
+    const now = Date.now();
+    const expired = expiresAt && expiresAt.getTime() <= now;
+    const minsLeft = expiresAt ? Math.round((expiresAt.getTime() - now) / 60000) : null;
+    const tone = hasAccess && !expired ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+      : hasAccess && expired ? 'bg-amber-50 border-amber-200 text-amber-800'
+      : 'bg-slate-50 border-slate-200 text-slate-600';
+    const label = !hasAccess ? 'Sem token — complete o passo 3 (Trocar code por token).'
+      : expired ? `Token expirado há ${Math.abs(minsLeft)} min. Clique em Renovar token.`
+      : `Token ativo. Expira em ${minsLeft} min.${hasRefresh ? '' : ' (Sem refresh_token — refresh automático indisponível.)'}`;
+    return `<div class="mt-4 rounded-2xl border ${tone} p-3 text-xs font-black flex items-start gap-2">
+      <i data-lucide="${hasAccess && !expired ? 'shield-check' : expired ? 'clock' : 'shield-alert'}" class="w-4 h-4 mt-0.5"></i>
+      <div class="flex-1">
+        <div>${Utils.escape(label)}</div>
+        ${hasAccess ? `<div class="font-mono text-[10px] opacity-75 mt-1 break-all">access_token: ${Utils.escape(String(cfg.accessToken).slice(0, 12))}…${Utils.escape(String(cfg.accessToken).slice(-6))}</div>` : ''}
       </div>
     </div>`;
   },

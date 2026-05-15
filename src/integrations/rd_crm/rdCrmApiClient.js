@@ -15,6 +15,23 @@ window.RdCrmApiClient = {
     return version === 'legacy' ? cfg.legacyBaseUrl : `${cfg.apiBaseUrl}${cfg.crmBasePath}`;
   },
 
+  async _tryRefresh() {
+    if (!window.RDAuthService) return { ok: false, message: 'RDAuthService indisponível.' };
+    const cfg = App.state.integrations?.rd || {};
+    if (!cfg.refreshToken) return { ok: false, message: 'Sem refresh_token salvo.' };
+    const r = await RDAuthService.refreshAccessToken(cfg);
+    if (!r.ok) return r;
+    App.state.integrations = App.state.integrations || {};
+    App.state.integrations.rd = {
+      ...cfg,
+      accessToken: r.accessToken,
+      refreshToken: r.refreshToken || cfg.refreshToken,
+      expiresAt: r.expiresAt || cfg.expiresAt
+    };
+    try { App.save(); } catch (_) {}
+    return { ok: true };
+  },
+
   async request(method, path, options = {}) {
     const credentials = RdCrmConfig.oauthCredentials();
     const token = credentials.accessToken || '';
@@ -29,13 +46,25 @@ window.RdCrmApiClient = {
     }
     const base = options.legacy ? this.baseUrl('legacy') : this.baseUrl('v1');
     const url = path.startsWith('http') ? path : `${base}${path}`;
-    const init = {
-      method,
-      headers: { ...this._buildHeaders(token), ...(options.headers || {}) }
+    const buildInit = (tok) => {
+      const init = { method, headers: { ...this._buildHeaders(tok), ...(options.headers || {}) } };
+      if (options.body !== undefined) init.body = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
+      return init;
     };
-    if (options.body !== undefined) init.body = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
     try {
-      const response = await fetch(url, init);
+      let response = await fetch(url, buildInit(token));
+      // V21.8 — Auto-refresh em 401 (uma única vez).
+      if (response.status === 401 && !options._retried) {
+        const refreshed = await this._tryRefresh();
+        if (refreshed.ok) {
+          const newToken = App.state.integrations?.rd?.accessToken || '';
+          if (newToken) {
+            return this.request(method, path, { ...options, _retried: true });
+          }
+        } else {
+          return { ok: false, status: 401, message: `Token expirou e refresh falhou: ${refreshed.message}` };
+        }
+      }
       const text = await response.text();
       let data = null;
       try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }

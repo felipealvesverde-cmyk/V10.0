@@ -193,7 +193,7 @@ var App = {
             <div>
               <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white text-xs font-black mb-3">
                 <i data-lucide="workflow" class="w-3.5 h-3.5"></i>
-                LeadJourney V12.4.5
+                LeadJourney ${window.LJVersion || 'V?.?'}
               </div>
               <h1 class="lj-page-title">${meta.title}</h1>
               <p class="lj-page-subtitle">${meta.subtitle}</p>

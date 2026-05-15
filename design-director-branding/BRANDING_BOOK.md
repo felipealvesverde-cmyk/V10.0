@@ -31,6 +31,22 @@ Fluxos precisam ser legíveis, com passagem clara entre estágios, sem sobreposi
 ### 2.5 Nada fora do sistema
 Toda nova tela, card, botão, modal ou componente precisa seguir estes tokens, classes e padrões.
 
+### 2.6 Versionamento — Lei (V21.2)
+O badge `LeadJourney V<x>.<y>.<z>` no topo de toda página é **fonte de verdade** sobre a versão atual do produto e nunca pode ficar desatualizado. Regras vinculantes para qualquer atualização aplicada por humanos ou agentes:
+
+| Tipo de atualização | Quem decide | Onde muda no número |
+|---|---|---|
+| **Grande** | Usuário sinaliza antes; se não sinalizar, o agente PERGUNTA antes de aplicar | Primeiro número (`V21` → `V22`) |
+| **Média** | Usuário sinaliza antes; se não sinalizar, o agente PERGUNTA antes de aplicar | Número após o primeiro ponto (`V21.2` → `V21.3`) |
+| **Pequena** (bugfix simples, copy, lint) | Usuário sinaliza antes; se não sinalizar, o agente PERGUNTA antes de aplicar | Número após o segundo ponto (`V21.2.0` → `V21.2.1`) |
+
+Operacional:
+
+- A versão vive em **uma única constante**: `window.LJVersion` em [src/core/version.js](../src/core/version.js).
+- Atualizar essa constante é o único lugar onde se troca a versão — o badge em [src/main.js](../src/main.js) interpola dela.
+- Toda mudança de versão deve estar no commit que aplica a atualização correspondente.
+- Se o agente aplicar uma mudança sem saber o porte e o usuário não houver sinalizado, ele DEVE perguntar "essa é uma atualização grande, média ou pequena?" antes de qualquer Write/Edit.
+
 ---
 
 # 3. Paleta Oficial

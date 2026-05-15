@@ -1390,6 +1390,51 @@ Object.assign(Actions, {
     Utils.toast('Configuração RD limpa.');
   },
 
+  // V21.8 — Troca authorization_code por access_token via fetch direto ao RD.
+  async exchangeRDAuthorizationCode() {
+    this.ensureIntegrations();
+    const cfg = App.state.integrations.rd;
+    if (!cfg.authorizationCode) return Utils.toast('Cole o Authorization Code antes.');
+    Utils.toast('Trocando code por token no RD...');
+    const result = await RDAuthService.exchangeAuthorizationCode(cfg);
+    if (!result.ok) {
+      cfg.status = result.status === 'network_or_cors' ? 'cors_blocked' : 'exchange_failed';
+      cfg.lastTestAt = new Date().toISOString();
+      App.save(); App.render();
+      return Utils.toast(`Falha: ${result.message}`);
+    }
+    cfg.accessToken = result.accessToken;
+    cfg.refreshToken = result.refreshToken || cfg.refreshToken;
+    cfg.expiresAt = result.expiresAt || '';
+    cfg.status = 'connected';
+    cfg.lastTestAt = new Date().toISOString();
+    // V21.8 — code é one-shot: o RD invalida após troca. Limpamos pra não confundir.
+    cfg.authorizationCode = '';
+    App.save(); App.render();
+    Utils.toast('✓ Token RD obtido e salvo.');
+  },
+
+  // V21.8 — Força refresh do accessToken usando refresh_token.
+  async refreshRDAccessToken() {
+    this.ensureIntegrations();
+    const cfg = App.state.integrations.rd;
+    if (!cfg.refreshToken) return Utils.toast('Sem refresh_token. Refaça o OAuth.');
+    Utils.toast('Renovando token RD...');
+    const result = await RDAuthService.refreshAccessToken(cfg);
+    if (!result.ok) {
+      cfg.status = 'refresh_failed';
+      App.save(); App.render();
+      return Utils.toast(`Falha: ${result.message}`);
+    }
+    cfg.accessToken = result.accessToken;
+    cfg.refreshToken = result.refreshToken || cfg.refreshToken;
+    cfg.expiresAt = result.expiresAt || '';
+    cfg.status = 'connected';
+    cfg.lastTestAt = new Date().toISOString();
+    App.save(); App.render();
+    Utils.toast('✓ Token RD renovado.');
+  },
+
   updateActionDraftRDEmail(field, value) {
     App.state.actionDraft.rdEmailConfig = {
       ...(window.RDConfig ? RDConfig.emailDefaults() : {}),
