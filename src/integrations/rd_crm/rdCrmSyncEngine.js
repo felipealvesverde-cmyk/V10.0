@@ -74,23 +74,26 @@ window.RdCrmSyncEngine = {
       cfg.pipelinesByCampaign[campaign.id] = entry;
       return { ok: false, message: ensure.message || 'Falha nas etapas.' };
     }
-    if (ensure.created?.length) this._log('info', `[${campaign.name}] etapas criadas: ${ensure.created.join(', ')}`);
-    // V21.4.5 — Loga falhas de delete (mesmo em caso de sucesso) pra entender
-    // se etapas default do RD estão sendo ignoradas/protegidas.
-    if (ensure.deleteFailures?.length) {
-      this._log('warn', `[${campaign.name}] falhas de delete: ${ensure.deleteFailures.join('; ')}`);
-    }
-    if (ensure.deleted?.length) this._log('info', `[${campaign.name}] etapas removidas: ${ensure.deleted.join(', ')}`);
+    // V21.4.6 — Loga rename/created/reused + falhas parciais. Status do sync
+    // reflete se foi total ("success") ou parcial ("partial").
+    if (ensure.created?.length) this._log('info', `[${campaign.name}] criadas: ${ensure.created.join(', ')}`);
+    if (ensure.renamed?.length) this._log('info', `[${campaign.name}] renomeadas: ${ensure.renamed.join(', ')}`);
+    if (ensure.reused?.length) this._log('info', `[${campaign.name}] reaproveitadas: ${ensure.reused.join(', ')}`);
+    if (ensure.failed?.length) this._log('warn', `[${campaign.name}] falhas parciais: ${ensure.failed.join('; ')}`);
+
+    const stageCount = Object.keys(ensure.stageMap || {}).length;
+    const totalDef = RdCrmConfig.defaultStages().length;
+    const fullSuccess = stageCount === totalDef && !ensure.failed?.length;
     cfg.pipelinesByCampaign[campaign.id] = {
       pipelineId,
       pipelineName,
       stageMap: ensure.stageMap,
       createdAt: existing?.createdAt || new Date().toISOString(),
       lastSyncAt: new Date().toISOString(),
-      lastSyncStatus: 'success',
-      lastSyncMessage: collisionMsg || 'OK'
+      lastSyncStatus: fullSuccess ? 'success' : 'partial',
+      lastSyncMessage: (collisionMsg ? `${collisionMsg} | ` : '') + (ensure.message || 'OK')
     };
-    return { ok: true, pipelineId, pipelineName, stageMap: ensure.stageMap };
+    return { ok: true, pipelineId, pipelineName, stageMap: ensure.stageMap, partial: !fullSuccess };
   },
 
   async runSync({ silent = false, campaignId = null } = {}) {
