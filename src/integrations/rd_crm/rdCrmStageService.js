@@ -45,10 +45,30 @@ window.RdCrmStageService = {
     if (!pipelineId) return { ok: false, message: 'Pipeline RD não conectado.' };
     const remote = await this.listStages(pipelineId);
     if (!remote.ok) return remote;
+
+    // V21.4.4 — Pipelines novos do RD vêm com 4-5 etapas default (Qualificação,
+    // Apresentação, Negociação...). Somadas às 9 do Journey, estouram o limite
+    // de etapas por pipeline. Como esses pipelines são exclusivos do Journey
+    // (criados via createUniqueJourneyPipeline com sufixo em colisão de nome),
+    // qualquer etapa que não case com nossas 9 é default do RD e pode ser
+    // deletada com segurança antes de criarmos as nossas.
+    const journeyLabels = new Set(RdCrmConfig.defaultStages().map(s => s.label.toLowerCase()));
     const remoteByName = new Map();
+    const deleted = [];
     for (const stage of (remote.stages || [])) {
-      remoteByName.set(String(stage?.name || '').trim().toLowerCase(), stage);
+      const name = String(stage?.name || '').trim().toLowerCase();
+      if (journeyLabels.has(name)) {
+        remoteByName.set(name, stage);
+      } else {
+        const stageId = stage?.id || stage?._id || stage?.deal_stage_id;
+        if (stageId) {
+          const del = await this.deleteStage(stageId);
+          if (del.ok) deleted.push(stage?.name || stageId);
+          // se falhar (ex: etapa terminal protegida), seguimos e tentamos criar
+        }
+      }
     }
+
     const created = [];
     const reused = [];
     const stageMap = {};
@@ -61,11 +81,11 @@ window.RdCrmStageService = {
         continue;
       }
       const result = await this.createStage(pipelineId, def.label, def.order);
-      if (!result.ok) return { ok: false, message: `Falha ao criar etapa "${def.label}": ${result.message}` };
+      if (!result.ok) return { ok: false, message: `Falha ao criar etapa "${def.label}": ${result.message}`, deleted };
       const id = result.stage?.id || result.stage?._id || result.stage?.deal_stage_id || '';
       stageMap[def.code] = { rdStageId: id, label: def.label, order: def.order, tag: def.tag };
       created.push(def.label);
     }
-    return { ok: true, stageMap, created, reused };
+    return { ok: true, stageMap, created, reused, deleted };
   }
 };
