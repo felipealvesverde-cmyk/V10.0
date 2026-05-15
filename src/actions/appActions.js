@@ -1398,7 +1398,7 @@ Object.assign(Actions, {
     Utils.toast('Trocando code por token no RD...');
     const result = await RDAuthService.exchangeAuthorizationCode(cfg);
     if (!result.ok) {
-      cfg.status = result.status === 'network_or_cors' ? 'cors_blocked' : 'exchange_failed';
+      cfg.status = 'exchange_failed';
       cfg.lastTestAt = new Date().toISOString();
       App.save(); App.render();
       return Utils.toast(`Falha: ${result.message}`);

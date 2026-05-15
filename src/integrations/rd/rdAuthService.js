@@ -79,21 +79,22 @@ window.RDAuthService = {
     };
   },
 
-  // V21.8 — Troca authorization_code por access_token + refresh_token.
-  // Chama POST https://api.rd.services/auth/token direto do front. Se o RD
-  // bloquear CORS, o catch retorna mensagem nítida pro usuário.
+  // V21.3 — Troca authorization_code por access_token + refresh_token.
+  // Vai via rota proxy /api/rd-token (mesma origem) porque o RD bloqueia CORS
+  // no POST /auth/token. O resto do OAuth (gerar URL, refresh, chamadas CRM)
+  // continua 100% no navegador.
   async exchangeAuthorizationCode(config = {}) {
     const cfg = this.normalize(config);
     if (!cfg.clientId)     return { ok: false, message: "Client ID ausente." };
     if (!cfg.clientSecret) return { ok: false, message: "Client Secret ausente." };
     if (!cfg.authorizationCode) return { ok: false, message: "Authorization Code ausente. Faça o passo OAuth primeiro." };
     try {
-      const res = await fetch("https://api.rd.services/auth/token", {
+      const res = await fetch("/api/rd-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          client_id: cfg.clientId.trim(),
-          client_secret: cfg.clientSecret.trim(),
+          clientId: cfg.clientId.trim(),
+          clientSecret: cfg.clientSecret.trim(),
           code: cfg.authorizationCode.trim()
         })
       });
@@ -123,26 +124,26 @@ window.RDAuthService = {
     } catch (err) {
       return {
         ok: false,
-        status: "network_or_cors",
-        message: `Falha ao trocar code por token: ${err?.message || err}. Provavelmente CORS — o RD pode estar bloqueando POST direto do navegador.`
+        status: "network_error",
+        message: `Falha ao trocar code por token: ${err?.message || err}.`
       };
     }
   },
 
-  // V21.8 — Renova accessToken usando refresh_token.
+  // V21.3 — Renova accessToken usando refresh_token via proxy /api/rd-token.
   async refreshAccessToken(config = {}) {
     const cfg = this.normalize(config);
     if (!cfg.clientId)     return { ok: false, message: "Client ID ausente." };
     if (!cfg.clientSecret) return { ok: false, message: "Client Secret ausente." };
     if (!cfg.refreshToken) return { ok: false, message: "Refresh Token ausente. Refaça o OAuth." };
     try {
-      const res = await fetch("https://api.rd.services/auth/token", {
+      const res = await fetch("/api/rd-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          client_id: cfg.clientId.trim(),
-          client_secret: cfg.clientSecret.trim(),
-          refresh_token: cfg.refreshToken.trim()
+          clientId: cfg.clientId.trim(),
+          clientSecret: cfg.clientSecret.trim(),
+          refreshToken: cfg.refreshToken.trim()
         })
       });
       const text = await res.text();
@@ -168,7 +169,7 @@ window.RDAuthService = {
     } catch (err) {
       return {
         ok: false,
-        status: "network_or_cors",
+        status: "network_error",
         message: `Refresh falhou: ${err?.message || err}.`
       };
     }
