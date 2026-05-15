@@ -527,15 +527,46 @@ var State = {
     };
   },
   load() {
+    let raw = null;
+    let usedBackup = false;
     try {
-      const raw = StorageAdapter.loadRaw();
-      const normalized = raw ? this.normalize(raw) : this.initial();
-      // V21.4 — Safety net contra regressão futura: detecta campos top-level que existem
-      // no raw mas sumiram no normalize. Não restaura (pode quebrar invariantes), só alerta.
-      if (raw) this._auditLostFields(raw, normalized);
-      return DatabaseService.applyMigrations(normalized);
+      raw = StorageAdapter.loadRaw();
+    } catch (error) {
+      console.warn('Falha ao ler localStorage principal:', error);
     }
-    catch (error) { console.warn('Falha ao carregar estado local:', error); return this.initial(); }
+    // V22.1.1 — Safety net contra reset silencioso:
+    // se o raw veio vazio/sem dados E existe backup com dados, RESTAURA do backup.
+    // Isso previne perda quando algo na cadeia de load/save zera o key principal.
+    if (!raw || !StorageAdapter._hasRealData?.(JSON.stringify(raw))) {
+      const backup = StorageAdapter.findBackupWithData?.();
+      if (backup?.data) {
+        console.warn(`[State.load] Main key vazio/sem dados — restaurado do backup slot ${backup.slot}.`);
+        raw = backup.data;
+        usedBackup = true;
+      }
+    }
+    try {
+      const normalized = raw ? this.normalize(raw) : this.initial();
+      if (raw) this._auditLostFields(raw, normalized);
+      const migrated = DatabaseService.applyMigrations(normalized);
+      // Se restaurou do backup, salva imediato no main key pra reestabelecer.
+      if (usedBackup) {
+        try { StorageAdapter.saveRaw(migrated); } catch (_) {}
+      }
+      return migrated;
+    } catch (error) {
+      console.warn('Falha ao normalizar estado:', error);
+      // Última tentativa: tenta restaurar de backup mesmo após erro de normalize
+      const backup = !usedBackup && StorageAdapter.findBackupWithData?.();
+      if (backup?.data) {
+        console.warn(`[State.load] Normalize falhou — tentando backup slot ${backup.slot} como fallback.`);
+        try {
+          const normalized = this.normalize(backup.data);
+          return DatabaseService.applyMigrations(normalized);
+        } catch (_) { /* desiste */ }
+      }
+      return this.initial();
+    }
   },
 
   _auditLostFields(raw, normalized) {

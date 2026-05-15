@@ -52,8 +52,28 @@ var App = {
           if (!window.DatabaseService?.shouldHydrateFromLocalFolder?.(this.state)) return;
           const result = await DatabaseService.readSnapshotFromFolder(this.state.databaseConfig);
           if (!result.ok || !result.snapshot?.data) return;
+          // V22.1.1 — Salvaguarda contra hidratação destrutiva:
+          // se o snapshot lido for vazio E o state atual tem dados, NÃO sobrescreve.
+          // Isso evita que um snapshot vazio/corrompido do folder zere o localStorage.
+          const data = result.snapshot.data;
+          const snapHasData = (
+            (Array.isArray(data.products) && data.products.length > 0) ||
+            (Array.isArray(data.campaigns) && data.campaigns.length > 0) ||
+            (Array.isArray(data.actions) && data.actions.length > 0) ||
+            (Array.isArray(data.manualLeads) && data.manualLeads.length > 0)
+          );
+          const stateHasData = (
+            (this.state.products?.length || 0) +
+            (this.state.campaigns?.length || 0) +
+            (this.state.actions?.length || 0) +
+            (this.state.manualLeads?.length || 0)
+          ) > 0;
+          if (!snapHasData && stateHasData) {
+            console.warn('Hidratação ignorada: snapshot vazio mas state atual tem dados. Folder pode estar desatualizado.');
+            return;
+          }
           const cfg = DatabaseService.normalize(this.state.databaseConfig);
-          const hydrated = State.normalize(result.snapshot.data);
+          const hydrated = State.normalize(data);
           this.state = DatabaseService.applyMigrations({
             ...hydrated,
             databaseConfig: cfg,

@@ -1493,6 +1493,22 @@ Object.assign(Actions, {
     Utils.toast('Configuração RD limpa.');
   },
 
+  // V22.1.1 — Snapshot pré-update: baixa um JSON com state completo,
+  // nomeado com a versão atual. LEI do design director: rodar isso
+  // antes de qualquer atualização do projeto.
+  async downloadStateSnapshot(label = '') {
+    if (!window.DatabaseSnapshotService?.generate) {
+      return Utils.toast('Serviço de snapshot indisponível.');
+    }
+    const tag = label || (window.LJVersion || 'state');
+    const result = await DatabaseSnapshotService.generate(`pre-${tag}`);
+    if (result.ok) {
+      Utils.toast(`✓ Snapshot baixado: ${result.filename} (${result.sizeKb} KB).`);
+    } else {
+      Utils.toast(`Falha ao gerar snapshot: ${result.message || 'erro desconhecido'}.`);
+    }
+  },
+
   // V21.8 — Troca authorization_code por access_token via fetch direto ao RD.
   async exchangeRDAuthorizationCode() {
     this.ensureIntegrations();

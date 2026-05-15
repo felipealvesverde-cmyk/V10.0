@@ -31,6 +31,32 @@ Fluxos precisam ser legíveis, com passagem clara entre estágios, sem sobreposi
 ### 2.5 Nada fora do sistema
 Toda nova tela, card, botão, modal ou componente precisa seguir estes tokens, classes e padrões.
 
+### 2.7 Snapshot pré-update — Lei (V22.1.1)
+
+Antes de aplicar **qualquer atualização de código** que toque comportamento, estado ou integração externa, o estado atual do banco DEVE ser exportado e arquivado. Sem snapshot, sem deploy.
+
+**Procedimento**:
+
+1. No console do navegador (com `allow pasting` se necessário):
+   ```js
+   Actions.downloadStateSnapshot()
+   ```
+   Isto baixa um arquivo `leadjourney-snapshot-pre-V<x>.<y>.<z>-<timestamp>.json` automaticamente, contendo cópia integral de `App.state`.
+
+2. Arquive o arquivo na pasta de snapshots local (sugestão: `./snapshots/<data>/`).
+
+3. Só **depois** disso, aplique a atualização (Edit/Write/git push).
+
+4. Em caso de regressão, restaure importando o snapshot via:
+   - Configurações → Backup (UI), OU
+   - Console: substituir state e dar reload — procedimento dependente do tipo de corrupção.
+
+**Por que**: durante V21–V22 tivemos 2 incidentes de reset silencioso do localStorage. A salvaguarda implementada em V22.1.1 ([backup rotativo + recovery em load](../src/core/storage.js)) reduz o risco, mas snapshot exportado é a **última linha de defesa** quando localStorage falha ou é substituído pelo navegador.
+
+**Quem aplica**: tanto humanos quanto agentes. Agentes devem **pedir confirmação explícita do snapshot** antes do primeiro Edit/Write de uma sessão que altera código de produção.
+
+---
+
 ### 2.6 Versionamento — Lei (V21.2)
 O badge `LeadJourney V<x>.<y>.<z>` no topo de toda página é **fonte de verdade** sobre a versão atual do produto e nunca pode ficar desatualizado. Regras vinculantes para qualquer atualização aplicada por humanos ou agentes:
 
