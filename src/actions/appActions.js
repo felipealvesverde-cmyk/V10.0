@@ -1493,6 +1493,13 @@ Object.assign(Actions, {
     Utils.toast('Configuração RD limpa.');
   },
 
+  // V22.3 — Liga/desliga o assistente de conexão RD no painel de configurações.
+  toggleRdAssistant() {
+    App.state.rdAssistantDismissed = !App.state.rdAssistantDismissed;
+    App.save();
+    App.render();
+  },
+
   // V22.1.1 — Snapshot pré-update: baixa um JSON com state completo,
   // nomeado com a versão atual. LEI do design director: rodar isso
   // antes de qualquer atualização do projeto.

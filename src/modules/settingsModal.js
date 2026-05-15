@@ -87,6 +87,7 @@ var SettingsModal = {
 
     return `<div class="space-y-5">
       ${this._rdHeroBlock(steps, allCore, pipelineCount, dealCount)}
+      ${this._rdAssistantBlock(rdCfg, crmCfg)}
       ${this._rdStepperBlock(steps)}
       ${this._rdCoreCrmTokenBlock(rdCfg, hasCrmToken)}
       ${steps.step1 ? this._rdCrmCampaignPipelinesBlock(crmCfg, hasCrmToken) : this._rdLockedHint('pipelines', 'Configure o token CRM acima primeiro.')}
@@ -317,6 +318,215 @@ var SettingsModal = {
       <div>
         <p class="text-sm font-black text-slate-700">${Utils.escape(label)}</p>
         <p class="text-xs">${Utils.escape(msg)}</p>
+      </div>
+    </div>`;
+  },
+
+  // V22.3 — Detecta o passo atual da configuração baseado no state.
+  // Retorna { stage: 'crm'|'marketing'|'done', step: number|string, meta: {} }
+  _rdAssistantState(rdCfg, crmCfg) {
+    const hasCrmToken = Boolean((rdCfg.crmPersonalToken || '').trim());
+    if (!hasCrmToken) return { stage: 'crm', step: 1 };
+
+    const campaigns = Array.isArray(App.state.campaigns) ? App.state.campaigns : [];
+    const eligibleCampaigns = campaigns.filter(c => window.RdCrmSyncEngine?._shouldSyncCampaign?.(c));
+    const byCampaign = crmCfg.pipelinesByCampaign || {};
+    const provisionedIds = new Set(Object.keys(byCampaign).map(k => Number(k)));
+    const pendingPipelines = eligibleCampaigns.filter(c => !provisionedIds.has(Number(c.id)));
+    if (pendingPipelines.length > 0) {
+      return { stage: 'crm', step: 2, pending: pendingPipelines };
+    }
+
+    // Conta leads vinculados a campanhas com pipeline provisionado, sem deal.
+    const dealsByLead = crmCfg.dealsByLead || {};
+    let leadsAwaitingPush = 0;
+    const pushBreakdown = [];
+    for (const c of eligibleCampaigns) {
+      const leads = window.LeadBaseService?.forCampaign?.(c.id) || [];
+      const unsynced = leads.filter(l => {
+        const key = window.LeadBaseService?.keyOf?.(l);
+        if (!key) return false;
+        return !dealsByLead[key]?.[c.id];
+      });
+      if (unsynced.length > 0) {
+        leadsAwaitingPush += unsynced.length;
+        pushBreakdown.push({ campaign: c, count: unsynced.length });
+      }
+    }
+    if (leadsAwaitingPush > 0) {
+      return { stage: 'crm', step: 3, leadsAwaitingPush, breakdown: pushBreakdown };
+    }
+
+    // CRM completo. Olha Marketing.
+    if (rdCfg.accessToken) return { stage: 'done', step: 'done' };
+    if (!rdCfg.clientId || !rdCfg.clientSecret) return { stage: 'marketing', step: 'm1' };
+    if (!rdCfg.authUrl) return { stage: 'marketing', step: 'm2' };
+    if (!rdCfg.authorizationCode) return { stage: 'marketing', step: 'm3' };
+    return { stage: 'marketing', step: 'm4' };
+  },
+
+  // V22.3 — Assistente principal: renderiza o card guiado do passo atual.
+  // Auto-avança quando o usuário completa a ação do passo.
+  _rdAssistantBlock(rdCfg, crmCfg) {
+    if (App.state.rdAssistantDismissed) return '';
+    const state = this._rdAssistantState(rdCfg, crmCfg);
+    const origin = window.location.origin || 'https://leadjourney.up.railway.app';
+
+    // CRM done + Marketing optional + done state têm conteúdo próprio.
+    if (state.stage === 'done') {
+      return this._rdAssistantDoneCard();
+    }
+
+    const totalSteps = state.stage === 'marketing' ? 4 : 3;
+    const stepNum = state.stage === 'marketing' ? Number(String(state.step).replace('m', '')) : state.step;
+    const stepLabel = state.stage === 'crm' ? 'CRM' : 'Marketing';
+
+    const body = state.stage === 'crm'
+      ? this._rdAssistantCrmContent(state, origin)
+      : this._rdAssistantMarketingContent(state, rdCfg, origin);
+
+    return `<div class="rounded-3xl bg-white border-2 border-sky-200 shadow-sm p-5 relative overflow-hidden">
+      <button onclick="Actions.toggleRdAssistant()" title="Dispensar assistente" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 grid place-items-center text-slate-500"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+      <div class="flex items-start gap-3 mb-3">
+        <div class="w-10 h-10 rounded-2xl bg-sky-500 grid place-items-center text-white shrink-0"><i data-lucide="sparkles" class="w-5 h-5"></i></div>
+        <div class="flex-1 min-w-0 pr-8">
+          <p class="text-[10px] font-black text-sky-600 uppercase tracking-wider">Assistente · Passo ${stepNum} de ${totalSteps} · ${stepLabel}</p>
+          ${this._rdAssistantBreadcrumb(state)}
+        </div>
+      </div>
+      ${body}
+    </div>`;
+  },
+
+  _rdAssistantBreadcrumb(state) {
+    const items = [];
+    if (state.stage === 'crm') {
+      items.push({ label: 'Token CRM', done: Number(state.step) > 1 });
+      items.push({ label: 'Pipelines', done: Number(state.step) > 2 });
+      items.push({ label: 'Leads', done: Number(state.step) > 3 });
+    } else if (state.stage === 'marketing') {
+      const n = Number(String(state.step).replace('m', ''));
+      items.push({ label: 'App RD', done: n > 1 });
+      items.push({ label: 'URL OAuth', done: n > 2 });
+      items.push({ label: 'Code', done: n > 3 });
+      items.push({ label: 'Token', done: false });
+    }
+    return `<div class="flex items-center gap-1.5 flex-wrap mt-1">
+      ${items.map(i => `<span class="text-[10px] font-black ${i.done ? 'text-emerald-700' : 'text-slate-400'}">${i.done ? '✓' : '○'} ${Utils.escape(i.label)}</span>`).join('<span class="text-slate-300">·</span>')}
+    </div>`;
+  },
+
+  // V22.3 — Conteúdo dos passos CRM
+  _rdAssistantCrmContent(state, origin) {
+    if (state.step === 1) {
+      return `<h4 class="font-black text-slate-900 mb-2">Gerar Token pessoal no RD CRM</h4>
+      <ol class="text-sm text-slate-700 space-y-2 ml-4 list-decimal">
+        <li>Abra o painel do RD CRM:<br><a href="https://crm.rdstation.com" target="_blank" class="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black no-underline hover:bg-slate-800" style="color:#fff;"><i data-lucide="external-link" class="w-3.5 h-3.5"></i>Abrir crm.rdstation.com</a></li>
+        <li>No topo direito, clique na <b>engrenagem</b> → <b>Todas as configurações</b>.</li>
+        <li>Procure por <b>Integrações</b> ou <b>API</b> no menu lateral.</li>
+        <li>Encontre <b>Token de API</b> e clique em <b>Gerar token</b>.</li>
+        <li>Copie o valor — ele só aparece <b>uma vez</b>.</li>
+        <li>Cole no campo <b>"Token pessoal do CRM"</b> logo abaixo.</li>
+      </ol>
+      <div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+        <b>⚠ Atenção:</b> esse token NÃO é o Client ID/Secret do OAuth (que aparece em outro lugar). É um token estático específico do CRM.
+      </div>`;
+    }
+    if (state.step === 2) {
+      const list = (state.pending || []).map(c => `<li class="flex items-center justify-between gap-2 py-1.5"><span class="text-sm font-black text-slate-900">${Utils.escape(c.name)}</span><button onclick="Actions.generateCampaignPipeline(${c.id})" class="px-3 py-1 rounded-lg bg-sky-600 text-white text-xs font-black" style="color:#fff;">Provisionar →</button></li>`).join('');
+      return `<h4 class="font-black text-slate-900 mb-2">Provisionar pipelines no RD CRM</h4>
+      <p class="text-sm text-slate-600 mb-3">${state.pending.length} campanha(s) elegíveis aguardando pipeline:</p>
+      <ul class="rounded-xl bg-slate-50 border border-slate-200 px-3 divide-y divide-slate-200">
+        ${list}
+      </ul>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button onclick="Actions.syncAllCampaignPipelines()" class="px-4 py-2 rounded-xl bg-sky-600 text-white text-xs font-black" style="color:#fff;"><i data-lucide="zap" class="w-3.5 h-3.5 inline mr-1"></i>Provisionar todos (${state.pending.length})</button>
+      </div>
+      <div class="mt-3 rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-600">
+        <b>ℹ O que acontece:</b> o Journey cria <b>1 pipeline por campanha</b> no seu RD CRM, com <b>9 etapas</b> (Mkt TOF/MOF/BOF, Vendas TOF/MOF/BOF, CS Onboarding/Retenção/Expansão). Pipelines já existentes na sua conta não são tocados — usamos sufixo numérico em caso de colisão de nome.
+      </div>`;
+    }
+    if (state.step === 3) {
+      const list = (state.breakdown || []).map(b => `<li class="flex items-center justify-between gap-2 py-1.5"><span class="text-sm font-black text-slate-900">${Utils.escape(b.campaign.name)}</span><div class="flex items-center gap-2"><span class="text-xs text-slate-500">${b.count} lead(s)</span><button onclick="Actions.pushCampaignICPToRD(${b.campaign.id})" class="px-3 py-1 rounded-lg bg-sky-600 text-white text-xs font-black" style="color:#fff;">Enviar →</button></div></li>`).join('');
+      return `<h4 class="font-black text-slate-900 mb-2">Enviar leads ICP ao RD</h4>
+      <p class="text-sm text-slate-600 mb-3">${state.leadsAwaitingPush} lead(s) aguardando envio:</p>
+      <ul class="rounded-xl bg-slate-50 border border-slate-200 px-3 divide-y divide-slate-200">
+        ${list}
+      </ul>
+      <div class="mt-3 rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-600">
+        <b>ℹ O que acontece:</b> cada lead vira um <b>deal</b> no RD CRM, posicionado em <b>Marketing TOF</b> do pipeline correspondente. O valor inicial do deal vem do Ticket Médio do produto da campanha. Conforme o lead avança no fluxo das ações, o Journey move o deal entre as etapas automaticamente.
+      </div>`;
+    }
+    return '';
+  },
+
+  // V22.3 — Conteúdo dos passos Marketing (OAuth opcional)
+  _rdAssistantMarketingContent(state, rdCfg, origin) {
+    if (state.step === 'm1') {
+      return `<h4 class="font-black text-slate-900 mb-2">Criar app no Publisher do RD</h4>
+      <ol class="text-sm text-slate-700 space-y-2 ml-4 list-decimal">
+        <li>Abra o publisher do RD:<br><a href="https://appstore.rdstation.com/pt-BR/publisher" target="_blank" class="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black no-underline" style="color:#fff;"><i data-lucide="external-link" class="w-3.5 h-3.5"></i>Abrir publisher RD</a></li>
+        <li>Clique em <b>Criar app</b> e preencha:
+          <ul class="ml-4 mt-1 text-xs list-disc space-y-1">
+            <li>Nome: <b>LeadJourney Marketing</b> (ou outro)</li>
+            <li>Tipo: <b>Privado</b></li>
+            <li>Produto: <b>RD Station Marketing</b></li>
+            <li>URL de Callback: <code class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-800 font-mono text-[11px]">${Utils.escape(origin)}</code> <button onclick="navigator.clipboard.writeText('${Utils.escape(origin)}'); Utils.toast('URL copiada')" class="ml-1 text-sky-600 underline text-[10px]">copiar</button></li>
+          </ul>
+        </li>
+        <li>Marque <b>todas as permissões</b> disponíveis e salve.</li>
+        <li>Na próxima tela, copie <b>Client ID</b> e <b>Client Secret</b>.</li>
+        <li>Cole eles no bloco <b>RD Marketing</b> abaixo (clique pra expandir).</li>
+      </ol>
+      <div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+        <b>⚠ Atenção:</b> a URL de Callback deve ser <b>exatamente</b> a do origin (sem barra no final, sem path). Senão o OAuth falha com <code class="text-[10px]">invalid_redirect_uri</code>.
+      </div>`;
+    }
+    if (state.step === 'm2') {
+      return `<h4 class="font-black text-slate-900 mb-2">Gerar URL de autorização</h4>
+      <p class="text-sm text-slate-600 mb-3">Você já preencheu Client ID e Secret. Agora vamos gerar a URL OAuth.</p>
+      <div class="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-700 mb-3">
+        Client ID detectado: <code class="bg-white px-1.5 py-0.5 rounded font-mono text-[10px]">${Utils.escape(String(rdCfg.clientId || '').slice(0, 12))}...</code>
+      </div>
+      <button onclick="Actions.generateRDAuthUrl()" class="px-4 py-2 rounded-xl bg-sky-600 text-white text-xs font-black" style="color:#fff;"><i data-lucide="link" class="w-3.5 h-3.5 inline mr-1"></i>Gerar URL OAuth</button>
+      <div class="mt-3 rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-600">
+        Após clicar, a URL aparece dentro do bloco RD Marketing abaixo. O próximo passo será abrir essa URL.
+      </div>`;
+    }
+    if (state.step === 'm3') {
+      return `<h4 class="font-black text-slate-900 mb-2">Autorizar e copiar o code</h4>
+      <ol class="text-sm text-slate-700 space-y-2 ml-4 list-decimal">
+        <li>Clique abaixo para abrir a tela de autorização do RD:<br><button onclick="Actions.openRDAuthUrl()" class="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-xl bg-sky-600 text-white text-xs font-black" style="color:#fff;"><i data-lucide="external-link" class="w-3.5 h-3.5"></i>Abrir URL OAuth</button></li>
+        <li>Faça login na sua conta RD e clique em <b>Autorizar / Conectar</b>.</li>
+        <li>O RD redireciona para uma URL parecida com:<br><code class="block mt-1 p-2 rounded bg-slate-100 text-[10px] font-mono break-all">${Utils.escape(origin)}/?code=<b>XYZ123...</b></code></li>
+        <li><b>NÃO atualize</b> a página. Copie só o que vem depois de <code>?code=</code> (até o <code>&</code> se houver).</li>
+        <li>Volte aqui e cole no campo <b>Authorization Code</b> no bloco RD Marketing.</li>
+      </ol>
+      <div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+        <b>⚠ O code expira em ~5 min</b> e é one-shot. Se demorar, refaça o passo 2.
+      </div>`;
+    }
+    if (state.step === 'm4') {
+      return `<h4 class="font-black text-slate-900 mb-2">Trocar code por token</h4>
+      <p class="text-sm text-slate-600 mb-3">Code recebido. Último passo: trocar pelo access_token + refresh_token (via proxy interno).</p>
+      <button onclick="Actions.exchangeRDAuthorizationCode()" class="px-4 py-2 rounded-xl bg-violet-600 text-white text-xs font-black" style="color:#fff;"><i data-lucide="repeat" class="w-3.5 h-3.5 inline mr-1"></i>Trocar code por token</button>
+      <div class="mt-3 rounded-xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-600">
+        Se der erro <code>invalid_grant</code>, o code já expirou. Volte ao passo 3 (Autorizar) e refaça com um code novo.
+      </div>`;
+    }
+    return '';
+  },
+
+  // V22.3 — Estado final do assistente. Compacto, ainda visível mas só celebrando.
+  _rdAssistantDoneCard() {
+    return `<div class="rounded-3xl bg-gradient-to-r from-emerald-50 to-sky-50 border-2 border-emerald-200 p-4 relative overflow-hidden">
+      <button onclick="Actions.toggleRdAssistant()" title="Dispensar assistente" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white hover:bg-slate-50 grid place-items-center text-slate-500"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-emerald-500 grid place-items-center text-white"><i data-lucide="check-check" class="w-5 h-5"></i></div>
+        <div class="flex-1 pr-8">
+          <h4 class="font-black text-emerald-900">Tudo conectado.</h4>
+          <p class="text-xs text-emerald-800 mt-1">CRM + Marketing autorizados. O Journey sincroniza pipelines, deals e leads automaticamente a cada 5 min. Você pode dispensar o assistente — voltar é sempre uma engrenagem.</p>
+        </div>
       </div>
     </div>`;
   },
