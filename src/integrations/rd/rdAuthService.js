@@ -38,13 +38,12 @@ window.RDAuthService = {
 
   async testConnection(config = {}) {
     const cfg = this.normalize(config);
-    const validation = this.validateConfig(cfg);
-    if (!validation.ok) return validation;
 
-    // V21.4 — Ping REAL no RD CRM via proxy /api/rd-proxy (CORS workaround).
-    // V21.4.1 — Usa a base legacy (crm.rdstation.com/api/v1) que é a oficial do CRM.
-    // V21.4.2 — Usa ?token=X (esquema legacy) em vez de Authorization: Bearer.
-    // V21.4.3 — Usa o Personal Access Token do CRM (não o accessToken do OAuth).
+    // V22.3.3 — CRM PAT é o caminho primário. Se houver PAT, testa ELE
+    // primeiro, sem exigir OAuth (que é opcional, só pra futuro Marketing).
+    // O bug anterior: validateConfig exigia Client ID/Secret/Redirect mesmo
+    // com PAT presente, e retornava sem campo `status`, fazendo o caller
+    // cair no fallback genérico "error".
     const crmToken = (cfg.crmPersonalToken || '').trim();
     if (crmToken) {
       try {
