@@ -163,10 +163,12 @@ window.RdCrmSyncEngine = {
     cfg.lastSyncStatus = 'running';
     if (!silent) App.render();
     try {
-      if (!RdCrmConfig.isOAuthReady()) {
-        cfg.lastSyncStatus = 'no_oauth';
-        cfg.lastSyncMessage = 'Conecte o RD Station antes de sincronizar.';
-        this._log('warn', 'Sync cancelado: OAuth pendente.');
+      // V22.3.4 — Gate correto pra operações CRM: hasCrmToken (PAT estático)
+      // em vez de isOAuthReady (que era OAuth do Marketing — opcional).
+      if (!RdCrmConfig.hasCrmToken()) {
+        cfg.lastSyncStatus = 'no_crm_token';
+        cfg.lastSyncMessage = 'Conecte o CRM Personal Token antes de sincronizar.';
+        this._log('warn', 'Sync cancelado: CRM Personal Token ausente.');
         return { ok: false, message: cfg.lastSyncMessage };
       }
       const allCampaigns = Array.isArray(App.state.campaigns) ? App.state.campaigns : [];

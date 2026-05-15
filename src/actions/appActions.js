@@ -1026,11 +1026,12 @@ Object.assign(Actions, {
 
   async testRdCrmConnection() {
     const cfg = this._ensureRdCrmConfig();
-    if (!RdCrmConfig.isOAuthReady()) {
-      cfg.lastSyncStatus = 'no_oauth';
-      cfg.lastSyncMessage = 'OAuth do RD não configurado.';
+    // V22.3.4 — Gate é CRM PAT, não OAuth (que é opcional p/ Marketing).
+    if (!RdCrmConfig.hasCrmToken()) {
+      cfg.lastSyncStatus = 'no_crm_token';
+      cfg.lastSyncMessage = 'CRM Personal Token ausente.';
       App.save(); App.render();
-      return Utils.toast('Configure o OAuth do RD Station primeiro.');
+      return Utils.toast('Configure o CRM Personal Token primeiro.');
     }
     Utils.toast('Testando conexão RD CRM...');
     const result = await RdCrmPipelineService.listPipelines();
@@ -1067,7 +1068,7 @@ Object.assign(Actions, {
   // syncAllCampaignPipelines / syncCampaignPipeline (1 pipeline por campanha).
   async createJourneyRevenuePipeline() {
     const cfg = this._ensureRdCrmConfig();
-    if (!RdCrmConfig.isOAuthReady()) return Utils.toast('Conecte o OAuth do RD Station primeiro.');
+    if (!RdCrmConfig.hasCrmToken()) return Utils.toast('Configure o CRM Personal Token primeiro.');
     Utils.toast('Criando Journey Revenue Pipeline no RD...');
     const result = await RdCrmPipelineService.createUniqueJourneyPipeline();
     if (!result.ok) {
@@ -1100,7 +1101,7 @@ Object.assign(Actions, {
 
   // V21.6 — Sincroniza UMA campanha específica (cria pipeline próprio + 9 stages).
   async syncCampaignPipeline(campaignId) {
-    if (!RdCrmConfig.isOAuthReady()) return Utils.toast('Conecte o OAuth do RD Station primeiro.');
+    if (!RdCrmConfig.hasCrmToken()) return Utils.toast('Configure o CRM Personal Token primeiro.');
     const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
     if (!campaign) return Utils.toast('Campanha não encontrada.');
     Utils.toast(`Sincronizando pipeline da campanha "${campaign.name}"...`);
@@ -1213,7 +1214,7 @@ Object.assign(Actions, {
 
   // V21.6 — Sincroniza TODAS as campanhas elegíveis (com ações, leads ou blueprint).
   async syncAllCampaignPipelines() {
-    if (!RdCrmConfig.isOAuthReady()) return Utils.toast('Conecte o OAuth do RD Station primeiro.');
+    if (!RdCrmConfig.hasCrmToken()) return Utils.toast('Configure o CRM Personal Token primeiro.');
     Utils.toast('Sincronizando pipelines de todas as campanhas elegíveis...');
     const result = await RdCrmSyncEngine.runSync();
     Utils.toast(result.ok ? `✓ ${result.message}` : `Falha: ${result.message}`);
@@ -1245,8 +1246,8 @@ Object.assign(Actions, {
       RdCrmSyncEngine.stopAutoSync();
       Utils.toast('Sync automático RD CRM desativado.');
     } else {
-      if (!RdCrmConfig.isOAuthReady()) {
-        Utils.toast('Conecte o OAuth do RD primeiro.');
+      if (!RdCrmConfig.hasCrmToken()) {
+        Utils.toast('Configure o CRM Personal Token primeiro.');
         return;
       }
       RdCrmSyncEngine.startAutoSync();
