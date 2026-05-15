@@ -13,6 +13,9 @@
   <link rel="stylesheet" href="styles/rd-integration-v13.css">
 </head>
 <body class="lj-app-body min-h-screen">
+  <!-- V23.0.0 — Login screen full-page. Mostrado apenas quando JWT ausente/inválido. -->
+  <div id="loginRoot" style="display:none;"></div>
+
   <div class="lj-master-shell">
     <aside class="lj-master-nav" data-master-nav>
       <div class="lj-master-brand">
@@ -87,6 +90,8 @@
   <script src="src/agents/executionAgentBridge.js"></script>
   <script src="src/agents/agentHealthMonitor.js"></script>
   <script src="src/core/version.js"></script>
+  <script src="src/auth/loginScreen.js"></script>
+  <script src="src/core/remoteSyncAdapter.js"></script>
   <script src="src/core/state.js"></script>
   <script src="src/engines/scoreEngine.js"></script>
   <script src="src/engines/okrSuggestionEngine.js"></script>

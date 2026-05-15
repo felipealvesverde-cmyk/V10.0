@@ -1506,7 +1506,93 @@ Object.assign(Actions, {
     Utils.toast('Configuração RD limpa.');
   },
 
-  // V22.3 — Liga/desliga o assistente de conexão RD no painel de configurações.
+  // V23.0.0 — Logout: limpa JWT + user cache + reload (vai pra tela de login).
+  async logout() {
+    if (!confirm('Deslogar do LeadJourney? Mudanças não salvas podem ser perdidas.')) return;
+    localStorage.removeItem('lj_jwt');
+    localStorage.removeItem('lj_user');
+    // V23.0.0 — Sandbox: limpa state local ao deslogar (regra escolhida pelo usuário).
+    try {
+      const u = window.App?.currentUser || JSON.parse(localStorage.getItem('lj_user') || '{}');
+      if (u && u.mode === 'sandbox' && !u.isMaster) {
+        // Limpa state local pra próxima sessão sandbox começar limpa.
+        StorageAdapter?.clear?.();
+      }
+    } catch (_) {}
+    window.location.reload();
+  },
+
+  // V23.0.0 — Carrega lista de usuários (admin).
+  async loadUsersList() {
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return Utils.toast('Sessão expirada — faça login de novo.');
+    try {
+      const res = await fetch('/api/users-list', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      App.state._usersListCache = data.users;
+      App.save();
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async approveUser(userId, mode) {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/users-approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ userId, mode })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ Usuário "${data.user.username}" aprovado (modo ${data.user.mode}).`);
+      this.loadUsersList();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async revokeUser(userId) {
+    if (!confirm('Revogar acesso desse usuário?')) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/users-revoke', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ Acesso de "${data.user.username}" revogado.`);
+      this.loadUsersList();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async setUserMode(userId, mode) {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/users-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ userId, mode })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ "${data.user.username}" agora está em modo ${data.user.mode}.`);
+      this.loadUsersList();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V23.0.0 — Liga/desliga o assistente de conexão RD no painel de configurações.
   toggleRdAssistant() {
     App.state.rdAssistantDismissed = !App.state.rdAssistantDismissed;
     App.save();

@@ -322,6 +322,77 @@ var SettingsModal = {
     </details>`;
   },
 
+  // V23.0.0 — Painel de Usuários (visível apenas para master).
+  usersPanel() {
+    const users = App.state._usersListCache || [];
+    if (!users.length) {
+      // Auto-load se ainda não carregou
+      setTimeout(() => Actions.loadUsersList(), 50);
+      return `<div class="rounded-3xl bg-white border border-slate-100 p-6 shadow-sm">
+        <p class="text-sm text-slate-500">Carregando lista de usuários...</p>
+      </div>`;
+    }
+    const pending = users.filter(u => !u.is_approved);
+    const active = users.filter(u => u.is_approved);
+
+    return `<div class="space-y-5">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-2xl font-black text-slate-950">Gerenciar usuários</h3>
+          <p class="text-sm text-slate-500">${pending.length} pendente(s) · ${active.length} ativo(s)</p>
+        </div>
+        <button onclick="Actions.loadUsersList()" class="px-4 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black flex items-center gap-1.5 lj-dark-button" style="color:#fff;"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Atualizar</button>
+      </div>
+
+      ${pending.length > 0 ? `<div class="rounded-3xl bg-amber-50 border-2 border-amber-200 p-5">
+        <h4 class="font-black text-amber-900 mb-3 flex items-center gap-2"><i data-lucide="clock" class="w-4 h-4"></i>Pendentes de aprovação (${pending.length})</h4>
+        <div class="space-y-2">
+          ${pending.map(u => this._userRow(u, true)).join('')}
+        </div>
+      </div>` : ''}
+
+      <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
+        <h4 class="font-black text-slate-900 mb-3 flex items-center gap-2"><i data-lucide="users" class="w-4 h-4"></i>Usuários ativos (${active.length})</h4>
+        <div class="space-y-2">
+          ${active.map(u => this._userRow(u, false)).join('')}
+        </div>
+      </div>
+    </div>`;
+  },
+
+  _userRow(u, isPending) {
+    const lastLogin = u.last_login_at ? new Date(u.last_login_at).toLocaleString('pt-BR') : 'nunca';
+    const created = u.created_at ? new Date(u.created_at).toLocaleString('pt-BR') : '';
+    const modeChip = u.mode === 'production'
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">produção</span>'
+      : '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-700">sandbox</span>';
+    const masterChip = u.is_master ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-violet-100 text-violet-900">master</span>' : '';
+    return `<div class="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex items-center gap-3">
+      <div class="w-9 h-9 rounded-full bg-slate-200 grid place-items-center text-slate-700 font-black text-sm shrink-0">${Utils.escape((u.username || '?').slice(0, 2).toUpperCase())}</div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="font-black text-sm text-slate-900 truncate">${Utils.escape(u.username)}</span>
+          ${masterChip} ${modeChip}
+        </div>
+        <div class="text-[11px] text-slate-500">${Utils.escape(u.email || '—')} · cadastro ${created} · último login ${lastLogin}</div>
+      </div>
+      ${u.is_master ? '<span class="text-[11px] text-slate-500 italic">(você)</span>' : `
+        <div class="flex items-center gap-2">
+          ${isPending ? `
+            <button onclick="Actions.approveUser(${u.id}, 'sandbox')" class="px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-black">Aprovar (sandbox)</button>
+            <button onclick="Actions.approveUser(${u.id}, 'production')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black" style="color:#fff;">Aprovar (produção)</button>
+          ` : `
+            <select onchange="Actions.setUserMode(${u.id}, this.value)" class="px-2 py-1 rounded-xl bg-white border border-slate-200 text-xs font-black">
+              <option value="sandbox" ${u.mode === 'sandbox' ? 'selected' : ''}>sandbox</option>
+              <option value="production" ${u.mode === 'production' ? 'selected' : ''}>produção</option>
+            </select>
+            <button onclick="Actions.revokeUser(${u.id})" class="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-black">Revogar</button>
+          `}
+        </div>
+      `}
+    </div>`;
+  },
+
   // V22.2 — Placeholder visual quando uma seção depende de outra ainda não preenchida.
   _rdLockedHint(label, msg) {
     return `<div class="rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-5 flex items-center gap-3 text-slate-500">
@@ -1654,13 +1725,14 @@ var SettingsModal = {
     // V22.2 — Consolidação: 'rd' e 'rdCrm' viraram uma seção só "Conexão RD Station".
     // Mantemos o alias 'rdCrm' redirecionando p/ 'rd' por compat de bookmarks/links.
     const resolvedActive = active === 'rdCrm' ? 'rd' : active;
-    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', agents: 'Agentes Externos' };
+    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', agents: 'Agentes Externos', users: 'Usuários' };
     const subtitleMap = {
       rd: 'Token CRM, pipelines por campanha, sincronização de leads e (opcional) RD Marketing — tudo em um lugar.',
       backup: 'Prepare snapshots, restauração e segurança dos dados.',
       database: 'Escolha Local, Supabase ou Amazon e deixe o LeadScore pronto para sincronizar.',
       execution: 'Configure ClickUp, Trello, Monday, Jira, Notion ou modo Manual para onde as tarefas devem ser criadas.',
-      agents: 'Configure o Djow (Railway) e outros agentes que interpretam comandos em linguagem natural.'
+      agents: 'Configure o Djow (Railway) e outros agentes que interpretam comandos em linguagem natural.',
+      users: 'V23.0.0 — Aprove cadastros pendentes, gerencie modo (produção/sandbox) e revogue acessos.'
     };
     const title = titleMap[resolvedActive] || titleMap.database;
     const subtitle = subtitleMap[resolvedActive] || subtitleMap.database;
@@ -1669,6 +1741,7 @@ var SettingsModal = {
       : resolvedActive === 'execution' ? this.executionPanel()
       : resolvedActive === 'agents' ? this.agentsPanel()
       : resolvedActive === 'backup' ? this.backupPanel()
+      : resolvedActive === 'users' ? this.usersPanel()
       : this.databasePanel();
 
     return `<div class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm p-4 overflow-auto">
@@ -1692,6 +1765,7 @@ var SettingsModal = {
           <aside class="bg-white border-r border-slate-200 p-5 space-y-3">
             ${this.sectionButton('database','Banco de Dados','database')}
             ${this.sectionButton('rd','Conexão RD Station','plug-zap')}
+            ${App.currentUser?.isMaster ? this.sectionButton('users','Usuários','users') : ''}
             ${this.sectionButton('execution','Execução Operacional','kanban')}
             ${this.sectionButton('agents','Agentes Externos','cpu')}
             ${this.sectionButton('backup','Backup em breve','archive')}

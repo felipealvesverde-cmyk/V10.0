@@ -1,11 +1,94 @@
 var App = {
       state: null,
-      init() {
-        this.state = State.load();
+      currentUser: null,  // V23.0.0 — preenchido após login OK
+      async init() {
+        // V23.0.0 — Gate de login antes de carregar o app.
+        const sessionOk = await this._checkSession();
+        if (!sessionOk) {
+          this._showLoginScreen();
+          return;
+        }
+        // V23.0.0 — Carrega state remoto se em produção; fallback pra localStorage.
+        await this._loadStateWithRemoteFallback();
         this.ensureRuntimeStateV1301();
         this.runTests();
         this.render();
         this.hydrateFromConfiguredDatabase();
+        // V23.0.0 — Inicia sync remoto + auto-snapshot.
+        if (window.RemoteSyncAdapter) {
+          try { RemoteSyncAdapter.start(); } catch (e) { console.warn('RemoteSync start falhou:', e); }
+        }
+      },
+
+      // V23.0.0 — Verifica sessão JWT chamando /api/auth-me.
+      async _checkSession() {
+        const token = localStorage.getItem('lj_jwt');
+        if (!token) return false;
+        try {
+          const res = await fetch('/api/auth-me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (!data?.ok || !data?.authenticated) {
+            localStorage.removeItem('lj_jwt');
+            localStorage.removeItem('lj_user');
+            return false;
+          }
+          this.currentUser = data.user;
+          // Atualiza user cache no localStorage com info fresca do banco
+          localStorage.setItem('lj_user', JSON.stringify(data.user));
+          return true;
+        } catch (err) {
+          console.warn('[_checkSession]', err);
+          // Falha de rede: tenta usar cache do localStorage como fallback
+          try {
+            this.currentUser = JSON.parse(localStorage.getItem('lj_user') || 'null');
+            return Boolean(this.currentUser);
+          } catch (_) { return false; }
+        }
+      },
+
+      _showLoginScreen() {
+        // Esconde tudo do app, mostra só a tela de login.
+        const root = document.getElementById('loginRoot');
+        if (root) root.style.display = 'block';
+        // Esconde o resto do app
+        document.querySelectorAll('.lj-master-shell, #pageHeader').forEach(el => {
+          if (el) el.style.display = 'none';
+        });
+        if (window.LoginScreen?.render) LoginScreen.render();
+      },
+
+      // V23.0.0 — Carrega state: remoto primeiro (se produção/master), local depois.
+      async _loadStateWithRemoteFallback() {
+        const local = State.load();
+        let useState = local;
+        const user = this.currentUser || {};
+        const canSync = user.mode === 'production' || user.isMaster === true;
+        if (canSync && window.RemoteSyncAdapter) {
+          try {
+            const remote = await RemoteSyncAdapter.loadRemoteState();
+            if (remote?.state) {
+              // Tem state remoto. Decide: usa remoto se for mais recente que local.
+              const localUpdated = local?.lastSavedAt ? new Date(local.lastSavedAt).getTime() : 0;
+              const remoteUpdated = remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0;
+              if (remoteUpdated >= localUpdated) {
+                useState = State.normalize(remote.state);
+                useState = DatabaseService.applyMigrations(useState);
+                console.log('[App] state remoto carregado (atualizado em', remote.updatedAt, ')');
+              } else {
+                console.log('[App] state local mais novo que remoto, mantendo local');
+              }
+            } else if (local && (local.products?.length || local.campaigns?.length)) {
+              // Banco vazio + local tem dados: faz primeira sincronização (push).
+              console.log('[App] banco vazio, fazendo primeira sincronização do local');
+              setTimeout(() => RemoteSyncAdapter._doPush(), 1500);
+            }
+          } catch (err) {
+            console.warn('[App] _loadStateWithRemoteFallback falhou:', err);
+          }
+        }
+        this.state = useState;
       },
 
       ensureRuntimeStateV1301() {
@@ -86,7 +169,16 @@ var App = {
           console.warn('Hidratação do banco local falhou:', error);
         }
       },
-      save() { State.save(); if (window.DatabaseService?.queueAutoSave) DatabaseService.queueAutoSave(this.state); },
+      save() {
+        // V23.0.0 — Marca timestamp pro conflict resolution remoto.
+        if (this.state) this.state.lastSavedAt = new Date().toISOString();
+        State.save();
+        if (window.DatabaseService?.queueAutoSave) DatabaseService.queueAutoSave(this.state);
+        // V23.0.0 — Agenda push pro banco remoto (debounce 2s no Adapter).
+        if (window.RemoteSyncAdapter) {
+          try { RemoteSyncAdapter.schedulePush(); } catch (e) { /* swallow */ }
+        }
+      },
       setTab(tab) {
         this.state.showProductCampaignsModal = false;
         this.state.productCampaignsModalId = null;
@@ -208,9 +300,16 @@ var App = {
 
         const header = document.getElementById('pageHeader');
         const meta = pageMeta[this.state.activeTab] || pageMeta.products;
+        // V23.0.0 — Badge de usuário + modo + logout no header.
+        const user = this.currentUser || {};
+        const userBadge = user.username ? `<div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${user.mode === 'sandbox' && !user.isMaster ? 'bg-amber-500/20 border-amber-400/30 text-amber-100' : 'bg-emerald-500/15 border-emerald-400/30 text-emerald-100'} border text-xs font-black">
+          <i data-lucide="${user.isMaster ? 'shield' : (user.mode === 'sandbox' ? 'flask-conical' : 'database')}" class="w-3.5 h-3.5"></i>
+          ${this._escape(user.username)} · ${user.isMaster ? 'master' : (user.mode || 'sandbox')}
+        </div>` : '';
         if (header) {
           header.innerHTML = `
             <div>
+              ${user.mode === 'sandbox' && !user.isMaster ? '<div class="mb-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-100 text-xs font-black"><i data-lucide="alert-triangle" class="w-3 h-3"></i> MODO SANDBOX — alterações não persistem no banco</div>' : ''}
               <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white text-xs font-black mb-3">
                 <i data-lucide="workflow" class="w-3.5 h-3.5"></i>
                 LeadJourney ${window.LJVersion || 'V?.?'}
@@ -218,10 +317,14 @@ var App = {
               <h1 class="lj-page-title">${meta.title}</h1>
               <p class="lj-page-subtitle">${meta.subtitle}</p>
             </div>
-            <div class="lj-page-actions">
+            <div class="lj-page-actions flex items-center gap-2">
+              ${userBadge}
               <button onclick="Actions.openSettingsModal()" class="lj-btn lj-btn-secondary">
                 <i data-lucide="settings" class="w-4 h-4"></i>
                 Configurações
+              </button>
+              <button onclick="Actions.logout()" title="Sair" class="lj-btn lj-btn-secondary" style="padding-left:0.75rem;padding-right:0.75rem;">
+                <i data-lucide="log-out" class="w-4 h-4"></i>
               </button>
             </div>
           `;
@@ -232,6 +335,9 @@ var App = {
         app.innerHTML = (screens[this.state.activeTab]?.render() || ProductsModule.render()) + (window.SettingsModal ? SettingsModal.render() : '');
         if (window.lucide) lucide.createIcons();
         this._restoreFocus(_focusSnapshot);
+      },
+      _escape(s) {
+        return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       },
       runTests() {
         console.assert(LeadParser.parse('Ana,a@a.com,123,#open').length === 1, 'parseLeadsText lê lead');
