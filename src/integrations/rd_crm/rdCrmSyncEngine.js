@@ -34,6 +34,65 @@ window.RdCrmSyncEngine = {
     return hasActions || hasLinks || hasBlueprint;
   },
 
+  // V22.1 — Empurra ao RD leads vinculados à campanha que ainda não têm deal.
+  // Reutiliza a lógica do Actions.pushCampaignICPToRD mas sem toast pra rodar
+  // no auto-sync silencioso. Retorna contagem de pushed/failed.
+  async _autoPushUnsyncedLeads(campaign) {
+    if (!campaign?.id) return { pushed: 0, failed: 0 };
+    if (!RdCrmConfig.hasPipelineForCampaign(campaign.id)) return { pushed: 0, failed: 0 };
+    if (!window.LeadBaseService?.forCampaign) return { pushed: 0, failed: 0 };
+    if (!window.RdCrmContactService?.upsertContact || !window.RdCrmDealService?.createDeal) return { pushed: 0, failed: 0 };
+
+    const pipelineInfo = RdCrmConfig.pipelineInfoForCampaign(campaign.id);
+    const initialStage = pipelineInfo?.stageMap?.mkt_tof;
+    if (!initialStage?.rdStageId) return { pushed: 0, failed: 0 };
+
+    const product = (App.state.products || []).find(p => Number(p.id) === Number(campaign.productId));
+    const productPrice = Number(product?.priceValue) > 0
+      ? Number(product.priceValue)
+      : (window.ProductRevenueEngine?.parseMoney
+        ? ProductRevenueEngine.parseMoney(product?.price || product?.ticket || 0)
+        : Number(String(product?.price || product?.ticket || '0').replace(/[^\d.,-]/g, '').replace(',', '.')) || 0);
+
+    const leads = LeadBaseService.forCampaign(campaign.id) || [];
+    let pushed = 0, failed = 0;
+
+    for (const lead of leads) {
+      const leadKey = LeadBaseService.keyOf(lead);
+      if (!leadKey) { failed += 1; continue; }
+      const existing = RdCrmConfig.dealForLead(leadKey, campaign.id);
+      if (existing?.rdDealId) continue; // já está no RD, skip silencioso
+      if (!lead.email) { failed += 1; continue; } // sem email não dá pra upsert
+      try {
+        const contactRes = await RdCrmContactService.upsertContact(lead);
+        if (!contactRes.ok) { failed += 1; continue; }
+        const idShort = lead.internalId
+          ? `L-${String(lead.internalId).slice(-6)}`
+          : `L-${String(leadKey).replace(/[^a-z0-9]/gi, '').slice(0, 6).toUpperCase()}`;
+        const dealRes = await RdCrmDealService.createDeal({
+          rdContactId: contactRes.rdContactId,
+          pipelineId: pipelineInfo.pipelineId,
+          stageId: initialStage.rdStageId,
+          name: `${lead.name || lead.email} – ${idShort}`,
+          amount: productPrice
+        });
+        if (!dealRes.ok) { failed += 1; continue; }
+        RdCrmConfig.setDealForLead(leadKey, campaign.id, {
+          rdDealId: dealRes.rdDealId,
+          rdContactId: contactRes.rdContactId,
+          currentStageCode: 'mkt_tof',
+          amount: productPrice,
+          createdAt: new Date().toISOString(),
+          lastMovedAt: new Date().toISOString()
+        });
+        pushed += 1;
+      } catch (_) {
+        failed += 1;
+      }
+    }
+    return { pushed, failed };
+  },
+
   // V21.6 — Sincroniza UMA campanha: garante pipeline + 9 etapas no RD,
   // armazena em cfg.pipelinesByCampaign[campaign.id]. Idempotente: se já existe
   // pipelineId salvo, apenas reconcilia etapas.
@@ -129,6 +188,24 @@ window.RdCrmSyncEngine = {
         const r = await this.syncCampaignPipeline(campaign);
         if (r.ok) success += 1;
         else { failed += 1; failures.push(`${campaign.name}: ${r.message}`); }
+      }
+      // V22.1 — Auto-push de leads não-sincronizados após pipeline pronto.
+      // Pega leads vinculados à campanha que ainda não têm rdDealId em
+      // dealsByLead e empurra eles pro RD. Idempotente: leads já enviados
+      // são ignorados.
+      let autoPushed = 0;
+      let autoPushFailed = 0;
+      for (const campaign of targetCampaigns) {
+        try {
+          const r = await this._autoPushUnsyncedLeads(campaign);
+          autoPushed += r.pushed;
+          autoPushFailed += r.failed;
+        } catch (e) {
+          this._log('warn', `Auto-push falhou para "${campaign.name}": ${e?.message || e}`);
+        }
+      }
+      if (autoPushed > 0 || autoPushFailed > 0) {
+        this._log('info', `Auto-push: ${autoPushed} lead(s) novos enviados ao RD${autoPushFailed ? `, ${autoPushFailed} falha(s)` : ''}.`);
       }
       const mapped = RdCrmActionMapper.mappedActions();
       for (const action of mapped) {

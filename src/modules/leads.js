@@ -61,8 +61,12 @@ var LeadsModule = {
       if (!key) return;
 
       if (!map.has(key)) {
+        // V22.1 — internalId preserva o id original do lead (do manualLeads/CSV).
+        // É usado por integrações externas (RD CRM) que precisam de um
+        // identificador estável diferente da chave de dedup (email).
         map.set(key, {
           id: key,
+          internalId: scored.id || null,
           name: scored.name,
           email: scored.email,
           phone: scored.phone,

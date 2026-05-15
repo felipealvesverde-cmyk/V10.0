@@ -121,12 +121,27 @@ window.RdCrmStageService = {
       created.push(def.label);
     }
 
+    // V22.1 — Stages que sobraram (não foram renomeadas nem casaram com Journey)
+    // são empurradas pro fim do pipeline (order alto) pra ficarem visualmente
+    // separadas das 9 Journey. DELETE 404 no RD CRM legacy, então não dá pra
+    // remover — só reordenar. Não-destrutivo.
+    const archivedOrphans = [];
+    let orphanOrder = 900;
+    for (const orphan of renameCandidates) {
+      const upd = await this.updateStage(orphan.id, { order: orphanOrder });
+      if (upd.ok) {
+        archivedOrphans.push(orphan.originalName);
+        orphanOrder += 1;
+      }
+    }
+
     const totalMapped = Object.keys(stageMap).length;
     const totalNeeded = defs.length;
     const parts = [];
     if (created.length) parts.push(`${created.length} criada(s)`);
     if (renamed.length) parts.push(`${renamed.length} renomeada(s)`);
     if (reused.length) parts.push(`${reused.length} reaproveitada(s)`);
+    if (archivedOrphans.length) parts.push(`${archivedOrphans.length} órfã(s) reordenada(s) p/ o final`);
     const summary = `${totalMapped}/${totalNeeded} stages provisionadas (${parts.join(', ') || 'nada novo'}).`;
     const failSuffix = failed.length ? ` Falhas: ${failed.join('; ')}` : '';
 
@@ -136,6 +151,7 @@ window.RdCrmStageService = {
       created,
       reused,
       renamed,
+      archivedOrphans,
       failed,
       message: summary + failSuffix
     };

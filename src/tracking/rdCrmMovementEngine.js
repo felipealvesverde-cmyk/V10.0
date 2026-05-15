@@ -17,6 +17,37 @@ window.RdCrmMovementEngine = {
     // Sempre atualiza tag local (acumula contador → score sobe).
     if (window.RdCrmTagService) RdCrmTagService.incrementStage(leadIdentityKey, stageCode);
 
+    // V22.1 — Bônus de score quando o lead atinge o endStage de uma ação
+    // configurada na campanha. Significa "completou o fluxo de uma ação"
+    // (ex: ação tinha endStage = Mkt MOF; lead chegou lá; +bônus).
+    // Mecanismo: incrementa tag de novo (peso 2x) + evento explícito de
+    // auditoria via LeadBaseService.pushEvent.
+    let bonusAwarded = false;
+    let completedActions = [];
+    if (campaignId != null && window.RdCrmTagService) {
+      const actions = (App.state.actions || []).filter(a =>
+        Number(a.campaignId) === Number(campaignId) && a.rdCrmEndStageId === stage.rdStageId
+      );
+      if (actions.length > 0) {
+        RdCrmTagService.incrementStage(leadIdentityKey, stageCode); // +1 extra
+        bonusAwarded = true;
+        completedActions = actions.map(a => ({ id: a.id, name: a.name }));
+        if (window.LeadBaseService?.pushEvent) {
+          for (const a of actions) {
+            LeadBaseService.pushEvent(leadIdentityKey, {
+              source: 'rd-crm',
+              type: 'action.completed',
+              actionId: a.id,
+              actionName: a.name,
+              stageCode,
+              campaignId: Number(campaignId),
+              bonusPoints: 1
+            });
+          }
+        }
+      }
+    }
+
     const info = campaignId != null ? window.RdCrmConfig?.pipelineInfoForCampaign?.(campaignId) : null;
     let pushed = false;
     let pushMessage = '';
@@ -45,6 +76,8 @@ window.RdCrmMovementEngine = {
       ok: true,
       pushed,
       pushMessage,
+      bonusAwarded,
+      completedActions,
       moved: {
         leadIdentityKey,
         stageCode,

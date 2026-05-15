@@ -127,8 +127,8 @@ var SettingsModal = {
           <button onclick="Actions.generateRDAuthUrl()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black hover:bg-slate-800" style="color:#fff!important;">1) Gerar URL OAuth</button>
           <button onclick="Actions.openRDAuthUrl()" class="px-5 py-3 rounded-2xl bg-sky-600 text-white font-black hover:bg-sky-700" style="color:#fff!important;">2) Abrir URL OAuth</button>
           <button onclick="Actions.copyRDAuthUrl()" class="px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-900 font-black hover:bg-slate-50">Copiar URL</button>
-          <button onclick="Actions.exchangeRDAuthorizationCode()" ${cfg.authorizationCode ? '' : 'disabled'} class="px-5 py-3 rounded-2xl ${cfg.authorizationCode ? 'bg-violet-600 hover:bg-violet-700 text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'} font-black" ${cfg.authorizationCode ? 'style="color:#fff!important;"' : ''}>3) Trocar code por token</button>
-          <button onclick="Actions.refreshRDAccessToken()" ${cfg.refreshToken ? '' : 'disabled'} class="px-5 py-3 rounded-2xl ${cfg.refreshToken ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'} font-black" ${cfg.refreshToken ? 'style="color:#fff!important;"' : ''}>Renovar token</button>
+          <button onclick="Actions.exchangeRDAuthorizationCode()" class="px-5 py-3 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black" style="color:#fff!important;">3) Trocar code por token</button>
+          <button onclick="Actions.refreshRDAccessToken()" class="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black" style="color:#fff!important;">Renovar token</button>
           <button onclick="Actions.testRDConnection()" class="px-5 py-3 rounded-2xl bg-emerald-600 text-white font-black hover:bg-emerald-700" style="color:#fff!important;">Testar conexão</button>
           <button onclick="Actions.clearRDConfig()" class="px-5 py-3 rounded-2xl bg-red-50 border border-red-200 text-red-600 font-black hover:bg-red-100">Limpar RD</button>
         </div>

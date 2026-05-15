@@ -1141,11 +1141,15 @@ Object.assign(Actions, {
     if (!initialStage?.rdStageId) {
       return Utils.toast('Stage "Marketing TOF" não encontrada. Resincronize o pipeline.');
     }
-    // V22.0 — Produto da campanha p/ derivar ticket médio inicial.
+    // V22.0/22.1 — Produto da campanha p/ derivar ticket médio inicial.
+    // V22.1: prefere product.priceValue (já parseado pelo normalize) sobre
+    // product.price (string crua). Fallback p/ parse manual.
     const product = (App.state.products || []).find(p => Number(p.id) === Number(campaign.productId));
-    const productPrice = window.ProductRevenueEngine?.parseMoney
-      ? ProductRevenueEngine.parseMoney(product?.price || product?.ticket || 0)
-      : Number(String(product?.price || product?.ticket || '0').replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+    const productPrice = Number(product?.priceValue) > 0
+      ? Number(product.priceValue)
+      : (window.ProductRevenueEngine?.parseMoney
+        ? ProductRevenueEngine.parseMoney(product?.price || product?.ticket || 0)
+        : Number(String(product?.price || product?.ticket || '0').replace(/[^\d.,-]/g, '').replace(',', '.')) || 0);
 
     const leads = window.LeadBaseService?.forCampaign?.(campaignId) || [];
     if (!leads.length) {
@@ -1169,7 +1173,12 @@ Object.assign(Actions, {
           failures.push(`${lead.email || lead.name}: ${contactRes.message}`);
           continue;
         }
-        const dealName = `${lead.name || lead.email} – ${lead.id || leadKey}`;
+        // V22.1 — Usa internalId formatado como L-XXXXXX (últimos 6 chars
+        // do id original). Fallback p/ primeiros 8 chars do leadKey.
+        const idShort = lead.internalId
+          ? `L-${String(lead.internalId).slice(-6)}`
+          : `L-${String(leadKey).replace(/[^a-z0-9]/gi, '').slice(0, 6).toUpperCase()}`;
+        const dealName = `${lead.name || lead.email} – ${idShort}`;
         const dealRes = await RdCrmDealService.createDeal({
           rdContactId: contactRes.rdContactId,
           pipelineId: pipelineInfo.pipelineId,
