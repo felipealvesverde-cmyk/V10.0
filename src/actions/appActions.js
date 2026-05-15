@@ -1513,6 +1513,25 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V22.3.7 — Marca OAuth Marketing como "pulado" pelo usuário.
+  // O assistente pula direto para 'done' (CRM já completo + Marketing
+  // declaradamente ignorado). Pode reverter no botão "Conectar Marketing"
+  // que continua disponível no card colapsado.
+  skipMarketingOAuth() {
+    this.ensureIntegrations();
+    App.state.rdMarketingSkipped = true;
+    App.save();
+    App.render();
+    Utils.toast('RD Marketing ignorado. CRM continua funcionando normalmente.');
+  },
+
+  // V22.3.7 — Reverte o skip pra retomar o fluxo OAuth Marketing.
+  unskipMarketingOAuth() {
+    App.state.rdMarketingSkipped = false;
+    App.save();
+    App.render();
+  },
+
   // V22.1.1 — Snapshot pré-update: baixa um JSON com state completo,
   // nomeado com a versão atual. LEI do design director: rodar isso
   // antes de qualquer atualização do projeto.

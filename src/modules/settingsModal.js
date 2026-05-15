@@ -380,10 +380,14 @@ var SettingsModal = {
 
     // CRM completo. Olha Marketing.
     if (rdCfg.accessToken) return { stage: 'done', step: 'done' };
+    // V22.3.7 — Se usuário pulou Marketing, vai direto pra done.
+    if (App.state.rdMarketingSkipped) return { stage: 'done', step: 'done' };
     if (!rdCfg.clientId || !rdCfg.clientSecret) return { stage: 'marketing', step: 'm1' };
     if (!rdCfg.authUrl) return { stage: 'marketing', step: 'm2' };
     if (!rdCfg.authorizationCode) return { stage: 'marketing', step: 'm3' };
-    return { stage: 'marketing', step: 'm4' };
+    // V22.3.7 — Detecta falha do último exchange para mostrar mensagem
+    // específica + opção de pular.
+    return { stage: 'marketing', step: 'm4', lastExchangeStatus: rdCfg.status || '' };
   },
 
   // V22.3.1 — Assistente focado em ENSINO. Cards visuais grandes,
@@ -662,8 +666,9 @@ var SettingsModal = {
     }
 
     if (state.step === 'm4') {
+      const accessDenied = state.lastExchangeStatus === 'exchange_failed';
       return `<div>
-        <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Marketing · Passo 4 de 4</p>
+        <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Marketing · Passo 4 de 4 ${accessDenied ? '· falha anterior' : ''}</p>
         <h3 class="text-2xl font-black text-slate-950 mb-2">Trocar o code por um token de verdade</h3>
         <p class="text-sm text-slate-600 mb-5">Último passo. Vamos pedir ao RD pra trocar o code que você colou por um access_token + refresh_token (válido por 24h, com renovação automática).</p>
 
@@ -671,23 +676,55 @@ var SettingsModal = {
           ${this._rdAssistantBigButton(null, 'Trocar code por token', 'repeat', 'Actions.exchangeRDAuthorizationCode()')}
         </div>
 
-        <div class="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-sm text-slate-600 leading-relaxed">
-          <b class="text-slate-900">Se der erro:</b> a mensagem mais comum é <code>invalid_grant</code>, que significa que o code expirou (>5min) ou já foi usado. Solução: volte ao passo 3 e gere um code novo.
-        </div>
+        ${accessDenied ? `<div class="rounded-2xl bg-red-50 border-2 border-red-200 p-4 mb-4">
+          <div class="flex items-start gap-3 mb-3">
+            <i data-lucide="alert-octagon" class="w-5 h-5 text-red-600 mt-0.5 shrink-0"></i>
+            <div>
+              <p class="font-black text-red-900 mb-1">Última troca falhou (ACCESS_DENIED)</p>
+              <p class="text-sm text-red-900 leading-relaxed">A causa mais comum desse erro: o app no RD foi criado com produto <b>"RD Station CRM"</b> em vez de <b>"RD Station Marketing"</b>. OAuth Marketing exige um app marcado como Marketing.</p>
+            </div>
+          </div>
+          <p class="text-sm font-black text-red-900 mb-2">2 jeitos de resolver:</p>
+          <div class="space-y-3 ml-2">
+            <div class="rounded-xl bg-white border border-red-200 p-3">
+              <p class="text-sm font-black text-slate-900 mb-1">Caminho A — Criar app correto no RD <span class="text-[10px] font-black bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">~3 min</span></p>
+              <p class="text-xs text-slate-600 mb-2">Você cria um app NOVO no publisher do RD, agora com produto <b>"RD Station Marketing"</b>. Copia Client ID/Secret novos, volta ao Passo 1 do assistente.</p>
+              <a href="https://appstore.rdstation.com/pt-BR/publisher" target="_blank" class="inline-flex items-center gap-1.5 text-xs font-black text-sky-700 no-underline hover:underline">Abrir publisher RD <i data-lucide="external-link" class="w-3 h-3"></i></a>
+            </div>
+            <div class="rounded-xl bg-white border border-slate-200 p-3">
+              <p class="text-sm font-black text-slate-900 mb-1">Caminho B — Pular RD Marketing por enquanto <span class="text-[10px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">recomendado</span></p>
+              <p class="text-xs text-slate-600 mb-2">Marketing OAuth é <b>opcional</b>. Hoje você não usa features de e-mail no Journey. Pula e foca no CRM (que já está funcionando).</p>
+              <button onclick="Actions.skipMarketingOAuth()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-black" style="color:#fff;"><i data-lucide="skip-forward" class="w-3 h-3"></i>Pular RD Marketing</button>
+            </div>
+          </div>
+        </div>` : `<div class="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-sm text-slate-600 leading-relaxed">
+          <b class="text-slate-900">Se der erro:</b> a mensagem mais comum é <code>invalid_grant</code>, que significa que o code expirou (>5min) ou já foi usado. Solução: volte ao passo 3 e gere um code novo.<br>
+          <br>
+          Outro erro comum é <code>ACCESS_DENIED</code> — significa que o app foi criado no RD com produto errado. Se aparecer, o assistente vai te guiar.<br>
+          <br>
+          <button onclick="Actions.skipMarketingOAuth()" class="text-sky-700 underline font-black text-xs">Não quero conectar Marketing agora — pular este passo</button>
+        </div>`}
       </div>`;
     }
     return '';
   },
 
   // V22.3 — Estado final do assistente. Compacto, ainda visível mas só celebrando.
+  // V22.3.7 — Mensagem adapta se o Marketing foi pulado (rdMarketingSkipped).
   _rdAssistantDoneCard() {
+    const mktSkipped = Boolean(App.state.rdMarketingSkipped);
+    const hasOAuth = Boolean(App.state.integrations?.rd?.accessToken);
     return `<div class="rounded-3xl bg-gradient-to-r from-emerald-50 to-sky-50 border-2 border-emerald-200 p-4 relative overflow-hidden">
       <button onclick="Actions.toggleRdAssistant()" title="Dispensar assistente" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white hover:bg-slate-50 grid place-items-center text-slate-500"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
       <div class="flex items-start gap-3">
         <div class="w-10 h-10 rounded-2xl bg-emerald-500 grid place-items-center text-white"><i data-lucide="check-check" class="w-5 h-5"></i></div>
         <div class="flex-1 pr-8">
-          <h4 class="font-black text-emerald-900">Tudo conectado.</h4>
-          <p class="text-xs text-emerald-800 mt-1">CRM + Marketing autorizados. O Journey sincroniza pipelines, deals e leads automaticamente a cada 5 min. Você pode dispensar o assistente — voltar é sempre uma engrenagem.</p>
+          <h4 class="font-black text-emerald-900">${hasOAuth ? 'Tudo conectado.' : 'CRM conectado e operando.'}</h4>
+          <p class="text-xs text-emerald-800 mt-1">${hasOAuth
+            ? 'CRM + Marketing autorizados. O Journey sincroniza pipelines, deals e leads automaticamente a cada 5 min.'
+            : (mktSkipped
+              ? 'CRM 100% operacional. RD Marketing foi pulado — não bloqueia nada hoje. Mudou de ideia? <button onclick="Actions.unskipMarketingOAuth()" class="underline font-black text-emerald-900">Conectar Marketing agora</button>.'
+              : 'CRM 100% operacional. Você pode dispensar o assistente — voltar é sempre uma engrenagem.')}</p>
         </div>
       </div>
     </div>`;

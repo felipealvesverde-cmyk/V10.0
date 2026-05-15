@@ -111,10 +111,16 @@ window.RDAuthService = {
       let data = null;
       try { data = text ? JSON.parse(text) : null; } catch (_) { data = { raw: text }; }
       if (!res.ok) {
+        // V22.3.7 — Parser melhor: detecta data.errors[] (formato comum do RD)
+        // e extrai error_type + error_message do primeiro erro.
+        const firstErr = Array.isArray(data?.errors) ? data.errors[0] : null;
+        const errorType = firstErr?.error_type || data?.error || '';
+        const errorMsg = firstErr?.error_message || data?.error_description || JSON.stringify(data) || 'sem corpo';
         return {
           ok: false,
           status: res.status,
-          message: `RD respondeu HTTP ${res.status}: ${data?.error_description || data?.error || JSON.stringify(data) || 'sem corpo'}.`,
+          errorType,
+          message: `RD respondeu HTTP ${res.status}${errorType ? ` · ${errorType}` : ''}: ${errorMsg}`.trim(),
           data
         };
       }
