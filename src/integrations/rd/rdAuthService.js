@@ -42,6 +42,7 @@ window.RDAuthService = {
     if (!validation.ok) return validation;
 
     // V21.4 — Ping REAL no RD CRM via proxy /api/rd-proxy (CORS workaround).
+    // V21.4.1 — Usa a base legacy (crm.rdstation.com/api/v1) que é a oficial do CRM.
     if (cfg.accessToken) {
       try {
         const res = await fetch("/api/rd-proxy", {
@@ -49,8 +50,9 @@ window.RDAuthService = {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             method: "GET",
-            path: "/crm/v1/deal_pipelines",
-            token: cfg.accessToken
+            path: "/deal_pipelines",
+            token: cfg.accessToken,
+            legacy: true
           })
         });
         if (res.status === 401) {

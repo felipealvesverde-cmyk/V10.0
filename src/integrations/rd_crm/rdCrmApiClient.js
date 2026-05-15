@@ -45,10 +45,12 @@ window.RdCrmApiClient = {
       };
     }
     // V21.4 — Toda chamada ao RD vai via /api/rd-proxy (CORS workaround).
-    // Calculamos o path completo na base do RD (com prefixo /crm/v1 se não-legacy)
-    // e mandamos pro proxy, que prepende api.rd.services ou crm.rdstation.com/api/v1.
+    // V21.4.1 — A API CRM unificada (api.rd.services/crm/v1) retorna 404,
+    // então o default agora é a base oficial crm.rdstation.com/api/v1 ("legacy").
+    // Quem precisa do unified explicita options.legacy = false.
+    const useLegacy = options.legacy !== false;
     let rdPath;
-    if (options.legacy) {
+    if (useLegacy) {
       rdPath = path.startsWith('/') ? path : `/${path}`;
     } else {
       const normalized = path.startsWith('/') ? path : `/${path}`;
@@ -63,7 +65,7 @@ window.RdCrmApiClient = {
           path: rdPath,
           body: options.body,
           token,
-          legacy: Boolean(options.legacy)
+          legacy: useLegacy
         })
       });
       // Auto-refresh em 401 (uma única vez).
