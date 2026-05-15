@@ -44,16 +44,29 @@ window.RdCrmApiClient = {
         data: null
       };
     }
-    const base = options.legacy ? this.baseUrl('legacy') : this.baseUrl('v1');
-    const url = path.startsWith('http') ? path : `${base}${path}`;
-    const buildInit = (tok) => {
-      const init = { method, headers: { ...this._buildHeaders(tok), ...(options.headers || {}) } };
-      if (options.body !== undefined) init.body = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
-      return init;
-    };
+    // V21.4 — Toda chamada ao RD vai via /api/rd-proxy (CORS workaround).
+    // Calculamos o path completo na base do RD (com prefixo /crm/v1 se não-legacy)
+    // e mandamos pro proxy, que prepende api.rd.services ou crm.rdstation.com/api/v1.
+    let rdPath;
+    if (options.legacy) {
+      rdPath = path.startsWith('/') ? path : `/${path}`;
+    } else {
+      const normalized = path.startsWith('/') ? path : `/${path}`;
+      rdPath = normalized.startsWith('/crm/') ? normalized : `/crm/v1${normalized}`;
+    }
     try {
-      let response = await fetch(url, buildInit(token));
-      // V21.8 — Auto-refresh em 401 (uma única vez).
+      let response = await fetch('/api/rd-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          method,
+          path: rdPath,
+          body: options.body,
+          token,
+          legacy: Boolean(options.legacy)
+        })
+      });
+      // Auto-refresh em 401 (uma única vez).
       if (response.status === 401 && !options._retried) {
         const refreshed = await this._tryRefresh();
         if (refreshed.ok) {
@@ -75,10 +88,10 @@ window.RdCrmApiClient = {
         ok: response.ok,
         status: response.status,
         data,
-        message: response.ok ? 'Requisição RD CRM realizada.' : (data?.errors ? JSON.stringify(data.errors) : `HTTP ${response.status}`)
+        message: response.ok ? 'Requisição RD CRM realizada.' : (data?.errors ? JSON.stringify(data.errors) : (data?.message || `HTTP ${response.status}`))
       };
     } catch (error) {
-      return { ok: false, status: 'network_error', message: error?.message || 'Falha de rede ao chamar RD CRM.', error };
+      return { ok: false, status: 'network_error', message: error?.message || 'Falha de rede ao chamar /api/rd-proxy.', error };
     }
   },
 

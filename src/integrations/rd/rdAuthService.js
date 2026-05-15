@@ -41,19 +41,24 @@ window.RDAuthService = {
     const validation = this.validateConfig(cfg);
     if (!validation.ok) return validation;
 
-    // V21.8 — Se já tem accessToken, faz um ping REAL na API do RD CRM
-    // (GET /crm/v1/deal_pipelines). Senão, só valida o preenchimento.
+    // V21.4 — Ping REAL no RD CRM via proxy /api/rd-proxy (CORS workaround).
     if (cfg.accessToken) {
       try {
-        const res = await fetch("https://api.rd.services/crm/v1/deal_pipelines", {
-          method: "GET",
-          headers: { "Authorization": `Bearer ${cfg.accessToken}` }
+        const res = await fetch("/api/rd-proxy", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            method: "GET",
+            path: "/crm/v1/deal_pipelines",
+            token: cfg.accessToken
+          })
         });
         if (res.status === 401) {
           return { ok: false, status: "token_expired", message: "Access Token expirado. Use 'Renovar token' (refresh) ou refaça o OAuth." };
         }
         if (!res.ok) {
-          return { ok: false, status: `http_${res.status}`, message: `RD respondeu HTTP ${res.status}.` };
+          const txt = await res.text().catch(() => '');
+          return { ok: false, status: `http_${res.status}`, message: `RD respondeu HTTP ${res.status}.${txt ? ` ${txt.slice(0, 200)}` : ''}` };
         }
         return {
           ok: true,
@@ -63,7 +68,7 @@ window.RDAuthService = {
           testedAt: new Date().toISOString()
         };
       } catch (err) {
-        return { ok: false, status: "network_error", message: `Falha de rede: ${err?.message || err}. Pode ser CORS.` };
+        return { ok: false, status: "network_error", message: `Falha de rede ao chamar /api/rd-proxy: ${err?.message || err}.` };
       }
     }
 
