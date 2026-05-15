@@ -67,10 +67,11 @@ var SettingsModal = {
     const crmCfg = (App.state.integrations && App.state.integrations.rdCrm) || (window.RdCrmConfig ? RdCrmConfig.defaultConfig() : {});
 
     const hasCrmToken = Boolean((rdCfg.crmPersonalToken || '').trim());
-    // V22.3.2 — Conexão "validada" = teste real passou (status=connected).
-    // Esse é o gate pra liberar provisionamento de pipelines, não apenas
-    // ter um token salvo no campo.
-    const isValidated = hasCrmToken && rdCfg.status === 'connected' && Boolean(rdCfg.lastTestAt);
+    // V22.3.2/V22.3.6 — Conexão "validada" = teste do PAT CRM passou
+    // (crmTestStatus='connected'). É campo separado do `status` (que pertence
+    // ao fluxo OAuth Marketing). Assim falha de OAuth não derruba validação
+    // do CRM.
+    const isValidated = hasCrmToken && rdCfg.crmTestStatus === 'connected' && Boolean(rdCfg.crmTestAt);
     const pipelineCount = Object.keys(crmCfg.pipelinesByCampaign || {}).length;
     const dealCount = Object.values(crmCfg.dealsByLead || {})
       .reduce((acc, byCamp) => acc + Object.keys(byCamp || {}).length, 0);
@@ -193,7 +194,7 @@ var SettingsModal = {
             </ol>
           </details>
           ${this._input('crmPersonalToken','','Cole o token aqui','password',cfg.crmPersonalToken)}
-          ${hasCrmToken ? `<p class="text-[10px] font-mono ${isValidated ? 'text-emerald-700' : 'text-amber-700'} mt-2">Token salvo: ${Utils.escape(masked)}${isValidated ? ' · validado em ' + new Date(cfg.lastTestAt).toLocaleString('pt-BR') : ' · aguardando teste de validação'}</p>` : ''}
+          ${hasCrmToken ? `<p class="text-[10px] font-mono ${isValidated ? 'text-emerald-700' : 'text-amber-700'} mt-2">Token salvo: ${Utils.escape(masked)}${isValidated ? ' · validado em ' + new Date(cfg.crmTestAt).toLocaleString('pt-BR') : ' · aguardando teste de validação'}</p>` : ''}
           <div class="flex flex-wrap gap-2 mt-3">
             <button onclick="Actions.testRDConnection()" class="px-4 py-2 rounded-xl ${hasCrmToken && !isValidated ? 'bg-sky-600 hover:bg-sky-700' : 'bg-slate-900 hover:bg-slate-800'} text-white text-xs font-black flex items-center gap-1.5 ${hasCrmToken && !isValidated ? '' : 'lj-dark-button'}" style="color:#fff!important;"><i data-lucide="activity" class="w-3.5 h-3.5"></i> ${hasCrmToken && !isValidated ? 'Testar conexão (obrigatório)' : 'Testar conexão'}</button>
             ${hasCrmToken ? `<button onclick="Actions.updateRDConfig('crmPersonalToken','')" class="px-4 py-2 rounded-xl bg-white border border-red-200 text-red-700 text-xs font-black flex items-center gap-1.5"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Substituir token</button>` : ''}
@@ -340,11 +341,12 @@ var SettingsModal = {
     const hasCrmToken = Boolean((rdCfg.crmPersonalToken || '').trim());
     if (!hasCrmToken) return { stage: 'crm', step: 1 };
 
-    // V22.3.2 — Tem token mas a conexão real nunca foi testada (ou falhou).
-    // Bloqueia avanço até validar com ping no RD.
-    const isValidated = rdCfg.status === 'connected' && Boolean(rdCfg.lastTestAt);
+    // V22.3.2/V22.3.6 — Tem token mas a conexão real nunca foi testada (ou falhou).
+    // Usa crmTestStatus (separado do OAuth status) para não ser sobrescrito
+    // por falhas do exchange OAuth Marketing.
+    const isValidated = rdCfg.crmTestStatus === 'connected' && Boolean(rdCfg.crmTestAt);
     if (!isValidated) {
-      return { stage: 'crm', step: 'validate', lastStatus: rdCfg.status || '' };
+      return { stage: 'crm', step: 'validate', lastStatus: rdCfg.crmTestStatus || '' };
     }
 
     const campaigns = Array.isArray(App.state.campaigns) ? App.state.campaigns : [];

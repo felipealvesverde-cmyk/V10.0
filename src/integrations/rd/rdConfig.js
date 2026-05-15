@@ -11,6 +11,12 @@ window.RDConfig = {
       // CRM → Integrações). Usado para chamadas em crm.rdstation.com/api/v1
       // via query string ?token=X. NÃO confundir com accessToken do OAuth.
       crmPersonalToken: "",
+      // V22.3.6 — Status SEPARADO do CRM (PAT) vs OAuth (Marketing).
+      // Antes ambos escreviam em `status`, então uma falha de OAuth
+      // sobrescrevia a validação do CRM. crmTestStatus = 'connected' |
+      // 'unauthorized' | 'http_xxx' | 'network_error' | 'not_tested'.
+      crmTestStatus: "not_tested",
+      crmTestAt: "",
       clientId: "",
       clientSecret: "",
       redirectUri: "",

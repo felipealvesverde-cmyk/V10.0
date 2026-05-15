@@ -1462,12 +1462,12 @@ Object.assign(Actions, {
     this.ensureIntegrations();
     const prev = App.state.integrations.rd[field];
     App.state.integrations.rd[field] = value;
-    // V22.3.2 — Quando o token CRM muda, força re-validação (status volta a
-    // 'not_tested'). Sem isso o assistente acharia que a conexão antiga ainda
-    // está válida com o novo token.
+    // V22.3.6 — Quando o token CRM muda, força re-validação (crmTestStatus
+    // volta a 'not_tested'). Sem isso o assistente acharia que a conexão
+    // antiga ainda está válida com o novo token.
     if (field === 'crmPersonalToken' && prev !== value) {
-      App.state.integrations.rd.status = 'not_tested';
-      App.state.integrations.rd.lastTestAt = '';
+      App.state.integrations.rd.crmTestStatus = 'not_tested';
+      App.state.integrations.rd.crmTestAt = '';
     }
     App.save();
   },
@@ -1487,8 +1487,12 @@ Object.assign(Actions, {
   async testRDConnection() {
     this.ensureIntegrations();
     const result = await RDAuthService.testConnection(App.state.integrations.rd);
-    App.state.integrations.rd.status = result.status || (result.ok ? 'configured' : 'error');
-    App.state.integrations.rd.lastTestAt = result.testedAt || new Date().toISOString();
+    // V22.3.6 — Escreve em campos SEPARADOS para CRM (que é o caminho
+    // primário hoje). status/lastTestAt ficam reservados para OAuth Marketing.
+    // Se o teste falhar com mensagem específica, mapeia pra status genérico.
+    const isConnected = result.ok && result.status === 'connected';
+    App.state.integrations.rd.crmTestStatus = isConnected ? 'connected' : (result.status || 'error');
+    App.state.integrations.rd.crmTestAt = result.testedAt || new Date().toISOString();
     App.save();
     App.render();
     Utils.toast(result.message || 'Teste RD finalizado.');
