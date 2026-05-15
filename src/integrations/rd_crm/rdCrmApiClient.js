@@ -56,6 +56,8 @@ window.RdCrmApiClient = {
       const normalized = path.startsWith('/') ? path : `/${path}`;
       rdPath = normalized.startsWith('/crm/') ? normalized : `/crm/v1${normalized}`;
     }
+    // V21.4.2 — Legacy CRM API rejeita Authorization: Bearer; usa ?token=X.
+    const useQueryToken = useLegacy;
     try {
       let response = await fetch('/api/rd-proxy', {
         method: 'POST',
@@ -65,7 +67,8 @@ window.RdCrmApiClient = {
           path: rdPath,
           body: options.body,
           token,
-          legacy: useLegacy
+          legacy: useLegacy,
+          useQueryToken
         })
       });
       // Auto-refresh em 401 (uma única vez).

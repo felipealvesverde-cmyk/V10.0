@@ -43,6 +43,8 @@ window.RDAuthService = {
 
     // V21.4 — Ping REAL no RD CRM via proxy /api/rd-proxy (CORS workaround).
     // V21.4.1 — Usa a base legacy (crm.rdstation.com/api/v1) que é a oficial do CRM.
+    // V21.4.2 — Usa ?token=X (esquema legacy) em vez de Authorization: Bearer.
+    //            Erro exibe corpo real do RD pra debug.
     if (cfg.accessToken) {
       try {
         const res = await fetch("/api/rd-proxy", {
@@ -52,15 +54,17 @@ window.RDAuthService = {
             method: "GET",
             path: "/deal_pipelines",
             token: cfg.accessToken,
-            legacy: true
+            legacy: true,
+            useQueryToken: true
           })
         });
-        if (res.status === 401) {
-          return { ok: false, status: "token_expired", message: "Access Token expirado. Use 'Renovar token' (refresh) ou refaça o OAuth." };
-        }
+        const rawBody = await res.text().catch(() => '');
         if (!res.ok) {
-          const txt = await res.text().catch(() => '');
-          return { ok: false, status: `http_${res.status}`, message: `RD respondeu HTTP ${res.status}.${txt ? ` ${txt.slice(0, 200)}` : ''}` };
+          const snippet = rawBody ? ` Resposta RD: ${rawBody.slice(0, 400)}` : '';
+          if (res.status === 401) {
+            return { ok: false, status: "unauthorized", message: `HTTP 401 — token rejeitado pelo RD CRM.${snippet}` };
+          }
+          return { ok: false, status: `http_${res.status}`, message: `RD respondeu HTTP ${res.status}.${snippet}` };
         }
         return {
           ok: true,

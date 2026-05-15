@@ -12,8 +12,9 @@
 //     method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE",
 //     path:   "/crm/v1/deal_pipelines",   // sempre começa com /
 //     body:   { ... } | null | undefined, // ignorado em GET/HEAD
-//     token:  "eyJ0eXAiOi...",            // Bearer do RD
-//     legacy: false                       // true → usa crm.rdstation.com/api/v1 como base
+//     token:  "eyJ0eXAiOi...",            // token do RD
+//     legacy: false,                      // true → usa crm.rdstation.com/api/v1 como base
+//     useQueryToken: false                // V21.4.2: true → manda token como ?token=X (esquema legacy do CRM) em vez de Authorization: Bearer
 //   }
 //
 // Retorna o status HTTP do RD + o corpo (JSON parsed quando possível).
@@ -33,7 +34,7 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ ok: false, message: 'Use POST.' });
   }
 
-  const { method = 'GET', path = '', body = null, token = '', legacy = false } = req.body || {};
+  const { method = 'GET', path = '', body = null, token = '', legacy = false, useQueryToken = false } = req.body || {};
 
   if (typeof path !== 'string' || !path.startsWith('/')) {
     return res.status(400).json({ ok: false, message: 'path inválido (deve começar com /).' });
@@ -48,15 +49,23 @@ module.exports = async function handler(req, res) {
   }
 
   const base = legacy ? LEGACY_BASE : API_BASE;
-  const url = `${base}${path}`;
+  // V21.4.2 — Quando useQueryToken=true, mandamos o token como ?token=X
+  // (esquema legacy do RD CRM) em vez de Authorization: Bearer.
+  let url = `${base}${path}`;
+  if (useQueryToken) {
+    const sep = url.includes('?') ? '&' : '?';
+    url = `${url}${sep}token=${encodeURIComponent(token)}`;
+  }
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  };
+  if (!useQueryToken) headers['Authorization'] = `Bearer ${token}`;
 
   const init = {
     method: upper,
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    }
+    headers
   };
   if (body !== null && body !== undefined && upper !== 'GET' && upper !== 'HEAD') {
     init.body = typeof body === 'string' ? body : JSON.stringify(body);
