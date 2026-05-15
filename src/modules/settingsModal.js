@@ -622,22 +622,40 @@ var SettingsModal = {
       return `<div>
         <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Marketing · Passo 3 de 4</p>
         <h3 class="text-2xl font-black text-slate-950 mb-2">Autorizar no RD e copiar o "code"</h3>
-        <p class="text-sm text-slate-600 mb-5">Vamos abrir a tela de autorização do RD Marketing. Depois de autorizar, o RD te devolve um <code>code</code> que cola aqui.</p>
+        <p class="text-sm text-slate-600 mb-5">O RD precisa que você autorize. Depois ele devolve um <b>code temporário</b> (parecido com uma senha de uso único) que cola aqui pra fechar a conexão.</p>
 
         <div class="mb-5">
           ${this._rdAssistantBigButton(null, 'Abrir URL OAuth no RD', 'external-link', 'Actions.openRDAuthUrl()')}
         </div>
 
-        <p class="text-sm font-black text-slate-700 mb-2">Na nova aba do RD:</p>
+        <p class="text-sm font-black text-slate-700 mb-2">Quando abrir a nova aba do RD:</p>
         <div class="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2 divide-y divide-slate-200">
-          ${this._rdAssistantSubstep(1, 'Faça login na sua conta RD se pedir.')}
-          ${this._rdAssistantSubstep(2, 'Clique em <b>Autorizar / Conectar</b>.')}
-          ${this._rdAssistantSubstep(3, `O RD redireciona pra uma URL tipo:<br><code class="block mt-1 p-2 rounded bg-white border border-slate-200 text-[10px] font-mono break-all">${Utils.escape(origin)}/?code=<b class="text-sky-700">XYZ123…</b></code>`)}
-          ${this._rdAssistantSubstep(4, '<b>NÃO atualize</b> a página. Selecione SÓ o que vem depois de <code>?code=</code> (até o próximo <code>&</code> se houver) e copie.')}
-          ${this._rdAssistantSubstep(5, 'Volte aqui e cole no campo <b>Authorization Code</b> dentro do bloco RD Marketing.')}
+          ${this._rdAssistantSubstep(1, 'Se pedir, faça login na sua conta RD.')}
+          ${this._rdAssistantSubstep(2, 'Aparece uma tela "<b>Você autoriza o LeadJourney a acessar sua conta?</b>". Clique no botão verde/azul <b>Autorizar</b> ou <b>Conectar</b>.')}
+          ${this._rdAssistantSubstep(3, `Após autorizar, o RD <b>redireciona automaticamente</b> a aba pra uma URL nossa, com o code anexado. Ela vai parecer assim na barra de endereço:<br>
+            <div class="mt-2 rounded-xl bg-white border-2 border-sky-300 p-3">
+              <p class="text-[10px] font-black text-slate-500 uppercase mb-1">URL que vai aparecer</p>
+              <code class="block text-[11px] font-mono break-all leading-relaxed">${Utils.escape(origin)}/?code=<span class="bg-yellow-200 text-yellow-900 px-1 py-0.5 rounded">a1b2c3d4e5f6...</span></code>
+              <p class="text-[10px] text-slate-500 mt-2">↑ a parte <span class="bg-yellow-200 text-yellow-900 px-1 rounded font-black">amarela</span> é o seu code. Você copia <b>só ela</b>.</p>
+            </div>`)}
+          ${this._rdAssistantSubstep(4, `<b>NÃO clique em nada na aba do RD ainda.</b> Faça assim pra copiar SÓ o code:
+            <ol class="mt-2 ml-4 list-[lower-alpha] text-xs space-y-1.5">
+              <li>Clique <b>uma vez</b> dentro da barra de endereço (URL) lá em cima.</li>
+              <li>Com o mouse, <b>arraste pra selecionar</b> apenas os caracteres DEPOIS de <code>?code=</code>. Se houver um <code>&</code> no final, pare antes dele.</li>
+              <li>Ou mais fácil: dê <b>Ctrl+L</b> (Windows) ou <b>⌘+L</b> (Mac) pra selecionar a URL toda. Depois recorte: dê Ctrl+C, abra o Bloco de Notas, cole, e edite tirando tudo que vem antes do código.</li>
+              <li>Aperte <b>Ctrl+C</b> (Cmd+C no Mac) com o code selecionado.</li>
+            </ol>`)}
+          ${this._rdAssistantSubstep(5, 'Volte pra esta aba do LeadJourney. Role um pouco pra baixo até achar o bloco <b>RD Marketing ▾</b>, clique pra expandir, e cole no campo <b>Authorization Code</b> com <b>Ctrl+V</b> (Cmd+V no Mac).')}
         </div>
 
-        ${this._rdAssistantWarning('O code <b>expira em ~5 minutos</b> e só funciona uma vez. Se demorar, gere uma URL nova (volta ao passo 2).')}
+        <div class="mt-4 rounded-2xl bg-red-50 border border-red-200 p-4 flex items-start gap-3">
+          <i data-lucide="alert-circle" class="w-5 h-5 text-red-600 mt-0.5 shrink-0"></i>
+          <div class="text-sm text-red-900 leading-relaxed">
+            <b>Se você atualizar (F5) a aba do RD por engano:</b> o code desaparece e o RD esquece. Volta aqui no Journey e clica em <b>"Abrir URL OAuth no RD"</b> de novo — gera um novo code limpo.
+          </div>
+        </div>
+
+        ${this._rdAssistantWarning('O code <b>expira em ~5 minutos</b> e só pode ser usado uma vez. Por isso a pressa: copie e cole rapidinho. Se demorar, refaça o passo 2 (gerar URL nova).')}
       </div>`;
     }
 
