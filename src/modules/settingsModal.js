@@ -67,18 +67,19 @@ var SettingsModal = {
     const crmCfg = (App.state.integrations && App.state.integrations.rdCrm) || (window.RdCrmConfig ? RdCrmConfig.defaultConfig() : {});
 
     const hasCrmToken = Boolean((rdCfg.crmPersonalToken || '').trim());
+    // V22.3.2 — Conexão "validada" = teste real passou (status=connected).
+    // Esse é o gate pra liberar provisionamento de pipelines, não apenas
+    // ter um token salvo no campo.
+    const isValidated = hasCrmToken && rdCfg.status === 'connected' && Boolean(rdCfg.lastTestAt);
     const pipelineCount = Object.keys(crmCfg.pipelinesByCampaign || {}).length;
     const dealCount = Object.values(crmCfg.dealsByLead || {})
       .reduce((acc, byCamp) => acc + Object.keys(byCamp || {}).length, 0);
     const hasOAuth = Boolean(rdCfg.accessToken);
 
-    // V22.2 — Estado de cada um dos 4 passos do stepper:
-    //   1. Token CRM autorizado
-    //   2. Pelo menos 1 pipeline provisionado no RD
-    //   3. Pelo menos 1 deal enviado ao RD
-    //   4. OAuth Marketing (opcional)
+    // Estado de cada passo do Stepper. Passo 1 vira ✓ só após validar
+    // (não apenas salvar o token).
     const steps = {
-      step1: hasCrmToken,
+      step1: isValidated,
       step2: pipelineCount > 0,
       step3: dealCount > 0,
       step4: hasOAuth
@@ -89,8 +90,8 @@ var SettingsModal = {
       ${this._rdHeroBlock(steps, allCore, pipelineCount, dealCount)}
       ${this._rdAssistantBlock(rdCfg, crmCfg)}
       ${this._rdStepperBlock(steps)}
-      ${this._rdCoreCrmTokenBlock(rdCfg, hasCrmToken)}
-      ${steps.step1 ? this._rdCrmCampaignPipelinesBlock(crmCfg, hasCrmToken) : this._rdLockedHint('pipelines', 'Configure o token CRM acima primeiro.')}
+      ${this._rdCoreCrmTokenBlock(rdCfg, hasCrmToken, isValidated)}
+      ${isValidated ? this._rdCrmCampaignPipelinesBlock(crmCfg, isValidated) : this._rdLockedHint('Pipelines bloqueados', hasCrmToken ? 'Teste a conexão CRM acima para liberar.' : 'Configure o token CRM acima primeiro.')}
       ${this._rdMarketingOAuthBlock(rdCfg, hasOAuth)}
       ${this._rdDiagnosticsBlock(rdCfg, crmCfg, hasCrmToken, hasOAuth)}
     </div>`;
@@ -159,20 +160,29 @@ var SettingsModal = {
   },
 
   // V22.2 — Card central: input do CRM Personal Token + ações principais.
-  _rdCoreCrmTokenBlock(cfg, hasCrmToken) {
+  _rdCoreCrmTokenBlock(cfg, hasCrmToken, isValidated) {
+    // V22.3.2 — 3 estados visuais distintos:
+    //   - sem token: amber, "obrigatório"
+    //   - token salvo MAS não validado: amarelo, "aguardando teste"
+    //   - token validado (status=connected): verde, "validado no RD"
     const masked = hasCrmToken ? `${cfg.crmPersonalToken.slice(0, 4)}••••${cfg.crmPersonalToken.slice(-4)}` : '';
-    return `<div class="rounded-3xl border-2 ${hasCrmToken ? 'border-emerald-300 bg-emerald-50/40' : 'border-amber-300 bg-amber-50/40'} p-5 shadow-sm">
+    const stateLabel = !hasCrmToken ? 'obrigatório' : (isValidated ? 'validado no RD' : 'aguardando teste');
+    const tone = !hasCrmToken ? { border: 'border-amber-300', bg: 'bg-amber-50/40', icon: 'bg-amber-500', title: 'text-amber-900', chip: 'bg-amber-200 text-amber-900', body: 'text-amber-800' }
+      : isValidated ? { border: 'border-emerald-300', bg: 'bg-emerald-50/40', icon: 'bg-emerald-500', title: 'text-emerald-900', chip: 'bg-emerald-200 text-emerald-900', body: 'text-emerald-800' }
+      : { border: 'border-amber-300', bg: 'bg-amber-50/40', icon: 'bg-amber-500', title: 'text-amber-900', chip: 'bg-amber-200 text-amber-900', body: 'text-amber-800' };
+
+    return `<div class="rounded-3xl border-2 ${tone.border} ${tone.bg} p-5 shadow-sm">
       <div class="flex items-start gap-4">
-        <div class="w-12 h-12 rounded-2xl ${hasCrmToken ? 'bg-emerald-500' : 'bg-amber-500'} grid place-items-center text-white shrink-0"><i data-lucide="key-round" class="w-6 h-6"></i></div>
+        <div class="w-12 h-12 rounded-2xl ${tone.icon} grid place-items-center text-white shrink-0"><i data-lucide="key-round" class="w-6 h-6"></i></div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1 flex-wrap">
-            <h3 class="font-black text-lg ${hasCrmToken ? 'text-emerald-900' : 'text-amber-900'}">Token pessoal do CRM</h3>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${hasCrmToken ? 'bg-emerald-200 text-emerald-900' : 'bg-amber-200 text-amber-900'}">${hasCrmToken ? 'autorizado' : 'obrigatório'}</span>
+            <h3 class="font-black text-lg ${tone.title}">Token pessoal do CRM</h3>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${tone.chip}">${stateLabel}</span>
           </div>
-          <p class="text-xs ${hasCrmToken ? 'text-emerald-800' : 'text-amber-800'} mb-3 max-w-2xl">
+          <p class="text-xs ${tone.body} mb-3 max-w-2xl">
             Esse token autoriza o Journey a criar pipelines, mover deals e ler tags no seu RD CRM. Não usa OAuth — é um token estático gerado dentro do próprio CRM.
           </p>
-          <details class="text-xs mb-3 ${hasCrmToken ? 'text-emerald-800' : 'text-amber-900'}">
+          <details class="text-xs mb-3 ${tone.body}">
             <summary class="cursor-pointer font-black underline">Como gerar este token (45 s)</summary>
             <ol class="mt-2 ml-4 list-decimal space-y-1">
               <li>Abra <a href="https://crm.rdstation.com" target="_blank" class="underline">crm.rdstation.com</a> e faça login.</li>
@@ -183,9 +193,9 @@ var SettingsModal = {
             </ol>
           </details>
           ${this._input('crmPersonalToken','','Cole o token aqui','password',cfg.crmPersonalToken)}
-          ${hasCrmToken ? `<p class="text-[10px] font-mono text-emerald-700 mt-2">Token salvo: ${Utils.escape(masked)}</p>` : ''}
+          ${hasCrmToken ? `<p class="text-[10px] font-mono ${isValidated ? 'text-emerald-700' : 'text-amber-700'} mt-2">Token salvo: ${Utils.escape(masked)}${isValidated ? ' · validado em ' + new Date(cfg.lastTestAt).toLocaleString('pt-BR') : ' · aguardando teste de validação'}</p>` : ''}
           <div class="flex flex-wrap gap-2 mt-3">
-            <button onclick="Actions.testRDConnection()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center gap-1.5 lj-dark-button" style="color:#fff!important;"><i data-lucide="activity" class="w-3.5 h-3.5"></i> Testar conexão</button>
+            <button onclick="Actions.testRDConnection()" class="px-4 py-2 rounded-xl ${hasCrmToken && !isValidated ? 'bg-sky-600 hover:bg-sky-700' : 'bg-slate-900 hover:bg-slate-800'} text-white text-xs font-black flex items-center gap-1.5 ${hasCrmToken && !isValidated ? '' : 'lj-dark-button'}" style="color:#fff!important;"><i data-lucide="activity" class="w-3.5 h-3.5"></i> ${hasCrmToken && !isValidated ? 'Testar conexão (obrigatório)' : 'Testar conexão'}</button>
             ${hasCrmToken ? `<button onclick="Actions.updateRDConfig('crmPersonalToken','')" class="px-4 py-2 rounded-xl bg-white border border-red-200 text-red-700 text-xs font-black flex items-center gap-1.5"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Substituir token</button>` : ''}
           </div>
         </div>
@@ -323,10 +333,19 @@ var SettingsModal = {
   },
 
   // V22.3 — Detecta o passo atual da configuração baseado no state.
+  // V22.3.2 — Adicionado step 'validate' (passo 1.5): força validar que
+  // o token CRM funciona antes de avançar pro Passo 2 (provisionar).
   // Retorna { stage: 'crm'|'marketing'|'done', step: number|string, meta: {} }
   _rdAssistantState(rdCfg, crmCfg) {
     const hasCrmToken = Boolean((rdCfg.crmPersonalToken || '').trim());
     if (!hasCrmToken) return { stage: 'crm', step: 1 };
+
+    // V22.3.2 — Tem token mas a conexão real nunca foi testada (ou falhou).
+    // Bloqueia avanço até validar com ping no RD.
+    const isValidated = rdCfg.status === 'connected' && Boolean(rdCfg.lastTestAt);
+    if (!isValidated) {
+      return { stage: 'crm', step: 'validate', lastStatus: rdCfg.status || '' };
+    }
 
     const campaigns = Array.isArray(App.state.campaigns) ? App.state.campaigns : [];
     const eligibleCampaigns = campaigns.filter(c => window.RdCrmSyncEngine?._shouldSyncCampaign?.(c));
@@ -435,6 +454,40 @@ var SettingsModal = {
 
   // V22.3.1 — Conteúdo dos passos CRM (versão pedagógica).
   _rdAssistantCrmContent(state, origin) {
+    // V22.3.2 — Passo intermediário: validar que o token realmente funciona.
+    if (state.step === 'validate') {
+      const failed = state.lastStatus && state.lastStatus !== 'connected' && state.lastStatus !== '';
+      const failedTone = failed ? 'text-red-900' : 'text-slate-950';
+      return `<div>
+        <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest mb-1">✓ Token salvo · Passo 1.5 de 3</p>
+        <h3 class="text-2xl font-black ${failedTone} mb-2">Validar a conexão com o RD CRM</h3>
+        <p class="text-sm text-slate-600 mb-5">Você colou um token. Antes de provisionar pipelines, vamos garantir que o RD <b>aceita</b> esse token. O teste manda uma chamada real à API do RD.</p>
+
+        <div class="mb-5">
+          ${this._rdAssistantBigButton(null, 'Testar conexão agora', 'activity', 'Actions.testRDConnection()')}
+        </div>
+
+        ${failed ? `<div class="rounded-2xl bg-red-50 border-2 border-red-200 p-4 mb-4">
+          <div class="flex items-start gap-3">
+            <i data-lucide="x-circle" class="w-5 h-5 text-red-600 mt-0.5 shrink-0"></i>
+            <div>
+              <p class="font-black text-red-900 mb-1">Último teste falhou</p>
+              <p class="text-sm text-red-800">Status retornado: <code class="bg-white px-1.5 py-0.5 rounded font-mono text-[11px]">${Utils.escape(state.lastStatus)}</code>. O token pode estar errado ou expirado. Gere um novo em <b>RD CRM → Integrações</b> e cole no campo "Token pessoal do CRM" — depois clique "Testar conexão agora" de novo.</p>
+            </div>
+          </div>
+        </div>` : ''}
+
+        <p class="text-sm font-black text-slate-700 mb-2">O que vai acontecer ao clicar:</p>
+        <div class="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2 divide-y divide-slate-200">
+          ${this._rdAssistantSubstep(1, 'O Journey faz um <b>GET /deal_pipelines</b> na API real do RD CRM usando seu token.')}
+          ${this._rdAssistantSubstep(2, 'Se o RD aceitar (200 OK), pulamos pro Passo 2 — Provisionar pipelines.')}
+          ${this._rdAssistantSubstep(3, 'Se o RD recusar (401/403), o card vira vermelho com instruções pra gerar novo token.')}
+        </div>
+
+        ${this._rdAssistantWarning('<b>Provisionar pipelines está bloqueado</b> até esse teste passar. Sem validação real, o Journey nem deixa você avançar — evita criar pipelines com token quebrado.')}
+      </div>`;
+    }
+
     if (state.step === 1) {
       return `<div>
         <p class="text-[10px] font-black text-sky-700 uppercase tracking-widest mb-1">Passo 1 de 3</p>
