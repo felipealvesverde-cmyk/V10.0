@@ -159,7 +159,94 @@ var SettingsModal = {
       ${this._rdCrmAssistantBullets(rdCfg, crmCfg, hasToken, isValidated)}
       ${this._rdCoreCrmTokenBlock(rdCfg, hasToken, isValidated)}
       ${isValidated ? this._rdCrmCampaignPipelinesBlock(crmCfg, isValidated) : this._rdLockedHint('Pipelines bloqueados', hasToken ? 'Termine o Passo 2 (testar conexão) para liberar.' : 'Cole o token CRM acima para começar.')}
+      ${isValidated ? this._rdCrmWebhookBlock(rdCfg) : ''}
       ${this._rdDiagnosticsBlock(rdCfg, crmCfg, hasToken, Boolean(rdCfg.accessToken))}
+    </div>`;
+  },
+
+  // V24.0.0 — Painel de configuração do webhook RD CRM.
+  // Mostra a URL do endpoint público (/api/rd-webhook) + tutorial em bullets
+  // (mesmo padrão do _rdCrmAssistantBullets) + status de atividade.
+  //
+  // Por que aqui: o webhook RD não consegue se autoconfigurar; o usuário tem
+  // que copiar a URL e colar no painel RD CRM → Integrações → Webhooks. O
+  // tutorial reduz fricção e o status confirma que está chegando.
+  _rdCrmWebhookBlock(rdCfg) {
+    const origin = (typeof window !== 'undefined' && window.location?.origin) || 'https://leadjourney.up.railway.app';
+    const webhookUrl = `${origin}/api/rd-webhook`;
+    const lastFetched = App.state.rdWebhookLastFetchedAt || '';
+    const hasActivity = Boolean(lastFetched);
+    const lastFetchedLabel = lastFetched ? new Date(lastFetched).toLocaleString('pt-BR') : '—';
+    const ageMinutes = lastFetched ? Math.round((Date.now() - new Date(lastFetched).getTime()) / 60000) : null;
+    const isLive = ageMinutes !== null && ageMinutes < 30;
+    const statusChip = isLive
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-200 text-emerald-900">recebendo eventos</span>'
+      : hasActivity
+        ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900">sem atividade recente</span>'
+        : '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-700">não configurado</span>';
+
+    const step1Done = false; // só o usuário sabe se copiou
+    const step2Done = hasActivity;
+    const step3Done = isLive;
+    const currentStep = !step2Done ? 2 : !step3Done ? 3 : 0;
+
+    return `<div class="rounded-3xl bg-white border-2 border-violet-200 shadow-md overflow-hidden">
+      <div class="bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 flex items-center justify-between text-white">
+        <div class="flex items-center gap-2">
+          <i data-lucide="webhook" class="w-4 h-4"></i>
+          <span class="font-black text-xs uppercase tracking-wider">Webhook em tempo real</span>
+          ${statusChip}
+        </div>
+        <span class="text-[10px] text-white/70 font-black">3 passos · opcional mas recomendado</span>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex items-start gap-2">
+          <i data-lucide="info" class="w-4 h-4 text-slate-500 mt-0.5"></i>
+          <p class="text-xs text-slate-600 leading-relaxed">Sem webhook, o Journey só descobre mudanças no RD a cada 5 min (polling). Com webhook configurado, eventos chegam <b>na hora</b>: stage trocada, deal ganho/perdido, tag aplicada, contato alterado.</p>
+        </div>
+
+        <div class="rounded-2xl bg-slate-950 p-4">
+          <div class="flex items-center justify-between gap-3 mb-2">
+            <span class="text-[10px] font-black text-violet-300 uppercase tracking-wider">URL para colar no RD</span>
+            <button onclick="Actions.copyWebhookUrl()" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-black flex items-center gap-1.5" style="color:#fff;">
+              <i data-lucide="copy" class="w-3 h-3"></i> Copiar URL
+            </button>
+          </div>
+          <div class="rounded bg-slate-900 border border-white/10 p-2 font-mono text-[11px] text-violet-100 break-all">${Utils.escape(webhookUrl)}</div>
+        </div>
+
+        <div class="space-y-3">
+          ${this._rdBulletStep(1, currentStep, step1Done, 'Copiar a URL acima', [
+            'Clique no botão <b>Copiar URL</b> no card preto acima',
+            'A URL é pública (sem token Journey) — o RD não tem como autenticar com nosso JWT',
+            'Validação de origem opcional via HMAC (Passo 3)'
+          ])}
+          ${this._rdBulletStep(2, currentStep, step2Done, 'Colar no RD CRM → Integrações → Webhooks', [
+            'Abra <a href="https://crm.rdstation.com" target="_blank" class="underline text-violet-700 font-black">crm.rdstation.com</a> → engrenagem ⚙ → <b>Todas as configurações</b>',
+            'Menu lateral → <b>Integrações</b> → <b>Webhooks</b> (ou <b>Notificações de eventos</b>)',
+            'Clique em <b>Adicionar webhook</b> e cole a URL no campo destino',
+            'Selecione os eventos: <b>Contato alterado</b>, <b>Stage alterado</b>, <b>Deal ganho</b>, <b>Deal perdido</b>, <b>Tag adicionada</b>',
+            'Salve. RD vai POSTar nessa URL toda vez que um evento acontecer'
+          ])}
+          ${this._rdBulletStep(3, currentStep, step3Done, 'Validar (opcional, ~30s)', [
+            hasActivity
+              ? `Última atividade: <b>${Utils.escape(lastFetchedLabel)}</b>${ageMinutes !== null ? ` (há ${ageMinutes} min)` : ''}`
+              : 'Mexa um deal no RD CRM (mude de stage, ganhe/perca) e aguarde até 5 min',
+            'O Journey lê os eventos do buffer a cada 5 min ou ao clicar <b>Sincronizar agora</b>',
+            'Pra reforçar segurança: defina <code>RD_WEBHOOK_SECRET</code> nas env vars do Railway. RD CRM aceita assinatura HMAC SHA-256 no header <code>X-RD-Signature</code>'
+          ])}
+        </div>
+
+        <div class="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
+          <div class="text-[11px] text-slate-500">
+            <span class="font-black">Endpoint:</span> <code class="text-slate-700">/api/rd-webhook</code> · <span class="font-black">Buffer:</span> 500 eventos em memória
+          </div>
+          <button onclick="Actions.syncRdCrmNow()" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-black flex items-center gap-1.5 lj-dark-button" style="color:#fff;">
+            <i data-lucide="refresh-cw" class="w-3 h-3"></i> Puxar agora
+          </button>
+        </div>
+      </div>
     </div>`;
   },
 

@@ -21,7 +21,7 @@ window.EventCollector = {
       } catch (error) {
         console.warn('LP fetch falhou (provavelmente endpoint offline):', error?.message);
       }
-      const applied = this.ingestEvents(events);
+      const applied = await this.ingestEvents(events);
       App.state.lpLastPolledAt = new Date().toISOString();
       App.save();
       return { ok: true, applied, total: events.length };
@@ -34,7 +34,9 @@ window.EventCollector = {
     return App.state.lpLastPolledAt || '';
   },
 
-  ingestEvents(events) {
+  // V24.0.0 — async pra acomodar TrackingCheckpointEngine.processEvent que agora
+  // awaita o RdCrmConversionBridge (cria contato/deal no RD).
+  async ingestEvents(events) {
     App.state.lpEvents = Array.isArray(App.state.lpEvents) ? App.state.lpEvents : [];
     let applied = 0;
     for (const raw of events) {
@@ -48,7 +50,7 @@ window.EventCollector = {
         entry.status = 'receiving';
       }
       if (window.TrackingCheckpointEngine) {
-        const fired = TrackingCheckpointEngine.processEvent(enriched);
+        const fired = await TrackingCheckpointEngine.processEvent(enriched);
         if (fired?.fired) applied += 1;
       }
     }

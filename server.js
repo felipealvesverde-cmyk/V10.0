@@ -118,6 +118,9 @@ app.use(async (req, res, next) => {
 });
 
 // V23.0.0 — Lista de rotas que NÃO exigem auth.
+// V24.0.0 — Adicionado /api/rd-webhook (RD POSTa eventos, sem JWT) e
+// /api/rd-events-fetch (frontend puxa do buffer; sem JWT pra simetria com
+// /api/lp-events-fetch — eventos não são sensíveis, só são lidos dentro do app).
 const PUBLIC_API_ROUTES = new Set([
   '/api/auth-login',
   '/api/auth-register',
@@ -126,7 +129,9 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/lp-events-fetch',
   '/api/rd-token',
   '/api/rd-proxy',
-  '/api/rd-crm-sync'
+  '/api/rd-crm-sync',
+  '/api/rd-webhook',
+  '/api/rd-events-fetch'
 ]);
 
 // V23.0.0 — Gate de auth: rotas privadas /api/* exigem req.user.

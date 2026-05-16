@@ -1627,6 +1627,29 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V24.0.0 — Copia a URL pública do webhook RD pro clipboard.
+  // O usuário cola ela em RD CRM → Integrações → Webhooks.
+  async copyWebhookUrl() {
+    const origin = window.location?.origin || 'https://leadjourney.up.railway.app';
+    const url = `${origin}/api/rd-webhook`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        Utils.toast('URL do webhook copiada. Cole em RD CRM → Integrações → Webhooks.');
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        Utils.toast('URL copiada (fallback).');
+      }
+    } catch (err) {
+      Utils.toast(`Falhou ao copiar: ${err?.message || err}. URL: ${url}`);
+    }
+  },
+
   // V22.1.1 — Snapshot pré-update: baixa um JSON com state completo,
   // nomeado com a versão atual. LEI do design director: rodar isso
   // antes de qualquer atualização do projeto.
