@@ -89,6 +89,11 @@ var SettingsModal = {
     const mktConnected = Boolean(rdCfg.accessToken);
     const accountLabel = (rdCfg.accountName || '').trim() || 'Conta RD não identificada';
     const crmAt = rdCfg.crmTestAt ? new Date(rdCfg.crmTestAt).toLocaleString('pt-BR') : null;
+    // V24.1.0 — Botão de refresh manual (auto-loops desligados pra escala).
+    const refreshing = Boolean(App.state.rdRefreshing);
+    const lastRefresh = App.state.rdLastManualRefreshAt
+      ? `há ${Math.max(1, Math.round((Date.now() - new Date(App.state.rdLastManualRefreshAt).getTime()) / 60000))} min`
+      : '—';
 
     return `<div class="rounded-3xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-5">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -97,10 +102,14 @@ var SettingsModal = {
           <div>
             <p class="text-[10px] font-black text-sky-300 uppercase tracking-widest">Conta RD Station</p>
             <p class="text-base font-black">${Utils.escape(accountLabel)}</p>
-            ${crmAt ? `<p class="text-[10px] text-slate-400">CRM validado em ${Utils.escape(crmAt)}</p>` : ''}
+            <p class="text-[10px] text-slate-400">${crmAt ? `CRM validado em ${Utils.escape(crmAt)} · ` : ''}última atualização: ${lastRefresh}</p>
           </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="Actions.refreshAllRdData()" ${refreshing ? 'disabled' : ''} class="px-3 py-1.5 rounded-full text-[11px] font-black bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center gap-1.5 disabled:opacity-50" style="color:#fff;">
+            <i data-lucide="${refreshing ? 'loader-2' : 'refresh-cw'}" class="w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}"></i>
+            ${refreshing ? 'Atualizando…' : 'Atualizar dados RD'}
+          </button>
           <span class="px-3 py-1.5 rounded-full text-[11px] font-black ${crmConnected ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30' : 'bg-slate-600/20 text-slate-300 border border-slate-500/30'}">
             CRM: ${crmConnected ? '✓ ativo' : '—'}
           </span>

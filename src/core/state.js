@@ -531,7 +531,17 @@ var State = {
         ? raw.settingsRdActiveTab
         : (base.settingsRdActiveTab || 'crm'),
       rdAssistantDismissed: Boolean(raw.rdAssistantDismissed),
-      rdMarketingSkipped: Boolean(raw.rdMarketingSkipped)
+      rdMarketingSkipped: Boolean(raw.rdMarketingSkipped),
+      // V24.1.0 — Mailings RD (segmentações criadas a partir do Buscador de Perfil)
+      rdMailings: Array.isArray(raw.rdMailings) ? raw.rdMailings : [],
+      showRdMailingModal: false, // sempre fechado no boot
+      rdMailingDraft: (raw.rdMailingDraft && typeof raw.rdMailingDraft === 'object')
+        ? raw.rdMailingDraft
+        : { name: '', campaignId: '', targetStage: 'mkt_tof' },
+      rdMailingSending: false, // sempre false no boot
+      // V24.1.0 — Cache + refresh manual (auto-loops desligados)
+      rdLastManualRefreshAt: raw.rdLastManualRefreshAt || null,
+      rdRefreshing: false // sempre false no boot
     };
   },
   load() {

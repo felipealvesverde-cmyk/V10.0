@@ -1857,7 +1857,201 @@ Object.assign(Actions, {
     }
   },
 
-  // V24.0.0 — DELETE /integrations/webhooks/:uuid pra desativar um evento.
+  // V24.1.0 — Mailing RD: criar segmentação no RD Marketing a partir de leads
+  // filtrados no Buscador de Perfil. State em App.state.rdMailings + Modal
+  // controlado por showRdMailingModal/rdMailingDraft.
+  openRdMailingModal() {
+    App.state.showRdMailingModal = true;
+    App.state.rdMailingDraft = App.state.rdMailingDraft || { name: '', campaignId: '', targetStage: 'mkt_tof' };
+    App.save();
+    App.render();
+  },
+
+  closeRdMailingModal() {
+    App.state.showRdMailingModal = false;
+    App.save();
+    App.render();
+  },
+
+  updateRdMailingDraft(field, value) {
+    App.state.rdMailingDraft = App.state.rdMailingDraft || { name: '', campaignId: '', targetStage: 'mkt_tof' };
+    App.state.rdMailingDraft[field] = value;
+    App.save();
+    App.render();
+  },
+
+  _slugifyMailingName(name) {
+    return String(name || '').trim().toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  },
+
+  async confirmCreateRdMailing() {
+    const draft = App.state.rdMailingDraft || {};
+    const name = String(draft.name || '').trim();
+    if (name.length < 3) return Utils.toast('Nome do mailing precisa de pelo menos 3 caracteres.');
+    if (!draft.campaignId) return Utils.toast('Selecione a campanha vinculada.');
+    if (!draft.targetStage) return Utils.toast('Selecione o estágio do funil.');
+    if (!window.RdMarketingContactService?.hasOAuth?.()) {
+      return Utils.toast('RD Marketing OAuth não conectado. Configure em Configurações → RD → aba Marketing.');
+    }
+    // Pega os leads filtrados atuais
+    const filtered = LeadsModule._getDisplayedLeads ? LeadsModule._getDisplayedLeads() : [];
+    if (!filtered.length) return Utils.toast('Nenhum lead filtrado pra enviar.');
+
+    const slug = this._slugifyMailingName(name);
+    const mailingTag = `lj_mailing_${slug}`;
+    const targetTag = `target_${draft.targetStage}`;
+
+    App.state.rdMailingSending = true;
+    App.render();
+
+    let pushed = 0;
+    let failed = 0;
+    const failures = [];
+    const leadIds = [];
+
+    try {
+      for (const lead of filtered) {
+        if (!lead?.email) { failed += 1; continue; }
+        try {
+          const r = await RdMarketingContactService.upsertContact({
+            name: lead.name || lead.email,
+            email: lead.email,
+            phone: lead.phone || '',
+            company: lead.company || '',
+            tags: [mailingTag, targetTag]
+          });
+          if (r.ok) {
+            pushed += 1;
+            leadIds.push(lead.id || lead.email);
+          } else {
+            failed += 1;
+            if (failures.length < 3) failures.push(r.message || 'falha');
+          }
+        } catch (err) {
+          failed += 1;
+          if (failures.length < 3) failures.push(err?.message || String(err));
+        }
+      }
+
+      // Salva o mailing no state pra mapear conversões → campanha depois
+      App.state.rdMailings = Array.isArray(App.state.rdMailings) ? App.state.rdMailings : [];
+      const mailing = {
+        id: `mailing_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        name,
+        slug,
+        tag: mailingTag,
+        targetStage: draft.targetStage,
+        responseTag: `#convert_${draft.targetStage}`,
+        campaignId: Number(draft.campaignId),
+        leadCount: pushed,
+        leadIds,
+        createdAt: new Date().toISOString(),
+        lastConversionAt: null
+      };
+      App.state.rdMailings.unshift(mailing);
+      App.state.rdMailings = App.state.rdMailings.slice(0, 100);
+
+      // V24.1.0 — Auto-registra webhook WEBHOOK.CONVERTED do RD Marketing
+      // (só na primeira criação de mailing — depois fica ativo)
+      try {
+        await this._ensureMarketingConversionWebhook();
+      } catch (_) {}
+
+      App.state.showRdMailingModal = false;
+      App.state.rdMailingDraft = { name: '', campaignId: '', targetStage: 'mkt_tof' };
+    } finally {
+      App.state.rdMailingSending = false;
+      App.save();
+      App.render();
+    }
+
+    if (pushed) {
+      Utils.toast(`✓ Mailing "${name}" criado · ${pushed} contato(s) no RD${failed ? ` · ${failed} falha(s): ${failures[0] || ''}` : ''}`);
+    } else {
+      Utils.toast(`Falhou: ${failures[0] || 'nenhum contato pushado'}`);
+    }
+  },
+
+  // V24.1.0 — Registra (idempotente) o webhook WEBHOOK.CONVERTED do Marketing
+  // se ainda não estiver no App.state.rdWebhooks. Usa OAuth Marketing (não CRM).
+  async _ensureMarketingConversionWebhook() {
+    const existing = (App.state.rdWebhooks || []).find(w => w.eventName === 'WEBHOOK.CONVERTED');
+    if (existing) return { ok: true, alreadyExists: true };
+    const oauth = App.state.integrations?.rd?.accessToken || '';
+    if (!oauth) return { ok: false, message: 'Marketing OAuth ausente.' };
+    const url = this._webhookUrl();
+    const body = {
+      event_type: 'WEBHOOK.CONVERTED',
+      entity_type: 'CONTACT',
+      url,
+      http_method: 'POST'
+    };
+    // Marketing webhook usa OAuth Marketing, não CRM → não passar useCrmOauthV2.
+    const res = await RdCrmApiClient.post('/integrations/webhooks', body, { legacy: false });
+    if (!res.ok) {
+      App.state.rdWebhookRegistrationError = `WEBHOOK.CONVERTED: HTTP ${res.status} ${res.message}`;
+      App.save();
+      return { ok: false, message: res.message };
+    }
+    App.state.rdWebhooks = App.state.rdWebhooks || [];
+    App.state.rdWebhooks.push({
+      id: res.data?.uuid || res.data?.id || '',
+      eventName: 'WEBHOOK.CONVERTED',
+      url,
+      createdAt: res.data?.created_at || new Date().toISOString()
+    });
+    App.save();
+    return { ok: true };
+  },
+
+  // V24.1.0 — Refresh manual de TODAS as fontes RD (substituiu auto-loops).
+  // Dispara: CRM (pipelines/deals via PAT), Marketing (conversões via OAuth),
+  // webhook buffer (eventos em tempo real). Status fica em App.state.rdLastSyncAt.
+  // Mostra toast com contadores no fim.
+  async refreshAllRdData(opts = {}) {
+    const silent = Boolean(opts.silent);
+    if (App.state.rdRefreshing) return;
+    App.state.rdRefreshing = true;
+    if (!silent) App.render();
+    let crmOk = 0, marketingOk = 0, webhookOk = 0, lpEventsOk = 0;
+    const errors = [];
+    try {
+      if (window.RdCrmLiveSyncEngine?.runOnce) {
+        const r = await RdCrmLiveSyncEngine.runOnce(true);
+        if (r?.ok) {
+          crmOk = (r.upserted || 0) + (r.dealsApplied || 0);
+          marketingOk = r.marketingUpserted || 0;
+          webhookOk = r.webhookApplied || 0;
+        } else if (r?.reason) {
+          errors.push(`RD live: ${r.reason}`);
+        }
+      }
+      if (window.EventCollector?.poll) {
+        const r = await EventCollector.poll();
+        if (r?.ok) lpEventsOk = r.applied || 0;
+      }
+    } catch (err) {
+      errors.push(`Erro: ${err?.message || err}`);
+    } finally {
+      App.state.rdRefreshing = false;
+      App.state.rdLastManualRefreshAt = new Date().toISOString();
+      App.save();
+      App.render();
+    }
+    if (!silent) {
+      const parts = [];
+      if (crmOk) parts.push(`${crmOk} CRM`);
+      if (marketingOk) parts.push(`${marketingOk} Marketing`);
+      if (webhookOk) parts.push(`${webhookOk} webhook`);
+      if (lpEventsOk) parts.push(`${lpEventsOk} LP`);
+      const summary = parts.length ? parts.join(' · ') : 'nada novo';
+      Utils.toast(`RD atualizado · ${summary}${errors.length ? ' · ' + errors[0] : ''}`);
+    }
+  },
+
+  // V24.1.0 — DELETE /integrations/webhooks/:uuid pra desativar um evento.
   async deleteRdWebhook(id) {
     if (!id) return;
     if (!confirm('Desativar este webhook no RD? O Journey vai parar de receber esse evento em tempo real (volta pro polling de 5min).')) return;
@@ -2007,17 +2201,35 @@ Object.assign(Actions, {
     App.save();
     App.render();
     setTimeout(() => window.RDSettingsInjection?.inject?.(), 0);
+    // V24.1.0 — lazy refresh ao abrir a seção RD
+    if (typeof this._maybeAutoRefreshRd === 'function') this._maybeAutoRefreshRd();
   }
 });
 window.Actions = Actions;
 
 
 // V13.0.3 — Settings section navigation
+// V24.1.0 — Quando o user entra na seção 'rd', dispara refresh automático
+// 1x (lazy load). Evita rodar polling em background pra escala.
+// Cache: só re-dispara se faz mais de 5min do último refresh.
 Object.assign(Actions, {
   setSettingsSection(section) {
     App.state.settingsActiveSection = section;
     App.save();
     App.render();
+    if (section === 'rd') this._maybeAutoRefreshRd();
+  },
+  _maybeAutoRefreshRd() {
+    const last = App.state.rdLastManualRefreshAt;
+    const ageMs = last ? Date.now() - new Date(last).getTime() : Infinity;
+    const stale = ageMs > 5 * 60 * 1000;
+    if (!stale) return;
+    if (App.state.rdRefreshing) return;
+    // Só refresca se houver pelo menos uma fonte configurada
+    const rdCfg = App.state.integrations?.rd || {};
+    const hasAny = Boolean(rdCfg.crmPersonalToken || rdCfg.accessToken || rdCfg.crmOauth?.accessToken);
+    if (!hasAny) return;
+    this.refreshAllRdData({ silent: true });
   }
 });
 window.Actions = Actions;

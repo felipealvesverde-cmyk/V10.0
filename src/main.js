@@ -115,19 +115,26 @@ var App = {
         }));
         this.state.lpEvents = Array.isArray(this.state.lpEvents) ? this.state.lpEvents : [];
         this.state.lpRegistry = this.state.lpRegistry && typeof this.state.lpRegistry === 'object' ? this.state.lpRegistry : {};
+        // V24.1.0 — Auto-loops desligados pra escala. Atualização agora
+        // é manual (botão "Atualizar dados RD" nas Configurações) ou
+        // lazy (ao abrir o painel RD pela primeira vez via _onSettingsModalOpen).
+        //
+        // Por que desligamos:
+        //   - RdCrmLiveSyncEngine rodava a cada 5min em TODA aba aberta,
+        //     mesmo sem ninguém olhando — 12 requests/hora por aba × N usuários.
+        //   - EventCollector idem (lp-events-fetch).
+        //   - Em escala (50+ users), eram milhares de requests/hora pro RD.
+        //   - Usuário raramente precisa de dados ao-vivo; pull on-demand resolve.
+        //
+        // Quando o user clica "Atualizar dados RD", Actions.refreshAllRdData
+        // dispara: RdCrmLiveSyncEngine.runOnce, EventCollector.poll, e
+        // RdMarketingContactService.syncUpdatedSince.
+        //
+        // RdCrmSyncEngine.bootstrap continua porque ele só re-arma o auto-sync
+        // se o user TIVER ligado explicitamente (cfg.autoSync) — caso contrário
+        // não faz nada.
         if (window.RdCrmSyncEngine) {
           try { RdCrmSyncEngine.bootstrap(); } catch (error) { console.warn('RD CRM bootstrap falhou:', error); }
-        }
-        // V21 — auto-start do Live Event Bridge quando RD CRM está configurado
-        if (window.RdCrmLiveSyncEngine) {
-          try {
-            const rdCfg = this.state.integrations?.rdCrm || {};
-            const isConfigured = Boolean(rdCfg.accessToken || rdCfg.apiToken || rdCfg.refreshToken);
-            if (isConfigured) RdCrmLiveSyncEngine.start();
-          } catch (error) { console.warn('RD Live Sync bootstrap falhou:', error); }
-        }
-        if (window.EventCollector) {
-          try { EventCollector.startPolling(); } catch (error) { console.warn('EventCollector bootstrap falhou:', error); }
         }
       },
       async hydrateFromConfiguredDatabase() {

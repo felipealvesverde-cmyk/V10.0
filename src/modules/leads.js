@@ -16,7 +16,7 @@ var LeadsModule = {
       displayLeads = ProfileFinder.applyFilters(allLeads, App.state.profileFilters);
     }
 
-    return subTabs + this._campaignContextChips() + this.profileFinderUI(displayLeads, allLeads.length) + this.importModal() + this.list(displayLeads, allLeads.length);
+    return subTabs + this._campaignContextChips() + this.profileFinderUI(displayLeads, allLeads.length) + this.importModal() + this.rdMailingModal(displayLeads) + this.list(displayLeads, allLeads.length);
   },
 
   // V21 — Context chips: quando o Buscador foi aberto via "Buscar Leads Agora"
@@ -172,10 +172,96 @@ var LeadsModule = {
     const filters = App.state.profileFilters || [];
     const isActive = App.state.profileActive && filters.length > 0;
     const filtersHtml = filters.map((f, i) => `<span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-bold">${Utils.escape(f.label)}<button onclick="Actions.removeProfileFilter(${i})" class="ml-1 text-slate-400 hover:text-red-400 font-black">×</button></span>`).join(' ');
-    const actionPanel = isActive && filteredLeads.length > 0 ? `<div class="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200"><div class="flex flex-col md:flex-row md:items-center justify-between gap-3"><div><p class="font-black text-sm">${filteredLeads.length} lead(s) no perfil <span class="text-slate-400 font-normal">de ${totalInBase} na base</span></p><p class="text-xs text-slate-500">Aplique uma ação ou campanha a este grupo.</p></div><div class="flex gap-2"><button onclick="Actions.createActionFromProfile()" class="px-4 py-2.5 rounded-2xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 flex items-center gap-2"><i data-lucide="plug" class="w-3.5 h-3.5"></i> Criar ação com este perfil</button><button onclick="Actions.createCampaignFromProfile()" class="px-4 py-2.5 rounded-2xl bg-white border border-slate-200 font-bold text-sm hover:bg-slate-50 flex items-center gap-2"><i data-lucide="megaphone" class="w-3.5 h-3.5"></i> Nova campanha</button></div></div></div>` : '';
+    // V24.1.0 — Adicionado botão "Enviar mailing RD" (3o) que abre modal pra
+    // segmentar os leads filtrados como uma lista no RD Marketing vinculada
+    // a uma campanha Journey. Tag-based (RD Marketing → criar segmentação por tag).
+    const hasMktOAuth = Boolean(App.state.integrations?.rd?.accessToken);
+    const mailingBtn = hasMktOAuth
+      ? `<button onclick="Actions.openRdMailingModal()" class="px-4 py-2.5 rounded-2xl bg-violet-600 text-white font-bold text-sm hover:bg-violet-700 flex items-center gap-2" style="color:#fff;"><i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar mailing RD</button>`
+      : `<button onclick="Utils.toast('Conecte RD Marketing em Configurações → RD primeiro.')" class="px-4 py-2.5 rounded-2xl bg-slate-200 text-slate-500 font-bold text-sm cursor-not-allowed flex items-center gap-2" title="Requer RD Marketing conectado"><i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar mailing RD</button>`;
+    const actionPanel = isActive && filteredLeads.length > 0 ? `<div class="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200"><div class="flex flex-col md:flex-row md:items-center justify-between gap-3"><div><p class="font-black text-sm">${filteredLeads.length} lead(s) no perfil <span class="text-slate-400 font-normal">de ${totalInBase} na base</span></p><p class="text-xs text-slate-500">Aplique uma ação ou campanha a este grupo.</p></div><div class="flex flex-wrap gap-2"><button onclick="Actions.createActionFromProfile()" class="px-4 py-2.5 rounded-2xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 flex items-center gap-2"><i data-lucide="plug" class="w-3.5 h-3.5"></i> Criar ação com este perfil</button><button onclick="Actions.createCampaignFromProfile()" class="px-4 py-2.5 rounded-2xl bg-white border border-slate-200 font-bold text-sm hover:bg-slate-50 flex items-center gap-2"><i data-lucide="megaphone" class="w-3.5 h-3.5"></i> Nova campanha</button>${mailingBtn}</div></div></div>` : '';
     const refineHtml = filters.length ? `<div class="flex flex-wrap gap-2 mb-3">${filtersHtml}</div><div class="flex gap-2"><input id="refineInput" placeholder="Refinar: cidade, estado, tag, faixa salarial, quente..." onkeydown="if(event.key==='Enter')Actions.refineProfile()" class="flex-1 px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /><button onclick="Actions.refineProfile()" class="px-4 py-3 rounded-2xl bg-slate-200 font-bold text-sm hover:bg-slate-300">Refinar</button></div>` : '';
 
     return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-4"><div class="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-4"><div><div class="flex items-center gap-2 mb-2"><i data-lucide="scan-search" class="w-5 h-5 text-slate-700"></i><h3 class="text-lg font-black">Buscador de Perfil</h3></div><p class="text-sm text-slate-500">Busca simples estilo Google: perfil + comportamento. Ex: <strong>mulheres de 30 a 40 anos do estado de São Paulo</strong>.</p></div><button onclick="Actions.openLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Inserir leads</button></div><div class="flex gap-2 mb-3"><input id="profileInput" value="${Utils.escape(App.state.profileQuery)}" oninput="App.state.profileQuery=this.value; App.save();" onkeydown="if(event.key==='Enter')Actions.applyProfileSearch()" placeholder="Ex: mulheres de 30 a 40 anos de SP, #cta, quente..." class="flex-1 px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /><button onclick="Actions.applyProfileSearch()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800">Buscar</button>${isActive ? `<button onclick="Actions.clearProfile()" class="px-4 py-3 rounded-2xl bg-slate-100 font-bold text-sm hover:bg-slate-200">Limpar</button>` : ''}</div>${refineHtml}${actionPanel}</div>`;
+  },
+
+  // V24.1.0 — Modal de criação de mailing RD a partir dos leads filtrados.
+  // Flow: user define nome + escolhe campanha vinculada + estágio do funil.
+  // Cada lead vai pro RD Marketing via upsertContact com 2 tags:
+  //   - lj_mailing_<slug-do-nome>  → user usa pra segmentar no RD UI
+  //   - target_<stage>             → marca o estágio-alvo desse mailing
+  // Quando WEBHOOK.CONVERTED chegar, mapeamento mailing→campanha resolve
+  // qual campanha do Journey recebe a tag #convert_<stage>.
+  rdMailingModal(displayLeads) {
+    if (!App.state.showRdMailingModal) return '';
+    const draft = App.state.rdMailingDraft || { name: '', campaignId: '', targetStage: 'mkt_tof' };
+    const leadCount = Array.isArray(displayLeads) ? displayLeads.length : 0;
+    const campaigns = (App.state.campaigns || []);
+    const stages = window.RdCrmConfig?.defaultStages?.() || [
+      { code: 'mkt_tof', label: 'Marketing TOF' }, { code: 'mkt_mof', label: 'Marketing MOF' }, { code: 'mkt_bof', label: 'Marketing BOF' },
+      { code: 'vnd_tof', label: 'Vendas TOF' }, { code: 'vnd_mof', label: 'Vendas MOF' }, { code: 'vnd_bof', label: 'Vendas BOF' },
+      { code: 'cs_onboarding', label: 'CS Onboarding' }, { code: 'cs_retencao', label: 'CS Retenção' }, { code: 'cs_expansao', label: 'CS Expansão' }
+    ];
+    const slug = (draft.name || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    const tag = slug ? `lj_mailing_${slug}` : '<defina o nome>';
+    const responseTag = `#convert_${draft.targetStage || 'mkt_tof'}`;
+    const isSending = Boolean(App.state.rdMailingSending);
+    const canSend = !isSending && draft.name.trim().length >= 3 && draft.campaignId && leadCount > 0;
+
+    return `<div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div class="bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 w-full max-w-2xl mt-8">
+        <div class="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <i data-lucide="send" class="w-5 h-5 text-violet-600"></i>
+              <h3 class="text-xl font-black">Enviar mailing RD</h3>
+            </div>
+            <p class="text-sm text-slate-500">Manda os ${leadCount} lead(s) filtrado(s) pro RD Marketing como uma segmentação nomeada, vinculada a uma campanha do Journey.</p>
+          </div>
+          <button onclick="Actions.closeRdMailingModal()" class="w-10 h-10 rounded-2xl bg-slate-100 font-black text-xl shrink-0">×</button>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Nome do mailing</label>
+            <input value="${Utils.escape(draft.name)}" oninput="Actions.updateRdMailingDraft('name', this.value)" placeholder="Ex: Aquecimento outubro 2026" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />
+            <p class="text-[11px] text-slate-500 mt-1">Tag aplicada no RD: <code class="text-violet-700 font-mono">${Utils.escape(tag)}</code> (vc usa essa tag no RD pra criar a segmentação do email).</p>
+          </div>
+
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Campanha vinculada</label>
+            <select onchange="Actions.updateRdMailingDraft('campaignId', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold">
+              <option value="">— Selecione a campanha —</option>
+              ${campaigns.map(c => `<option value="${c.id}" ${String(draft.campaignId) === String(c.id) ? 'selected' : ''}>${Utils.escape(c.name)}</option>`).join('')}
+            </select>
+            <p class="text-[11px] text-slate-500 mt-1">Respostas (conversões na LP) voltam pra essa campanha.</p>
+          </div>
+
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Estágio do funil que esse mailing mira</label>
+            <select onchange="Actions.updateRdMailingDraft('targetStage', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold">
+              ${stages.map(s => `<option value="${s.code}" ${draft.targetStage === s.code ? 'selected' : ''}>${Utils.escape(s.label)} (${s.code})</option>`).join('')}
+            </select>
+            <p class="text-[11px] text-slate-500 mt-1">Quando o lead converter, recebe a tag: <code class="text-violet-700 font-mono">${Utils.escape(responseTag)}</code></p>
+          </div>
+
+          <div class="rounded-2xl bg-violet-50 border border-violet-200 p-3 text-xs text-violet-900">
+            <div class="font-black mb-1">Resumo:</div>
+            <div>• <b>${leadCount}</b> contato(s) serão criados/atualizados no RD Marketing</div>
+            <div>• Tags aplicadas em cada um: <code>${Utils.escape(tag)}</code></div>
+            <div>• Quando algum lead converter em LP, ganhará <code>${Utils.escape(responseTag)}</code> e a conversão volta pra campanha <b>${Utils.escape((campaigns.find(c => String(c.id) === String(draft.campaignId)) || {}).name || '—')}</b></div>
+          </div>
+
+          <div class="flex flex-col md:flex-row gap-2 pt-2">
+            <button onclick="Actions.confirmCreateRdMailing()" ${canSend ? '' : 'disabled'} class="flex-1 px-5 py-3 rounded-2xl ${canSend ? 'bg-violet-600 hover:bg-violet-700 text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'} font-black flex items-center justify-center gap-2" ${canSend ? 'style="color:#fff;"' : ''}>
+              <i data-lucide="${isSending ? 'loader-2' : 'send'}" class="w-4 h-4 ${isSending ? 'animate-spin' : ''}"></i>
+              ${isSending ? 'Enviando…' : `Enviar ${leadCount} lead(s) pro RD`}
+            </button>
+            <button onclick="Actions.closeRdMailingModal()" class="px-5 py-3 rounded-2xl bg-slate-100 font-black">Cancelar</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
   },
 
   importModal() {

@@ -61,7 +61,14 @@ window.RdCrmLiveSyncEngine = {
       'stage_changed': 'stage.changed',
       'deal_won': 'deal.won',
       'deal_lost': 'deal.lost',
-      'deal_changed': 'deal.updated'
+      'deal_changed': 'deal.updated',
+      // V24.0.0 — eventos reais do /integrations/webhooks
+      'crm_deal_created': 'deal.upserted',
+      'crm_deal_updated': 'deal.updated',
+      'crm_deal_deleted': 'deal.deleted',
+      // V24.1.0 — Marketing webhooks (mailing responses)
+      'webhook.converted': 'webhook.converted',
+      'webhook.marked_opportunity': 'webhook.opportunity'
     };
     return map[String(raw || '').toLowerCase()] || String(raw || '').toLowerCase();
   },
