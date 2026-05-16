@@ -414,3 +414,21 @@ var App = {
 
     App.init();
 window.App = App;
+
+// V26.0.1 — Listener Ctrl+K registrado fora do init() pra garantir bind
+// mesmo se init() não chegar até o ponto antigo (ex: erro em algum render).
+// Aplicado em window+document pra cobrir cenários onde foco está em iframe/svg.
+(function bindDjowShortcut() {
+  if (window._djowShortcutGloballyBound) return;
+  window._djowShortcutGloballyBound = true;
+  const handler = (e) => {
+    const isCmdK = (e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK');
+    if (isCmdK) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (window.Actions?.toggleDjowModal) Actions.toggleDjowModal();
+    }
+  };
+  document.addEventListener('keydown', handler, true); // capture phase
+  window.addEventListener('keydown', handler, true);
+})();

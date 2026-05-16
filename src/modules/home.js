@@ -376,8 +376,9 @@ window.HomeModule = {
             id="djowHomeInput"
             class="lj-home-djow-input"
             placeholder="Ctrl+K para chamar o Djow a qualquer momento"
+            value="${Utils.escape(App.state.djowInput || '')}"
             oninput="Actions.updateDjowInput(this.value)"
-            onkeydown="Actions.sendDjowMessage(event)"
+            onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); Actions.sendDjowMessage();}"
             onfocus="this.placeholder=''"
             onblur="if(!this.value) this.placeholder='Ctrl+K para chamar o Djow a qualquer momento'"
             ${!isConfigured || !canUse || sending ? 'disabled' : ''}
