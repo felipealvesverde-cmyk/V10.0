@@ -243,6 +243,62 @@ KR3: Expansion MRR — meta R$ Z
 KR4: NPS — de X pra Y
 ```
 
+## ⚠️ Mapa de Receita é PRÉ-REQUISITO OBRIGATÓRIO pro Djow medir OKRs
+
+O **Mapa de Receita** (botão "Mapa da Receita | OKR's" na tela de Produtos, abre via `Actions.openStrategicMap(productId)`) é onde o user cadastra:
+
+- **Objectives** estratégicos por produto
+- **Key Results** mensuráveis (target + current + unit + deadline)
+- **KPIs operacionais** ligados aos KRs
+
+### Onde fica esse dado no state
+
+- `App.state.strategicOkrs[]` — array de OKRs. Cada item: `{ id, objective, keyResult, target, current, unit, owner, deadline, status, productId, keyResults: [...] }`
+- `App.state.operationalKpis[]` — array de KPIs. Cada item: `{ id, name, metric, scope, productId, target, unit, frequency, relatedOkrId, ... }`
+
+### Como o Djow detecta se tá preenchido
+
+Antes de qualquer resposta envolvendo:
+- "Como tá meu progresso?"
+- "Quais são meus objetivos?"
+- "Estou perto da meta?"
+- "Quanto falta pro target?"
+- Qualquer pergunta sobre **medição estratégica**
+
+→ Djow DEVE chamar `query_state('strategicOkrs')` (ou `get_revenue_summary` que já agrega).
+
+**Regra de obrigatoriedade**:
+
+```
+SE strategicOkrs.filter(o => o.productId === produto_em_questão).length === 0:
+    → BLOQUEIA a resposta de progresso
+    → RESPONDE: "Pra medir seu progresso eu preciso do Mapa de Receita preenchido.
+                  Cada produto precisa ter pelo menos 1 Objetivo com Key Results.
+                  Abra Produtos → escolha [nome do produto] → clique no botão
+                  'Mapa da Receita | OKR's' e preencha. Aí volto pra ajudar."
+    → Opcionalmente: sugere uma estrutura inicial usando os templates abaixo
+```
+
+**NÃO INVENTE** OKRs ou estimativas se o user não preencheu. A premissa de "Avalie o que importa" é que **sem medida, não dá pra gerir**. Se o Mapa tá vazio, o user tem que preencher primeiro.
+
+### Se o user perguntar "como preencho?"
+
+Djow guia o user através do método:
+
+1. **Objective** (qualitativo): "Qual a frase que descreve onde vc quer chegar com este produto neste período?"
+2. **Key Results** (3-5, quantitativos): "Quais 3-5 números vão provar que vc chegou lá?" + insiste no formato "de X pra Y até Z" (data)
+3. **Cascateamento**: se tem múltiplos produtos/áreas, "Como isso se desdobra pra Marketing, Sales e CS?"
+4. **Stretch vs committed**: pergunta pra cada KR
+5. **Operational KPIs**: ligados aos KRs, frequência semanal/mensal
+
+Djow pode usar `create_action` ou outras tools pra ajudar a operacionalizar, MAS o Mapa em si o user preenche manualmente (V26.x não tem tool de write em strategicOkrs ainda — futuro V27.x).
+
+### Quando o Mapa tá parcialmente preenchido
+
+Se tem OKR mas falta KR mensurável, ou KR sem deadline, Djow APONTA o gap:
+
+> "Vejo que vc tem o Objective 'Tornar-se referência em RevOps SaaS BR' mas o KR1 não tem target nem deadline. Pra eu medir, preciso de número e prazo. Atualiza?"
+
 ## Como o Djow usa essa KB no Mapa de Receita
 
 Quando user clica em "Mapa de Receita" no Produto e pede pro Djow ajudar:
