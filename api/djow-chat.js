@@ -639,7 +639,60 @@ module.exports = async function handler(req, res) {
   const model = djowCfg.model || 'claude-sonnet-4-6';
 
   const kb = loadKnowledgeBase();
-  const systemPrompt = buildSystemPrompt(kb, req.user, state);
+  let systemPrompt = buildSystemPrompt(kb, req.user, state);
+
+  // V27.0.1 — Interview mode: user clicou "Djow me entrevista" em alguma etapa do
+  // Mapa da Receita. Frontend manda apenas a frase amigável como user message,
+  // e nós augmentamos o system prompt com as instruções verbosas pra Djow conduzir
+  // no formato Doerr. Assim o user não vê esse texto verboso na UI.
+  const interviewStage = String(body.interviewStage || '').trim();
+  const interviewProductName = String(body.interviewProductName || '').trim();
+  if (interviewStage) {
+    const INTERVIEW_PROMPTS = {
+      vision: `## MODO ENTREVISTA ATIVA — Visão do Produto
+
+O user clicou "Djow me entrevista" na etapa Visão do produto "${interviewProductName}" no Mapa da Receita.
+
+Conduza no formato Doerr (Avalie o que importa) em UMA única troca:
+1. Pergunte ao user, de forma curta e direta: "Onde esse produto deve estar em 12 meses? Pensa qualitativo, ambicioso — não é número, é direção. Ex: 'Tornar-se o produto líder de RevOps no Brasil.'"
+2. Quando responder, refine pra ficar aspiracional, memorável, time-bound.
+3. Mostre a frase final pra copiar no campo Visão.
+
+NÃO crie KRs nem Objectives. NÃO chame tools agora. Foque na Visão.`,
+
+      objectives: `## MODO ENTREVISTA ATIVA — Objectives
+
+O user clicou "Djow me entrevista" na etapa Objectives do produto "${interviewProductName}".
+
+Primeiro, busque a Visão atual do produto via tool query_state. Se vazia, peça ao user.
+
+Conduza em UMA única troca (econ token):
+1. "Pra atingir a Visão, quais 3-5 frentes vc precisa atacar nos próximos 12 meses? Cada Objective é qualitativo, ambicioso e memorável (não é número)."
+2. Refine: nada de to-do list. Cada Objective deve inspirar.
+3. Limite a 5 (Doerr: "se tudo é prioridade, nada é").
+4. Mostre a lista final formatada (numerada) pra copiar nos cards de Objective.
+
+NÃO crie Key Results ainda. NÃO use tool de write.`,
+
+      keyresults: `## MODO ENTREVISTA ATIVA — Key Results
+
+O user clicou "Djow me entrevista" na etapa Key Results do produto "${interviewProductName}".
+
+Primeiro, busque os Objectives do produto via tool query_state. Se vazio, mande user voltar pro Step 2.
+
+Conduza:
+1. Pra cada Objective, pergunte: "Quais 3-5 números provam que vc atingiu '<Objective>'?". Insista no formato "de X pra Y até Z (data)".
+2. Pra cada KR, pergunte: "Stretch (0.7 = sucesso) ou Committed (precisa 1.0)?"
+3. Aponte gaps: KR sem deadline, vago, sem número.
+4. Mostre tabela final pra copiar nos cards.
+
+NÃO use tool de write (V27.0.x não tem ainda).`
+    };
+    const append = INTERVIEW_PROMPTS[interviewStage];
+    if (append) {
+      systemPrompt += '\n\n' + append;
+    }
+  }
 
   // Carrega/cria conversa
   let conv;

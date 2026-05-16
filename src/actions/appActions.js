@@ -2151,13 +2151,25 @@ Object.assign(Actions, {
 
     try {
       const token = localStorage.getItem('lj_jwt');
+      // V27.0.1 — Anexa flags de entrevista (uma vez só, consumidas aqui).
+      // Backend usa pra augmentar system prompt; user não vê o prompt verboso.
+      const reqBody = {
+        message,
+        conversationId: App.state.djowConversation.id
+      };
+      if (App.state._djowInterviewStage) {
+        reqBody.interviewStage = App.state._djowInterviewStage;
+        reqBody.interviewProductName = App.state._djowInterviewProductName || '';
+        reqBody.interviewProductId = App.state._djowInterviewProductId || null;
+        // Limpa imediatamente — não queremos passar nas próximas mensagens
+        App.state._djowInterviewStage = null;
+        App.state._djowInterviewProductName = null;
+        App.state._djowInterviewProductId = null;
+      }
       const r = await fetch('/api/djow-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          message,
-          conversationId: App.state.djowConversation.id
-        })
+        body: JSON.stringify(reqBody)
       });
       const data = await r.json();
       App.state.djowSending = false;
@@ -2207,60 +2219,27 @@ Object.assign(Actions, {
     }, 50);
   },
 
-  // V27.0.0 — Djow entrevista no Mapa da Receita.
-  // Abre o modal Djow pré-contextualizado pra conduzir entrevista guiada Doerr
-  // (Vision → Objectives → Key Results). User não precisa formular pergunta —
-  // Djow começa "Vamos começar pela Visão. Em uma frase: onde esse produto..."
+  // V27.0.1 — Djow entrevista no Mapa da Receita.
+  // User vê uma mensagem CURTA e amigável. O contexto verboso (instruções Doerr
+  // pro Djow conduzir) vai via system prompt augmentation no backend, invisível
+  // pro user. Antes (V27.0.0) o prompt verboso aparecia como "user message" no
+  // chat — confundia visualmente.
   djowInterviewStrategic(stage) {
     const productId = App.state.strategicMapProductId;
     const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
     if (!product) return Utils.toast('Selecione um produto primeiro.');
 
-    const prompts = {
-      vision: `Atue como CRO conduzindo entrevista de Visão de Produto (Doerr — Avalie o que importa).
-
-Produto: "${product.name}"
-Objetivo da entrevista: extrair UMA frase aspiracional sobre onde esse produto chega em 12 meses.
-
-Conduza a entrevista em uma única troca:
-1. Pergunte ao user em uma única mensagem: "Onde esse produto deve estar em 12 meses? Pensa grande, qualitativo — não é número, é direção. Ex: 'Tornar-se o produto líder de RevOps no Brasil'."
-2. Quando ele responder, ajude a refinar a frase pra ser aspiracional, memorável, time-bound.
-3. Mostra a frase final pra ele copiar no campo da Visão.
-
-NÃO crie KRs nem Objectives nessa etapa. Foque só na Visão.`,
-
-      objectives: `Atue como CRO conduzindo entrevista de Objectives (Doerr — Avalie o que importa).
-
-Produto: "${product.name}"
-Objetivo: extrair 3-5 Objectives qualitativos derivados da Visão do produto.
-
-Primeiro, busque a Visão atual via query_state('strategicMap.${product.id}.vision') ou peça ao user.
-
-Conduza com:
-1. "Pra atingir a Visão, quais 3-5 frentes vc precisa atacar nos próximos 12 meses? Cada Objective é qualitativo, ambicioso, e memorável (não é número)."
-2. Refine: cada Objective deve ser uma frase que inspira e dá foco. Não pode virar to-do list.
-3. Limite a 5 (Doerr: "se tudo é prioridade, nada é").
-4. Mostre a lista final formatada pra user copiar nos cards de Objectives.
-
-NÃO crie Key Results ainda.`,
-
-      keyresults: `Atue como CRO conduzindo entrevista de Key Results (Doerr — Avalie o que importa).
-
-Produto: "${product.name}"
-Objetivo: pra cada Objective do user, extrair 3-5 KRs quantitativos.
-
-Conduza com:
-1. Busque os Objectives via query_state ou pergunte quais existem.
-2. Pra cada Objective, pergunte: "Quais 3-5 números provam que vc atingiu '<Objective>'?". Insista no formato "de X pra Y até Z (data)".
-3. Pra cada KR, pergunte: "Esse KR é Stretch (0.7 = sucesso, ambicioso) ou Committed (precisa 1.0, obrigatório)?"
-4. Apontar gaps: KR sem deadline, sem número, vago.
-5. Mostre tabela final pra user preencher cada KR no card respectivo.
-
-Lembre: NÃO escreve direto no sistema (V27.0.0 não tem tool de write strategic ainda). User copia/cola.`
+    const friendly = {
+      vision: `Djow, me ajuda a definir a Visão do produto "${product.name}" no Mapa da Receita.`,
+      objectives: `Djow, me ajuda com os Objectives do produto "${product.name}" no Mapa da Receita.`,
+      keyresults: `Djow, me ajuda com os Key Results do produto "${product.name}" no Mapa da Receita.`
     };
 
-    const prompt = prompts[stage] || prompts.vision;
-    App.state.djowInput = prompt;
+    App.state.djowInput = friendly[stage] || friendly.vision;
+    // Flags consumidas no próximo send (envia ao backend que augmenta system prompt)
+    App.state._djowInterviewStage = stage;
+    App.state._djowInterviewProductName = product.name;
+    App.state._djowInterviewProductId = product.id;
     this.openDjowAIModal();
     setTimeout(() => this.sendDjowAIMessage(), 100);
   },
