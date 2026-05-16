@@ -165,30 +165,38 @@ var SettingsModal = {
   },
 
   // V24.0.0 — Painel de configuração do webhook RD CRM.
-  // Mostra a URL do endpoint público (/api/rd-webhook) + tutorial em bullets
-  // (mesmo padrão do _rdCrmAssistantBullets) + status de atividade.
   //
-  // Por que aqui: o webhook RD não consegue se autoconfigurar; o usuário tem
-  // que copiar a URL e colar no painel RD CRM → Integrações → Webhooks. O
-  // tutorial reduz fricção e o status confirma que está chegando.
+  // EVIDÊNCIA DE DESIGN:
+  // O RD não tem UI nativa pra cadastrar webhook (testamos clicar em
+  // Integrações → Webhooks no painel CRM e ele redireciona pros docs da API).
+  // Cadastro é via POST /crm/v2/webhooks com OAuth Bearer. Então o Journey
+  // cadastra os webhooks pelo user, um por event_name (RD não aceita array).
+  //
+  // Pré-requisito: user precisa ter OAuth conectado (do Marketing). Se o app
+  // OAuth não tiver scope CRM, a chamada falha com 401/403 e a UI mostra erro
+  // claro com instrução pra corrigir no Publisher.
   _rdCrmWebhookBlock(rdCfg) {
     const origin = (typeof window !== 'undefined' && window.location?.origin) || 'https://leadjourney.up.railway.app';
     const webhookUrl = `${origin}/api/rd-webhook`;
+    const hasOAuth = Boolean(rdCfg.accessToken);
+    const registered = Array.isArray(App.state.rdWebhooks) ? App.state.rdWebhooks : [];
+    const totalDesired = (Actions._RD_WEBHOOK_EVENTS || []).length;
+    const registeredCount = registered.length;
     const lastFetched = App.state.rdWebhookLastFetchedAt || '';
-    const hasActivity = Boolean(lastFetched);
-    const lastFetchedLabel = lastFetched ? new Date(lastFetched).toLocaleString('pt-BR') : '—';
     const ageMinutes = lastFetched ? Math.round((Date.now() - new Date(lastFetched).getTime()) / 60000) : null;
     const isLive = ageMinutes !== null && ageMinutes < 30;
-    const statusChip = isLive
-      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-200 text-emerald-900">recebendo eventos</span>'
-      : hasActivity
-        ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900">sem atividade recente</span>'
-        : '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-700">não configurado</span>';
+    const lastError = App.state.rdWebhookRegistrationError || '';
 
-    const step1Done = false; // só o usuário sabe se copiou
-    const step2Done = hasActivity;
-    const step3Done = isLive;
-    const currentStep = !step2Done ? 2 : !step3Done ? 3 : 0;
+    const allRegistered = registeredCount === totalDesired;
+    const statusChip = !hasOAuth
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-700">OAuth necessário</span>'
+      : allRegistered && isLive
+        ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-200 text-emerald-900">ativo · recebendo eventos</span>'
+        : allRegistered
+          ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-sky-200 text-sky-900">cadastrado · aguardando evento</span>'
+          : registeredCount > 0
+            ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900">${registeredCount}/${totalDesired} eventos</span>`
+            : '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-700">não cadastrado</span>';
 
     return `<div class="rounded-3xl bg-white border-2 border-violet-200 shadow-md overflow-hidden">
       <div class="bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 flex items-center justify-between text-white">
@@ -197,50 +205,98 @@ var SettingsModal = {
           <span class="font-black text-xs uppercase tracking-wider">Webhook em tempo real</span>
           ${statusChip}
         </div>
-        <span class="text-[10px] text-white/70 font-black">3 passos · opcional mas recomendado</span>
+        <span class="text-[10px] text-white/70 font-black">cadastro automático via API · opcional mas recomendado</span>
       </div>
 
       <div class="p-5 space-y-4">
         <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex items-start gap-2">
           <i data-lucide="info" class="w-4 h-4 text-slate-500 mt-0.5"></i>
-          <p class="text-xs text-slate-600 leading-relaxed">Sem webhook, o Journey só descobre mudanças no RD a cada 5 min (polling). Com webhook configurado, eventos chegam <b>na hora</b>: stage trocada, deal ganho/perdido, tag aplicada, contato alterado.</p>
+          <p class="text-xs text-slate-600 leading-relaxed">
+            Sem webhook, o Journey só descobre mudanças no RD a cada 5 min (polling). Com webhook, eventos chegam <b>na hora</b>. O RD não tem tela pra cadastrar webhook — é só via API. O Journey faz o cadastro pra você usando o OAuth conectado.
+          </p>
         </div>
 
-        <div class="rounded-2xl bg-slate-950 p-4">
-          <div class="flex items-center justify-between gap-3 mb-2">
-            <span class="text-[10px] font-black text-violet-300 uppercase tracking-wider">URL para colar no RD</span>
-            <button onclick="Actions.copyWebhookUrl()" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-black flex items-center gap-1.5" style="color:#fff;">
-              <i data-lucide="copy" class="w-3 h-3"></i> Copiar URL
-            </button>
+        ${!hasOAuth ? `
+          <div class="rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+            <i data-lucide="lock" class="w-5 h-5 text-amber-700 mt-0.5"></i>
+            <div class="flex-1">
+              <h4 class="font-black text-amber-900 mb-1">OAuth necessário para cadastrar webhook</h4>
+              <p class="text-xs text-amber-800">A API de webhooks do RD usa OAuth Bearer (diferente do token PAT). Conecte o RD Marketing na aba Marketing acima — o mesmo accessToken é usado aqui.</p>
+            </div>
           </div>
-          <div class="rounded bg-slate-900 border border-white/10 p-2 font-mono text-[11px] text-violet-100 break-all">${Utils.escape(webhookUrl)}</div>
-        </div>
+        ` : `
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+            <div class="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <h4 class="font-black text-slate-900 text-sm">Eventos que o Journey vai ouvir</h4>
+                <p class="text-[11px] text-slate-500">${registeredCount}/${totalDesired} cadastrado(s) · URL alvo: <code class="text-slate-700">${Utils.escape(webhookUrl)}</code></p>
+              </div>
+              <button onclick="Actions.registerRdWebhooks()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5 shrink-0" style="color:#fff;">
+                <i data-lucide="${allRegistered ? 'refresh-cw' : 'plus'}" class="w-3.5 h-3.5"></i>
+                ${allRegistered ? 'Re-verificar' : registeredCount > 0 ? `Cadastrar ${totalDesired - registeredCount} faltantes` : 'Cadastrar webhooks'}
+              </button>
+            </div>
 
-        <div class="space-y-3">
-          ${this._rdBulletStep(1, currentStep, step1Done, 'Copiar a URL acima', [
-            'Clique no botão <b>Copiar URL</b> no card preto acima',
-            'A URL é pública (sem token Journey) — o RD não tem como autenticar com nosso JWT',
-            'Validação de origem opcional via HMAC (Passo 3)'
-          ])}
-          ${this._rdBulletStep(2, currentStep, step2Done, 'Colar no RD CRM → Integrações → Webhooks', [
-            'Abra <a href="https://crm.rdstation.com" target="_blank" class="underline text-violet-700 font-black">crm.rdstation.com</a> → engrenagem ⚙ → <b>Todas as configurações</b>',
-            'Menu lateral → <b>Integrações</b> → <b>Webhooks</b> (ou <b>Notificações de eventos</b>)',
-            'Clique em <b>Adicionar webhook</b> e cole a URL no campo destino',
-            'Selecione os eventos: <b>Contato alterado</b>, <b>Stage alterado</b>, <b>Deal ganho</b>, <b>Deal perdido</b>, <b>Tag adicionada</b>',
-            'Salve. RD vai POSTar nessa URL toda vez que um evento acontecer'
-          ])}
-          ${this._rdBulletStep(3, currentStep, step3Done, 'Validar (opcional, ~30s)', [
-            hasActivity
-              ? `Última atividade: <b>${Utils.escape(lastFetchedLabel)}</b>${ageMinutes !== null ? ` (há ${ageMinutes} min)` : ''}`
-              : 'Mexa um deal no RD CRM (mude de stage, ganhe/perca) e aguarde até 5 min',
-            'O Journey lê os eventos do buffer a cada 5 min ou ao clicar <b>Sincronizar agora</b>',
-            'Pra reforçar segurança: defina <code>RD_WEBHOOK_SECRET</code> nas env vars do Railway. RD CRM aceita assinatura HMAC SHA-256 no header <code>X-RD-Signature</code>'
-          ])}
-        </div>
+            ${registered.length > 0 ? `
+              <div class="space-y-1.5 max-h-48 overflow-y-auto">
+                ${registered.map(w => `
+                  <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-white border border-slate-200">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                      <code class="text-[11px] text-slate-800 truncate">${Utils.escape(w.eventName)}</code>
+                    </div>
+                    <button onclick="Actions.deleteRdWebhook('${Utils.escape(w.id)}')" class="text-[10px] text-red-600 hover:text-red-700 font-black flex items-center gap-1 shrink-0">
+                      <i data-lucide="x" class="w-3 h-3"></i> Desativar
+                    </button>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+
+            ${(Actions._RD_WEBHOOK_EVENTS || []).filter(ev => !registered.some(r => r.eventName === ev)).length > 0 ? `
+              <details class="mt-3">
+                <summary class="cursor-pointer text-[11px] text-slate-500 font-black underline">Eventos não cadastrados</summary>
+                <div class="mt-2 flex flex-wrap gap-1">
+                  ${(Actions._RD_WEBHOOK_EVENTS || []).filter(ev => !registered.some(r => r.eventName === ev)).map(ev =>
+                    `<span class="px-2 py-1 rounded-full bg-slate-200 text-slate-600 text-[10px] font-mono">${Utils.escape(ev)}</span>`
+                  ).join('')}
+                </div>
+              </details>
+            ` : ''}
+          </div>
+        `}
+
+        ${lastError ? `
+          <div class="rounded-2xl bg-red-50 border border-red-200 p-3 flex items-start gap-2">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-red-600 mt-0.5"></i>
+            <div class="text-xs text-red-800">
+              <p class="font-black mb-1">Erro no último cadastro:</p>
+              <code class="text-[11px] block break-all">${Utils.escape(lastError)}</code>
+              <p class="mt-2 text-[11px]">Se o erro for <b>401/403</b>, seu app OAuth não tem scope CRM. Crie um novo app no <a href="https://appstore.rdstation.com/pt-BR/publisher" target="_blank" class="underline font-black">RD App Publisher</a> com permissões de CRM (deals/contacts/webhooks) e refaça a conexão Marketing/OAuth.</p>
+            </div>
+          </div>
+        ` : ''}
+
+        ${hasOAuth ? `
+          <details class="text-[11px]">
+            <summary class="cursor-pointer text-slate-500 font-black">Cadastro manual (fallback via curl)</summary>
+            <div class="mt-2 space-y-2">
+              <p class="text-slate-600">Se o cadastro automático falhar, copie a URL abaixo e rode um curl no terminal com seu accessToken:</p>
+              <div class="flex items-center gap-2 p-2 rounded-lg bg-slate-950 font-mono text-[10px] text-violet-200">
+                <span class="flex-1 break-all">${Utils.escape(webhookUrl)}</span>
+                <button onclick="Actions.copyWebhookUrl()" class="px-2 py-1 rounded bg-violet-600 hover:bg-violet-700 text-white" style="color:#fff;">Copiar</button>
+              </div>
+              <pre class="rounded-lg bg-slate-950 text-violet-100 text-[10px] p-3 overflow-x-auto">curl -X POST https://api.rd.services/crm/v2/webhooks \\
+  -H "Authorization: Bearer SEU_ACCESS_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{"data":{"name":"LeadJourney","url":"${Utils.escape(webhookUrl)}","event_name":"deal_won","http_method":"POST"}}'</pre>
+            </div>
+          </details>
+        ` : ''}
 
         <div class="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
           <div class="text-[11px] text-slate-500">
-            <span class="font-black">Endpoint:</span> <code class="text-slate-700">/api/rd-webhook</code> · <span class="font-black">Buffer:</span> 500 eventos em memória
+            <span class="font-black">Endpoint local:</span> <code class="text-slate-700">/api/rd-webhook</code> · buffer 500 eventos · HMAC opcional via <code>RD_WEBHOOK_SECRET</code>
           </div>
           <button onclick="Actions.syncRdCrmNow()" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-black flex items-center gap-1.5 lj-dark-button" style="color:#fff;">
             <i data-lucide="refresh-cw" class="w-3 h-3"></i> Puxar agora

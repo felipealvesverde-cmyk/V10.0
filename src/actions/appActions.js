@@ -1628,14 +1628,15 @@ Object.assign(Actions, {
   },
 
   // V24.0.0 — Copia a URL pública do webhook RD pro clipboard.
-  // O usuário cola ela em RD CRM → Integrações → Webhooks.
+  // (mantido como utilitário fallback caso o cadastro automático falhe e
+  // o usuário precise registrar manualmente via curl/Postman)
   async copyWebhookUrl() {
     const origin = window.location?.origin || 'https://leadjourney.up.railway.app';
     const url = `${origin}/api/rd-webhook`;
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        Utils.toast('URL do webhook copiada. Cole em RD CRM → Integrações → Webhooks.');
+        Utils.toast('URL copiada.');
       } else {
         const ta = document.createElement('textarea');
         ta.value = url;
@@ -1647,6 +1648,124 @@ Object.assign(Actions, {
       }
     } catch (err) {
       Utils.toast(`Falhou ao copiar: ${err?.message || err}. URL: ${url}`);
+    }
+  },
+
+  // V24.0.0 — Eventos RD CRM v2 que o Journey quer ouvir.
+  // RD exige UM webhook por event_name (sem array). A gente registra todos
+  // e guarda os IDs em App.state.rdWebhooks pra poder deletar depois.
+  _RD_WEBHOOK_EVENTS: [
+    'deal_created', 'deal_changed', 'deal_won', 'deal_lost',
+    'deal_stage_changed',
+    'contact_created', 'contact_changed',
+    'tag_added'
+  ],
+
+  _webhookUrl() {
+    const origin = window.location?.origin || 'https://leadjourney.up.railway.app';
+    return `${origin}/api/rd-webhook`;
+  },
+
+  // V24.0.0 — GET /crm/v2/webhooks pra listar o que já existe no RD.
+  // Usado pra deduplicar antes de cadastrar (não cria webhook duplicado).
+  async refreshRdWebhooks() {
+    if (!window.RdCrmApiClient) return { ok: false, message: 'RdCrmApiClient indisponível.' };
+    const res = await RdCrmApiClient.get('/crm/v2/webhooks', { legacy: false });
+    if (!res.ok) {
+      App.state.rdWebhookRegistrationError = `GET /webhooks falhou (${res.status}): ${res.message}`;
+      App.save();
+      App.render();
+      return { ok: false, message: res.message };
+    }
+    const list = res.data?.data || res.data?.webhooks || res.data || [];
+    const ours = (Array.isArray(list) ? list : []).filter(w => {
+      const url = w.url || w.data?.url || '';
+      return url === this._webhookUrl();
+    }).map(w => ({
+      id: w.id || w.uuid || w.data?.id || '',
+      eventName: w.event_name || w.data?.event_name || '',
+      url: w.url || w.data?.url || '',
+      createdAt: w.created_at || w.data?.created_at || ''
+    }));
+    App.state.rdWebhooks = ours;
+    App.state.rdWebhookRegistrationError = '';
+    App.save();
+    App.render();
+    return { ok: true, webhooks: ours };
+  },
+
+  // V24.0.0 — Cadastra UM webhook por event_name no RD via API v2.
+  // Roteia via /api/rd-proxy (legacy=false → OAuth Bearer) usando o
+  // accessToken do user. Se o OAuth não tem scope CRM, RD devolve 401/403.
+  async registerRdWebhooks() {
+    if (!window.RdCrmApiClient) { Utils.toast('RdCrmApiClient indisponível.'); return; }
+    const oauth = App.state.integrations?.rd?.accessToken || '';
+    if (!oauth) {
+      Utils.toast('OAuth do RD não conectado. Conecte o RD Marketing primeiro pra ter accessToken.');
+      return;
+    }
+    Utils.toast('Cadastrando webhooks no RD...');
+    // 1. Lista o que já existe (deduplica).
+    await this.refreshRdWebhooks();
+    const existing = new Set((App.state.rdWebhooks || []).map(w => w.eventName));
+    const toCreate = this._RD_WEBHOOK_EVENTS.filter(ev => !existing.has(ev));
+    if (!toCreate.length) {
+      Utils.toast(`Todos os ${this._RD_WEBHOOK_EVENTS.length} webhooks já estão cadastrados no RD.`);
+      return;
+    }
+    const url = this._webhookUrl();
+    let created = 0;
+    let failures = [];
+    for (const eventName of toCreate) {
+      const body = {
+        data: {
+          name: `LeadJourney · ${eventName}`,
+          url,
+          event_name: eventName,
+          http_method: 'POST'
+        }
+      };
+      const res = await RdCrmApiClient.post('/crm/v2/webhooks', body, { legacy: false });
+      if (res.ok) {
+        created += 1;
+        const created_id = res.data?.data?.id || res.data?.id || '';
+        App.state.rdWebhooks = App.state.rdWebhooks || [];
+        App.state.rdWebhooks.push({
+          id: created_id,
+          eventName,
+          url,
+          createdAt: new Date().toISOString()
+        });
+      } else {
+        failures.push(`${eventName}: HTTP ${res.status} ${res.message}`);
+      }
+    }
+    if (failures.length && !created) {
+      App.state.rdWebhookRegistrationError = failures[0];
+    } else if (created) {
+      App.state.rdWebhookRegistrationError = '';
+    }
+    App.save();
+    App.render();
+    if (created) {
+      Utils.toast(`${created} webhook(s) cadastrado(s) no RD. ${failures.length ? `${failures.length} falharam.` : ''}`);
+    } else {
+      Utils.toast(`Nenhum webhook cadastrado. Erro: ${failures[0] || 'desconhecido'}`);
+    }
+  },
+
+  // V24.0.0 — DELETE /crm/v2/webhooks/:id pra desativar um evento.
+  async deleteRdWebhook(id) {
+    if (!id) return;
+    if (!confirm('Desativar este webhook no RD? O Journey vai parar de receber esse evento em tempo real (volta pro polling de 5min).')) return;
+    const res = await RdCrmApiClient.del(`/crm/v2/webhooks/${encodeURIComponent(id)}`, { legacy: false });
+    if (res.ok || res.status === 404) {
+      App.state.rdWebhooks = (App.state.rdWebhooks || []).filter(w => w.id !== id);
+      App.save();
+      App.render();
+      Utils.toast('Webhook desativado.');
+    } else {
+      Utils.toast(`Falha ao desativar: HTTP ${res.status} ${res.message}`);
     }
   },
 
