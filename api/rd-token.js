@@ -5,8 +5,9 @@
 // armazena credenciais — apenas repassa a chamada do front para o RD.
 //
 // Body aceito:
-//   { clientId, clientSecret, code }           -> troca code por access_token
-//   { clientId, clientSecret, refreshToken }   -> renova access_token
+//   { clientId, clientSecret, code }                       -> troca code por access_token
+//   { clientId, clientSecret, refreshToken }               -> renova access_token
+//   { clientId, clientSecret, grantType: 'client_credentials' }  -> V24.0.0 token server-to-server
 //
 // Retorna o status + corpo do RD intactos.
 function setCors(res) {
@@ -23,17 +24,20 @@ module.exports = async function handler(req, res) {
   }
 
   const body = req.body || {};
-  const { clientId, clientSecret, code, refreshToken } = body;
+  const { clientId, clientSecret, code, refreshToken, grantType } = body;
   if (!clientId || !clientSecret) {
     return res.status(400).json({ ok: false, message: 'clientId e clientSecret são obrigatórios.' });
   }
-  if (!code && !refreshToken) {
-    return res.status(400).json({ ok: false, message: 'code ou refreshToken obrigatório.' });
+  const isClientCreds = grantType === 'client_credentials';
+  if (!code && !refreshToken && !isClientCreds) {
+    return res.status(400).json({ ok: false, message: 'code, refreshToken ou grantType=client_credentials obrigatório.' });
   }
 
-  const rdBody = code
-    ? { client_id: String(clientId).trim(), client_secret: String(clientSecret).trim(), code: String(code).trim() }
-    : { client_id: String(clientId).trim(), client_secret: String(clientSecret).trim(), refresh_token: String(refreshToken).trim() };
+  const rdBody = isClientCreds
+    ? { client_id: String(clientId).trim(), client_secret: String(clientSecret).trim(), grant_type: 'client_credentials' }
+    : code
+      ? { client_id: String(clientId).trim(), client_secret: String(clientSecret).trim(), code: String(code).trim() }
+      : { client_id: String(clientId).trim(), client_secret: String(clientSecret).trim(), refresh_token: String(refreshToken).trim() };
 
   try {
     const rdRes = await fetch('https://api.rd.services/auth/token', {
