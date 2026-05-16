@@ -30,9 +30,9 @@ window.DjowAIModal = {
       <path d="M26 40 Q32 43 38 40" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
     </svg>`;
 
-    const suggestion = (text, emoji) => `<button onclick="document.getElementById('djowInput').value='${Utils.escape(text)}'; Actions.updateDjowInput('${Utils.escape(text)}'); document.getElementById('djowInput').focus();" class="lj-djow-suggest">${emoji} ${Utils.escape(text)}</button>`;
+    const suggestion = (text, emoji) => `<button onclick="document.getElementById('djowInput').value='${Utils.escape(text)}'; Actions.updateDjowAIInput('${Utils.escape(text)}'); document.getElementById('djowInput').focus();" class="lj-djow-suggest">${emoji} ${Utils.escape(text)}</button>`;
 
-    return `<div class="lj-djow-modal-backdrop" onclick="if(event.target===this) Actions.closeDjowModal()">
+    return `<div class="lj-djow-modal-backdrop" onclick="if(event.target===this) Actions.closeDjowAIModal()">
       <div class="lj-djow-modal" onclick="event.stopPropagation()">
         <div class="lj-djow-modal-header">
           <div class="lj-djow-modal-title">
@@ -43,8 +43,8 @@ window.DjowAIModal = {
             </div>
           </div>
           <div class="lj-djow-modal-actions">
-            ${messages.length > 0 ? `<button onclick="Actions.clearDjowConversation()" class="lj-djow-modal-btn" title="Limpar conversa"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
-            <button onclick="Actions.closeDjowModal()" class="lj-djow-modal-btn" title="Fechar (ESC)"><i data-lucide="x" class="w-4 h-4"></i></button>
+            ${messages.length > 0 ? `<button onclick="Actions.clearDjowAIConversation()" class="lj-djow-modal-btn" title="Limpar conversa"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+            <button onclick="Actions.closeDjowAIModal()" class="lj-djow-modal-btn" title="Fechar (ESC)"><i data-lucide="x" class="w-4 h-4"></i></button>
           </div>
         </div>
 
@@ -85,15 +85,15 @@ window.DjowAIModal = {
             id="djowInput"
             class="lj-djow-modal-input"
             placeholder="Ctrl+K para chamar o Djow a qualquer momento"
-            oninput="Actions.updateDjowInput(this.value)"
-            onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); Actions.sendDjowMessage();} else if(event.key==='Escape'){Actions.closeDjowModal();}"
+            oninput="Actions.updateDjowAIInput(this.value)"
+            onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); Actions.sendDjowAIMessage();} else if(event.key==='Escape'){Actions.closeDjowAIModal();}"
             onfocus="this.placeholder=''"
             onblur="if(!this.value) this.placeholder='Ctrl+K para chamar o Djow a qualquer momento'"
             ${!isConfigured || !canUse || sending ? 'disabled' : ''}
             rows="2"
           >${Utils.escape(App.state.djowInput || '')}</textarea>
           <button
-            onclick="Actions.sendDjowMessage()"
+            onclick="Actions.sendDjowAIMessage()"
             class="lj-djow-modal-send"
             ${!isConfigured || !canUse || sending ? 'disabled' : ''}
           >

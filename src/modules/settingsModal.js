@@ -2367,7 +2367,7 @@ var SettingsModal = {
             <button onclick="Actions.testDjowConnection()" class="px-4 py-2.5 rounded-2xl bg-slate-900 text-white font-black text-sm lj-dark-button" style="color:#fff!important;">
               <i data-lucide="zap" class="w-3.5 h-3.5 inline"></i> Testar conexão
             </button>
-            <button onclick="Actions.openDjowModal()" class="px-4 py-2.5 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black text-sm" style="color:#fff!important;">
+            <button onclick="Actions.openDjowAIModal()" class="px-4 py-2.5 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black text-sm" style="color:#fff!important;">
               <i data-lucide="message-square" class="w-3.5 h-3.5 inline"></i> Abrir chat
             </button>
           </div>

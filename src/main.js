@@ -25,7 +25,7 @@ var App = {
             const isCmdK = (e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K');
             if (isCmdK) {
               e.preventDefault();
-              if (window.Actions?.toggleDjowModal) Actions.toggleDjowModal();
+              if (window.Actions?.toggleDjowAIModal) Actions.toggleDjowAIModal();
             }
           });
         }
@@ -434,7 +434,7 @@ window.App = App;
     if (isCmdK || isCmdSlash || isAltK) {
       e.preventDefault();
       e.stopPropagation();
-      if (window.Actions?.toggleDjowModal) Actions.toggleDjowModal();
+      if (window.Actions?.toggleDjowAIModal) Actions.toggleDjowAIModal();
     }
   };
   document.addEventListener('keydown', handler, true); // capture phase
@@ -460,7 +460,8 @@ window.App = App;
       <circle cx="24" cy="30" r="1.5" fill="#5B21B6"/><circle cx="40" cy="30" r="1.5" fill="#5B21B6"/>
       <path d="M26 40 Q32 43 38 40" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
     </svg>`;
-    fab.onclick = () => { if (window.Actions?.toggleDjowModal) Actions.toggleDjowModal(); };
+    fab.onclick = () => { if (window.Actions?.toggleDjowAIModal) Actions.toggleDjowAIModal(); };
+    fab.title = 'Perguntar ao Djow (Ctrl+K · Ctrl+/ · Alt+K)';
     document.body.appendChild(fab);
   };
   if (document.readyState === 'loading') {

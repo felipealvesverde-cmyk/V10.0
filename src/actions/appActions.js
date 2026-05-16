@@ -2068,7 +2068,12 @@ Object.assign(Actions, {
     }
   },
 
-  openDjowModal() {
+  // V26.0.5 — Renomeadas pra djowAI* porque existiam funções legacy (V16.3
+  // djowModal Railway agent) com os mesmos nomes mais abaixo no arquivo,
+  // que sobrescreviam estas via ordem de declaração. Resultado: o toggle
+  // do modal AI rodava a função legacy (que setava showDjowModal/djowDraftMessage,
+  // não djowOpen), então o modal nunca aparecia.
+  openDjowAIModal() {
     App.state.djowOpen = true;
     App.save();
     App.render();
@@ -2078,23 +2083,23 @@ Object.assign(Actions, {
     }, 50);
   },
 
-  closeDjowModal() {
+  closeDjowAIModal() {
     App.state.djowOpen = false;
     App.save();
     App.render();
   },
 
-  toggleDjowModal() {
-    if (App.state.djowOpen) this.closeDjowModal();
-    else this.openDjowModal();
+  toggleDjowAIModal() {
+    if (App.state.djowOpen) this.closeDjowAIModal();
+    else this.openDjowAIModal();
   },
 
-  updateDjowInput(value) {
+  updateDjowAIInput(value) {
     App.state.djowInput = value;
     // Não dá save+render aqui (cada keystroke recarregaria o modal e perderia foco)
   },
 
-  async sendDjowMessage(event) {
+  async sendDjowAIMessage(event) {
     if (event && event.key && event.key !== 'Enter') return;
     if (event && event.shiftKey) return; // shift+enter = nova linha
     if (event && event.preventDefault) event.preventDefault();
@@ -2181,7 +2186,7 @@ Object.assign(Actions, {
     }, 50);
   },
 
-  clearDjowConversation() {
+  clearDjowAIConversation() {
     if (!confirm('Limpar a conversa atual? O histórico fica no banco mas some daqui.')) return;
     App.state.djowConversation = { id: null, messages: [] };
     App.save();

@@ -355,7 +355,7 @@ window.HomeModule = {
             <div class="lj-home-side-title">Djow <span class="lj-home-side-pill">AI</span></div>
             <div class="lj-home-side-sub">${isConfigured ? 'Pronto. Pergunte qualquer coisa.' : 'Aguardando configuração'}</div>
           </div>
-          <button onclick="Actions.openDjowModal()" class="lj-djow-expand" title="Expandir (Ctrl+K)">
+          <button onclick="Actions.openDjowAIModal()" class="lj-djow-expand" title="Expandir (Ctrl+K)">
             <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
           </button>
         </div>
@@ -391,13 +391,13 @@ window.HomeModule = {
               placeholder="Ctrl+K para chamar o Djow"
               value="${Utils.escape(App.state.djowInput || '')}"
               oninput="App.state.djowInput=this.value"
-              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); event.stopPropagation(); App.state.djowInput=this.value; Actions.sendDjowMessage();}"
+              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); event.stopPropagation(); App.state.djowInput=this.value; Actions.sendDjowAIMessage();}"
               onfocus="this.placeholder=''"
               onblur="if(!this.value) this.placeholder='Ctrl+K para chamar o Djow'"
               ${!isConfigured || !canUse || sending ? 'disabled' : ''}
             />
             <button
-              onclick="Actions.sendDjowMessage()"
+              onclick="Actions.sendDjowAIMessage()"
               class="lj-home-djow-send"
               title="Enviar"
               ${!isConfigured || !canUse || sending ? 'disabled' : ''}
