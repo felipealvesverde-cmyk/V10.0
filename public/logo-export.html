@@ -17,14 +17,19 @@
     h1 { font-size: 22px; margin: 0; }
     p { color: #94A3B8; font-size: 13px; margin: 0; }
     .preview {
-      background: white;
-      padding: 24px;
+      background: #0F172A;
+      border: 1px solid #1E293B;
+      padding: 28px 36px;
       border-radius: 18px;
       display: flex;
-      gap: 24px;
+      gap: 20px;
       align-items: center;
     }
-    .preview.dark { background: #0F172A; border: 1px solid #1E293B; }
+    .preview-light { background: white; border: 1px solid #E2E8F0; }
+    .preview-row { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+    .preview-label { font-size: 11px; color: #64748B; font-weight: 800; margin-bottom: 6px; text-align: center; }
+    .lockup-text { font-size: 38px; font-weight: 900; letter-spacing: -.025em; color: #fff; }
+    .preview-light .lockup-text { color: #0F172A; }
     button {
       background: linear-gradient(135deg, #8B5CF6, #6D28D9);
       color: white;
@@ -43,24 +48,77 @@
   <h1>LeadJourney — Export Logo PNG</h1>
   <p>Clique no botão pra baixar o logo em PNG no tamanho selecionado. Fundo transparente.</p>
 
-  <div class="preview">
-    <svg id="logoSvg" viewBox="0 0 64 64" width="120" height="120" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="lj-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#8B5CF6"/>
-          <stop offset="50%" stop-color="#7C3AED"/>
-          <stop offset="100%" stop-color="#5B21B6"/>
-        </linearGradient>
-      </defs>
-      <rect width="64" height="64" rx="14" fill="url(#lj-grad)"/>
-      <g stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
-        <path d="M19 14 L19 46 L31 46"/>
-        <path d="M45 14 L45 41 Q45 48 38 48 L34 48"/>
-      </g>
-    </svg>
+  <div class="preview-row">
+    <div>
+      <div class="preview-label">Ícone — fundo escuro</div>
+      <div class="preview">
+        <svg id="logoSvg" viewBox="0 0 64 64" width="120" height="120" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">
+          <defs>
+            <linearGradient id="lj-grad" x1="10%" y1="0%" x2="90%" y2="100%">
+              <stop offset="0%" stop-color="#EC4899"/>
+              <stop offset="45%" stop-color="#A855F7"/>
+              <stop offset="100%" stop-color="#06B6D4"/>
+            </linearGradient>
+            <filter id="lj-glow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur stdDeviation="1.2" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <g filter="url(#lj-glow)" stroke="url(#lj-grad)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none">
+            <path d="M21 10 L21 50"/>
+            <path d="M43 10 L43 46 Q43 56 33 56 L30 56"/>
+          </g>
+        </svg>
+      </div>
+    </div>
+
+    <div>
+      <div class="preview-label">Lockup (ícone + texto) — fundo escuro</div>
+      <div class="preview">
+        <svg id="lockupSvg" viewBox="0 0 320 80" width="320" height="80" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">
+          <defs>
+            <linearGradient id="lj-lockup-grad" x1="10%" y1="0%" x2="90%" y2="100%">
+              <stop offset="0%" stop-color="#EC4899"/>
+              <stop offset="45%" stop-color="#A855F7"/>
+              <stop offset="100%" stop-color="#06B6D4"/>
+            </linearGradient>
+          </defs>
+          <g transform="translate(0,8)" stroke="url(#lj-lockup-grad)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none">
+            <path d="M21 10 L21 50"/>
+            <path d="M43 10 L43 46 Q43 56 33 56 L30 56"/>
+          </g>
+          <text x="84" y="55" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="42" font-weight="900" letter-spacing="-1" fill="#fff">LeadJourney</text>
+        </svg>
+      </div>
+    </div>
+
+    <div>
+      <div class="preview-label">Ícone — fundo claro</div>
+      <div class="preview preview-light">
+        <svg viewBox="0 0 64 64" width="120" height="120" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">
+          <defs>
+            <linearGradient id="lj-grad-light" x1="10%" y1="0%" x2="90%" y2="100%">
+              <stop offset="0%" stop-color="#EC4899"/>
+              <stop offset="45%" stop-color="#A855F7"/>
+              <stop offset="100%" stop-color="#06B6D4"/>
+            </linearGradient>
+          </defs>
+          <g stroke="url(#lj-grad-light)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none">
+            <path d="M21 10 L21 50"/>
+            <path d="M43 10 L43 46 Q43 56 33 56 L30 56"/>
+          </g>
+        </svg>
+      </div>
+    </div>
   </div>
 
-  <div style="display:flex; gap:10px; align-items:center;">
+  <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center;">
+    <label>Tipo:
+      <select id="typeSel">
+        <option value="icon" selected>Ícone (lj)</option>
+        <option value="lockup">Lockup (lj + texto)</option>
+      </select>
+    </label>
     <label>Tamanho:
       <select id="sizeSel">
         <option value="64">64×64 (favicon)</option>
@@ -72,7 +130,7 @@
       </select>
     </label>
     <button onclick="downloadPng()">Baixar PNG</button>
-    <button onclick="downloadAll()" style="background: linear-gradient(135deg, #10B981, #059669);">Baixar todos (3 tamanhos)</button>
+    <button onclick="downloadAll()" style="background: linear-gradient(135deg, #10B981, #059669);">Baixar todos (ícone + lockup, 3 tamanhos cada)</button>
   </div>
 
   <div style="margin-top:20px; font-size:12px; color:#64748B;">
@@ -80,20 +138,20 @@
   </div>
 
   <script>
-    function svgToPng(size) {
+    function svgToPng(svgId, width, height) {
       return new Promise((resolve, reject) => {
-        const svg = document.getElementById('logoSvg');
+        const svg = document.getElementById(svgId);
         const xml = new XMLSerializer().serializeToString(svg);
         const svg64 = btoa(unescape(encodeURIComponent(xml)));
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          canvas.width = size;
-          canvas.height = size;
+          canvas.width = width;
+          canvas.height = height;
           const ctx = canvas.getContext('2d');
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, size, size);
+          ctx.drawImage(img, 0, 0, width, height);
           canvas.toBlob(blob => resolve(blob), 'image/png');
         };
         img.onerror = reject;
@@ -103,21 +161,33 @@
 
     async function downloadPng() {
       const size = Number(document.getElementById('sizeSel').value);
-      const blob = await svgToPng(size);
+      const type = document.getElementById('typeSel').value;
+      if (type === 'icon') {
+        const blob = await svgToPng('logoSvg', size, size);
+        triggerDownload(blob, `leadjourney-icon-${size}.png`);
+      } else {
+        // Lockup has 4:1 aspect ratio (320x80)
+        const blob = await svgToPng('lockupSvg', size * 4, size);
+        triggerDownload(blob, `leadjourney-lockup-${size}.png`);
+      }
+    }
+
+    function triggerDownload(blob, name) {
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = `leadjourney-logo-${size}.png`;
+      a.download = name;
       a.click();
     }
 
     async function downloadAll() {
-      for (const size of [128, 512, 1024]) {
-        const blob = await svgToPng(size);
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `leadjourney-logo-${size}.png`;
-        a.click();
-        await new Promise(r => setTimeout(r, 300));
+      const sizes = [128, 512, 1024];
+      for (const size of sizes) {
+        const iconBlob = await svgToPng('logoSvg', size, size);
+        triggerDownload(iconBlob, `leadjourney-icon-${size}.png`);
+        await new Promise(r => setTimeout(r, 250));
+        const lockupBlob = await svgToPng('lockupSvg', size * 4, size);
+        triggerDownload(lockupBlob, `leadjourney-lockup-${size}.png`);
+        await new Promise(r => setTimeout(r, 250));
       }
     }
   </script>
