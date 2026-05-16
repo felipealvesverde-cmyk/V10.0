@@ -3,19 +3,18 @@
 // conclusão (avaliado pelo StrategicMapEngine.journeyProgress) e o usuário
 // avança pela jornada via CTAs "Próximo passo →" ou clicando direto na etapa.
 window.StrategicZoomNavigation = {
-  // V28.0.0 — Renomeação didática (zero jargão de OKR na UI principal).
-  //   1. O sonho     — aonde o produto chega em 12 meses
-  //   2. As batalhas — 3 a 5 frentes pra realizar o sonho (eram "Objectives")
-  //   3. Os números  — como saber que venceu cada batalha (eram "Key Results")
-  //   4. As ações    — o que a operação faz pra mover cada número
-  //   5. Colocar em campo — disparar tarefas no provider
-  // Vocabulário Doerr (OKR/KR/Stretch/Committed) só em tooltips opcionais.
+  // V28.1.0 — Vocabulário RevOps conectado ao produto.
+  //   1. Objetivo do Produto — aonde esse produto chega em 12 meses
+  //   2. Comercial           — as 3 frentes do funil (Marketing, Vendas, CS)
+  //   3. Os números          — como saber que cada frente está performando
+  //   4. As ações            — o que a operação faz pra mover esses números
+  //   5. Colocar em campo    — disparar tarefas no provider operacional
   LEVELS: [
-    { id: 'vision',     label: 'O sonho',           short: 'O sonho',     icon: 'star',     description: 'Aonde esse produto chega em 12 meses.' },
-    { id: 'objectives', label: 'As batalhas',        short: 'Batalhas',    icon: 'flag',      description: 'As 3 a 5 frentes que vão te levar lá.' },
-    { id: 'okrs',       label: 'Os números',         short: 'Números',     icon: 'target',    description: 'Como você vai saber que venceu cada batalha.' },
-    { id: 'operations', label: 'As ações',           short: 'Ações',       icon: 'plug',      description: 'O que sua operação faz pra mover esses números.' },
-    { id: 'execution',  label: 'Colocar em campo',   short: 'Campo',       icon: 'send',      description: 'Disparar tudo no seu provider de execução.' }
+    { id: 'vision',     label: 'Objetivo do Produto', short: 'Objetivo',   icon: 'star',     description: 'Aonde esse produto chega nos próximos 12 meses.' },
+    { id: 'objectives', label: 'Comercial',           short: 'Comercial',  icon: 'flag',     description: 'As 3 frentes do funil: Marketing, Vendas e Sucesso do Cliente.' },
+    { id: 'okrs',       label: 'Os números',          short: 'Números',    icon: 'target',   description: 'Como você vai saber que cada frente está performando.' },
+    { id: 'operations', label: 'As ações',            short: 'Ações',      icon: 'plug',     description: 'O que sua operação faz pra mover esses números.' },
+    { id: 'execution',  label: 'Colocar em campo',    short: 'Campo',      icon: 'send',     description: 'Disparar tudo no seu provider de execução.' }
   ],
 
   _aliasMap: { strategy: 'vision', flows: 'operations', actions: 'operations' },

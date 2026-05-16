@@ -82,5 +82,57 @@ window.StrategicMapEngine = {
     const order = ['vision', 'objectives', 'okrs', 'operations', 'execution'];
     for (const step of order) if (!progress[step]) return step;
     return 'execution';
+  },
+
+  // V28.1 — As 3 frentes do funil (RevOps minimalista).
+  COMERCIAL_AREAS: [
+    { id: 'marketing', label: 'Marketing', icon: 'megaphone', color: 'sky',     description: 'Em definição minimalista, Marketing tem o objetivo de transformar um público suspeito em um potencial comprador (lead).' },
+    { id: 'sales',     label: 'Vendas',    icon: 'handshake', color: 'emerald', description: 'Em definição minimalista, Vendas tem o objetivo de transformar um potencial comprador (lead) em um cliente.' },
+    { id: 'cs',        label: 'Sucesso do Cliente', icon: 'heart', color: 'violet', description: 'Em definição minimalista, Sucesso do Cliente tem o objetivo de transformar um cliente em um advogado da marca.' }
+  ],
+
+  // V28.1 — Garante que as 3 áreas existam como objetivos.
+  // Migração V28→V28.1: se já houver 3+ objetivos sem area, adota os 3 primeiros
+  // como marketing/sales/cs na ordem (preserva label/owner/deadline/okrs do user).
+  // Seeda áreas faltantes com defaults vazios.
+  ensureComercialAreas(productId) {
+    const map = this.ensure(productId);
+    let objectives = [...(map.objectives || [])];
+    const areaIds = this.COMERCIAL_AREAS.map(a => a.id);
+    const existingAreas = new Set(objectives.filter(o => o.area).map(o => o.area));
+
+    // Migração: adota os primeiros 3 sem area como marketing/sales/cs.
+    if (!existingAreas.size) {
+      const unassigned = objectives.filter(o => !o.area);
+      for (let i = 0; i < Math.min(unassigned.length, 3); i++) {
+        const obj = unassigned[i];
+        const area = areaIds[i];
+        const idx = objectives.findIndex(o => o.id === obj.id);
+        objectives[idx] = { ...obj, area };
+        existingAreas.add(area);
+      }
+    }
+
+    // Seed: cria stubs vazios pras áreas faltantes.
+    this.COMERCIAL_AREAS.forEach(area => {
+      if (existingAreas.has(area.id)) return;
+      objectives.push({
+        id: `obj_${Date.now()}_${Math.floor(Math.random() * 1000)}_${area.id}`,
+        label: area.label,
+        owner: '',
+        deadline: null,
+        area: area.id,
+        okrs: [],
+        createdAt: new Date().toISOString()
+      });
+    });
+
+    this.save(productId, { objectives });
+    return objectives;
+  },
+
+  getObjectiveByArea(productId, areaId) {
+    const map = this.getForProduct(productId);
+    return (map.objectives || []).find(o => o.area === areaId) || null;
   }
 };

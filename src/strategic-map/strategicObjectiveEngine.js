@@ -10,9 +10,10 @@ window.StrategicObjectiveEngine = {
     const map = StrategicMapEngine.ensure(productId);
     const objective = {
       id: `obj_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      label: String(draft?.label || '').trim() || 'Objetivo sem nome',
+      label: String(draft?.label || '').trim() || 'Frente sem nome',
       owner: String(draft?.owner || '').trim(),
       deadline: draft?.deadline || null,
+      area: draft?.area || null, // V28.1 — marketing | sales | cs
       okrs: [],
       createdAt: new Date().toISOString()
     };

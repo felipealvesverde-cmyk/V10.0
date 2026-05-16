@@ -25,7 +25,7 @@ window.StrategicMapModal = {
       <div>
         <div class="flex items-center gap-2 mb-1"><i data-lucide="compass" class="w-4 h-4 text-indigo-300"></i><p class="text-[11px] font-black text-slate-300 uppercase tracking-wider">Revenue Strategic Map</p></div>
         <h2 class="text-2xl font-black">Mapa da Receita — ${Utils.escape(product.name)}</h2>
-        <p class="text-xs text-slate-300 mt-1">${snap.objectivesCount} objetivo(s) · ${snap.okrsCount} OKR(s) · ${snap.connectedFlows} fluxo(s) · progresso médio ${snap.avgProgress}%</p>
+        <p class="text-xs text-slate-300 mt-1">${snap.objectivesCount} frente(s) · ${snap.okrsCount} número(s) · ${snap.connectedFlows} fluxo(s) · progresso médio ${snap.avgProgress}%</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <button onclick="Actions.openStrategicOverview()" title="Ver árvore Visão → Objetivos → OKRs" class="px-3 py-2.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-100 text-xs font-black flex items-center gap-1"><i data-lucide="layout-grid" class="w-3.5 h-3.5"></i> Visão geral</button>
@@ -118,29 +118,29 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // -------------------- STEP 1: O SONHO --------------------
-  // V28.0.0 — Redesenhada didática: pergunta humana + exemplos cotidianos
-  // (Cacau Show + outros) + textarea grande + helper inspiracional.
+  // -------------------- STEP 1: OBJETIVO DO PRODUTO --------------------
+  // V28.1.0 — Vocabulário RevOps: foco é "produto" + ambição. Pergunta humana
+  // + exemplos de produto + textarea com helper.
   _stepVision(product) {
     const map = StrategicMapEngine.getForProduct(product.id);
     const hasVision = Boolean(String(map.vision || '').trim());
 
-    const exampleCacau = 'Ser a marca de chocolate mais querida do Brasil até 2027.';
+    const exampleCacau = 'Ser o chocolate em barra preferido das famílias brasileiras até 2027.';
     const otherExamples = [
-      'Virar a padaria onde todo mundo do bairro toma café',
-      'Ser o lugar onde dono e bichinho se sentem em casa',
-      'Resolver o almoço de quem trabalha em escritório',
-      'Ter os melhores doces de casamento do Sul'
+      'Ser o app que toda dona de pet abre antes de comprar ração',
+      'Virar o café da manhã favorito de quem trabalha em escritório',
+      'Ser o produto de credito que toda pequena empresa do bairro confia',
+      'Ser a primeira opção de doce em casamento no Sul do país'
     ];
 
     return `<section class="space-y-4">
-      ${this._stepIntro('Qual é o sonho desse produto pros próximos 12 meses?', 'Uma frase só. Bem ambiciosa. Pra todo time saber pra onde estamos remando.', 'star', 'vision')}
+      ${this._stepIntro(`Qual é o objetivo desse produto pros próximos 12 meses?`, 'Uma frase só, ambiciosa, conectada ao que esse produto entrega.', 'star', 'vision')}
 
       ${!hasVision ? `
         <div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
           <div class="flex items-center gap-2 mb-3">
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">Exemplo</span>
-            <span class="text-[11px] text-slate-400">Pra inspirar — pode adaptar pro seu negócio</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">Exemplo de produto</span>
+            <span class="text-[11px] text-slate-400">Pra inspirar — pode adaptar pro seu</span>
           </div>
           <p class="text-base text-white font-semibold leading-relaxed italic mb-3">"${Utils.escape(exampleCacau)}"</p>
           <button onclick="Actions.updateStrategicVision(${JSON.stringify(exampleCacau).replace(/"/g, '&quot;')}); App.render();" class="px-3 py-1.5 rounded-xl bg-violet-500 hover:bg-violet-600 text-white text-xs font-black" style="color:#fff!important;">Usar como ponto de partida →</button>
@@ -157,152 +157,98 @@ window.StrategicMapModal = {
       ` : ''}
 
       <div class="rounded-3xl bg-white/[0.05] border border-white/10 p-5">
-        <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Seu sonho em uma frase</label>
-        <textarea oninput="Actions.updateStrategicVision(this.value)" placeholder="Tornar [seu produto] o(a) [posição] pra [público] até [horizonte]" class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[100px] placeholder:text-slate-500" style="color-scheme:dark;">${Utils.escape(map.vision || '')}</textarea>
-        <p class="text-[11px] text-slate-400 mt-2">💡 Tem que dar arrepio. Se não der, é meta, não sonho.</p>
+        <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Objetivo do produto em uma frase</label>
+        <textarea oninput="Actions.updateStrategicVision(this.value)" placeholder="Tornar [esse produto] o(a) [posição] pra [público] até [horizonte]" class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[100px] placeholder:text-slate-500" style="color-scheme:dark;">${Utils.escape(map.vision || '')}</textarea>
+        <p class="text-[11px] text-slate-400 mt-2">💡 Conecta o produto a quem ele serve. Esse objetivo norteia tudo: Marketing, Vendas e Sucesso do Cliente.</p>
       </div>
 
-      ${this._stepCta('Próximo passo: definir as batalhas', hasVision)}
+      ${this._stepCta('Próximo passo: definir o Comercial', hasVision)}
     </section>`;
   },
 
-  // -------------------- STEP 2: AS BATALHAS --------------------
-  // V28.0.0 — Empty state com exemplo Cacau Show + wizard 3 substeps pra criar batalha.
+  // -------------------- STEP 2: COMERCIAL --------------------
+  // V28.1.0 — 3 cards fixos Marketing / Vendas / Sucesso do Cliente.
+  // Sem wizard livre; cada card é um layer do funil com descrição minimalista
+  // (RevOps) e edição inline de dono/prazo. Os números (KRs) entram na etapa 3.
   _stepObjectives(product) {
     const map = StrategicMapEngine.getForProduct(product.id);
     const objectives = map.objectives || [];
-    const draft = App.state.strategicObjectiveDraft;
     const visionShort = (map.vision || '').length > 80 ? (map.vision || '').slice(0, 80) + '…' : (map.vision || '');
+    const areasReady = (StrategicMapEngine.COMERCIAL_AREAS || []).every(a => objectives.some(o => o.area === a.id));
 
     return `<section class="space-y-4">
-      ${this._stepIntro('Quais são as 3 a 5 batalhas pra realizar esse sonho?', 'Frentes grandes, sem números ainda. São as guerras que você vai travar.', 'flag', 'objectives')}
+      ${this._stepIntro('Como o Comercial se organiza pra realizar esse objetivo?', 'Toda operação comercial passa por 3 frentes do funil: Marketing → Vendas → Sucesso do Cliente. Defina o dono e o prazo de cada uma.', 'flag', 'objectives')}
 
-      ${visionShort ? `<div class="rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-[11px] text-slate-300">🌟 <b class="text-violet-200">Seu sonho:</b> «${Utils.escape(visionShort)}»</div>` : ''}
+      ${visionShort ? `<div class="rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-[11px] text-slate-300">⭐ <b class="text-violet-200">Objetivo do produto:</b> «${Utils.escape(visionShort)}»</div>` : ''}
 
-      ${!objectives.length && !draft ? this._batalhasEmptyState() : ''}
-
-      <div class="flex justify-between items-center">
-        <p class="text-xs text-slate-400">${objectives.length} de até 5 batalhas</p>
-        ${!draft && objectives.length < 5 ? '<button onclick="Actions.startStrategicObjectiveDraft()" class="px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Criar batalha</button>' : ''}
+      <div class="rounded-2xl bg-indigo-500/10 border border-indigo-400/25 p-3 text-[12px] text-indigo-100">
+        <b class="text-indigo-200">RevOps em uma frase:</b> Marketing entrega <b>leads</b> pra Vendas, Vendas entrega <b>clientes</b> pra CS, e CS entrega <b>advogados da marca</b> de volta pro Marketing — fechando o ciclo.
       </div>
 
-      ${draft ? this._objectiveWizardCard(draft) : ''}
-
-      <div class="space-y-2">
-        ${objectives.map((o, i) => this._objectiveSummaryCard(o, i)).join('')}
+      <div class="grid lg:grid-cols-3 gap-3">
+        ${(StrategicMapEngine.COMERCIAL_AREAS || []).map(area => this._comercialAreaCard(area, StrategicMapEngine.getObjectiveByArea(product.id, area.id))).join('')}
       </div>
 
-      ${objectives.length >= 1 && objectives.length < 3 ? '<p class="text-[11px] text-amber-300/80 italic">💡 Tem espaço pra mais. Sonhos grandes raramente cabem em ' + objectives.length + ' batalha' + (objectives.length === 1 ? '' : 's') + ' só.</p>' : ''}
-      ${objectives.length === 5 ? '<p class="text-[11px] text-amber-300/80 italic">💡 Você atingiu o limite de 5 batalhas. Mais que isso, o time se perde.</p>' : ''}
-
-      ${this._stepCta('Próximo passo: definir os números', objectives.length > 0)}
+      ${this._stepCta('Próximo passo: definir os números', areasReady)}
     </section>`;
   },
 
-  _batalhasEmptyState() {
-    return `<div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
-      <p class="text-sm text-slate-200 leading-relaxed mb-3">
-        Pensa assim: se daqui 12 meses o sonho virou realidade, quais foram as 3, 4 ou 5 grandes coisas que você fez?
-      </p>
-
-      <div class="rounded-2xl bg-slate-900/60 border border-violet-400/20 p-4">
-        <div class="flex items-center gap-2 mb-2">
-          <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">Exemplo Cacau Show</span>
+  // V28.1.0 — Card de uma frente comercial (Marketing/Vendas/CS).
+  // Mostra descrição minimalista RevOps + dono/prazo editáveis + contador de números.
+  _comercialAreaCard(area, objective) {
+    const owner = objective?.owner || '';
+    const deadline = objective?.deadline || '';
+    const okrCount = (objective?.okrs || []).length;
+    const customLabel = objective?.label && objective.label !== area.label ? objective.label : '';
+    const tone = area.color;
+    return `<div class="rounded-3xl bg-white/[0.05] border border-${tone}-400/30 p-4 flex flex-col gap-3" style="min-height:280px;">
+      <div class="flex items-center gap-2">
+        <div class="w-9 h-9 rounded-xl bg-${tone}-500/20 grid place-items-center"><i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i></div>
+        <div class="min-w-0">
+          <p class="font-black text-white text-base leading-tight">${Utils.escape(area.label)}</p>
+          ${customLabel ? `<p class="text-[10px] text-${tone}-200 truncate">${Utils.escape(customLabel)}</p>` : ''}
         </div>
-        <p class="text-[12px] text-slate-300 mb-3">Pra "Ser a marca de chocolate mais querida do Brasil", as batalhas poderiam ser:</p>
-        <ol class="space-y-1.5 mb-4">
-          <li class="text-sm text-white"><b class="text-violet-300">1.</b> Estar presente em mais bairros do Brasil</li>
-          <li class="text-sm text-white"><b class="text-violet-300">2.</b> Fazer cada cliente voltar mais vezes no ano</li>
-          <li class="text-sm text-white"><b class="text-violet-300">3.</b> Garantir que todo mundo lembre da gente nas datas comemorativas</li>
-          <li class="text-sm text-white"><b class="text-violet-300">4.</b> Conquistar quem hoje compra chocolate importado</li>
-        </ol>
-        <button onclick="Actions.loadCacauShowBatalhasExample()" class="px-3 py-1.5 rounded-xl bg-violet-500 hover:bg-violet-600 text-white text-xs font-black" style="color:#fff!important;">Carregar como rascunho →</button>
+      </div>
+
+      <p class="text-[12px] text-slate-300 leading-relaxed flex-1">${Utils.escape(area.description)}</p>
+
+      <div class="space-y-2 pt-2 border-t border-white/10">
+        <div>
+          <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Dono dessa frente</label>
+          <input value="${Utils.escape(owner)}" oninput="Actions.updateStrategicAreaField('${area.id}', 'owner', this.value)" placeholder="Quem responde por essa frente?" class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-white/15 text-white text-[12px] font-bold placeholder:text-slate-500" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Prazo do ciclo</label>
+          <input type="date" value="${Utils.escape(deadline)}" oninput="Actions.updateStrategicAreaField('${area.id}', 'deadline', this.value)" class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-white/15 text-white text-[12px] font-bold" style="color-scheme:dark;" />
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-white/10">
+        <span class="text-[11px] text-slate-400 inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-${tone}-400"></span> ${okrCount} número${okrCount === 1 ? '' : 's'} definido${okrCount === 1 ? '' : 's'}</span>
+        <button onclick="Actions.setStrategicZoom('okrs')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/30 text-${tone}-100 text-[10px] font-black">Ver números →</button>
       </div>
     </div>`;
   },
 
-  _objectiveSummaryCard(obj, idx) {
-    const okrCount = (obj.okrs || []).length;
-    const okrDot = okrCount > 0 ? 'bg-violet-500' : 'bg-emerald-500';
-    const numero = String(idx + 1).padStart(2, '0');
-    return `<div class="rounded-2xl bg-white/[0.04] border border-white/10 p-3 flex items-start gap-3">
-      <div class="w-8 h-8 rounded-lg bg-violet-500/20 grid place-items-center font-black text-violet-200 text-sm shrink-0">${numero}</div>
-      <div class="flex-1 min-w-0">
-        <p class="font-black text-white text-sm">${Utils.escape(obj.label || 'Batalha sem nome')}</p>
-        <p class="text-[11px] text-slate-400 mt-0.5">
-          ${obj.owner ? `Dono: <b class="text-slate-200">${Utils.escape(obj.owner)}</b>` : '<span class="italic">Sem dono</span>'}
-          ${obj.deadline ? ` · Prazo: <b class="text-slate-200">${Utils.escape(obj.deadline)}</b>` : ''}
-          · <span class="inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full ${okrDot}"></span> ${okrCount} número${okrCount === 1 ? '' : 's'} definido${okrCount === 1 ? '' : 's'}</span>
-        </p>
-      </div>
-      <button onclick="Actions.removeStrategicObjective('${obj.id}')" title="Remover batalha" class="px-2 py-1 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 text-[10px] font-black hover:bg-red-500/20">×</button>
-    </div>`;
-  },
-
-  // V28.0.0 — Wizard de 3 substeps pra criar uma batalha (Nome / Dono / Prazo).
-  _objectiveWizardCard(draft) {
-    const step = Number(draft.wizardStep || 1);
-    const stepTitle = step === 1 ? 'Pergunta 1 de 3: Nome da batalha' : step === 2 ? 'Pergunta 2 de 3: Quem é o dono?' : step === 3 ? 'Pergunta 3 de 3: Até quando?' : 'Confere se ficou bom:';
-    return `<div class="rounded-3xl bg-indigo-500/15 border border-indigo-400/30 p-5 space-y-4">
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-2">
-          <i data-lucide="flag" class="w-4 h-4 text-indigo-200"></i>
-          <p class="text-xs font-black text-indigo-200 uppercase tracking-wider">Nova batalha · ${stepTitle}</p>
-        </div>
-        <button onclick="Actions.cancelStrategicObjectiveDraft()" class="text-slate-400 hover:text-white text-xs font-black">✕ Cancelar</button>
-      </div>
-
-      ${step === 1 ? `
-        <div>
-          <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Qual é o nome dessa batalha?</label>
-          <input value="${Utils.escape(draft.label || '')}" oninput="Actions.updateStrategicObjectiveDraft('label', this.value)" placeholder="Ex: Estar presente em mais bairros do Brasil" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" />
-          <p class="text-[11px] text-slate-400 mt-2">💡 Frase curta, ambiciosa, começa com verbo. Sem números aqui — os números entram na próxima etapa.</p>
-          <div class="mt-3 flex flex-wrap gap-1.5">
-            ${[
-              'Fazer cada cliente voltar mais vezes no ano',
-              'Conquistar quem hoje compra do concorrente premium',
-              'Garantir que todo mundo lembre da gente nas datas comemorativas'
-            ].map(ex => `<button onclick="Actions.updateStrategicObjectiveDraft('label', ${JSON.stringify(ex).replace(/"/g, '&quot;')}); App.render();" class="px-2 py-1 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 border border-violet-400/20 text-violet-200 text-[10px] font-bold">${Utils.escape(ex)}</button>`).join('')}
-          </div>
-        </div>
-      ` : step === 2 ? `
-        <div>
-          <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Quem é o responsável por essa batalha?</label>
-          <input value="${Utils.escape(draft.owner || '')}" oninput="Actions.updateStrategicObjectiveDraft('owner', this.value)" placeholder="Nome de uma pessoa ou time (ex: Maria, Time de Marketing)" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" />
-          <p class="text-[11px] text-slate-400 mt-2">💡 Uma pessoa só. Quem perde sono se essa batalha não andar.</p>
-        </div>
-      ` : `
-        <div>
-          <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Até quando você quer ter essa batalha vencida?</label>
-          <input type="date" value="${Utils.escape(draft.deadline || '')}" oninput="Actions.updateStrategicObjectiveDraft('deadline', this.value)" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold" style="color-scheme:dark;" />
-          <p class="text-[11px] text-slate-400 mt-2">💡 Geralmente um trimestre ou o ano todo. Sem prazo, vira eterna.</p>
-        </div>
-      `}
-
-      <div class="flex justify-between gap-2 pt-2 border-t border-white/10">
-        ${step > 1 ? `<button onclick="Actions.prevStrategicObjectiveStep()" class="px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-white text-xs font-black">← Voltar</button>` : '<div></div>'}
-        ${step < 3 ? `<button onclick="Actions.nextStrategicObjectiveStep()" ${step === 1 && !String(draft.label || '').trim() ? 'disabled' : ''} class="px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-30 text-white text-xs font-black" style="color:#fff!important;">Próximo →</button>` : `<button onclick="Actions.saveStrategicObjectiveDraft()" class="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black" style="color:#fff!important;">✓ Salvar batalha</button>`}
-      </div>
-    </div>`;
-  },
-
-  // -------------------- STEP 3: OKRs --------------------
+  // -------------------- STEP 3: OS NÚMEROS --------------------
+  // V28.1.0 — Por frente comercial (Marketing/Vendas/CS), defina 1-3 números
+  // que indicam se a frente está performando.
   _stepOkrs(product) {
     const map = StrategicMapEngine.getForProduct(product.id);
     const objectives = map.objectives || [];
     const totalOkrs = objectives.reduce((sum, o) => sum + (o.okrs?.length || 0), 0);
     if (!objectives.length) {
       return `<section class="space-y-3">
-        ${this._stepIntro('Key Results', 'Crie pelo menos um Objective antes de medir.', 'target')}
+        ${this._stepIntro('Os números', 'Defina as frentes comerciais antes de medir.', 'target')}
         <div class="rounded-3xl bg-amber-500/10 border border-amber-400/30 p-5 text-amber-200">
           <p class="font-black mb-1">Volte um passo.</p>
-          <p class="text-sm">Você precisa criar Objetivos antes de adicionar OKRs.</p>
-          <button onclick="Actions.setStrategicZoom('objectives')" class="mt-3 px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black">← Voltar para Objetivos</button>
+          <p class="text-sm">As 3 frentes comerciais precisam estar prontas antes de você criar números.</p>
+          <button onclick="Actions.setStrategicZoom('objectives')" class="mt-3 px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black">← Voltar para Comercial</button>
         </div>
       </section>`;
     }
     return `<section class="space-y-3">
-      ${this._stepIntro('Key Results', 'Por Objective, 3-5 KRs quantitativos: "de X pra Y até Z". Marque Stretch (0.7=sucesso) ou Committed (precisa 1.0).', 'target', 'keyresults')}
+      ${this._stepIntro('Os números', 'Pra cada frente, escolha 1 a 3 números que dizem se ela está performando. Formato: "de X pra Y até Z".', 'target', 'keyresults')}
       <div class="space-y-3">
         ${objectives.map(o => this._okrsObjectiveCard(product, o)).join('')}
       </div>
@@ -314,17 +260,24 @@ window.StrategicMapModal = {
     const okrs = obj.okrs || [];
     const draft = App.state.strategicOkrDraft;
     const isDraftHere = draft && draft.objectiveId === obj.id;
-    return `<div class="rounded-3xl bg-white/[0.05] border border-white/10 p-4 space-y-3">
+    const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === obj.area);
+    const tone = area?.color || 'indigo';
+    const headerLabel = area?.label || obj.label;
+    const sub = area && obj.label && obj.label !== area.label ? Utils.escape(obj.label) : '';
+    return `<div class="rounded-3xl bg-white/[0.05] border border-${tone}-400/30 p-4 space-y-3">
       <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <p class="font-black text-white">${Utils.escape(obj.label)}</p>
-          <p class="text-[11px] text-slate-400 mt-0.5">${okrs.length} OKR(s)</p>
+        <div class="min-w-0 flex items-center gap-3">
+          ${area ? `<div class="w-9 h-9 rounded-xl bg-${tone}-500/20 grid place-items-center shrink-0"><i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i></div>` : ''}
+          <div class="min-w-0">
+            <p class="font-black text-white">${Utils.escape(headerLabel)}</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">${sub ? `${sub} · ` : ''}${okrs.length} número(s)</p>
+          </div>
         </div>
-        ${!isDraftHere ? `<button onclick="Actions.startStrategicOkrDraft('${obj.id}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-[11px] font-black flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Novo OKR</button>` : ''}
+        ${!isDraftHere ? `<button onclick="Actions.startStrategicOkrDraft('${obj.id}')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-500/20 border border-${tone}-400/30 text-${tone}-200 text-[11px] font-black flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Novo número</button>` : ''}
       </div>
       ${isDraftHere ? this._okrDraftCard(draft, product, /* hideConnect */ true) : ''}
       <div class="space-y-2">
-        ${okrs.length ? okrs.map(kr => this._okrSummaryCard(product, obj, kr)).join('') : (isDraftHere ? '' : '<p class="text-[11px] text-slate-500 italic">Sem OKRs neste objetivo ainda.</p>')}
+        ${okrs.length ? okrs.map(kr => this._okrSummaryCard(product, obj, kr)).join('') : (isDraftHere ? '' : '<p class="text-[11px] text-slate-500 italic">Sem números nessa frente ainda.</p>')}
       </div>
     </div>`;
   },
@@ -651,10 +604,10 @@ window.StrategicMapModal = {
 
   _djowStepTip(stepId) {
     const tipMap = {
-      vision:     'Comece com uma frase curta e ambiciosa. Foque no "para quê", não no "como".',
-      objectives: 'Bons objetivos têm verbo de ação: Aumentar, Reduzir, Melhorar, Capturar.',
-      okrs:       'OKR = resultado mensurável. Exemplo: "2.000 leads qualificados até julho".',
-      operations: 'Conecte cada OKR à ação operacional real. Pode ser mais de uma.',
+      vision:     'Foco no produto. Frase curta, ambiciosa, conectada a quem ele serve.',
+      objectives: 'O Comercial é um funil de 3 frentes: Marketing → Vendas → CS. Cada frente tem um dono.',
+      okrs:       'Pra cada frente, 1-3 números. Marketing: leads. Vendas: clientes. CS: retenção/advocacy.',
+      operations: 'Conecte cada número à ação operacional real. Pode ser mais de uma.',
       execution:  'Clique em "Criar tarefa via Djow" — a tarefa vai direto para o ClickUp/provider configurado.'
     };
     const tip = tipMap[stepId] || '';
@@ -664,10 +617,10 @@ window.StrategicMapModal = {
 
   _djowStepHints(stepId) {
     const hintsByStep = {
-      vision:     ['Como criar uma visão poderosa?', 'Exemplos de visão de produto', 'Visão muito longa, como encurtar?'],
-      objectives: ['Sugestões de objetivos para meu produto', 'Quantos objetivos é o ideal?', 'Diferença entre objetivo e OKR'],
-      okrs:       ['Exemplo de OKR para aquisição', 'Como escolher a métrica certa?', 'Meta ambiciosa vs realista'],
-      operations: ['Posso conectar uma ação a múltiplos OKRs?', 'Como saber se uma ação serve este OKR?', 'Não tenho ações ainda'],
+      vision:     ['Como escrever o objetivo do produto?', 'Exemplos de objetivo de produto', 'Objetivo muito longo, como encurtar?'],
+      objectives: ['Como definir o dono de cada frente?', 'Quem deve responder por Marketing/Vendas/CS?', 'Posso ter mais de uma pessoa por frente?'],
+      okrs:       ['Bons números para Marketing', 'Bons números para Vendas', 'Bons números para Sucesso do Cliente'],
+      operations: ['Posso conectar uma ação a múltiplos números?', 'Como saber se uma ação serve esse número?', 'Não tenho ações ainda'],
       execution:  ['Para onde a tarefa vai?', 'Como configurar ClickUp?', 'Tarefa criada não aparece no provider']
     };
     const hints = hintsByStep[stepId] || hintsByStep.vision;

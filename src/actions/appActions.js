@@ -3566,7 +3566,13 @@ Object.assign(Actions, {
     App.state.strategicMapZoom = 'strategy';
     App.state.strategicObjectiveDraft = null;
     App.state.strategicOkrDraft = null;
-    if (window.StrategicMapEngine) StrategicMapEngine.ensure(Number(productId));
+    if (window.StrategicMapEngine) {
+      StrategicMapEngine.ensure(Number(productId));
+      // V28.1 — garante que as 3 frentes (Marketing/Vendas/CS) existam.
+      if (typeof StrategicMapEngine.ensureComercialAreas === 'function') {
+        StrategicMapEngine.ensureComercialAreas(Number(productId));
+      }
+    }
     App.save(); App.render();
   },
 
@@ -4346,7 +4352,19 @@ Object.assign(Actions, {
     if (!productId) return;
     StrategicObjectiveEngine.remove(productId, objectiveId);
     App.save(); App.render();
-    Utils.toast('Batalha removida.');
+    Utils.toast('Frente removida.');
+  },
+
+  // V28.1 — Edita campo de uma frente comercial (Marketing/Vendas/CS).
+  // areaId: 'marketing'|'sales'|'cs'; field: 'owner'|'deadline'|'label'.
+  updateStrategicAreaField(areaId, field, value) {
+    const productId = App.state.strategicMapProductId;
+    if (!productId || !window.StrategicMapEngine) return;
+    const objective = StrategicMapEngine.getObjectiveByArea(productId, areaId);
+    if (!objective) return;
+    const patch = field === 'deadline' ? { deadline: value || null } : { [field]: String(value || '') };
+    StrategicObjectiveEngine.update(productId, objective.id, patch);
+    App.save();
   },
 
   startStrategicOkrDraft(objectiveId) {
