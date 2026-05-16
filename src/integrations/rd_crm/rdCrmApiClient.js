@@ -81,14 +81,11 @@ window.RdCrmApiClient = {
     // V21.4.1 — A API CRM unificada (api.rd.services/crm/v1) retorna 404,
     // então o default agora é a base oficial crm.rdstation.com/api/v1 ("legacy").
     // Quem precisa do unified explicita options.legacy = false.
+    // V24.0.0 — Removida a auto-injeção de '/crm/v1' quando legacy=false.
+    // Caller agora passa path completo (ex: '/crm/v2/...', '/integrations/...',
+    // '/platform/...'). Antes, '/integrations/webhooks' virava '/crm/v1/integrations/webhooks' → 404.
     const useLegacy = options.legacy !== false;
-    let rdPath;
-    if (useLegacy) {
-      rdPath = path.startsWith('/') ? path : `/${path}`;
-    } else {
-      const normalized = path.startsWith('/') ? path : `/${path}`;
-      rdPath = normalized.startsWith('/crm/') ? normalized : `/crm/v1${normalized}`;
-    }
+    const rdPath = path.startsWith('/') ? path : `/${path}`;
     // V21.4.2 — Legacy CRM API rejeita Authorization: Bearer; usa ?token=X.
     const useQueryToken = useLegacy;
     try {
