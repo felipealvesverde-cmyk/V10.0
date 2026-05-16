@@ -378,10 +378,15 @@ var App = {
 
         const app = document.getElementById('app');
         // V25.0.0 — Adicionada aba "home" (HomeModule).
-        // V26.0.0 — Modal Djow renderizado globalmente (acima de tudo via Ctrl+K).
         const screens = { home: window.HomeModule, products: ProductsModule, campaigns: CampaignModule, actions: ActionModule, results: ResultModule, scores: ScoreModule, dashboard: DashboardModule, leads: LeadsModule, revops: window.RevopsGovernanceModule };
-        const djowModal = window.DjowAIModal && this.state.djowOpen ? DjowAIModal.render() : '';
-        app.innerHTML = (screens[this.state.activeTab]?.render() || (window.HomeModule ? HomeModule.render() : ProductsModule.render())) + (window.SettingsModal ? SettingsModal.render() : '') + djowModal;
+        app.innerHTML = (screens[this.state.activeTab]?.render() || (window.HomeModule ? HomeModule.render() : ProductsModule.render())) + (window.SettingsModal ? SettingsModal.render() : '');
+        // V26.0.4 — Modal Djow agora em root separado (#djowModalRoot fora de #app)
+        // pra que position:fixed funcione corretamente (parent #app tem transform
+        // via card-enter, que cria novo containing block e quebra position:fixed).
+        const djowRoot = document.getElementById('djowModalRoot');
+        if (djowRoot) {
+          djowRoot.innerHTML = window.DjowAIModal && this.state.djowOpen ? DjowAIModal.render() : '';
+        }
         if (window.lucide) lucide.createIcons();
         this._restoreFocus(_focusSnapshot);
       },

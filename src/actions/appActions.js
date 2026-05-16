@@ -2099,15 +2099,39 @@ Object.assign(Actions, {
     if (event && event.shiftKey) return; // shift+enter = nova linha
     if (event && event.preventDefault) event.preventDefault();
 
-    const inputEl = document.getElementById('djowInput');
-    const message = (inputEl?.value || App.state.djowInput || '').trim();
-    if (!message) return;
-    if (App.state.djowSending) return;
+    // V26.0.4 — Lê de QUALQUER input Djow (home ou modal). Antes só tentava o modal,
+    // que falhava quando enviado pelo home (id diferente).
+    const modalInput = document.getElementById('djowInput');
+    const homeInput = document.getElementById('djowHomeInput');
+    const message = (
+      modalInput?.value ||
+      homeInput?.value ||
+      App.state.djowInput ||
+      ''
+    ).trim();
+    if (!message) {
+      Utils.toast('Digite uma pergunta primeiro.');
+      return;
+    }
+    // V26.0.4 — Reset stuck state (caso uma chamada anterior tenha travado em fetch hang).
+    // Se já tem 30s+ que djowSending=true, considera stuck e libera.
+    if (App.state.djowSending) {
+      const stuckSince = App.state._djowSendingStartedAt || 0;
+      if (Date.now() - stuckSince < 30000) {
+        Utils.toast('Já tem uma pergunta sendo processada. Aguarda.');
+        return;
+      }
+      // 30s+ = liberar
+      App.state.djowSending = false;
+    }
+    App.state._djowSendingStartedAt = Date.now();
 
     App.state.djowConversation = App.state.djowConversation || { id: null, messages: [] };
     App.state.djowConversation.messages.push({ role: 'user', content: message, ts: Date.now() });
     App.state.djowInput = '';
-    if (inputEl) inputEl.value = '';
+    // V26.0.4 — Limpa AMBOS inputs (home + modal) pra UX consistente.
+    if (modalInput) modalInput.value = '';
+    if (homeInput) homeInput.value = '';
     App.state.djowSending = true;
     App.render();
 
