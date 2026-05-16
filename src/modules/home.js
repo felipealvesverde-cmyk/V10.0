@@ -190,7 +190,35 @@ window.HomeModule = {
       <span class="lj-pulso-pos">${idx + 1}/${allProducts.length}</span>
     </div>` : '';
 
+    // V25.0.2 — Pulso re-desenhado com ondas SVG entre estações + glow.
+    // Cada par de estações é conectado por uma onda contínua animada via
+    // stroke-dashoffset, e partículas circulam por cima.
     return `<section class="lj-pulso" onmouseenter="HomeModule._hoverPause=true" onmouseleave="HomeModule._hoverPause=false">
+      <div class="lj-pulso-bg">
+        <svg class="lj-pulso-waves" viewBox="0 0 1000 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="lj-pulso-wave-grad" x1="0%" y1="50%" x2="100%" y2="50%">
+              <stop offset="0%" stop-color="#A855F7" stop-opacity="0"/>
+              <stop offset="10%" stop-color="#A855F7" stop-opacity=".8"/>
+              <stop offset="30%" stop-color="#38BDF8" stop-opacity=".8"/>
+              <stop offset="55%" stop-color="#5EEAD4" stop-opacity=".8"/>
+              <stop offset="75%" stop-color="#10B981" stop-opacity=".8"/>
+              <stop offset="92%" stop-color="#F59E0B" stop-opacity=".8"/>
+              <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+            </linearGradient>
+            <filter id="lj-pulso-glow" x="-10%" y="-30%" width="120%" height="160%">
+              <feGaussianBlur stdDeviation="6" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <g filter="url(#lj-pulso-glow)">
+            <path class="lj-pulso-wave lj-pulso-wave-1" d="M0 100 Q 125 60 250 100 T 500 100 T 750 100 T 1000 100" stroke="url(#lj-pulso-wave-grad)" stroke-width="3" fill="none"/>
+            <path class="lj-pulso-wave lj-pulso-wave-2" d="M0 105 Q 125 140 250 105 T 500 105 T 750 105 T 1000 105" stroke="url(#lj-pulso-wave-grad)" stroke-width="2" fill="none" opacity=".7"/>
+            <path class="lj-pulso-wave lj-pulso-wave-3" d="M0 95 Q 125 50 250 95 T 500 95 T 750 95 T 1000 95" stroke="url(#lj-pulso-wave-grad)" stroke-width="1.5" fill="none" opacity=".5"/>
+          </g>
+        </svg>
+      </div>
+
       <div class="lj-pulso-header">
         <div>
           <div class="lj-pulso-label">PULSO DA RECEITA</div>
@@ -198,6 +226,7 @@ window.HomeModule = {
         </div>
         ${navControls}
       </div>
+
       <div class="lj-pulso-stages">
         ${stages.map((s, i) => `
           <div class="lj-pulso-stage lj-pulso-stage-${s.accent}" style="--lj-pulso-delay: ${i * 200}ms">
@@ -206,9 +235,9 @@ window.HomeModule = {
             <div class="lj-pulso-stage-value">${s.value}</div>
             <div class="lj-pulso-stage-sub">${s.sub}</div>
           </div>
-          ${i < stages.length - 1 ? `<div class="lj-pulso-flow"><span class="lj-pulso-particle"></span><span class="lj-pulso-particle" style="animation-delay:.7s"></span><span class="lj-pulso-particle" style="animation-delay:1.4s"></span></div>` : ''}
         `).join('')}
       </div>
+
       ${!product ? `<div class="lj-pulso-empty">Cadastre seu primeiro produto pra ver o pulso da operação.</div>` : ''}
     </section>`;
   },
@@ -268,10 +297,39 @@ window.HomeModule = {
   },
 
   _sideStack() {
+    // V25.0.2 — Avatar do Djow é uma carinha de robô SVG (era ícone genérico).
+    const djowAvatar = `<div class="lj-home-djow-avatar">
+      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="djow-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#A78BFA"/>
+            <stop offset="100%" stop-color="#5B21B6"/>
+          </linearGradient>
+        </defs>
+        <!-- Antena -->
+        <circle cx="32" cy="8" r="3" fill="#C4B5FD"/>
+        <line x1="32" y1="11" x2="32" y2="16" stroke="#A78BFA" stroke-width="2"/>
+        <!-- Cabeça -->
+        <rect x="14" y="16" width="36" height="32" rx="11" fill="url(#djow-grad)" stroke="#7C3AED" stroke-width="1.5"/>
+        <!-- Olhos -->
+        <circle cx="24" cy="30" r="3.5" fill="#fff"/>
+        <circle cx="40" cy="30" r="3.5" fill="#fff"/>
+        <circle cx="24" cy="30" r="1.5" fill="#5B21B6"><animate attributeName="cy" values="30;30;30.5;30" dur="3s" repeatCount="indefinite"/></circle>
+        <circle cx="40" cy="30" r="1.5" fill="#5B21B6"><animate attributeName="cy" values="30;30;30.5;30" dur="3s" repeatCount="indefinite"/></circle>
+        <!-- Boca: linha sutil -->
+        <path d="M26 40 Q32 43 38 40" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <!-- Orelhinhas (sensores laterais) -->
+        <rect x="10" y="26" width="4" height="10" rx="2" fill="#7C3AED"/>
+        <rect x="50" y="26" width="4" height="10" rx="2" fill="#7C3AED"/>
+        <!-- Pescoço/base -->
+        <rect x="26" y="48" width="12" height="6" rx="2" fill="#5B21B6"/>
+      </svg>
+    </div>`;
+
     return `<aside class="lj-home-side">
       <div class="lj-home-side-card lj-home-djow">
         <div class="lj-home-side-header">
-          <div class="lj-home-djow-mark"><i data-lucide="sparkles" class="w-4 h-4"></i></div>
+          ${djowAvatar}
           <div>
             <div class="lj-home-side-title">Djow <span class="lj-home-side-pill">AI</span></div>
             <div class="lj-home-side-sub">Seu assistente de receita</div>

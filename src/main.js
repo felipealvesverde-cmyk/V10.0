@@ -11,6 +11,9 @@ var App = {
         // V23.0.0 — Carrega state remoto se em produção; fallback pra localStorage.
         await this._loadStateWithRemoteFallback();
         this.ensureRuntimeStateV1301();
+        // V25.0.2 — "Sempre que abrir o LJ, a página inicial é Início."
+        // Sobrescreve activeTab no boot (não persiste navegação entre reloads).
+        this.state.activeTab = 'home';
         this.runTests();
         this.render();
         this.hydrateFromConfiguredDatabase();
@@ -313,36 +316,48 @@ var App = {
           `).join('');
         }
 
-        const header = document.getElementById('pageHeader');
-        const meta = pageMeta[this.state.activeTab] || pageMeta.home;
-        // V23.0.0 — Badge de usuário + modo + logout no header.
-        const user = this.currentUser || {};
-        const userBadge = user.username ? `<div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${user.mode === 'sandbox' && !user.isMaster ? 'bg-amber-500/20 border-amber-400/30 text-amber-100' : 'bg-emerald-500/15 border-emerald-400/30 text-emerald-100'} border text-xs font-black">
-          <i data-lucide="${user.isMaster ? 'shield' : (user.mode === 'sandbox' ? 'flask-conical' : 'database')}" class="w-3.5 h-3.5"></i>
-          ${this._escape(user.username)} · ${user.isMaster ? 'master' : (user.mode || 'sandbox')}
-        </div>` : '';
-        if (header) {
-          header.innerHTML = `
-            <div>
-              ${user.mode === 'sandbox' && !user.isMaster ? '<div class="mb-2 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-100 text-xs font-black"><i data-lucide="alert-triangle" class="w-3 h-3"></i> MODO SANDBOX — alterações não persistem no banco</div>' : ''}
-              <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/10 text-white text-xs font-black mb-3">
-                <i data-lucide="workflow" class="w-3.5 h-3.5"></i>
-                LeadJourney ${window.LJVersion || 'V?.?'}
-              </div>
-              <h1 class="lj-page-title">${meta.title}</h1>
-              <p class="lj-page-subtitle">${meta.subtitle}</p>
-            </div>
-            <div class="lj-page-actions flex items-center gap-2">
-              ${userBadge}
-              <button onclick="Actions.openSettingsModal()" class="lj-btn lj-btn-secondary">
-                <i data-lucide="settings" class="w-4 h-4"></i>
-                Configurações
-              </button>
-              <button onclick="Actions.logout()" title="Sair" class="lj-btn lj-btn-secondary" style="padding-left:0.75rem;padding-right:0.75rem;">
-                <i data-lucide="log-out" class="w-4 h-4"></i>
-              </button>
+        // V25.0.2 — Configurações + Logout + Versão movidos pra sidebar
+        // esquerda (eram no topo direito). Topo agora só tem título da página.
+        const sidebarAccount = document.getElementById('sidebarAccount');
+        const userForBadge = this.currentUser || {};
+        if (sidebarAccount) {
+          sidebarAccount.innerHTML = `
+            <button onclick="Actions.openSettingsModal()" class="lj-master-nav-item lj-nav-utility">
+              <i data-lucide="settings" class="lj-master-nav-icon"></i>
+              <span>Configurações</span>
+            </button>
+            <button onclick="Actions.logout()" class="lj-master-nav-item lj-nav-utility">
+              <i data-lucide="log-out" class="lj-master-nav-icon"></i>
+              <span>Sair</span>
+            </button>
+            <div class="lj-sidebar-version">
+              <i data-lucide="workflow" class="w-3 h-3"></i>
+              <span>LeadJourney ${window.LJVersion || 'V?.?'}</span>
             </div>
           `;
+        }
+
+        const header = document.getElementById('pageHeader');
+        const meta = pageMeta[this.state.activeTab] || pageMeta.home;
+        const user = this.currentUser || {};
+        if (header) {
+          // V25.0.2 — Header minimalista. Pra Home, oculto (HomeModule tem
+          // greeting próprio). Pra outras abas, só título + subtítulo + sandbox warn.
+          if (this.state.activeTab === 'home') {
+            header.innerHTML = user.mode === 'sandbox' && !user.isMaster
+              ? '<div class="lj-sandbox-warn"><i data-lucide="alert-triangle" class="w-3 h-3"></i> MODO SANDBOX — alterações não persistem no banco</div>'
+              : '';
+            header.classList.add('lj-page-header-collapsed');
+          } else {
+            header.classList.remove('lj-page-header-collapsed');
+            header.innerHTML = `
+              <div>
+                ${user.mode === 'sandbox' && !user.isMaster ? '<div class="lj-sandbox-warn"><i data-lucide="alert-triangle" class="w-3 h-3"></i> MODO SANDBOX — alterações não persistem no banco</div>' : ''}
+                <h1 class="lj-page-title">${meta.title}</h1>
+                <p class="lj-page-subtitle">${meta.subtitle}</p>
+              </div>
+            `;
+          }
         }
 
         const app = document.getElementById('app');

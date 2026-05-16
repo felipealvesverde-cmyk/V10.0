@@ -282,6 +282,60 @@ body.lj-app-body {
   flex: 0 0 auto;
 }
 
+/* V25.0.2 — Conta (Configurações + Logout + Versão) abaixo dos tabs.
+   Separado por uma linha sutil pra distinguir de tabs de conteúdo. */
+.lj-master-nav-account {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,.08);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lj-master-nav-account .lj-master-nav-item {
+  min-height: 42px;
+  font-size: 13px;
+  color: #94A3B8;
+}
+.lj-master-nav-account .lj-master-nav-item:hover {
+  color: #fff;
+}
+.lj-sidebar-version {
+  margin-top: 10px;
+  padding: 6px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  color: #475569;
+  letter-spacing: .04em;
+}
+
+/* V25.0.2 — Header colapsado pra Home (que tem greeting próprio).
+   Pras demais abas mantém título + subtítulo. */
+.lj-page-header-collapsed {
+  padding: 0 !important;
+  min-height: 0 !important;
+  margin-bottom: 0 !important;
+}
+.lj-page-header-collapsed:empty {
+  display: none !important;
+}
+.lj-sandbox-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: rgba(251,191,36,.18);
+  border: 1px solid rgba(251,191,36,.30);
+  color: #FCD34D;
+  font-size: 11px;
+  font-weight: 900;
+  margin-bottom: 8px;
+}
+
 .lj-master-nav-footer {
   margin-top: auto;
   padding-top: 16px;
