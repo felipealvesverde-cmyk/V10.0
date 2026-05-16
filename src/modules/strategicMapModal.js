@@ -118,60 +118,170 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // -------------------- STEP 1: VISÃO --------------------
+  // -------------------- STEP 1: O SONHO --------------------
+  // V28.0.0 — Redesenhada didática: pergunta humana + exemplos cotidianos
+  // (Cacau Show + outros) + textarea grande + helper inspiracional.
   _stepVision(product) {
     const map = StrategicMapEngine.getForProduct(product.id);
     const hasVision = Boolean(String(map.vision || '').trim());
-    return `<section class="space-y-3">
-      ${this._stepIntro('Visão do Produto', 'Em UMA frase aspiracional: onde esse produto chega em 12 meses. Não é meta, é direção (qualitativa).', 'eye', 'vision')}
+
+    const exampleCacau = 'Ser a marca de chocolate mais querida do Brasil até 2027.';
+    const otherExamples = [
+      'Virar a padaria onde todo mundo do bairro toma café',
+      'Ser o lugar onde dono e bichinho se sentem em casa',
+      'Resolver o almoço de quem trabalha em escritório',
+      'Ter os melhores doces de casamento do Sul'
+    ];
+
+    return `<section class="space-y-4">
+      ${this._stepIntro('Qual é o sonho desse produto pros próximos 12 meses?', 'Uma frase só. Bem ambiciosa. Pra todo time saber pra onde estamos remando.', 'star', 'vision')}
+
+      ${!hasVision ? `
+        <div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">Exemplo</span>
+            <span class="text-[11px] text-slate-400">Pra inspirar — pode adaptar pro seu negócio</span>
+          </div>
+          <p class="text-base text-white font-semibold leading-relaxed italic mb-3">"${Utils.escape(exampleCacau)}"</p>
+          <button onclick="Actions.updateStrategicVision(${JSON.stringify(exampleCacau).replace(/"/g, '&quot;')}); App.render();" class="px-3 py-1.5 rounded-xl bg-violet-500 hover:bg-violet-600 text-white text-xs font-black" style="color:#fff!important;">Usar como ponto de partida →</button>
+
+          <div class="mt-4 pt-3 border-t border-white/10">
+            <p class="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Outros exemplos pra te inspirar:</p>
+            <ul class="space-y-1">
+              ${otherExamples.map(e => `<li class="text-[12px] text-slate-300">• ${Utils.escape(e)}</li>`).join('')}
+            </ul>
+          </div>
+        </div>
+
+        <div class="text-center text-[11px] text-slate-500 font-bold">────────── ou escreva o seu ──────────</div>
+      ` : ''}
+
       <div class="rounded-3xl bg-white/[0.05] border border-white/10 p-5">
-        <textarea oninput="Actions.updateStrategicVision(this.value)" placeholder="Ex: Transformar motoristas em empresários rentáveis até 2027." class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[90px] placeholder:text-slate-500" style="color-scheme:dark;">${Utils.escape(map.vision || '')}</textarea>
-        <p class="text-[11px] text-slate-400 mt-2">Frase curta e ambiciosa. Esta visão guia todos os objetivos abaixo.</p>
+        <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Seu sonho em uma frase</label>
+        <textarea oninput="Actions.updateStrategicVision(this.value)" placeholder="Tornar [seu produto] o(a) [posição] pra [público] até [horizonte]" class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[100px] placeholder:text-slate-500" style="color-scheme:dark;">${Utils.escape(map.vision || '')}</textarea>
+        <p class="text-[11px] text-slate-400 mt-2">💡 Tem que dar arrepio. Se não der, é meta, não sonho.</p>
       </div>
-      ${this._stepCta('Próximo passo: definir Objetivos', hasVision)}
+
+      ${this._stepCta('Próximo passo: definir as batalhas', hasVision)}
     </section>`;
   },
 
-  // -------------------- STEP 2: OBJETIVOS --------------------
+  // -------------------- STEP 2: AS BATALHAS --------------------
+  // V28.0.0 — Empty state com exemplo Cacau Show + wizard 3 substeps pra criar batalha.
   _stepObjectives(product) {
     const map = StrategicMapEngine.getForProduct(product.id);
     const objectives = map.objectives || [];
     const draft = App.state.strategicObjectiveDraft;
-    return `<section class="space-y-3">
-      ${this._stepIntro('Objectives', '3-5 objetivos qualitativos derivados da Visão. Frases ambiciosas, memoráveis, time-bound. Foco: o que NÃO fazer também.', 'flag', 'objectives')}
+    const visionShort = (map.vision || '').length > 80 ? (map.vision || '').slice(0, 80) + '…' : (map.vision || '');
+
+    return `<section class="space-y-4">
+      ${this._stepIntro('Quais são as 3 a 5 batalhas pra realizar esse sonho?', 'Frentes grandes, sem números ainda. São as guerras que você vai travar.', 'flag', 'objectives')}
+
+      ${visionShort ? `<div class="rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-[11px] text-slate-300">🌟 <b class="text-violet-200">Seu sonho:</b> «${Utils.escape(visionShort)}»</div>` : ''}
+
+      ${!objectives.length && !draft ? this._batalhasEmptyState() : ''}
+
       <div class="flex justify-between items-center">
-        <p class="text-xs text-slate-400">${objectives.length} objetivo(s) cadastrado(s)</p>
-        ${!draft ? '<button onclick="Actions.startStrategicObjectiveDraft()" class="px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Novo objetivo</button>' : ''}
+        <p class="text-xs text-slate-400">${objectives.length} de até 5 batalhas</p>
+        ${!draft && objectives.length < 5 ? '<button onclick="Actions.startStrategicObjectiveDraft()" class="px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Criar batalha</button>' : ''}
       </div>
-      ${draft ? this._objectiveDraftCard(draft) : ''}
-      <div class="space-y-3">
-        ${objectives.length ? objectives.map(o => this._objectiveSummaryCard(o)).join('') : (!draft ? '<div class="rounded-3xl bg-white/[0.04] border border-dashed border-white/15 p-6 text-center text-slate-300"><i data-lucide="flag" class="w-7 h-7 mx-auto mb-2 text-indigo-300"></i><p class="text-sm">Nenhum objetivo ainda. Clique em <b>Novo objetivo</b>.</p></div>' : '')}
+
+      ${draft ? this._objectiveWizardCard(draft) : ''}
+
+      <div class="space-y-2">
+        ${objectives.map((o, i) => this._objectiveSummaryCard(o, i)).join('')}
       </div>
-      ${this._stepCta('Próximo passo: criar OKRs', objectives.length > 0)}
+
+      ${objectives.length >= 1 && objectives.length < 3 ? '<p class="text-[11px] text-amber-300/80 italic">💡 Tem espaço pra mais. Sonhos grandes raramente cabem em ' + objectives.length + ' batalha' + (objectives.length === 1 ? '' : 's') + ' só.</p>' : ''}
+      ${objectives.length === 5 ? '<p class="text-[11px] text-amber-300/80 italic">💡 Você atingiu o limite de 5 batalhas. Mais que isso, o time se perde.</p>' : ''}
+
+      ${this._stepCta('Próximo passo: definir os números', objectives.length > 0)}
     </section>`;
   },
 
-  _objectiveSummaryCard(obj) {
-    return `<div class="rounded-2xl bg-white/[0.04] border border-white/10 p-3 flex items-start justify-between gap-3">
-      <div class="min-w-0">
-        <p class="font-black text-white">${Utils.escape(obj.label || 'Objetivo')}</p>
-        <p class="text-[11px] text-slate-400 mt-0.5">${obj.owner ? `Dono: <b class="text-slate-200">${Utils.escape(obj.owner)}</b> · ` : ''}${obj.deadline ? `Prazo: <b class="text-slate-200">${Utils.escape(obj.deadline)}</b> · ` : ''}${(obj.okrs || []).length} OKR(s)</p>
+  _batalhasEmptyState() {
+    return `<div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
+      <p class="text-sm text-slate-200 leading-relaxed mb-3">
+        Pensa assim: se daqui 12 meses o sonho virou realidade, quais foram as 3, 4 ou 5 grandes coisas que você fez?
+      </p>
+
+      <div class="rounded-2xl bg-slate-900/60 border border-violet-400/20 p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">Exemplo Cacau Show</span>
+        </div>
+        <p class="text-[12px] text-slate-300 mb-3">Pra "Ser a marca de chocolate mais querida do Brasil", as batalhas poderiam ser:</p>
+        <ol class="space-y-1.5 mb-4">
+          <li class="text-sm text-white"><b class="text-violet-300">1.</b> Estar presente em mais bairros do Brasil</li>
+          <li class="text-sm text-white"><b class="text-violet-300">2.</b> Fazer cada cliente voltar mais vezes no ano</li>
+          <li class="text-sm text-white"><b class="text-violet-300">3.</b> Garantir que todo mundo lembre da gente nas datas comemorativas</li>
+          <li class="text-sm text-white"><b class="text-violet-300">4.</b> Conquistar quem hoje compra chocolate importado</li>
+        </ol>
+        <button onclick="Actions.loadCacauShowBatalhasExample()" class="px-3 py-1.5 rounded-xl bg-violet-500 hover:bg-violet-600 text-white text-xs font-black" style="color:#fff!important;">Carregar como rascunho →</button>
       </div>
-      <button onclick="Actions.removeStrategicObjective('${obj.id}')" title="Remover" class="px-2 py-1 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 text-[10px] font-black">×</button>
     </div>`;
   },
 
-  _objectiveDraftCard(draft) {
-    return `<div class="rounded-3xl bg-indigo-500/15 border border-indigo-400/30 p-4 space-y-3">
-      <div class="flex items-center gap-2"><i data-lucide="flag" class="w-4 h-4 text-indigo-200"></i><p class="text-xs font-black text-indigo-200 uppercase tracking-wider">Novo objetivo</p></div>
-      <input value="${Utils.escape(draft.label || '')}" oninput="Actions.updateStrategicObjectiveDraft('label', this.value)" placeholder="Ex: Aumentar aquisição" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" />
-      <div class="grid grid-cols-2 gap-2">
-        <input value="${Utils.escape(draft.owner || '')}" oninput="Actions.updateStrategicObjectiveDraft('owner', this.value)" placeholder="Dono (ex: Marketing)" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-semibold placeholder:text-slate-500" />
-        <input type="date" value="${Utils.escape(draft.deadline || '')}" oninput="Actions.updateStrategicObjectiveDraft('deadline', this.value)" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-semibold" style="color-scheme:dark;" />
+  _objectiveSummaryCard(obj, idx) {
+    const okrCount = (obj.okrs || []).length;
+    const okrDot = okrCount > 0 ? 'bg-violet-500' : 'bg-emerald-500';
+    const numero = String(idx + 1).padStart(2, '0');
+    return `<div class="rounded-2xl bg-white/[0.04] border border-white/10 p-3 flex items-start gap-3">
+      <div class="w-8 h-8 rounded-lg bg-violet-500/20 grid place-items-center font-black text-violet-200 text-sm shrink-0">${numero}</div>
+      <div class="flex-1 min-w-0">
+        <p class="font-black text-white text-sm">${Utils.escape(obj.label || 'Batalha sem nome')}</p>
+        <p class="text-[11px] text-slate-400 mt-0.5">
+          ${obj.owner ? `Dono: <b class="text-slate-200">${Utils.escape(obj.owner)}</b>` : '<span class="italic">Sem dono</span>'}
+          ${obj.deadline ? ` · Prazo: <b class="text-slate-200">${Utils.escape(obj.deadline)}</b>` : ''}
+          · <span class="inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full ${okrDot}"></span> ${okrCount} número${okrCount === 1 ? '' : 's'} definido${okrCount === 1 ? '' : 's'}</span>
+        </p>
       </div>
-      <div class="flex justify-end gap-2">
-        <button onclick="Actions.cancelStrategicObjectiveDraft()" class="px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-white text-xs font-black">Cancelar</button>
-        <button onclick="Actions.saveStrategicObjectiveDraft()" class="px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-black" style="color:#fff!important;">Adicionar</button>
+      <button onclick="Actions.removeStrategicObjective('${obj.id}')" title="Remover batalha" class="px-2 py-1 rounded-lg bg-red-500/10 border border-red-400/30 text-red-300 text-[10px] font-black hover:bg-red-500/20">×</button>
+    </div>`;
+  },
+
+  // V28.0.0 — Wizard de 3 substeps pra criar uma batalha (Nome / Dono / Prazo).
+  _objectiveWizardCard(draft) {
+    const step = Number(draft.wizardStep || 1);
+    const stepTitle = step === 1 ? 'Pergunta 1 de 3: Nome da batalha' : step === 2 ? 'Pergunta 2 de 3: Quem é o dono?' : step === 3 ? 'Pergunta 3 de 3: Até quando?' : 'Confere se ficou bom:';
+    return `<div class="rounded-3xl bg-indigo-500/15 border border-indigo-400/30 p-5 space-y-4">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <i data-lucide="flag" class="w-4 h-4 text-indigo-200"></i>
+          <p class="text-xs font-black text-indigo-200 uppercase tracking-wider">Nova batalha · ${stepTitle}</p>
+        </div>
+        <button onclick="Actions.cancelStrategicObjectiveDraft()" class="text-slate-400 hover:text-white text-xs font-black">✕ Cancelar</button>
+      </div>
+
+      ${step === 1 ? `
+        <div>
+          <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Qual é o nome dessa batalha?</label>
+          <input value="${Utils.escape(draft.label || '')}" oninput="Actions.updateStrategicObjectiveDraft('label', this.value)" placeholder="Ex: Estar presente em mais bairros do Brasil" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" />
+          <p class="text-[11px] text-slate-400 mt-2">💡 Frase curta, ambiciosa, começa com verbo. Sem números aqui — os números entram na próxima etapa.</p>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            ${[
+              'Fazer cada cliente voltar mais vezes no ano',
+              'Conquistar quem hoje compra do concorrente premium',
+              'Garantir que todo mundo lembre da gente nas datas comemorativas'
+            ].map(ex => `<button onclick="Actions.updateStrategicObjectiveDraft('label', ${JSON.stringify(ex).replace(/"/g, '&quot;')}); App.render();" class="px-2 py-1 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 border border-violet-400/20 text-violet-200 text-[10px] font-bold">${Utils.escape(ex)}</button>`).join('')}
+          </div>
+        </div>
+      ` : step === 2 ? `
+        <div>
+          <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Quem é o responsável por essa batalha?</label>
+          <input value="${Utils.escape(draft.owner || '')}" oninput="Actions.updateStrategicObjectiveDraft('owner', this.value)" placeholder="Nome de uma pessoa ou time (ex: Maria, Time de Marketing)" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" />
+          <p class="text-[11px] text-slate-400 mt-2">💡 Uma pessoa só. Quem perde sono se essa batalha não andar.</p>
+        </div>
+      ` : `
+        <div>
+          <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Até quando você quer ter essa batalha vencida?</label>
+          <input type="date" value="${Utils.escape(draft.deadline || '')}" oninput="Actions.updateStrategicObjectiveDraft('deadline', this.value)" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold" style="color-scheme:dark;" />
+          <p class="text-[11px] text-slate-400 mt-2">💡 Geralmente um trimestre ou o ano todo. Sem prazo, vira eterna.</p>
+        </div>
+      `}
+
+      <div class="flex justify-between gap-2 pt-2 border-t border-white/10">
+        ${step > 1 ? `<button onclick="Actions.prevStrategicObjectiveStep()" class="px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-white text-xs font-black">← Voltar</button>` : '<div></div>'}
+        ${step < 3 ? `<button onclick="Actions.nextStrategicObjectiveStep()" ${step === 1 && !String(draft.label || '').trim() ? 'disabled' : ''} class="px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:opacity-30 text-white text-xs font-black" style="color:#fff!important;">Próximo →</button>` : `<button onclick="Actions.saveStrategicObjectiveDraft()" class="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black" style="color:#fff!important;">✓ Salvar batalha</button>`}
       </div>
     </div>`;
   },
@@ -251,43 +361,120 @@ window.StrategicMapModal = {
   },
 
   _okrDraftCard(draft, product, hideConnect) {
-    // V27.0.0 — Form expandido com Doerr: Start Value (baseline) + Commitment Type (stretch/committed).
-    // Score 0.0-1.0 calculado automaticamente. Stretch precisa 0.7, Committed precisa 1.0.
+    // V28.0.0 — Wizard didático de 7 substeps, uma pergunta por vez.
+    // Substitui o form denso anterior que confundia o user.
+    const step = Number(draft.wizardStep || 1);
     const actions = StrategicFlowBridge.actionsForProduct(product.id);
-    const commitmentType = draft.commitmentType || 'stretch';
-    return `<div class="rounded-2xl bg-emerald-500/10 border border-emerald-400/30 p-3 space-y-2">
-      <div class="flex items-center gap-2"><i data-lucide="target" class="w-3.5 h-3.5 text-emerald-200"></i><p class="text-[10px] font-black text-emerald-200 uppercase tracking-wider">Novo Key Result</p></div>
-      <input value="${Utils.escape(draft.name || '')}" oninput="Actions.updateStrategicOkrDraft('name', this.value)" placeholder='Ex: "MRR de R$200k pra R$350k até 31/dez" — formato Doerr: "de X pra Y até Z"' class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" />
-      <div class="grid grid-cols-4 gap-2">
-        <select onchange="Actions.updateStrategicOkrDraft('metric', this.value)" class="w-full px-2 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold" style="color-scheme:dark;">
-          ${['leads','converted','revenue'].map(m => `<option value="${m}" ${draft.metric === m ? 'selected' : ''}>${m}</option>`).join('')}
-        </select>
-        <input type="number" min="0" value="${Number(draft.startValue || draft.current || 0)}" oninput="Actions.updateStrategicOkrDraft('startValue', Number(this.value||0))" placeholder="Start (X)" title="Valor inicial — baseline pro scoring" class="w-full px-2 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold" />
-        <input type="number" min="0" value="${Number(draft.target || 0)}" oninput="Actions.updateStrategicOkrDraft('target', Number(this.value||0))" placeholder="Target (Y)" title="Meta a atingir" class="w-full px-2 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold" />
-        <input type="number" min="0" value="${Number(draft.current || 0)}" oninput="Actions.updateStrategicOkrDraft('current', Number(this.value||0))" placeholder="Atual" title="Valor atual hoje" class="w-full px-2 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold" />
+    const unitOptions = [
+      { v: 'quantidade', l: 'Quantidade (unidades)' },
+      { v: 'reais', l: 'R$ (Reais)' },
+      { v: 'percentual', l: '% (Porcentagem)' },
+      { v: 'dias', l: 'Dias / horas' },
+      { v: 'pontuacao', l: 'Pontuação (NPS, CSAT)' },
+      { v: 'outra', l: 'Outra' }
+    ];
+    const tipo = draft.commitmentType === 'committed' ? 'committed' : 'stretch';
+    const stepTitles = [
+      'Pergunta 1 de 7: O que medir',
+      'Pergunta 2 de 7: Em que unidade',
+      'Pergunta 3 de 7: Valor atual',
+      'Pergunta 4 de 7: Onde quer chegar',
+      'Pergunta 5 de 7: Tipo de meta',
+      'Pergunta 6 de 7: Dono e impacto',
+      'Pergunta 7 de 7: Confere'
+    ];
+
+    return `<div class="rounded-3xl bg-emerald-500/10 border border-emerald-400/30 p-5 space-y-4">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <i data-lucide="target" class="w-4 h-4 text-emerald-200"></i>
+          <p class="text-xs font-black text-emerald-200 uppercase tracking-wider">Novo número · ${stepTitles[step - 1]}</p>
+        </div>
+        <button onclick="Actions.cancelStrategicOkrDraft()" class="text-slate-400 hover:text-white text-xs font-black">✕ Cancelar</button>
       </div>
-      <div class="flex gap-2">
-        <button onclick="Actions.updateStrategicOkrDraft('commitmentType', 'stretch')" class="flex-1 px-3 py-2 rounded-xl border ${commitmentType === 'stretch' ? 'bg-violet-500/25 border-violet-400/50 text-violet-100' : 'bg-slate-900 border-white/15 text-slate-400 hover:bg-slate-800'} text-xs font-black flex items-center justify-center gap-1.5" title="0.7 = sucesso. Ambicioso, falha permitida.">
-          <i data-lucide="rocket" class="w-3 h-3"></i> Stretch
-        </button>
-        <button onclick="Actions.updateStrategicOkrDraft('commitmentType', 'committed')" class="flex-1 px-3 py-2 rounded-xl border ${commitmentType === 'committed' ? 'bg-amber-500/25 border-amber-400/50 text-amber-100' : 'bg-slate-900 border-white/15 text-slate-400 hover:bg-slate-800'} text-xs font-black flex items-center justify-center gap-1.5" title="Precisa 1.0. Compromisso obrigatório.">
-          <i data-lucide="lock" class="w-3 h-3"></i> Committed
-        </button>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <input value="${Utils.escape(draft.owner || '')}" oninput="Actions.updateStrategicOkrDraft('owner', this.value)" placeholder="Dono" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold placeholder:text-slate-500" />
-        <input type="date" value="${Utils.escape(draft.deadline || '')}" oninput="Actions.updateStrategicOkrDraft('deadline', this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold" style="color-scheme:dark;" />
-      </div>
-      ${!hideConnect && actions.length ? `<div>
-        <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Conectar ações (opcional aqui — pode fazer no próximo passo)</p>
-        <div class="flex flex-wrap gap-1.5 max-h-24 overflow-auto">${actions.map(a => {
-          const selected = (draft.connectedActionIds || []).map(Number).includes(Number(a.id));
-          return `<button onclick="Actions.toggleStrategicOkrDraftAction(${a.id})" class="px-2 py-1 rounded-lg text-[10px] font-black ${selected ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/40' : 'bg-white/5 text-slate-300 border border-white/15'}">${Utils.escape(a.name || 'Ação')}</button>`;
-        }).join('')}</div>
-      </div>` : ''}
-      <div class="flex justify-end gap-2">
-        <button onclick="Actions.cancelStrategicOkrDraft()" class="px-3 py-1.5 rounded-lg bg-white/10 border border-white/15 text-white text-[11px] font-black">Cancelar</button>
-        <button onclick="Actions.saveStrategicOkrDraft()" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black" style="color:#fff!important;">Adicionar OKR</button>
+
+      ${step === 1 ? `
+        <div>
+          <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Qual número descreve essa batalha?</label>
+          <input value="${Utils.escape(draft.name || '')}" oninput="Actions.updateStrategicOkrDraft('name', this.value)" placeholder="Ex: Lojas abertas no ano" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-base font-bold placeholder:text-slate-500" />
+          <p class="text-[11px] text-slate-400 mt-2">💡 Pode ser uma métrica que vc já acompanha, ou uma nova que quer começar a medir.</p>
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            ${['Lojas abertas no ano', 'Cidades atendidas', 'Vendas no horário do almoço (%)', 'Frequência de compra por cliente'].map(ex => `<button onclick="Actions.updateStrategicOkrDraft('name', ${JSON.stringify(ex).replace(/"/g, '&quot;')}); App.render();" class="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-400/20 text-emerald-200 text-[10px] font-bold">${Utils.escape(ex)}</button>`).join('')}
+          </div>
+        </div>
+      ` : step === 2 ? `
+        <div>
+          <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Em que unidade esse número é contado?</label>
+          <div class="grid grid-cols-2 gap-2">
+            ${unitOptions.map(u => `<button onclick="Actions.updateStrategicOkrDraft('metric', '${u.v}'); App.render();" class="px-3 py-3 rounded-xl border text-left ${draft.metric === u.v ? 'bg-emerald-500/20 border-emerald-400/50 text-white' : 'bg-slate-900 border-white/15 text-slate-300 hover:bg-slate-800'} text-sm font-bold">${u.l}</button>`).join('')}
+          </div>
+          <p class="text-[11px] text-slate-400 mt-2">💡 Só pra UI saber como mostrar o número.</p>
+        </div>
+      ` : step === 3 ? `
+        <div>
+          <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Qual é o valor atual desse número hoje?</label>
+          <input type="number" value="${Number(draft.current || 0)}" oninput="Actions.updateStrategicOkrDraft('current', Number(this.value || 0)); Actions.updateStrategicOkrDraft('startValue', Number(this.value || 0));" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-2xl font-black" />
+          <p class="text-[11px] text-slate-400 mt-2">💡 Se não souber exato, chuta — dá pra ajustar depois. Sem ponto de partida, não dá pra mostrar progresso.</p>
+        </div>
+      ` : step === 4 ? `
+        <div>
+          <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">E aonde você quer chegar até <b class="text-emerald-300">${draft.deadline || '<defina o prazo>'}</b>?</label>
+          <input type="number" value="${Number(draft.target || 0)}" oninput="Actions.updateStrategicOkrDraft('target', Number(this.value || 0))" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-2xl font-black" />
+          <div class="mt-2 flex gap-1.5">
+            <span class="text-[11px] text-slate-400 self-center">Atalhos:</span>
+            <button onclick="Actions.updateStrategicOkrDraft('target', (Number(App.state.strategicOkrDraft.current||0))*2); App.render();" class="px-2 py-1 rounded-lg bg-violet-500/15 hover:bg-violet-500/25 border border-violet-400/30 text-violet-200 text-[10px] font-bold">2x</button>
+            <button onclick="Actions.updateStrategicOkrDraft('target', (Number(App.state.strategicOkrDraft.current||0))*3); App.render();" class="px-2 py-1 rounded-lg bg-violet-500/15 hover:bg-violet-500/25 border border-violet-400/30 text-violet-200 text-[10px] font-bold">3x</button>
+            <button onclick="Actions.updateStrategicOkrDraft('target', Math.round(Number(App.state.strategicOkrDraft.current||0)*1.5)); App.render();" class="px-2 py-1 rounded-lg bg-violet-500/15 hover:bg-violet-500/25 border border-violet-400/30 text-violet-200 text-[10px] font-bold">+50%</button>
+          </div>
+          <input type="date" value="${Utils.escape(draft.deadline || '')}" oninput="Actions.updateStrategicOkrDraft('deadline', this.value)" class="mt-3 w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold" style="color-scheme:dark;" placeholder="Prazo" />
+          <p class="text-[11px] text-slate-400 mt-2">💡 Esse é o destino. Pensa grande mas com pé no chão.</p>
+        </div>
+      ` : step === 5 ? `
+        <div>
+          <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-3">Esse número é uma Meta Avançada ou Meta Segura?</label>
+          <div class="grid md:grid-cols-2 gap-3">
+            <button onclick="Actions.updateStrategicOkrDraft('commitmentType', 'stretch'); App.render();" class="text-left p-4 rounded-2xl border ${tipo === 'stretch' ? 'bg-violet-500/20 border-violet-400/60 ring-2 ring-violet-400/40' : 'bg-slate-900/80 border-white/15 hover:bg-slate-800'}">
+              <div class="flex items-center gap-2 mb-2"><i data-lucide="rocket" class="w-4 h-4 text-violet-300"></i><p class="font-black text-violet-200">🚀 Meta Avançada</p></div>
+              <p class="text-[12px] text-slate-300 mb-2">É o sonho grande que faz o time brilhar o olho. Não precisa ser realista — precisa engajar.</p>
+              <p class="text-[12px] text-slate-300 mb-2">Aposta em mercados novos, canais que ainda não domina.</p>
+              <p class="text-[11px] text-violet-300 font-black">🎯 Vitória = 70% do alvo</p>
+            </button>
+            <button onclick="Actions.updateStrategicOkrDraft('commitmentType', 'committed'); App.render();" class="text-left p-4 rounded-2xl border ${tipo === 'committed' ? 'bg-emerald-500/20 border-emerald-400/60 ring-2 ring-emerald-400/40' : 'bg-slate-900/80 border-white/15 hover:bg-slate-800'}">
+              <div class="flex items-center gap-2 mb-2"><i data-lucide="lock" class="w-4 h-4 text-emerald-300"></i><p class="font-black text-emerald-200">🔒 Meta Segura</p></div>
+              <p class="text-[12px] text-slate-300 mb-2">É o que vc PRECISA entregar, sem desculpa. Foca nos canais que já domina.</p>
+              <p class="text-[12px] text-slate-300 mb-2">SLAs, contratos, faturamento mínimo, retenção.</p>
+              <p class="text-[11px] text-emerald-300 font-black">🎯 Vitória = bater 100% do alvo</p>
+            </button>
+          </div>
+        </div>
+      ` : step === 6 ? `
+        <div class="space-y-3">
+          <div>
+            <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Quem é o dono desse número?</label>
+            <input value="${Utils.escape(draft.owner || '')}" oninput="Actions.updateStrategicOkrDraft('owner', this.value)" placeholder="Ex: Maria, Time de Marketing" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Qual o impacto se bater? <span class="text-slate-500 font-normal">(opcional)</span></label>
+            <textarea oninput="Actions.updateStrategicOkrDraft('impact', this.value)" placeholder="O que muda no negócio?" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[60px]">${Utils.escape(draft.impact || '')}</textarea>
+            <p class="text-[11px] text-slate-400 mt-1">💡 Pula se quiser, dá pra preencher depois.</p>
+          </div>
+        </div>
+      ` : `
+        <div>
+          <p class="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-3">Confere se ficou bom:</p>
+          <div class="rounded-2xl bg-slate-900/60 border border-emerald-400/30 p-4 space-y-2">
+            <p class="font-black text-white text-base">${Utils.escape(draft.name || 'Sem nome')}</p>
+            <p class="text-sm text-slate-300">De <b class="text-white">${Number(draft.startValue || draft.current || 0)}</b> → <b class="text-emerald-300">${Number(draft.target || 0)}</b> ${Utils.escape(draft.metric || '')}${draft.deadline ? ` até <b class="text-white">${Utils.escape(draft.deadline)}</b>` : ''}</p>
+            <p class="text-[11px]">${tipo === 'stretch' ? '<span class="px-2 py-0.5 rounded bg-violet-500/20 text-violet-200">🚀 Meta Avançada · 70% = vitória</span>' : '<span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-200">🔒 Meta Segura · precisa 100%</span>'}</p>
+            ${draft.owner ? `<p class="text-[11px] text-slate-400">Dono: <b class="text-slate-200">${Utils.escape(draft.owner)}</b></p>` : ''}
+            ${draft.impact ? `<p class="text-[11px] text-slate-400 italic">"${Utils.escape(draft.impact)}"</p>` : ''}
+          </div>
+        </div>
+      `}
+
+      <div class="flex justify-between gap-2 pt-2 border-t border-white/10">
+        ${step > 1 ? `<button onclick="Actions.prevStrategicOkrStep()" class="px-3 py-2 rounded-xl bg-white/10 border border-white/15 text-white text-xs font-black">← Voltar</button>` : '<div></div>'}
+        ${step < 7 ? `<button onclick="Actions.nextStrategicOkrStep()" ${step === 1 && !String(draft.name || '').trim() ? 'disabled' : ''} class="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-30 text-white text-xs font-black" style="color:#fff!important;">Próximo →</button>` : `<button onclick="Actions.saveStrategicOkrDraft()" class="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black" style="color:#fff!important;">✓ Salvar número</button>`}
       </div>
     </div>`;
   },

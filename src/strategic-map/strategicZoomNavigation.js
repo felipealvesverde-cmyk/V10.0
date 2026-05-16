@@ -3,18 +3,19 @@
 // conclusão (avaliado pelo StrategicMapEngine.journeyProgress) e o usuário
 // avança pela jornada via CTAs "Próximo passo →" ou clicando direto na etapa.
 window.StrategicZoomNavigation = {
-  // V27.0.0 — Renomeado pra seguir Doerr (Measure What Matters / Avalie o que importa).
-  //   1. Visão do Produto — 1 frase aspiracional (mantém)
-  //   2. Objectives — qualitativos, 3-5 (mantém nome "Objetivos" mas explicita conceito)
-  //   3. Key Results — quantitativos por Objective (renomeado de "OKRs")
-  //   4. Conectar à Operação — ações que entregam o número
-  //   5. Executar via Djow — tarefas no provider operacional
+  // V28.0.0 — Renomeação didática (zero jargão de OKR na UI principal).
+  //   1. O sonho     — aonde o produto chega em 12 meses
+  //   2. As batalhas — 3 a 5 frentes pra realizar o sonho (eram "Objectives")
+  //   3. Os números  — como saber que venceu cada batalha (eram "Key Results")
+  //   4. As ações    — o que a operação faz pra mover cada número
+  //   5. Colocar em campo — disparar tarefas no provider
+  // Vocabulário Doerr (OKR/KR/Stretch/Committed) só em tooltips opcionais.
   LEVELS: [
-    { id: 'vision',     label: 'Visão do Produto',   short: 'Visão',         icon: 'eye',       description: 'Em uma frase: onde esse produto chega em 12 meses.' },
-    { id: 'objectives', label: 'Objectives',          short: 'Objectives',    icon: 'flag',      description: 'Frases qualitativas e ambiciosas. 3-5 no máximo.' },
-    { id: 'okrs',       label: 'Key Results',         short: 'Key Results',   icon: 'target',    description: 'Por Objective, 3-5 KRs mensuráveis: "de X pra Y até Z".' },
-    { id: 'operations', label: 'Conectar à Operação', short: 'Operação',      icon: 'plug',      description: 'Cada KR ↔ campanhas e ações que entregam o número.' },
-    { id: 'execution',  label: 'Executar via Djow',   short: 'Executar',      icon: 'send',      description: 'Dispare tarefas no provider operacional.' }
+    { id: 'vision',     label: 'O sonho',           short: 'O sonho',     icon: 'star',     description: 'Aonde esse produto chega em 12 meses.' },
+    { id: 'objectives', label: 'As batalhas',        short: 'Batalhas',    icon: 'flag',      description: 'As 3 a 5 frentes que vão te levar lá.' },
+    { id: 'okrs',       label: 'Os números',         short: 'Números',     icon: 'target',    description: 'Como você vai saber que venceu cada batalha.' },
+    { id: 'operations', label: 'As ações',           short: 'Ações',       icon: 'plug',      description: 'O que sua operação faz pra mover esses números.' },
+    { id: 'execution',  label: 'Colocar em campo',   short: 'Campo',       icon: 'send',      description: 'Disparar tudo no seu provider de execução.' }
   ],
 
   _aliasMap: { strategy: 'vision', flows: 'operations', actions: 'operations' },

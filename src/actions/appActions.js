@@ -4283,13 +4283,29 @@ Object.assign(Actions, {
   },
 
   startStrategicObjectiveDraft() {
-    App.state.strategicObjectiveDraft = { label: '', owner: '', deadline: '' };
+    App.state.strategicObjectiveDraft = { label: '', owner: '', deadline: '', wizardStep: 1 };
     App.render();
   },
 
   updateStrategicObjectiveDraft(field, value) {
     if (!App.state.strategicObjectiveDraft) return;
     App.state.strategicObjectiveDraft = { ...App.state.strategicObjectiveDraft, [field]: value };
+  },
+
+  nextStrategicObjectiveStep() {
+    const draft = App.state.strategicObjectiveDraft;
+    if (!draft) return;
+    const step = Number(draft.wizardStep || 1);
+    App.state.strategicObjectiveDraft = { ...draft, wizardStep: Math.min(step + 1, 3) };
+    App.render();
+  },
+
+  prevStrategicObjectiveStep() {
+    const draft = App.state.strategicObjectiveDraft;
+    if (!draft) return;
+    const step = Number(draft.wizardStep || 1);
+    App.state.strategicObjectiveDraft = { ...draft, wizardStep: Math.max(step - 1, 1) };
+    App.render();
   },
 
   cancelStrategicObjectiveDraft() {
@@ -4301,11 +4317,28 @@ Object.assign(Actions, {
     const productId = App.state.strategicMapProductId;
     const draft = App.state.strategicObjectiveDraft;
     if (!productId || !draft) return;
-    if (!String(draft.label || '').trim()) return Utils.toast('Dê um nome ao objetivo.');
-    StrategicObjectiveEngine.add(productId, draft);
+    if (!String(draft.label || '').trim()) return Utils.toast('Dê um nome à batalha.');
+    StrategicObjectiveEngine.add(productId, { label: draft.label, owner: draft.owner, deadline: draft.deadline });
     App.state.strategicObjectiveDraft = null;
     App.save(); App.render();
-    Utils.toast('Objetivo adicionado.');
+    Utils.toast('Batalha adicionada.');
+  },
+
+  // V28.0.0 — Carrega as 4 batalhas da Cacau Show direto como objetivos salvos.
+  // O usuário usa como ponto de partida e ajusta dono/prazo depois.
+  loadCacauShowBatalhasExample() {
+    const productId = App.state.strategicMapProductId;
+    if (!productId || !window.StrategicObjectiveEngine) return;
+    const exemplos = [
+      'Estar presente em mais bairros do Brasil',
+      'Fazer cada cliente voltar mais vezes no ano',
+      'Garantir que todo mundo lembre da gente nas datas comemorativas',
+      'Conquistar quem hoje compra chocolate importado'
+    ];
+    exemplos.forEach(label => StrategicObjectiveEngine.add(productId, { label, owner: '', deadline: '' }));
+    App.state.strategicObjectiveDraft = null;
+    App.save(); App.render();
+    Utils.toast('4 batalhas Cacau Show carregadas como rascunho. Ajuste dono e prazo de cada uma.');
   },
 
   removeStrategicObjective(objectiveId) {
@@ -4313,11 +4346,40 @@ Object.assign(Actions, {
     if (!productId) return;
     StrategicObjectiveEngine.remove(productId, objectiveId);
     App.save(); App.render();
-    Utils.toast('Objetivo removido.');
+    Utils.toast('Batalha removida.');
   },
 
   startStrategicOkrDraft(objectiveId) {
-    App.state.strategicOkrDraft = { objectiveId, name: '', metric: 'leads', target: 0, current: 0, owner: '', deadline: '', connectedActionIds: [] };
+    App.state.strategicOkrDraft = {
+      objectiveId,
+      name: '',
+      metric: 'quantidade',
+      target: 0,
+      current: 0,
+      startValue: 0,
+      owner: '',
+      deadline: '',
+      impact: '',
+      commitmentType: 'stretch',
+      connectedActionIds: [],
+      wizardStep: 1
+    };
+    App.render();
+  },
+
+  nextStrategicOkrStep() {
+    const draft = App.state.strategicOkrDraft;
+    if (!draft) return;
+    const step = Number(draft.wizardStep || 1);
+    App.state.strategicOkrDraft = { ...draft, wizardStep: Math.min(step + 1, 7) };
+    App.render();
+  },
+
+  prevStrategicOkrStep() {
+    const draft = App.state.strategicOkrDraft;
+    if (!draft) return;
+    const step = Number(draft.wizardStep || 1);
+    App.state.strategicOkrDraft = { ...draft, wizardStep: Math.max(step - 1, 1) };
     App.render();
   },
 
