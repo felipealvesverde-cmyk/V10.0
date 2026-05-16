@@ -110,8 +110,115 @@ const TOOLS = [
       properties: { query: { type: 'string', description: 'Termos de busca' } },
       required: ['query']
     }
+  },
+  // V26.2.0 — WRITE tools: criam entidades direto no journey_state.
+  // Sem confirmação prévia pra criação (1 entidade nova não machuca).
+  // Para destrutivas (delete/sobrescrever) — peça confirmação ANTES.
+  {
+    name: 'create_product',
+    description: 'Cria um produto novo. Chame quando o user disser "cria produto" ou similar. Apenas name é obrigatório.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Nome do produto' },
+        priceValue: { type: 'number', description: 'Valor numérico (ex: 497)' },
+        ticket: { type: 'string', enum: ['Baixo', 'Médio', 'Alto'], description: 'Tier de ticket' },
+        description: { type: 'string' }
+      },
+      required: ['name']
+    }
+  },
+  {
+    name: 'create_campaign',
+    description: 'Cria uma campanha vinculada a um produto. Use list_state primeiro pra pegar productId se o user só deu o nome do produto.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Nome da campanha' },
+        productId: { type: 'number', description: 'ID do produto vinculado' },
+        status: { type: 'string', enum: ['Ativa', 'Pausada', 'Em planejamento', 'Concluída'], description: 'Default: Em planejamento' },
+        description: { type: 'string' }
+      },
+      required: ['name', 'productId']
+    }
+  },
+  {
+    name: 'create_action',
+    description: 'Cria uma ação dentro de uma campanha. Channel, actionType, sector, funnel devem usar valores da KB (data-model.md).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        campaignId: { type: 'number' },
+        name: { type: 'string' },
+        channel: { type: 'string', description: 'RD Station, Instagram Orgânico, Email, SDR, etc' },
+        actionType: { type: 'string', description: 'Post, Nutrição, Webinar, LP, etc' },
+        sector: { type: 'string', enum: ['Marketing', 'Vendas', 'CS'] },
+        funnel: { type: 'string', enum: ['TOF', 'MOF', 'BOF'] },
+        objective: { type: 'string' }
+      },
+      required: ['campaignId', 'name', 'channel', 'actionType', 'sector', 'funnel']
+    }
+  },
+  {
+    name: 'list_leads_filtered',
+    description: 'Lista leads que casam com filtros estruturados. Use quando user pedir "lista homens de SP", "leads quentes em MOF", etc. Retorna até 50 leads com nome, email, idade, estado, score, temperature, tags.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        sexo: { type: 'string', enum: ['feminino', 'masculino'] },
+        idade_min: { type: 'number' },
+        idade_max: { type: 'number' },
+        estado: { type: 'string', description: 'Estado normalizado: "sao paulo", "rio de janeiro", etc' },
+        score_min: { type: 'number' },
+        temperatura: { type: 'string', enum: ['Quente', 'Morno', 'Frio'] },
+        tag: { type: 'string', description: 'Tag comportamental tipo "#cta", "#open"' },
+        has_email: { type: 'boolean' },
+        has_phone: { type: 'boolean' },
+        limit: { type: 'number', description: 'Default 20, máx 50' }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'read_source_file',
+    description: 'Lê um arquivo de código do sistema. Use APENAS quando user perguntar como algo funciona internamente. Limitado a src/* e api/*. Retorna no máximo 3000 caracteres (trunca se maior).',
+    input_schema: {
+      type: 'object',
+      properties: { path: { type: 'string', description: 'Caminho relativo. Ex: "src/core/state.js" ou "api/djow-chat.js"' } },
+      required: ['path']
+    }
   }
 ];
+
+// V26.2.0 — Lista de campos sigilosos no state que NUNCA podem ser expostos.
+// Aplicado em execTool antes de retornar dados de state pra Claude.
+const SECRET_PATHS = [
+  'integrations.rd.crmPersonalToken',
+  'integrations.rd.accessToken',
+  'integrations.rd.refreshToken',
+  'integrations.rd.clientSecret',
+  'integrations.rd.crmOauth.accessToken',
+  'integrations.rd.crmOauth.refreshToken',
+  'integrations.rd.crmOauth.clientSecret'
+];
+
+function redactSecrets(obj, path = '') {
+  if (obj == null) return obj;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map((item, i) => redactSecrets(item, `${path}.${i}`));
+  const out = {};
+  for (const key of Object.keys(obj)) {
+    const fullPath = path ? `${path}.${key}` : key;
+    if (SECRET_PATHS.some(p => fullPath === p || fullPath.endsWith(p))) {
+      out[key] = '[REDACTED]';
+    } else if (typeof obj[key] === 'object') {
+      out[key] = redactSecrets(obj[key], fullPath);
+    } else {
+      out[key] = obj[key];
+    }
+  }
+  return out;
+}
 
 // V26.0.0 — Pega state mais recente do user (do Postgres journey_state).
 async function getUserState(db) {
@@ -124,7 +231,20 @@ async function getUserState(db) {
   }
 }
 
+// V26.2.0 — Path normalizer pra read_source_file. Bloqueia ../, paths absolutos,
+// e qualquer coisa fora de src/* ou api/*.
+function safeReadSourcePath(rawPath) {
+  if (!rawPath || typeof rawPath !== 'string') return null;
+  const cleaned = rawPath.replace(/^\/+/, '').replace(/\\/g, '/');
+  if (cleaned.includes('..')) return null;
+  if (!cleaned.startsWith('src/') && !cleaned.startsWith('api/') && !cleaned.startsWith('knowledge-base/')) return null;
+  if (cleaned.includes('node_modules') || cleaned.startsWith('.env') || cleaned.includes('.git/')) return null;
+  return path.join(__dirname, '..', cleaned);
+}
+
 // V26.0.0 — Implementação das tools (server-side).
+// V26.2.0 — Adicionado suporte a write tools (create_*) que mutam Postgres.
+// Retorna { result, stateMutation? }. stateMutation diz se tool modificou state.
 function execTool(name, input, state) {
   try {
     switch (name) {
@@ -218,11 +338,158 @@ function execTool(name, input, state) {
         }
         return { matches: matches.length ? matches : ['Nenhuma menção direta. KB completa já está no system prompt — releia.'] };
       }
+      // V26.2.0 — WRITE tools: criam entidades. NÃO mutam state direto aqui —
+      // retornam um descritor `_pendingWrite` que o handler aplica via Postgres update.
+      case 'create_product': {
+        const name = String(input.name || '').trim();
+        if (!name) return { error: 'name é obrigatório' };
+        const product = {
+          id: Date.now() + Math.floor(Math.random() * 100),
+          name,
+          priceValue: Number(input.priceValue) || 0,
+          price: input.price || `R$ ${(Number(input.priceValue) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          ticket: input.ticket || 'Médio',
+          description: input.description || '',
+          channels: [], okrs: [], kpis: [], flow: {},
+          createdAt: new Date().toISOString()
+        };
+        return { _pendingWrite: { kind: 'create_product', payload: product }, created: product };
+      }
+      case 'create_campaign': {
+        const name = String(input.name || '').trim();
+        const productId = Number(input.productId);
+        if (!name) return { error: 'name é obrigatório' };
+        if (!productId) return { error: 'productId é obrigatório' };
+        const product = (state.products || []).find(p => Number(p.id) === productId);
+        if (!product) return { error: `Produto id=${productId} não existe. Use list/get pra ver IDs válidos.` };
+        const campaign = {
+          id: Date.now() + Math.floor(Math.random() * 100),
+          name,
+          productId,
+          status: input.status || 'Em planejamento',
+          description: input.description || '',
+          startDate: '', endDate: '',
+          okrs: [], kpis: [],
+          createdAt: new Date().toISOString()
+        };
+        return { _pendingWrite: { kind: 'create_campaign', payload: campaign }, created: campaign };
+      }
+      case 'create_action': {
+        const required = ['campaignId', 'name', 'channel', 'actionType', 'sector', 'funnel'];
+        for (const f of required) {
+          if (input[f] === undefined || input[f] === null || input[f] === '') {
+            return { error: `Campo "${f}" é obrigatório` };
+          }
+        }
+        const campaign = (state.campaigns || []).find(c => Number(c.id) === Number(input.campaignId));
+        if (!campaign) return { error: `Campanha id=${input.campaignId} não existe.` };
+        const action = {
+          id: Date.now() + Math.floor(Math.random() * 100),
+          campaignId: Number(input.campaignId),
+          name: input.name,
+          channel: input.channel,
+          actionType: input.actionType,
+          sector: input.sector,
+          funnel: input.funnel,
+          originSector: input.sector,
+          originFunnel: input.funnel,
+          destinationSector: input.sector,
+          destinationFunnel: input.funnel,
+          objective: input.objective || '',
+          conversionObjective: '',
+          expectedConversion: 25,
+          mailingDefined: false,
+          okrs: [], kpis: [], leads: [],
+          flow: null, flowPath: [],
+          scoreId: state.scores?.[0]?.id || 1,
+          connected: false,
+          connectionStatus: 'ready',
+          status: 'Pronta para conectar',
+          createdAt: new Date().toISOString()
+        };
+        return { _pendingWrite: { kind: 'create_action', payload: action }, created: action };
+      }
+      case 'list_leads_filtered': {
+        const allLeads = (state.globalLeads || []).concat(
+          (state.actions || []).flatMap(a => (a.leads || []).map(l => ({ ...l, _actionId: a.id })))
+        );
+        const filtered = allLeads.filter(l => {
+          if (input.sexo && String(l.sexo || l.genero || '').toLowerCase() !== input.sexo) return false;
+          if (input.idade_min != null && Number(l.idade || 0) < input.idade_min) return false;
+          if (input.idade_max != null && Number(l.idade || 0) > input.idade_max) return false;
+          if (input.estado) {
+            const est = String(l.estado || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+            if (!est.includes(input.estado.toLowerCase())) return false;
+          }
+          if (input.score_min != null && Number(l.globalScore || l.score || 0) < input.score_min) return false;
+          if (input.temperatura && l.temperature !== input.temperatura) return false;
+          if (input.tag) {
+            const tags = [...(l.tags || []), ...(l.behaviorTags || [])];
+            if (!tags.some(t => String(t).toLowerCase().includes(input.tag.toLowerCase().replace(/^#/, '')))) return false;
+          }
+          if (input.has_email && !l.email) return false;
+          if (input.has_phone && !l.phone) return false;
+          return true;
+        }).slice(0, Math.min(input.limit || 20, 50));
+        // Devolve dados mínimos pra Djow citar
+        return {
+          count: filtered.length,
+          leads: filtered.map(l => ({
+            name: l.name, email: l.email, idade: l.idade, estado: l.estado,
+            sexo: l.sexo, score: l.globalScore || l.score,
+            temperature: l.temperature, tags: (l.tags || []).slice(0, 6)
+          }))
+        };
+      }
+      case 'read_source_file': {
+        const target = safeReadSourcePath(input.path);
+        if (!target) return { error: 'Caminho não permitido. Use src/*, api/* ou knowledge-base/*.' };
+        if (!fs.existsSync(target)) return { error: 'Arquivo não encontrado.' };
+        try {
+          const content = fs.readFileSync(target, 'utf8');
+          if (content.length > 3000) {
+            return { truncated: true, content: content.slice(0, 3000) + '\n... [truncado, total ' + content.length + ' chars]' };
+          }
+          return { content };
+        } catch (err) {
+          return { error: err.message };
+        }
+      }
       default:
         return { error: `Tool desconhecida: ${name}` };
     }
   } catch (err) {
     return { error: err?.message || String(err) };
+  }
+}
+
+// V26.2.0 — Aplica um pending write no Postgres journey_state.
+// Faz read-modify-write pra evitar perda de campos. Retorna ok bool.
+async function applyStateWrite(db, userId, pendingWrite) {
+  if (!db || !pendingWrite) return { ok: false };
+  const { kind, payload } = pendingWrite;
+  try {
+    const r = await db.query('SELECT state_json FROM journey_state WHERE id = 1 LIMIT 1');
+    const state = r.rows[0]?.state_json || {};
+    if (kind === 'create_product') {
+      state.products = Array.isArray(state.products) ? state.products : [];
+      state.products.push(payload);
+    } else if (kind === 'create_campaign') {
+      state.campaigns = Array.isArray(state.campaigns) ? state.campaigns : [];
+      state.campaigns.push(payload);
+    } else if (kind === 'create_action') {
+      state.actions = Array.isArray(state.actions) ? state.actions : [];
+      state.actions.push(payload);
+    } else {
+      return { ok: false, message: 'kind desconhecido: ' + kind };
+    }
+    await db.query(
+      'INSERT INTO journey_state (id, state_json, updated_at, updated_by_user_id) VALUES (1, $1, NOW(), $2) ON CONFLICT (id) DO UPDATE SET state_json = $1, updated_at = NOW(), updated_by_user_id = $2',
+      [state, userId]
+    );
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, message: err.message };
   }
 }
 
@@ -259,8 +526,24 @@ function buildSystemPrompt(kb, user, state) {
     : 'Operação atual: ainda sem produtos cadastrados.';
   return `Você é o **Djow**, assistente AI do LeadJourney — um Revenue Operating System.
 
-## Sua função
-Ajudar o user a entender a operação dele (campanhas, leads, receita, funil) e dar insights de RevOps + CX baseados em dados reais + boas práticas.
+## Sua função (V26.2.0)
+Você é o **motor universal** do LeadJourney pra qualquer operação que envolve:
+- **Buscar** (filtros, queries de leads/campanhas/ações)
+- **Editar/Criar** (produtos, campanhas, ações via tools de escrita)
+- **Configurar** (settings de integrações)
+- **Executar** (disparar, mover leads)
+- **Gerir/Insights** (RevOps, CX, gargalos, recomendações)
+
+## Como criar entidades (Djow é a porta de criação)
+Quando o user disser "cria produto X", "nova campanha pra Y", "adiciona ação Z", use as tools de escrita:
+- \`create_product\`, \`create_campaign\`, \`create_action\`
+
+REGRAS DE EXTRAÇÃO (CRÍTICAS pra economizar tokens):
+1. Tente extrair TODOS os campos obrigatórios da mensagem do user em uma única passada.
+2. Se FALTAR algum campo obrigatório, pergunte TODOS os faltantes de uma vez (não 1-a-1).
+   Exemplo: "Pra criar a campanha preciso de: produto vinculado, nome. Manda os 2."
+3. Para criação, **NÃO peça confirmação prévia** — execute direto. 1 entidade nova não machuca.
+4. Para destrutivas (deletar, sobrescrever, reset): SEMPRE pergunte "Confirma X? (sim/não)" e espere a resposta.
 
 ## Sua personalidade
 Direto, prático, sem floreio. Fala em português brasileiro casual mas técnico. Não puxa saco. Quando vê algo problemático, fala. Quando não tem certeza, admite.
@@ -269,6 +552,20 @@ Direto, prático, sem floreio. Fala em português brasileiro casual mas técnico
 - Username: ${user?.username || 'desconhecido'}
 - Master: ${user?.isMaster ? 'sim' : 'não'}
 - ${accountSummary}
+
+## ⚠️ Informações SIGILOSAS (NUNCA expor)
+Se o user pedir, responda educadamente: **"Não posso te mostrar essa informação — é sigilosa do sistema."** Itens proibidos:
+- Senhas de qualquer usuário (password_hash, plain)
+- Env vars: ANTHROPIC_API_KEY, JWT_SECRET, MASTER_PASSWORD, DATABASE_URL, RD_WEBHOOK_SECRET
+- Tokens em integrations.rd: crmPersonalToken, accessToken, refreshToken, clientSecret (também em crmOauth.*)
+- Código que vc sabe ser sensível (chave privada inline, JWT secret hardcoded, etc.)
+
+Códigos de business logic do sistema (src/*, api/*) PODEM ser lidos via tool \`read_source_file\` quando o user perguntar como algo funciona.
+
+## ⚠️ NÃO faz
+- Editar código-fonte do sistema (você não tem permissão de escrita em src/* ou api/*)
+- Coisas fora do escopo do LeadJourney (gerar imagens, executar comandos no SO, etc.)
+- Expor dados sigilosos (ver lista acima)
 
 ## Acesso aos dados
 Você tem ferramentas (tools) pra ler dados da operação dele. Use-as quando precisar de dado concreto. NÃO invente números — se não tem a info, chame a tool ou diga que não sabe.
@@ -345,6 +642,8 @@ module.exports = async function handler(req, res) {
   // Loop Claude + tools
   let finalText = '';
   let totalTokensIn = 0, totalTokensOut = 0;
+  let stateModified = false; // V26.2.0 — vira true se alguma write tool rodou
+  const entitiesCreated = []; // V26.2.0 — descrição pro toast frontend
   const maxIterations = 8;
   for (let iter = 0; iter < maxIterations; iter++) {
     const claudeRes = await callClaude({ apiKey, model, system: systemPrompt, messages, tools: TOOLS });
@@ -366,13 +665,44 @@ module.exports = async function handler(req, res) {
       break;
     }
 
-    // Executa todas as tools
+    // V26.2.0 — Executa tools + aplica pending writes ao Postgres
     messages.push({ role: 'assistant', content: resp.content });
-    const toolResults = toolUses.map(tu => ({
-      type: 'tool_result',
-      tool_use_id: tu.id,
-      content: JSON.stringify(execTool(tu.name, tu.input || {}, state))
-    }));
+    const toolResults = [];
+    for (const tu of toolUses) {
+      const result = execTool(tu.name, tu.input || {}, state);
+      // Se tool retornou _pendingWrite, aplica no Postgres e atualiza state local
+      if (result && result._pendingWrite) {
+        const writeRes = await applyStateWrite(req.db, req.user.id, result._pendingWrite);
+        if (writeRes.ok) {
+          stateModified = true;
+          entitiesCreated.push({ kind: result._pendingWrite.kind, payload: result.created });
+          // Atualiza state local em memória pra próximas tools verem o novo registro
+          if (result._pendingWrite.kind === 'create_product') {
+            state.products = state.products || [];
+            state.products.push(result.created);
+          } else if (result._pendingWrite.kind === 'create_campaign') {
+            state.campaigns = state.campaigns || [];
+            state.campaigns.push(result.created);
+          } else if (result._pendingWrite.kind === 'create_action') {
+            state.actions = state.actions || [];
+            state.actions.push(result.created);
+          }
+          // Substitui o resultado por algo limpo (sem _pendingWrite) pra mandar pra Claude
+          result.persisted = true;
+        } else {
+          result.persisted = false;
+          result.persistError = writeRes.message || 'erro ao salvar';
+        }
+        delete result._pendingWrite;
+      }
+      // V26.2.0 — Redact segredos antes de mandar dados pra Claude
+      const safeResult = redactSecrets(result);
+      toolResults.push({
+        type: 'tool_result',
+        tool_use_id: tu.id,
+        content: JSON.stringify(safeResult)
+      });
+    }
     messages.push({ role: 'user', content: toolResults });
   }
 
@@ -392,6 +722,8 @@ module.exports = async function handler(req, res) {
     ok: true,
     conversationId,
     message: finalText,
+    stateModified,           // V26.2.0 — frontend faz pull do state remoto
+    entitiesCreated,         // V26.2.0 — pro toast informativo
     usage: { tokensIn: totalTokensIn, tokensOut: totalTokensOut, costUsd: costUsd.toFixed(4) }
   });
 };

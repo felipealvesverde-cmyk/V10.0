@@ -770,14 +770,23 @@ Object.assign(Actions, {
     App.save();
   },
 
-  generateActionsViaAI() {
+  // V26.2.0 — Substituído placeholder por integração real com Djow.
+  // O botão "Gerar ações com IA" agora abre o modal Djow já contextualizado
+  // com a campanha selecionada + o prompt do user + número de ações desejadas.
+  // Djow extrai filtros/dados, usa create_action tool, e popula a campanha.
+  async generateActionsViaAI() {
     const ai = App.state.actionAiDraft || { prompt: '', count: 3 };
     const prompt = String(ai.prompt || '').trim();
     const count = Math.max(1, Math.min(20, Number(ai.count || 3)));
     if (!prompt) return Utils.toast('Descreva o comando de geração antes.');
     const campaign = App.getSelectedCampaign();
     if (!campaign) return Utils.toast('Selecione uma campanha primeiro.');
-    Utils.toast(`Em breve: integração de IA para gerar ${count} ação(ões) a partir do comando.`);
+    // Monta query estruturada pra Djow + abre modal + envia automaticamente
+    const fullPrompt = `Crie ${count} ação(ões) para a campanha "${campaign.name}" (id=${campaign.id}). Descrição: ${prompt}\n\nUse a tool create_action pra cada ação. Defina campaignId=${campaign.id}, escolha channel/actionType/sector/funnel apropriados conforme a descrição.`;
+    App.state.djowInput = fullPrompt;
+    this.openDjowAIModal();
+    // Pequeno delay pra modal montar
+    setTimeout(() => this.sendDjowAIMessage(), 100);
   },
 
   setFlowBuilderStartFilter(stageOrAll) {
@@ -2160,6 +2169,18 @@ Object.assign(Actions, {
           ts: Date.now(),
           usage: data.usage
         });
+        // V26.2.0 — Se Djow criou entidades (state mutou no backend), puxa state
+        // fresco do Postgres pro frontend ver os registros novos imediatamente.
+        if (data.stateModified && window.App?._loadStateWithRemoteFallback) {
+          try { await App._loadStateWithRemoteFallback(); } catch (_) {}
+          if (Array.isArray(data.entitiesCreated) && data.entitiesCreated.length) {
+            const names = data.entitiesCreated.map(e => {
+              const t = e.kind === 'create_product' ? 'Produto' : e.kind === 'create_campaign' ? 'Campanha' : 'Ação';
+              return `${t}: ${e.payload?.name || '?'}`;
+            }).join(' · ');
+            Utils.toast(`✓ Djow criou: ${names}`);
+          }
+        }
       } else {
         App.state.djowConversation.messages.push({
           role: 'assistant',
