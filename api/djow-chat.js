@@ -645,44 +645,60 @@ module.exports = async function handler(req, res) {
   // Mapa da Receita. Frontend manda apenas a frase amigável como user message,
   // e nós augmentamos o system prompt com as instruções verbosas pra Djow conduzir
   // no formato Doerr. Assim o user não vê esse texto verboso na UI.
+  // V27.0.2 — Paths explícitos pro Djow encontrar os dados (sem chutar).
+  //   Vision: App.state.strategicMaps[productId].vision
+  //   Objectives: App.state.strategicMaps[productId].objectives
+  //   Cada Objective tem okrs[] (que são os Key Results no LJ).
   const interviewStage = String(body.interviewStage || '').trim();
   const interviewProductName = String(body.interviewProductName || '').trim();
+  const interviewProductId = body.interviewProductId;
   if (interviewStage) {
+    const pid = interviewProductId;
+    const pname = interviewProductName;
     const INTERVIEW_PROMPTS = {
       vision: `## MODO ENTREVISTA ATIVA — Visão do Produto
 
-O user clicou "Djow me entrevista" na etapa Visão do produto "${interviewProductName}" no Mapa da Receita.
+User clicou "Djow me entrevista" na etapa Visão do produto "${pname}" (id=${pid}).
 
-Conduza no formato Doerr (Avalie o que importa) em UMA única troca:
-1. Pergunte ao user, de forma curta e direta: "Onde esse produto deve estar em 12 meses? Pensa qualitativo, ambicioso — não é número, é direção. Ex: 'Tornar-se o produto líder de RevOps no Brasil.'"
-2. Quando responder, refine pra ficar aspiracional, memorável, time-bound.
-3. Mostre a frase final pra copiar no campo Visão.
+PRIMEIRO PASSO: chame query_state com path exato \`strategicMaps.${pid}.vision\` pra verificar se já existe Visão cadastrada.
+- Se já tem texto: NÃO peça pro user redefinir. Mostre a Visão atual e pergunte se ele quer manter, refinar, ou trocar.
+- Se vazio/null: aí sim conduza a entrevista pra criar.
 
-NÃO crie KRs nem Objectives. NÃO chame tools agora. Foque na Visão.`,
+Quando for criar (Visão vazia), faça em UMA troca:
+1. Pergunte direto: "Em UMA frase aspiracional, onde esse produto chega em 12 meses? Qualitativo, ambicioso — não é número, é direção. Ex: 'Ser o produto líder de RevOps no Brasil.'"
+2. Quando responder, refine + mostre a frase final pra copiar no campo Visão.
+
+NÃO crie KRs nem Objectives. Foque só na Visão.`,
 
       objectives: `## MODO ENTREVISTA ATIVA — Objectives
 
-O user clicou "Djow me entrevista" na etapa Objectives do produto "${interviewProductName}".
+User clicou "Djow me entrevista" na etapa Objectives do produto "${pname}" (id=${pid}).
 
-Primeiro, busque a Visão atual do produto via tool query_state. Se vazia, peça ao user.
+PRIMEIRO PASSO: chame query_state com path exato \`strategicMaps.${pid}\` pra puxar a Visão E os Objectives já existentes.
+- A resposta vai ter \`vision\` (string) e \`objectives\` (array).
+- Use a Visão como contexto. NÃO peça ao user de novo.
+- Se já tem alguns Objectives, NÃO duplique. Sugira complementos pros que faltam.
 
-Conduza em UMA única troca (econ token):
-1. "Pra atingir a Visão, quais 3-5 frentes vc precisa atacar nos próximos 12 meses? Cada Objective é qualitativo, ambicioso e memorável (não é número)."
+Depois de ler o state:
+1. "Vi sua Visão: '<visão real>'. Pra atingir isso, quais 3-5 frentes vc precisa atacar nos próximos 12 meses? Cada Objective é qualitativo, ambicioso e memorável (não é número)."
 2. Refine: nada de to-do list. Cada Objective deve inspirar.
 3. Limite a 5 (Doerr: "se tudo é prioridade, nada é").
-4. Mostre a lista final formatada (numerada) pra copiar nos cards de Objective.
+4. Mostre lista final numerada pra copiar nos cards de Objective.
 
 NÃO crie Key Results ainda. NÃO use tool de write.`,
 
       keyresults: `## MODO ENTREVISTA ATIVA — Key Results
 
-O user clicou "Djow me entrevista" na etapa Key Results do produto "${interviewProductName}".
+User clicou "Djow me entrevista" na etapa Key Results do produto "${pname}" (id=${pid}).
 
-Primeiro, busque os Objectives do produto via tool query_state. Se vazio, mande user voltar pro Step 2.
+PRIMEIRO PASSO: chame query_state com path exato \`strategicMaps.${pid}.objectives\` pra puxar os Objectives existentes.
+- Resposta é array de \`{ id, label, owner, deadline, okrs: [...] }\`.
+- Se vazio, mande user voltar pra etapa Objectives (Step 2).
+- Se preenchido, use os labels como base.
 
-Conduza:
-1. Pra cada Objective, pergunte: "Quais 3-5 números provam que vc atingiu '<Objective>'?". Insista no formato "de X pra Y até Z (data)".
-2. Pra cada KR, pergunte: "Stretch (0.7 = sucesso) ou Committed (precisa 1.0)?"
+Depois:
+1. Pra cada Objective listado, pergunte: "Quais 3-5 números provam que vc atingiu '<label>'?". Insista no formato "de X pra Y até Z (data)".
+2. Pra cada KR sugerido, classifique: Stretch (0.7 = sucesso, ambicioso) ou Committed (precisa 1.0, obrigatório).
 3. Aponte gaps: KR sem deadline, vago, sem número.
 4. Mostre tabela final pra copiar nos cards.
 

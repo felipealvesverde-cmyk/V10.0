@@ -45,6 +45,16 @@ window.RemoteSyncAdapter = {
     this._saveTimer = setTimeout(() => this._doPush(), 2000);
   },
 
+  // V27.0.2 — Flush síncrono: cancela debounce + força push imediato + aguarda.
+  // Usado antes de chamar Djow (que lê state do Postgres). Se não flushar, Djow
+  // vê state desatualizado (até 2s atrás), gastando tokens em conclusão errada.
+  async flushNow() {
+    if (!this.isProduction()) return; // sandbox não persiste
+    clearTimeout(this._saveTimer);
+    this._saveTimer = null;
+    await this._doPush();
+  },
+
   async _doPush() {
     if (!window.App?.state) return;
     this._lastPushStatus = 'pushing';

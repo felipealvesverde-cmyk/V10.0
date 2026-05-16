@@ -2224,7 +2224,7 @@ Object.assign(Actions, {
   // pro Djow conduzir) vai via system prompt augmentation no backend, invisível
   // pro user. Antes (V27.0.0) o prompt verboso aparecia como "user message" no
   // chat — confundia visualmente.
-  djowInterviewStrategic(stage) {
+  async djowInterviewStrategic(stage) {
     const productId = App.state.strategicMapProductId;
     const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
     if (!product) return Utils.toast('Selecione um produto primeiro.');
@@ -2236,10 +2236,17 @@ Object.assign(Actions, {
     };
 
     App.state.djowInput = friendly[stage] || friendly.vision;
-    // Flags consumidas no próximo send (envia ao backend que augmenta system prompt)
     App.state._djowInterviewStage = stage;
     App.state._djowInterviewProductName = product.name;
     App.state._djowInterviewProductId = product.id;
+    // V27.0.2 — Flush state pro Postgres antes de chamar Djow.
+    // Sem isso, se user acabou de digitar a Visão e clica "Djow me entrevista"
+    // dentro dos 2s do debounce, Djow lê state velho do banco e responde
+    // como se a Visão estivesse vazia (desperdiça créditos).
+    Utils.toast('Sincronizando state…');
+    if (window.RemoteSyncAdapter?.flushNow) {
+      try { await RemoteSyncAdapter.flushNow(); } catch (_) {}
+    }
     this.openDjowAIModal();
     setTimeout(() => this.sendDjowAIMessage(), 100);
   },
