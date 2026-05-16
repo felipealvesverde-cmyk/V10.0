@@ -326,21 +326,62 @@ window.HomeModule = {
       </svg>
     </div>`;
 
+    // V26.0.0 — Box Djow funcional (sai do placeholder). Mostra as últimas 3
+    // mensagens da conversa atual + input. Botão expande pro modal Ctrl+K.
+    const conv = App.state.djowConversation || { messages: [] };
+    const recent = (conv.messages || []).slice(-4);
+    const status = App.state.djowStatus || {};
+    const isConfigured = status.configured;
+    const canUse = status.canUse !== false;
+    const sending = Boolean(App.state.djowSending);
+
     return `<aside class="lj-home-side">
       <div class="lj-home-side-card lj-home-djow">
         <div class="lj-home-side-header">
           ${djowAvatar}
-          <div>
+          <div class="flex-1 min-w-0">
             <div class="lj-home-side-title">Djow <span class="lj-home-side-pill">AI</span></div>
-            <div class="lj-home-side-sub">Seu assistente de receita</div>
+            <div class="lj-home-side-sub">${isConfigured ? 'Pronto. Pergunte qualquer coisa.' : 'Aguardando configuração'}</div>
           </div>
+          <button onclick="Actions.openDjowModal()" class="lj-djow-expand" title="Expandir (Ctrl+K)">
+            <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
+          </button>
         </div>
         <div class="lj-home-djow-body">
-          <div class="lj-home-djow-placeholder">
-            <i data-lucide="message-square" class="w-4 h-4"></i>
-            <span>Em breve: pergunte qualquer coisa sobre sua operação</span>
-          </div>
-          <input class="lj-home-djow-input" placeholder="Pergunte ao Djow…" disabled title="Em breve" />
+          ${!isConfigured ? `
+            <div class="lj-home-djow-placeholder">
+              <i data-lucide="alert-circle" class="w-4 h-4"></i>
+              <span>Configure em <b>Configurações → Agentes Externos → Djow</b></span>
+            </div>
+          ` : !canUse ? `
+            <div class="lj-home-djow-placeholder">
+              <i data-lucide="lock" class="w-4 h-4"></i>
+              <span>Sem permissão de uso. Peça pro master habilitar.</span>
+            </div>
+          ` : recent.length === 0 ? `
+            <div class="lj-home-djow-placeholder">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span>Pergunte qualquer coisa sobre sua operação</span>
+            </div>
+          ` : `
+            <div class="lj-home-djow-recent" id="djowHomeRecent">
+              ${recent.map(m => `<div class="lj-djow-msg lj-djow-msg-${m.role} ${m.isError ? 'lj-djow-msg-error' : ''}">
+                <div class="lj-djow-msg-role">${m.role === 'user' ? 'Você' : 'Djow'}</div>
+                <div class="lj-djow-msg-content">${Utils.escape(String(m.content || '').slice(0, 280))}${String(m.content || '').length > 280 ? '…' : ''}</div>
+              </div>`).join('')}
+              ${sending ? '<div class="lj-djow-msg lj-djow-msg-assistant lj-djow-typing">Djow está digitando<span class="lj-djow-dots">…</span></div>' : ''}
+            </div>
+          `}
+          <input
+            id="djowHomeInput"
+            class="lj-home-djow-input"
+            placeholder="Ctrl+K para chamar o Djow a qualquer momento"
+            oninput="Actions.updateDjowInput(this.value)"
+            onkeydown="Actions.sendDjowMessage(event)"
+            onfocus="this.placeholder=''"
+            onblur="if(!this.value) this.placeholder='Ctrl+K para chamar o Djow a qualquer momento'"
+            ${!isConfigured || !canUse || sending ? 'disabled' : ''}
+          />
         </div>
       </div>
 

@@ -2266,44 +2266,144 @@ var SettingsModal = {
     </div>`;
   },
 
+  // V26.0.0 — Painel de configuração do Djow AI (Claude API).
+  // Substituiu o painel de "Djow Railway Agent" (V13 — agente externo de execução
+  // de tarefas que nunca foi usado em produção). Djow agora é o assistente AI do
+  // LeadJourney, plugado em Claude API, com tools que leem o state da operação +
+  // knowledge base de RevOps/CX que o dev (Felipe) popula em /knowledge-base/.
   agentsPanel() {
-    const cfg = (App.state.agentConfig?.djow) || (window.AgentRegistry ? AgentRegistry.defaultConfig().djow : {});
-    const health = window.AgentHealthMonitor ? AgentHealthMonitor.snapshot() : { status: 'unknown', latencyMs: null, checkedAt: null, error: null, enabled: false };
-    const statusBadge = health.status === 'online'
-      ? `<span class="px-3 py-2 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-black flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Online ${health.latencyMs ? `• ${health.latencyMs}ms` : ''}</span>`
-      : health.status === 'offline'
-        ? `<span class="px-3 py-2 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-black flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-red-500"></span> Offline ${health.error ? `• ${Utils.escape(health.error)}` : ''}</span>`
-        : `<span class="px-3 py-2 rounded-2xl bg-slate-50 border border-slate-200 text-slate-600 text-xs font-black flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-slate-400"></span> Nunca testado</span>`;
+    const status = App.state.djowStatus || { configured: false, model: 'claude-sonnet-4-6', kbFiles: [], kbChars: 0, allowedRoles: ['master'], stats: { totalCostUsd: 0, conversationCount: 0 } };
+    const cfg = App.state.djowConfig || { model: 'claude-sonnet-4-6', allowedRoles: ['master'] };
+    const isConfigured = status.configured;
+    const isMaster = App.currentUser?.isMaster;
+
+    const statusBadge = isConfigured
+      ? `<span class="px-3 py-2 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-black flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> API key configurada</span>`
+      : `<span class="px-3 py-2 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-black flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Aguardando ANTHROPIC_API_KEY</span>`;
+
+    const robotAvatar = `<svg viewBox="0 0 64 64" class="w-14 h-14" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="djow-set-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#A78BFA"/><stop offset="100%" stop-color="#5B21B6"/></linearGradient></defs>
+      <circle cx="32" cy="8" r="3" fill="#C4B5FD"/><line x1="32" y1="11" x2="32" y2="16" stroke="#A78BFA" stroke-width="2"/>
+      <rect x="14" y="16" width="36" height="32" rx="11" fill="url(#djow-set-grad)" stroke="#7C3AED" stroke-width="1.5"/>
+      <circle cx="24" cy="30" r="3.5" fill="#fff"/><circle cx="40" cy="30" r="3.5" fill="#fff"/>
+      <circle cx="24" cy="30" r="1.5" fill="#5B21B6"/><circle cx="40" cy="30" r="1.5" fill="#5B21B6"/>
+      <path d="M26 40 Q32 43 38 40" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <rect x="10" y="26" width="4" height="10" rx="2" fill="#7C3AED"/><rect x="50" y="26" width="4" height="10" rx="2" fill="#7C3AED"/>
+      <rect x="26" y="48" width="12" height="6" rx="2" fill="#5B21B6"/>
+    </svg>`;
+
     return `<div class="space-y-5">
-      <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
+      <div class="rounded-3xl bg-gradient-to-br from-violet-50 to-white border-2 border-violet-200 p-5 shadow-md">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
-          <div>
-            <div class="flex items-center gap-2 mb-1"><i data-lucide="cpu" class="w-5 h-5 text-indigo-600"></i><h3 class="text-2xl font-black text-slate-950">Djow (Railway)</h3></div>
-            <p class="text-sm text-slate-500">Agente externo que interpreta comandos em linguagem natural e devolve tarefas estruturadas.</p>
+          <div class="flex items-center gap-4">
+            ${robotAvatar}
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <h3 class="text-2xl font-black text-slate-950">Djow AI</h3>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-violet-200 text-violet-900">Powered by Claude</span>
+              </div>
+              <p class="text-sm text-slate-600">Seu assistente de receita. Lê dados da operação, RevOps, CX e responde no chat ou via atalho global.</p>
+            </div>
           </div>
           ${statusBadge}
         </div>
-        <div class="grid md:grid-cols-2 gap-3">
-          ${this._agentInput('name', 'Nome do agente', cfg.name)}
-          ${this._agentInput('url', 'URL da API Railway', cfg.url, 'https://djow-production.up.railway.app')}
-          ${this._agentInput('endpoint', 'Endpoint principal', cfg.endpoint, '/execute')}
-          ${this._agentInput('method', 'Método HTTP', cfg.method, 'POST')}
-          ${this._agentInput('apiKey', 'API Key', cfg.apiKey, '', true)}
-          ${this._agentInput('timeoutMs', 'Timeout (ms)', cfg.timeoutMs, '30000', false, 'number')}
-        </div>
-        <label class="mt-4 flex items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-slate-200">
-          <span class="text-sm font-black text-slate-900">Agente ativo</span>
-          <button onclick="Actions.toggleAgentEnabled('djow')" class="relative w-12 h-7 rounded-full transition ${cfg.enabled ? 'bg-emerald-500' : 'bg-slate-300'}" aria-pressed="${cfg.enabled}">
-            <span class="absolute top-1 ${cfg.enabled ? 'right-1' : 'left-1'} w-5 h-5 rounded-full bg-white shadow"></span>
-          </button>
-        </label>
-        <div class="flex flex-wrap gap-2 mt-4">
-          <button onclick="Actions.testAgentConnection('djow')" class="px-4 py-2.5 rounded-2xl bg-slate-900 text-white font-black text-sm" style="color:#fff!important;">Testar conexão</button>
-          <button onclick="Actions.saveAgentConfig('djow')" class="px-4 py-2.5 rounded-2xl bg-emerald-600 text-white font-black text-sm">Salvar</button>
-          <button onclick="Actions.resetAgentConfig('djow')" class="px-4 py-2.5 rounded-2xl bg-red-50 border border-red-200 text-red-600 font-black text-sm">Limpar</button>
-        </div>
-        ${health.checkedAt ? `<p class="text-[11px] text-slate-400 mt-3">Última checagem: ${Utils.escape(new Date(health.checkedAt).toLocaleString('pt-BR'))}</p>` : ''}
+
+        ${!isConfigured ? this._djowSetupTutorial() : ''}
+
+        ${isConfigured ? `
+          <div class="grid md:grid-cols-2 gap-3 mb-4">
+            <div>
+              <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Modelo</label>
+              <select onchange="Actions.updateDjowConfig('model', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-slate-900">
+                <option value="claude-sonnet-4-6" ${cfg.model === 'claude-sonnet-4-6' ? 'selected' : ''}>Sonnet 4.6 (Recomendado · $0.03/pergunta)</option>
+                <option value="claude-opus-4-7" ${cfg.model === 'claude-opus-4-7' ? 'selected' : ''}>Opus 4.7 (Top qualidade · $0.15/pergunta)</option>
+                <option value="claude-haiku-4-5-20251001" ${cfg.model === 'claude-haiku-4-5-20251001' ? 'selected' : ''}>Haiku 4.5 (Rápido e barato · $0.005/pergunta)</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Quem pode usar</label>
+              <select onchange="Actions.updateDjowAllowedRoles(this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-slate-900" ${isMaster ? '' : 'disabled'}>
+                <option value="master" ${cfg.allowedRoles?.[0] === 'master' && cfg.allowedRoles?.length === 1 ? 'selected' : ''}>Apenas master (você)</option>
+                <option value="production" ${cfg.allowedRoles?.includes('production') && !cfg.allowedRoles?.includes('all') ? 'selected' : ''}>Master + Production</option>
+                <option value="all" ${cfg.allowedRoles?.includes('all') ? 'selected' : ''}>Todos aprovados (inclui sandbox)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-3 gap-3 mb-4">
+            <div class="rounded-2xl bg-white border border-slate-200 p-3">
+              <p class="text-[10px] font-black text-slate-500 uppercase">Knowledge Base</p>
+              <p class="text-lg font-black text-slate-900 mt-1">${status.kbFiles.length} arquivo(s)</p>
+              <p class="text-[11px] text-slate-500">${status.kbChars.toLocaleString('pt-BR')} caracteres</p>
+            </div>
+            <div class="rounded-2xl bg-white border border-slate-200 p-3">
+              <p class="text-[10px] font-black text-slate-500 uppercase">Conversas</p>
+              <p class="text-lg font-black text-slate-900 mt-1">${status.stats.conversationCount}</p>
+              <p class="text-[11px] text-slate-500">total no banco</p>
+            </div>
+            <div class="rounded-2xl bg-white border border-slate-200 p-3">
+              <p class="text-[10px] font-black text-slate-500 uppercase">Custo acumulado</p>
+              <p class="text-lg font-black text-slate-900 mt-1">$${Number(status.stats.totalCostUsd).toFixed(4)}</p>
+              <p class="text-[11px] text-slate-500">USD (Anthropic)</p>
+            </div>
+          </div>
+
+          ${status.kbFiles.length > 0 ? `
+            <details class="rounded-2xl bg-slate-50 border border-slate-200 p-3 mb-4">
+              <summary class="cursor-pointer text-xs font-black text-slate-700">Knowledge base carregada</summary>
+              <ul class="mt-2 space-y-1 text-xs text-slate-600">
+                ${status.kbFiles.map(f => `<li>• <code>${Utils.escape(f.name)}</code> · ${f.chars.toLocaleString('pt-BR')} chars</li>`).join('')}
+              </ul>
+              <p class="text-[11px] text-slate-500 mt-3">Editar/adicionar: edite arquivos em <code>/knowledge-base/</code> no repo + push pro Railway. Veja <code>knowledge-base/README.md</code>.</p>
+            </details>
+          ` : `
+            <div class="rounded-2xl bg-amber-50 border border-amber-200 p-3 mb-4 text-xs text-amber-900">
+              <p class="font-black mb-1">⚠ Knowledge base vazia</p>
+              <p>Djow funciona, mas só responde com base nos dados da operação (não em conhecimento de domínio). Pra ativar insights de RevOps/CX, crie arquivos em <code>/knowledge-base/</code> (veja README lá).</p>
+            </div>
+          `}
+
+          <div class="flex flex-wrap gap-2">
+            <button onclick="Actions.testDjowConnection()" class="px-4 py-2.5 rounded-2xl bg-slate-900 text-white font-black text-sm lj-dark-button" style="color:#fff!important;">
+              <i data-lucide="zap" class="w-3.5 h-3.5 inline"></i> Testar conexão
+            </button>
+            <button onclick="Actions.openDjowModal()" class="px-4 py-2.5 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black text-sm" style="color:#fff!important;">
+              <i data-lucide="message-square" class="w-3.5 h-3.5 inline"></i> Abrir chat
+            </button>
+          </div>
+        ` : ''}
       </div>
+    </div>`;
+  },
+
+  // V26.0.0 — Tutorial passo-a-passo de como configurar o Djow.
+  _djowSetupTutorial() {
+    return `<div class="rounded-2xl bg-slate-900 text-white p-5 mb-4">
+      <h4 class="font-black mb-3 flex items-center gap-2"><i data-lucide="key-round" class="w-4 h-4 text-violet-400"></i> Como ativar o Djow (3 passos)</h4>
+      <ol class="space-y-3 text-sm">
+        <li class="flex gap-3">
+          <span class="w-6 h-6 rounded-full bg-violet-600 grid place-items-center text-xs font-black shrink-0">1</span>
+          <div>
+            <p class="font-black">Crie uma API key da Anthropic</p>
+            <p class="text-slate-400 text-xs mt-1">Vá em <a href="https://console.anthropic.com/" target="_blank" class="text-violet-300 underline">console.anthropic.com</a> → Settings → API Keys → "Create Key". Adicione $5-10 de crédito (suficiente pra ~30 dias de uso casual).</p>
+          </div>
+        </li>
+        <li class="flex gap-3">
+          <span class="w-6 h-6 rounded-full bg-violet-600 grid place-items-center text-xs font-black shrink-0">2</span>
+          <div>
+            <p class="font-black">Cole no Railway como variável de ambiente</p>
+            <p class="text-slate-400 text-xs mt-1">No painel Railway → seu projeto → Variables → "New Variable":<br><code class="bg-slate-800 px-2 py-0.5 rounded mt-1 inline-block">ANTHROPIC_API_KEY=sk-ant-api03-...</code></p>
+          </div>
+        </li>
+        <li class="flex gap-3">
+          <span class="w-6 h-6 rounded-full bg-violet-600 grid place-items-center text-xs font-black shrink-0">3</span>
+          <div>
+            <p class="font-black">Redeploy</p>
+            <p class="text-slate-400 text-xs mt-1">Railway vai redeploy automaticamente. Aguarde ~1min e recarregue esta página. O badge "API key configurada" aparece quando estiver pronto.</p>
+          </div>
+        </li>
+      </ol>
+      <p class="text-[11px] text-slate-500 mt-4">⚠ <b>Segurança</b>: a key fica no servidor (Railway), nunca no browser. Apenas o user master (você) pode usar o Djow por padrão.</p>
     </div>`;
   },
 

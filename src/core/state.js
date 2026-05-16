@@ -543,7 +543,18 @@ var State = {
       rdLastManualRefreshAt: raw.rdLastManualRefreshAt || null,
       rdRefreshing: false, // sempre false no boot
       // V25.0.0 — Home: produto vigente do Pulso (rotação random 7s)
-      homeProductIndex: Number.isFinite(Number(raw.homeProductIndex)) ? Number(raw.homeProductIndex) : 0
+      homeProductIndex: Number.isFinite(Number(raw.homeProductIndex)) ? Number(raw.homeProductIndex) : 0,
+      // V26.0.0 — Djow AI (Claude assistant)
+      djowConfig: (raw.djowConfig && typeof raw.djowConfig === 'object')
+        ? { model: raw.djowConfig.model || 'claude-sonnet-4-6', allowedRoles: Array.isArray(raw.djowConfig.allowedRoles) ? raw.djowConfig.allowedRoles : ['master'] }
+        : { model: 'claude-sonnet-4-6', allowedRoles: ['master'] },
+      djowStatus: null, // preenchido em background por Actions.loadDjowStatus
+      djowConversation: (raw.djowConversation && typeof raw.djowConversation === 'object')
+        ? { id: raw.djowConversation.id || null, messages: Array.isArray(raw.djowConversation.messages) ? raw.djowConversation.messages.slice(-40) : [] }
+        : { id: null, messages: [] },
+      djowOpen: false,    // sempre fechado no boot
+      djowSending: false, // sempre false no boot
+      djowInput: ''
     };
   },
   load() {

@@ -2006,6 +2006,164 @@ Object.assign(Actions, {
     return { ok: true };
   },
 
+  // V26.0.0 — Djow AI: ações pra chat + config.
+  //
+  // State usado:
+  //   App.state.djowConfig = { model, allowedRoles }
+  //   App.state.djowStatus = (preenchido por loadDjowStatus())
+  //   App.state.djowConversation = { id, messages: [{role, content, ts}] }
+  //   App.state.djowOpen = boolean (modal Ctrl+K aberto)
+  //   App.state.djowSending = boolean (loading state)
+  //   App.state.djowInput = string (input atual no modal/home)
+
+  async loadDjowStatus() {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-status', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (data.ok) {
+        App.state.djowStatus = data;
+        App.save();
+        App.render();
+      }
+    } catch (_) {}
+  },
+
+  updateDjowConfig(field, value) {
+    App.state.djowConfig = App.state.djowConfig || { model: 'claude-sonnet-4-6', allowedRoles: ['master'] };
+    App.state.djowConfig[field] = value;
+    App.save();
+    App.render();
+  },
+
+  updateDjowAllowedRoles(rolePreset) {
+    App.state.djowConfig = App.state.djowConfig || { model: 'claude-sonnet-4-6', allowedRoles: ['master'] };
+    if (rolePreset === 'master') App.state.djowConfig.allowedRoles = ['master'];
+    else if (rolePreset === 'production') App.state.djowConfig.allowedRoles = ['master', 'production'];
+    else if (rolePreset === 'all') App.state.djowConfig.allowedRoles = ['master', 'production', 'all'];
+    App.save();
+    App.render();
+  },
+
+  async testDjowConnection() {
+    Utils.toast('Testando Djow...');
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ message: 'Diga "ok" pra confirmar que tá funcionando.' })
+      });
+      const data = await r.json();
+      if (data.ok) {
+        Utils.toast(`✓ Djow respondeu: "${(data.message || '').slice(0, 60)}..." · custo: $${data.usage?.costUsd || '0'}`);
+        this.loadDjowStatus();
+      } else {
+        Utils.toast(`Falhou: ${data.message || 'erro desconhecido'}`);
+      }
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  openDjowModal() {
+    App.state.djowOpen = true;
+    App.save();
+    App.render();
+    setTimeout(() => {
+      const input = document.getElementById('djowInput');
+      if (input) input.focus();
+    }, 50);
+  },
+
+  closeDjowModal() {
+    App.state.djowOpen = false;
+    App.save();
+    App.render();
+  },
+
+  toggleDjowModal() {
+    if (App.state.djowOpen) this.closeDjowModal();
+    else this.openDjowModal();
+  },
+
+  updateDjowInput(value) {
+    App.state.djowInput = value;
+    // Não dá save+render aqui (cada keystroke recarregaria o modal e perderia foco)
+  },
+
+  async sendDjowMessage(event) {
+    if (event && event.key && event.key !== 'Enter') return;
+    if (event && event.shiftKey) return; // shift+enter = nova linha
+    if (event && event.preventDefault) event.preventDefault();
+
+    const inputEl = document.getElementById('djowInput');
+    const message = (inputEl?.value || App.state.djowInput || '').trim();
+    if (!message) return;
+    if (App.state.djowSending) return;
+
+    App.state.djowConversation = App.state.djowConversation || { id: null, messages: [] };
+    App.state.djowConversation.messages.push({ role: 'user', content: message, ts: Date.now() });
+    App.state.djowInput = '';
+    if (inputEl) inputEl.value = '';
+    App.state.djowSending = true;
+    App.render();
+
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          message,
+          conversationId: App.state.djowConversation.id
+        })
+      });
+      const data = await r.json();
+      App.state.djowSending = false;
+      if (data.ok) {
+        App.state.djowConversation.id = data.conversationId;
+        App.state.djowConversation.messages.push({
+          role: 'assistant',
+          content: data.message,
+          ts: Date.now(),
+          usage: data.usage
+        });
+      } else {
+        App.state.djowConversation.messages.push({
+          role: 'assistant',
+          content: `❌ Erro: ${data.message || 'falha desconhecida'}`,
+          ts: Date.now(),
+          isError: true
+        });
+      }
+    } catch (err) {
+      App.state.djowSending = false;
+      App.state.djowConversation.messages.push({
+        role: 'assistant',
+        content: `❌ Erro de rede: ${err.message}`,
+        ts: Date.now(),
+        isError: true
+      });
+    }
+    App.save();
+    App.render();
+    // Auto-scroll
+    setTimeout(() => {
+      const log = document.getElementById('djowMessages');
+      if (log) log.scrollTop = log.scrollHeight;
+    }, 50);
+  },
+
+  clearDjowConversation() {
+    if (!confirm('Limpar a conversa atual? O histórico fica no banco mas some daqui.')) return;
+    App.state.djowConversation = { id: null, messages: [] };
+    App.save();
+    App.render();
+  },
+
   // V24.1.0 — Refresh manual de TODAS as fontes RD (substituiu auto-loops).
   // Dispara: CRM (pipelines/deals via PAT), Marketing (conversões via OAuth),
   // webhook buffer (eventos em tempo real). Status fica em App.state.rdLastSyncAt.

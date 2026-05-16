@@ -1,5 +1,38 @@
 # LeadJourney — Design Director & Branding Book
 
+## 0. Logo Oficial (V26.0.0)
+
+**Marca**: square outline arredondado contendo o glyph "LJ" — ambos em violet sólido `#7C3AED` (ou `#A78BFA` sobre fundos escuros).
+
+```
+┌─────────────┐
+│             │
+│    L  J     │
+│             │
+└─────────────┘
+```
+
+**Especificações técnicas**:
+- ViewBox: `64x64`
+- Outer rect: `x=6 y=6 w=52 h=52 rx=10` com stroke 3.5px
+- Glyphs: stroke 6px, linecap round, linejoin round
+- L: `M22 19 L22 45` (vertical bar de altura 26)
+- J: `M40 19 L40 41 Q40 47 33 47 L30 47` (vertical + curl)
+
+**Cores oficiais**:
+- Sobre fundo claro: `#7C3AED` (violet-600)
+- Sobre fundo escuro: `#A78BFA` (violet-400) — melhor contraste
+
+**NÃO USAR**:
+- Gradient multicolorido (foi usado em V25.0.1 mas substituído)
+- Caixa filled em branco (logo só tem stroke, sem fill no glyph)
+- Cores fora da paleta violet
+
+**Asset master**: [public/logo.svg](../public/logo.svg)
+**Export PNG**: abrir [public/logo-export.html](../public/logo-export.html) no browser.
+
+---
+
 ## 1. Direção de Marca
 
 LeadJourney é um **Revenue Operating System**. A interface deve parecer um cockpit de gestão de receita, não um CRM comum.

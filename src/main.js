@@ -17,6 +17,22 @@ var App = {
         this.runTests();
         this.render();
         this.hydrateFromConfiguredDatabase();
+        // V26.0.0 — Atalho global Ctrl+K (Cmd+K) abre modal Djow AI.
+        // Funciona em qualquer aba. ESC fecha (tratado dentro do modal).
+        if (!this._djowShortcutBound) {
+          this._djowShortcutBound = true;
+          document.addEventListener('keydown', (e) => {
+            const isCmdK = (e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K');
+            if (isCmdK) {
+              e.preventDefault();
+              if (window.Actions?.toggleDjowModal) Actions.toggleDjowModal();
+            }
+          });
+        }
+        // V26.0.0 — Carrega status do Djow em background (não bloqueia render).
+        if (window.Actions?.loadDjowStatus) {
+          setTimeout(() => Actions.loadDjowStatus(), 200);
+        }
         // V23.0.0 — Inicia sync remoto + auto-snapshot.
         if (window.RemoteSyncAdapter) {
           try { RemoteSyncAdapter.start(); } catch (e) { console.warn('RemoteSync start falhou:', e); }
@@ -362,8 +378,10 @@ var App = {
 
         const app = document.getElementById('app');
         // V25.0.0 — Adicionada aba "home" (HomeModule).
+        // V26.0.0 — Modal Djow renderizado globalmente (acima de tudo via Ctrl+K).
         const screens = { home: window.HomeModule, products: ProductsModule, campaigns: CampaignModule, actions: ActionModule, results: ResultModule, scores: ScoreModule, dashboard: DashboardModule, leads: LeadsModule, revops: window.RevopsGovernanceModule };
-        app.innerHTML = (screens[this.state.activeTab]?.render() || (window.HomeModule ? HomeModule.render() : ProductsModule.render())) + (window.SettingsModal ? SettingsModal.render() : '');
+        const djowModal = window.DjowAIModal && this.state.djowOpen ? DjowAIModal.render() : '';
+        app.innerHTML = (screens[this.state.activeTab]?.render() || (window.HomeModule ? HomeModule.render() : ProductsModule.render())) + (window.SettingsModal ? SettingsModal.render() : '') + djowModal;
         if (window.lucide) lucide.createIcons();
         this._restoreFocus(_focusSnapshot);
       },

@@ -135,16 +135,10 @@ window.LoginScreen = {
           <div class="inline-flex items-center gap-3 mb-3">
             <div class="w-14 h-14 grid place-items-center" style="filter: drop-shadow(0 0 18px rgba(168, 85, 247, .55));">
               <svg viewBox="0 0 64 64" class="w-14 h-14" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">
-                <defs>
-                  <linearGradient id="lj-login-grad" x1="10%" y1="0%" x2="90%" y2="100%">
-                    <stop offset="0%" stop-color="#EC4899"/>
-                    <stop offset="45%" stop-color="#A855F7"/>
-                    <stop offset="100%" stop-color="#06B6D4"/>
-                  </linearGradient>
-                </defs>
-                <g stroke="url(#lj-login-grad)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none">
-                  <path d="M21 10 L21 50"/>
-                  <path d="M43 10 L43 46 Q43 56 33 56 L30 56"/>
+                <rect x="6" y="6" width="52" height="52" rx="10" ry="10" stroke="#A78BFA" stroke-width="3.5" fill="none"/>
+                <g stroke="#A78BFA" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                  <path d="M22 19 L22 45"/>
+                  <path d="M40 19 L40 41 Q40 47 33 47 L30 47"/>
                 </g>
               </svg>
             </div>

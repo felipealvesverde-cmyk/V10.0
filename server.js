@@ -82,6 +82,31 @@ async function runMigrations() {
         triggered_by_user_id INT REFERENCES users(id)
       );
     `);
+    // V26.0.0 — Conversas do Djow (memória persistente).
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS djow_conversations (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+        title VARCHAR(255),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS djow_messages (
+        id SERIAL PRIMARY KEY,
+        conversation_id INT REFERENCES djow_conversations(id) ON DELETE CASCADE,
+        role VARCHAR(16) NOT NULL,
+        content JSONB NOT NULL,
+        tokens_in INT DEFAULT 0,
+        tokens_out INT DEFAULT 0,
+        cost_usd NUMERIC(10,5) DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_djow_messages_conv ON djow_messages(conversation_id, created_at);
+    `);
     // Seed master user se ainda não existe e env vars disponíveis.
     if (MASTER_USERNAME && MASTER_PASSWORD) {
       if (!MASTER_PASSWORD_HASH) {
