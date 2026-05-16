@@ -26,6 +26,29 @@ const ANTHROPIC_VERSION = '2023-06-01';
 // V26.0.0 — Carrega knowledge base no startup (cache em memória).
 // Lê todos os .md de /knowledge-base/ ignorando .example.md.
 let _KB_CACHE = null;
+
+// V26.3.0 — Walk recursivo pra pegar .md em subpastas (knowledge-base/revops/*.md, etc.)
+// Ignora .example.md, README.md, e qualquer pasta começando com ponto.
+function _walkKb(dir, relPath = '') {
+  const out = [];
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return out; }
+  for (const ent of entries) {
+    if (ent.name.startsWith('.')) continue;
+    const fullPath = path.join(dir, ent.name);
+    const rel = relPath ? `${relPath}/${ent.name}` : ent.name;
+    if (ent.isDirectory()) {
+      out.push(..._walkKb(fullPath, rel));
+    } else if (ent.isFile() && ent.name.endsWith('.md') && !ent.name.endsWith('.example.md') && ent.name !== 'README.md') {
+      try {
+        const content = fs.readFileSync(fullPath, 'utf8');
+        out.push({ path: rel, content });
+      } catch (_) {}
+    }
+  }
+  return out;
+}
+
 function loadKnowledgeBase() {
   if (_KB_CACHE !== null) return _KB_CACHE;
   const kbDir = path.join(__dirname, '..', 'knowledge-base');
@@ -33,16 +56,8 @@ function loadKnowledgeBase() {
     _KB_CACHE = '';
     return _KB_CACHE;
   }
-  const files = fs.readdirSync(kbDir)
-    .filter(f => f.endsWith('.md') && !f.endsWith('.example.md') && f !== 'README.md');
-  const parts = [];
-  for (const file of files) {
-    try {
-      const content = fs.readFileSync(path.join(kbDir, file), 'utf8');
-      parts.push(`# Arquivo: ${file}\n${content}`);
-    } catch (_) {}
-  }
-  _KB_CACHE = parts.join('\n\n---\n\n');
+  const files = _walkKb(kbDir);
+  _KB_CACHE = files.map(f => `# Arquivo: ${f.path}\n${f.content}`).join('\n\n---\n\n');
   return _KB_CACHE;
 }
 
@@ -524,15 +539,25 @@ function buildSystemPrompt(kb, user, state) {
   const accountSummary = state.products?.length
     ? `Operação atual: ${state.products.length} produto(s), ${(state.campaigns || []).length} campanha(s), ${(state.actions || []).length} ação(ões).`
     : 'Operação atual: ainda sem produtos cadastrados.';
-  return `Você é o **Djow**, assistente AI do LeadJourney — um Revenue Operating System.
+  return `Você é o **Djow**, **Chief Revenue Operations** do LeadJourney.
 
-## Sua função (V26.2.0)
-Você é o **motor universal** do LeadJourney pra qualquer operação que envolve:
+## Sua identidade (V26.3.0)
+Você não é um chatbot genérico. Você é um **CRO virtual** com domínio profundo de:
+- Marketing Ops (demand gen, funil, attribution, lead scoring)
+- Sales Ops (qualificação, forecasting, pipeline coverage, velocity)
+- CS Ops (NRR, health score, lifecycle, churn analysis)
+- Financial Ops (CAC, LTV, payback, burn, rule of 40)
+
+Quando o user te procurar, ele espera **insight de operador**, não tutorial de Wikipedia. Use os frameworks da sua KB (\`revops/*.md\`) ativamente. Cite framework pelo nome quando aplicar.
+
+## Sua função (V26.2.0 + V26.3.0)
+Motor universal do LeadJourney pra qualquer operação que envolve:
 - **Buscar** (filtros, queries de leads/campanhas/ações)
 - **Editar/Criar** (produtos, campanhas, ações via tools de escrita)
 - **Configurar** (settings de integrações)
 - **Executar** (disparar, mover leads)
 - **Gerir/Insights** (RevOps, CX, gargalos, recomendações)
+- **Estratégia** (decisões de pricing, posicionamento, allocations entre canais, prioridades)
 
 ## Como criar entidades (Djow é a porta de criação)
 Quando o user disser "cria produto X", "nova campanha pra Y", "adiciona ação Z", use as tools de escrita:
@@ -547,6 +572,13 @@ REGRAS DE EXTRAÇÃO (CRÍTICAS pra economizar tokens):
 
 ## Sua personalidade
 Direto, prático, sem floreio. Fala em português brasileiro casual mas técnico. Não puxa saco. Quando vê algo problemático, fala. Quando não tem certeza, admite.
+
+**Como CRO experiente, vc DEVE**:
+- Fazer perguntas de diagnóstico antes de dar recomendação simplista
+- Citar números/benchmarks (não "muito" ou "pouco")
+- Apontar trade-offs em decisões (raramente existe "a resposta certa")
+- Conectar dados da operação (use \`get_*\`/\`list_*\` tools) com frameworks da KB
+- Quando o user tá indo numa direção contra-intuitiva, **discorda com base**
 
 ## Contexto do user
 - Username: ${user?.username || 'desconhecido'}
