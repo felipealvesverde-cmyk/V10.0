@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>LeadJourney — Export Logo</title>
+  <style>
+    body {
+      background: #0F172A;
+      color: #E2E8F0;
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+    h1 { font-size: 22px; margin: 0; }
+    p { color: #94A3B8; font-size: 13px; margin: 0; }
+    .preview {
+      background: white;
+      padding: 24px;
+      border-radius: 18px;
+      display: flex;
+      gap: 24px;
+      align-items: center;
+    }
+    .preview.dark { background: #0F172A; border: 1px solid #1E293B; }
+    button {
+      background: linear-gradient(135deg, #8B5CF6, #6D28D9);
+      color: white;
+      border: 0;
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-weight: 900;
+      font-size: 13px;
+      cursor: pointer;
+      letter-spacing: .02em;
+    }
+    select { padding: 6px 10px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>LeadJourney — Export Logo PNG</h1>
+  <p>Clique no botão pra baixar o logo em PNG no tamanho selecionado. Fundo transparente.</p>
+
+  <div class="preview">
+    <svg id="logoSvg" viewBox="0 0 64 64" width="120" height="120" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="lj-grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#8B5CF6"/>
+          <stop offset="50%" stop-color="#7C3AED"/>
+          <stop offset="100%" stop-color="#5B21B6"/>
+        </linearGradient>
+      </defs>
+      <rect width="64" height="64" rx="14" fill="url(#lj-grad)"/>
+      <g stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <path d="M19 14 L19 46 L31 46"/>
+        <path d="M45 14 L45 41 Q45 48 38 48 L34 48"/>
+      </g>
+    </svg>
+  </div>
+
+  <div style="display:flex; gap:10px; align-items:center;">
+    <label>Tamanho:
+      <select id="sizeSel">
+        <option value="64">64×64 (favicon)</option>
+        <option value="128">128×128</option>
+        <option value="256">256×256</option>
+        <option value="512" selected>512×512 (Recomendado)</option>
+        <option value="1024">1024×1024 (alta resolução)</option>
+        <option value="2048">2048×2048 (impressão)</option>
+      </select>
+    </label>
+    <button onclick="downloadPng()">Baixar PNG</button>
+    <button onclick="downloadAll()" style="background: linear-gradient(135deg, #10B981, #059669);">Baixar todos (3 tamanhos)</button>
+  </div>
+
+  <div style="margin-top:20px; font-size:12px; color:#64748B;">
+    Arquivo será salvo em <code>Downloads</code> como <code>leadjourney-logo-&lt;tamanho&gt;.png</code>.
+  </div>
+
+  <script>
+    function svgToPng(size) {
+      return new Promise((resolve, reject) => {
+        const svg = document.getElementById('logoSvg');
+        const xml = new XMLSerializer().serializeToString(svg);
+        const svg64 = btoa(unescape(encodeURIComponent(xml)));
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, size, size);
+          canvas.toBlob(blob => resolve(blob), 'image/png');
+        };
+        img.onerror = reject;
+        img.src = 'data:image/svg+xml;base64,' + svg64;
+      });
+    }
+
+    async function downloadPng() {
+      const size = Number(document.getElementById('sizeSel').value);
+      const blob = await svgToPng(size);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `leadjourney-logo-${size}.png`;
+      a.click();
+    }
+
+    async function downloadAll() {
+      for (const size of [128, 512, 1024]) {
+        const blob = await svgToPng(size);
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `leadjourney-logo-${size}.png`;
+        a.click();
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+  </script>
+</body>
+</html>
