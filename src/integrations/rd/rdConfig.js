@@ -3,6 +3,25 @@ window.RDConfig = {
   authBaseUrl: "https://api.rd.services/auth/dialog",
   apiBaseUrl: "https://api.rd.services",
 
+  // V24.0.0 — Default do sub-objeto OAuth CRM (app criado no Publisher
+  // RD com produto = "RD Station CRM"). É um app DIFERENTE do app
+  // Marketing — RD força 1 produto por app no Publisher. Tem seu próprio
+  // clientId/clientSecret/accessToken e dá acesso a /crm/v2/*.
+  defaultCrmOauth() {
+    return {
+      clientId: "",
+      clientSecret: "",
+      redirectUri: "",
+      authorizationCode: "",
+      accessToken: "",
+      refreshToken: "",
+      expiresAt: "",
+      authUrl: "",
+      status: "not_configured",
+      lastTestAt: ""
+    };
+  },
+
   defaultConfig() {
     return {
       enabled: false,
@@ -29,7 +48,10 @@ window.RDConfig = {
       lastTestAt: "",
       lastSyncAt: "",
       syncFrequency: "manual",
-      authUrl: ""
+      authUrl: "",
+      // V24.0.0 — OAuth CRM (separado do Marketing). Necessário para
+      // /crm/v2/webhooks e outras features modernas de CRM.
+      crmOauth: this.defaultCrmOauth()
     };
   },
 

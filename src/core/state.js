@@ -527,7 +527,9 @@ var State = {
       // V23.1.1 — Campos novos do V23 que estavam sumindo no normalize
       // (auditor detectou em produção).
       lastSavedAt: raw.lastSavedAt || base.lastSavedAt || null,
-      settingsRdActiveTab: ['crm','marketing'].includes(raw.settingsRdActiveTab)
+      // V24.0.0 — Adicionado 'crmOauth' (3ª aba para OAuth do app CRM,
+      // necessário pra /crm/v2/webhooks e features modernas).
+      settingsRdActiveTab: ['crm','crmOauth','marketing'].includes(raw.settingsRdActiveTab)
         ? raw.settingsRdActiveTab
         : (base.settingsRdActiveTab || 'crm'),
       rdAssistantDismissed: Boolean(raw.rdAssistantDismissed),

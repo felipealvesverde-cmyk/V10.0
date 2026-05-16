@@ -75,14 +75,18 @@ var SettingsModal = {
       <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
         ${activeTab === 'marketing'
           ? this._rdMarketingTabContent(rdCfg)
-          : this._rdCrmTabContent(rdCfg, crmCfg)}
+          : activeTab === 'crmOauth'
+            ? this._rdCrmOauthTabContent(rdCfg)
+            : this._rdCrmTabContent(rdCfg, crmCfg)}
       </div>
     </div>`;
   },
 
-  // V23.1.0 — Header comum mostrando identidade RD + status dos 2 lados.
+  // V23.1.0 — Header comum mostrando identidade RD + status dos 3 lados.
+  // V24.0.0 — Adicionado status do CRM OAuth (necessário pra webhooks).
   _rdAccountHeader(rdCfg, crmCfg) {
     const crmConnected = rdCfg.crmTestStatus === 'connected' && Boolean(rdCfg.crmTestAt);
+    const crmOauthConnected = Boolean(rdCfg.crmOauth?.accessToken);
     const mktConnected = Boolean(rdCfg.accessToken);
     const accountLabel = (rdCfg.accountName || '').trim() || 'Conta RD não identificada';
     const crmAt = rdCfg.crmTestAt ? new Date(rdCfg.crmTestAt).toLocaleString('pt-BR') : null;
@@ -94,12 +98,15 @@ var SettingsModal = {
           <div>
             <p class="text-[10px] font-black text-sky-300 uppercase tracking-widest">Conta RD Station</p>
             <p class="text-base font-black">${Utils.escape(accountLabel)}</p>
-            ${crmAt ? `<p class="text-[10px] text-slate-400">CRM validado em ${Utils.escape(crmAt)}</p>` : ''}
+            ${crmAt ? `<p class="text-[10px] text-slate-400">CRM PAT validado em ${Utils.escape(crmAt)}</p>` : ''}
           </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
           <span class="px-3 py-1.5 rounded-full text-[11px] font-black ${crmConnected ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30' : 'bg-slate-600/20 text-slate-300 border border-slate-500/30'}">
-            CRM: ${crmConnected ? '✓ ativo' : '—'}
+            CRM PAT: ${crmConnected ? '✓ ativo' : '—'}
+          </span>
+          <span class="px-3 py-1.5 rounded-full text-[11px] font-black ${crmOauthConnected ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30' : 'bg-slate-600/20 text-slate-300 border border-slate-500/30'}">
+            CRM OAuth: ${crmOauthConnected ? '✓ ativo' : '— (p/ webhook)'}
           </span>
           <span class="px-3 py-1.5 rounded-full text-[11px] font-black ${mktConnected ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30' : 'bg-slate-600/20 text-slate-300 border border-slate-500/30'}">
             Marketing: ${mktConnected ? '✓ ativo' : '— (opcional)'}
@@ -110,8 +117,10 @@ var SettingsModal = {
   },
 
   // V23.1.0 — Barra de tabs com indicador de status em cada uma.
+  // V24.0.0 — Adicionada aba CRM OAuth (entre CRM PAT e Marketing).
   _rdTabsBar(rdCfg, crmCfg, active) {
     const crmStatus = this._rdCrmTabStatus(rdCfg);
+    const crmOauthStatus = this._rdCrmOauthTabStatus(rdCfg);
     const mktStatus = this._rdMarketingTabStatus(rdCfg);
     const tab = (key, label, icon, status) => {
       const isActive = active === key;
@@ -123,14 +132,15 @@ var SettingsModal = {
         : status === 'warning' ? 'pendente'
         : status === 'error' ? 'falha'
         : 'inativo';
-      return `<button onclick="Actions.setRdActiveTab('${key}')" class="flex-1 px-4 py-3 rounded-2xl flex items-center justify-center gap-2 font-black text-sm transition ${isActive ? 'bg-slate-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'}" ${isActive ? 'style="color:#fff;"' : ''}>
+      return `<button onclick="Actions.setRdActiveTab('${key}')" class="flex-1 px-3 py-3 rounded-2xl flex items-center justify-center gap-2 font-black text-xs transition ${isActive ? 'bg-slate-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'}" ${isActive ? 'style="color:#fff;"' : ''}>
         <i data-lucide="${icon}" class="w-4 h-4"></i>
         <span>${label}</span>
         <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${chipTone}">${chipLabel}</span>
       </button>`;
     };
-    return `<div class="flex gap-2">
-      ${tab('crm', 'CRM', 'database', crmStatus)}
+    return `<div class="flex gap-2 flex-wrap md:flex-nowrap">
+      ${tab('crm', 'CRM (PAT)', 'database', crmStatus)}
+      ${tab('crmOauth', 'CRM OAuth', 'shield-check', crmOauthStatus)}
       ${tab('marketing', 'Marketing', 'mail', mktStatus)}
     </div>`;
   },
@@ -141,6 +151,15 @@ var SettingsModal = {
     if (rdCfg.crmTestStatus === 'connected') return 'ok';
     if (rdCfg.crmTestStatus && rdCfg.crmTestStatus !== 'not_tested') return 'error';
     return 'warning';
+  },
+
+  // V24.0.0 — Status da aba CRM OAuth (app separado pro CRM no Publisher).
+  _rdCrmOauthTabStatus(rdCfg) {
+    const c = rdCfg.crmOauth || {};
+    if (c.accessToken) return 'ok';
+    if (c.status === 'exchange_failed' || c.status === 'refresh_failed') return 'error';
+    if (c.clientId || c.clientSecret) return 'warning';
+    return 'inactive';
   },
 
   _rdMarketingTabStatus(rdCfg) {
@@ -164,6 +183,158 @@ var SettingsModal = {
     </div>`;
   },
 
+  // V24.0.0 — Conteúdo da aba CRM OAuth (app criado no Publisher RD com
+  // produto = "RD Station CRM"). É um app DIFERENTE do app Marketing —
+  // RD Publisher força 1 produto por app. Este OAuth dá acesso a
+  // /crm/v2/* (webhooks, deals modernos, etc.).
+  //
+  // Distinção do que existia:
+  //   - aba "CRM (PAT)": token estático legacy, crm.rdstation.com/api/v1
+  //   - aba "CRM OAuth" (ESTA): OAuth Bearer pra api.rd.services/crm/v2/*
+  //   - aba "Marketing": OAuth Bearer pra api.rd.services/platform/*
+  _rdCrmOauthTabContent(rdCfg) {
+    const cfg = rdCfg.crmOauth || (window.RDConfig ? RDConfig.defaultCrmOauth() : {});
+    const hasOAuth = Boolean(cfg.accessToken);
+    const exchangeFailed = cfg.status === 'exchange_failed';
+    const expiresAt = cfg.expiresAt ? new Date(cfg.expiresAt) : null;
+    const expired = expiresAt && expiresAt.getTime() <= Date.now();
+    const minsLeft = expiresAt ? Math.round((expiresAt.getTime() - Date.now()) / 60000) : null;
+
+    return `<div class="space-y-5">
+      <div class="rounded-2xl bg-violet-50 border border-violet-200 p-3 flex items-start gap-2">
+        <i data-lucide="info" class="w-4 h-4 text-violet-700 mt-0.5"></i>
+        <p class="text-xs text-violet-900 leading-relaxed">
+          <b>Por que uma aba separada?</b> O RD Publisher força você a escolher <b>UM</b> produto por app: CRM ou Marketing. O app do Marketing (aba ao lado) não tem permissão pra <code>/crm/v2/*</code> (webhooks, deals modernos). Esta aba conecta um <b>segundo app</b> criado especificamente como "RD Station CRM".
+        </p>
+      </div>
+
+      ${this._rdCrmOauthAssistantBullets(cfg, hasOAuth, exchangeFailed)}
+      ${this._rdCrmOauthInlineCard(cfg, hasOAuth, expired, minsLeft)}
+    </div>`;
+  },
+
+  // V24.0.0 — Assistente da aba CRM OAuth em 5 passos.
+  // Passo 1 é mais detalhado que o do Marketing porque o usuário pode ter
+  // confusão sobre "qual app é qual". A diferença CRÍTICA é o select "Produto".
+  _rdCrmOauthAssistantBullets(cfg, hasOAuth, exchangeFailed) {
+    if (App.state.rdAssistantDismissed) return '';
+    const origin = window.location?.origin || 'https://leadjourney.up.railway.app';
+    const step1Done = Boolean(cfg.clientId && cfg.clientSecret);
+    const step2Done = step1Done && Boolean(cfg.redirectUri);
+    const step3Done = step2Done && Boolean(cfg.authUrl);
+    const step4Done = step3Done && Boolean(cfg.authorizationCode);
+    const step5Done = hasOAuth;
+    const currentStep = !step1Done ? 1 : !step2Done ? 2 : !step3Done ? 3 : !step4Done ? 4 : !step5Done ? 5 : 0;
+
+    return `<div class="rounded-3xl bg-white border-2 border-violet-200 shadow-md overflow-hidden">
+      <div class="bg-gradient-to-r from-violet-600 to-purple-700 px-5 py-3 flex items-center justify-between text-white">
+        <div class="flex items-center gap-2">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+          <span class="font-black text-xs uppercase tracking-wider">Assistente CRM OAuth · 5 passos</span>
+        </div>
+        <button onclick="Actions.toggleRdAssistant()" class="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 grid place-items-center text-white"><i data-lucide="x" class="w-3 h-3"></i></button>
+      </div>
+      <div class="p-5 space-y-3">
+        ${this._rdBulletStep(1, currentStep, step1Done, 'Criar app no Publisher RD (PRODUTO = CRM)', [
+          'Abra <a href="https://appstore.rdstation.com/pt-BR/publisher" target="_blank" class="underline text-violet-700 font-black">appstore.rdstation.com/pt-BR/publisher</a> e faça login',
+          'Clique em <b>Criar Aplicativo</b> → escolha "Privado"',
+          '<b>⚠ ATENÇÃO no select "Produto":</b> escolha <b>RD Station CRM</b> (NÃO Marketing!). Esse é o ponto que diferencia este app do que vc já tem',
+          `Em <b>URLs de Callback</b>, cole exatamente: <code class="bg-slate-100 px-1 rounded">${Utils.escape(origin)}</code> (sem barra no final)`,
+          'Salve e avance até <b>Credenciais do App</b>',
+          'Copie <b>Client ID</b> e <b>Client Secret</b> e cole abaixo nos campos correspondentes'
+        ])}
+        ${this._rdBulletStep(2, currentStep, step2Done, 'Confirmar Redirect URI no Journey', [
+          `Cole no campo <b>Redirect URI</b> a mesma URL que vc colou no RD: <code class="bg-slate-100 px-1 rounded">${Utils.escape(origin)}</code>`,
+          'Importante: deve ser <b>idêntica</b> ao que está no RD. Espaço, barra extra, http vs https — tudo conta',
+          'Se vc tiver dúvida, abra o app no Publisher e <b>copie literalmente</b> o valor do campo Callback'
+        ])}
+        ${this._rdBulletStep(3, currentStep, step3Done, 'Gerar URL OAuth', [
+          'Clique em <b>1) Gerar URL OAuth</b> no card abaixo',
+          'Aparece um textarea com a URL completa (algo como <code>api.rd.services/auth/dialog?client_id=...</code>)',
+          'Se der erro "Client ID ausente" → volte ao Passo 1'
+        ])}
+        ${this._rdBulletStep(4, currentStep, step4Done, 'Autorizar no RD e copiar o code', [
+          'Clique em <b>2) Abrir URL</b>',
+          'Você é redirecionado pro RD CRM. Faça login (se ainda não estiver logado)',
+          'RD pergunta se você autoriza o app a acessar seu CRM → clique <b>Autorizar</b>',
+          'Depois, o RD redireciona pro Journey com <code>?code=ABC123</code> na URL',
+          'Copie SÓ a parte depois de <code>code=</code> (sem <code>&state=</code> se aparecer)',
+          'Cole no campo <b>Authorization Code</b> abaixo'
+        ])}
+        ${this._rdBulletStep(5, currentStep, step5Done, 'Trocar code por token', [
+          'Clique em <b>3) Trocar code por token</b>',
+          'Se der certo: chip da aba vira <b>ativo</b> e vc pode ir pra aba CRM (PAT) cadastrar os webhooks',
+          exchangeFailed ? '⚠ Erro no último try — veja a mensagem em vermelho abaixo e refaça do Passo 4' : 'O token expira em ~24h; o Journey renova automático se vc tiver atividade'
+        ])}
+      </div>
+    </div>`;
+  },
+
+  // V24.0.0 — Card inline com os campos OAuth CRM (mesmo padrão do Marketing
+  // mas separado, usando Actions próprias).
+  _rdCrmOauthInlineCard(cfg, hasOAuth, expired, minsLeft) {
+    const fields = [
+      ['clientId','Client ID','Client ID do app RD CRM','text'],
+      ['clientSecret','Client Secret','Client Secret do app','password'],
+      ['redirectUri','Redirect URI','https://seu-dominio.up.railway.app','text'],
+      ['authorizationCode','Authorization Code','Code retornado após autorizar','text']
+    ];
+    const status = cfg.status || 'not_configured';
+
+    return `<div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-10 h-10 rounded-2xl ${hasOAuth ? (expired ? 'bg-amber-500' : 'bg-emerald-500') : 'bg-slate-200'} grid place-items-center ${hasOAuth ? 'text-white' : 'text-slate-500'}"><i data-lucide="shield-check" class="w-5 h-5"></i></div>
+        <div class="flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h3 class="font-black text-slate-900">RD CRM OAuth</h3>
+            ${hasOAuth ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-black ${expired ? 'bg-amber-200 text-amber-900' : 'bg-emerald-200 text-emerald-900'}">${expired ? 'expirado' : 'conectado'}</span>` : ''}
+          </div>
+          <p class="text-[11px] text-slate-500">${hasOAuth ? (expired ? `Token expirou há ${Math.abs(minsLeft || 0)} min · clique pra renovar` : `Token ativo · expira em ${minsLeft || '?'} min`) : 'Preencha os 4 campos abaixo e siga os botões em ordem'}</p>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-3 mb-4">
+        ${fields.map(([f, l, p, t]) => `
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">${l}</label>
+            <input type="${t}" value="${Utils.escape(cfg[f] || '')}"
+              oninput="Actions.updateRdCrmOauthField('${f}', this.value)"
+              placeholder="${Utils.escape(p)}"
+              class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-sm" />
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <button onclick="Actions.generateRdCrmOauthUrl()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black lj-dark-button" style="color:#fff!important;">1) Gerar URL OAuth</button>
+        <button onclick="Actions.openRdCrmOauthUrl()" class="px-4 py-2 rounded-xl bg-violet-600 text-white text-xs font-black" style="color:#fff!important;">2) Abrir URL</button>
+        <button onclick="Actions.exchangeRdCrmOauthCode()" class="px-4 py-2 rounded-xl bg-emerald-600 text-white text-xs font-black" style="color:#fff!important;">3) Trocar code por token</button>
+        ${hasOAuth ? `<button onclick="Actions.refreshRdCrmOauthToken()" class="px-4 py-2 rounded-xl bg-amber-500 text-white text-xs font-black" style="color:#fff!important;">Renovar token</button>` : ''}
+        ${(cfg.clientId || cfg.accessToken) ? `<button onclick="Actions.clearRdCrmOauth()" class="px-4 py-2 rounded-xl bg-white border border-red-200 text-red-700 text-xs font-black">Limpar CRM OAuth</button>` : ''}
+      </div>
+
+      ${cfg.authUrl ? `<div class="mt-3 rounded-xl bg-slate-950 p-3">
+        <p class="text-[10px] text-slate-400 font-black mb-1">URL OAuth gerada</p>
+        <textarea readonly class="w-full min-h-[60px] rounded bg-slate-900 border border-white/10 text-violet-100 text-[10px] p-2 font-mono">${Utils.escape(cfg.authUrl)}</textarea>
+        <p class="text-[10px] text-slate-400 mt-1">Após autorizar, copie o valor depois de <b>?code=</b> e cole em Authorization Code acima.</p>
+      </div>` : ''}
+
+      ${status === 'exchange_failed' ? `
+        <div class="mt-3 rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-800">
+          <p class="font-black mb-1">Última troca falhou</p>
+          <p>Causas comuns: code já usado (one-shot), Redirect URI diferente do RD, Client Secret errado, ou o app foi criado com produto Marketing em vez de CRM. Verifique e tente de novo.</p>
+        </div>
+      ` : ''}
+
+      ${hasOAuth ? `
+        <div class="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-900">
+          <p class="font-black mb-1">✓ Pronto pra usar</p>
+          <p>Volte na aba <b>CRM (PAT)</b> e clique em <b>Cadastrar webhooks</b> no painel violeta. O Journey vai usar este token pra cadastrar os webhooks no RD CRM.</p>
+        </div>
+      ` : ''}
+    </div>`;
+  },
+
   // V24.0.0 — Painel de configuração do webhook RD CRM.
   //
   // EVIDÊNCIA DE DESIGN:
@@ -178,7 +349,9 @@ var SettingsModal = {
   _rdCrmWebhookBlock(rdCfg) {
     const origin = (typeof window !== 'undefined' && window.location?.origin) || 'https://leadjourney.up.railway.app';
     const webhookUrl = `${origin}/api/rd-webhook`;
-    const hasOAuth = Boolean(rdCfg.accessToken);
+    // V24.0.0 — Gate em crmOauth.accessToken (app OAuth do CRM, aba "CRM OAuth").
+    // O Marketing OAuth (rd.accessToken) não tem scope CRM, não serve aqui.
+    const hasOAuth = Boolean(rdCfg.crmOauth?.accessToken);
     const registered = Array.isArray(App.state.rdWebhooks) ? App.state.rdWebhooks : [];
     const totalDesired = (Actions._RD_WEBHOOK_EVENTS || []).length;
     const registeredCount = registered.length;
@@ -220,8 +393,11 @@ var SettingsModal = {
           <div class="rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
             <i data-lucide="lock" class="w-5 h-5 text-amber-700 mt-0.5"></i>
             <div class="flex-1">
-              <h4 class="font-black text-amber-900 mb-1">OAuth necessário para cadastrar webhook</h4>
-              <p class="text-xs text-amber-800">A API de webhooks do RD usa OAuth Bearer (diferente do token PAT). Conecte o RD Marketing na aba Marketing acima — o mesmo accessToken é usado aqui.</p>
+              <h4 class="font-black text-amber-900 mb-1">OAuth CRM necessário para cadastrar webhook</h4>
+              <p class="text-xs text-amber-800 mb-2">A API de webhooks do RD usa OAuth Bearer com scope CRM. O OAuth do Marketing (aba ao lado) <b>não funciona</b> aqui — RD força 1 produto por app no Publisher.</p>
+              <button onclick="Actions.setRdActiveTab('crmOauth')" class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff;">
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i> Ir para a aba CRM OAuth
+              </button>
             </div>
           </div>
         ` : `
@@ -272,7 +448,7 @@ var SettingsModal = {
             <div class="text-xs text-red-800">
               <p class="font-black mb-1">Erro no último cadastro:</p>
               <code class="text-[11px] block break-all">${Utils.escape(lastError)}</code>
-              <p class="mt-2 text-[11px]">Se o erro for <b>401/403</b>, seu app OAuth não tem scope CRM. Crie um novo app no <a href="https://appstore.rdstation.com/pt-BR/publisher" target="_blank" class="underline font-black">RD App Publisher</a> com permissões de CRM (deals/contacts/webhooks) e refaça a conexão Marketing/OAuth.</p>
+              <p class="mt-2 text-[11px]">Se o erro for <b>401/403</b>, o app OAuth CRM não está conectado ou foi criado com produto errado no Publisher. Vá na <b>aba "CRM OAuth"</b> e refaça o fluxo escolhendo <b>RD Station CRM</b> no select Produto.</p>
             </div>
           </div>
         ` : ''}

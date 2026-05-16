@@ -15,8 +15,24 @@ window.RdCrmApiClient = {
     return version === 'legacy' ? cfg.legacyBaseUrl : `${cfg.apiBaseUrl}${cfg.crmBasePath}`;
   },
 
-  async _tryRefresh() {
+  // V24.0.0 — `which` escolhe qual OAuth refrescar: 'marketing' (default,
+  // App.state.integrations.rd) ou 'crm' (App.state.integrations.rd.crmOauth).
+  async _tryRefresh(which = 'marketing') {
     if (!window.RDAuthService) return { ok: false, message: 'RDAuthService indisponível.' };
+    if (which === 'crm') {
+      const cfg = App.state.integrations?.rd?.crmOauth || {};
+      if (!cfg.refreshToken) return { ok: false, message: 'Sem refresh_token CRM OAuth salvo.' };
+      const r = await RDAuthService.refreshAccessToken(cfg);
+      if (!r.ok) return r;
+      App.state.integrations.rd.crmOauth = {
+        ...cfg,
+        accessToken: r.accessToken,
+        refreshToken: r.refreshToken || cfg.refreshToken,
+        expiresAt: r.expiresAt || cfg.expiresAt
+      };
+      try { App.save(); } catch (_) {}
+      return { ok: true };
+    }
     const cfg = App.state.integrations?.rd || {};
     if (!cfg.refreshToken) return { ok: false, message: 'Sem refresh_token salvo.' };
     const r = await RDAuthService.refreshAccessToken(cfg);
@@ -35,18 +51,29 @@ window.RdCrmApiClient = {
   async request(method, path, options = {}) {
     // V21.4.3 — Para chamadas CRM (legacy=true, default), usa o Personal Access
     // Token do CRM. Para outras (api.rd.services / Marketing), usa accessToken OAuth.
+    // V24.0.0 — Quando options.useCrmOauthV2=true, usa o accessToken do app
+    // OAuth do CRM (separado do Marketing). Necessário pra /crm/v2/* porque
+    // o OAuth do Marketing não tem scope CRM.
     const useLegacyForToken = options.legacy !== false;
-    const token = useLegacyForToken
-      ? RdCrmConfig.crmToken()
-      : (RdCrmConfig.oauthCredentials().accessToken || '');
+    const useCrmOauthV2 = options.useCrmOauthV2 === true;
+    let token;
+    if (useCrmOauthV2) {
+      token = window.App?.state?.integrations?.rd?.crmOauth?.accessToken || '';
+    } else if (useLegacyForToken) {
+      token = RdCrmConfig.crmToken();
+    } else {
+      token = RdCrmConfig.oauthCredentials().accessToken || '';
+    }
     if (!token) {
       return {
         ok: false,
         dryRun: true,
         status: 'missing_token',
-        message: useLegacyForToken
-          ? 'CRM Personal Token ausente. Gere um em RD CRM → Configurações → Integrações e cole em Configurações → RD Station.'
-          : 'Access Token OAuth ausente. Conecte o RD Station em Configurações → RD Station.',
+        message: useCrmOauthV2
+          ? 'Access Token OAuth CRM ausente. Conecte o app OAuth CRM em Configurações → RD Station → aba CRM OAuth.'
+          : useLegacyForToken
+            ? 'CRM Personal Token ausente. Gere um em RD CRM → Configurações → Integrações e cole em Configurações → RD Station.'
+            : 'Access Token OAuth Marketing ausente. Conecte em Configurações → RD Station → aba Marketing.',
         data: null
       };
     }
@@ -78,10 +105,13 @@ window.RdCrmApiClient = {
         })
       });
       // Auto-refresh em 401 (uma única vez).
+      // V24.0.0 — Quando useCrmOauthV2=true, refresca o CRM OAuth.
       if (response.status === 401 && !options._retried) {
-        const refreshed = await this._tryRefresh();
+        const refreshed = await this._tryRefresh(useCrmOauthV2 ? 'crm' : 'marketing');
         if (refreshed.ok) {
-          const newToken = App.state.integrations?.rd?.accessToken || '';
+          const newToken = useCrmOauthV2
+            ? (App.state.integrations?.rd?.crmOauth?.accessToken || '')
+            : (App.state.integrations?.rd?.accessToken || '');
           if (newToken) {
             return this.request(method, path, { ...options, _retried: true });
           }

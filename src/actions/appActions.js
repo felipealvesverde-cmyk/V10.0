@@ -1651,6 +1651,98 @@ Object.assign(Actions, {
     }
   },
 
+  // V24.0.0 — OAuth do CRM (app separado do Marketing no Publisher RD).
+  // Mesmo fluxo do Marketing OAuth, mas grava em integrations.rd.crmOauth.
+  // Razão: RD Publisher força 1 produto por app (CRM OU Marketing). Para
+  // /crm/v2/* (webhooks, etc.) precisa de app criado como "RD Station CRM".
+  _ensureCrmOauth() {
+    this.ensureIntegrations();
+    App.state.integrations.rd.crmOauth = App.state.integrations.rd.crmOauth || (window.RDConfig ? RDConfig.defaultCrmOauth() : {});
+    return App.state.integrations.rd.crmOauth;
+  },
+
+  updateRdCrmOauthField(field, value) {
+    const cfg = this._ensureCrmOauth();
+    cfg[field] = value;
+    App.save();
+  },
+
+  generateRdCrmOauthUrl() {
+    const cfg = this._ensureCrmOauth();
+    const result = RDAuthService.buildAuthorizationUrl(cfg);
+    if (!result.ok) return Utils.toast(result.message);
+    cfg.authUrl = result.url;
+    cfg.status = 'ready_for_oauth';
+    App.save();
+    App.render();
+    Utils.toast('URL OAuth do CRM gerada. Clique em "Abrir URL".');
+  },
+
+  openRdCrmOauthUrl() {
+    const cfg = this._ensureCrmOauth();
+    let url = cfg.authUrl;
+    if (!url) {
+      const result = RDAuthService.buildAuthorizationUrl(cfg);
+      if (!result.ok) return Utils.toast(result.message);
+      url = result.url;
+      cfg.authUrl = url;
+      App.save();
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+  },
+
+  async exchangeRdCrmOauthCode() {
+    const cfg = this._ensureCrmOauth();
+    if (!cfg.authorizationCode) return Utils.toast('Cole o Authorization Code antes.');
+    Utils.toast('Trocando code por token CRM...');
+    const result = await RDAuthService.exchangeAuthorizationCode(cfg);
+    if (!result.ok) {
+      cfg.status = 'exchange_failed';
+      cfg.lastTestAt = new Date().toISOString();
+      App.save();
+      App.render();
+      return Utils.toast(`Falha: ${result.message}`);
+    }
+    cfg.accessToken = result.accessToken;
+    cfg.refreshToken = result.refreshToken || cfg.refreshToken;
+    cfg.expiresAt = result.expiresAt || '';
+    cfg.status = 'connected';
+    cfg.lastTestAt = new Date().toISOString();
+    cfg.authorizationCode = ''; // one-shot
+    App.save();
+    App.render();
+    Utils.toast('✓ OAuth CRM conectado.');
+  },
+
+  async refreshRdCrmOauthToken() {
+    const cfg = this._ensureCrmOauth();
+    if (!cfg.refreshToken) return Utils.toast('Sem refresh_token CRM. Refaça o OAuth.');
+    Utils.toast('Renovando token CRM...');
+    const result = await RDAuthService.refreshAccessToken(cfg);
+    if (!result.ok) {
+      cfg.status = 'refresh_failed';
+      App.save();
+      App.render();
+      return Utils.toast(`Falha: ${result.message}`);
+    }
+    cfg.accessToken = result.accessToken;
+    cfg.refreshToken = result.refreshToken || cfg.refreshToken;
+    cfg.expiresAt = result.expiresAt || '';
+    cfg.status = 'connected';
+    cfg.lastTestAt = new Date().toISOString();
+    App.save();
+    App.render();
+    Utils.toast('✓ Token CRM renovado.');
+  },
+
+  clearRdCrmOauth() {
+    if (!confirm('Limpar credenciais OAuth CRM? Você precisará refazer o fluxo.')) return;
+    App.state.integrations.rd.crmOauth = window.RDConfig ? RDConfig.defaultCrmOauth() : {};
+    App.save();
+    App.render();
+    Utils.toast('OAuth CRM resetado.');
+  },
+
   // V24.0.0 — Eventos RD CRM v2 que o Journey quer ouvir.
   // RD exige UM webhook por event_name (sem array). A gente registra todos
   // e guarda os IDs em App.state.rdWebhooks pra poder deletar depois.
@@ -1668,9 +1760,11 @@ Object.assign(Actions, {
 
   // V24.0.0 — GET /crm/v2/webhooks pra listar o que já existe no RD.
   // Usado pra deduplicar antes de cadastrar (não cria webhook duplicado).
+  // V24.0.0 — useCrmOauthV2:true → usa accessToken do app OAuth CRM
+  // (não do Marketing). Marketing OAuth não tem scope CRM.
   async refreshRdWebhooks() {
     if (!window.RdCrmApiClient) return { ok: false, message: 'RdCrmApiClient indisponível.' };
-    const res = await RdCrmApiClient.get('/crm/v2/webhooks', { legacy: false });
+    const res = await RdCrmApiClient.get('/crm/v2/webhooks', { legacy: false, useCrmOauthV2: true });
     if (!res.ok) {
       App.state.rdWebhookRegistrationError = `GET /webhooks falhou (${res.status}): ${res.message}`;
       App.save();
@@ -1699,9 +1793,11 @@ Object.assign(Actions, {
   // accessToken do user. Se o OAuth não tem scope CRM, RD devolve 401/403.
   async registerRdWebhooks() {
     if (!window.RdCrmApiClient) { Utils.toast('RdCrmApiClient indisponível.'); return; }
-    const oauth = App.state.integrations?.rd?.accessToken || '';
-    if (!oauth) {
-      Utils.toast('OAuth do RD não conectado. Conecte o RD Marketing primeiro pra ter accessToken.');
+    // V24.0.0 — Usa o OAuth do app CRM (não do Marketing). Marketing OAuth
+    // não tem scope pra /crm/v2/*. Verificamos no app CRM, não no Marketing.
+    const oauthCrm = App.state.integrations?.rd?.crmOauth?.accessToken || '';
+    if (!oauthCrm) {
+      Utils.toast('OAuth CRM não conectado. Conecte na aba "CRM OAuth" primeiro.');
       return;
     }
     Utils.toast('Cadastrando webhooks no RD...');
@@ -1725,7 +1821,7 @@ Object.assign(Actions, {
           http_method: 'POST'
         }
       };
-      const res = await RdCrmApiClient.post('/crm/v2/webhooks', body, { legacy: false });
+      const res = await RdCrmApiClient.post('/crm/v2/webhooks', body, { legacy: false, useCrmOauthV2: true });
       if (res.ok) {
         created += 1;
         const created_id = res.data?.data?.id || res.data?.id || '';
@@ -1758,7 +1854,7 @@ Object.assign(Actions, {
   async deleteRdWebhook(id) {
     if (!id) return;
     if (!confirm('Desativar este webhook no RD? O Journey vai parar de receber esse evento em tempo real (volta pro polling de 5min).')) return;
-    const res = await RdCrmApiClient.del(`/crm/v2/webhooks/${encodeURIComponent(id)}`, { legacy: false });
+    const res = await RdCrmApiClient.del(`/crm/v2/webhooks/${encodeURIComponent(id)}`, { legacy: false, useCrmOauthV2: true });
     if (res.ok || res.status === 404) {
       App.state.rdWebhooks = (App.state.rdWebhooks || []).filter(w => w.id !== id);
       App.save();
