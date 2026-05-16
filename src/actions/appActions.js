@@ -2207,6 +2207,64 @@ Object.assign(Actions, {
     }, 50);
   },
 
+  // V27.0.0 — Djow entrevista no Mapa da Receita.
+  // Abre o modal Djow pré-contextualizado pra conduzir entrevista guiada Doerr
+  // (Vision → Objectives → Key Results). User não precisa formular pergunta —
+  // Djow começa "Vamos começar pela Visão. Em uma frase: onde esse produto..."
+  djowInterviewStrategic(stage) {
+    const productId = App.state.strategicMapProductId;
+    const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
+    if (!product) return Utils.toast('Selecione um produto primeiro.');
+
+    const prompts = {
+      vision: `Atue como CRO conduzindo entrevista de Visão de Produto (Doerr — Avalie o que importa).
+
+Produto: "${product.name}"
+Objetivo da entrevista: extrair UMA frase aspiracional sobre onde esse produto chega em 12 meses.
+
+Conduza a entrevista em uma única troca:
+1. Pergunte ao user em uma única mensagem: "Onde esse produto deve estar em 12 meses? Pensa grande, qualitativo — não é número, é direção. Ex: 'Tornar-se o produto líder de RevOps no Brasil'."
+2. Quando ele responder, ajude a refinar a frase pra ser aspiracional, memorável, time-bound.
+3. Mostra a frase final pra ele copiar no campo da Visão.
+
+NÃO crie KRs nem Objectives nessa etapa. Foque só na Visão.`,
+
+      objectives: `Atue como CRO conduzindo entrevista de Objectives (Doerr — Avalie o que importa).
+
+Produto: "${product.name}"
+Objetivo: extrair 3-5 Objectives qualitativos derivados da Visão do produto.
+
+Primeiro, busque a Visão atual via query_state('strategicMap.${product.id}.vision') ou peça ao user.
+
+Conduza com:
+1. "Pra atingir a Visão, quais 3-5 frentes vc precisa atacar nos próximos 12 meses? Cada Objective é qualitativo, ambicioso, e memorável (não é número)."
+2. Refine: cada Objective deve ser uma frase que inspira e dá foco. Não pode virar to-do list.
+3. Limite a 5 (Doerr: "se tudo é prioridade, nada é").
+4. Mostre a lista final formatada pra user copiar nos cards de Objectives.
+
+NÃO crie Key Results ainda.`,
+
+      keyresults: `Atue como CRO conduzindo entrevista de Key Results (Doerr — Avalie o que importa).
+
+Produto: "${product.name}"
+Objetivo: pra cada Objective do user, extrair 3-5 KRs quantitativos.
+
+Conduza com:
+1. Busque os Objectives via query_state ou pergunte quais existem.
+2. Pra cada Objective, pergunte: "Quais 3-5 números provam que vc atingiu '<Objective>'?". Insista no formato "de X pra Y até Z (data)".
+3. Pra cada KR, pergunte: "Esse KR é Stretch (0.7 = sucesso, ambicioso) ou Committed (precisa 1.0, obrigatório)?"
+4. Apontar gaps: KR sem deadline, sem número, vago.
+5. Mostre tabela final pra user preencher cada KR no card respectivo.
+
+Lembre: NÃO escreve direto no sistema (V27.0.0 não tem tool de write strategic ainda). User copia/cola.`
+    };
+
+    const prompt = prompts[stage] || prompts.vision;
+    App.state.djowInput = prompt;
+    this.openDjowAIModal();
+    setTimeout(() => this.sendDjowAIMessage(), 100);
+  },
+
   // V26.1.0 — Buscador de Perfil com Djow: usa Claude pra parsear a query em
   // filtros estruturados, depois aplica via ProfileFinder (mesma lista de leads
   // globais já existente). Vc digita "mulheres jovens com alta intenção em SP"

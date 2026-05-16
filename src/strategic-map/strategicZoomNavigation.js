@@ -3,12 +3,18 @@
 // conclusão (avaliado pelo StrategicMapEngine.journeyProgress) e o usuário
 // avança pela jornada via CTAs "Próximo passo →" ou clicando direto na etapa.
 window.StrategicZoomNavigation = {
+  // V27.0.0 — Renomeado pra seguir Doerr (Measure What Matters / Avalie o que importa).
+  //   1. Visão do Produto — 1 frase aspiracional (mantém)
+  //   2. Objectives — qualitativos, 3-5 (mantém nome "Objetivos" mas explicita conceito)
+  //   3. Key Results — quantitativos por Objective (renomeado de "OKRs")
+  //   4. Conectar à Operação — ações que entregam o número
+  //   5. Executar via Djow — tarefas no provider operacional
   LEVELS: [
-    { id: 'vision',     label: 'Visão',              short: 'Visão',     icon: 'eye',       description: 'Defina onde o produto quer chegar.' },
-    { id: 'objectives', label: 'Objetivos',          short: 'Objetivos', icon: 'flag',      description: 'Quebre a visão em objetivos estratégicos.' },
-    { id: 'okrs',       label: 'OKRs',               short: 'OKRs',      icon: 'target',    description: 'Defina resultados-chave mensuráveis.' },
-    { id: 'operations', label: 'Conectar Operação',  short: 'Operação',  icon: 'plug',      description: 'Plugue cada OKR às ações que entregam o resultado.' },
-    { id: 'execution',  label: 'Executar via Djow',  short: 'Executar',  icon: 'send',      description: 'Dispare tarefas no ClickUp e providers via Djow.' }
+    { id: 'vision',     label: 'Visão do Produto',   short: 'Visão',         icon: 'eye',       description: 'Em uma frase: onde esse produto chega em 12 meses.' },
+    { id: 'objectives', label: 'Objectives',          short: 'Objectives',    icon: 'flag',      description: 'Frases qualitativas e ambiciosas. 3-5 no máximo.' },
+    { id: 'okrs',       label: 'Key Results',         short: 'Key Results',   icon: 'target',    description: 'Por Objective, 3-5 KRs mensuráveis: "de X pra Y até Z".' },
+    { id: 'operations', label: 'Conectar à Operação', short: 'Operação',      icon: 'plug',      description: 'Cada KR ↔ campanhas e ações que entregam o número.' },
+    { id: 'execution',  label: 'Executar via Djow',   short: 'Executar',      icon: 'send',      description: 'Dispare tarefas no provider operacional.' }
   ],
 
   _aliasMap: { strategy: 'vision', flows: 'operations', actions: 'operations' },

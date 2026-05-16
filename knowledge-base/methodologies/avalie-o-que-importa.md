@@ -251,10 +251,38 @@ O **Mapa de Receita** (botão "Mapa da Receita | OKR's" na tela de Produtos, abr
 - **Key Results** mensuráveis (target + current + unit + deadline)
 - **KPIs operacionais** ligados aos KRs
 
-### Onde fica esse dado no state
+### Onde fica esse dado no state (V27.0.0 atualizado)
 
-- `App.state.strategicOkrs[]` — array de OKRs. Cada item: `{ id, objective, keyResult, target, current, unit, owner, deadline, status, productId, keyResults: [...] }`
-- `App.state.operationalKpis[]` — array de KPIs. Cada item: `{ id, name, metric, scope, productId, target, unit, frequency, relatedOkrId, ... }`
+Estrutura via StrategicMapEngine.getForProduct(productId):
+```
+{
+  vision: string,              // 1 frase aspiracional (Doerr Vision)
+  objectives: [                // 3-5 Objectives qualitativos
+    {
+      id, label, owner, deadline,
+      okrs: [                  // Renomeados pra "Key Results" na UI V27 — mas chave do state ainda é "okrs"
+        {
+          id, name,             // "MRR de R$200k pra R$350k até 31/dez"
+          metric,               // 'leads' | 'converted' | 'revenue' | ...
+          target,               // Y
+          startValue,           // X (baseline pro scoring)
+          current,              // valor atual
+          commitmentType,       // 'stretch' (0.7=sucesso) | 'committed' (precisa 1.0)
+          deadline, owner, impact,
+          connectedActionIds: [],  // FK pra App.state.actions
+          createdAt
+        }
+      ]
+    }
+  ]
+}
+```
+
+Tools úteis (já carregadas no Djow):
+- `StrategicOkrEngine.score(kr)` → 0.0-1.0 (current - start) / (target - start)
+- `StrategicOkrEngine.scoreStatus(kr)` → { color, label, tier } baseado em commitmentType
+
+Operational KPIs (separados, em `App.state.operationalKpis[]`) vinculam-se via `relatedOkrId`.
 
 ### Como o Djow detecta se tá preenchido
 

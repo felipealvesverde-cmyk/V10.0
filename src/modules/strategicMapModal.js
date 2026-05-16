@@ -123,7 +123,7 @@ window.StrategicMapModal = {
     const map = StrategicMapEngine.getForProduct(product.id);
     const hasVision = Boolean(String(map.vision || '').trim());
     return `<section class="space-y-3">
-      ${this._stepIntro('Visão', 'Onde o produto quer chegar em uma frase. Pergunte ao Djow se travar.', 'eye')}
+      ${this._stepIntro('Visão do Produto', 'Em UMA frase aspiracional: onde esse produto chega em 12 meses. Não é meta, é direção (qualitativa).', 'eye', 'vision')}
       <div class="rounded-3xl bg-white/[0.05] border border-white/10 p-5">
         <textarea oninput="Actions.updateStrategicVision(this.value)" placeholder="Ex: Transformar motoristas em empresários rentáveis até 2027." class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[90px] placeholder:text-slate-500" style="color-scheme:dark;">${Utils.escape(map.vision || '')}</textarea>
         <p class="text-[11px] text-slate-400 mt-2">Frase curta e ambiciosa. Esta visão guia todos os objetivos abaixo.</p>
@@ -138,7 +138,7 @@ window.StrategicMapModal = {
     const objectives = map.objectives || [];
     const draft = App.state.strategicObjectiveDraft;
     return `<section class="space-y-3">
-      ${this._stepIntro('Objetivos Estratégicos', 'Quebre a visão em 2-4 objetivos. Cada objetivo agrupará OKRs.', 'flag')}
+      ${this._stepIntro('Objectives', '3-5 objetivos qualitativos derivados da Visão. Frases ambiciosas, memoráveis, time-bound. Foco: o que NÃO fazer também.', 'flag', 'objectives')}
       <div class="flex justify-between items-center">
         <p class="text-xs text-slate-400">${objectives.length} objetivo(s) cadastrado(s)</p>
         ${!draft ? '<button onclick="Actions.startStrategicObjectiveDraft()" class="px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Novo objetivo</button>' : ''}
@@ -183,7 +183,7 @@ window.StrategicMapModal = {
     const totalOkrs = objectives.reduce((sum, o) => sum + (o.okrs?.length || 0), 0);
     if (!objectives.length) {
       return `<section class="space-y-3">
-        ${this._stepIntro('OKRs', 'Crie pelo menos um objetivo primeiro.', 'target')}
+        ${this._stepIntro('Key Results', 'Crie pelo menos um Objective antes de medir.', 'target')}
         <div class="rounded-3xl bg-amber-500/10 border border-amber-400/30 p-5 text-amber-200">
           <p class="font-black mb-1">Volte um passo.</p>
           <p class="text-sm">Você precisa criar Objetivos antes de adicionar OKRs.</p>
@@ -192,7 +192,7 @@ window.StrategicMapModal = {
       </section>`;
     }
     return `<section class="space-y-3">
-      ${this._stepIntro('OKRs', 'Em cada objetivo, defina resultados-chave mensuráveis (números, prazo).', 'target')}
+      ${this._stepIntro('Key Results', 'Por Objective, 3-5 KRs quantitativos: "de X pra Y até Z". Marque Stretch (0.7=sucesso) ou Committed (precisa 1.0).', 'target', 'keyresults')}
       <div class="space-y-3">
         ${objectives.map(o => this._okrsObjectiveCard(product, o)).join('')}
       </div>
@@ -220,17 +220,30 @@ window.StrategicMapModal = {
   },
 
   _okrSummaryCard(product, obj, kr) {
+    // V27.0.0 — Card de KR mostra: score 0.0-1.0 (Doerr) + commitment badge + status color.
     const progress = StrategicOkrEngine.progress(kr);
-    const status = StrategicMapRenderer.okrStatus(progress);
+    const score = StrategicOkrEngine.score ? StrategicOkrEngine.score(kr) : (progress / 100);
+    const scoreStatus = StrategicOkrEngine.scoreStatus ? StrategicOkrEngine.scoreStatus(kr) : { color: 'slate', label: '' };
+    const commitmentType = kr.commitmentType || 'stretch';
+    const commitmentBadge = commitmentType === 'committed'
+      ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-200 border border-amber-400/30 inline-flex items-center gap-1"><i data-lucide="lock" class="w-2.5 h-2.5"></i> COMMITTED</span>`
+      : `<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-violet-500/20 text-violet-200 border border-violet-400/30 inline-flex items-center gap-1"><i data-lucide="rocket" class="w-2.5 h-2.5"></i> STRETCH</span>`;
+    const startLabel = kr.startValue != null && Number(kr.startValue) !== 0 ? ` (de ${Number(kr.startValue)})` : '';
     return `<div class="rounded-2xl bg-black/30 border border-white/10 p-3">
       <div class="flex items-start justify-between gap-2 mb-2">
         <div class="min-w-0">
-          <p class="font-black text-white text-sm">${Utils.escape(kr.name)}</p>
-          <p class="text-[11px] text-slate-400 mt-0.5">${Number(kr.current || 0)}/${Number(kr.target || 0)} ${Utils.escape(kr.metric)}${kr.deadline ? ` · até ${Utils.escape(kr.deadline)}` : ''}</p>
+          <div class="flex items-center gap-2 flex-wrap mb-1">
+            <p class="font-black text-white text-sm">${Utils.escape(kr.name)}</p>
+            ${commitmentBadge}
+          </div>
+          <p class="text-[11px] text-slate-400">${Number(kr.current || 0)}/${Number(kr.target || 0)} ${Utils.escape(kr.metric)}${startLabel}${kr.deadline ? ` · até ${Utils.escape(kr.deadline)}` : ''}</p>
         </div>
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-${status.color}-500/20 text-${status.color}-200 border border-${status.color}-400/30 whitespace-nowrap">${progress}%</span>
+        <div class="flex flex-col items-end gap-0.5 shrink-0">
+          <span class="px-2 py-0.5 rounded-full text-[11px] font-black bg-${scoreStatus.color}-500/20 text-${scoreStatus.color}-200 border border-${scoreStatus.color}-400/30 whitespace-nowrap" title="${Utils.escape(scoreStatus.label)}">${score.toFixed(2)}</span>
+          <span class="text-[9px] text-slate-500">${progress}%</span>
+        </div>
       </div>
-      ${StrategicMapRenderer.progressBar(progress, status.color)}
+      ${StrategicMapRenderer.progressBar(progress, scoreStatus.color)}
       <div class="flex justify-end gap-1 mt-2">
         <button onclick="Actions.removeStrategicOkr('${obj.id}','${kr.id}')" class="px-2 py-1 rounded bg-red-500/10 border border-red-400/30 text-red-300 text-[10px] font-black">Remover</button>
       </div>
@@ -238,16 +251,28 @@ window.StrategicMapModal = {
   },
 
   _okrDraftCard(draft, product, hideConnect) {
+    // V27.0.0 — Form expandido com Doerr: Start Value (baseline) + Commitment Type (stretch/committed).
+    // Score 0.0-1.0 calculado automaticamente. Stretch precisa 0.7, Committed precisa 1.0.
     const actions = StrategicFlowBridge.actionsForProduct(product.id);
+    const commitmentType = draft.commitmentType || 'stretch';
     return `<div class="rounded-2xl bg-emerald-500/10 border border-emerald-400/30 p-3 space-y-2">
-      <div class="flex items-center gap-2"><i data-lucide="target" class="w-3.5 h-3.5 text-emerald-200"></i><p class="text-[10px] font-black text-emerald-200 uppercase tracking-wider">Novo OKR</p></div>
-      <input value="${Utils.escape(draft.name || '')}" oninput="Actions.updateStrategicOkrDraft('name', this.value)" placeholder="Ex: Gerar 2.000 leads qualificados até julho" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" />
-      <div class="grid grid-cols-3 gap-2">
+      <div class="flex items-center gap-2"><i data-lucide="target" class="w-3.5 h-3.5 text-emerald-200"></i><p class="text-[10px] font-black text-emerald-200 uppercase tracking-wider">Novo Key Result</p></div>
+      <input value="${Utils.escape(draft.name || '')}" oninput="Actions.updateStrategicOkrDraft('name', this.value)" placeholder='Ex: "MRR de R$200k pra R$350k até 31/dez" — formato Doerr: "de X pra Y até Z"' class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" />
+      <div class="grid grid-cols-4 gap-2">
         <select onchange="Actions.updateStrategicOkrDraft('metric', this.value)" class="w-full px-2 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold" style="color-scheme:dark;">
           ${['leads','converted','revenue'].map(m => `<option value="${m}" ${draft.metric === m ? 'selected' : ''}>${m}</option>`).join('')}
         </select>
-        <input type="number" min="0" value="${Number(draft.target || 0)}" oninput="Actions.updateStrategicOkrDraft('target', Number(this.value||0))" placeholder="Meta" class="w-full px-2 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold" />
-        <input type="number" min="0" value="${Number(draft.current || 0)}" oninput="Actions.updateStrategicOkrDraft('current', Number(this.value||0))" placeholder="Atual" class="w-full px-2 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold" />
+        <input type="number" min="0" value="${Number(draft.startValue || draft.current || 0)}" oninput="Actions.updateStrategicOkrDraft('startValue', Number(this.value||0))" placeholder="Start (X)" title="Valor inicial — baseline pro scoring" class="w-full px-2 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold" />
+        <input type="number" min="0" value="${Number(draft.target || 0)}" oninput="Actions.updateStrategicOkrDraft('target', Number(this.value||0))" placeholder="Target (Y)" title="Meta a atingir" class="w-full px-2 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold" />
+        <input type="number" min="0" value="${Number(draft.current || 0)}" oninput="Actions.updateStrategicOkrDraft('current', Number(this.value||0))" placeholder="Atual" title="Valor atual hoje" class="w-full px-2 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold" />
+      </div>
+      <div class="flex gap-2">
+        <button onclick="Actions.updateStrategicOkrDraft('commitmentType', 'stretch')" class="flex-1 px-3 py-2 rounded-xl border ${commitmentType === 'stretch' ? 'bg-violet-500/25 border-violet-400/50 text-violet-100' : 'bg-slate-900 border-white/15 text-slate-400 hover:bg-slate-800'} text-xs font-black flex items-center justify-center gap-1.5" title="0.7 = sucesso. Ambicioso, falha permitida.">
+          <i data-lucide="rocket" class="w-3 h-3"></i> Stretch
+        </button>
+        <button onclick="Actions.updateStrategicOkrDraft('commitmentType', 'committed')" class="flex-1 px-3 py-2 rounded-xl border ${commitmentType === 'committed' ? 'bg-amber-500/25 border-amber-400/50 text-amber-100' : 'bg-slate-900 border-white/15 text-slate-400 hover:bg-slate-800'} text-xs font-black flex items-center justify-center gap-1.5" title="Precisa 1.0. Compromisso obrigatório.">
+          <i data-lucide="lock" class="w-3 h-3"></i> Committed
+        </button>
       </div>
       <div class="grid grid-cols-2 gap-2">
         <input value="${Utils.escape(draft.owner || '')}" oninput="Actions.updateStrategicOkrDraft('owner', this.value)" placeholder="Dono" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/15 text-white text-xs font-bold placeholder:text-slate-500" />
@@ -407,10 +432,16 @@ window.StrategicMapModal = {
   },
 
   // -------------------- COMMON --------------------
-  _stepIntro(title, hint, icon) {
-    return `<div>
-      <div class="flex items-center gap-2 mb-1"><i data-lucide="${icon}" class="w-4 h-4 text-indigo-300"></i><p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider">Etapa: ${title}</p></div>
-      <p class="text-xs text-slate-400">${Utils.escape(hint)}</p>
+  _stepIntro(title, hint, icon, interviewKey) {
+    // V27.0.0 — interviewKey opcional ativa botão "Djow me entrevista" que abre
+    // o modal Djow com prompt contextualizado pra entrevistar o user no formato Doerr.
+    const interviewBtn = interviewKey ? `<button onclick="Actions.djowInterviewStrategic('${interviewKey}')" class="px-3 py-1.5 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40 text-violet-100 text-[11px] font-black flex items-center gap-1.5 shrink-0" title="Djow conduz entrevista guiada"><i data-lucide="sparkles" class="w-3 h-3"></i> Djow me entrevista</button>` : '';
+    return `<div class="flex items-start justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2 mb-1"><i data-lucide="${icon}" class="w-4 h-4 text-indigo-300"></i><p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider">Etapa: ${title}</p></div>
+        <p class="text-xs text-slate-400">${Utils.escape(hint)}</p>
+      </div>
+      ${interviewBtn}
     </div>`;
   },
 
