@@ -2186,6 +2186,44 @@ Object.assign(Actions, {
     }, 50);
   },
 
+  // V26.1.0 — Buscador de Perfil com Djow: usa Claude pra parsear a query em
+  // filtros estruturados, depois aplica via ProfileFinder (mesma lista de leads
+  // globais já existente). Vc digita "mulheres jovens com alta intenção em SP"
+  // e o Djow extrai sexo:feminino + idade_range:18-30 + local:sp + temperatura:quente.
+  async djowSearchProfile() {
+    const query = String(App.state.profileQuery || '').trim();
+    if (!query) return Utils.toast('Digite uma query primeiro.');
+    if (query.length > 500) return Utils.toast('Query muito longa (max 500 caracteres).');
+    if (App.state._djowSearchRunning) return;
+    App.state._djowSearchRunning = true;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-search-parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ query })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        Utils.toast(`Djow falhou: ${data.message || 'erro desconhecido'}`);
+        return;
+      }
+      // Aplica os filtros como o parser local faria (ProfileFinder.applyFilters
+      // consome esse formato direto).
+      App.state.profileFilters = data.filters || [];
+      App.state.profileActive = (data.filters || []).length > 0;
+      const count = data.filters?.length || 0;
+      Utils.toast(`Djow extraiu ${count} filtro(s) · veja em Leads Globais abaixo`);
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    } finally {
+      App.state._djowSearchRunning = false;
+      App.save();
+      App.render();
+    }
+  },
+
   clearDjowAIConversation() {
     if (!confirm('Limpar a conversa atual? O histórico fica no banco mas some daqui.')) return;
     App.state.djowConversation = { id: null, messages: [] };

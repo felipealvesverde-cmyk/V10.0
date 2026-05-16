@@ -282,10 +282,16 @@ var App = {
         // V26.0.6 — Preserva scroll de elementos críticos (Djow chat home) em torno
         // do re-render. Sem isso, a rotação do Pulso (a cada 7s) reseta scrollTop
         // pro topo do djowHomeRecent, fazendo o user perder posição na conversa.
+        // V26.1.0 — Smart preserve: se o user estava no rodapé (últimos 60px),
+        // mantém no rodapé após o render (conteúdo cresceu). Senão preserva exato.
+        // Resolve bug do modal "volta pra primeira pergunta" ao enviar nova msg.
         const _scrollSnapshots = {};
         ['djowHomeRecent', 'djowMessages'].forEach(id => {
           const el = document.getElementById(id);
-          if (el) _scrollSnapshots[id] = el.scrollTop;
+          if (el) {
+            const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+            _scrollSnapshots[id] = { top: el.scrollTop, atBottom };
+          }
         });
         const pageMeta = {
           home: {
@@ -397,10 +403,12 @@ var App = {
         }
         if (window.lucide) lucide.createIcons();
         this._restoreFocus(_focusSnapshot);
-        // V26.0.6 — Restaura scroll dos elementos críticos preservados acima.
-        Object.entries(_scrollSnapshots).forEach(([id, top]) => {
+        // V26.0.6 / V26.1.0 — Restaura scroll smart (se estava no bottom, vai pro bottom).
+        Object.entries(_scrollSnapshots).forEach(([id, snap]) => {
           const el = document.getElementById(id);
-          if (el) el.scrollTop = top;
+          if (!el) return;
+          if (snap.atBottom) el.scrollTop = el.scrollHeight;
+          else el.scrollTop = snap.top;
         });
       },
       _escape(s) {
