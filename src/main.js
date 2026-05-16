@@ -189,6 +189,10 @@ var App = {
       setTab(tab) {
         this.state.showProductCampaignsModal = false;
         this.state.productCampaignsModalId = null;
+        // V25.0.0 — Para a rotação de produto se o user sair da aba Início.
+        if (this.state.activeTab === 'home' && tab !== 'home' && window.HomeModule?.stopRotation) {
+          try { HomeModule.stopRotation(); } catch (_) {}
+        }
         this.state.activeTab = tab;
         this.save();
         this.render();
@@ -257,6 +261,10 @@ var App = {
       render() {
         const _focusSnapshot = this._captureFocus();
         const pageMeta = {
+          home: {
+            title: 'Início',
+            subtitle: 'Cockpit executivo do Revenue OS: pulso da operação, KPIs e alertas em tempo real.'
+          },
           products: {
             title: 'Produtos',
             subtitle: 'Camada estratégica do Revenue OS: produtos, métricas consolidadas, campanhas vinculadas e leitura RevOps.'
@@ -306,7 +314,7 @@ var App = {
         }
 
         const header = document.getElementById('pageHeader');
-        const meta = pageMeta[this.state.activeTab] || pageMeta.products;
+        const meta = pageMeta[this.state.activeTab] || pageMeta.home;
         // V23.0.0 — Badge de usuário + modo + logout no header.
         const user = this.currentUser || {};
         const userBadge = user.username ? `<div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${user.mode === 'sandbox' && !user.isMaster ? 'bg-amber-500/20 border-amber-400/30 text-amber-100' : 'bg-emerald-500/15 border-emerald-400/30 text-emerald-100'} border text-xs font-black">
@@ -338,8 +346,9 @@ var App = {
         }
 
         const app = document.getElementById('app');
-        const screens = { products: ProductsModule, campaigns: CampaignModule, actions: ActionModule, results: ResultModule, scores: ScoreModule, dashboard: DashboardModule, leads: LeadsModule, revops: window.RevopsGovernanceModule };
-        app.innerHTML = (screens[this.state.activeTab]?.render() || ProductsModule.render()) + (window.SettingsModal ? SettingsModal.render() : '');
+        // V25.0.0 — Adicionada aba "home" (HomeModule).
+        const screens = { home: window.HomeModule, products: ProductsModule, campaigns: CampaignModule, actions: ActionModule, results: ResultModule, scores: ScoreModule, dashboard: DashboardModule, leads: LeadsModule, revops: window.RevopsGovernanceModule };
+        app.innerHTML = (screens[this.state.activeTab]?.render() || (window.HomeModule ? HomeModule.render() : ProductsModule.render())) + (window.SettingsModal ? SettingsModal.render() : '');
         if (window.lucide) lucide.createIcons();
         this._restoreFocus(_focusSnapshot);
       },

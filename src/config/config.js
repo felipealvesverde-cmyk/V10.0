@@ -13,6 +13,8 @@ var Config = {
       funnels: ['TOF', 'MOF', 'BOF'],
       actionTypes: ['Post', 'Campanha', 'Sequência', 'Automação', 'Ligação', 'Remarketing', 'Webinar', 'Nutrição', 'SDR', 'Email', 'LP', 'WhatsApp', 'Checkout', 'CRM', 'CS', 'Canal de aquisição', 'Outro'],
       tabs: [
+        // V25.0.0 — Página inicial (home cockpit). Primeira do menu.
+        { id: 'home', label: 'Início', icon: 'home' },
         { id: 'products', label: 'Produtos', icon: 'package' },
         { id: 'revops', label: 'RevOps & Governança', icon: 'landmark' },
         { id: 'campaigns', label: 'Campanhas', icon: 'megaphone' },

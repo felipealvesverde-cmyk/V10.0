@@ -26,7 +26,7 @@ var State = {
   },
   initial() {
     return {
-      activeTab: 'products',
+      activeTab: 'home', // V25.0.0 — aba Início como default
       showSettingsModal: false,
       settingsActiveSection: 'database',
       databaseConfig: DatabaseService.defaultConfig(),
@@ -541,7 +541,9 @@ var State = {
       rdMailingSending: false, // sempre false no boot
       // V24.1.0 — Cache + refresh manual (auto-loops desligados)
       rdLastManualRefreshAt: raw.rdLastManualRefreshAt || null,
-      rdRefreshing: false // sempre false no boot
+      rdRefreshing: false, // sempre false no boot
+      // V25.0.0 — Home: produto vigente do Pulso (rotação random 7s)
+      homeProductIndex: Number.isFinite(Number(raw.homeProductIndex)) ? Number(raw.homeProductIndex) : 0
     };
   },
   load() {

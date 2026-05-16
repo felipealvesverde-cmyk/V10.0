@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="styles/contrast-fixes.css">
   <link rel="stylesheet" href="styles/okrs-kpis-v12.2.css">
   <link rel="stylesheet" href="styles/rd-integration-v13.css">
+  <link rel="stylesheet" href="styles/home-v25.css">
 </head>
 <body class="lj-app-body min-h-screen">
   <!-- V23.0.0 — Login screen full-page. Mostrado apenas quando JWT ausente/inválido. -->
@@ -19,7 +20,14 @@
   <div class="lj-master-shell">
     <aside class="lj-master-nav" data-master-nav>
       <div class="lj-master-brand">
-        <div class="lj-master-brand-mark"><i data-lucide="activity" class="w-5 h-5"></i></div>
+        <div class="lj-master-brand-mark" aria-label="LeadJourney">
+          <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img">
+            <g class="lj-glyph">
+              <path d="M19 14 L19 46 L31 46"/>
+              <path d="M45 14 L45 41 Q45 48 38 48 L34 48"/>
+            </g>
+          </svg>
+        </div>
         <div>
           <div class="lj-master-brand-title">LeadJourney</div>
           <div class="lj-master-brand-subtitle">Revenue Operating System</div>
@@ -168,6 +176,7 @@
   <script src="src/search/aiSearchClient.js"></script>
   <script src="src/modules/leads.js"></script>
   <script src="src/modules/dashboard.js"></script>
+  <script src="src/modules/home.js"></script>
   <script src="src/modules/okrKpiWorkspace.js"></script>
   <script src="src/actions/appActions.js"></script>
   <script src="design-director-branding/designTokens.js"></script>

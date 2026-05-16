@@ -133,7 +133,14 @@ window.LoginScreen = {
       <div class="w-full max-w-md">
         <div class="text-center mb-8">
           <div class="inline-flex items-center gap-3 mb-3">
-            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 grid place-items-center text-white"><i data-lucide="activity" class="w-6 h-6"></i></div>
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 via-violet-600 to-purple-800 grid place-items-center shadow-2xl shadow-violet-900/50">
+              <svg viewBox="0 0 64 64" class="w-9 h-9" xmlns="http://www.w3.org/2000/svg">
+                <g stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                  <path d="M19 14 L19 46 L31 46"/>
+                  <path d="M45 14 L45 41 Q45 48 38 48 L34 48"/>
+                </g>
+              </svg>
+            </div>
             <h1 class="text-3xl font-black text-white">LeadJourney</h1>
           </div>
           <p class="text-sm text-slate-400">Revenue Operating System · ${window.LJVersion || 'V?'}</p>
