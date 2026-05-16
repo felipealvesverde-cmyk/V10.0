@@ -2,7 +2,17 @@
   "permissions": {
     "allow": [
       "Bash(node -c src/modules/settingsModal.js)",
-      "Bash(echo \"exit code: $?\")"
+      "Bash(echo \"exit code: $?\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(npm ls *)",
+      "PowerShell(node --version 2>&1)",
+      "PowerShell(Get-Command magick -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command inkscape -ErrorAction SilentlyContinue)",
+      "PowerShell(Get-Command python -ErrorAction SilentlyContinue)",
+      "PowerShell(\"---\")",
+      "PowerShell(python -c \"import cairosvg; print\\('ok'\\)\" 2>&1)",
+      "PowerShell(python -c \"from PIL import Image; print\\('PIL ok'\\)\" 2>&1)"
     ]
   }
 }
