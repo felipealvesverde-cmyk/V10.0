@@ -77,6 +77,18 @@ window.HomeModule = {
     if (!products.length) return;
     this._rotationTimer = setInterval(() => {
       if (this._paused || this._hoverPause) return;
+      // V26.0.2 — Skip rotação quando interrompe digitação:
+      //   1. User saiu da aba Início → não tem por que re-renderizar.
+      //   2. Modal Djow aberto → re-render destroi o textarea com cursor.
+      //   3. User está digitando em algum input/textarea (não só Djow) → não roubamos foco.
+      if (App.state.activeTab !== 'home') return;
+      if (App.state.djowOpen) return;
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+        // Pausa silenciosa: não muda produto, não re-renderiza.
+        // Próximo tick (em 7s) tenta de novo.
+        return;
+      }
       const all = App.state.products || [];
       if (!all.length) return;
       let next = all.length === 1 ? 0 : Math.floor(Math.random() * all.length);
