@@ -384,17 +384,25 @@ window.HomeModule = {
               ${sending ? '<div class="lj-djow-msg lj-djow-msg-assistant lj-djow-typing">Djow está digitando<span class="lj-djow-dots">…</span></div>' : ''}
             </div>
           `}
-          <input
-            id="djowHomeInput"
-            class="lj-home-djow-input"
-            placeholder="Ctrl+K para chamar o Djow a qualquer momento"
-            value="${Utils.escape(App.state.djowInput || '')}"
-            oninput="Actions.updateDjowInput(this.value)"
-            onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); Actions.sendDjowMessage();}"
-            onfocus="this.placeholder=''"
-            onblur="if(!this.value) this.placeholder='Ctrl+K para chamar o Djow a qualquer momento'"
-            ${!isConfigured || !canUse || sending ? 'disabled' : ''}
-          />
+          <div class="lj-home-djow-inputrow">
+            <input
+              id="djowHomeInput"
+              class="lj-home-djow-input"
+              placeholder="Ctrl+K para chamar o Djow"
+              value="${Utils.escape(App.state.djowInput || '')}"
+              oninput="App.state.djowInput=this.value"
+              onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); event.stopPropagation(); App.state.djowInput=this.value; Actions.sendDjowMessage();}"
+              onfocus="this.placeholder=''"
+              onblur="if(!this.value) this.placeholder='Ctrl+K para chamar o Djow'"
+              ${!isConfigured || !canUse || sending ? 'disabled' : ''}
+            />
+            <button
+              onclick="Actions.sendDjowMessage()"
+              class="lj-home-djow-send"
+              title="Enviar"
+              ${!isConfigured || !canUse || sending ? 'disabled' : ''}
+            ><i data-lucide="${sending ? 'loader-2' : 'send'}" class="w-3.5 h-3.5 ${sending ? 'animate-spin' : ''}"></i></button>
+          </div>
         </div>
       </div>
 

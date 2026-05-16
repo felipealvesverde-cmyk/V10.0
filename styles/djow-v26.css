@@ -1,6 +1,59 @@
 /* V26.0.0 — Djow AI: chat na home + modal flutuante (Ctrl+K).
    Estilo coerente com home-v25.css. Cores violet/purple da marca. */
 
+/* V26.0.3 — Botão flutuante (FAB) sempre visível, fallback do Ctrl+K. */
+.lj-djow-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8B5CF6 0%, #5B21B6 100%);
+  border: 1px solid rgba(167, 139, 250, .4);
+  box-shadow:
+    0 12px 28px rgba(91, 33, 182, .45),
+    0 0 0 1px rgba(255,255,255,.05) inset;
+  cursor: pointer;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  transition: transform .18s ease, box-shadow .18s ease;
+  animation: lj-djow-fab-pulse 2.5s ease-in-out infinite;
+}
+.lj-djow-fab:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 18px 38px rgba(91, 33, 182, .55);
+}
+.lj-djow-fab:active { transform: scale(.96); }
+@keyframes lj-djow-fab-pulse {
+  0%, 100% { box-shadow: 0 12px 28px rgba(91, 33, 182, .45), 0 0 0 1px rgba(255,255,255,.05) inset, 0 0 0 0 rgba(167,139,250,0); }
+  50%      { box-shadow: 0 12px 28px rgba(91, 33, 182, .45), 0 0 0 1px rgba(255,255,255,.05) inset, 0 0 0 10px rgba(167,139,250,.0); }
+}
+
+/* V26.0.3 — Input row no home box: input + botão send lado a lado. */
+.lj-home-djow-inputrow {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  margin-top: 8px;
+}
+.lj-home-djow-inputrow .lj-home-djow-input { flex: 1; margin-top: 0; }
+.lj-home-djow-send {
+  width: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #8B5CF6, #5B21B6);
+  color: #fff;
+  border: 0;
+  cursor: pointer;
+  transition: transform .15s;
+  flex-shrink: 0;
+}
+.lj-home-djow-send:hover:not(:disabled) { transform: translateY(-1px); }
+.lj-home-djow-send:disabled { opacity: .4; cursor: not-allowed; }
+
 /* === Home box Djow (override do home-v25.css quando há chat real) === */
 .lj-home-djow-recent {
   display: flex;

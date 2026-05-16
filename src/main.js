@@ -417,13 +417,16 @@ window.App = App;
 
 // V26.0.1 — Listener Ctrl+K registrado fora do init() pra garantir bind
 // mesmo se init() não chegar até o ponto antigo (ex: erro em algum render).
-// Aplicado em window+document pra cobrir cenários onde foco está em iframe/svg.
+// V26.0.3 — Aceita também Ctrl+/ e Alt+K como atalhos alternativos
+// (Ctrl+K às vezes é capturado pelo Chrome antes do JS handler chegar).
 (function bindDjowShortcut() {
   if (window._djowShortcutGloballyBound) return;
   window._djowShortcutGloballyBound = true;
   const handler = (e) => {
     const isCmdK = (e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK');
-    if (isCmdK) {
+    const isCmdSlash = (e.ctrlKey || e.metaKey) && (e.key === '/' || e.code === 'Slash');
+    const isAltK = e.altKey && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK');
+    if (isCmdK || isCmdSlash || isAltK) {
       e.preventDefault();
       e.stopPropagation();
       if (window.Actions?.toggleDjowModal) Actions.toggleDjowModal();
@@ -431,4 +434,33 @@ window.App = App;
   };
   document.addEventListener('keydown', handler, true); // capture phase
   window.addEventListener('keydown', handler, true);
+})();
+
+// V26.0.3 — Botão flutuante "Djow" visível sempre (FAB) como fallback
+// pro Ctrl+K. Renderizado uma vez na carga, fica fixo no canto inferior direito.
+(function ensureDjowFab() {
+  if (window._djowFabInjected) return;
+  window._djowFabInjected = true;
+  const inject = () => {
+    if (document.getElementById('djowFab')) return;
+    const fab = document.createElement('button');
+    fab.id = 'djowFab';
+    fab.className = 'lj-djow-fab';
+    fab.title = 'Perguntar ao Djow (Ctrl+K · Ctrl+/ · Alt+K)';
+    fab.innerHTML = `<svg viewBox="0 0 64 64" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="djow-fab-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#A78BFA"/><stop offset="100%" stop-color="#5B21B6"/></linearGradient></defs>
+      <circle cx="32" cy="8" r="3" fill="#C4B5FD"/><line x1="32" y1="11" x2="32" y2="16" stroke="#A78BFA" stroke-width="2"/>
+      <rect x="14" y="16" width="36" height="32" rx="11" fill="url(#djow-fab-grad)" stroke="#7C3AED" stroke-width="1.5"/>
+      <circle cx="24" cy="30" r="3.5" fill="#fff"/><circle cx="40" cy="30" r="3.5" fill="#fff"/>
+      <circle cx="24" cy="30" r="1.5" fill="#5B21B6"/><circle cx="40" cy="30" r="1.5" fill="#5B21B6"/>
+      <path d="M26 40 Q32 43 38 40" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </svg>`;
+    fab.onclick = () => { if (window.Actions?.toggleDjowModal) Actions.toggleDjowModal(); };
+    document.body.appendChild(fab);
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', inject);
+  } else {
+    inject();
+  }
 })();
