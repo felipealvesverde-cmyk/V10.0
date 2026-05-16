@@ -279,6 +279,14 @@ var App = {
       },
       render() {
         const _focusSnapshot = this._captureFocus();
+        // V26.0.6 — Preserva scroll de elementos críticos (Djow chat home) em torno
+        // do re-render. Sem isso, a rotação do Pulso (a cada 7s) reseta scrollTop
+        // pro topo do djowHomeRecent, fazendo o user perder posição na conversa.
+        const _scrollSnapshots = {};
+        ['djowHomeRecent', 'djowMessages'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) _scrollSnapshots[id] = el.scrollTop;
+        });
         const pageMeta = {
           home: {
             title: 'Início',
@@ -389,6 +397,11 @@ var App = {
         }
         if (window.lucide) lucide.createIcons();
         this._restoreFocus(_focusSnapshot);
+        // V26.0.6 — Restaura scroll dos elementos críticos preservados acima.
+        Object.entries(_scrollSnapshots).forEach(([id, top]) => {
+          const el = document.getElementById(id);
+          if (el) el.scrollTop = top;
+        });
       },
       _escape(s) {
         return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
