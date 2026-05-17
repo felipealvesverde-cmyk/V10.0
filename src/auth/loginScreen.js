@@ -133,10 +133,10 @@ window.LoginScreen = {
       <div class="w-full max-w-md">
         <div class="text-center mb-8">
           <div class="inline-flex items-center gap-3 mb-3">
-            <div class="w-14 h-14 grid place-items-center" style="filter: drop-shadow(0 0 18px rgba(168, 85, 247, .55));">
-              <svg viewBox="0 0 64 64" class="w-14 h-14" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">
-                <rect x="6" y="6" width="52" height="52" rx="10" ry="10" stroke="#A78BFA" stroke-width="3.5" fill="none"/>
-                <g stroke="#A78BFA" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+            <div class="w-14 h-14 grid place-items-center" style="filter: drop-shadow(0 0 18px rgba(124, 58, 237, .55));">
+              <svg viewBox="0 0 64 64" class="w-14 h-14" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="LeadJourney" style="overflow:visible;">
+                <rect x="6" y="6" width="52" height="52" rx="10" ry="10" stroke="#7C3AED" stroke-width="3.5" fill="none"/>
+                <g stroke="#7C3AED" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
                   <path d="M22 19 L22 45"/>
                   <path d="M40 19 L40 41 Q40 47 33 47 L30 47"/>
                 </g>

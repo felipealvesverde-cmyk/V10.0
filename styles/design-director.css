@@ -214,7 +214,7 @@ body.lj-app-body {
   background: transparent;
   border: 0;
   color: #fff;
-  filter: drop-shadow(0 0 14px rgba(168, 85, 247, .45));
+  filter: drop-shadow(0 0 14px rgba(124, 58, 237, .45));
 }
 .lj-master-brand-mark svg {
   width: 100%;
