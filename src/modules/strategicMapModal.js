@@ -168,11 +168,37 @@ window.StrategicMapModal = {
   },
 
   _body(product) {
-    // V29.0.0 — Dois modos: produto (CEO) ou campanha (gestor da branch).
+    // V29.1.0 — Unificado: ambos modos usam stepper. Etapas se adaptam ao mode
+    // (CEO edita 1-3, lê 4-6 como locked; Gestor edita 4-6, lê 1-3 como locked).
     const mode = App.state.strategicMapMode || 'product';
+    const stepId = StrategicZoomNavigation.current();
     return `<div class="p-5 space-y-4">
       ${this._branchSwitcher(product, mode)}
-      ${mode === 'product' ? this._productView(product) : this._campaignView(product)}
+      ${this._modeHint(product, mode)}
+      ${this._stepper(product)}
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+        <div class="space-y-4 min-w-0">
+          ${this._stepContent(product, stepId)}
+        </div>
+        ${this._djowSide(product, stepId)}
+      </div>
+    </div>`;
+  },
+
+  // V29.1.0 — Banner sutil indicando qual papel o user assume neste mode.
+  _modeHint(product, mode) {
+    if (mode === 'campaign') {
+      const campaignId = App.state.strategicMapCampaignId;
+      const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
+      const name = campaign?.name || 'esta campanha';
+      return `<div class="rounded-2xl bg-violet-500/10 border border-violet-400/30 p-3 text-[12px] text-violet-100 flex items-start gap-2">
+        <i data-lucide="user-cog" class="w-3.5 h-3.5 mt-0.5 text-violet-300 shrink-0"></i>
+        <span><b>Modo Gestor</b> · Você está editando a campanha <b>${Utils.escape(name)}</b>. As mudanças daqui ficam só nesta campanha — não afetam outras do mesmo produto.</span>
+      </div>`;
+    }
+    return `<div class="rounded-2xl bg-indigo-500/10 border border-indigo-400/30 p-3 text-[12px] text-indigo-100 flex items-start gap-2">
+      <i data-lucide="crown" class="w-3.5 h-3.5 mt-0.5 text-indigo-300 shrink-0"></i>
+      <span><b>Modo CEO</b> · Você está editando o macro do produto <b>${Utils.escape(product.name)}</b> (etapas 1-3). As mudanças aqui afetam todas as campanhas plugadas. Etapas 4-6 são preenchidas pelos gestores de cada campanha.</span>
     </div>`;
   },
 
@@ -313,29 +339,38 @@ window.StrategicMapModal = {
   },
 
   _stepper(product) {
-    // V29.0.3 — Progress da BRANCH ativa (não do produto). Visão fora do stepper em mode='campaign'.
+    // V29.1.0 — Stepper único de 6 etapas. Lock visual conforme mode:
+    //   CEO edita 1-3 (vision/objectives/okrs), 4-6 ficam locked
+    //   Gestor edita 4-6 (campaign/operations/execution), 1-3 ficam locked
     const mode = App.state.strategicMapMode || 'product';
     const campaignId = App.state.strategicMapCampaignId;
     const progress = (mode === 'campaign' && campaignId)
       ? StrategicMapEngine.journeyProgressForBranch(product.id, campaignId)
-      : StrategicMapEngine.journeyProgress(product.id);
+      : StrategicMapEngine.journeyProgressForProduct(product.id);
     const current = StrategicZoomNavigation.current();
-    const levels = (mode === 'campaign')
-      ? StrategicZoomNavigation.LEVELS.filter(l => l.id !== 'vision')  // 4 etapas na branch
-      : StrategicZoomNavigation.LEVELS;
-    const gridCols = (mode === 'campaign') ? 'md:grid-cols-4' : 'md:grid-cols-5';
+    const editableInCeo = new Set(['vision', 'objectives', 'okrs']);
+    const editableInGestor = new Set(['campaign', 'operations', 'execution']);
     return `<div class="rounded-3xl bg-white/[0.04] border border-white/10 p-3">
-      <div class="grid grid-cols-2 ${gridCols} gap-2">
-        ${levels.map((level, i) => {
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+        ${StrategicZoomNavigation.LEVELS.map((level, i) => {
           const done = progress[level.id];
           const active = current === level.id;
-          const tone = active ? 'bg-indigo-500/25 border-indigo-400/50' : (done ? 'bg-emerald-500/15 border-emerald-400/30' : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]');
-          const numTone = active ? 'bg-indigo-500 text-white' : (done ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-300');
-          return `<button onclick="Actions.setStrategicZoom('${level.id}')" class="text-left p-3 rounded-2xl border ${tone} transition flex items-center gap-2.5">
+          const editable = (mode === 'product') ? editableInCeo.has(level.id) : editableInGestor.has(level.id);
+          const locked = !editable;
+          const tone = active
+            ? 'bg-indigo-500/25 border-indigo-400/50'
+            : (done ? 'bg-emerald-500/15 border-emerald-400/30' : (locked ? 'bg-white/[0.02] border-white/5' : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]'));
+          const numTone = active
+            ? 'bg-indigo-500 text-white'
+            : (done ? 'bg-emerald-500 text-white' : (locked ? 'bg-slate-800 text-slate-500' : 'bg-white/10 text-slate-300'));
+          const textOpacity = locked && !active && !done ? 'opacity-50' : '';
+          const lockIcon = locked ? `<i data-lucide="lock" class="w-2.5 h-2.5 text-slate-500 inline-block ml-1"></i>` : '';
+          const subLabel = done ? 'Concluído' : active ? 'Em foco' : (locked ? (mode === 'product' ? 'Gestor preenche' : 'CEO preenche') : 'Pendente');
+          return `<button onclick="Actions.setStrategicZoom('${level.id}')" title="${locked ? (mode === 'product' ? 'Esta etapa é preenchida pelo Gestor da campanha' : 'Esta etapa foi preenchida pelo CEO') : level.description}" class="text-left p-3 rounded-2xl border ${tone} ${textOpacity} transition flex items-center gap-2.5">
             <div class="w-7 h-7 rounded-xl ${numTone} grid place-items-center font-black text-xs shrink-0">${done ? '✓' : (i + 1)}</div>
             <div class="min-w-0">
-              <p class="text-[11px] font-black text-white truncate">${Utils.escape(level.short)}</p>
-              <p class="text-[10px] text-slate-400 truncate">${done ? 'Concluído' : active ? 'Em foco' : 'Pendente'}</p>
+              <p class="text-[11px] font-black text-white truncate">${Utils.escape(level.short)}${lockIcon}</p>
+              <p class="text-[10px] text-slate-400 truncate">${subLabel}</p>
             </div>
           </button>`;
         }).join('')}
@@ -346,6 +381,7 @@ window.StrategicMapModal = {
   _stepContent(product, stepId) {
     if (stepId === 'vision')     return this._stepVision(product);
     if (stepId === 'objectives') return this._stepObjectives(product);
+    if (stepId === 'campaign')   return this._stepCampaign(product);
     if (stepId === 'okrs')       return this._stepOkrs(product);
     if (stepId === 'operations') return this._stepOperations(product);
     if (stepId === 'execution')  return this._stepExecution(product);
@@ -440,11 +476,18 @@ window.StrategicMapModal = {
   // V28.1.0 — 3 cards fixos Marketing / Vendas / Sucesso do Cliente.
   // Sem wizard livre; cada card é um layer do funil com descrição minimalista
   // (RevOps) e edição inline de dono/prazo. Os números (KRs) entram na etapa 3.
+  // V29.1.0 — Em mode='product', CEO edita só os DONOS compartilhados das 3 frentes
+  // (areaOwners no produto). Cards mais simples, sem prazo/contador de números.
+  // Em mode='campaign' mantém comportamento atual (donos herdados + override + prazo).
   _stepObjectives(product) {
+    const mode = App.state.strategicMapMode || 'product';
+    if (mode === 'product') {
+      return this._stepObjectivesCEO(product);
+    }
     const map = StrategicMapEngine.getForProduct(product.id);
     const objectives = map.objectives || [];
     const visionShort = (map.vision || '').length > 80 ? (map.vision || '').slice(0, 80) + '…' : (map.vision || '');
-    const areasReady = (StrategicMapEngine.COMERCIAL_AREAS || []).every(a => objectives.some(o => o.area === a.id));
+    const areasReady = (StrategicMapEngine.COMERCIAL_AREAS || []).every(a => objectives.some(o => o.area === a.id) || (StrategicMapEngine.getBranchMap(App.state.strategicMapCampaignId)?.objectives || []).some(o => o.area === a.id));
 
     return `<section class="space-y-4">
       ${this._stepIntro(
@@ -519,7 +562,49 @@ window.StrategicMapModal = {
   // -------------------- STEP 3: OS NÚMEROS --------------------
   // V28.2.0 — Catálogo guiado por segmento + handoff visual entre frentes.
   // Não pede pro user inventar números — ele ATIVA do catálogo curado e preenche meta.
+  // V29.1.0 — Em mode='product': CEO edita productKrs via _productKrsBlock.
+  // Em mode='campaign': Gestor vê os KRs-mãe read-only + banner pra ir pra etapa Campanha.
   _stepOkrs(product) {
+    const mode = App.state.strategicMapMode || 'product';
+    if (mode === 'product') {
+      const productKrs = StrategicMapEngine.getProductKrs(product.id);
+      const orphans = StrategicMapEngine.getOrphanChildKrs ? StrategicMapEngine.getOrphanChildKrs(product.id) : [];
+      return `<section class="space-y-4">
+        ${this._stepIntro('Os números do produto', 'Defina quais números (KRs-mãe) o produto inteiro precisa entregar. Cada campanha plugada vai contribuir.', 'target', null, 'okrs-kr-mae', 'KR-mãe é a meta consolidada do produto. As campanhas (branches) "plugam" filhos que somam pra ela via rollup automático. CEO define a mãe; gestores definem os filhos.')}
+        ${this._productKrsBlock(product, productKrs, orphans)}
+        ${this._stepCta('Próximo passo (visão CEO encerra aqui)', productKrs.length > 0)}
+      </section>`;
+    }
+    // mode='campaign' read-only
+    return this._stepOkrsReadOnly(product);
+  },
+
+  _stepOkrsReadOnly(product) {
+    const productKrs = StrategicMapEngine.getProductKrs(product.id);
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    return `<section class="space-y-4">
+      ${this._stepIntro('Os números do produto', 'Estes são os números que o CEO definiu pro produto. Para plugar à esta campanha, vá pra etapa Campanha (próxima).', 'target')}
+      <div class="rounded-2xl bg-indigo-500/10 border border-indigo-400/30 p-3 text-[12px] text-indigo-100 flex items-start gap-2">
+        <i data-lucide="lock" class="w-3.5 h-3.5 mt-0.5 text-indigo-300 shrink-0"></i>
+        <span>🔒 <b>Definido pelo CEO</b> · Você só edita esta lista na vista CEO. Aqui você vê o que existe e na próxima etapa decide quais plugar à sua campanha.</span>
+      </div>
+      ${productKrs.length === 0 ? '<p class="text-[12px] text-amber-300 italic">⚠️ CEO ainda não definiu números pro produto. Peça pra ele preencher a etapa 3 da vista CEO.</p>' : ''}
+      ${areas.map(area => {
+        const areaKrs = productKrs.filter(k => k.area === area.id);
+        if (!areaKrs.length) return '';
+        return `<div class="rounded-2xl bg-${area.color}-500/5 border border-${area.color}-400/20 p-3 space-y-2">
+          <p class="text-[10px] font-black text-${area.color}-200 uppercase tracking-wider"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)}</p>
+          ${areaKrs.map(kr => `<div class="rounded-xl bg-slate-900/40 border border-${area.color}-400/20 p-2.5">
+            <p class="font-black text-white text-[12px]">${Utils.escape(kr.name)}</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Meta produto: <b class="text-${area.color}-200">${kr.targetCommitted || '—'}</b> ${kr.metric || ''} · período ${kr.period || 90}d</p>
+          </div>`).join('')}
+        </div>`;
+      }).join('')}
+      ${this._stepCta('Próximo passo: plugar números nesta campanha', productKrs.length > 0)}
+    </section>`;
+  },
+
+  _stepOkrsOriginal(product) {
     const map = StrategicMapEngine.getForProduct(product.id);
     const objectives = map.objectives || [];
     const totalOkrs = objectives.reduce((sum, o) => sum + (o.okrs?.length || 0), 0);
@@ -929,7 +1014,169 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // -------------------- STEP 4: AS AÇÕES --------------------
+  // V29.1.0 — Etapa Comercial na vista CEO. Define donos compartilhados das 3 frentes.
+  _stepObjectivesCEO(product) {
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    const map = StrategicMapEngine.getForProduct(product.id);
+    const visionShort = (map.vision || '').length > 80 ? (map.vision || '').slice(0, 80) + '…' : (map.vision || '');
+    const allHaveOwners = areas.every(a => String(StrategicMapEngine.getAreaOwner(product.id, a.id) || '').trim());
+    return `<section class="space-y-4">
+      ${this._stepIntro(
+        'Quem responde por cada frente comercial?',
+        'Define o dono de Marketing, Vendas e Sucesso do Cliente. Esses donos cuidam de TODAS as campanhas do produto.',
+        'flag',
+        'objectives',
+        'objectives-area-comercial',
+        'Área Comercial é onde a empresa toca o cliente: Marketing gera desejo, Vendas fecha, CS entrega. O dono de cada frente é o mesmo independente de quantas campanhas o produto tenha — quem cuida do Marketing cuida de todas as campanhas do produto.'
+      )}
+      ${visionShort ? `<div class="rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-[11px] text-slate-300">⭐ <b class="text-violet-200">Objetivo:</b> «${Utils.escape(visionShort)}»</div>` : ''}
+      <div class="grid lg:grid-cols-3 gap-3">
+        ${areas.map(area => {
+          const owner = StrategicMapEngine.getAreaOwner(product.id, area.id) || '';
+          const tone = area.color;
+          return `<div class="rounded-3xl bg-white/[0.05] border border-${tone}-400/30 p-4 flex flex-col gap-3" style="min-height:240px;">
+            <div class="flex items-center gap-2">
+              <div class="w-9 h-9 rounded-xl bg-${tone}-500/20 grid place-items-center"><i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i></div>
+              <p class="font-black text-white text-base leading-tight">${Utils.escape(area.label)}</p>
+            </div>
+            <p class="text-[12px] text-slate-300 leading-relaxed flex-1">${Utils.escape(area.description)}</p>
+            <div class="pt-2 border-t border-white/10">
+              <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Dono desta frente (compartilhado entre todas as campanhas)</label>
+              <input value="${Utils.escape(owner)}" oninput="Actions.setStrategicAreaOwner(${product.id}, '${area.id}', this.value)" placeholder="Quem responde por essa frente?" class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-${tone}-400/40 text-white text-[12px] font-bold placeholder:text-slate-500" />
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+      ${this._stepCta('Próximo passo: os números do produto', allHaveOwners)}
+    </section>`;
+  },
+
+  // -------------------- STEP 4: CAMPANHA (NOVA V29.1.0) --------------------
+  // Onde o gestor pluga KRs-mãe do produto na campanha (cria KRs-filhos com meta).
+  // CEO vê locked com banner explicando.
+  _stepCampaign(product) {
+    const mode = App.state.strategicMapMode || 'product';
+    if (mode === 'product') {
+      // Vista CEO: locked — quem preenche é o gestor.
+      const branches = StrategicMapEngine.getBranchesByProduct(product.id);
+      return `<section class="space-y-4">
+        ${this._stepIntro('Campanha', 'Esta etapa é preenchida pelo gestor de cada campanha. Você (CEO) só vê o resultado das plugagens.', 'git-branch')}
+        <div class="rounded-3xl bg-indigo-500/10 border border-indigo-400/30 p-5">
+          <p class="text-sm text-slate-200 leading-relaxed mb-3">🔒 <b class="text-indigo-200">Etapa do Gestor</b></p>
+          <p class="text-[13px] text-slate-300 leading-relaxed">A partir daqui é o gestor de cada campanha que entra em ação. Pra cada número que você definiu (etapa 3), o gestor decide quais campanhas vão contribuir e com qual meta local. As contribuições somam automaticamente no rollup dos seus KRs-mãe.</p>
+          ${branches.length ? `<div class="mt-4 pt-3 border-t border-white/10">
+            <p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider mb-2">${branches.length} campanha(s) plugada(s):</p>
+            <div class="flex flex-wrap gap-2">
+              ${branches.map(b => {
+                const c = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
+                if (!c) return '';
+                return `<button onclick="Actions.openStrategicMapForCampaign(${b.campaignId})" class="px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40 text-violet-100 text-[11px] font-black">${Utils.escape(c.name)} →</button>`;
+              }).join('')}
+            </div>
+          </div>` : '<p class="text-[12px] text-slate-400 italic mt-3">Nenhuma campanha plugada ainda. Vá no menu Campanhas e clique em "Ativar Mapa" em alguma campanha do produto.</p>'}
+        </div>
+        ${this._stepCta('Próximo passo (visão CEO encerra aqui)', false)}
+      </section>`;
+    }
+
+    // Vista Gestor: plugagem.
+    const productKrs = StrategicMapEngine.getProductKrs(product.id);
+    const campaignId = App.state.strategicMapCampaignId;
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    if (!productKrs.length) {
+      return `<section class="space-y-4">
+        ${this._stepIntro('Campanha', 'Pluga os números do produto nesta campanha.', 'git-branch')}
+        <div class="rounded-3xl bg-amber-500/10 border border-amber-400/30 p-5 text-amber-200">
+          <p class="font-black mb-1">⚠️ CEO ainda não definiu os números do produto.</p>
+          <p class="text-sm">Sem KRs-mãe definidos pelo CEO, sua campanha não tem o que contribuir. Peça pro CEO preencher a etapa 3 (Os números) do produto.</p>
+          <button onclick="Actions.openStrategicMap(${product.id})" class="mt-3 px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black">Ir pra vista CEO</button>
+        </div>
+      </section>`;
+    }
+
+    return `<section class="space-y-4">
+      ${this._stepIntro(
+        `Quais números esta campanha vai contribuir?`,
+        `O CEO definiu ${productKrs.length} número(s) que o produto precisa entregar. Aqui você escolhe quais a campanha "${Utils.escape(campaign?.name || '...')}" vai ajudar — cada um vira sua meta local que soma pro rollup.`,
+        'git-branch',
+        'campaign',
+        'campaign-plugagem',
+        'Plugar = dizer "esta campanha contribui pra esse número". O sistema cria automaticamente uma versão local desse número aqui na branch, com sua meta própria. A soma das metas locais de todas as campanhas plugadas vira o atual do número-mãe do produto. É o rollup automático.'
+      )}
+
+      <div class="space-y-3">
+        ${areas.map(area => this._stepCampaignAreaBlock(product, area, productKrs.filter(k => k.area === area.id), campaignId)).join('')}
+      </div>
+
+      ${this._stepCta('Próximo passo: definir as ações', this._anyPluggedInBranch(product.id, campaignId))}
+    </section>`;
+  },
+
+  _anyPluggedInBranch(productId, campaignId) {
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    if (!branch) return false;
+    return (branch.objectives || []).some(o => (o.okrs || []).some(kr => kr.parentProductKrId));
+  },
+
+  _stepCampaignAreaBlock(product, area, areaKrs, campaignId) {
+    const tone = area.color;
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    const branchObjective = (branch?.objectives || []).find(o => o.area === area.id);
+    const branchKrs = branchObjective?.okrs || [];
+    const pluggedKrsByParent = new Map();
+    branchKrs.forEach(kr => { if (kr.parentProductKrId) pluggedKrsByParent.set(kr.parentProductKrId, kr); });
+
+    if (areaKrs.length === 0) {
+      return `<div class="rounded-2xl bg-${tone}-500/5 border border-${tone}-400/20 p-3">
+        <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-wider mb-1"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)}</p>
+        <p class="text-[11px] text-slate-500 italic">CEO não definiu números nesta área.</p>
+      </div>`;
+    }
+    return `<div class="rounded-2xl bg-${tone}-500/5 border border-${tone}-400/20 p-3 space-y-2">
+      <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-wider"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)} · ${pluggedKrsByParent.size}/${areaKrs.length} plugado(s)</p>
+      ${areaKrs.map(pkr => {
+        const pluggedKr = pluggedKrsByParent.get(pkr.id);
+        if (pluggedKr) return this._stepCampaignPluggedCard(branchObjective, pluggedKr, pkr, tone);
+        return this._stepCampaignNotPluggedCard(pkr, tone);
+      }).join('')}
+    </div>`;
+  },
+
+  _stepCampaignNotPluggedCard(pkr, tone) {
+    const targetSummary = pkr.targetCommitted ? `meta produto: <b>${pkr.targetCommitted}</b> ${pkr.metric}` : 'meta produto pendente';
+    return `<div class="rounded-xl bg-slate-900/40 border border-${tone}-400/20 p-2.5 flex items-center justify-between gap-2">
+      <div class="min-w-0">
+        <p class="font-black text-white text-[12px]">${Utils.escape(pkr.name)}</p>
+        <p class="text-[10px] text-slate-400">${targetSummary}</p>
+      </div>
+      <button onclick="Actions.plugProductKrIntoBranch('${pkr.id}')" class="px-2.5 py-1 rounded-lg bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[10px] font-black shrink-0">+ Plugar nesta campanha</button>
+    </div>`;
+  },
+
+  _stepCampaignPluggedCard(objective, kr, pkr, tone) {
+    return `<div class="rounded-xl bg-emerald-500/[0.06] border border-emerald-400/30 p-2.5">
+      <div class="flex items-start justify-between gap-2 mb-1.5">
+        <div class="min-w-0">
+          <p class="font-black text-white text-[12px]"><span class="text-emerald-300">✓ plugado</span> · ${Utils.escape(kr.name)}</p>
+          <p class="text-[10px] text-slate-400">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${kr.metric || ''} · Sua contribuição abaixo</p>
+        </div>
+        <button onclick="Actions.removeStrategicOkr('${objective.id}','${kr.id}')" title="Despluga" class="px-1.5 py-0.5 rounded text-[10px] text-red-300 hover:bg-red-500/20 border border-red-400/30 shrink-0">×</button>
+      </div>
+      <div class="grid grid-cols-2 gap-1.5">
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-emerald-300 uppercase">🔒 Meta Segura</span>
+          <input type="number" value="${kr.targetCommitted ?? ''}" placeholder="piso" oninput="Actions.updateStrategicOkrField('${objective.id}','${kr.id}','targetCommitted', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+        </label>
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-violet-300 uppercase">🚀 Meta Avançada</span>
+          <input type="number" value="${kr.targetStretch ?? ''}" placeholder="sonho" oninput="Actions.updateStrategicOkrField('${objective.id}','${kr.id}','targetStretch', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+        </label>
+      </div>
+    </div>`;
+  },
+
+  // -------------------- STEP 5: AS AÇÕES --------------------
   // V28.3.0 — Mesmo padrão didático das etapas anteriores: tabs Mkt/Vendas/CS,
   // catálogo curado de ações típicas por segmento, vínculo automático aos
   // números pelo catalogId, edição inline (dono/cadência/status), aviso de

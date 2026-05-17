@@ -3566,7 +3566,7 @@ Object.assign(Actions, {
     App.state.strategicMapCampaignId = null;        // V29 — vista produto, não campanha
     App.state.strategicMapMode = 'product';         // V29 — 'product' | 'campaign'
     App.state.showStrategicMap = true;
-    App.state.strategicMapZoom = 'product-overview'; // V29 — primeira tela do CEO
+    App.state.strategicMapZoom = 'vision'; // V29.1.0 — CEO comeca pelo Objetivo (etapa 1)
     App.state.strategicObjectiveDraft = null;
     App.state.strategicOkrDraft = null;
     App.state.strategicActiveArea = null;
@@ -4687,7 +4687,7 @@ Object.assign(Actions, {
     App.state.strategicMapCampaignId = Number(campaignId);   // V29 — vista campanha
     App.state.strategicMapMode = 'campaign';                  // V29
     App.state.showStrategicMap = true;
-    App.state.strategicMapZoom = 'objectives';
+    App.state.strategicMapZoom = 'campaign'; // V29.1.0 — Gestor abre na etapa Campanha (onde pluga KRs)
     App.state.strategicObjectiveDraft = null;
     App.state.strategicOkrDraft = null;
     App.state.strategicActiveArea = null;
@@ -4748,7 +4748,8 @@ Object.assign(Actions, {
 
   // V29.0.1 — L (top-down): gestor confirma plugar um KR-mãe que o CEO criou,
   // criando o filho correspondente na branch atual com defaults do catálogo.
-  plugProductKrIntoBranch(productKrId) {
+  // V29.1.0 — Aceita metas opcionais (D2): plugar + definir meta na mesma tela.
+  plugProductKrIntoBranch(productKrId, opts) {
     const productId = App.state.strategicMapProductId;
     const campaignId = App.state.strategicMapCampaignId;
     if (!productId || !campaignId || !window.StrategicMapEngine) return;
@@ -4757,21 +4758,22 @@ Object.assign(Actions, {
     const objective = StrategicMapEngine.getObjectiveByArea(productId, pkr.area, campaignId);
     if (!objective || !window.StrategicOkrEngine) return Utils.toast('Frente não encontrada nesta branch.');
     const kpi = (StrategicMapEngine.KPI_CATALOG[pkr.area] || []).find(k => k.id === pkr.catalogId);
+    const o = opts || {};
     StrategicOkrEngine.add(productId, objective.id, {
       name: pkr.name,
       metric: pkr.metric,
       catalogId: pkr.catalogId,
       catalogDescription: kpi?.description || '',
       isHandoff: Boolean(kpi?.handoff),
-      current: null,
-      targetCommitted: null,
-      targetStretch: null,
-      period: 90,
+      current: o.current != null ? Number(o.current) : null,
+      targetCommitted: o.targetCommitted != null ? Number(o.targetCommitted) : null,
+      targetStretch: o.targetStretch != null ? Number(o.targetStretch) : null,
+      period: o.period != null ? Number(o.period) : 90,
       confirmed: false,
       parentProductKrId: pkr.id
     }, campaignId);
     App.save(); App.render();
-    Utils.toast(`"${pkr.name}" plugado nesta branch. Preencha a meta.`);
+    Utils.toast(`"${pkr.name}" plugado nesta campanha.`);
   },
 
   // V29.0.0 — Remove KR-mãe (e desvincula filhas).

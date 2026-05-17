@@ -104,22 +104,44 @@ window.StrategicMapEngine = {
   },
 
   // V29.0.3 — Progress da BRANCH (vista campanha). Visão vem do produto (compartilhada).
-  // Resto (objectives/okrs/operations/execution) vem do branchMap[campaignId].
+  // V29.1.0 — Adiciona 'campaign' (etapa 4): pelo menos 1 KR-filho plugado à KR-mãe.
   journeyProgressForBranch(productId, campaignId) {
     const branch = this.getBranchMap(campaignId);
     const objectives = (branch?.objectives) || [];
     const okrs = objectives.flatMap(o => o.okrs || []);
+    const pluggedKrs = okrs.filter(kr => kr.parentProductKrId);
     const connectedOkrs = okrs.filter(o => (o.connectedActionIds || []).length > 0);
     const connectedActionIds = new Set(connectedOkrs.flatMap(o => (o.connectedActionIds || []).map(Number)));
     const tasks = window.ExecutionTaskStore?.all() || [];
     const hasExecutionTask = tasks.some(t => connectedActionIds.has(Number(t.linked_action_id)));
     const productVision = String(this.getForProduct(productId)?.vision || '').trim();
+    const productKrs = this.getProductKrs(productId);
+    const areaOwners = this.getForProduct(productId)?.areaOwners || {};
+    const hasAnyOwner = Object.values(areaOwners).some(o => String(o || '').trim());
     return {
       vision: Boolean(productVision),
-      objectives: objectives.length > 0,
-      okrs: okrs.length > 0,
+      objectives: hasAnyOwner,                  // donos definidos pelo CEO
+      okrs: productKrs.length > 0,              // KRs-mãe definidos pelo CEO
+      campaign: pluggedKrs.length > 0,          // V29.1: gestor plugou pelo menos 1 KR
       operations: connectedOkrs.length > 0,
       execution: hasExecutionTask
+    };
+  },
+
+  // V29.1.0 — Progress da vista CEO (escopo produto, sem branch).
+  // Mostra completude das 3 etapas do CEO; etapas 4-6 sempre false (gestor preenche).
+  journeyProgressForProduct(productId) {
+    const map = this.getForProduct(productId);
+    const productKrs = this.getProductKrs(productId);
+    const areaOwners = map?.areaOwners || {};
+    const hasAnyOwner = Object.values(areaOwners).some(o => String(o || '').trim());
+    return {
+      vision: Boolean(String(map?.vision || '').trim()),
+      objectives: hasAnyOwner,
+      okrs: productKrs.length > 0,
+      campaign: false,                          // gestor preenche
+      operations: false,                        // gestor preenche
+      execution: false                          // gestor preenche
     };
   },
 
