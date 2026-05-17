@@ -134,7 +134,14 @@ window.StrategicMapModal = {
     ];
 
     return `<section class="space-y-4">
-      ${this._stepIntro(`Qual é o objetivo desse produto pros próximos 12 meses?`, 'Uma frase só, ambiciosa, conectada ao que esse produto entrega.', 'star', 'vision')}
+      ${this._stepIntro(
+        'Qual é o objetivo comercial de seu produto nos próximos 12 meses?',
+        'Uma frase só, ambiciosa, conectada ao que esse produto entrega.',
+        'star',
+        'vision',
+        'vision-objetivo-comercial',
+        'É a missão que a empresa dá para aquele produto específico para ajudar a ganhar dinheiro.'
+      )}
 
       ${!hasVision ? `
         <div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
@@ -177,12 +184,22 @@ window.StrategicMapModal = {
     const areasReady = (StrategicMapEngine.COMERCIAL_AREAS || []).every(a => objectives.some(o => o.area === a.id));
 
     return `<section class="space-y-4">
-      ${this._stepIntro('Como o Comercial se organiza pra realizar esse objetivo?', 'Toda operação comercial passa por 3 frentes do funil: Marketing → Vendas → Sucesso do Cliente. Defina o dono e o prazo de cada uma.', 'flag', 'objectives')}
+      ${this._stepIntro(
+        'Como o Comercial se organiza pra realizar esse objetivo?',
+        'Marketing, Vendas e Sucesso do Cliente. Defina o dono e o prazo de cada frente.',
+        'flag',
+        'objectives',
+        'objectives-area-comercial',
+        'Área Comercial é a área de contato com o cliente: gera o desejo, vende e cuida da entrega do produto prometido. Dentro dela existem 3 segmentos: Marketing (quem gera desejo), Vendas (quem fecha negócio) e Sucesso do Cliente (quem garante a entrega e fala tão bem com o cliente que ele pensa em comprar mais).'
+      )}
 
-      ${visionShort ? `<div class="rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-[11px] text-slate-300">⭐ <b class="text-violet-200">Objetivo do produto:</b> «${Utils.escape(visionShort)}»</div>` : ''}
+      ${visionShort ? `<div class="rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-[11px] text-slate-300">⭐ <b class="text-violet-200">Objetivo comercial do produto:</b> «${Utils.escape(visionShort)}»</div>` : ''}
 
-      <div class="rounded-2xl bg-indigo-500/10 border border-indigo-400/25 p-3 text-[12px] text-indigo-100">
-        <b class="text-indigo-200">RevOps em uma frase:</b> Marketing entrega <b>leads</b> pra Vendas, Vendas entrega <b>clientes</b> pra CS, e CS entrega <b>advogados da marca</b> de volta pro Marketing — fechando o ciclo.
+      <div class="rounded-2xl bg-indigo-500/10 border border-indigo-400/25 p-3 text-[12px] text-indigo-100 leading-relaxed">
+        <b class="text-indigo-200">Área Comercial no LeadJourney:</b> é onde a empresa toca o cliente — gera o desejo, vende e cuida da entrega do que foi prometido. Funciona como um funil de 3 segmentos:
+        <span class="block mt-1.5">• <b class="text-sky-200">Marketing</b> gera desejo no público (transforma suspeito em lead).</span>
+        <span class="block">• <b class="text-emerald-200">Vendas</b> fecha negócio (transforma lead em cliente).</span>
+        <span class="block">• <b class="text-violet-200">Sucesso do Cliente</b> entrega o que foi prometido tão bem que o cliente quer comprar mais.</span>
       </div>
 
       <div class="grid lg:grid-cols-3 gap-3">
@@ -572,16 +589,33 @@ window.StrategicMapModal = {
   },
 
   // -------------------- COMMON --------------------
-  _stepIntro(title, hint, icon, interviewKey) {
-    // V27.0.0 — interviewKey opcional ativa botão "Djow me entrevista" que abre
-    // o modal Djow com prompt contextualizado pra entrevistar o user no formato Doerr.
+  _stepIntro(title, hint, icon, interviewKey, helpKey, helpText) {
+    // V27.0.0 — interviewKey opcional ativa botão "Djow me entrevista".
+    // V28.1.1 — helpKey+helpText opcionais ativam botão (?) com balão toggleable.
     const interviewBtn = interviewKey ? `<button onclick="Actions.djowInterviewStrategic('${interviewKey}')" class="px-3 py-1.5 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40 text-violet-100 text-[11px] font-black flex items-center gap-1.5 shrink-0" title="Djow conduz entrevista guiada"><i data-lucide="sparkles" class="w-3 h-3"></i> Djow me entrevista</button>` : '';
-    return `<div class="flex items-start justify-between gap-3">
-      <div>
-        <div class="flex items-center gap-2 mb-1"><i data-lucide="${icon}" class="w-4 h-4 text-indigo-300"></i><p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider">Etapa: ${title}</p></div>
-        <p class="text-xs text-slate-400">${Utils.escape(hint)}</p>
+    const helpOpen = helpKey && (App.state.strategicHelpOpen || {})[helpKey];
+    const helpBtn = helpKey && helpText
+      ? `<button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="w-5 h-5 rounded-full bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-400/30 text-indigo-200 text-[11px] font-black grid place-items-center transition" title="O que é isso?">?</button>`
+      : '';
+    const helpBalloon = helpKey && helpText && helpOpen
+      ? `<div class="mt-2 rounded-xl bg-indigo-500/10 border border-indigo-400/30 p-3 text-[12px] text-indigo-50 leading-relaxed relative">
+          <button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="absolute top-1.5 right-2 text-indigo-300 hover:text-white text-xs font-black">×</button>
+          ${Utils.escape(helpText)}
+        </div>`
+      : '';
+    return `<div>
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <i data-lucide="${icon}" class="w-4 h-4 text-indigo-300"></i>
+            <p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider">Etapa: ${title}</p>
+            ${helpBtn}
+          </div>
+          <p class="text-xs text-slate-400">${Utils.escape(hint)}</p>
+        </div>
+        ${interviewBtn}
       </div>
-      ${interviewBtn}
+      ${helpBalloon}
     </div>`;
   },
 

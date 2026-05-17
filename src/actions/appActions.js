@@ -4355,6 +4355,14 @@ Object.assign(Actions, {
     Utils.toast('Frente removida.');
   },
 
+  // V28.1.1 — Toggle de balão de ajuda (?) em qualquer etapa do Mapa.
+  // key: identificador único do balão (ex: 'vision-objetivo-comercial').
+  toggleStrategicHelp(key) {
+    const current = App.state.strategicHelpOpen || {};
+    App.state.strategicHelpOpen = { ...current, [key]: !current[key] };
+    App.render();
+  },
+
   // V28.1 — Edita campo de uma frente comercial (Marketing/Vendas/CS).
   // areaId: 'marketing'|'sales'|'cs'; field: 'owner'|'deadline'|'label'.
   updateStrategicAreaField(areaId, field, value) {
