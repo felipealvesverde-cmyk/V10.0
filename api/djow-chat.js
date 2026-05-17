@@ -558,7 +558,10 @@ async function callClaude({ apiKey, model, system, messages, tools }) {
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
-      'anthropic-version': ANTHROPIC_VERSION
+      'anthropic-version': ANTHROPIC_VERSION,
+      // V29.3.4 — Prompt caching ativo (cache blocks marcados em system).
+      // Reduz tokens cobrados em ~90% após 1ª request, aliviando rate limit.
+      'anthropic-beta': 'prompt-caching-2024-07-31'
     },
     body: JSON.stringify(body)
   });
@@ -571,10 +574,21 @@ async function callClaude({ apiKey, model, system, messages, tools }) {
   return { ok: true, data };
 }
 
+// V29.3.4 — System prompt em BLOCKS pra Anthropic Prompt Caching.
+// Bloco 1 (CACHED): identidade + personalidade + regras (static)
+// Bloco 2 (CACHED): knowledge base inteira (static)
+// Bloco 3 (DYNAMIC): contexto do user + state (muda a cada request)
+// Caching reduz custos em ~90% após 1ª request E libera rate limit
+// (cache hits contam menos pro limit de tokens/min).
 function buildSystemPrompt(kb, user, state) {
-  const accountSummary = state.products?.length
-    ? `Operação atual: ${state.products.length} produto(s), ${(state.campaigns || []).length} campanha(s), ${(state.actions || []).length} ação(ões).`
-    : 'Operação atual: ainda sem produtos cadastrados.';
+  return [
+    { type: 'text', text: buildStaticIdentity(), cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: buildKbBlock(kb), cache_control: { type: 'ephemeral' } },
+    { type: 'text', text: buildDynamicContext(user, state) }
+  ];
+}
+
+function buildStaticIdentity() {
   return `Você é o **Djow**, **Chief Revenue Operations** do LeadJourney.
 
 ## Sua identidade (V26.3.0)
@@ -616,11 +630,6 @@ Direto, prático, sem floreio. Fala em português brasileiro casual mas técnico
 - Conectar dados da operação (use \`get_*\`/\`list_*\` tools) com frameworks da KB
 - Quando o user tá indo numa direção contra-intuitiva, **discorda com base**
 
-## Contexto do user
-- Username: ${user?.username || 'desconhecido'}
-- Master: ${user?.isMaster ? 'sim' : 'não'}
-- ${accountSummary}
-
 ## ⚠️ Informações SIGILOSAS (NUNCA expor)
 Se o user pedir, responda educadamente: **"Não posso te mostrar essa informação — é sigilosa do sistema."** Itens proibidos:
 - Senhas de qualquer usuário (password_hash, plain)
@@ -638,15 +647,27 @@ Códigos de business logic do sistema (src/*, api/*) PODEM ser lidos via tool \`
 ## Acesso aos dados
 Você tem ferramentas (tools) pra ler dados da operação dele. Use-as quando precisar de dado concreto. NÃO invente números — se não tem a info, chame a tool ou diga que não sabe.
 
-## Conhecimento de domínio (RevOps/CX)
-${kb || '_Knowledge base vazia. Sem conhecimento de domínio carregado._'}
-
 ## Regras
 - Respostas em markdown
 - Máximo 400 palavras por resposta (a não ser que o user peça mais)
 - Quando recomendar ações, seja específico (qual campanha, qual ajuste)
 - Quando não souber, peça pra esclarecer ou chame uma tool
 `;
+}
+
+function buildKbBlock(kb) {
+  return `## Conhecimento de domínio (RevOps/CX)
+${kb || '_Knowledge base vazia. Sem conhecimento de domínio carregado._'}`;
+}
+
+function buildDynamicContext(user, state) {
+  const accountSummary = state.products?.length
+    ? `Operação atual: ${state.products.length} produto(s), ${(state.campaigns || []).length} campanha(s), ${(state.actions || []).length} ação(ões).`
+    : 'Operação atual: ainda sem produtos cadastrados.';
+  return `## Contexto do user (atual)
+- Username: ${user?.username || 'desconhecido'}
+- Master: ${user?.isMaster ? 'sim' : 'não'}
+- ${accountSummary}`;
 }
 
 module.exports = async function handler(req, res) {
@@ -742,7 +763,8 @@ NÃO use tool de write (V27.0.x não tem ainda).`
     };
     const append = INTERVIEW_PROMPTS[interviewStage];
     if (append) {
-      systemPrompt += '\n\n' + append;
+      // V29.3.4 — Append vai como novo bloco dinâmico (não cached, varia por interview).
+      systemPrompt.push({ type: 'text', text: append });
     }
   }
 
