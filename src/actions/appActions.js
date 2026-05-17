@@ -4713,6 +4713,23 @@ Object.assign(Actions, {
     Actions.openStrategicMapForCampaign(Number(campaignId));
   },
 
+  // V29.2.0 — Hub etapa 4: gestor clica "Seguir" numa campanha →
+  // troca branch ativa + avança stepper pra etapa 5 (trabalho unificado).
+  selectAndAdvanceCampaign(campaignId) {
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
+    if (!campaign) return;
+    App.state.strategicMapProductId = Number(campaign.productId);
+    App.state.strategicMapCampaignId = Number(campaignId);
+    App.state.strategicMapMode = 'campaign';
+    if (window.StrategicMapEngine) {
+      StrategicMapEngine.ensureBranchMap(Number(campaignId), Number(campaign.productId));
+      StrategicMapEngine.ensureComercialAreas(Number(campaign.productId), Number(campaignId));
+    }
+    App.state.strategicMapZoom = 'operations';
+    App.save(); App.render();
+    Utils.toast(`Editando ${campaign.name}. Pluga os números e ações.`);
+  },
+
   // V29.1.3 — "Executar Métricas" = publicar KRs-mãe pros gestores.
   // Botão dourado do CEO. Antes desse botão, KRs-mãe ficam como rascunho do CEO.
   // Abre popup de confirmação (com lista de campanhas plugadas/desplugadas).

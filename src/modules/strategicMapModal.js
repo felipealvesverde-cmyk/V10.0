@@ -1218,17 +1218,24 @@ window.StrategicMapModal = {
       </section>`;
     }
 
-    // Vista Gestor: plugagem.
+    // V29.2.0 — Vista Gestor: HUB de campanhas (lista todas + seleciona uma pra trabalhar).
+    return this._stepCampaignHub(product);
+  },
+
+  // V29.2.0 — Hub: lista TODAS as campanhas do produto. Gestor seleciona uma
+  // e clica "Seguir →" pra ir pra etapa 5 (trabalho unificado: plugar + ações).
+  _stepCampaignHub(product) {
     const productKrs = StrategicMapEngine.getProductKrs(product.id);
-    const campaignId = App.state.strategicMapCampaignId;
-    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
-    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    const branches = StrategicMapEngine.getBranchesByProduct(product.id);
+    const desplugadas = StrategicMapEngine.getDesplugedCampaigns(product.id);
+    const activeCampaignId = App.state.strategicMapCampaignId;
+
     if (!productKrs.length) {
       return `<section class="space-y-4">
-        ${this._stepIntro('Campanha', 'Pluga os números do produto nesta campanha.', 'git-branch')}
+        ${this._stepIntro('Campanha', 'Selecione a campanha pra trabalhar.', 'git-branch')}
         <div class="rounded-3xl bg-amber-500/10 border border-amber-400/30 p-5 text-amber-200">
           <p class="font-black mb-1">⚠️ CEO ainda não definiu os números do produto.</p>
-          <p class="text-sm">Sem KRs-mãe definidos pelo CEO, sua campanha não tem o que contribuir. Peça pro CEO preencher a etapa 3 (Os números) do produto.</p>
+          <p class="text-sm">Peça pro CEO preencher a etapa 3 (Os Números) na vista CEO. Sem KRs-mãe, a campanha não tem o que contribuir.</p>
           <button onclick="Actions.openStrategicMap(${product.id})" class="mt-3 px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black">Ir pra vista CEO</button>
         </div>
       </section>`;
@@ -1236,21 +1243,90 @@ window.StrategicMapModal = {
 
     return `<section class="space-y-4">
       ${this._stepIntro(
-        `Quais números esta campanha vai contribuir?`,
-        `O CEO definiu ${productKrs.length} número(s) que o produto precisa entregar. Aqui você escolhe quais a campanha "${Utils.escape(campaign?.name || '...')}" vai ajudar — cada um vira sua meta local que soma pro rollup.`,
+        'Em qual campanha você quer trabalhar agora?',
+        `${branches.length} campanha(s) plugada(s), ${desplugadas.length} desplugada(s). Clica em "Seguir →" pra começar a plugar números + ações.`,
         'git-branch',
         'campaign',
-        'campaign-plugagem',
-        'Plugar = dizer "esta campanha contribui pra esse número". O sistema cria automaticamente uma versão local desse número aqui na branch, com sua meta própria. A soma das metas locais de todas as campanhas plugadas vira o atual do número-mãe do produto. É o rollup automático.'
+        'campaign-hub',
+        'Cada campanha é uma APOSTA diferente pra entregar os números do produto. Várias campanhas podem rodar ao mesmo tempo, cada uma contribuindo um pedaço (rollup). Selecione uma aqui e siga pra etapa 5 onde você pluga os números e ativa as ações.'
       )}
 
-      <div class="space-y-3">
-        ${areas.map(area => this._stepCampaignAreaBlock(product, area, productKrs.filter(k => k.area === area.id), campaignId)).join('')}
-      </div>
+      ${branches.length > 0 ? `<div class="space-y-2">
+        <p class="text-[10px] font-black text-violet-200 uppercase tracking-wider">🟣 Campanhas plugadas</p>
+        ${branches.map(b => this._campaignHubCard(product, b)).join('')}
+      </div>` : ''}
 
-      ${this._stepCta('Próximo passo: definir as ações', this._anyPluggedInBranch(product.id, campaignId))}
+      ${desplugadas.length > 0 ? `<div class="space-y-2 pt-2">
+        <p class="text-[10px] font-black text-red-300 uppercase tracking-wider">🔴 Campanhas desplugadas</p>
+        ${desplugadas.map(c => this._campaignHubDesplugadaCard(product, c)).join('')}
+      </div>` : ''}
+
+      <div class="rounded-2xl border border-dashed border-emerald-400/30 bg-emerald-500/5 p-3 flex items-center justify-between gap-2">
+        <p class="text-[12px] text-emerald-200"><b>+</b> Quer rodar uma campanha nova pra cobrir esses números?</p>
+        <button onclick="Actions.unlockCeoAsGestor()" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black" style="color:#fff!important;">+ Criar nova campanha</button>
+      </div>
     </section>`;
   },
+
+  _campaignHubCard(product, branch) {
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(branch.campaignId));
+    if (!campaign) return '';
+    const status = StrategicMapEngine.getCampaignStrategicStatus(branch.campaignId);
+    const statusInfo = { active: { color: 'emerald', label: 'Ativa', icon: 'check-circle' }, configuring: { color: 'amber', label: 'Em config', icon: 'loader' } }[status] || { color: 'slate', label: 'Pendente', icon: 'clock' };
+    const productKrs = StrategicMapEngine.getProductKrs(product.id);
+    const allBranchKrs = (branch.objectives || []).flatMap(o => o.okrs || []);
+    const pluggedCount = allBranchKrs.filter(k => k.parentProductKrId).length;
+    const actionsCount = (App.state.actions || []).filter(a => Number(a.campaignId) === Number(branch.campaignId) && a.strategicAreaId).length;
+    const isActive = Number(App.state.strategicMapCampaignId) === Number(branch.campaignId);
+    return `<div class="rounded-2xl bg-white/[0.05] border ${isActive ? 'border-violet-400/60 ring-2 ring-violet-400/20' : `border-${statusInfo.color}-400/30`} p-3 flex items-center justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 mb-0.5 flex-wrap">
+          <p class="font-black text-white text-sm truncate">${Utils.escape(campaign.name)}</p>
+          <span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-${statusInfo.color}-500/20 text-${statusInfo.color}-200 border border-${statusInfo.color}-400/30">${statusInfo.label.toUpperCase()}</span>
+          ${isActive ? '<span class="text-[10px] text-violet-200 font-bold">· editando agora</span>' : ''}
+        </div>
+        <p class="text-[11px] text-slate-400">${pluggedCount}/${productKrs.length} números plugados · ${actionsCount} ação(ões) ativa(s)</p>
+      </div>
+      <button onclick="Actions.selectAndAdvanceCampaign(${branch.campaignId})" class="px-3 py-2 rounded-lg bg-violet-500 hover:bg-violet-600 text-white text-[11px] font-black flex items-center gap-1 shrink-0" style="color:#fff!important;">Seguir <i data-lucide="arrow-right" class="w-3 h-3"></i></button>
+    </div>`;
+  },
+
+  _campaignHubDesplugadaCard(product, campaign) {
+    return `<div class="rounded-2xl bg-red-500/5 border border-red-400/30 p-3 flex items-center justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <p class="font-black text-white text-sm truncate">${Utils.escape(campaign.name)}</p>
+        <p class="text-[11px] text-red-300">Sem Mapa ativo — não contribui pros números do produto.</p>
+      </div>
+      <button onclick="Actions.activateStrategicMapForCampaign(${campaign.id})" class="px-3 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-400/40 text-red-100 text-[11px] font-black flex items-center gap-1 shrink-0">Ativar Mapa</button>
+    </div>`;
+  },
+
+  _anyPluggedInBranch(productId, campaignId) {
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    if (!branch) return false;
+    return (branch.objectives || []).some(o => (o.okrs || []).some(kr => kr.parentProductKrId));
+  },
+
+  _stepCampaignAreaBlock(product, area, areaKrs, campaignId) {
+    const tone = area.color;
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    const branchObjective = (branch?.objectives || []).find(o => o.area === area.id);
+    const branchKrs = branchObjective?.okrs || [];
+    const pluggedKrsByParent = new Map();
+    branchKrs.forEach(kr => { if (kr.parentProductKrId) pluggedKrsByParent.set(kr.parentProductKrId, kr); });
+
+    if (areaKrs.length === 0) {
+      return `<div class="rounded-2xl bg-${tone}-500/5 border border-${tone}-400/20 p-3">
+        <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-wider mb-1"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)}</p>
+        <p class="text-[11px] text-slate-500 italic">CEO não definiu números nesta área.</p>
+      </div>`;
+    }
+    return `<div class="rounded-2xl bg-${tone}-500/5 border border-${tone}-400/20 p-3 space-y-2">
+      <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-wider"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)} · ${pluggedKrsByParent.size}/${areaKrs.length} plugado(s)</p>
+      ${areaKrs.map(pkr => {
+        const pluggedKr = pluggedKrsByParent.get(pkr.id);
+        if (pluggedKr) return this._stepCampaignPluggedCard(branchObjective, pluggedKr, pkr, tone);
+        return this._stepCampaignNotPluggedCard(pkr, tone);
 
   _anyPluggedInBranch(productId, campaignId) {
     const branch = StrategicMapEngine.getBranchMap(campaignId);
@@ -1347,42 +1423,136 @@ window.StrategicMapModal = {
   // números pelo catalogId, edição inline (dono/cadência/status), aviso de
   // número órfão (sem ação).
   _stepOperations(product) {
-    // V29.1.1 — Mode CEO: placeholder informativo (etapa é do gestor).
+    // V29.1.1 — Mode CEO: placeholder informativo.
     if ((App.state.strategicMapMode || 'product') === 'product') {
-      return this._stepGestorOnlyPlaceholder(product, 'As ações', 'plug', 'Aqui o gestor de cada campanha define quais ações vão mover os números plugados.');
+      return this._stepGestorOnlyPlaceholder(product, 'As ações', 'plug', 'Aqui o gestor de cada campanha pluga os números do produto e ativa as ações que cobrem cada um.');
     }
-    const map = StrategicMapEngine.getForProduct(product.id);
-    const objectives = map.objectives || [];
-    const confirmedKrs = objectives.flatMap(o => (o.okrs || []).filter(k => k.confirmed).map(kr => ({ obj: o, kr })));
-    if (!confirmedKrs.length) {
+    // V29.2.0 — Trabalho unificado: plugar números + ativar ações que cobrem.
+    const productKrs = StrategicMapEngine.getProductKrs(product.id);
+    const campaignId = App.state.strategicMapCampaignId;
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    if (!productKrs.length) {
       return `<section class="space-y-3">
-        ${this._stepIntro('As ações', 'Confirme números na etapa anterior antes de plugar ações.', 'plug')}
+        ${this._stepIntro('As ações', 'CEO ainda não definiu os números do produto.', 'plug')}
         <div class="rounded-3xl bg-amber-500/10 border border-amber-400/30 p-5 text-amber-200">
-          <p class="font-black mb-1">Faltam números confirmados.</p>
-          <p class="text-sm">Volte pra etapa <b>Os números</b> e confirme pelo menos um — número sem ação é promessa, ação sem número é trabalho à toa.</p>
-          <button onclick="Actions.setStrategicZoom('okrs')" class="mt-3 px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black">← Voltar pros Números</button>
+          <p class="font-black mb-1">⚠️ Sem números do produto.</p>
+          <p class="text-sm">Peça pro CEO preencher a etapa 3 (Os Números) na vista CEO. Sem KRs-mãe, sua campanha não tem o que cobrir.</p>
         </div>
       </section>`;
     }
-    const allConnected = confirmedKrs.every(({ kr }) => (kr.connectedActionIds || []).length > 0);
     return `<section class="space-y-3">
       ${this._stepIntro(
-        'Que ações vão mover cada número?',
-        'Pra cada frente, ative as ações que entregam os números. Número sem ação não mexe sozinho.',
+        `Plugue os números e ative as ações da ${Utils.escape(campaign?.name || 'campanha')}`,
+        'Pra cada número que o CEO definiu, você decide se esta campanha contribui. Plugando, define meta local e ativa as ações que vão cobrir.',
         'plug',
         'operations',
-        'operations-acao-numero',
-        'Ação é o que move o número no dia-a-dia. Cada ação ativada do catálogo já é vinculada automaticamente aos números que ela costuma mover. Se um número confirmado fica sem ação vinculada, ele aparece com aviso — porque ninguém vai movê-lo.'
+        'operations-unified',
+        'Plugar = sua campanha contribui pra esse número (cria meta local). Ativar ação = roda uma tática (Tráfego Pago, Webinar, etc.) que move esse número. A soma das metas locais de todas as campanhas plugadas alimenta o número-mãe do produto via rollup.'
       )}
 
-      ${this._strategicCampaignHeader(product)}
+      ${this._unifiedWorkCampaignHeader(product, campaign)}
 
-      ${this._handoffNav(product)}
+      ${areas.map(area => this._unifiedAreaBlock(product, area, productKrs.filter(k => k.area === area.id), campaignId)).join('')}
 
-      ${this._areaAcoesSection(product)}
-
-      ${this._stepCta('Próximo passo: colocar em campo', allConnected)}
+      ${this._stepCta('Próximo passo: colocar em campo', this._anyActionConnectedInBranch(campaignId))}
     </section>`;
+  },
+
+  _anyActionConnectedInBranch(campaignId) {
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    if (!branch) return false;
+    return (branch.objectives || []).some(o => (o.okrs || []).some(kr => (kr.connectedActionIds || []).length > 0));
+  },
+
+  _unifiedWorkCampaignHeader(product, campaign) {
+    if (!campaign) return '';
+    return `<div class="rounded-2xl bg-violet-500/10 border border-violet-400/30 p-3 flex items-center justify-between gap-2 flex-wrap">
+      <div class="flex items-center gap-2 min-w-0 flex-1">
+        <i data-lucide="git-branch" class="w-4 h-4 text-violet-300 shrink-0"></i>
+        <div class="min-w-0">
+          <p class="text-[10px] font-black text-violet-200 uppercase tracking-wider">Editando a campanha</p>
+          <p class="text-sm font-black text-white truncate">${Utils.escape(campaign.name)}</p>
+        </div>
+      </div>
+      <button onclick="Actions.setStrategicZoom('campaign')" class="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 text-[10px] font-black flex items-center gap-1 shrink-0"><i data-lucide="arrow-left" class="w-3 h-3"></i> Trocar campanha</button>
+    </div>`;
+  },
+
+  // V29.2.0 — Por área (Mkt/Vendas/CS), lista TODOS os KRs-mãe do produto.
+  // Cada KR não-plugado: card simples "Plugar". Plugado: card grande com
+  // metas + catálogo de ações filtrado pelos kpiIds.
+  _unifiedAreaBlock(product, area, areaProductKrs, campaignId) {
+    const tone = area.color;
+    if (!areaProductKrs.length) {
+      return `<div class="rounded-2xl bg-${tone}-500/5 border border-${tone}-400/20 p-3">
+        <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-wider mb-1"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)}</p>
+        <p class="text-[11px] text-slate-500 italic">CEO não definiu números nesta frente.</p>
+      </div>`;
+    }
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    const branchObj = (branch?.objectives || []).find(o => o.area === area.id);
+    const branchKrs = branchObj?.okrs || [];
+    const pluggedByParent = new Map();
+    branchKrs.forEach(kr => { if (kr.parentProductKrId) pluggedByParent.set(kr.parentProductKrId, kr); });
+    return `<div class="rounded-3xl bg-${tone}-500/5 border border-${tone}-400/30 p-3 space-y-2.5">
+      <p class="text-[11px] font-black text-${tone}-200 uppercase tracking-wider"><i data-lucide="${area.icon}" class="w-3.5 h-3.5 inline-block"></i> ${Utils.escape(area.label)} · ${pluggedByParent.size}/${areaProductKrs.length} plugado(s)</p>
+      ${areaProductKrs.map(pkr => {
+        const child = pluggedByParent.get(pkr.id);
+        return child
+          ? this._unifiedKrPluggedCard(product, area, pkr, branchObj, child, campaignId)
+          : this._unifiedKrNotPluggedCard(pkr, area);
+      }).join('')}
+    </div>`;
+  },
+
+  _unifiedKrNotPluggedCard(pkr, area) {
+    const tone = area.color;
+    return `<div class="rounded-xl bg-slate-900/40 border border-${tone}-400/20 p-2.5 flex items-center justify-between gap-2">
+      <div class="min-w-0">
+        <p class="font-black text-white text-[12px]">${Utils.escape(pkr.name)}</p>
+        <p class="text-[10px] text-slate-400">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${pkr.metric || ''} · período ${pkr.period || 90}d</p>
+      </div>
+      <button onclick="Actions.plugProductKrIntoBranch('${pkr.id}')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black shrink-0">+ Plugar nesta campanha</button>
+    </div>`;
+  },
+
+  _unifiedKrPluggedCard(product, area, pkr, branchObj, childKr, campaignId) {
+    const tone = area.color;
+    // Filtra ações do catálogo que movem este KPI (kpiIds.includes(pkr.catalogId))
+    const allActionTemplates = (StrategicMapEngine.STRATEGIC_ACTION_CATALOG[area.id] || []);
+    const relevantTemplates = allActionTemplates.filter(t => (t.kpiIds || []).includes(pkr.catalogId));
+    const activatedIds = StrategicMapEngine.getActivatedCatalogActionIds(product.id, area.id, campaignId);
+    return `<div class="rounded-2xl bg-emerald-500/[0.06] border border-emerald-400/30 p-3 space-y-2.5">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0 flex-1">
+          <p class="font-black text-white text-[13px]"><span class="text-emerald-300">✓ Plugado</span> · ${Utils.escape(childKr.name)}</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${childKr.metric || ''} · sua contribuição abaixo</p>
+        </div>
+        <button onclick="Actions.removeStrategicOkr('${branchObj.id}','${childKr.id}')" title="Desplugar" class="px-1.5 py-0.5 rounded text-[10px] text-red-300 hover:bg-red-500/20 border border-red-400/30 shrink-0">×</button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-1.5">
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-emerald-300 uppercase">🔒 Meta Segura</span>
+          <input type="number" value="${childKr.targetCommitted ?? ''}" placeholder="piso" oninput="Actions.updateStrategicOkrField('${branchObj.id}','${childKr.id}','targetCommitted', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+        </label>
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-violet-300 uppercase">🚀 Meta Avançada</span>
+          <input type="number" value="${childKr.targetStretch ?? ''}" placeholder="sonho" oninput="Actions.updateStrategicOkrField('${branchObj.id}','${childKr.id}','targetStretch', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+        </label>
+      </div>
+
+      <div class="pt-2 border-t border-emerald-400/20">
+        <p class="text-[10px] font-black text-emerald-300 uppercase tracking-wider mb-1.5">Como cobrir esse número?</p>
+        ${relevantTemplates.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem ações do catálogo que movam este número.</p>' : `<div class="flex flex-wrap gap-1.5">
+          ${relevantTemplates.map(t => {
+            const isActivated = activatedIds.has(t.id);
+            return `<button onclick="Actions.activateStrategicCatalogAction('${area.id}', '${t.id}')" ${isActivated ? 'disabled' : ''} title="${Utils.escape(t.description)}" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border ${isActivated ? `bg-emerald-500/20 border-emerald-400/40 text-emerald-200 cursor-default` : `bg-slate-900 hover:bg-slate-800 border-${tone}-400/30 text-${tone}-100`}">${isActivated ? '✓ ' : '+ '}${Utils.escape(t.name)}</button>`;
+          }).join('')}
+        </div>`}
+      </div>
+    </div>`;
   },
 
   // V28.4.1 — Header mostrando a campanha estratégica vinculada (com botão renomear).
