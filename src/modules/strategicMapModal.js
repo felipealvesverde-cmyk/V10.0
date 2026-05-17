@@ -130,7 +130,7 @@ window.StrategicMapModal = {
         <p class="text-xs text-slate-300 mt-1">${subtitle}</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <button onclick="Actions.openStrategicOverview()" title="Ver árvore Visão → Objetivos → OKRs" class="px-3 py-2.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-100 text-xs font-black flex items-center gap-1"><i data-lucide="layout-grid" class="w-3.5 h-3.5"></i> Visão geral</button>
+        <button onclick="Actions.openStrategicOverview()" title="Ver árvore consolidada do produto (Visão → KRs-mãe → Branches)" class="px-3 py-2.5 rounded-xl font-black text-xs flex items-center gap-1.5" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important; box-shadow: 0 2px 8px rgba(251,191,36,.3);"><i data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i> Executar Métricas</button>
         <button onclick="Actions.openStrategicOnboarding()" title="Reabrir onboarding" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-black flex items-center gap-1"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i> Ajuda</button>
         <button onclick="Actions.syncStrategicOkrsFromOps()" title="Atualizar OKRs com leitura operacional" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-black flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sync geral</button>
         <button onclick="Actions.closeStrategicMap()" class="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-sm font-semibold flex items-center gap-2"><i data-lucide="x" class="w-4 h-4"></i> Fechar</button>
@@ -388,11 +388,21 @@ window.StrategicMapModal = {
     return this._stepVision(product);
   },
 
+  // V29.1.1 — Botão dourado "Executar Métricas" pra o CEO ir pra Visão Geral
+  // (árvore Visão → Objetivos → KRs) e ver o macro do produto a qualquer momento.
+  _executeMetricsButton() {
+    return `<button onclick="Actions.openStrategicOverview()" class="px-5 py-3 rounded-2xl font-black flex items-center gap-2 transition" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important; box-shadow: 0 4px 14px rgba(251,191,36,.35);"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Executar Métricas <i data-lucide="external-link" class="w-3.5 h-3.5"></i></button>`;
+  },
+
   _stepCta(label, enabled) {
+    // V29.1.1 — Em mode='product', adiciona botão dourado "Executar Métricas"
+    // ao lado pra CEO ir pra Visão Geral a qualquer momento (sem precisar concluir).
+    const mode = App.state.strategicMapMode || 'product';
     const cls = enabled
       ? 'bg-indigo-500 hover:bg-indigo-600 text-white cursor-pointer'
       : 'bg-white/5 text-slate-500 cursor-not-allowed';
-    return `<div class="flex justify-end pt-2">
+    return `<div class="flex justify-end items-center gap-2 pt-2 flex-wrap">
+      ${mode === 'product' ? this._executeMetricsButton() : ''}
       <button ${enabled ? '' : 'disabled'} onclick="Actions.advanceStrategicStep()" class="px-5 py-3 rounded-2xl ${cls} font-black flex items-center gap-2" ${enabled ? 'style="color:#fff!important;"' : ''}>${Utils.escape(label)} <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
     </div>`;
   },
@@ -1176,12 +1186,42 @@ window.StrategicMapModal = {
     </div>`;
   },
 
+  // V29.1.1 — Placeholder pras etapas 5/6 quando o CEO clica (mode='product').
+  // Não bloqueia, só mostra que essa etapa é do gestor + link pra ver o consolidado.
+  _stepGestorOnlyPlaceholder(product, stepName, stepIcon, description) {
+    const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(product.id) : [];
+    return `<section class="space-y-4">
+      ${this._stepIntro(stepName, description, stepIcon)}
+      <div class="rounded-3xl bg-indigo-500/10 border border-indigo-400/30 p-5 space-y-3">
+        <p class="text-sm text-slate-200 leading-relaxed">🔒 <b class="text-indigo-200">Etapa do Gestor</b></p>
+        <p class="text-[13px] text-slate-300 leading-relaxed">Essa etapa é preenchida pelo gestor de cada campanha. Você (CEO) vê o resultado consolidado em <b class="text-amber-300">Executar Métricas</b> (botão dourado no topo) ou abrindo a campanha desejada abaixo.</p>
+        ${branches.length ? `<div class="pt-2 border-t border-white/10">
+          <p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider mb-2">Branches ativas:</p>
+          <div class="flex flex-wrap gap-2">
+            ${branches.map(b => {
+              const c = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
+              if (!c) return '';
+              return `<button onclick="Actions.openStrategicMapForCampaign(${b.campaignId})" class="px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40 text-violet-100 text-[11px] font-black">${Utils.escape(c.name)} →</button>`;
+            }).join('')}
+          </div>
+        </div>` : '<p class="text-[12px] text-slate-400 italic">Nenhuma campanha plugada ainda.</p>'}
+      </div>
+      <div class="flex justify-end items-center gap-2 pt-2 flex-wrap">
+        ${this._executeMetricsButton()}
+      </div>
+    </section>`;
+  },
+
   // -------------------- STEP 5: AS AÇÕES --------------------
   // V28.3.0 — Mesmo padrão didático das etapas anteriores: tabs Mkt/Vendas/CS,
   // catálogo curado de ações típicas por segmento, vínculo automático aos
   // números pelo catalogId, edição inline (dono/cadência/status), aviso de
   // número órfão (sem ação).
   _stepOperations(product) {
+    // V29.1.1 — Mode CEO: placeholder informativo (etapa é do gestor).
+    if ((App.state.strategicMapMode || 'product') === 'product') {
+      return this._stepGestorOnlyPlaceholder(product, 'As ações', 'plug', 'Aqui o gestor de cada campanha define quais ações vão mover os números plugados.');
+    }
     const map = StrategicMapEngine.getForProduct(product.id);
     const objectives = map.objectives || [];
     const confirmedKrs = objectives.flatMap(o => (o.okrs || []).filter(k => k.confirmed).map(kr => ({ obj: o, kr })));
@@ -1401,6 +1441,10 @@ window.StrategicMapModal = {
 
   // -------------------- STEP 5: EXECUTAR --------------------
   _stepExecution(product) {
+    // V29.1.1 — Mode CEO: placeholder informativo.
+    if ((App.state.strategicMapMode || 'product') === 'product') {
+      return this._stepGestorOnlyPlaceholder(product, 'Colocar em campo', 'send', 'Aqui o gestor dispara as tarefas reais no provider (ClickUp/Trello/etc.).');
+    }
     // V29.0.3 — Lê da branch ativa (campaignId) quando em vista campanha; fallback no legacy.
     const campaignId = App.state.strategicMapCampaignId;
     const source = (campaignId && StrategicMapEngine.getBranchMap)
