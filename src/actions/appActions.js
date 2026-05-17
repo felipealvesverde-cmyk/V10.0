@@ -4778,14 +4778,17 @@ Object.assign(Actions, {
   },
 
   // V29.1.3 — Destrava o CEO pra trabalhar como gestor de uma branch.
-  // V29.1.4 — Se não há branches plugadas, abre modal pra CRIAR nova campanha
-  // (com nome) e já ativar Mapa + abrir como gestor.
+  // V29.1.4 — Sem campanha: modal pra criar nova.
+  // V29.2.1 — Smart routing:
+  //   - 0 campanhas do produto → modal criar nova
+  //   - 1 campanha (plugada ou não) → assume essa, ativa Mapa se preciso, abre direto
+  //   - 2+ campanhas → popup pra escolher qual
   unlockCeoAsGestor() {
     const productId = App.state.strategicMapProductId;
     if (!productId || !window.StrategicMapEngine) return;
-    const branches = StrategicMapEngine.getBranchesByProduct(productId);
-    if (!branches.length) {
-      // Sem branches: abre modal de criar campanha nova.
+    const allCampaigns = (App.state.campaigns || []).filter(c => Number(c.productId) === Number(productId));
+    if (!allCampaigns.length) {
+      // Cenário A: nenhuma campanha no produto → modal criar.
       App.state.strategicCreateCampaignPopup = { newName: '' };
       App.render();
       setTimeout(() => {
@@ -4794,6 +4797,21 @@ Object.assign(Actions, {
       }, 50);
       return;
     }
+    if (allCampaigns.length === 1) {
+      // Cenário B/C: 1 campanha só → ativa Mapa nela (se precisar) + abre como gestor.
+      const only = allCampaigns[0];
+      const branch = StrategicMapEngine.getBranchMap(only.id);
+      if (!branch) {
+        // Não plugada ainda — ativa Mapa direto (cria branch).
+        Actions.activateStrategicMapForCampaign(only.id);
+      } else {
+        // Já plugada — abre como gestor direto.
+        Utils.toast(`Editando ${only.name} como Gestor.`);
+        Actions.openStrategicMapForCampaign(only.id);
+      }
+      return;
+    }
+    // Cenário D: 2+ campanhas → popup escolher.
     App.state.strategicUnlockCeoPopup = true;
     App.render();
     setTimeout(() => {
@@ -4836,11 +4854,18 @@ Object.assign(Actions, {
   },
 
   // V29.1.3 — Confirma destravagem e abre branch como gestor.
+  // V29.2.1 — Se campanha escolhida não tem branch ainda, ativa Mapa nela primeiro.
   confirmUnlockCeoAsGestor(campaignId) {
     App.state.strategicUnlockCeoPopup = false;
     App.save(); App.render();
-    Utils.toast('🔓 Você está editando como gestor. Lembre-se: idealmente este trabalho é do dono da campanha.');
-    Actions.openStrategicMapForCampaign(Number(campaignId));
+    const branch = StrategicMapEngine.getBranchMap(Number(campaignId));
+    if (!branch) {
+      Utils.toast('🔓 Ativando Mapa nesta campanha e editando como Gestor.');
+      Actions.activateStrategicMapForCampaign(Number(campaignId));
+    } else {
+      Utils.toast('🔓 Você está editando como Gestor. Lembre-se: idealmente este trabalho é do dono da campanha.');
+      Actions.openStrategicMapForCampaign(Number(campaignId));
+    }
   },
 
   dismissUnlockCeoPopup() {

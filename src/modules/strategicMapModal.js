@@ -100,27 +100,30 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // V29.1.3 — Popup "Continuar como Gestor" (destravar):
-  // CEO escolhe qual branch quer editar como gestor. Confirmação clara sobre
-  // estar saindo do papel CEO.
+  // V29.1.3 — Popup "Continuar como Gestor" (destravar).
+  // V29.2.1 — Mostra TODAS campanhas do produto (plugadas e desplugadas).
+  // Click numa desplugada ativa Mapa antes de abrir.
   _unlockCeoAsGestorPopup() {
     const productId = App.state.strategicMapProductId;
-    const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(productId) : [];
+    const allCampaigns = (App.state.campaigns || []).filter(c => Number(c.productId) === Number(productId));
     return `<div class="fixed inset-0 z-[95] bg-slate-950/90 backdrop-blur-sm p-4 grid place-items-center overflow-auto">
       <div class="rounded-3xl shadow-2xl text-white max-w-xl w-full" style="background:radial-gradient(circle at 0% 0%, rgba(99,102,241,.22), transparent 35%), #0b1428;">
         <div class="p-6 space-y-4">
           <div>
             <div class="flex items-center gap-2 mb-1.5"><i data-lucide="unlock" class="w-4 h-4 text-indigo-300"></i><p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider">Destravar etapas do Gestor</p></div>
             <h3 class="text-xl font-black leading-tight">Você quer trabalhar como gestor de qual campanha?</h3>
-            <p class="text-[12px] text-slate-300 mt-1.5 leading-relaxed">Idealmente esse trabalho é do dono da campanha. Mas se você precisa fazer pra destravar (empresa solo, gestor ausente, etc.), escolha qual campanha vai editar:</p>
+            <p class="text-[12px] text-slate-300 mt-1.5 leading-relaxed">Idealmente esse trabalho é do dono da campanha. Se você precisa fazer (empresa solo, gestor ausente, etc.), escolha:</p>
           </div>
           <div class="space-y-1.5">
-            ${branches.map(b => {
-              const c = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
-              if (!c) return '';
-              return `<button onclick="Actions.confirmUnlockCeoAsGestor(${b.campaignId})" class="w-full text-left px-3 py-2.5 rounded-xl bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-400/40 transition flex items-center justify-between gap-2">
-                <span class="font-black text-white text-[12px]">${Utils.escape(c.name)}</span>
-                <span class="text-[10px] text-violet-300">Editar como Gestor →</span>
+            ${allCampaigns.map(c => {
+              const branch = StrategicMapEngine.getBranchMap(c.id);
+              const plugged = Boolean(branch);
+              return `<button onclick="Actions.confirmUnlockCeoAsGestor(${c.id})" class="w-full text-left px-3 py-2.5 rounded-xl bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-400/40 transition flex items-center justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="font-black text-white text-[12px]">${Utils.escape(c.name)}</p>
+                  <p class="text-[10px] ${plugged ? 'text-violet-300' : 'text-amber-300'}">${plugged ? '🟣 Já plugada — abrir como Gestor' : '🟡 Sem Mapa ativo — vai plugar e abrir'}</p>
+                </div>
+                <span class="text-[10px] text-violet-300">→</span>
               </button>`;
             }).join('')}
           </div>
