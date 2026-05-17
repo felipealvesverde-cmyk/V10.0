@@ -4664,10 +4664,8 @@ Object.assign(Actions, {
     if (!campaign) return Utils.toast('Campanha não encontrada.');
     const productId = campaign.productId;
     if (!productId) return Utils.toast('Esta campanha não tem produto vinculado.');
-    // Marca campanha como strategic host (visual roxo) + cria branch.
-    App.state.campaigns = App.state.campaigns.map(c =>
-      Number(c.id) === Number(campaignId) ? { ...c, isStrategicHost: true } : c
-    );
+    // V29.0.2 — Não marca mais isStrategicHost (deprecado): visual vem do branchMap
+    // via getCampaignStrategicStatus. Marcar quebrava a migração legacy.
     if (window.StrategicMapEngine) {
       StrategicMapEngine.ensureBranchMap(Number(campaignId), Number(productId));
       StrategicMapEngine.ensureComercialAreas(productId, Number(campaignId));

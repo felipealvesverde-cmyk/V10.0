@@ -214,10 +214,7 @@ window.StrategicMapEngine = {
       const existing = (App.state.campaigns || []).find(c => Number(c.id) === Number(existingId));
       if (!existing) return null;
       this.save(productId, { strategicCampaignId: Number(existing.id) });
-      // Marca como host estratégico (visual diferenciado).
-      App.state.campaigns = App.state.campaigns.map(c =>
-        Number(c.id) === Number(existing.id) ? { ...c, isStrategicHost: true } : c
-      );
+      // V29.0.2 — Não marca mais isStrategicHost (deprecado, vinha quebrando migração).
       return existing;
     }
     const clean = String(name || '').trim() || 'Campanha estratégica';
@@ -247,42 +244,39 @@ window.StrategicMapEngine = {
     return true;
   },
 
-  // V28.4.1 — Migração one-shot: mescla campanhas estratégicas duplicadas do mesmo
-  // produto numa só. Mantém a primeira (mais antiga), move ações das outras pra ela,
-  // remove as duplicadas. Seta strategicCampaignId se o map ainda não tinha.
-  // Detecção: isStrategicHost OR nome começa com "Mapa da Receita".
+  // V28.4.1 — Migração one-shot: mescla campanhas auto-criadas LEGADAS V28
+  // (nome começando com "Mapa da Receita" sem branch própria). NÃO mescla
+  // mais qualquer campanha com isStrategicHost — no V29, cada branch é uma
+  // campanha legítima e plugada.
+  // V29.0.2 — Critério restrito: nome começa com "Mapa da Receita" E não tem
+  // branch própria em strategicCampaignMaps (= legado V28 puro).
   migrateLegacyStrategicCampaigns(productId) {
-    const all = (App.state.campaigns || []).filter(c =>
+    const branchMaps = App.state.strategicCampaignMaps || {};
+    const isLegacy = (c) =>
       Number(c.productId) === Number(productId) &&
-      (c.isStrategicHost === true || String(c.name || '').startsWith('Mapa da Receita'))
-    );
+      String(c.name || '').startsWith('Mapa da Receita') &&
+      !branchMaps[c.id];   // só conta legado se NÃO tem branch própria
+    const all = (App.state.campaigns || []).filter(isLegacy);
     if (all.length <= 1) {
-      // Se tem só 1 e o map ainda não aponta pra ela, vincula.
       if (all.length === 1) {
         const map = this.getForProduct(productId);
         if (!map?.strategicCampaignId) this.save(productId, { strategicCampaignId: Number(all[0].id) });
-        // Garante flag
         App.state.campaigns = (App.state.campaigns || []).map(c =>
           Number(c.id) === Number(all[0].id) ? { ...c, isStrategicHost: true } : c
         );
       }
       return 0;
     }
-    // Ordena por createdAt asc (mais antiga primeiro) — ela é a "keeper".
     all.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
     const keeper = all[0];
     const duplicateIds = new Set(all.slice(1).map(c => Number(c.id)));
-    // Move ações pras keeper.
     App.state.actions = (App.state.actions || []).map(a =>
       duplicateIds.has(Number(a.campaignId)) ? { ...a, campaignId: Number(keeper.id) } : a
     );
-    // Remove campanhas duplicadas.
     App.state.campaigns = (App.state.campaigns || []).filter(c => !duplicateIds.has(Number(c.id)));
-    // Garante flag e nome da keeper.
     App.state.campaigns = App.state.campaigns.map(c =>
       Number(c.id) === Number(keeper.id) ? { ...c, isStrategicHost: true } : c
     );
-    // Vincula no map.
     this.save(productId, { strategicCampaignId: Number(keeper.id) });
     return duplicateIds.size;
   },
