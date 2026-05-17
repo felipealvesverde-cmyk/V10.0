@@ -107,6 +107,26 @@ async function runMigrations() {
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_djow_messages_conv ON djow_messages(conversation_id, created_at);
     `);
+    // V30.0.0 — Integração ClickUp. clickup_config guarda OAuth App credentials
+    // (client_id/secret) do user. clickup_credentials guarda tokens após OAuth.
+    // Ambos criptografados via ENCRYPTION_KEY (lib/clickup-crypto.js).
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS clickup_config (
+        user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        client_id_enc TEXT NOT NULL,
+        client_secret_enc TEXT NOT NULL,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS clickup_credentials (
+        user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        access_token_enc TEXT NOT NULL,
+        workspace_id VARCHAR(64),
+        workspace_name VARCHAR(255),
+        connected_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
     // Seed master user se ainda não existe e env vars disponíveis.
     if (MASTER_USERNAME && MASTER_PASSWORD) {
       if (!MASTER_PASSWORD_HASH) {
@@ -156,7 +176,8 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/rd-proxy',
   '/api/rd-crm-sync',
   '/api/rd-webhook',
-  '/api/rd-events-fetch'
+  '/api/rd-events-fetch',
+  '/api/clickup-oauth-callback'  // V30.0.0 — ClickUp redireciona aqui sem JWT
 ]);
 
 // V23.0.0 — Gate de auth: rotas privadas /api/* exigem req.user.

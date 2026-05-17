@@ -2414,6 +2414,75 @@ var SettingsModal = {
     </div>`;
   },
 
+  // V30.0.0 — Painel de Integrações. Por enquanto só ClickUp.
+  integrationsPanel() {
+    const status = App.state.clickupStatus || { configured: false, connected: false, encryptionReady: true };
+    const draft = App.state.clickupConfigDraft || { client_id: '', client_secret: '' };
+    const redirectUri = `${window.location.origin}/api/clickup-oauth-callback`;
+    const encWarn = !status.encryptionReady ? `<div class="rounded-2xl bg-red-50 border-2 border-red-300 p-4 mb-4 text-red-800"><p class="font-black mb-1">⚠️ ENCRYPTION_KEY não configurada no servidor.</p><p class="text-sm">O admin precisa adicionar no Railway → Variables antes de você conectar. Veja README.</p></div>` : '';
+
+    return `<div class="space-y-5">
+      ${encWarn}
+
+      <!-- Card ClickUp -->
+      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 space-y-4">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <div class="w-8 h-8 rounded-lg bg-purple-100 grid place-items-center"><i data-lucide="check-square" class="w-4 h-4 text-purple-700"></i></div>
+              <h3 class="text-lg font-black">ClickUp</h3>
+              ${status.connected ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700">✓ Conectado · ${Utils.escape(status.workspaceName || '')}</span>` : status.configured ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-700">⚠ Credenciais salvas, faltou conectar</span>' : '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-600">Não conectado</span>'}
+            </div>
+            <p class="text-sm text-slate-500">Crie tarefas no ClickUp direto do Mapa da Receita ou via chat do Djow.</p>
+          </div>
+          ${status.connected ? `<button onclick="Actions.disconnectClickup()" class="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-black">Desconectar</button>` : ''}
+        </div>
+
+        ${!status.connected ? `
+        <!-- PASSO 1 -->
+        <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-3">
+          <div class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-black">1</span><p class="font-black text-slate-900">Crie um OAuth App no ClickUp</p></div>
+          <p class="text-sm text-slate-600">Vai no ClickUp → <b>Settings → Apps → Build</b> ou direto: <a href="https://app.clickup.com/settings/apps" target="_blank" class="text-purple-700 font-bold underline">app.clickup.com/settings/apps</a></p>
+          <p class="text-sm text-slate-600">Clique <b>"Create New App"</b>. Preenche:</p>
+          <ul class="text-sm text-slate-600 list-disc pl-5 space-y-1">
+            <li>App Name: <code class="bg-white px-1.5 py-0.5 rounded text-purple-700 font-mono text-xs">LeadJourney</code></li>
+            <li>Redirect URL: copie o valor abaixo</li>
+          </ul>
+          <div class="flex items-center gap-2 bg-white border border-slate-300 rounded-xl px-3 py-2">
+            <code class="text-xs flex-1 truncate text-slate-700 font-mono">${Utils.escape(redirectUri)}</code>
+            <button onclick="navigator.clipboard.writeText('${redirectUri}'); Utils.toast('Copiado!');" class="px-2 py-1 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-black">📋 Copiar</button>
+          </div>
+          <p class="text-xs text-slate-500 italic">O ClickUp vai gerar <b>Client ID</b> e <b>Client Secret</b>. Copie os 2 pro próximo passo.</p>
+        </div>
+
+        <!-- PASSO 2 -->
+        <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-3">
+          <div class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-black">2</span><p class="font-black text-slate-900">Cole as credenciais aqui</p></div>
+          <div>
+            <label class="block text-xs font-black text-slate-500 uppercase mb-1">Client ID</label>
+            <input value="${Utils.escape(draft.client_id || '')}" oninput="Actions.updateClickupConfigDraft('client_id', this.value)" placeholder="cole aqui" class="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
+          </div>
+          <div>
+            <label class="block text-xs font-black text-slate-500 uppercase mb-1">Client Secret</label>
+            <input type="password" value="${Utils.escape(draft.client_secret || '')}" oninput="Actions.updateClickupConfigDraft('client_secret', this.value)" placeholder="cole aqui (será ocultado)" class="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
+          </div>
+          <button onclick="Actions.saveClickupConfig()" ${!status.encryptionReady ? 'disabled' : ''} class="px-4 py-2.5 rounded-2xl bg-slate-900 text-white text-sm font-black disabled:bg-slate-300 disabled:cursor-not-allowed lj-dark-button" style="color:#fff!important;">Salvar credenciais</button>
+        </div>
+
+        <!-- PASSO 3 -->
+        ${status.configured ? `<div class="rounded-2xl bg-purple-50 border-2 border-purple-300 p-4 space-y-2">
+          <div class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-purple-700 text-white grid place-items-center text-xs font-black">3</span><p class="font-black text-purple-900">Conectar ao ClickUp</p></div>
+          <p class="text-sm text-purple-800">Tudo pronto. Click no botão abaixo, autoriza no ClickUp, e volta.</p>
+          <button onclick="Actions.connectClickup()" ${!status.encryptionReady ? 'disabled' : ''} class="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black disabled:opacity-50" style="color:#fff!important;">🔗 Conectar ao ClickUp</button>
+        </div>` : `<div class="rounded-2xl bg-slate-100 border border-slate-200 p-3 text-sm text-slate-500"><span class="font-black">Passo 3:</span> Vai aparecer aqui o botão de conectar quando você salvar as credenciais no passo 2.</div>`}
+        ` : `<div class="rounded-2xl bg-emerald-50 border-2 border-emerald-300 p-4">
+          <p class="font-black text-emerald-900 mb-1">✓ ClickUp conectado em <b>${Utils.escape(status.workspaceName || '')}</b></p>
+          <p class="text-sm text-emerald-800">Agora você pode criar tarefas no ClickUp diretamente do Mapa da Receita (botão "Criar tarefa via Djow") ou pedindo pro Djow no chat: <i>"cria uma task pra revisar a campanha"</i>.</p>
+        </div>`}
+      </div>
+    </div>`;
+  },
+
   render() {
     if (!App.state.showSettingsModal) return '';
 
@@ -2421,12 +2490,13 @@ var SettingsModal = {
     // V22.2 — Consolidação: 'rd' e 'rdCrm' viraram uma seção só "Conexão RD Station".
     // Mantemos o alias 'rdCrm' redirecionando p/ 'rd' por compat de bookmarks/links.
     const resolvedActive = active === 'rdCrm' ? 'rd' : active;
-    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', agents: 'Agentes Externos', users: 'Usuários' };
+    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários' };
     const subtitleMap = {
       rd: 'Token CRM, pipelines por campanha, sincronização de leads e (opcional) RD Marketing — tudo em um lugar.',
       backup: 'Prepare snapshots, restauração e segurança dos dados.',
       database: 'Escolha Local, Supabase ou Amazon e deixe o LeadScore pronto para sincronizar.',
       execution: 'Configure ClickUp, Trello, Monday, Jira, Notion ou modo Manual para onde as tarefas devem ser criadas.',
+      integrations: 'Conecte serviços externos (ClickUp, etc.) pra criar tarefas automaticamente via Djow ou modal.',
       agents: 'Configure o Djow (Railway) e outros agentes que interpretam comandos em linguagem natural.',
       users: 'V23.0.0 — Aprove cadastros pendentes, gerencie modo (produção/sandbox) e revogue acessos.'
     };
@@ -2435,6 +2505,7 @@ var SettingsModal = {
 
     const content = resolvedActive === 'rd' ? this.rdConnectionPanel()
       : resolvedActive === 'execution' ? this.executionPanel()
+      : resolvedActive === 'integrations' ? this.integrationsPanel()
       : resolvedActive === 'agents' ? this.agentsPanel()
       : resolvedActive === 'backup' ? this.backupPanel()
       : resolvedActive === 'users' ? this.usersPanel()
@@ -2463,6 +2534,7 @@ var SettingsModal = {
             ${this.sectionButton('rd','Conexão RD Station','plug-zap')}
             ${App.currentUser?.isMaster ? this.sectionButton('users','Usuários','users') : ''}
             ${this.sectionButton('execution','Execução Operacional','kanban')}
+            ${this.sectionButton('integrations','Integrações','link')}
             ${this.sectionButton('agents','Agentes Externos','cpu')}
             ${this.sectionButton('backup','Backup em breve','archive')}
           </aside>

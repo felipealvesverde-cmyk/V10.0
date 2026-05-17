@@ -4286,28 +4286,32 @@ Object.assign(Actions, {
     Utils.toast(`"${name}" criada como rascunho e conectada ao OKR. Complete em Ações de Campanha para a leitura ficar precisa.`);
   },
 
+  // V30.0.0 — Agora abre o CreateClickupTaskModal (Caminho híbrido C) ao invés de
+  // mandar tudo via chat Djow. Pré-preenche título/descrição com contexto do OKR;
+  // user pode refinar via botão "Falar com Djow" no próprio modal.
   createTaskFromOkr(productId, objectiveId, okrId, actionId) {
     const map = window.StrategicMapEngine ? StrategicMapEngine.getForProduct(productId) : null;
     const obj = map?.objectives?.find(o => o.id === objectiveId);
     const kr = obj?.okrs?.find(k => k.id === okrId);
     const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
     if (!kr || !action) return Utils.toast('OKR ou ação não encontrada.');
-    const providerLabel = window.ExecutionProviderRegistry?.byId(ExecutionProviderRegistry.getDefaultProviderId())?.label || 'Manual';
-    const seed = [
-      `Djow, crie uma tarefa de execução para o OKR "${kr.name}".`,
-      `Objetivo estratégico: ${obj.label}.`,
-      `Meta: ${kr.target} ${kr.metric}. Atual: ${kr.current || 0}. ${kr.deadline ? `Prazo: ${kr.deadline}.` : ''}`,
-      `Ação operacional vinculada: ${action.name}.`,
-      `Provider de destino: ${providerLabel}.`,
-      kr.owner ? `Responsável sugerido: ${kr.owner}.` : '',
-      'Estruture: título, responsável, prazo, descrição e prioridade.'
+    const suggestedName = `[${kr.name}] ${action.name}`;
+    const descLines = [
+      `OKR: ${kr.name}`,
+      `Objetivo: ${obj.label}`,
+      `Meta: ${kr.target} ${kr.metric} (atual: ${kr.current || 0})`,
+      kr.deadline ? `Prazo do OKR: ${kr.deadline}` : null,
+      `Ação operacional: ${action.name}`,
+      kr.owner ? `Responsável sugerido: ${kr.owner}` : null
     ].filter(Boolean).join('\n');
     App.state.showStrategicMap = false;
-    App.state.djowModalActionId = Number(actionId);
-    App.state.djowDraftMessage = seed;
-    App.state.djowSending = false;
-    App.state.showDjowModal = true;
-    App.save(); App.render();
+    Actions.openCreateClickupTaskModal({
+      summary: `OKR "${kr.name}" · Ação "${action.name}"`,
+      productId, objectiveId, okrId, actionId: Number(actionId),
+      suggestedName,
+      suggestedDescription: descLines,
+      suggestedDueDate: kr.deadline || ''
+    });
   },
 
   updateStrategicVision(value) {
@@ -4711,6 +4715,260 @@ Object.assign(Actions, {
       StrategicMapEngine.ensureComercialAreas(Number(campaign.productId), Number(campaignId));
     }
     App.save(); App.render();
+  },
+
+  // V30.0.0 — INTEGRAÇÃO CLICKUP. Actions pra Settings UI + criar task via modal.
+
+  // Carrega status ClickUp do backend.
+  async loadClickupStatus() {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-config', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (data.ok) {
+        App.state.clickupStatus = {
+          configured: data.configured,
+          connected: data.connected,
+          workspaceName: data.workspaceName,
+          encryptionReady: data.encryptionReady
+        };
+        App.save(); App.render();
+      }
+    } catch (err) { console.warn('[clickup] loadStatus erro:', err); }
+  },
+
+  updateClickupConfigDraft(field, value) {
+    App.state.clickupConfigDraft = { ...(App.state.clickupConfigDraft || {}), [field]: value };
+  },
+
+  async saveClickupConfig() {
+    const draft = App.state.clickupConfigDraft || {};
+    if (!draft.client_id || !draft.client_secret) return Utils.toast('Preencha Client ID e Client Secret.');
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ client_id: draft.client_id, client_secret: draft.client_secret })
+      });
+      const data = await r.json();
+      if (data.ok) {
+        Utils.toast('✓ Credenciais salvas. Agora clique em Conectar.');
+        App.state.clickupConfigDraft = { client_id: '', client_secret: '' };
+        await Actions.loadClickupStatus();
+      } else {
+        Utils.toast(`Erro: ${data.message}`);
+      }
+    } catch (err) { Utils.toast(`Erro de rede: ${err.message}`); }
+  },
+
+  async connectClickup() {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-oauth-init', {
+        method: 'GET', headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (data.ok && data.url) {
+        window.open(data.url, '_blank', 'noopener,noreferrer');
+        Utils.toast('Aguarde autorização no ClickUp...');
+        // Pollar status a cada 2s por até 60s pra detectar quando conecta
+        let attempts = 0;
+        const poll = setInterval(async () => {
+          attempts++;
+          await Actions.loadClickupStatus();
+          if (App.state.clickupStatus?.connected || attempts >= 30) clearInterval(poll);
+        }, 2000);
+      } else {
+        Utils.toast(`Erro: ${data.message}`);
+      }
+    } catch (err) { Utils.toast(`Erro: ${err.message}`); }
+  },
+
+  async disconnectClickup() {
+    if (!confirm('Tem certeza que quer desconectar o ClickUp?')) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-config', {
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (data.ok) {
+        Utils.toast('ClickUp desconectado.');
+        await Actions.loadClickupStatus();
+      } else {
+        Utils.toast(`Erro: ${data.message}`);
+      }
+    } catch (err) { Utils.toast(`Erro: ${err.message}`); }
+  },
+
+  // V30.0.0 — Proxy genérico pra chamar ClickUp API do frontend (sem expor token).
+  async clickupApi(method, path, body) {
+    const token = localStorage.getItem('lj_jwt');
+    const r = await fetch('/api/clickup-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ method, path, body })
+    });
+    return r.json();
+  },
+
+  // V30.0.0 — Abre o modal de criar task. Recebe contexto (KR/ação) e pré-preenche.
+  openCreateClickupTaskModal(seedContext) {
+    App.state.createClickupTaskModal = {
+      open: true,
+      loading: true,
+      loadError: null,
+      expanded: false,
+      lists: [],
+      users: [],
+      seedContext: seedContext || null,
+      draft: {
+        list_id: '',
+        name: seedContext?.suggestedName || '',
+        description: seedContext?.suggestedDescription || '',
+        priority: 3,
+        due_date: seedContext?.suggestedDueDate || '',
+        assignees: [],
+        tags: []
+      }
+    };
+    App.render();
+    // Carrega lists + users do ClickUp em paralelo.
+    (async () => {
+      try {
+        const teamsRes = await Actions.clickupApi('GET', '/team', null);
+        const teams = teamsRes?.data?.teams || [];
+        if (!teams.length) throw new Error('Nenhum workspace encontrado.');
+        const teamId = teams[0].id;
+        const [lists, users] = await Promise.all([
+          Actions._loadAllClickupLists(teamId),
+          Actions._loadClickupTeamMembers(teamId)
+        ]);
+        if (App.state.createClickupTaskModal) {
+          App.state.createClickupTaskModal.lists = lists;
+          App.state.createClickupTaskModal.users = users;
+          App.state.createClickupTaskModal.loading = false;
+          App.render();
+        }
+      } catch (err) {
+        if (App.state.createClickupTaskModal) {
+          App.state.createClickupTaskModal.loading = false;
+          App.state.createClickupTaskModal.loadError = err.message || 'Falha ao carregar dados do ClickUp.';
+          App.render();
+        }
+      }
+    })();
+  },
+
+  // V30.0.0 — Walka a hierarquia Workspace > Space > (Folder >) List e retorna flat list
+  // com labels "Space > Folder > List" ou "Space > List".
+  async _loadAllClickupLists(teamId) {
+    const spacesRes = await Actions.clickupApi('GET', `/team/${teamId}/space`, null);
+    const spaces = spacesRes?.data?.spaces || [];
+    const all = [];
+    await Promise.all(spaces.map(async space => {
+      const [folderlessRes, foldersRes] = await Promise.all([
+        Actions.clickupApi('GET', `/space/${space.id}/list`, null),
+        Actions.clickupApi('GET', `/space/${space.id}/folder`, null)
+      ]);
+      (folderlessRes?.data?.lists || []).forEach(l => {
+        all.push({ id: l.id, label: `${space.name} > ${l.name}` });
+      });
+      const folders = foldersRes?.data?.folders || [];
+      await Promise.all(folders.map(async folder => {
+        const listsRes = await Actions.clickupApi('GET', `/folder/${folder.id}/list`, null);
+        (listsRes?.data?.lists || []).forEach(l => {
+          all.push({ id: l.id, label: `${space.name} > ${folder.name} > ${l.name}` });
+        });
+      }));
+    }));
+    all.sort((a, b) => a.label.localeCompare(b.label));
+    return all;
+  },
+
+  async _loadClickupTeamMembers(teamId) {
+    const r = await Actions.clickupApi('GET', `/team/${teamId}/member`, null);
+    const members = r?.data?.members || [];
+    return members.map(m => ({
+      id: m.user?.id || m.id,
+      username: m.user?.username || m.username || '—',
+      email: m.user?.email || m.email || ''
+    }));
+  },
+
+  closeCreateClickupTaskModal() {
+    App.state.createClickupTaskModal = null;
+    App.render();
+  },
+
+  updateClickupTaskField(field, value) {
+    if (!App.state.createClickupTaskModal) return;
+    App.state.createClickupTaskModal.draft = { ...App.state.createClickupTaskModal.draft, [field]: value };
+  },
+
+  toggleClickupTaskExpanded() {
+    if (!App.state.createClickupTaskModal) return;
+    App.state.createClickupTaskModal.expanded = !App.state.createClickupTaskModal.expanded;
+    App.render();
+  },
+
+  toggleClickupAssignee(userId) {
+    const m = App.state.createClickupTaskModal;
+    if (!m) return;
+    const uid = Number(userId);
+    const arr = Array.isArray(m.draft.assignees) ? m.draft.assignees.slice() : [];
+    const idx = arr.indexOf(uid);
+    if (idx >= 0) arr.splice(idx, 1); else arr.push(uid);
+    m.draft.assignees = arr;
+    App.render();
+  },
+
+  updateClickupTaskTags(rawValue) {
+    const m = App.state.createClickupTaskModal;
+    if (!m) return;
+    m.draft.tags = String(rawValue || '').split(',').map(t => t.trim()).filter(Boolean);
+  },
+
+  async submitClickupTask() {
+    const m = App.state.createClickupTaskModal;
+    if (!m) return;
+    const d = m.draft;
+    if (!d.name) return Utils.toast('Título obrigatório.');
+    if (!d.list_id) return Utils.toast('Escolha a Lista no ClickUp.');
+    const body = {
+      name: d.name,
+      description: d.description,
+      priority: Number(d.priority) || 3,
+      due_date: d.due_date ? new Date(d.due_date).getTime() : undefined,
+      assignees: d.assignees,
+      tags: d.tags
+    };
+    const r = await Actions.clickupApi('POST', `/list/${d.list_id}/task`, body);
+    if (r.ok) {
+      Utils.toast(`✓ Tarefa criada no ClickUp${r.data?.url ? ` · clique pra abrir` : ''}`);
+      App.state.createClickupTaskModal = null;
+      App.save(); App.render();
+      if (r.data?.url) window.open(r.data.url, '_blank', 'noopener,noreferrer');
+    } else {
+      Utils.toast(`Erro: ${r.data?.err || r.message || 'falha'}`);
+    }
+  },
+
+  // Refinar via Djow: abre o chat Djow com a sugestão de modificar a task que o user tá editando.
+  openDjowFromClickupModal() {
+    const m = App.state.createClickupTaskModal;
+    if (!m) return;
+    const d = m.draft;
+    const seed = `Djow, ajuda a refinar essa tarefa que vou criar no ClickUp:
+Título: ${d.name}
+Descrição: ${d.description}
+Prazo: ${d.due_date || 'sem prazo'}
+Prioridade: ${d.priority}
+
+[me sugere melhorias e me ajuda a ajustar]`;
+    App.state.djowInput = seed;
+    Actions.openDjowAIModal();
   },
 
   // V29.0.0 — Troca a branch ativa dentro do Mapa (switcher no header).

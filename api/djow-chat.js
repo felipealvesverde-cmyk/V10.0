@@ -203,6 +203,53 @@ const TOOLS = [
       required: ['path']
     }
   },
+  // V30.0.0 — TOOLS CLICKUP. Cria/atualiza/lista no ClickUp via OAuth do user.
+  // Pré-condição: user precisa estar conectado em Settings → Integrations → ClickUp.
+  {
+    name: 'create_clickup_task',
+    description: 'Cria task no ClickUp dentro de uma list. Use quando user pedir "cria tarefa", "manda pro ClickUp", etc. Use list_clickup_lists antes pra pegar list_id se não souber.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        list_id: { type: 'string', description: 'ID da list no ClickUp onde criar a task' },
+        name: { type: 'string', description: 'Título da task' },
+        description: { type: 'string', description: 'Descrição/contexto (markdown ok)' },
+        priority: { type: 'integer', description: '1=Urgent, 2=High, 3=Normal, 4=Low' },
+        due_date: { type: 'integer', description: 'Timestamp Unix em ms' },
+        assignees: { type: 'array', items: { type: 'integer' }, description: 'IDs dos users do ClickUp' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Tags' }
+      },
+      required: ['list_id', 'name']
+    }
+  },
+  {
+    name: 'update_clickup_task',
+    description: 'Atualiza uma task no ClickUp (mudar prazo, responsável, status, etc.). Use quando user pedir "muda essa task", "atualiza a tarefa", etc.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'ID da task no ClickUp' },
+        name: { type: 'string' },
+        description: { type: 'string' },
+        priority: { type: 'integer' },
+        due_date: { type: 'integer' },
+        status: { type: 'string' },
+        assignees_add: { type: 'array', items: { type: 'integer' } },
+        assignees_rem: { type: 'array', items: { type: 'integer' } }
+      },
+      required: ['task_id']
+    }
+  },
+  {
+    name: 'list_clickup_lists',
+    description: 'Lista todas as lists do workspace conectado do user (varre spaces + folders). Use pra achar list_id pra criar task.',
+    input_schema: { type: 'object', properties: {}, required: [] }
+  },
+  {
+    name: 'list_clickup_users',
+    description: 'Lista members do workspace conectado. Use pra achar user_id de assignee pelo nome/email.',
+    input_schema: { type: 'object', properties: {}, required: [] }
+  },
   // V29.1.2 — Abre o Mapa da Receita pro user na vista CEO (productId) OU
   // direto na branch de uma campanha (campaignId). Use quando user pedir tipo
   // "abre o mapa da receita do produto X" ou "mostra a campanha Y do mapa".
@@ -276,7 +323,10 @@ function safeReadSourcePath(rawPath) {
 // V26.0.0 — Implementação das tools (server-side).
 // V26.2.0 — Adicionado suporte a write tools (create_*) que mutam Postgres.
 // Retorna { result, stateMutation? }. stateMutation diz se tool modificou state.
-function execTool(name, input, state) {
+// V30.0.0 — execTool ficou async pra suportar tools que fazem HTTP (ClickUp).
+// ctx contém { db, userId } pra tools que precisam consultar Postgres ou
+// chamar APIs externas com OAuth tokens do user.
+async function execTool(name, input, state, ctx) {
   try {
     switch (name) {
       case 'get_revenue_summary': {
@@ -485,6 +535,72 @@ function execTool(name, input, state) {
         } catch (err) {
           return { error: err.message };
         }
+      }
+      // V30.0.0 — TOOLS CLICKUP. Usam ctx.db + ctx.userId pra chamar ClickUp API com OAuth.
+      case 'create_clickup_task': {
+        if (!ctx?.db || !ctx?.userId) return { error: 'Contexto ausente.' };
+        if (!input.list_id || !input.name) return { error: 'list_id e name obrigatórios.' };
+        const { clickupFetch } = require('../lib/clickup-client');
+        const body = { name: input.name };
+        if (input.description) body.description = input.description;
+        if (input.priority != null) body.priority = Number(input.priority);
+        if (input.due_date != null) body.due_date = Number(input.due_date);
+        if (Array.isArray(input.assignees) && input.assignees.length) body.assignees = input.assignees.map(Number);
+        if (Array.isArray(input.tags) && input.tags.length) body.tags = input.tags;
+        const r = await clickupFetch(ctx.db, ctx.userId, 'POST', `/list/${input.list_id}/task`, body);
+        if (!r.ok) return { error: r.data?.err || `HTTP ${r.status}`, status: r.status };
+        return { ok: true, task: { id: r.data.id, name: r.data.name, url: r.data.url, status: r.data.status?.status } };
+      }
+      case 'update_clickup_task': {
+        if (!ctx?.db || !ctx?.userId) return { error: 'Contexto ausente.' };
+        if (!input.task_id) return { error: 'task_id obrigatório.' };
+        const { clickupFetch } = require('../lib/clickup-client');
+        const body = {};
+        ['name', 'description', 'status'].forEach(k => { if (input[k] != null) body[k] = input[k]; });
+        if (input.priority != null) body.priority = Number(input.priority);
+        if (input.due_date != null) body.due_date = Number(input.due_date);
+        if (Array.isArray(input.assignees_add) || Array.isArray(input.assignees_rem)) {
+          body.assignees = {
+            add: (input.assignees_add || []).map(Number),
+            rem: (input.assignees_rem || []).map(Number)
+          };
+        }
+        const r = await clickupFetch(ctx.db, ctx.userId, 'PUT', `/task/${input.task_id}`, body);
+        if (!r.ok) return { error: r.data?.err || `HTTP ${r.status}`, status: r.status };
+        return { ok: true, task: { id: r.data.id, name: r.data.name, url: r.data.url, status: r.data.status?.status } };
+      }
+      case 'list_clickup_lists': {
+        if (!ctx?.db || !ctx?.userId) return { error: 'Contexto ausente.' };
+        const { clickupFetch } = require('../lib/clickup-client');
+        // 1) lista workspaces
+        const teams = await clickupFetch(ctx.db, ctx.userId, 'GET', '/team');
+        if (!teams.ok) return { error: teams.data?.err || `HTTP ${teams.status}` };
+        const out = [];
+        for (const team of (teams.data?.teams || []).slice(0, 1)) {  // só 1º workspace por simplicidade
+          const spaces = await clickupFetch(ctx.db, ctx.userId, 'GET', `/team/${team.id}/space`);
+          for (const space of (spaces.data?.spaces || [])) {
+            const folders = await clickupFetch(ctx.db, ctx.userId, 'GET', `/space/${space.id}/folder`);
+            for (const folder of (folders.data?.folders || [])) {
+              for (const list of (folder.lists || [])) out.push({ id: list.id, name: list.name, path: `${team.name} / ${space.name} / ${folder.name} / ${list.name}` });
+            }
+            const folderless = await clickupFetch(ctx.db, ctx.userId, 'GET', `/space/${space.id}/list`);
+            for (const list of (folderless.data?.lists || [])) out.push({ id: list.id, name: list.name, path: `${team.name} / ${space.name} / ${list.name}` });
+          }
+        }
+        return { lists: out };
+      }
+      case 'list_clickup_users': {
+        if (!ctx?.db || !ctx?.userId) return { error: 'Contexto ausente.' };
+        const { clickupFetch } = require('../lib/clickup-client');
+        const teams = await clickupFetch(ctx.db, ctx.userId, 'GET', '/team');
+        if (!teams.ok) return { error: teams.data?.err || `HTTP ${teams.status}` };
+        const out = [];
+        for (const team of (teams.data?.teams || []).slice(0, 1)) {
+          for (const m of (team.members || [])) {
+            if (m.user) out.push({ id: m.user.id, name: m.user.username, email: m.user.email });
+          }
+        }
+        return { users: out };
       }
       // V29.1.2 — Tool de navegação UI. Retorna marker `_pendingNav` que o handler
       // propaga pro frontend, que dispara Actions.openStrategicMap* correspondente.
@@ -829,7 +945,8 @@ NÃO use tool de write (V27.0.x não tem ainda).`
     messages.push({ role: 'assistant', content: resp.content });
     const toolResults = [];
     for (const tu of toolUses) {
-      const result = execTool(tu.name, tu.input || {}, state);
+      // V30.0.0 — execTool agora é async + recebe ctx { db, userId } pras tools ClickUp.
+      const result = await execTool(tu.name, tu.input || {}, state, { db: req.db, userId: req.user.id });
       // Se tool retornou _pendingWrite, aplica no Postgres e atualiza state local
       if (result && result._pendingWrite) {
         const writeRes = await applyStateWrite(req.db, req.user.id, result._pendingWrite);
