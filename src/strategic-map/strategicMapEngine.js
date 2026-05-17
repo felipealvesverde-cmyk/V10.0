@@ -672,6 +672,106 @@ window.StrategicMapEngine = {
     return 'active';                         // 🟣 roxo
   },
 
+  // V29.3.0 — CATÁLOGO CUSTOM DE AÇÕES (engine que aprende).
+  // Escopo: empresa toda (transversal entre produtos e mapas).
+  // Cada custom tem sector + funnel + destination + channel + usageByKr (pra ML fase 2).
+  // V1: filtragem só por sector (= área ativa); ML fase 2 esconde via curva C.
+  getCustomActions() {
+    return App.state.customActionCatalog || [];
+  },
+
+  getCustomActionsForArea(areaId) {
+    return this.getCustomActions().filter(c => c.sector === areaId);
+  },
+
+  // Dedup por nome (case-insensitive). Retorna {ok, action, error}.
+  addCustomAction(data) {
+    const name = String(data.name || '').trim();
+    if (!name) return { ok: false, error: 'Nome obrigatório.' };
+    const existing = this.getCustomActions().find(c => c.name.toLowerCase() === name.toLowerCase());
+    if (existing) return { ok: false, error: `Já existe uma ação custom com o nome "${existing.name}". Escolha outro nome ou use a existente.` };
+    const action = {
+      id: `cust_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      name,
+      sector: data.sector,                       // 'marketing' | 'sales' | 'cs'
+      funnel: data.funnel,                        // 'TOF' | 'MOF' | 'BOF'
+      destinationSector: data.destinationSector,
+      destinationFunnel: data.destinationFunnel,
+      channel: data.channel,                     // do Config.channels ou 'Outro: xxx'
+      actionType: data.actionType || 'Outro',
+      origin: { productId: data.originProductId || null, krCatalogId: data.originKrCatalogId || null },
+      usageByKr: {},                              // pra ML fase 2: {krCatalogId: count}
+      createdAt: new Date().toISOString()
+    };
+    App.state.customActionCatalog = [...this.getCustomActions(), action];
+    return { ok: true, action };
+  },
+
+  // Conta uso da custom num KR específico (pra ML futuro).
+  incrementCustomActionUsage(customId, krCatalogId) {
+    const list = this.getCustomActions();
+    App.state.customActionCatalog = list.map(c => {
+      if (c.id !== customId) return c;
+      const usage = { ...(c.usageByKr || {}) };
+      usage[krCatalogId] = (usage[krCatalogId] || 0) + 1;
+      return { ...c, usageByKr: usage };
+    });
+  },
+
+  // V29.3.0 — Ativa uma custom action num KR específico (similar ao
+  // activateCatalogAction mas pra customs). Auto-vincula ao KR-filho.
+  activateCustomAction(productId, areaId, customActionId, parentProductKrId, campaignId) {
+    const custom = this.getCustomActions().find(c => c.id === customActionId);
+    if (!custom) return { error: 'Custom action não encontrada.' };
+    const targetCampaignId = campaignId || this._getActiveCampaignId(productId);
+    if (!targetCampaignId) return { needsCampaign: true };
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(targetCampaignId));
+    if (!campaign) return { error: 'Campanha não encontrada.' };
+    const objective = this.getObjectiveByArea(productId, areaId, targetCampaignId);
+    if (!objective) return { error: 'Frente não encontrada.' };
+    const productKr = this.getProductKrs(productId).find(k => k.id === parentProductKrId);
+    const action = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      campaignId: Number(targetCampaignId),
+      name: custom.name,
+      channel: custom.channel,
+      actionType: custom.actionType,
+      sector: custom.sector === 'marketing' ? 'Marketing' : (custom.sector === 'sales' ? 'Vendas' : 'CS'),
+      funnel: custom.funnel,
+      originSector: custom.sector === 'marketing' ? 'Marketing' : (custom.sector === 'sales' ? 'Vendas' : 'CS'),
+      originFunnel: custom.funnel,
+      destinationSector: custom.destinationSector === 'marketing' ? 'Marketing' : (custom.destinationSector === 'sales' ? 'Vendas' : 'CS'),
+      destinationFunnel: custom.destinationFunnel,
+      status: 'Rascunho estratégico (custom)',
+      isDraft: true,
+      leads: [], okrs: [], kpis: [], flowPath: [], flow: null, flowConfig: null,
+      scoreId: (App.state.scores?.[0]?.id) || 1,
+      connected: false, connectionStatus: 'ready',
+      conversionObjective: '', objective: '',
+      expectedConversion: 25, mailingDefined: false,
+      strategicAreaId: areaId,
+      strategicCustomActionId: customActionId,    // V29.3 — marca como custom
+      strategicDescription: `Ação custom criada via engine`,
+      strategicOwner: '',
+      strategicCadence: null,
+      strategicStatus: 'planned',
+      strategicConfirmed: false,
+      createdAt: new Date().toISOString()
+    };
+    App.state.actions = [action, ...(App.state.actions || [])];
+    // Auto-vincula ao KR-filho que tem esse parentProductKrId
+    if (productKr && window.StrategicOkrEngine) {
+      (objective.okrs || []).forEach(kr => {
+        if (kr.parentProductKrId === parentProductKrId) {
+          StrategicOkrEngine.toggleAction(productId, objective.id, kr.id, action.id, targetCampaignId);
+        }
+      });
+    }
+    // Incrementa usage pra ML futuro
+    if (productKr?.catalogId) this.incrementCustomActionUsage(customActionId, productKr.catalogId);
+    return { action };
+  },
+
   // V29.1.3 — Marca os KRs-mãe como "executados" (publicados pros gestores).
   // É um ponto explícito de "agora vai pra produção". Antes disso, gestores
   // veem os KRs como rascunho do CEO (não devem plugar).

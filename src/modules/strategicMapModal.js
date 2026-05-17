@@ -1417,6 +1417,9 @@ window.StrategicMapModal = {
         </div>
       </section>`;
     }
+    // V29.3.0 — tabs Mkt/Vendas/CS, renderiza só a área ativa
+    const activeAreaId = this._activeAreaId(product.id);
+    const activeArea = areas.find(a => a.id === activeAreaId) || areas[0];
     return `<section class="space-y-3">
       ${this._stepIntro(
         `Plugue os números e ative as ações da ${Utils.escape(campaign?.name || 'campanha')}`,
@@ -1429,7 +1432,9 @@ window.StrategicMapModal = {
 
       ${this._unifiedWorkCampaignHeader(product, campaign)}
 
-      ${areas.map(area => this._unifiedAreaBlock(product, area, productKrs.filter(k => k.area === area.id), campaignId)).join('')}
+      ${this._handoffNav(product)}
+
+      ${this._unifiedAreaBlock(product, activeArea, productKrs.filter(k => k.area === activeArea.id), campaignId)}
 
       ${this._stepCta('Próximo passo: colocar em campo', this._anyActionConnectedInBranch(campaignId))}
     </section>`;
@@ -1493,40 +1498,133 @@ window.StrategicMapModal = {
     </div>`;
   },
 
+  // V29.3.0 — Card reescrito: layout split (esquerda 3/4 engine + direita 1/4 metas)
+  // + balão (?) em cada meta + catálogo scroll horizontal embaixo (curadas + customs).
   _unifiedKrPluggedCard(product, area, pkr, branchObj, childKr, campaignId) {
     const tone = area.color;
-    // Filtra ações do catálogo que movem este KPI (kpiIds.includes(pkr.catalogId))
-    const allActionTemplates = (StrategicMapEngine.STRATEGIC_ACTION_CATALOG[area.id] || []);
-    const relevantTemplates = allActionTemplates.filter(t => (t.kpiIds || []).includes(pkr.catalogId));
+    const allTemplates = (StrategicMapEngine.STRATEGIC_ACTION_CATALOG[area.id] || []);
+    const relevantTemplates = allTemplates.filter(t => (t.kpiIds || []).includes(pkr.catalogId));
     const activatedIds = StrategicMapEngine.getActivatedCatalogActionIds(product.id, area.id, campaignId);
-    return `<div class="rounded-2xl bg-emerald-500/[0.06] border border-emerald-400/30 p-3 space-y-2.5">
+    const customs = StrategicMapEngine.getCustomActionsForArea ? StrategicMapEngine.getCustomActionsForArea(area.id) : [];
+    const activatedCustomIds = new Set(((App.state.actions || []).filter(a => Number(a.campaignId) === Number(campaignId) && a.strategicCustomActionId)).map(a => a.strategicCustomActionId));
+    const helpOpen = App.state.strategicMetaHelpOpen || {};
+    const safeKey = `kr-${childKr.id}-safe`;
+    const advKey = `kr-${childKr.id}-adv`;
+    const engineOpen = App.state.customActionEngine && App.state.customActionEngine.parentProductKrId === pkr.id;
+
+    return `<div class="rounded-2xl bg-emerald-500/[0.06] border border-emerald-400/30 p-3 space-y-3">
+      <!-- Header -->
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0 flex-1">
           <p class="font-black text-white text-[13px]"><span class="text-emerald-300">✓ Plugado</span> · ${Utils.escape(childKr.name)}</p>
-          <p class="text-[10px] text-slate-400 mt-0.5">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${childKr.metric || ''} · sua contribuição abaixo</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${childKr.metric || ''}</p>
         </div>
         <button onclick="Actions.removeStrategicOkr('${branchObj.id}','${childKr.id}')" title="Desplugar" class="px-1.5 py-0.5 rounded text-[10px] text-red-300 hover:bg-red-500/20 border border-red-400/30 shrink-0">×</button>
       </div>
 
-      <div class="grid grid-cols-2 gap-1.5">
-        <label class="flex flex-col gap-0.5">
-          <span class="text-[9px] font-black text-emerald-300 uppercase">🔒 Meta Segura</span>
-          <input type="number" value="${childKr.targetCommitted ?? ''}" placeholder="piso" oninput="Actions.updateStrategicOkrField('${branchObj.id}','${childKr.id}','targetCommitted', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
-        </label>
-        <label class="flex flex-col gap-0.5">
-          <span class="text-[9px] font-black text-violet-300 uppercase">🚀 Meta Avançada</span>
-          <input type="number" value="${childKr.targetStretch ?? ''}" placeholder="sonho" oninput="Actions.updateStrategicOkrField('${branchObj.id}','${childKr.id}','targetStretch', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
-        </label>
+      <!-- Split: esquerda (engine) + direita (metas) -->
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
+        <!-- ESQUERDA (3/4): engine -->
+        <div class="lg:col-span-3">
+          ${engineOpen ? this._customActionEngineForm(area, pkr) : `<button onclick="Actions.openCustomActionEngine('${area.id}', '${pkr.id}')" class="w-full px-3 py-2.5 rounded-xl bg-${tone}-500/10 hover:bg-${tone}-500/20 border border-dashed border-${tone}-400/40 text-${tone}-100 text-[12px] font-black flex items-center justify-center gap-1.5 transition"><i data-lucide="zap" class="w-3.5 h-3.5"></i> Criar engine de ação</button>`}
+        </div>
+
+        <!-- DIREITA (1/4): metas -->
+        <div class="lg:col-span-1 space-y-2">
+          <div>
+            <label class="flex items-center justify-between gap-1 mb-0.5">
+              <span class="text-[9px] font-black text-emerald-300 uppercase">🔒 Meta Segura</span>
+              <button onclick="Actions.toggleStrategicMetaHelp('${safeKey}')" title="O que é Meta Segura?" class="w-4 h-4 rounded-full bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-400/30 text-emerald-200 text-[9px] font-black grid place-items-center">?</button>
+            </label>
+            <input type="number" value="${childKr.targetCommitted ?? ''}" placeholder="piso" oninput="Actions.updateStrategicOkrField('${branchObj.id}','${childKr.id}','targetCommitted', this.value)" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+            ${helpOpen[safeKey] ? `<p class="text-[10px] text-emerald-100 bg-emerald-500/10 border border-emerald-400/30 rounded p-1.5 mt-1 leading-relaxed">É o piso: o número mínimo que essa campanha vai entregar. Se não bater, é falha. Sem ambição, só compromisso.</p>` : ''}
+          </div>
+          <div>
+            <label class="flex items-center justify-between gap-1 mb-0.5">
+              <span class="text-[9px] font-black text-violet-300 uppercase">🚀 Meta Avançada</span>
+              <button onclick="Actions.toggleStrategicMetaHelp('${advKey}')" title="O que é Meta Avançada?" class="w-4 h-4 rounded-full bg-violet-500/20 hover:bg-violet-500/40 border border-violet-400/30 text-violet-200 text-[9px] font-black grid place-items-center">?</button>
+            </label>
+            <input type="number" value="${childKr.targetStretch ?? ''}" placeholder="sonho" oninput="Actions.updateStrategicOkrField('${branchObj.id}','${childKr.id}','targetStretch', this.value)" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+            ${helpOpen[advKey] ? `<p class="text-[10px] text-violet-100 bg-violet-500/10 border border-violet-400/30 rounded p-1.5 mt-1 leading-relaxed">É o sonho: o número que faz o time brilhar o olho. Geralmente 30-50% acima da Segura. Se atingir 70% da Avançada, já é vitória.</p>` : ''}
+          </div>
+        </div>
       </div>
 
+      <!-- Catálogo embaixo: scroll horizontal com curadas + customs -->
       <div class="pt-2 border-t border-emerald-400/20">
         <p class="text-[10px] font-black text-emerald-300 uppercase tracking-wider mb-1.5">Como cobrir esse número?</p>
-        ${relevantTemplates.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem ações do catálogo que movam este número.</p>' : `<div class="flex flex-wrap gap-1.5">
+        ${relevantTemplates.length === 0 && customs.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem ações do catálogo que movam este número. Use o "Criar engine de ação" ao lado.</p>' : `<div class="flex gap-1.5 overflow-x-auto pb-2" style="scrollbar-width:thin;">
           ${relevantTemplates.map(t => {
-            const isActivated = activatedIds.has(t.id);
-            return `<button onclick="Actions.activateStrategicCatalogAction('${area.id}', '${t.id}')" ${isActivated ? 'disabled' : ''} title="${Utils.escape(t.description)}" class="px-2.5 py-1.5 rounded-lg text-[11px] font-bold border ${isActivated ? `bg-emerald-500/20 border-emerald-400/40 text-emerald-200 cursor-default` : `bg-slate-900 hover:bg-slate-800 border-${tone}-400/30 text-${tone}-100`}">${isActivated ? '✓ ' : '+ '}${Utils.escape(t.name)}</button>`;
+            const isAct = activatedIds.has(t.id);
+            return `<button onclick="Actions.activateStrategicCatalogAction('${area.id}', '${t.id}')" ${isAct ? 'disabled' : ''} title="${Utils.escape(t.description)}" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border ${isAct ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-200 cursor-default' : `bg-slate-900 hover:bg-slate-800 border-${tone}-400/30 text-${tone}-100`}">${isAct ? '✓ ' : '+ '}${Utils.escape(t.name)}</button>`;
+          }).join('')}
+          ${customs.map(c => {
+            const isAct = activatedCustomIds.has(c.id);
+            return `<button onclick="Actions.activateExistingCustomAction('${area.id}', '${c.id}', '${pkr.id}')" ${isAct ? 'disabled' : ''} title="Custom · ${Utils.escape(c.channel)}" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border-2 border-dashed ${isAct ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-200 cursor-default' : `bg-slate-900 hover:bg-slate-800 border-${tone}-400/50 text-${tone}-100`}">${isAct ? '✓ ' : '✨ '}${Utils.escape(c.name)}<span class="opacity-60"> · sua</span></button>`;
           }).join('')}
         </div>`}
+      </div>
+    </div>`;
+  },
+
+  // V29.3.0 — Form da engine de criação de ação custom (abre quando user clica
+  // "Criar engine de ação"). Vocabulário humano (Topo/Meio/Fundo, não TOF/MOF/BOF).
+  _customActionEngineForm(area, pkr) {
+    const eng = App.state.customActionEngine || {};
+    const channels = (window.Config?.allChannels?.() || []);
+    const tone = area.color;
+    const funnelOptions = [
+      { v: 'TOF', l: 'Topo (atração)' },
+      { v: 'MOF', l: 'Meio (qualificação)' },
+      { v: 'BOF', l: 'Fundo (decisão)' }
+    ];
+    const sectorOptions = (StrategicMapEngine.COMERCIAL_AREAS || []);
+    return `<div class="rounded-xl bg-slate-900/60 border border-${tone}-400/40 p-3 space-y-2.5">
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-[11px] font-black text-${tone}-200 uppercase tracking-wider"><i data-lucide="zap" class="w-3 h-3 inline-block"></i> Nova ação custom · ${Utils.escape(area.label)}</p>
+        <button onclick="Actions.closeCustomActionEngine()" class="text-slate-400 hover:text-white text-[12px] font-black">✕</button>
+      </div>
+
+      <div>
+        <label class="block text-[9px] font-black text-slate-400 uppercase mb-0.5">Nome da ação</label>
+        <input value="${Utils.escape(eng.name || '')}" oninput="Actions.updateCustomActionEngineField('name', this.value)" placeholder="Ex: Webinar trimestral pra C-level" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[12px] font-bold placeholder:text-slate-600" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-[9px] font-black text-slate-400 uppercase mb-0.5">Onde começa <span class="text-slate-500">(${Utils.escape(area.label)})</span></label>
+          <select onchange="Actions.updateCustomActionEngineField('funnelPoint', this.value)" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" style="color-scheme:dark;">
+            <option value="">— escolha —</option>
+            ${funnelOptions.map(o => `<option value="${o.v}" ${eng.funnelPoint === o.v ? 'selected' : ''}>${o.l}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="block text-[9px] font-black text-slate-400 uppercase mb-0.5">Pra onde leva</label>
+          <div class="flex gap-1">
+            <select onchange="Actions.updateCustomActionEngineField('destSector', this.value)" class="flex-1 min-w-0 px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" style="color-scheme:dark;">
+              ${sectorOptions.map(s => `<option value="${s.id}" ${eng.destSector === s.id ? 'selected' : ''}>${s.label}</option>`).join('')}
+            </select>
+            <select onchange="Actions.updateCustomActionEngineField('destFunnelPoint', this.value)" class="flex-1 min-w-0 px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" style="color-scheme:dark;">
+              <option value="">— funil —</option>
+              ${funnelOptions.map(o => `<option value="${o.v}" ${eng.destFunnelPoint === o.v ? 'selected' : ''}>${o.l}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-[9px] font-black text-slate-400 uppercase mb-0.5">Canal</label>
+        <select onchange="Actions.updateCustomActionEngineField('channel', this.value)" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" style="color-scheme:dark;">
+          <option value="">— escolha —</option>
+          ${channels.map(c => `<option value="${Utils.escape(c)}" ${eng.channel === c ? 'selected' : ''}>${Utils.escape(c)}</option>`).join('')}
+          <option value="Outro" ${eng.channel === 'Outro' ? 'selected' : ''}>Outro (digitar)</option>
+        </select>
+        ${eng.channel === 'Outro' ? `<input value="${Utils.escape(eng.channelOther || '')}" oninput="Actions.updateCustomActionEngineField('channelOther', this.value)" placeholder="Nome do canal customizado" class="w-full mt-1 px-2 py-1.5 rounded bg-slate-900 border border-amber-400/40 text-white text-[11px] font-bold placeholder:text-slate-600" />` : ''}
+      </div>
+
+      <div class="flex justify-end gap-1.5 pt-1">
+        <button onclick="Actions.closeCustomActionEngine()" class="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-[10px] font-black">Cancelar</button>
+        <button onclick="Actions.createCustomAction()" class="px-3 py-1 rounded bg-${tone}-500 hover:bg-${tone}-600 text-white text-[10px] font-black flex items-center gap-1" style="color:#fff!important;"><i data-lucide="rocket" class="w-3 h-3"></i> Criar e plugar</button>
       </div>
     </div>`;
   },

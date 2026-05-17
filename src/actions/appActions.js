@@ -4718,6 +4718,82 @@ Object.assign(Actions, {
     Actions.openStrategicMapForCampaign(Number(campaignId));
   },
 
+  // V29.3.0 — Abre a engine de criação de ação custom no contexto de um KR.
+  openCustomActionEngine(areaId, parentProductKrId) {
+    const productId = App.state.strategicMapProductId;
+    const productKr = StrategicMapEngine.getProductKrs(productId).find(k => k.id === parentProductKrId);
+    App.state.customActionEngine = {
+      open: true,
+      areaId,
+      parentProductKrId,
+      originKrCatalogId: productKr?.catalogId || null,
+      name: '',
+      funnelPoint: '',          // 'TOF' | 'MOF' | 'BOF'
+      destSector: areaId,        // default: mesma área
+      destFunnelPoint: '',
+      channel: '',
+      channelOther: ''
+    };
+    App.render();
+  },
+
+  updateCustomActionEngineField(field, value) {
+    if (!App.state.customActionEngine) return;
+    App.state.customActionEngine = { ...App.state.customActionEngine, [field]: value };
+  },
+
+  closeCustomActionEngine() {
+    App.state.customActionEngine = null;
+    App.render();
+  },
+
+  // V29.3.0 — Cria custom action via engine. Valida → adiciona ao catálogo → pluga no KR atual.
+  createCustomAction() {
+    const eng = App.state.customActionEngine;
+    if (!eng) return;
+    const name = String(eng.name || '').trim();
+    if (!name) return Utils.toast('Dê um nome à ação.');
+    if (!eng.funnelPoint) return Utils.toast('Escolha onde a ação começa.');
+    if (!eng.destSector || !eng.destFunnelPoint) return Utils.toast('Escolha pra onde a ação leva.');
+    if (!eng.channel) return Utils.toast('Escolha o canal.');
+    const productId = App.state.strategicMapProductId;
+    const finalChannel = eng.channel === 'Outro' && eng.channelOther ? `Outro: ${String(eng.channelOther).trim()}` : eng.channel;
+    const result = StrategicMapEngine.addCustomAction({
+      name,
+      sector: eng.areaId,
+      funnel: eng.funnelPoint,
+      destinationSector: eng.destSector,
+      destinationFunnel: eng.destFunnelPoint,
+      channel: finalChannel,
+      actionType: 'Outro',
+      originProductId: productId,
+      originKrCatalogId: eng.originKrCatalogId
+    });
+    if (!result.ok) return Utils.toast(result.error);
+    // Ativa a custom já criada pro KR atual.
+    const activation = StrategicMapEngine.activateCustomAction(productId, eng.areaId, result.action.id, eng.parentProductKrId);
+    if (activation?.error) return Utils.toast(activation.error);
+    App.state.customActionEngine = null;
+    App.save(); App.render();
+    Utils.toast(`Ação custom "${name}" criada e plugada. Vai ficar na sua biblioteca pra reusar.`);
+  },
+
+  // V29.3.0 — Ativa custom action já existente no catálogo (clicando no chip).
+  activateExistingCustomAction(areaId, customActionId, parentProductKrId) {
+    const productId = App.state.strategicMapProductId;
+    const result = StrategicMapEngine.activateCustomAction(productId, areaId, customActionId, parentProductKrId);
+    if (result?.error) return Utils.toast(result.error);
+    App.save(); App.render();
+    Utils.toast('Ação plugada.');
+  },
+
+  // V29.3.0 — Toggle balão de ajuda (?) inline nas metas.
+  toggleStrategicMetaHelp(key) {
+    const current = App.state.strategicMetaHelpOpen || {};
+    App.state.strategicMetaHelpOpen = { ...current, [key]: !current[key] };
+    App.render();
+  },
+
   // V29.2.0 — Hub etapa 4: gestor clica "Seguir" numa campanha →
   // troca branch ativa + avança stepper pra etapa 5 (trabalho unificado).
   selectAndAdvanceCampaign(campaignId) {
