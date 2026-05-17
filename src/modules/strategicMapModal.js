@@ -419,13 +419,9 @@ window.StrategicMapModal = {
     const hasAdv = Number(kr.targetStretch ?? 0) > 0;
     const missingAdv = hasSafe && !hasAdv;
     const complete = StrategicOkrEngine.isComplete(kr);
-    const periods = [
-      { d: 7, label: '7 dias' },
-      { d: 15, label: '15 dias' },
-      { d: 30, label: '30 dias' },
-      { d: 90, label: '3 meses' },
-      { d: 180, label: '6 meses' }
-    ];
+    // V28.2.2 — Periodo Tatico unico (90d = 1 trimestre, padrao OKR).
+    // Removidas opcoes 7d/15d/30d/6m: borram conceito de "ciclo de OKR" pra quem nao conhece Doerr.
+    const periods = [{ d: 90, label: '90 dias — próximo trimestre' }];
 
     return `<div class="rounded-2xl bg-black/30 border border-${tone}-400/20 p-3 ${ringCls}">
       <div class="flex items-start justify-between gap-2 mb-2">
@@ -457,10 +453,11 @@ window.StrategicMapModal = {
       ${missingAdv ? `<div class="rounded-lg bg-amber-500/10 border border-amber-400/30 p-2 text-[11px] text-amber-200 mb-2">⚠️ Você definiu a Meta Segura. Agora preencha a <b>Meta Avançada</b> — o sonho do time. Sem ela, o número fica só com o piso e perde a ambição.</div>` : ''}
 
       <div class="mb-2">
-        <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Período</p>
+        <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Período Tático</p>
         <div class="flex flex-wrap gap-1.5">
-          ${periods.map(p => `<button onclick="Actions.setStrategicNumeroPeriod('${obj.id}','${kr.id}', ${p.d})" class="px-2.5 py-1 rounded-lg border text-[11px] font-bold ${Number(kr.period) === p.d ? `bg-${tone}-500/30 border-${tone}-400/60 text-white` : 'bg-slate-900 border-white/15 text-slate-300 hover:bg-slate-800'}">${p.label}</button>`).join('')}
+          ${periods.map(p => `<button onclick="Actions.setStrategicNumeroPeriod('${obj.id}','${kr.id}', ${p.d})" class="px-3 py-1.5 rounded-lg border text-[11px] font-bold ${Number(kr.period) === p.d ? `bg-${tone}-500/30 border-${tone}-400/60 text-white` : 'bg-slate-900 border-white/15 text-slate-300 hover:bg-slate-800'}">${p.label}</button>`).join('')}
         </div>
+        <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">💡 <b class="text-slate-200">Por que 90 dias?</b> Em um trimestre você vê resultado real (não só promessa), e ainda dá tempo de corrigir rota antes de gastar o ano inteiro num caminho errado. No fim do período, você decide: manter, ajustar ou trocar o número.</p>
       </div>
 
       <div class="flex justify-between items-center pt-2 border-t border-white/10">
@@ -471,7 +468,8 @@ window.StrategicMapModal = {
   },
 
   _periodLabel(days) {
-    const map = { 7: '7 dias', 15: '15 dias', 30: '30 dias', 90: '3 meses', 180: '6 meses' };
+    // V28.2.2 — Periodo Tatico = 90d. Outros valores ficam como fallback pra dados legados.
+    const map = { 7: '7 dias', 15: '15 dias', 30: '30 dias', 90: '90 dias (1 trimestre)', 180: '6 meses' };
     return map[Number(days)] || (days ? `${days} dias` : 'sem período');
   },
 
