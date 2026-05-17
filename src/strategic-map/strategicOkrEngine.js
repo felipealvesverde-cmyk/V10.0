@@ -8,12 +8,14 @@ window.StrategicOkrEngine = {
     return obj?.okrs || [];
   },
 
-  add(productId, objectiveId, draft) {
+  add(productId, objectiveId, draft, campaignId) {
     // V27.0.0 — Adicionado commitmentType (stretch/committed) e startValue
     // pra scoring 0.0-1.0 conforme Doerr.
     // V28.2 — catalogId/catalogDescription/isHandoff vindos do catálogo guiado.
     // V28.2.1 — Toda número tem PAR de metas: targetCommitted (segura, piso)
     // + targetStretch (avançada, sonho). E `period` em dias substitui deadline livre.
+    // V29.0.0 — Aceita campaignId opcional (escreve na branch certa) + parentProductKrId
+    // pra vincular ao KR-mãe pra rollup.
     const targetCommitted = draft?.targetCommitted != null ? Number(draft.targetCommitted) : (draft?.target != null ? Number(draft.target) : null);
     const targetStretch = draft?.targetStretch != null ? Number(draft.targetStretch) : null;
     const period = draft?.period != null ? Number(draft.period) : null;
@@ -37,22 +39,23 @@ window.StrategicOkrEngine = {
       catalogId: draft?.catalogId || null,
       catalogDescription: draft?.catalogDescription || null,
       isHandoff: Boolean(draft?.isHandoff),
+      parentProductKrId: draft?.parentProductKrId || null,                // V29.0.0 — rollup
       connectedActionIds: Array.isArray(draft?.connectedActionIds) ? draft.connectedActionIds.map(Number) : [],
       createdAt: new Date().toISOString()
     };
-    this._patchObjective(productId, objectiveId, o => ({ ...o, okrs: [...(o.okrs || []), okr] }));
+    this._patchObjective(productId, objectiveId, o => ({ ...o, okrs: [...(o.okrs || []), okr] }), campaignId);
     return okr;
   },
 
-  update(productId, objectiveId, okrId, patch) {
-    this._patchObjective(productId, objectiveId, o => ({ ...o, okrs: (o.okrs || []).map(kr => kr.id === okrId ? { ...kr, ...patch } : kr) }));
+  update(productId, objectiveId, okrId, patch, campaignId) {
+    this._patchObjective(productId, objectiveId, o => ({ ...o, okrs: (o.okrs || []).map(kr => kr.id === okrId ? { ...kr, ...patch } : kr) }), campaignId);
   },
 
-  remove(productId, objectiveId, okrId) {
-    this._patchObjective(productId, objectiveId, o => ({ ...o, okrs: (o.okrs || []).filter(kr => kr.id !== okrId) }));
+  remove(productId, objectiveId, okrId, campaignId) {
+    this._patchObjective(productId, objectiveId, o => ({ ...o, okrs: (o.okrs || []).filter(kr => kr.id !== okrId) }), campaignId);
   },
 
-  toggleAction(productId, objectiveId, okrId, actionId) {
+  toggleAction(productId, objectiveId, okrId, actionId, campaignId) {
     const numId = Number(actionId);
     this._patchObjective(productId, objectiveId, o => ({
       ...o,
@@ -62,7 +65,7 @@ window.StrategicOkrEngine = {
         const exists = current.includes(numId);
         return { ...kr, connectedActionIds: exists ? current.filter(id => id !== numId) : [...current, numId] };
       })
-    }));
+    }), campaignId);
   },
 
   progress(okr) {
@@ -111,7 +114,16 @@ window.StrategicOkrEngine = {
     return d.toISOString().split('T')[0];
   },
 
-  _patchObjective(productId, objectiveId, patcher) {
+  _patchObjective(productId, objectiveId, patcher, campaignId) {
+    // V29.0.0 — Se há campaignId (ou strategicCampaignId ativo), escreve no branch.
+    // Senão, fallback no legacy strategicMaps[productId].objectives.
+    const targetCampaignId = campaignId || StrategicMapEngine._getActiveCampaignId(productId);
+    if (targetCampaignId && StrategicMapEngine.getBranchMap(targetCampaignId)) {
+      const branch = StrategicMapEngine.getBranchMap(targetCampaignId);
+      const objectives = (branch.objectives || []).map(o => o.id === objectiveId ? patcher(o) : o);
+      StrategicMapEngine.saveBranchMap(targetCampaignId, { objectives });
+      return;
+    }
     const map = StrategicMapEngine.getForProduct(productId);
     const objectives = (map.objectives || []).map(o => o.id === objectiveId ? patcher(o) : o);
     StrategicMapEngine.save(productId, { objectives });

@@ -160,8 +160,136 @@ window.StrategicMapModal = {
   },
 
   _body(product) {
-    const stepId = StrategicZoomNavigation.current();
+    // V29.0.0 — Dois modos: produto (CEO) ou campanha (gestor da branch).
+    const mode = App.state.strategicMapMode || 'product';
     return `<div class="p-5 space-y-4">
+      ${this._branchSwitcher(product, mode)}
+      ${mode === 'product' ? this._productView(product) : this._campaignView(product)}
+    </div>`;
+  },
+
+  // V29.0.0 — Switcher no topo: troca entre vista produto e branches (campanhas).
+  _branchSwitcher(product, mode) {
+    const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(product.id) : [];
+    const activeCampaignId = App.state.strategicMapCampaignId;
+    return `<div class="rounded-2xl bg-white/[0.05] border border-white/10 p-2.5 flex items-center gap-2 flex-wrap">
+      <span class="text-[10px] font-black text-slate-400 uppercase tracking-wider px-2">Vendo:</span>
+      <button onclick="Actions.openStrategicMap(${product.id})" class="px-3 py-1.5 rounded-lg text-[11px] font-black ${mode === 'product' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'}" ${mode === 'product' ? 'style="color:#fff!important;"' : ''}>
+        <i data-lucide="layout" class="w-3 h-3 inline-block mr-1"></i> Produto (CEO)
+      </button>
+      ${branches.map(b => {
+        const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
+        if (!campaign) return '';
+        const isActive = mode === 'campaign' && Number(activeCampaignId) === Number(b.campaignId);
+        return `<button onclick="Actions.switchStrategicBranch(${b.campaignId})" class="px-3 py-1.5 rounded-lg text-[11px] font-black ${isActive ? 'bg-violet-500 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'}" ${isActive ? 'style="color:#fff!important;"' : ''}>
+          <i data-lucide="git-branch" class="w-3 h-3 inline-block mr-1"></i> ${Utils.escape(campaign.name)}
+        </button>`;
+      }).join('')}
+    </div>`;
+  },
+
+  // V29.0.0 — Vista PRODUTO (CEO mode): Visão + KRs-mãe + branches + desplugadas.
+  _productView(product) {
+    const map = StrategicMapEngine.getForProduct(product.id);
+    const vision = String(map?.vision || '').trim();
+    const productKrs = StrategicMapEngine.getProductKrs ? StrategicMapEngine.getProductKrs(product.id) : [];
+    const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(product.id) : [];
+    const desplugadas = StrategicMapEngine.getDesplugedCampaigns ? StrategicMapEngine.getDesplugedCampaigns(product.id) : [];
+    const orphans = StrategicMapEngine.getOrphanChildKrs ? StrategicMapEngine.getOrphanChildKrs(product.id) : [];
+    return `<div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
+      <div class="space-y-4 min-w-0">
+        ${this._productVisionBlock(product, vision)}
+        ${this._productKrsBlock(product, productKrs, orphans)}
+        ${this._productBranchesBlock(product, branches, desplugadas)}
+      </div>
+      ${this._djowSide(product, 'product-overview')}
+    </div>`;
+  },
+
+  _productVisionBlock(product, vision) {
+    return `<section class="rounded-3xl bg-white/[0.05] border border-white/10 p-5">
+      <div class="flex items-center gap-2 mb-2"><i data-lucide="star" class="w-4 h-4 text-violet-300"></i><p class="text-[11px] font-black text-violet-200 uppercase tracking-wider">Visão do Produto (única, compartilhada por todas as campanhas)</p></div>
+      <textarea oninput="Actions.updateStrategicVision(this.value)" placeholder="Aonde esse produto chega nos próximos 12 meses?" class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[80px] placeholder:text-slate-500" style="color-scheme:dark;">${Utils.escape(vision)}</textarea>
+    </section>`;
+  },
+
+  _productKrsBlock(product, productKrs, orphans) {
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    return `<section class="rounded-3xl bg-white/[0.05] border border-white/10 p-5 space-y-3">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2"><i data-lucide="target" class="w-4 h-4 text-emerald-300"></i><p class="text-[11px] font-black text-emerald-200 uppercase tracking-wider">KRs-Mãe (números que o produto inteiro precisa entregar)</p></div>
+      </div>
+      ${orphans.length ? `<div class="rounded-xl bg-amber-500/10 border border-amber-400/30 p-2.5 text-[11px] text-amber-200">⚠️ ${orphans.length} número(s) em branches sem KR-mãe correspondente. Crie a mãe pra ativar o rollup.</div>` : ''}
+      ${productKrs.length === 0 ? '<p class="text-[12px] text-slate-400 italic">Nenhum KR-mãe criado ainda. Adicione pelo menos um pra começar o rollup.</p>' : ''}
+      ${areas.map(area => {
+        const areaKrs = productKrs.filter(k => k.area === area.id);
+        const catalog = (StrategicMapEngine.KPI_CATALOG || {})[area.id] || [];
+        const activatedIds = new Set(areaKrs.map(k => k.catalogId));
+        const available = catalog.filter(c => !activatedIds.has(c.id));
+        return `<div class="rounded-2xl bg-${area.color}-500/5 border border-${area.color}-400/20 p-3">
+          <p class="text-[10px] font-black text-${area.color}-200 uppercase tracking-wider mb-2"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)}</p>
+          ${areaKrs.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem KRs-mãe nesta área.</p>' : '<div class="space-y-2">' + areaKrs.map(kr => this._productKrCard(product, kr, area.color)).join('') + '</div>'}
+          ${available.length ? `<div class="mt-2 pt-2 border-t border-${area.color}-400/20">
+            <p class="text-[9px] font-black text-${area.color}-300/70 uppercase mb-1">+ Adicionar KR-mãe do catálogo:</p>
+            <div class="flex flex-wrap gap-1">${available.map(c => `<button onclick="Actions.addProductKrAction(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description)}" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-white/10 text-${area.color}-200 text-[10px] font-bold">+ ${Utils.escape(c.name)}</button>`).join('')}</div>
+          </div>` : ''}
+        </div>`;
+      }).join('')}
+    </section>`;
+  },
+
+  _productKrCard(product, kr, tone) {
+    const rollup = StrategicMapEngine.rollupForProductKr ? StrategicMapEngine.rollupForProductKr(product.id, kr.id) : { current: 0, contributors: 0 };
+    const target = Number(kr.targetCommitted || 0);
+    const progress = target ? Math.round((rollup.current / target) * 100) : 0;
+    const autoCreatedBadge = kr.createdBy === 'auto' ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500/20 text-amber-200 border border-amber-400/30">CRIADO POR MKT — REVISE</span>' : '';
+    return `<div class="rounded-xl bg-slate-900/40 border border-${tone}-400/20 p-2.5">
+      <div class="flex items-start justify-between gap-2 mb-1.5">
+        <div class="min-w-0 flex-1">
+          <p class="font-black text-white text-[12px]">${Utils.escape(kr.name)} ${autoCreatedBadge}</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">Rollup: <b class="text-${tone}-200">${rollup.current}</b> / meta ${target || '—'} ${kr.metric || ''} · ${rollup.contributors} branch(es) contribuindo · ${progress}%</p>
+        </div>
+        <button onclick="Actions.removeProductKrAction(${product.id}, '${kr.id}')" title="Remover KR-mãe" class="px-1.5 py-0.5 rounded text-[10px] text-red-300 hover:bg-red-500/20 border border-red-400/30 shrink-0">×</button>
+      </div>
+      <div class="grid grid-cols-2 gap-1.5">
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-emerald-300 uppercase">🔒 Meta Segura</span>
+          <input type="number" value="${kr.targetCommitted ?? ''}" placeholder="piso" oninput="Actions.updateProductKrField(${product.id}, '${kr.id}', 'targetCommitted', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+        </label>
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-violet-300 uppercase">🚀 Meta Avançada</span>
+          <input type="number" value="${kr.targetStretch ?? ''}" placeholder="sonho" oninput="Actions.updateProductKrField(${product.id}, '${kr.id}', 'targetStretch', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+        </label>
+      </div>
+    </div>`;
+  },
+
+  _productBranchesBlock(product, branches, desplugadas) {
+    return `<section class="rounded-3xl bg-white/[0.05] border border-white/10 p-5 space-y-3">
+      <div class="flex items-center gap-2"><i data-lucide="git-branch" class="w-4 h-4 text-sky-300"></i><p class="text-[11px] font-black text-sky-200 uppercase tracking-wider">Branches (campanhas plugadas) — ${branches.length} ativa(s) · ${desplugadas.length} desplugada(s)</p></div>
+      ${branches.length === 0 ? '<p class="text-[12px] text-slate-400 italic">Nenhuma campanha plugada ainda. Ative o Mapa numa campanha pra criar a 1ª branch.</p>' : '<div class="space-y-2">' + branches.map(b => {
+        const c = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
+        if (!c) return '';
+        const status = StrategicMapEngine.getCampaignStrategicStatus(b.campaignId);
+        const statusInfo = { active: { color: 'violet', label: 'Ativa' }, configuring: { color: 'amber', label: 'Em configuração' }, unplugged: { color: 'red', label: 'Desplugada' } }[status] || {};
+        return `<div class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-900/40 border border-white/10">
+          <div class="min-w-0"><p class="font-black text-white text-[12px] truncate">${Utils.escape(c.name)}</p><p class="text-[10px] text-${statusInfo.color}-300">● ${statusInfo.label}</p></div>
+          <button onclick="Actions.openStrategicMapForCampaign(${b.campaignId})" class="px-2.5 py-1 rounded-lg bg-violet-500 hover:bg-violet-600 text-white text-[10px] font-black shrink-0" style="color:#fff!important;">Abrir</button>
+        </div>`;
+      }).join('') + '</div>'}
+      ${desplugadas.length ? `<div class="pt-2 border-t border-white/10">
+        <p class="text-[10px] font-black text-red-300 uppercase mb-1">⚠️ Campanhas desplugadas (não alimentam o Mapa):</p>
+        <div class="space-y-1">${desplugadas.map(c => `<div class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-400/30">
+          <span class="text-[11px] text-white truncate">${Utils.escape(c.name)}</span>
+          <button onclick="Actions.activateStrategicMapForCampaign(${c.id})" class="px-2 py-0.5 rounded text-[10px] font-black bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 shrink-0">Ativar Mapa</button>
+        </div>`).join('')}</div>
+      </div>` : ''}
+    </section>`;
+  },
+
+  _campaignView(product) {
+    const stepId = StrategicZoomNavigation.current();
+    return `<div class="space-y-4">
       ${this._stepper(product)}
       <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
         <div class="space-y-4 min-w-0">

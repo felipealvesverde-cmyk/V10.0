@@ -147,13 +147,14 @@ var CampaignModule = {
     const pipelineLabel = hasPipeline ? 'Pipeline OK' : 'Gerar Pipeline';
     const pipelineIcon = hasPipeline ? 'check-circle-2' : 'git-branch';
 
-    // V28.4.2 — Campanha estratégica do Mapa da Receita: MESMA estrutura do card
-    // padrão (todos os botões funcionais), só diferenciada visualmente (roxo) +
-    // selo no topo direito + 1 botão extra "Mapa da Receita" + contador de ações
-    // sem objetivo (KR) vinculado.
-    // V28.4.4 — Texto descritivo limpo (sem "Mapa da Receita ativado", que já está
-    // no selo bottom-right). Quando objetivo é o default técnico vazio, esconde.
-    const isStrategic = Boolean(campaign.isStrategicHost);
+    // V29.0.0 — 3 estágios visuais via getCampaignStrategicStatus:
+    //   'unplugged' (🔴) = sem branch, fica preto como qualquer campanha
+    //   'configuring' (🟡) = branch criada mas sem KRs confirmados
+    //   'active' (🟣) = KRs confirmados, rolando rollup
+    const strategicStatus = (window.StrategicMapEngine?.getCampaignStrategicStatus)
+      ? StrategicMapEngine.getCampaignStrategicStatus(campaign.id)
+      : (campaign.isStrategicHost ? 'configuring' : 'unplugged');
+    const isStrategic = strategicStatus === 'active' || strategicStatus === 'configuring';
     const defaultObjectivePlaceholder = 'Campanha estratégica vinculada ao Mapa da Receita.';
     const rawObjective = String(campaign.objective || '').trim();
     const objectiveText = (rawObjective && rawObjective !== defaultObjectivePlaceholder) ? rawObjective : '';
@@ -165,20 +166,29 @@ var CampaignModule = {
       const linkedActionIds = new Set(allKrs.flatMap(kr => (kr.connectedActionIds || []).map(Number)));
       actionsWithoutObjective = actions.filter(a => !linkedActionIds.has(Number(a.id))).length;
     }
-    // Visual de campanha estratégica: borda roxa + fundo levemente violeta.
-    const cardBgCls = isStrategic
-      ? (App.state.selectedCampaignId === campaign.id ? 'border-violet-500 ring-2 ring-violet-300' : 'border-violet-300')
-      : (App.state.selectedCampaignId === campaign.id ? 'border-slate-900 bg-slate-50' : 'border-slate-100 bg-slate-50');
-    const cardStyle = isStrategic ? 'style="background:linear-gradient(135deg, rgba(139,92,246,.06), rgba(34,197,94,.04));"' : '';
+    // V29.0.0 — Visual por status estratégico (3 estágios):
+    // active = roxo, configuring = âmbar, unplugged = padrão preto.
+    let cardBgCls, cardStyle;
+    if (strategicStatus === 'active') {
+      cardBgCls = App.state.selectedCampaignId === campaign.id ? 'border-violet-500 ring-2 ring-violet-300' : 'border-violet-300';
+      cardStyle = 'style="background:linear-gradient(135deg, rgba(139,92,246,.06), rgba(34,197,94,.04));"';
+    } else if (strategicStatus === 'configuring') {
+      cardBgCls = App.state.selectedCampaignId === campaign.id ? 'border-amber-500 ring-2 ring-amber-200' : 'border-amber-300';
+      cardStyle = 'style="background:linear-gradient(135deg, rgba(251,191,36,.06), rgba(251,191,36,.02));"';
+    } else {
+      cardBgCls = App.state.selectedCampaignId === campaign.id ? 'border-slate-900 bg-slate-50' : 'border-slate-100 bg-slate-50';
+      cardStyle = '';
+    }
 
     // V28.4.3 — Selos no bottom-right (Pipeline + Mapa da Receita lado a lado).
     // Botão "Mapa da Receita" agora vai DENTRO do grid de botões, entre Pipeline OK
     // e Enviar ICP pro RD — mantém o estilo dos outros (mesmo enquadre).
     return `<div onclick="Actions.goToCampaignActions(${campaign.id})" class="lj-entity-card relative p-4 rounded-3xl border ${cardBgCls} hover:bg-slate-100 cursor-pointer transition" ${cardStyle}>
       <button onclick="event.stopPropagation(); Actions.openCampaignEditModal(${campaign.id})" title="Editar Campanha" aria-label="Editar Campanha" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm"><i data-lucide="settings" class="w-4 h-4"></i></button>
-      ${(hasPipeline || isStrategic) ? `<div class="absolute bottom-3 right-3 flex flex-wrap gap-1.5 justify-end">
+      ${(hasPipeline || strategicStatus !== 'unplugged') ? `<div class="absolute bottom-3 right-3 flex flex-wrap gap-1.5 justify-end">
         ${hasPipeline ? `<span class="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Pipeline criado</span>` : ''}
-        ${isStrategic ? `<span class="text-[10px] font-black text-violet-700 bg-violet-50 border border-violet-300 px-2 py-1 rounded-full flex items-center gap-1"><i data-lucide="compass" class="w-3 h-3"></i> Mapa da Receita ativado</span>` : ''}
+        ${strategicStatus === 'active' ? `<span class="text-[10px] font-black text-violet-700 bg-violet-50 border border-violet-300 px-2 py-1 rounded-full flex items-center gap-1"><i data-lucide="compass" class="w-3 h-3"></i> Mapa da Receita ativo</span>` : ''}
+        ${strategicStatus === 'configuring' ? `<span class="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full flex items-center gap-1"><i data-lucide="loader" class="w-3 h-3"></i> Mapa em configuração</span>` : ''}
       </div>` : ''}
       <div class="lj-entity-card-grid">
         <div class="lj-entity-copy pr-12">

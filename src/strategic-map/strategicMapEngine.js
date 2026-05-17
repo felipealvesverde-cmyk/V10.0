@@ -1,14 +1,40 @@
-// V17 — Strategic Map Engine
-// Núcleo do Mapa da Receita: mantém o documento estratégico de cada produto
-// (visão, objetivos, OKRs, conexões com fluxos). Persiste em
-// App.state.strategicMaps[productId]. Não faz UI — apenas leitura/escrita.
+// V29.0.0 — Strategic Map Engine
+// REFATOR GRANDE: cada CAMPANHA tem seu próprio sub-mapa (branch).
+// 1 produto = 1 visão + N KRs-mãe (productKrs) + N branches (campanhas plugadas).
+// Cada branch = 3 frentes (Mkt/Vendas/CS) + childKrs (filhos das mães via rollup).
+//
+// Schema:
+//   App.state.strategicMaps[productId] = {
+//     productId, vision, productKrs[], strategicCampaignId, flowConnections,
+//     objectives[]  // LEGACY V28: mantido só pra compat até a migração lazy mover pra branch
+//   }
+//   App.state.strategicCampaignMaps[campaignId] = {
+//     campaignId, productId, objective, objectives[], createdAt
+//   }
+//
+// Migração lazy: quando uma função tenta ler/escrever objectives e há legacy
+// no strategicMaps[productId].objectives mas branch ainda não existe, copia pra
+// branch (strategicCampaignMaps[strategicCampaignId]) e limpa o legacy.
 window.StrategicMapEngine = {
   defaultMap(productId) {
     return {
       productId: Number(productId),
       vision: '',
-      objectives: [],
+      productKrs: [],         // V29.0.0 — KRs-mãe (do CEO, sofrem rollup das filhas)
+      strategicCampaignId: null,
       flowConnections: [],
+      objectives: [],         // LEGACY V28 — fica vazio em produtos novos; migrado pra branch
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  },
+
+  defaultBranchMap(campaignId, productId) {
+    return {
+      campaignId: Number(campaignId),
+      productId: Number(productId),
+      objective: '',          // objetivo curto desta campanha (gestor preenche)
+      objectives: [],         // as 3 áreas (Mkt/Vendas/CS) com KRs-filhos
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -340,7 +366,13 @@ window.StrategicMapEngine = {
   },
 
   // V28.3 — Lista ações estratégicas de uma área (vinculadas à campanha do produto).
-  getStrategicActionsByArea(productId, areaId) {
+  // V29.0.0 — se campaignId fornecido, filtra só dessa branch. Sem ele, varre o produto inteiro.
+  getStrategicActionsByArea(productId, areaId, campaignId) {
+    if (campaignId) {
+      return (App.state.actions || []).filter(a =>
+        Number(a.campaignId) === Number(campaignId) && a.strategicAreaId === areaId
+      );
+    }
     const campaignIds = new Set((App.state.campaigns || []).filter(c => Number(c.productId) === Number(productId)).map(c => Number(c.id)));
     return (App.state.actions || []).filter(a =>
       campaignIds.has(Number(a.campaignId)) && a.strategicAreaId === areaId
@@ -348,22 +380,27 @@ window.StrategicMapEngine = {
   },
 
   // V28.3 — IDs do catálogo já ativados na área (pra UI marcar/desabilitar).
-  getActivatedCatalogActionIds(productId, areaId) {
-    return new Set(this.getStrategicActionsByArea(productId, areaId).map(a => a.strategicCatalogId).filter(Boolean));
+  getActivatedCatalogActionIds(productId, areaId, campaignId) {
+    return new Set(this.getStrategicActionsByArea(productId, areaId, campaignId).map(a => a.strategicCatalogId).filter(Boolean));
   },
 
   // V28.3 — KRs confirmados que não têm NENHUMA ação vinculada (alerta visual).
-  getKrsWithoutActions(productId, areaId) {
-    const obj = this.getObjectiveByArea(productId, areaId);
+  getKrsWithoutActions(productId, areaId, campaignId) {
+    const obj = this.getObjectiveByArea(productId, areaId, campaignId);
     return (obj?.okrs || []).filter(kr => kr.confirmed && !(kr.connectedActionIds || []).length);
   },
 
   // V28.2 — Ativa um KPI do catálogo como um novo número vazio (metas a preencher).
   // V28.2.1 — current começa null (input vazio) em vez de 0.
-  activateCatalogKpi(productId, areaId, kpiId) {
+  // V29.0.0 — escreve em branch + K3: cria KR-mãe no produto se não existir + linka filho.
+  activateCatalogKpi(productId, areaId, kpiId, campaignId) {
     const kpi = (this.KPI_CATALOG[areaId] || []).find(k => k.id === kpiId);
-    const objective = this.getObjectiveByArea(productId, areaId);
-    if (!kpi || !objective || !window.StrategicOkrEngine) return null;
+    if (!kpi) return null;
+    const targetCampaignId = campaignId || this._getActiveCampaignId(productId);
+    const objective = this.getObjectiveByArea(productId, areaId, targetCampaignId);
+    if (!objective || !window.StrategicOkrEngine) return null;
+    // K3 — Garante que existe KR-mãe correspondente no produto. Se não, cria auto.
+    const parentResult = this.findOrCreateProductKr(productId, areaId, kpi.id, kpi.name, kpi.metric);
     return StrategicOkrEngine.add(productId, objective.id, {
       name: kpi.name,
       metric: kpi.metric,
@@ -373,23 +410,25 @@ window.StrategicMapEngine = {
       current: null,
       targetCommitted: null,
       targetStretch: null,
-      period: 90, // V28.2.3 — Período Tático default = trimestre (Doerr-aligned)
-      confirmed: false
-    });
+      period: 90,
+      confirmed: false,
+      parentProductKrId: parentResult.parent.id  // V29.0.0 — vínculo pro rollup
+    }, targetCampaignId);
   },
 
   // V28.2 — IDs do catálogo já ativados nesta área (pra UI marcar/desabilitar).
-  getActivatedCatalogIds(productId, areaId) {
-    const objective = this.getObjectiveByArea(productId, areaId);
+  getActivatedCatalogIds(productId, areaId, campaignId) {
+    const objective = this.getObjectiveByArea(productId, areaId, campaignId);
     return new Set((objective?.okrs || []).map(kr => kr.catalogId).filter(Boolean));
   },
 
-  // V28.2.1 — Próximo número a confirmar, varrendo as 3 áreas em ordem.
-  // Retorna {objectiveId, krId} ou null se não há mais nenhum incompleto.
-  nextUnconfirmedKr(productId) {
+  // V28.2.1 — Próximo número a confirmar.
+  // V29.0.0 — campaignId opcional (default: branch ativa).
+  nextUnconfirmedKr(productId, campaignId) {
+    const targetCampaignId = campaignId || this._getActiveCampaignId(productId);
     const areas = this.COMERCIAL_AREAS;
     for (const area of areas) {
-      const obj = this.getObjectiveByArea(productId, area.id);
+      const obj = this.getObjectiveByArea(productId, area.id, targetCampaignId);
       if (!obj) continue;
       for (const kr of (obj.okrs || [])) {
         if (!kr.confirmed) return { objectiveId: obj.id, krId: kr.id, areaId: area.id };
@@ -399,23 +438,34 @@ window.StrategicMapEngine = {
   },
 
   // V28.2.1 — Todos os números das 3 áreas estão confirmados?
-  allKrsConfirmed(productId) {
-    const objectives = (this.getForProduct(productId)?.objectives) || [];
+  // V29.0.0 — agora opera em branch.
+  allKrsConfirmed(productId, campaignId) {
+    const targetCampaignId = campaignId || this._getActiveCampaignId(productId);
+    let objectives;
+    if (targetCampaignId) {
+      objectives = (this.getBranchMap(targetCampaignId)?.objectives) || [];
+    } else {
+      objectives = (this.getForProduct(productId)?.objectives) || [];
+    }
     const krs = objectives.flatMap(o => o.okrs || []);
     return krs.length > 0 && krs.every(kr => kr.confirmed);
   },
 
   // V28.1 — Garante que as 3 áreas existam como objetivos.
-  // Migração V28→V28.1: se já houver 3+ objetivos sem area, adota os 3 primeiros
-  // como marketing/sales/cs na ordem (preserva label/owner/deadline/okrs do user).
-  // Seeda áreas faltantes com defaults vazios.
-  ensureComercialAreas(productId) {
-    const map = this.ensure(productId);
-    let objectives = [...(map.objectives || [])];
+  // V29.0.0 — Agora opera em branch (se houver strategicCampaignId), com migração
+  // lazy do legacy strategicMaps[productId].objectives pra branch.
+  ensureComercialAreas(productId, campaignId) {
+    const targetCampaignId = campaignId || this._getActiveCampaignId(productId);
+    if (!targetCampaignId) {
+      // Sem campaign estratégica definida ainda → opera no legacy (compat).
+      return this._ensureComercialAreasLegacy(productId);
+    }
+    // V29 — escreve em branch.
+    this._lazyMigrateLegacyToBranch(productId, targetCampaignId);
+    const branch = this.ensureBranchMap(targetCampaignId, productId);
+    let objectives = [...(branch.objectives || [])];
     const areaIds = this.COMERCIAL_AREAS.map(a => a.id);
     const existingAreas = new Set(objectives.filter(o => o.area).map(o => o.area));
-
-    // Migração: adota os primeiros 3 sem area como marketing/sales/cs.
     if (!existingAreas.size) {
       const unassigned = objectives.filter(o => !o.area);
       for (let i = 0; i < Math.min(unassigned.length, 3); i++) {
@@ -426,8 +476,6 @@ window.StrategicMapEngine = {
         existingAreas.add(area);
       }
     }
-
-    // Seed: cria stubs vazios pras áreas faltantes.
     this.COMERCIAL_AREAS.forEach(area => {
       if (existingAreas.has(area.id)) return;
       objectives.push({
@@ -440,13 +488,218 @@ window.StrategicMapEngine = {
         createdAt: new Date().toISOString()
       });
     });
+    this.saveBranchMap(targetCampaignId, { objectives });
+    return objectives;
+  },
 
+  _ensureComercialAreasLegacy(productId) {
+    const map = this.ensure(productId);
+    let objectives = [...(map.objectives || [])];
+    const areaIds = this.COMERCIAL_AREAS.map(a => a.id);
+    const existingAreas = new Set(objectives.filter(o => o.area).map(o => o.area));
+    if (!existingAreas.size) {
+      const unassigned = objectives.filter(o => !o.area);
+      for (let i = 0; i < Math.min(unassigned.length, 3); i++) {
+        const obj = unassigned[i];
+        const area = areaIds[i];
+        const idx = objectives.findIndex(o => o.id === obj.id);
+        objectives[idx] = { ...obj, area };
+        existingAreas.add(area);
+      }
+    }
+    this.COMERCIAL_AREAS.forEach(area => {
+      if (existingAreas.has(area.id)) return;
+      objectives.push({
+        id: `obj_${Date.now()}_${Math.floor(Math.random() * 1000)}_${area.id}`,
+        label: area.label, owner: '', deadline: null, area: area.id, okrs: [],
+        createdAt: new Date().toISOString()
+      });
+    });
     this.save(productId, { objectives });
     return objectives;
   },
 
-  getObjectiveByArea(productId, areaId) {
+  // V29.0.0 — getObjectiveByArea agora aceita campaignId opcional.
+  // Lê do branch primeiro; fallback no legacy.
+  getObjectiveByArea(productId, areaId, campaignId) {
+    const targetCampaignId = campaignId || this._getActiveCampaignId(productId);
+    if (targetCampaignId) {
+      const branch = this.getBranchMap(targetCampaignId);
+      if (branch) return (branch.objectives || []).find(o => o.area === areaId) || null;
+    }
     const map = this.getForProduct(productId);
     return (map.objectives || []).find(o => o.area === areaId) || null;
+  },
+
+  // =================== V29.0.0 — NOVA API DE BRANCHES + PRODUCT KRs ===================
+
+  // Branch ativa por produto (a strategicCampaignId vigente).
+  _getActiveCampaignId(productId) {
+    const map = this.getForProduct(productId);
+    return map?.strategicCampaignId || null;
+  },
+
+  // Pega ou cria branch map de uma campanha.
+  getBranchMap(campaignId) {
+    if (!campaignId) return null;
+    return (App.state.strategicCampaignMaps || {})[campaignId] || null;
+  },
+
+  ensureBranchMap(campaignId, productId) {
+    const existing = this.getBranchMap(campaignId);
+    if (existing) return existing;
+    const fresh = this.defaultBranchMap(campaignId, productId);
+    App.state.strategicCampaignMaps = { ...(App.state.strategicCampaignMaps || {}), [campaignId]: fresh };
+    return fresh;
+  },
+
+  saveBranchMap(campaignId, patch) {
+    const current = this.getBranchMap(campaignId);
+    if (!current) return null;
+    const next = { ...current, ...patch, updatedAt: new Date().toISOString() };
+    App.state.strategicCampaignMaps = { ...(App.state.strategicCampaignMaps || {}), [campaignId]: next };
+    return next;
+  },
+
+  // Lista todas as branches (campanhas plugadas) de um produto.
+  getBranchesByProduct(productId) {
+    const maps = App.state.strategicCampaignMaps || {};
+    return Object.values(maps).filter(b => Number(b.productId) === Number(productId));
+  },
+
+  // Lista campanhas do produto que ainda NÃO têm branch (desplugadas).
+  getDesplugedCampaigns(productId) {
+    const branches = this.getBranchesByProduct(productId);
+    const pluggedIds = new Set(branches.map(b => Number(b.campaignId)));
+    return (App.state.campaigns || []).filter(c =>
+      Number(c.productId) === Number(productId) && !pluggedIds.has(Number(c.id))
+    );
+  },
+
+  // === STATUS DA CAMPANHA (3 estágios: unplugged / configuring / active) ===
+  // V29.0.0 — usado pra colorir badge no menu Campanhas.
+  getCampaignStrategicStatus(campaignId) {
+    const branch = this.getBranchMap(campaignId);
+    if (!branch) return 'unplugged';        // 🔴 vermelho
+    const allKrs = (branch.objectives || []).flatMap(o => o.okrs || []);
+    const confirmedKrs = allKrs.filter(k => k.confirmed);
+    if (!confirmedKrs.length) return 'configuring';  // 🟡 amarelo
+    return 'active';                         // 🟣 roxo
+  },
+
+  // === KRs-MÃE (productKrs) ===
+  getProductKrs(productId) {
+    return this.getForProduct(productId)?.productKrs || [];
+  },
+
+  addProductKr(productId, krData, source = 'ceo') {
+    const map = this.ensure(productId);
+    const kr = {
+      id: `pkr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      area: krData.area || 'marketing',
+      catalogId: krData.catalogId || null,
+      name: String(krData.name || '').trim() || 'KR-mãe sem nome',
+      metric: krData.metric || 'quantidade',
+      targetCommitted: krData.targetCommitted != null ? Number(krData.targetCommitted) : null,
+      targetStretch: krData.targetStretch != null ? Number(krData.targetStretch) : null,
+      period: krData.period != null ? Number(krData.period) : 90,
+      owner: String(krData.owner || '').trim(),
+      createdBy: source,                    // 'ceo' | 'auto' (K3)
+      createdAt: new Date().toISOString()
+    };
+    const productKrs = [...(map.productKrs || []), kr];
+    this.save(productId, { productKrs });
+    return kr;
+  },
+
+  updateProductKr(productId, krId, patch) {
+    const map = this.ensure(productId);
+    const productKrs = (map.productKrs || []).map(k => k.id === krId ? { ...k, ...patch } : k);
+    this.save(productId, { productKrs });
+  },
+
+  removeProductKr(productId, krId) {
+    const map = this.ensure(productId);
+    const productKrs = (map.productKrs || []).filter(k => k.id !== krId);
+    this.save(productId, { productKrs });
+    // Limpa parentProductKrId nas filhas órfãs.
+    this.getBranchesByProduct(productId).forEach(branch => {
+      const objectives = (branch.objectives || []).map(o => ({
+        ...o,
+        okrs: (o.okrs || []).map(kr => kr.parentProductKrId === krId ? { ...kr, parentProductKrId: null } : kr)
+      }));
+      this.saveBranchMap(branch.campaignId, { objectives });
+    });
+  },
+
+  // K3 — Auto-cria KR-mãe quando uma branch ativa um KPI do catálogo e a mãe não existe.
+  // Retorna {parent, autoCreated: bool}.
+  findOrCreateProductKr(productId, area, catalogId, fallbackName, fallbackMetric) {
+    const existing = (this.getProductKrs(productId)).find(k => k.area === area && k.catalogId === catalogId);
+    if (existing) return { parent: existing, autoCreated: false };
+    const parent = this.addProductKr(productId, {
+      area, catalogId,
+      name: fallbackName || catalogId,
+      metric: fallbackMetric || 'quantidade',
+      targetCommitted: null,
+      targetStretch: null,
+      period: 90,
+      owner: ''
+    }, 'auto');
+    return { parent, autoCreated: true };
+  },
+
+  // === ROLLUP (soma das filhas em todas as branches → mãe) ===
+  rollupForProductKr(productId, productKrId) {
+    const branches = this.getBranchesByProduct(productId);
+    let sumCurrent = 0, sumCommitted = 0, sumStretch = 0;
+    let contributors = 0;
+    branches.forEach(branch => {
+      (branch.objectives || []).forEach(o => {
+        (o.okrs || []).forEach(kr => {
+          if (kr.parentProductKrId === productKrId) {
+            sumCurrent += Number(kr.current || 0);
+            sumCommitted += Number(kr.targetCommitted || 0);
+            sumStretch += Number(kr.targetStretch || 0);
+            contributors++;
+          }
+        });
+      });
+    });
+    return { current: sumCurrent, targetCommitted: sumCommitted, targetStretch: sumStretch, contributors };
+  },
+
+  // Lista todos os KRs-filhos órfãos (sem parentProductKrId) em todas as branches do produto.
+  getOrphanChildKrs(productId) {
+    const branches = this.getBranchesByProduct(productId);
+    const orphans = [];
+    branches.forEach(branch => {
+      (branch.objectives || []).forEach(o => {
+        (o.okrs || []).forEach(kr => {
+          if (!kr.parentProductKrId) orphans.push({ campaignId: branch.campaignId, objectiveId: o.id, kr });
+        });
+      });
+    });
+    return orphans;
+  },
+
+  // === MIGRAÇÃO LAZY V28 → V29 ===
+  // Quando vai mexer em objectives de um produto, move legacy pra branch da
+  // strategicCampaignId (se houver) e limpa o legacy.
+  _lazyMigrateLegacyToBranch(productId, campaignId) {
+    const map = this.getForProduct(productId);
+    if (!map?.objectives?.length) return;
+    if (!campaignId) return;
+    const branch = this.getBranchMap(campaignId);
+    if (branch && (branch.objectives || []).length > 0) return;  // já migrou ou branch já tem dados
+    // Migra: copia objectives + okrs (com parentProductKrId: null) pra branch.
+    const objectivesCopy = (map.objectives || []).map(o => ({
+      ...o,
+      okrs: (o.okrs || []).map(kr => ({ ...kr, parentProductKrId: kr.parentProductKrId || null }))
+    }));
+    this.ensureBranchMap(campaignId, productId);
+    this.saveBranchMap(campaignId, { objectives: objectivesCopy });
+    // Limpa legacy.
+    this.save(productId, { objectives: [] });
   }
 };

@@ -426,6 +426,7 @@ window.HomeModule = {
     this.startRotation();
     return `<div class="lj-home">
       ${this._greetingBar()}
+      ${this._strategicAlerts()}
       ${this._kpiSlots()}
       <div class="lj-home-main">
         <div class="lj-home-main-col">
@@ -435,5 +436,45 @@ window.HomeModule = {
         ${this._sideStack()}
       </div>
     </div>`;
+  },
+
+  // V29.0.0 — Alertas críticos do Mapa da Receita (campanhas desplugadas + KRs órfãos).
+  _strategicAlerts() {
+    if (!window.StrategicMapEngine) return '';
+    const products = App.state.products || [];
+    let totalDesplugadas = 0;
+    let totalConfiguring = 0;
+    let totalOrphans = 0;
+    const desplugDetails = [];
+    products.forEach(p => {
+      const desplug = StrategicMapEngine.getDesplugedCampaigns ? StrategicMapEngine.getDesplugedCampaigns(p.id) : [];
+      const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(p.id) : [];
+      const orphans = StrategicMapEngine.getOrphanChildKrs ? StrategicMapEngine.getOrphanChildKrs(p.id) : [];
+      desplug.forEach(c => {
+        totalDesplugadas++;
+        desplugDetails.push({ campaign: c, product: p });
+      });
+      branches.forEach(b => {
+        if (StrategicMapEngine.getCampaignStrategicStatus(b.campaignId) === 'configuring') totalConfiguring++;
+      });
+      totalOrphans += orphans.length;
+    });
+    const totalAlerts = totalDesplugadas + totalConfiguring + totalOrphans;
+    if (totalAlerts === 0) return '';
+    return `<section class="rounded-3xl bg-gradient-to-r from-red-50 to-amber-50 border-2 border-red-200 p-4 mb-4">
+      <div class="flex items-start gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-red-500 grid place-items-center shrink-0"><i data-lucide="bell-ring" class="w-5 h-5 text-white"></i></div>
+        <div class="min-w-0 flex-1">
+          <p class="text-[11px] font-black text-red-700 uppercase tracking-wider mb-0.5">⚠️ Alertas críticos do Mapa da Receita</p>
+          <p class="text-sm text-slate-800 font-bold">${totalAlerts} pendência(s) precisam de atenção</p>
+          <div class="mt-2 space-y-1 text-[12px] text-slate-700">
+            ${totalDesplugadas > 0 ? `<p>🔴 <b>${totalDesplugadas} campanha(s) desplugada(s)</b> rodando sem objetivo — não alimentam os KPIs.</p>` : ''}
+            ${totalConfiguring > 0 ? `<p>🟡 <b>${totalConfiguring} campanha(s) em configuração</b> — branch criada mas faltam números confirmados.</p>` : ''}
+            ${totalOrphans > 0 ? `<p>👻 <b>${totalOrphans} número(s) órfão(s)</b> nas branches sem KR-mãe correspondente — rollup não funciona.</p>` : ''}
+          </div>
+          ${desplugDetails.length ? `<div class="mt-2 flex flex-wrap gap-1.5">${desplugDetails.slice(0, 6).map(d => `<button onclick="App.setTab('campaigns'); App.state.selectedProductId=${d.product.id}; App.render();" class="px-2 py-1 rounded-lg bg-white border border-red-300 text-red-700 text-[10px] font-black hover:bg-red-50">${Utils.escape(d.campaign.name)} → ${Utils.escape(d.product.name)}</button>`).join('')}${desplugDetails.length > 6 ? `<span class="text-[10px] text-slate-500 self-center">+${desplugDetails.length - 6} mais</span>` : ''}</div>` : ''}
+        </div>
+      </div>
+    </section>`;
   }
 };

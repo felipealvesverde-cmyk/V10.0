@@ -3559,30 +3559,34 @@ window.Actions = Actions;
 
 // V17 — Revenue Strategic Map
 Object.assign(Actions, {
+  // V29.0.0 — Abre Mapa em vista PRODUTO (CEO mode): Visão + KRs-mãe + lista de branches.
   openStrategicMap(productId) {
     if (!productId) return Utils.toast('Selecione um produto.');
     App.state.strategicMapProductId = Number(productId);
+    App.state.strategicMapCampaignId = null;        // V29 — vista produto, não campanha
+    App.state.strategicMapMode = 'product';         // V29 — 'product' | 'campaign'
     App.state.showStrategicMap = true;
-    App.state.strategicMapZoom = 'strategy';
+    App.state.strategicMapZoom = 'product-overview'; // V29 — primeira tela do CEO
     App.state.strategicObjectiveDraft = null;
     App.state.strategicOkrDraft = null;
-    App.state.strategicActiveArea = null; // V28.2.3 — fallback p/ próximo unconfirmed
-    App.state.strategicCampaignPrompt = null; // V28.4.1 — fecha qualquer prompt pendente
+    App.state.strategicActiveArea = null;
+    App.state.strategicCampaignPrompt = null;
     if (window.StrategicMapEngine) {
       StrategicMapEngine.ensure(Number(productId));
-      // V28.1 — garante que as 3 frentes (Marketing/Vendas/CS) existam.
-      if (typeof StrategicMapEngine.ensureComercialAreas === 'function') {
-        StrategicMapEngine.ensureComercialAreas(Number(productId));
-      }
-      // V28.4.1 — migrações one-shot: mescla campanhas duplicadas e re-aplica
-      // sector/funnel corretos nas ações criadas em versões anteriores.
       if (typeof StrategicMapEngine.migrateLegacyStrategicCampaigns === 'function') {
         const mergedCount = StrategicMapEngine.migrateLegacyStrategicCampaigns(Number(productId));
-        if (mergedCount > 0) Utils.toast(`Encontradas ${mergedCount} campanha(s) duplicada(s) do Mapa — mescladas em uma só.`);
+        if (mergedCount > 0) Utils.toast(`Encontradas ${mergedCount} campanha(s) duplicada(s) — mescladas.`);
       }
       if (typeof StrategicMapEngine.migrateLegacyStrategicActions === 'function') {
         const fixedCount = StrategicMapEngine.migrateLegacyStrategicActions(Number(productId));
-        if (fixedCount > 0) Utils.toast(`${fixedCount} ação(ões) estratégica(s) tiveram setor/funil corrigidos.`);
+        if (fixedCount > 0) Utils.toast(`${fixedCount} ação(ões) tiveram setor/funil corrigidos.`);
+      }
+      // V29 — Lazy migration: se há strategicCampaignId e ainda há legacy objectives,
+      // move pra branch automaticamente.
+      const map = StrategicMapEngine.getForProduct(productId);
+      if (map?.strategicCampaignId && (map.objectives || []).length > 0) {
+        StrategicMapEngine._lazyMigrateLegacyToBranch(productId, map.strategicCampaignId);
+        Utils.toast('Mapa migrado pro novo modelo (branches por campanha).');
       }
     }
     App.save(); App.render();
@@ -4647,28 +4651,98 @@ Object.assign(Actions, {
     App.render();
   },
 
-  // V28.4.4 — Ativa Mapa da Receita pra uma campanha que ainda não é estratégica.
-  // Por enquanto: cada produto tem 1 mapa só. Se já existe outra campanha estratégica
-  // do mesmo produto, avisa que branches por campanha está no roadmap.
+  // V29.0.0 — Ativa Mapa pra uma campanha como BRANCH (compartilha visão do produto).
+  // Cada campanha vira uma branch independente em strategicCampaignMaps.
+  // Não troca mais o strategicCampaignId global — cada branch é autônoma.
+  // Se for a 1ª branch do produto, vira a default (strategicCampaignId).
   activateStrategicMapForCampaign(campaignId) {
     const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
     if (!campaign) return Utils.toast('Campanha não encontrada.');
     const productId = campaign.productId;
     if (!productId) return Utils.toast('Esta campanha não tem produto vinculado.');
-    const otherStrategic = (App.state.campaigns || []).find(c =>
-      Number(c.productId) === Number(productId) && c.isStrategicHost && Number(c.id) !== Number(campaignId)
-    );
-    if (otherStrategic) {
-      return Utils.toast(`⚠️ Este produto já tem o Mapa ativo em "${otherStrategic.name}". Em breve: branches por campanha (estamos trabalhando nisso). Por enquanto, abra o Mapa pela campanha ativa.`);
-    }
+    // Marca campanha como strategic host (visual roxo) + cria branch.
     App.state.campaigns = App.state.campaigns.map(c =>
       Number(c.id) === Number(campaignId) ? { ...c, isStrategicHost: true } : c
     );
     if (window.StrategicMapEngine) {
-      StrategicMapEngine.save(productId, { strategicCampaignId: Number(campaignId) });
+      StrategicMapEngine.ensureBranchMap(Number(campaignId), Number(productId));
+      StrategicMapEngine.ensureComercialAreas(productId, Number(campaignId));
+      // Se era a 1ª branch, vira a default do produto.
+      const map = StrategicMapEngine.getForProduct(productId);
+      if (!map?.strategicCampaignId) {
+        StrategicMapEngine.save(productId, { strategicCampaignId: Number(campaignId) });
+      }
     }
-    Utils.toast(`Mapa da Receita ativado em "${campaign.name}".`);
-    Actions.openStrategicMap(productId);
+    Utils.toast(`Mapa da Receita ativado em "${campaign.name}". Branch criada — preencha os números desta campanha.`);
+    Actions.openStrategicMapForCampaign(Number(campaignId));
+  },
+
+  // V29.0.0 — Abre Mapa em vista CAMPANHA (5 etapas da branch).
+  openStrategicMapForCampaign(campaignId) {
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
+    if (!campaign) return Utils.toast('Campanha não encontrada.');
+    App.state.strategicMapProductId = Number(campaign.productId);
+    App.state.strategicMapCampaignId = Number(campaignId);   // V29 — vista campanha
+    App.state.strategicMapMode = 'campaign';                  // V29
+    App.state.showStrategicMap = true;
+    App.state.strategicMapZoom = 'objectives';
+    App.state.strategicObjectiveDraft = null;
+    App.state.strategicOkrDraft = null;
+    App.state.strategicActiveArea = null;
+    App.state.strategicCampaignPrompt = null;
+    if (window.StrategicMapEngine) {
+      StrategicMapEngine.ensure(Number(campaign.productId));
+      StrategicMapEngine.ensureBranchMap(Number(campaignId), Number(campaign.productId));
+      StrategicMapEngine.ensureComercialAreas(Number(campaign.productId), Number(campaignId));
+    }
+    App.save(); App.render();
+  },
+
+  // V29.0.0 — Troca a branch ativa dentro do Mapa (switcher no header).
+  switchStrategicBranch(campaignId) {
+    Actions.openStrategicMapForCampaign(Number(campaignId));
+  },
+
+  // V29.0.0 — Adiciona um KR-mãe no produto (vista CEO).
+  addProductKrAction(productId, area, catalogId) {
+    if (!productId || !window.StrategicMapEngine) return;
+    const kpi = (StrategicMapEngine.KPI_CATALOG[area] || []).find(k => k.id === catalogId);
+    if (!kpi) return Utils.toast('KPI não encontrado.');
+    const existing = StrategicMapEngine.getProductKrs(productId).find(k => k.area === area && k.catalogId === catalogId);
+    if (existing) return Utils.toast('Este KR-mãe já existe.');
+    StrategicMapEngine.addProductKr(productId, {
+      area, catalogId,
+      name: kpi.name,
+      metric: kpi.metric,
+      targetCommitted: null,
+      targetStretch: null,
+      period: 90,
+      owner: ''
+    }, 'ceo');
+    App.save(); App.render();
+    Utils.toast(`KR-mãe "${kpi.name}" adicionado.`);
+  },
+
+  // V29.0.0 — Edita campo do KR-mãe.
+  updateProductKrField(productId, krId, field, value) {
+    if (!productId || !window.StrategicMapEngine) return;
+    const numericFields = ['targetCommitted', 'targetStretch', 'period'];
+    const patch = {};
+    if (numericFields.includes(field)) {
+      patch[field] = (value === '' || value === null || value === undefined) ? null : Number(value);
+    } else {
+      patch[field] = String(value || '');
+    }
+    StrategicMapEngine.updateProductKr(productId, krId, patch);
+    App.save();
+  },
+
+  // V29.0.0 — Remove KR-mãe (e desvincula filhas).
+  removeProductKrAction(productId, krId) {
+    if (!productId || !window.StrategicMapEngine) return;
+    StrategicMapEngine.removeProductKr(productId, krId);
+    App.save(); App.render();
+    Utils.toast('KR-mãe removido. Filhas viraram órfãs.');
   },
 
   // V28.4.1 — Renomeia a campanha estratégica via UI no header da etapa Ações.
