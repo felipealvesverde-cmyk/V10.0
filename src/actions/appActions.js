@@ -4533,8 +4533,10 @@ Object.assign(Actions, {
     StrategicOkrEngine.update(productId, objectiveId, okrId, { confirmed: true });
     App.save();
     if (StrategicMapEngine.allKrsConfirmed(productId) && window.DjowStrategicAssistant) {
-      const msg = '🎯 Boa! Você cobriu todos os números das 3 frentes (Marketing, Vendas e Sucesso do Cliente).\n\nA partir de agora vou ficar de olho neles — se algum sair da rota, te aviso. E se eu perceber que a estratégia precisa pivotar, te chamo aqui mesmo.\n\nPróximo passo: conectar cada número à ação operacional que move o ponteiro.';
+      const msg = '🎯 Boa! Você cobriu todos os números das 3 frentes (Marketing, Vendas e Sucesso do Cliente).\n\nA partir de agora vou ficar de olho neles — se algum sair da rota, te aviso. E se eu perceber que a estratégia precisa pivotar, te chamo aqui mesmo.\n\nPróximo passo: passar o bastão pros gestores de cada frente. Eles é que vão definir COMO chegar nesses números.';
       DjowStrategicAssistant.append(productId, { role: 'agent', text: msg, ts: new Date().toISOString() });
+      // V28.3.1 — abre popup central explicando a transição estratégico → tático.
+      App.state.strategicHandoffPopup = true;
       Utils.toast('🎯 Todos os números confirmados. Djow ativou o monitoramento.');
     } else {
       // V28.2.3 — auto-advance: se próximo unconfirmed está em outra frente, mudar aba ativa.
@@ -4554,6 +4556,16 @@ Object.assign(Actions, {
   setStrategicActiveArea(areaId) {
     App.state.strategicActiveArea = areaId;
     App.render();
+  },
+
+  // V28.3.1 — Fecha o popup didático do passe do bastão (estratégia → tático).
+  // Se `advance=true`, navega pra etapa "As Ações"; caso contrário, só fecha.
+  dismissStrategicHandoffPopup(advance) {
+    App.state.strategicHandoffPopup = false;
+    if (advance) {
+      App.state.strategicMapZoom = 'operations';
+    }
+    App.save(); App.render();
   },
 
   // V28.3.0 — Ativa uma ação do catálogo na frente selecionada.

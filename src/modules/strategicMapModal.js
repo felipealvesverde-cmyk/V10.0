@@ -16,6 +16,53 @@ window.StrategicMapModal = {
       </div>
       ${window.QuickActionModal ? QuickActionModal.render() : ''}
       ${window.StrategicOverviewModal ? StrategicOverviewModal.render() : ''}
+      ${App.state.strategicHandoffPopup ? this._handoffPopup() : ''}
+    </div>`;
+  },
+
+  // V28.3.1 — Popup didático do passe do bastão (estratégico → tático).
+  // Aparece quando o CEO confirma o último número das 3 frentes. Explica POR QUE
+  // a metodologia separa quem decide o QUÊ de quem decide o COMO, sem citar Doerr.
+  _handoffPopup() {
+    return `<div class="fixed inset-0 z-[95] bg-slate-950/90 backdrop-blur-sm p-4 grid place-items-center overflow-auto">
+      <div class="rounded-3xl shadow-2xl text-white max-w-2xl w-full" style="background:radial-gradient(circle at 0% 0%, rgba(139,92,246,.28), transparent 35%), radial-gradient(circle at 100% 100%, rgba(34,197,94,.22), transparent 35%), #0b1428;">
+        <div class="p-6 lg:p-7 space-y-5">
+          <div>
+            <div class="flex items-center gap-2 mb-2"><span class="text-emerald-300 text-lg font-black">✓</span><p class="text-[11px] font-black text-emerald-200 uppercase tracking-wider">Parte estratégica concluída</p></div>
+            <h2 class="text-2xl lg:text-3xl font-black leading-tight">Hora de passar o bastão pro tático.</h2>
+            <p class="text-sm text-slate-300 mt-2 leading-relaxed">Você terminou o papel de CEO neste Mapa: definiu o objetivo do produto, escolheu as 3 frentes do funil e setou os números que cada uma precisa entregar nos próximos 90 dias.</p>
+          </div>
+
+          <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-4">
+            <p class="text-[11px] font-black text-violet-200 uppercase tracking-wider mb-2">Por que estratégico e tático andam separados?</p>
+            <p class="text-[13px] text-slate-200 leading-relaxed mb-3">Quem decide <b class="text-white">o quê</b> precisa acontecer é, quase sempre, uma cabeça diferente de quem decide <b class="text-white">como</b> fazer acontecer. Essa separação não é detalhe — é o que faz o sistema funcionar.</p>
+            <ul class="space-y-2 text-[12px] text-slate-300">
+              <li class="flex items-start gap-2"><span class="text-violet-300 shrink-0">▸</span><span><b class="text-violet-200">Estratégico</b> olha o tabuleiro inteiro. Pensa em quanto alocar, em que aposta priorizar, em quem ganha e quem perde recurso. Precisa visão larga e distanciamento da operação.</span></li>
+              <li class="flex items-start gap-2"><span class="text-emerald-300 shrink-0">▸</span><span><b class="text-emerald-200">Tático</b> mergulha na disciplina. Conhece o canal a fundo, sabe o que funciona em campanha de mídia paga, sabe negociar com cliente difícil, sabe atender um detrator e devolver promotor. Precisa profundidade vertical.</span></li>
+            </ul>
+            <p class="text-[12px] text-slate-400 italic mt-3">Quando a mesma pessoa faz os dois ao mesmo tempo sem trocar de chapéu, ou a estratégia perde contato com a realidade do canal, ou a operação anda sem norte.</p>
+          </div>
+
+          <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-4">
+            <p class="text-[11px] font-black text-sky-200 uppercase tracking-wider mb-2">O que muda agora?</p>
+            <div class="space-y-3 text-[13px] text-slate-200 leading-relaxed">
+              <div>
+                <p class="font-black text-white mb-0.5">Se sua empresa tem time formado:</p>
+                <p>Este Mapa pode ser aberto pelos gestores de Marketing, Vendas e Sucesso do Cliente. Cada um vai na aba da frente dele e define a estratégia local: hipótese central, canais prioritários e as ações que vão mover cada número no dia-a-dia. Você (CEO) vira observador.</p>
+              </div>
+              <div>
+                <p class="font-black text-white mb-0.5">Se você toca tudo sozinho:</p>
+                <p>A separação acontece na sua cabeça. Você sai do chapéu de CEO e veste, um de cada vez, o do gestor de cada frente. Eu (Djow) fico do seu lado em cada aba, ajudando a montar a estratégia da área.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-2 justify-end pt-2">
+            <button onclick="Actions.dismissStrategicHandoffPopup(false)" class="px-4 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-sm font-black">Fechar e ficar aqui</button>
+            <button onclick="Actions.dismissStrategicHandoffPopup(true)" class="px-5 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-black flex items-center justify-center gap-2" style="color:#fff!important;">Vamos pro Comercial tático <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+          </div>
+        </div>
+      </div>
     </div>`;
   },
 
