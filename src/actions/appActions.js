@@ -3589,6 +3589,11 @@ Object.assign(Actions, {
         const fixedCount = StrategicMapEngine.migrateLegacyStrategicActions(Number(productId));
         if (fixedCount > 0) Utils.toast(`${fixedCount} ação(ões) tiveram setor/funil corrigidos.`);
       }
+      // V29.2.3 — garante campos compat (leads, okrs, flowPath) em ações estratégicas
+      // antigas pra não quebrar ActionModule.card.
+      if (typeof StrategicMapEngine.migrateStrategicActionsCompatFields === 'function') {
+        StrategicMapEngine.migrateStrategicActionsCompatFields(Number(productId));
+      }
       // V29 — Lazy migration: se há strategicCampaignId e ainda há legacy objectives,
       // move pra branch automaticamente.
       const map = StrategicMapEngine.getForProduct(productId);

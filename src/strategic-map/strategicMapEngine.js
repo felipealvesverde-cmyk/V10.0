@@ -323,6 +323,38 @@ window.StrategicMapEngine = {
     return duplicateIds.size;
   },
 
+  // V29.2.3 — Migração one-shot: garante que toda action estratégica tenha
+  // os campos compat usados pelo ActionModule.card (leads, okrs, flowPath, etc.).
+  // Resolve TypeError 'cannot read length of undefined' em ações criadas antes
+  // do V29.2.3 que não setavam esses defaults.
+  migrateStrategicActionsCompatFields(productId) {
+    const campaignIds = new Set((App.state.campaigns || []).filter(c => Number(c.productId) === Number(productId)).map(c => Number(c.id)));
+    let fixed = 0;
+    App.state.actions = (App.state.actions || []).map(a => {
+      if (!campaignIds.has(Number(a.campaignId)) || !a.strategicCatalogId) return a;
+      const needsFix = !Array.isArray(a.leads) || !Array.isArray(a.okrs) || !Array.isArray(a.flowPath);
+      if (!needsFix) return a;
+      fixed++;
+      return {
+        ...a,
+        leads: Array.isArray(a.leads) ? a.leads : [],
+        okrs: Array.isArray(a.okrs) ? a.okrs : [],
+        kpis: Array.isArray(a.kpis) ? a.kpis : [],
+        flowPath: Array.isArray(a.flowPath) ? a.flowPath : [],
+        flow: a.flow !== undefined ? a.flow : null,
+        flowConfig: a.flowConfig !== undefined ? a.flowConfig : null,
+        scoreId: a.scoreId || (App.state.scores?.[0]?.id) || 1,
+        connected: a.connected !== undefined ? a.connected : false,
+        connectionStatus: a.connectionStatus || 'ready',
+        conversionObjective: a.conversionObjective !== undefined ? a.conversionObjective : '',
+        objective: a.objective !== undefined ? a.objective : '',
+        expectedConversion: a.expectedConversion !== undefined ? a.expectedConversion : 25,
+        mailingDefined: a.mailingDefined !== undefined ? a.mailingDefined : false
+      };
+    });
+    return fixed;
+  },
+
   // V28.4.1 — Migração one-shot: pra cada action com strategicCatalogId, re-aplica
   // os defaults do template (sector/funnel/destSector/destFunnel/channel/actionType).
   // Conserta ações criadas em versões anteriores onde esses campos não eram propagados.
@@ -375,10 +407,27 @@ window.StrategicMapEngine = {
       actionType: template.actionType,
       sector: template.sector,
       funnel: template.funnel,
+      originSector: template.sector,                                  // V29.2.3 — defaults compat
+      originFunnel: template.funnel,
       destinationSector: template.destinationSector,
       destinationFunnel: template.destinationFunnel,
       status: 'Rascunho estratégico',
       isDraft: true,
+      // V29.2.3 — Defaults compat com ActionModule.card pra evitar TypeError em
+      // action.leads.length, action.okrs, flowPath, etc.
+      leads: [],
+      okrs: [],
+      kpis: [],
+      flowPath: [],
+      flow: null,
+      flowConfig: null,
+      scoreId: (App.state.scores?.[0]?.id) || 1,
+      connected: false,
+      connectionStatus: 'ready',
+      conversionObjective: '',
+      objective: '',
+      expectedConversion: 25,
+      mailingDefined: false,
       strategicAreaId: areaId,
       strategicCatalogId: templateId,
       strategicDescription: template.description,
