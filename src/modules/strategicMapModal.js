@@ -313,11 +313,20 @@ window.StrategicMapModal = {
   },
 
   _stepper(product) {
-    const progress = StrategicMapEngine.journeyProgress(product.id);
+    // V29.0.3 — Progress da BRANCH ativa (não do produto). Visão fora do stepper em mode='campaign'.
+    const mode = App.state.strategicMapMode || 'product';
+    const campaignId = App.state.strategicMapCampaignId;
+    const progress = (mode === 'campaign' && campaignId)
+      ? StrategicMapEngine.journeyProgressForBranch(product.id, campaignId)
+      : StrategicMapEngine.journeyProgress(product.id);
     const current = StrategicZoomNavigation.current();
+    const levels = (mode === 'campaign')
+      ? StrategicZoomNavigation.LEVELS.filter(l => l.id !== 'vision')  // 4 etapas na branch
+      : StrategicZoomNavigation.LEVELS;
+    const gridCols = (mode === 'campaign') ? 'md:grid-cols-4' : 'md:grid-cols-5';
     return `<div class="rounded-3xl bg-white/[0.04] border border-white/10 p-3">
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-        ${StrategicZoomNavigation.LEVELS.map((level, i) => {
+      <div class="grid grid-cols-2 ${gridCols} gap-2">
+        ${levels.map((level, i) => {
           const done = progress[level.id];
           const active = current === level.id;
           const tone = active ? 'bg-indigo-500/25 border-indigo-400/50' : (done ? 'bg-emerald-500/15 border-emerald-400/30' : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]');
@@ -353,11 +362,31 @@ window.StrategicMapModal = {
   },
 
   // -------------------- STEP 1: OBJETIVO DO PRODUTO --------------------
-  // V28.1.0 — Vocabulário RevOps: foco é "produto" + ambição. Pergunta humana
-  // + exemplos de produto + textarea com helper.
+  // V28.1.0 — Vocabulário RevOps: foco é "produto" + ambição.
+  // V29.0.3 — Em mode='campaign' vira banner read-only (Visão é do produto, não da branch).
   _stepVision(product) {
+    const mode = App.state.strategicMapMode || 'product';
     const map = StrategicMapEngine.getForProduct(product.id);
     const hasVision = Boolean(String(map.vision || '').trim());
+    if (mode === 'campaign') {
+      return `<section class="space-y-3">
+        ${this._stepIntro('Objetivo do Produto', 'Esta visão é compartilhada por todas as campanhas deste produto. Edita-se na vista CEO.', 'star')}
+        <div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">🔒 Compartilhado</span>
+            <span class="text-[11px] text-slate-400">Visão do produto — afeta todas as branches</span>
+          </div>
+          ${hasVision
+            ? `<p class="text-base text-white font-semibold leading-relaxed">${Utils.escape(map.vision)}</p>`
+            : `<p class="text-sm text-slate-400 italic">⚠️ Nenhuma visão definida pro produto ainda. Volte pra vista CEO e defina.</p>`}
+          <div class="flex justify-end gap-2 mt-4">
+            <button onclick="Actions.openStrategicMap(${product.id})" class="px-3 py-2 rounded-xl bg-violet-500 hover:bg-violet-600 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="layout" class="w-3.5 h-3.5"></i> Abrir vista CEO pra editar</button>
+          </div>
+        </div>
+        ${this._stepCta('Próximo passo: Comercial desta campanha', hasVision)}
+      </section>`;
+    }
+    // Vista produto (CEO): mantém comportamento original com textarea editável.
 
     const exampleCacau = 'Ser o chocolate em barra preferido das famílias brasileiras até 2027.';
     const otherExamples = [
@@ -981,9 +1010,11 @@ window.StrategicMapModal = {
     if (!area) return '';
     const objective = StrategicMapEngine.getObjectiveByArea(product.id, areaId);
     const confirmedKrs = (objective?.okrs || []).filter(k => k.confirmed);
-    const activeActions = StrategicMapEngine.getStrategicActionsByArea(product.id, areaId);
-    const activatedTemplateIds = StrategicMapEngine.getActivatedCatalogActionIds(product.id, areaId);
-    const orphanKrs = StrategicMapEngine.getKrsWithoutActions(product.id, areaId);
+    // V29.0.3 — Passa campaignId pra escopar ações/órfãs à branch ativa (não ao produto inteiro).
+    const campaignId = App.state.strategicMapCampaignId;
+    const activeActions = StrategicMapEngine.getStrategicActionsByArea(product.id, areaId, campaignId);
+    const activatedTemplateIds = StrategicMapEngine.getActivatedCatalogActionIds(product.id, areaId, campaignId);
+    const orphanKrs = StrategicMapEngine.getKrsWithoutActions(product.id, areaId, campaignId);
     const tone = area.color;
 
     return `<div class="rounded-3xl bg-white/[0.05] border border-${tone}-400/30 p-4 space-y-3">
@@ -1123,8 +1154,12 @@ window.StrategicMapModal = {
 
   // -------------------- STEP 5: EXECUTAR --------------------
   _stepExecution(product) {
-    const map = StrategicMapEngine.getForProduct(product.id);
-    const objectives = map.objectives || [];
+    // V29.0.3 — Lê da branch ativa (campaignId) quando em vista campanha; fallback no legacy.
+    const campaignId = App.state.strategicMapCampaignId;
+    const source = (campaignId && StrategicMapEngine.getBranchMap)
+      ? (StrategicMapEngine.getBranchMap(campaignId) || { objectives: [] })
+      : StrategicMapEngine.getForProduct(product.id);
+    const objectives = source.objectives || [];
     const okrs = objectives.flatMap(o => (o.okrs || []).map(kr => ({ obj: o, kr })));
     const connectedOkrs = okrs.filter(({ kr }) => (kr.connectedActionIds || []).length > 0);
     if (!connectedOkrs.length) {

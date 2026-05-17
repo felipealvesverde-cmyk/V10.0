@@ -103,6 +103,26 @@ window.StrategicMapEngine = {
     };
   },
 
+  // V29.0.3 — Progress da BRANCH (vista campanha). Visão vem do produto (compartilhada).
+  // Resto (objectives/okrs/operations/execution) vem do branchMap[campaignId].
+  journeyProgressForBranch(productId, campaignId) {
+    const branch = this.getBranchMap(campaignId);
+    const objectives = (branch?.objectives) || [];
+    const okrs = objectives.flatMap(o => o.okrs || []);
+    const connectedOkrs = okrs.filter(o => (o.connectedActionIds || []).length > 0);
+    const connectedActionIds = new Set(connectedOkrs.flatMap(o => (o.connectedActionIds || []).map(Number)));
+    const tasks = window.ExecutionTaskStore?.all() || [];
+    const hasExecutionTask = tasks.some(t => connectedActionIds.has(Number(t.linked_action_id)));
+    const productVision = String(this.getForProduct(productId)?.vision || '').trim();
+    return {
+      vision: Boolean(productVision),
+      objectives: objectives.length > 0,
+      okrs: okrs.length > 0,
+      operations: connectedOkrs.length > 0,
+      execution: hasExecutionTask
+    };
+  },
+
   currentStepId(productId) {
     const progress = this.journeyProgress(productId);
     const order = ['vision', 'objectives', 'okrs', 'operations', 'execution'];
