@@ -4547,12 +4547,16 @@ Object.assign(Actions, {
     const currentAreaId = obj?.area;
     StrategicOkrEngine.update(productId, objectiveId, okrId, { confirmed: true });
     App.save();
-    if (StrategicMapEngine.allKrsConfirmed(productId) && window.DjowStrategicAssistant) {
-      const msg = '🎯 Boa! Você cobriu todos os números das 3 frentes (Marketing, Vendas e Sucesso do Cliente).\n\nA partir de agora vou ficar de olho neles — se algum sair da rota, te aviso. E se eu perceber que a estratégia precisa pivotar, te chamo aqui mesmo.\n\nPróximo passo: passar o bastão pros gestores de cada frente. Eles é que vão definir COMO chegar nesses números.';
+    // V29.0.1 — Mensagem do Djow agora é contextual à branch (campanha).
+    // O "allKrsConfirmed" opera sobre a branch ativa, não sobre o produto inteiro.
+    const campaignId = App.state.strategicMapCampaignId;
+    const campaign = campaignId ? (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId)) : null;
+    if (StrategicMapEngine.allKrsConfirmed(productId, campaignId) && window.DjowStrategicAssistant) {
+      const branchLabel = campaign ? `da campanha "${campaign.name}"` : 'desta branch';
+      const msg = `🎯 Boa! Você cobriu todos os números ${branchLabel} (Marketing, Vendas e Sucesso do Cliente).\n\nEsses números agora alimentam o rollup dos KRs-mãe do produto via soma automática.\n\nA partir de agora vou ficar de olho neles — se algum sair da rota, te aviso. E se eu perceber que precisa pivotar, te chamo aqui mesmo.\n\nPróximo passo: conectar cada número à ação operacional que move o ponteiro nesta campanha.`;
       DjowStrategicAssistant.append(productId, { role: 'agent', text: msg, ts: new Date().toISOString() });
-      // V28.3.1 — abre popup central explicando a transição estratégico → tático.
       App.state.strategicHandoffPopup = true;
-      Utils.toast('🎯 Todos os números confirmados. Djow ativou o monitoramento.');
+      Utils.toast('🎯 Todos os números confirmados nesta branch.');
     } else {
       // V28.2.3 — auto-advance: se próximo unconfirmed está em outra frente, mudar aba ativa.
       const next = StrategicMapEngine.nextUnconfirmedKr(productId);
@@ -4735,6 +4739,41 @@ Object.assign(Actions, {
     }
     StrategicMapEngine.updateProductKr(productId, krId, patch);
     App.save();
+  },
+
+  // V29.0.1 — Dono compartilhado da área (Marketing/Vendas/CS) — mesmo across branches.
+  setStrategicAreaOwner(productId, areaId, owner) {
+    if (!productId || !window.StrategicMapEngine) return;
+    StrategicMapEngine.setAreaOwner(productId, areaId, owner);
+    App.save();
+  },
+
+  // V29.0.1 — L (top-down): gestor confirma plugar um KR-mãe que o CEO criou,
+  // criando o filho correspondente na branch atual com defaults do catálogo.
+  plugProductKrIntoBranch(productKrId) {
+    const productId = App.state.strategicMapProductId;
+    const campaignId = App.state.strategicMapCampaignId;
+    if (!productId || !campaignId || !window.StrategicMapEngine) return;
+    const pkr = (StrategicMapEngine.getProductKrs(productId)).find(k => k.id === productKrId);
+    if (!pkr) return Utils.toast('KR-mãe não encontrado.');
+    const objective = StrategicMapEngine.getObjectiveByArea(productId, pkr.area, campaignId);
+    if (!objective || !window.StrategicOkrEngine) return Utils.toast('Frente não encontrada nesta branch.');
+    const kpi = (StrategicMapEngine.KPI_CATALOG[pkr.area] || []).find(k => k.id === pkr.catalogId);
+    StrategicOkrEngine.add(productId, objective.id, {
+      name: pkr.name,
+      metric: pkr.metric,
+      catalogId: pkr.catalogId,
+      catalogDescription: kpi?.description || '',
+      isHandoff: Boolean(kpi?.handoff),
+      current: null,
+      targetCommitted: null,
+      targetStretch: null,
+      period: 90,
+      confirmed: false,
+      parentProductKrId: pkr.id
+    }, campaignId);
+    App.save(); App.render();
+    Utils.toast(`"${pkr.name}" plugado nesta branch. Preencha a meta.`);
   },
 
   // V29.0.0 — Remove KR-mãe (e desvincula filhas).

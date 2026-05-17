@@ -587,6 +587,19 @@ window.StrategicMapEngine = {
     return 'active';                         // 🟣 roxo
   },
 
+  // V29.0.1 — Dono compartilhado da área (mesmo Marketing cuida de todas as branches).
+  // Armazenado em strategicMaps[productId].areaOwners = { marketing, sales, cs }.
+  getAreaOwner(productId, areaId) {
+    const map = this.getForProduct(productId);
+    return (map?.areaOwners || {})[areaId] || '';
+  },
+
+  setAreaOwner(productId, areaId, owner) {
+    const map = this.ensure(productId);
+    const areaOwners = { ...(map.areaOwners || {}), [areaId]: String(owner || '') };
+    this.save(productId, { areaOwners });
+  },
+
   // === KRs-MÃE (productKrs) ===
   getProductKrs(productId) {
     return this.getForProduct(productId)?.productKrs || [];
@@ -667,6 +680,19 @@ window.StrategicMapEngine = {
       });
     });
     return { current: sumCurrent, targetCommitted: sumCommitted, targetStretch: sumStretch, contributors };
+  },
+
+  // V29.0.1 — L (top-down): lista KRs-mãe do produto que AINDA não têm filho
+  // correspondente nesta branch específica. Usado pra banner "CEO criou X, quer plugar?"
+  getMissingChildrenInBranch(productId, campaignId) {
+    const productKrs = this.getProductKrs(productId);
+    const branch = this.getBranchMap(campaignId);
+    if (!branch) return productKrs;  // branch nova: todas as mães estão faltando
+    const linkedParentIds = new Set();
+    (branch.objectives || []).forEach(o => (o.okrs || []).forEach(kr => {
+      if (kr.parentProductKrId) linkedParentIds.add(kr.parentProductKrId);
+    }));
+    return productKrs.filter(pkr => !linkedParentIds.has(pkr.id));
   },
 
   // Lista todos os KRs-filhos órfãos (sem parentProductKrId) em todas as branches do produto.

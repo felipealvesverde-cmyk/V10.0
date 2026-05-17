@@ -415,7 +415,7 @@ window.HomeModule = {
           </div>
         </div>
         <div class="lj-home-alerts-body">
-          <div class="lj-home-alerts-empty">Nenhum alerta no momento.</div>
+          ${this._strategicAlertItems()}
         </div>
       </div>
     </aside>`;
@@ -426,7 +426,6 @@ window.HomeModule = {
     this.startRotation();
     return `<div class="lj-home">
       ${this._greetingBar()}
-      ${this._strategicAlerts()}
       ${this._kpiSlots()}
       <div class="lj-home-main">
         <div class="lj-home-main-col">
@@ -438,43 +437,37 @@ window.HomeModule = {
     </div>`;
   },
 
-  // V29.0.0 — Alertas críticos do Mapa da Receita (campanhas desplugadas + KRs órfãos).
-  _strategicAlerts() {
-    if (!window.StrategicMapEngine) return '';
+  // V29.0.1 — Items pra preencher o card "Alertas importantes" existente
+  // (lj-home-alerts, no canto direito inferior). Substitui o banner topo
+  // anterior — usa o slot do design system que já estava lá.
+  _strategicAlertItems() {
+    if (!window.StrategicMapEngine) return '<div class="lj-home-alerts-empty">Nenhum alerta no momento.</div>';
     const products = App.state.products || [];
-    let totalDesplugadas = 0;
-    let totalConfiguring = 0;
-    let totalOrphans = 0;
-    const desplugDetails = [];
+    const items = [];
     products.forEach(p => {
       const desplug = StrategicMapEngine.getDesplugedCampaigns ? StrategicMapEngine.getDesplugedCampaigns(p.id) : [];
       const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(p.id) : [];
       const orphans = StrategicMapEngine.getOrphanChildKrs ? StrategicMapEngine.getOrphanChildKrs(p.id) : [];
       desplug.forEach(c => {
-        totalDesplugadas++;
-        desplugDetails.push({ campaign: c, product: p });
+        items.push({ severity: 'red', icon: 'unplug', label: `${Utils.escape(c.name)} (${Utils.escape(p.name)})`, hint: 'desplugada — não alimenta KPIs', onclick: `Actions.activateStrategicMapForCampaign(${c.id})` });
       });
       branches.forEach(b => {
-        if (StrategicMapEngine.getCampaignStrategicStatus(b.campaignId) === 'configuring') totalConfiguring++;
+        if (StrategicMapEngine.getCampaignStrategicStatus(b.campaignId) === 'configuring') {
+          const camp = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
+          if (camp) items.push({ severity: 'amber', icon: 'loader', label: `${Utils.escape(camp.name)} (${Utils.escape(p.name)})`, hint: 'em configuração — faltam números', onclick: `Actions.openStrategicMapForCampaign(${b.campaignId})` });
+        }
       });
-      totalOrphans += orphans.length;
+      if (orphans.length) {
+        items.push({ severity: 'amber', icon: 'ghost', label: `${orphans.length} número(s) órfão(s) em ${Utils.escape(p.name)}`, hint: 'sem KR-mãe — rollup não funciona', onclick: `Actions.openStrategicMap(${p.id})` });
+      }
     });
-    const totalAlerts = totalDesplugadas + totalConfiguring + totalOrphans;
-    if (totalAlerts === 0) return '';
-    return `<section class="rounded-3xl bg-gradient-to-r from-red-50 to-amber-50 border-2 border-red-200 p-4 mb-4">
-      <div class="flex items-start gap-3">
-        <div class="w-10 h-10 rounded-2xl bg-red-500 grid place-items-center shrink-0"><i data-lucide="bell-ring" class="w-5 h-5 text-white"></i></div>
-        <div class="min-w-0 flex-1">
-          <p class="text-[11px] font-black text-red-700 uppercase tracking-wider mb-0.5">⚠️ Alertas críticos do Mapa da Receita</p>
-          <p class="text-sm text-slate-800 font-bold">${totalAlerts} pendência(s) precisam de atenção</p>
-          <div class="mt-2 space-y-1 text-[12px] text-slate-700">
-            ${totalDesplugadas > 0 ? `<p>🔴 <b>${totalDesplugadas} campanha(s) desplugada(s)</b> rodando sem objetivo — não alimentam os KPIs.</p>` : ''}
-            ${totalConfiguring > 0 ? `<p>🟡 <b>${totalConfiguring} campanha(s) em configuração</b> — branch criada mas faltam números confirmados.</p>` : ''}
-            ${totalOrphans > 0 ? `<p>👻 <b>${totalOrphans} número(s) órfão(s)</b> nas branches sem KR-mãe correspondente — rollup não funciona.</p>` : ''}
-          </div>
-          ${desplugDetails.length ? `<div class="mt-2 flex flex-wrap gap-1.5">${desplugDetails.slice(0, 6).map(d => `<button onclick="App.setTab('campaigns'); App.state.selectedProductId=${d.product.id}; App.render();" class="px-2 py-1 rounded-lg bg-white border border-red-300 text-red-700 text-[10px] font-black hover:bg-red-50">${Utils.escape(d.campaign.name)} → ${Utils.escape(d.product.name)}</button>`).join('')}${desplugDetails.length > 6 ? `<span class="text-[10px] text-slate-500 self-center">+${desplugDetails.length - 6} mais</span>` : ''}</div>` : ''}
-        </div>
+    if (items.length === 0) return '<div class="lj-home-alerts-empty">Nenhum alerta no momento.</div>';
+    return items.slice(0, 8).map(it => `<button onclick="${it.onclick}" class="w-full flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 text-left transition" title="${it.hint}">
+      <span class="w-1.5 h-1.5 rounded-full bg-${it.severity}-500 mt-1.5 shrink-0"></span>
+      <div class="min-w-0 flex-1">
+        <p class="text-[11px] font-black text-slate-800 truncate">${it.label}</p>
+        <p class="text-[10px] text-${it.severity}-700">${it.hint}</p>
       </div>
-    </section>`;
+    </button>`).join('') + (items.length > 8 ? `<p class="text-[10px] text-slate-500 italic text-center pt-1">+${items.length - 8} alerta(s) mais</p>` : '');
   }
 };

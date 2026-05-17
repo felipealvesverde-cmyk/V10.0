@@ -75,9 +75,9 @@ window.StrategicMapModal = {
       <div class="rounded-3xl shadow-2xl text-white max-w-2xl w-full" style="background:radial-gradient(circle at 0% 0%, rgba(139,92,246,.28), transparent 35%), radial-gradient(circle at 100% 100%, rgba(34,197,94,.22), transparent 35%), #0b1428;">
         <div class="p-6 lg:p-7 space-y-5">
           <div>
-            <div class="flex items-center gap-2 mb-2"><span class="text-emerald-300 text-lg font-black">✓</span><p class="text-[11px] font-black text-emerald-200 uppercase tracking-wider">Parte estratégica concluída</p></div>
-            <h2 class="text-2xl lg:text-3xl font-black leading-tight">Hora de passar o bastão pro tático.</h2>
-            <p class="text-sm text-slate-300 mt-2 leading-relaxed">Você terminou o papel de CEO neste Mapa: definiu o objetivo do produto, escolheu as 3 frentes do funil e setou os números que cada uma precisa entregar nos próximos 90 dias.</p>
+            <div class="flex items-center gap-2 mb-2"><span class="text-emerald-300 text-lg font-black">✓</span><p class="text-[11px] font-black text-emerald-200 uppercase tracking-wider">Branch desta campanha concluída</p></div>
+            <h2 class="text-2xl lg:text-3xl font-black leading-tight">Hora de plugar as ações.</h2>
+            <p class="text-sm text-slate-300 mt-2 leading-relaxed">Você confirmou os números desta campanha (Marketing, Vendas e Sucesso do Cliente). Eles agora alimentam os KRs-mãe do produto via rollup. Próximo: conectar as ações operacionais que vão mover cada número no dia-a-dia desta branch.</p>
           </div>
 
           <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-4">
@@ -114,12 +114,20 @@ window.StrategicMapModal = {
   },
 
   _header(product) {
-    const snap = StrategicMapEngine.snapshot(product.id);
+    // V29.0.1 — Subtítulo contextual: se em modo branch, mostra nome da campanha.
+    const mode = App.state.strategicMapMode || 'product';
+    const campaignId = App.state.strategicMapCampaignId;
+    const campaign = campaignId ? (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId)) : null;
+    const branches = window.StrategicMapEngine?.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(product.id) : [];
+    const productKrs = window.StrategicMapEngine?.getProductKrs ? StrategicMapEngine.getProductKrs(product.id) : [];
+    const subtitle = mode === 'campaign' && campaign
+      ? `Branch <b class="text-violet-300">${Utils.escape(campaign.name)}</b> · ${branches.length} campanha(s) plugada(s) no produto`
+      : `${branches.length} branch(es) ativa(s) · ${productKrs.length} KR(s)-mãe`;
     return `<header class="p-5 border-b border-white/10 flex flex-col lg:flex-row lg:items-start justify-between gap-4">
       <div>
         <div class="flex items-center gap-2 mb-1"><i data-lucide="compass" class="w-4 h-4 text-indigo-300"></i><p class="text-[11px] font-black text-slate-300 uppercase tracking-wider">Revenue Strategic Map</p></div>
         <h2 class="text-2xl font-black">Mapa da Receita — ${Utils.escape(product.name)}</h2>
-        <p class="text-xs text-slate-300 mt-1">${snap.objectivesCount} frente(s) · ${snap.okrsCount} número(s) · ${snap.connectedFlows} fluxo(s) · progresso médio ${snap.avgProgress}%</p>
+        <p class="text-xs text-slate-300 mt-1">${subtitle}</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <button onclick="Actions.openStrategicOverview()" title="Ver árvore Visão → Objetivos → OKRs" class="px-3 py-2.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-100 text-xs font-black flex items-center gap-1"><i data-lucide="layout-grid" class="w-3.5 h-3.5"></i> Visão geral</button>
@@ -226,8 +234,12 @@ window.StrategicMapModal = {
         const catalog = (StrategicMapEngine.KPI_CATALOG || {})[area.id] || [];
         const activatedIds = new Set(areaKrs.map(k => k.catalogId));
         const available = catalog.filter(c => !activatedIds.has(c.id));
+        const owner = StrategicMapEngine.getAreaOwner ? StrategicMapEngine.getAreaOwner(product.id, area.id) : '';
         return `<div class="rounded-2xl bg-${area.color}-500/5 border border-${area.color}-400/20 p-3">
-          <p class="text-[10px] font-black text-${area.color}-200 uppercase tracking-wider mb-2"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)}</p>
+          <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <p class="text-[10px] font-black text-${area.color}-200 uppercase tracking-wider"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)}</p>
+            <label class="flex items-center gap-1.5 text-[10px] text-slate-400">Dono (compartilhado): <input value="${Utils.escape(owner)}" oninput="Actions.setStrategicAreaOwner(${product.id}, '${area.id}', this.value)" placeholder="quem responde" class="px-2 py-0.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold w-32" /></label>
+          </div>
           ${areaKrs.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem KRs-mãe nesta área.</p>' : '<div class="space-y-2">' + areaKrs.map(kr => this._productKrCard(product, kr, area.color)).join('') + '</div>'}
           ${available.length ? `<div class="mt-2 pt-2 border-t border-${area.color}-400/20">
             <p class="text-[9px] font-black text-${area.color}-300/70 uppercase mb-1">+ Adicionar KR-mãe do catálogo:</p>
@@ -435,7 +447,13 @@ window.StrategicMapModal = {
   // V28.1.0 — Card de uma frente comercial (Marketing/Vendas/CS).
   // Mostra descrição minimalista RevOps + dono/prazo editáveis + contador de números.
   _comercialAreaCard(area, objective) {
-    const owner = objective?.owner || '';
+    // V29.0.1 — Owner agora vem prioritariamente do produto (compartilhado entre branches).
+    // Branch override só se foi explicitamente setado no objective.owner.
+    const productId = App.state.strategicMapProductId;
+    const sharedOwner = window.StrategicMapEngine?.getAreaOwner ? StrategicMapEngine.getAreaOwner(productId, area.id) : '';
+    const branchOwner = objective?.owner || '';
+    const owner = branchOwner || sharedOwner;
+    const ownerSource = branchOwner ? '(override desta campanha)' : (sharedOwner ? '(compartilhado do produto)' : '');
     const deadline = objective?.deadline || '';
     const okrCount = (objective?.okrs || []).length;
     const customLabel = objective?.label && objective.label !== area.label ? objective.label : '';
@@ -453,8 +471,8 @@ window.StrategicMapModal = {
 
       <div class="space-y-2 pt-2 border-t border-white/10">
         <div>
-          <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Dono dessa frente</label>
-          <input value="${Utils.escape(owner)}" oninput="Actions.updateStrategicAreaField('${area.id}', 'owner', this.value)" placeholder="Quem responde por essa frente?" class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-white/15 text-white text-[12px] font-bold placeholder:text-slate-500" />
+          <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Dono dessa frente ${ownerSource ? `<span class="text-[9px] font-normal text-slate-500">${ownerSource}</span>` : ''}</label>
+          <input value="${Utils.escape(owner)}" oninput="Actions.updateStrategicAreaField('${area.id}', 'owner', this.value)" placeholder="Quem responde por essa frente?" class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border ${branchOwner ? 'border-amber-400/40' : 'border-white/15'} text-white text-[12px] font-bold placeholder:text-slate-500" title="Edite na vista CEO pra mudar pra todas as branches do produto" />
         </div>
         <div>
           <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Prazo do ciclo</label>
@@ -498,11 +516,31 @@ window.StrategicMapModal = {
 
       ${this._handoffNav(product)}
 
+      ${this._unpluggedParentKrsBanner(product)}
+
       <div class="space-y-3">
         ${this._activeAreaObjective(product, objectives) ? this._okrsObjectiveCard(product, this._activeAreaObjective(product, objectives)) : '<p class="text-[11px] text-slate-500 italic">Selecione uma frente acima.</p>'}
       </div>
       ${this._stepCta('Próximo passo: conectar à operação', totalOkrs > 0)}
     </section>`;
+  },
+
+  // V29.0.1 — Banner L (top-down): mostra KRs-mãe do CEO que ainda não foram
+  // plugados nesta branch — gestor confirma se quer adicionar filho local.
+  _unpluggedParentKrsBanner(product) {
+    const campaignId = App.state.strategicMapCampaignId;
+    if (!campaignId || !window.StrategicMapEngine?.getMissingChildrenInBranch) return '';
+    const activeAreaId = this._activeAreaId(product.id);
+    const missing = StrategicMapEngine.getMissingChildrenInBranch(product.id, campaignId)
+      .filter(pkr => pkr.area === activeAreaId);
+    if (!missing.length) return '';
+    return `<div class="rounded-2xl bg-amber-500/10 border border-amber-400/40 p-3">
+      <p class="text-[11px] font-black text-amber-200 uppercase tracking-wider mb-1.5">🔔 CEO criou KR(s)-mãe sem filho aqui</p>
+      <p class="text-[12px] text-amber-100 mb-2 leading-relaxed">O CEO definiu números que esta campanha pode contribuir. Plugue se fizer sentido pra esta frente:</p>
+      <div class="flex flex-wrap gap-1.5">
+        ${missing.map(pkr => `<button onclick="Actions.plugProductKrIntoBranch('${pkr.id}')" class="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400/40 text-amber-100 text-[11px] font-bold">+ Plugar "${Utils.escape(pkr.name)}"</button>`).join('')}
+      </div>
+    </div>`;
   },
 
   // V28.2.3 — Determina qual área está ativa (state user OU próxima a confirmar OU marketing).
