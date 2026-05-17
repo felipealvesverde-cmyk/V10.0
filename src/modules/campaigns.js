@@ -197,6 +197,13 @@ var CampaignModule = {
           <p class="text-xs text-slate-400 mt-2">Produto: ${Utils.escape(product?.name || 'não vinculado')} • ${actions.length} ação(ões) • ${totalLeads} lead(s) • ${conversion}% conversão</p>
           ${hasPipeline ? `<p class="text-[11px] text-emerald-600 mt-1">Pipeline RD: <b>${Utils.escape(pipelineInfo?.pipelineName || '')}</b></p>` : ''}
           ${isStrategic && actionsWithoutObjective > 0 ? `<p class="text-[11px] text-amber-700 mt-1 font-bold">⚠️ ${actionsWithoutObjective} ação(ões) sem objetivo vinculado — veja detalhe no menu Ações.</p>` : ''}
+          ${(() => {
+            // V29.1.2 — Badge: CEO criou KRs-mãe que esta branch ainda não plugou.
+            if (!isStrategic || !window.StrategicMapEngine?.getMissingChildrenInBranch || !product) return '';
+            const missing = StrategicMapEngine.getMissingChildrenInBranch(product.id, campaign.id);
+            if (!missing.length) return '';
+            return `<p class="text-[11px] text-violet-700 mt-1 font-bold">🔔 CEO criou ${missing.length} número(s)-mãe que esta campanha ainda não plugou — abra o Mapa e vá na etapa Campanha.</p>`;
+          })()}
         </div>
         <div class="lj-entity-metrics">
           <div class="grid grid-cols-3 gap-2 text-center">

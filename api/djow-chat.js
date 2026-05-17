@@ -202,6 +202,22 @@ const TOOLS = [
       properties: { path: { type: 'string', description: 'Caminho relativo. Ex: "src/core/state.js" ou "api/djow-chat.js"' } },
       required: ['path']
     }
+  },
+  // V29.1.2 — Abre o Mapa da Receita pro user na vista CEO (productId) OU
+  // direto na branch de uma campanha (campaignId). Use quando user pedir tipo
+  // "abre o mapa da receita do produto X" ou "mostra a campanha Y do mapa".
+  // Antes de chamar, use query_state ou list_state pra pegar IDs corretos.
+  {
+    name: 'navigate_strategic_map',
+    description: 'Abre o Mapa da Receita pro user. Se passar só productId, abre vista CEO. Se passar campaignId, abre direto a branch da campanha.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        productId: { type: 'number', description: 'ID do produto pra abrir vista CEO' },
+        campaignId: { type: 'number', description: 'ID da campanha pra abrir branch específica (productId é detectado automaticamente)' }
+      },
+      required: []
+    }
   }
 ];
 
@@ -469,6 +485,26 @@ function execTool(name, input, state) {
         } catch (err) {
           return { error: err.message };
         }
+      }
+      // V29.1.2 — Tool de navegação UI. Retorna marker `_pendingNav` que o handler
+      // propaga pro frontend, que dispara Actions.openStrategicMap* correspondente.
+      case 'navigate_strategic_map': {
+        const productId = input.productId != null ? Number(input.productId) : null;
+        let campaignId = input.campaignId != null ? Number(input.campaignId) : null;
+        let resolvedProductId = productId;
+        if (campaignId) {
+          const c = (state.campaigns || []).find(x => Number(x.id) === campaignId);
+          if (!c) return { error: `Campanha id=${campaignId} não existe.` };
+          resolvedProductId = Number(c.productId);
+        }
+        if (!resolvedProductId) return { error: 'Forneça productId OU campaignId válido.' };
+        const product = (state.products || []).find(p => Number(p.id) === resolvedProductId);
+        return {
+          _pendingNav: { type: 'strategic-map', productId: resolvedProductId, campaignId },
+          message: campaignId
+            ? `Abrindo Mapa da campanha (id=${campaignId}) do produto "${product?.name || resolvedProductId}".`
+            : `Abrindo Mapa do produto "${product?.name || resolvedProductId}" (vista CEO).`
+        };
       }
       default:
         return { error: `Tool desconhecida: ${name}` };
@@ -745,6 +781,7 @@ NÃO use tool de write (V27.0.x não tem ainda).`
   let totalTokensIn = 0, totalTokensOut = 0;
   let stateModified = false; // V26.2.0 — vira true se alguma write tool rodou
   const entitiesCreated = []; // V26.2.0 — descrição pro toast frontend
+  let pendingNav = null;     // V29.1.2 — instrução de navegação UI (se Djow chamar navigate_strategic_map)
   const maxIterations = 8;
   for (let iter = 0; iter < maxIterations; iter++) {
     const claudeRes = await callClaude({ apiKey, model, system: systemPrompt, messages, tools: TOOLS });
@@ -796,6 +833,11 @@ NÃO use tool de write (V27.0.x não tem ainda).`
         }
         delete result._pendingWrite;
       }
+      // V29.1.2 — Captura pendingNav (navigate_strategic_map) pra propagar pro frontend.
+      if (result && result._pendingNav) {
+        pendingNav = result._pendingNav;
+        delete result._pendingNav;
+      }
       // V26.2.0 — Redact segredos antes de mandar dados pra Claude
       const safeResult = redactSecrets(result);
       toolResults.push({
@@ -825,6 +867,7 @@ NÃO use tool de write (V27.0.x não tem ainda).`
     message: finalText,
     stateModified,           // V26.2.0 — frontend faz pull do state remoto
     entitiesCreated,         // V26.2.0 — pro toast informativo
+    navTarget: pendingNav,   // V29.1.2 — frontend dispara Actions.openStrategicMap* se setado
     usage: { tokensIn: totalTokensIn, tokensOut: totalTokensOut, costUsd: costUsd.toFixed(4) }
   });
 };

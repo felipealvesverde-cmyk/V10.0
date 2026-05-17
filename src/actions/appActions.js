@@ -2181,6 +2181,14 @@ Object.assign(Actions, {
           ts: Date.now(),
           usage: data.usage
         });
+        // V29.1.2 — Djow chamou navigate_strategic_map: dispara abertura do Mapa.
+        if (data.navTarget && data.navTarget.type === 'strategic-map') {
+          const t = data.navTarget;
+          setTimeout(() => {
+            if (t.campaignId) Actions.openStrategicMapForCampaign(t.campaignId);
+            else if (t.productId) Actions.openStrategicMap(t.productId);
+          }, 100); // pequeno delay pra render do chat completar antes
+        }
         // V26.2.0 — Se Djow criou entidades (state mutou no backend), puxa state
         // fresco do Postgres pro frontend ver os registros novos imediatamente.
         if (data.stateModified && window.App?._loadStateWithRemoteFallback) {
@@ -4703,6 +4711,33 @@ Object.assign(Actions, {
   // V29.0.0 — Troca a branch ativa dentro do Mapa (switcher no header).
   switchStrategicBranch(campaignId) {
     Actions.openStrategicMapForCampaign(Number(campaignId));
+  },
+
+  // V29.1.2 — Popup didático CEO 1ª vez ao clicar "Executar Métricas".
+  // Espelha o popup do passe do bastão do Gestor, mas pra o CEO.
+  openStrategicOverviewWithPopupCheck() {
+    const productId = App.state.strategicMapProductId;
+    const seen = App.state.strategicCeoPopupSeen || {};
+    if (productId && !seen[productId] && App.state.strategicMapMode === 'product') {
+      const productKrs = StrategicMapEngine.getProductKrs ? StrategicMapEngine.getProductKrs(productId) : [];
+      if (productKrs.length > 0) {
+        App.state.strategicCeoPopup = true;
+        App.render();
+        return;
+      }
+    }
+    Actions.openStrategicOverview();
+  },
+
+  // V29.1.2 — Marca popup CEO como visto pra o produto atual e abre Visão Geral.
+  dismissStrategicCeoPopup(openOverview) {
+    const productId = App.state.strategicMapProductId;
+    if (productId) {
+      App.state.strategicCeoPopupSeen = { ...(App.state.strategicCeoPopupSeen || {}), [productId]: true };
+    }
+    App.state.strategicCeoPopup = false;
+    App.save(); App.render();
+    if (openOverview) setTimeout(() => Actions.openStrategicOverview(), 50);
   },
 
   // V29.0.0 — Adiciona um KR-mãe no produto (vista CEO).

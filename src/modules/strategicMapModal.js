@@ -18,6 +18,61 @@ window.StrategicMapModal = {
       ${window.StrategicOverviewModal ? StrategicOverviewModal.render() : ''}
       ${App.state.strategicHandoffPopup ? this._handoffPopup() : ''}
       ${App.state.strategicCampaignPrompt ? this._strategicCampaignPromptModal() : ''}
+      ${App.state.strategicCeoPopup ? this._ceoFirstTimePopup() : ''}
+    </div>`;
+  },
+
+  // V29.1.2 — Popup didático CEO: aparece 1x por produto quando ele clica
+  // "Executar Métricas". Explica que terminou a parte estratégica e que agora
+  // os gestores entram. Espelha o popup do passe do bastão do Gestor (V28.3.1).
+  _ceoFirstTimePopup() {
+    const productId = App.state.strategicMapProductId;
+    const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
+    const productKrs = StrategicMapEngine.getProductKrs ? StrategicMapEngine.getProductKrs(productId) : [];
+    const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(productId) : [];
+    const desplugadas = StrategicMapEngine.getDesplugedCampaigns ? StrategicMapEngine.getDesplugedCampaigns(productId) : [];
+    return `<div class="fixed inset-0 z-[95] bg-slate-950/90 backdrop-blur-sm p-4 grid place-items-center overflow-auto">
+      <div class="rounded-3xl shadow-2xl text-white max-w-2xl w-full" style="background:radial-gradient(circle at 0% 0%, rgba(251,191,36,.25), transparent 35%), radial-gradient(circle at 100% 100%, rgba(139,92,246,.22), transparent 35%), #0b1428;">
+        <div class="p-6 lg:p-7 space-y-5">
+          <div>
+            <div class="flex items-center gap-2 mb-2"><span class="text-amber-300 text-lg font-black">✓</span><p class="text-[11px] font-black text-amber-200 uppercase tracking-wider">Parte estratégica concluída</p></div>
+            <h2 class="text-2xl lg:text-3xl font-black leading-tight">Você definiu o macro. Hora dos gestores entrarem.</h2>
+            <p class="text-sm text-slate-300 mt-2 leading-relaxed">Você definiu a Visão do produto <b>${Utils.escape(product?.name || '...')}</b>, os donos das 3 frentes e ${productKrs.length} número(s)-mãe que o produto inteiro precisa entregar. A partir daqui é com o time tático.</p>
+          </div>
+
+          <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-4 space-y-3">
+            <p class="text-[11px] font-black text-violet-200 uppercase tracking-wider">O que muda agora?</p>
+            <p class="text-[13px] text-slate-200 leading-relaxed">Cada campanha plugada vai escolher quais dos seus números vai contribuir, definir meta local e ativar ações. Por baixo, o <b class="text-amber-300">rollup</b> soma tudo de volta automaticamente — você só acompanha o consolidado pelo <b class="text-amber-300">Executar Métricas</b>.</p>
+          </div>
+
+          <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-4 space-y-3">
+            <p class="text-[11px] font-black text-sky-200 uppercase tracking-wider">Status das campanhas deste produto</p>
+            ${branches.length === 0 && desplugadas.length === 0 ? '<p class="text-[12px] text-slate-400 italic">Nenhuma campanha vinculada ao produto ainda. Crie uma no menu Campanhas.</p>' : ''}
+            ${branches.length > 0 ? `<div>
+              <p class="text-[10px] font-black text-violet-200 uppercase tracking-wider mb-1.5">🟣 ${branches.length} plugada(s):</p>
+              <div class="flex flex-wrap gap-1.5">
+                ${branches.map(b => {
+                  const c = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
+                  if (!c) return '';
+                  return `<button onclick="Actions.dismissStrategicCeoPopup(false); Actions.openStrategicMapForCampaign(${b.campaignId});" class="px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40 text-violet-100 text-[11px] font-black">${Utils.escape(c.name)} →</button>`;
+                }).join('')}
+              </div>
+            </div>` : ''}
+            ${desplugadas.length > 0 ? `<div>
+              <p class="text-[10px] font-black text-red-300 uppercase tracking-wider mb-1.5">🔴 ${desplugadas.length} desplugada(s):</p>
+              <div class="flex flex-wrap gap-1.5">
+                ${desplugadas.slice(0, 6).map(c => `<button onclick="Actions.dismissStrategicCeoPopup(false); Actions.activateStrategicMapForCampaign(${c.id});" class="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-400/40 text-red-100 text-[11px] font-black">${Utils.escape(c.name)} — Ativar Mapa</button>`).join('')}
+                ${desplugadas.length > 6 ? `<span class="text-[11px] text-slate-400 self-center">+${desplugadas.length - 6} mais</span>` : ''}
+              </div>
+            </div>` : ''}
+          </div>
+
+          <div class="flex flex-col sm:flex-row gap-2 justify-end pt-2">
+            <button onclick="Actions.dismissStrategicCeoPopup(false)" class="px-4 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-sm font-black">Voltar pro Mapa</button>
+            <button onclick="Actions.dismissStrategicCeoPopup(true)" class="px-5 py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important;"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Ver Métricas Consolidadas</button>
+          </div>
+        </div>
+      </div>
     </div>`;
   },
 
@@ -130,7 +185,7 @@ window.StrategicMapModal = {
         <p class="text-xs text-slate-300 mt-1">${subtitle}</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <button onclick="Actions.openStrategicOverview()" title="Ver árvore consolidada do produto (Visão → KRs-mãe → Branches)" class="px-3 py-2.5 rounded-xl font-black text-xs flex items-center gap-1.5" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important; box-shadow: 0 2px 8px rgba(251,191,36,.3);"><i data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i> Executar Métricas</button>
+        <button onclick="Actions.openStrategicOverviewWithPopupCheck()" title="Ver árvore consolidada do produto (Visão → KRs-mãe → Branches)" class="px-3 py-2.5 rounded-xl font-black text-xs flex items-center gap-1.5" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important; box-shadow: 0 2px 8px rgba(251,191,36,.3);"><i data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i> Executar Métricas</button>
         <button onclick="Actions.openStrategicOnboarding()" title="Reabrir onboarding" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-black flex items-center gap-1"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i> Ajuda</button>
         <button onclick="Actions.syncStrategicOkrsFromOps()" title="Atualizar OKRs com leitura operacional" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-black flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sync geral</button>
         <button onclick="Actions.closeStrategicMap()" class="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-sm font-semibold flex items-center gap-2"><i data-lucide="x" class="w-4 h-4"></i> Fechar</button>
@@ -391,7 +446,7 @@ window.StrategicMapModal = {
   // V29.1.1 — Botão dourado "Executar Métricas" pra o CEO ir pra Visão Geral
   // (árvore Visão → Objetivos → KRs) e ver o macro do produto a qualquer momento.
   _executeMetricsButton() {
-    return `<button onclick="Actions.openStrategicOverview()" class="px-5 py-3 rounded-2xl font-black flex items-center gap-2 transition" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important; box-shadow: 0 4px 14px rgba(251,191,36,.35);"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Executar Métricas <i data-lucide="external-link" class="w-3.5 h-3.5"></i></button>`;
+    return `<button onclick="Actions.openStrategicOverviewWithPopupCheck()" class="px-5 py-3 rounded-2xl font-black flex items-center gap-2 transition" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important; box-shadow: 0 4px 14px rgba(251,191,36,.35);"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Executar Métricas <i data-lucide="external-link" class="w-3.5 h-3.5"></i></button>`;
   },
 
   _stepCta(label, enabled) {
