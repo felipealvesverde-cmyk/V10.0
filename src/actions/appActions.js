@@ -4724,6 +4724,12 @@ Object.assign(Actions, {
     if (!productKrs.length) return Utils.toast('Adicione pelo menos 1 KR-mãe antes de executar.');
     App.state.strategicExecuteMetricsPopup = true;
     App.render();
+    // V29.1.4 — Scroll container do Mapa pro topo pra garantir que popup
+    // (centralizado dentro do container scrollable) fica visível na viewport.
+    setTimeout(() => {
+      const c = document.getElementById('strategicMapScrollContainer');
+      if (c) c.scrollTop = 0;
+    }, 50);
   },
 
   // V29.1.3 — Confirma a publicação: marca timestamp + notifica branches via Djow lateral.
@@ -4755,14 +4761,60 @@ Object.assign(Actions, {
   },
 
   // V29.1.3 — Destrava o CEO pra trabalhar como gestor de uma branch.
-  // Abre popup pedindo escolha da branch. Confirmação avisa que esse trabalho
-  // normalmente é do gestor da campanha.
+  // V29.1.4 — Se não há branches plugadas, abre modal pra CRIAR nova campanha
+  // (com nome) e já ativar Mapa + abrir como gestor.
   unlockCeoAsGestor() {
     const productId = App.state.strategicMapProductId;
     if (!productId || !window.StrategicMapEngine) return;
     const branches = StrategicMapEngine.getBranchesByProduct(productId);
-    if (!branches.length) return Utils.toast('Nenhuma campanha plugada ainda. Ative o Mapa em alguma campanha primeiro.');
+    if (!branches.length) {
+      // Sem branches: abre modal de criar campanha nova.
+      App.state.strategicCreateCampaignPopup = { newName: '' };
+      App.render();
+      setTimeout(() => {
+        const c = document.getElementById('strategicMapScrollContainer');
+        if (c) c.scrollTop = 0;
+      }, 50);
+      return;
+    }
     App.state.strategicUnlockCeoPopup = true;
+    App.render();
+    setTimeout(() => {
+      const c = document.getElementById('strategicMapScrollContainer');
+      if (c) c.scrollTop = 0;
+    }, 50);
+  },
+
+  // V29.1.4 — Cria campanha nova, vincula ao produto, ativa Mapa (cria branch),
+  // e abre direto como gestor.
+  createCampaignAndUnlockAsGestor() {
+    const draft = App.state.strategicCreateCampaignPopup;
+    if (!draft) return;
+    const productId = App.state.strategicMapProductId;
+    const name = String(draft.newName || '').trim();
+    if (!name) return Utils.toast('Dê um nome à campanha.');
+    if (!productId) return Utils.toast('Produto não selecionado.');
+    const campaign = {
+      id: Date.now() + Math.floor(Math.random() * 100),
+      productId: Number(productId),
+      name,
+      objective: '',
+      createdAt: new Date().toISOString()
+    };
+    App.state.campaigns = [campaign, ...(App.state.campaigns || [])];
+    App.state.strategicCreateCampaignPopup = null;
+    App.save();
+    // Ativa Mapa nessa campanha (cria branch) e abre como gestor.
+    Actions.activateStrategicMapForCampaign(campaign.id);
+  },
+
+  updateStrategicCreateCampaignDraft(field, value) {
+    const current = App.state.strategicCreateCampaignPopup || {};
+    App.state.strategicCreateCampaignPopup = { ...current, [field]: value };
+  },
+
+  dismissStrategicCreateCampaignPopup() {
+    App.state.strategicCreateCampaignPopup = null;
     App.render();
   },
 
