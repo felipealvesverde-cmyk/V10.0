@@ -4459,14 +4459,16 @@ Object.assign(Actions, {
     Utils.toast('Número ativado. Preencha a meta.');
   },
 
-  // V28.2 — Edita campo de um número (current/target/deadline/commitmentType) inline.
+  // V28.2 — Edita campo de um número inline. V28.2.1: aceita null pra valores vazios.
   updateStrategicOkrField(objectiveId, okrId, field, value) {
     const productId = App.state.strategicMapProductId;
     if (!productId || !window.StrategicOkrEngine) return;
-    const numericFields = ['current', 'target', 'startValue'];
+    const numericFields = ['current', 'target', 'targetCommitted', 'targetStretch', 'startValue', 'period'];
     const patch = {};
     if (numericFields.includes(field)) {
-      patch[field] = Number(value || 0);
+      patch[field] = (value === '' || value === null || value === undefined) ? null : Number(value);
+      // Sincroniza `target` legado com targetCommitted.
+      if (field === 'targetCommitted') patch.target = patch.targetCommitted ?? 0;
     } else if (field === 'deadline') {
       patch.deadline = value || null;
     } else {
@@ -4474,6 +4476,48 @@ Object.assign(Actions, {
     }
     StrategicOkrEngine.update(productId, objectiveId, okrId, patch);
     App.save();
+  },
+
+  // V28.2.1 — Seta período (em dias) e recalcula deadline a partir de hoje.
+  setStrategicNumeroPeriod(objectiveId, okrId, periodDays) {
+    const productId = App.state.strategicMapProductId;
+    if (!productId || !window.StrategicOkrEngine) return;
+    const period = Number(periodDays);
+    const deadline = StrategicOkrEngine._computeDeadline ? StrategicOkrEngine._computeDeadline(period) : null;
+    StrategicOkrEngine.update(productId, objectiveId, okrId, { period, deadline });
+    App.save(); App.render();
+  },
+
+  // V28.2.1 — Confirma um número (valida que tem current + 2 metas + período).
+  // Se for o último de todos, dispara mensagem do Djow.
+  confirmStrategicNumero(objectiveId, okrId) {
+    const productId = App.state.strategicMapProductId;
+    if (!productId || !window.StrategicOkrEngine) return;
+    const objectives = (StrategicMapEngine.getForProduct(productId)?.objectives) || [];
+    const obj = objectives.find(o => o.id === objectiveId);
+    const kr = obj?.okrs?.find(k => k.id === okrId);
+    if (!kr) return;
+    if (!StrategicOkrEngine.isComplete(kr)) {
+      return Utils.toast('Preencha Atual, Meta Segura, Meta Avançada e Período antes de confirmar.');
+    }
+    StrategicOkrEngine.update(productId, objectiveId, okrId, { confirmed: true });
+    App.save();
+    if (StrategicMapEngine.allKrsConfirmed(productId) && window.DjowStrategicAssistant) {
+      const msg = '🎯 Boa! Você cobriu todos os números das 3 frentes (Marketing, Vendas e Sucesso do Cliente).\n\nA partir de agora vou ficar de olho neles — se algum sair da rota, te aviso. E se eu perceber que a estratégia precisa pivotar, te chamo aqui mesmo.\n\nPróximo passo: conectar cada número à ação operacional que move o ponteiro.';
+      DjowStrategicAssistant.append(productId, { role: 'agent', text: msg, ts: new Date().toISOString() });
+      Utils.toast('🎯 Todos os números confirmados. Djow ativou o monitoramento.');
+    } else {
+      Utils.toast('Número confirmado.');
+    }
+    App.render();
+  },
+
+  // V28.2.1 — Reabre um número confirmado pra edição.
+  editStrategicNumero(objectiveId, okrId) {
+    const productId = App.state.strategicMapProductId;
+    if (!productId || !window.StrategicOkrEngine) return;
+    StrategicOkrEngine.update(productId, objectiveId, okrId, { confirmed: false });
+    App.save(); App.render();
   },
 
   syncStrategicOkrsFromOps() {

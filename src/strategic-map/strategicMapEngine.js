@@ -121,7 +121,8 @@ window.StrategicMapEngine = {
     ]
   },
 
-  // V28.2 — Ativa um KPI do catálogo como um novo OKR vazio (metas a preencher).
+  // V28.2 — Ativa um KPI do catálogo como um novo número vazio (metas a preencher).
+  // V28.2.1 — current começa null (input vazio) em vez de 0.
   activateCatalogKpi(productId, areaId, kpiId) {
     const kpi = (this.KPI_CATALOG[areaId] || []).find(k => k.id === kpiId);
     const objective = this.getObjectiveByArea(productId, areaId);
@@ -132,10 +133,11 @@ window.StrategicMapEngine = {
       catalogId: kpi.id,
       catalogDescription: kpi.description,
       isHandoff: Boolean(kpi.handoff),
-      current: 0,
-      target: 0,
-      startValue: 0,
-      commitmentType: 'committed'
+      current: null,
+      targetCommitted: null,
+      targetStretch: null,
+      period: null,
+      confirmed: false
     });
   },
 
@@ -143,6 +145,27 @@ window.StrategicMapEngine = {
   getActivatedCatalogIds(productId, areaId) {
     const objective = this.getObjectiveByArea(productId, areaId);
     return new Set((objective?.okrs || []).map(kr => kr.catalogId).filter(Boolean));
+  },
+
+  // V28.2.1 — Próximo número a confirmar, varrendo as 3 áreas em ordem.
+  // Retorna {objectiveId, krId} ou null se não há mais nenhum incompleto.
+  nextUnconfirmedKr(productId) {
+    const areas = this.COMERCIAL_AREAS;
+    for (const area of areas) {
+      const obj = this.getObjectiveByArea(productId, area.id);
+      if (!obj) continue;
+      for (const kr of (obj.okrs || [])) {
+        if (!kr.confirmed) return { objectiveId: obj.id, krId: kr.id, areaId: area.id };
+      }
+    }
+    return null;
+  },
+
+  // V28.2.1 — Todos os números das 3 áreas estão confirmados?
+  allKrsConfirmed(productId) {
+    const objectives = (this.getForProduct(productId)?.objectives) || [];
+    const krs = objectives.flatMap(o => o.okrs || []);
+    return krs.length > 0 && krs.every(kr => kr.confirmed);
   },
 
   // V28.1 — Garante que as 3 áreas existam como objetivos.

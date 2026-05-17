@@ -326,7 +326,7 @@ window.StrategicMapModal = {
       </div>
 
       <div class="space-y-2">
-        ${okrs.length ? okrs.map(kr => this._numeroCard(obj, kr, tone)).join('') : '<p class="text-[11px] text-slate-500 italic">Sem números ativos. Ative algum do catálogo abaixo.</p>'}
+        ${okrs.length ? okrs.map(kr => this._numeroCard(product, obj, kr, tone)).join('') : '<p class="text-[11px] text-slate-500 italic">Sem números ativos. Ative algum do catálogo abaixo.</p>'}
       </div>
 
       ${area && !isDraftHere ? this._kpiCatalogStrip(product, area, obj) : ''}
@@ -358,61 +358,121 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // V28.2 — Card editável inline de um número ativo.
-  // Sem botão "editar" — inputs sempre visíveis pra reduzir cliques.
-  _numeroCard(obj, kr, tone) {
-    const progress = StrategicOkrEngine.progress(kr);
-    const score = StrategicOkrEngine.score ? StrategicOkrEngine.score(kr) : (progress / 100);
-    const scoreStatus = StrategicOkrEngine.scoreStatus ? StrategicOkrEngine.scoreStatus(kr) : { color: 'slate', label: '' };
-    const isCommitted = (kr.commitmentType || 'stretch') === 'committed';
+  // V28.2.1 — Card de número totalmente reformulado.
+  // - Atual começa vazio (placeholder 0, value="" se null)
+  // - Meta Segura + Meta Avançada como 2 campos separados (não dropdown)
+  // - Período via chips (7d/15d/30d/3m/6m), sem datepicker
+  // - Aviso amarelo se Segura preenchida sem Avançada
+  // - Botão Confirmar (só ativa quando os 4 campos estão preenchidos)
+  // - Quando confirmed: collapsed read-only com botão Editar
+  // - Ring colorido se for o próximo da fila de confirmação
+  _numeroCard(product, obj, kr, tone) {
     const handoffBadge = kr.isHandoff
       ? `<span title="Handoff: entrega desse segmento pro próximo" class="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500/20 text-amber-200 border border-amber-400/30">🔁 HANDOFF</span>`
       : '';
+
+    if (kr.confirmed) {
+      return this._numeroCardConfirmed(obj, kr, tone, handoffBadge);
+    }
+    return this._numeroCardEditing(product, obj, kr, tone, handoffBadge);
+  },
+
+  _numeroCardConfirmed(obj, kr, tone, handoffBadge) {
+    const progress = StrategicOkrEngine.progress(kr);
+    const score = StrategicOkrEngine.score ? StrategicOkrEngine.score(kr) : 0;
+    const scoreStatus = StrategicOkrEngine.scoreStatus ? StrategicOkrEngine.scoreStatus(kr) : { color: 'slate', label: '' };
+    const periodLabel = this._periodLabel(kr.period);
+    return `<div class="rounded-2xl bg-emerald-500/[0.05] border border-emerald-400/30 p-3">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 flex-wrap mb-1">
+            <span class="text-emerald-300 font-black">✓</span>
+            <p class="font-black text-white text-sm">${Utils.escape(kr.name)}</p>
+            ${handoffBadge}
+          </div>
+          <p class="text-[11px] text-slate-300">
+            Hoje <b class="text-white">${Number(kr.current ?? 0)}</b>
+            · Segura <b class="text-emerald-300">${Number(kr.targetCommitted ?? 0)}</b>
+            · Avançada <b class="text-violet-300">${Number(kr.targetStretch ?? 0)}</b>
+            · em <b class="text-white">${periodLabel}</b>
+          </p>
+        </div>
+        <div class="flex flex-col items-end gap-0.5 shrink-0">
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-${scoreStatus.color}-500/20 text-${scoreStatus.color}-200 border border-${scoreStatus.color}-400/30 whitespace-nowrap" title="${Utils.escape(scoreStatus.label)}">${score.toFixed(2)}</span>
+          <span class="text-[9px] text-slate-500">${progress}%</span>
+        </div>
+      </div>
+      ${StrategicMapRenderer.progressBar(progress, scoreStatus.color)}
+      <div class="flex justify-end gap-1 mt-2">
+        <button onclick="Actions.editStrategicNumero('${obj.id}','${kr.id}')" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[10px] font-black">Editar</button>
+        <button onclick="Actions.removeStrategicOkr('${obj.id}','${kr.id}')" class="px-2 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-400/30 text-red-300 text-[10px] font-black">Remover</button>
+      </div>
+    </div>`;
+  },
+
+  _numeroCardEditing(product, obj, kr, tone, handoffBadge) {
+    const next = StrategicMapEngine.nextUnconfirmedKr(product.id);
+    const isNext = next && next.krId === kr.id;
+    const ringCls = isNext ? `ring-2 ring-${tone}-400 shadow-lg shadow-${tone}-500/20` : '';
     const desc = kr.catalogDescription ? `<p class="text-[10px] text-slate-400 italic mb-2">${Utils.escape(kr.catalogDescription)}</p>` : '';
-    return `<div class="rounded-2xl bg-black/30 border border-${tone}-400/20 p-3">
+    const hasSafe = Number(kr.targetCommitted ?? 0) > 0;
+    const hasAdv = Number(kr.targetStretch ?? 0) > 0;
+    const missingAdv = hasSafe && !hasAdv;
+    const complete = StrategicOkrEngine.isComplete(kr);
+    const periods = [
+      { d: 7, label: '7 dias' },
+      { d: 15, label: '15 dias' },
+      { d: 30, label: '30 dias' },
+      { d: 90, label: '3 meses' },
+      { d: 180, label: '6 meses' }
+    ];
+
+    return `<div class="rounded-2xl bg-black/30 border border-${tone}-400/20 p-3 ${ringCls}">
       <div class="flex items-start justify-between gap-2 mb-2">
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-1.5 flex-wrap mb-1">
+            ${isNext ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-${tone}-500/30 text-${tone}-100 border border-${tone}-400/40">PRÓXIMO</span>` : ''}
             <p class="font-black text-white text-sm">${Utils.escape(kr.name)}</p>
             ${handoffBadge}
           </div>
           ${desc}
         </div>
-        <div class="flex flex-col items-end gap-0.5 shrink-0">
-          <span class="px-2 py-0.5 rounded-full text-[11px] font-black bg-${scoreStatus.color}-500/20 text-${scoreStatus.color}-200 border border-${scoreStatus.color}-400/30 whitespace-nowrap" title="${Utils.escape(scoreStatus.label)}">${score.toFixed(2)}</span>
-          <span class="text-[9px] text-slate-500">${progress}%</span>
+      </div>
+
+      <div class="grid grid-cols-3 gap-1.5 mb-2">
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-slate-500 uppercase">Atual</span>
+          <input type="number" value="${kr.current ?? ''}" placeholder="0" onfocus="this.select()" oninput="Actions.updateStrategicOkrField('${obj.id}','${kr.id}','current', this.value)" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-bold w-full placeholder:text-slate-600" />
+        </label>
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-emerald-300 uppercase">🔒 Meta Segura</span>
+          <input type="number" value="${kr.targetCommitted ?? ''}" placeholder="piso" onfocus="this.select()" oninput="Actions.updateStrategicOkrField('${obj.id}','${kr.id}','targetCommitted', this.value)" class="px-2 py-1.5 rounded-lg bg-slate-900 border ${hasSafe ? 'border-emerald-400/40' : 'border-white/10'} text-white text-[12px] font-bold w-full placeholder:text-slate-600" />
+        </label>
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-violet-300 uppercase">🚀 Meta Avançada</span>
+          <input type="number" value="${kr.targetStretch ?? ''}" placeholder="sonho" onfocus="this.select()" oninput="Actions.updateStrategicOkrField('${obj.id}','${kr.id}','targetStretch', this.value)" class="px-2 py-1.5 rounded-lg bg-slate-900 border ${hasAdv ? 'border-violet-400/40' : (missingAdv ? 'border-amber-400/60' : 'border-white/10')} text-white text-[12px] font-bold w-full placeholder:text-slate-600" />
+        </label>
+      </div>
+
+      ${missingAdv ? `<div class="rounded-lg bg-amber-500/10 border border-amber-400/30 p-2 text-[11px] text-amber-200 mb-2">⚠️ Você definiu a Meta Segura. Agora preencha a <b>Meta Avançada</b> — o sonho do time. Sem ela, o número fica só com o piso e perde a ambição.</div>` : ''}
+
+      <div class="mb-2">
+        <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Período</p>
+        <div class="flex flex-wrap gap-1.5">
+          ${periods.map(p => `<button onclick="Actions.setStrategicNumeroPeriod('${obj.id}','${kr.id}', ${p.d})" class="px-2.5 py-1 rounded-lg border text-[11px] font-bold ${Number(kr.period) === p.d ? `bg-${tone}-500/30 border-${tone}-400/60 text-white` : 'bg-slate-900 border-white/15 text-slate-300 hover:bg-slate-800'}">${p.label}</button>`).join('')}
         </div>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2">
-        <label class="flex flex-col gap-0.5">
-          <span class="text-[9px] font-black text-slate-500 uppercase">Atual</span>
-          <input type="number" value="${Number(kr.current || 0)}" oninput="Actions.updateStrategicOkrField('${obj.id}','${kr.id}','current', this.value)" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-bold w-full" />
-        </label>
-        <label class="flex flex-col gap-0.5">
-          <span class="text-[9px] font-black text-slate-500 uppercase">Meta</span>
-          <input type="number" value="${Number(kr.target || 0)}" oninput="Actions.updateStrategicOkrField('${obj.id}','${kr.id}','target', this.value)" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-bold w-full" />
-        </label>
-        <label class="flex flex-col gap-0.5">
-          <span class="text-[9px] font-black text-slate-500 uppercase">Prazo</span>
-          <input type="date" value="${Utils.escape(kr.deadline || '')}" oninput="Actions.updateStrategicOkrField('${obj.id}','${kr.id}','deadline', this.value)" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-bold w-full" style="color-scheme:dark;" />
-        </label>
-        <label class="flex flex-col gap-0.5">
-          <span class="text-[9px] font-black text-slate-500 uppercase">Tipo</span>
-          <select onchange="Actions.updateStrategicOkrField('${obj.id}','${kr.id}','commitmentType', this.value); App.render();" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-bold w-full" style="color-scheme:dark;">
-            <option value="committed" ${isCommitted ? 'selected' : ''}>🔒 Meta Segura</option>
-            <option value="stretch" ${!isCommitted ? 'selected' : ''}>🚀 Meta Avançada</option>
-          </select>
-        </label>
-      </div>
-
-      ${StrategicMapRenderer.progressBar(progress, scoreStatus.color)}
-
-      <div class="flex justify-between items-center mt-2">
-        <span class="text-[10px] text-slate-500">${Utils.escape(kr.metric || '')}</span>
-        <button onclick="Actions.removeStrategicOkr('${obj.id}','${kr.id}')" class="px-2 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-400/30 text-red-300 text-[10px] font-black">Remover</button>
+      <div class="flex justify-between items-center pt-2 border-t border-white/10">
+        <button onclick="Actions.removeStrategicOkr('${obj.id}','${kr.id}')" class="px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-400/30 text-red-300 text-[10px] font-black">Remover</button>
+        <button onclick="Actions.confirmStrategicNumero('${obj.id}','${kr.id}')" ${complete ? '' : 'disabled'} class="px-3 py-1.5 rounded-lg ${complete ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'} text-[11px] font-black" ${complete ? 'style="color:#fff!important;"' : ''}>✓ Confirmar número →</button>
       </div>
     </div>`;
+  },
+
+  _periodLabel(days) {
+    const map = { 7: '7 dias', 15: '15 dias', 30: '30 dias', 90: '3 meses', 180: '6 meses' };
+    return map[Number(days)] || (days ? `${days} dias` : 'sem período');
   },
 
   _okrDraftCard(draft, product, hideConnect) {
