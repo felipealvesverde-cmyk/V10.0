@@ -3567,11 +3567,22 @@ Object.assign(Actions, {
     App.state.strategicObjectiveDraft = null;
     App.state.strategicOkrDraft = null;
     App.state.strategicActiveArea = null; // V28.2.3 — fallback p/ próximo unconfirmed
+    App.state.strategicCampaignPrompt = null; // V28.4.1 — fecha qualquer prompt pendente
     if (window.StrategicMapEngine) {
       StrategicMapEngine.ensure(Number(productId));
       // V28.1 — garante que as 3 frentes (Marketing/Vendas/CS) existam.
       if (typeof StrategicMapEngine.ensureComercialAreas === 'function') {
         StrategicMapEngine.ensureComercialAreas(Number(productId));
+      }
+      // V28.4.1 — migrações one-shot: mescla campanhas duplicadas e re-aplica
+      // sector/funnel corretos nas ações criadas em versões anteriores.
+      if (typeof StrategicMapEngine.migrateLegacyStrategicCampaigns === 'function') {
+        const mergedCount = StrategicMapEngine.migrateLegacyStrategicCampaigns(Number(productId));
+        if (mergedCount > 0) Utils.toast(`Encontradas ${mergedCount} campanha(s) duplicada(s) do Mapa — mescladas em uma só.`);
+      }
+      if (typeof StrategicMapEngine.migrateLegacyStrategicActions === 'function') {
+        const fixedCount = StrategicMapEngine.migrateLegacyStrategicActions(Number(productId));
+        if (fixedCount > 0) Utils.toast(`${fixedCount} ação(ões) estratégica(s) tiveram setor/funil corrigidos.`);
       }
     }
     App.save(); App.render();
@@ -4569,18 +4580,84 @@ Object.assign(Actions, {
   },
 
   // V28.3.0 — Ativa uma ação do catálogo na frente selecionada.
-  // Cria em App.state.actions + auto-vincula a KRs com catalogId matching.
+  // V28.4.1 — Se a campanha estratégica do produto ainda não foi nomeada,
+  // abre prompt bloqueante e guarda a ativação como pendente.
   activateStrategicCatalogAction(areaId, templateId) {
     const productId = App.state.strategicMapProductId;
     if (!productId || !window.StrategicMapEngine) return;
     const already = StrategicMapEngine.getActivatedCatalogActionIds(productId, areaId);
     if (already.has(templateId)) return Utils.toast('Essa ação já está ativa.');
-    const action = StrategicMapEngine.activateCatalogAction(productId, areaId, templateId);
-    if (!action) return Utils.toast('Não consegui ativar essa ação.');
+    const result = StrategicMapEngine.activateCatalogAction(productId, areaId, templateId);
+    if (result?.needsCampaign) {
+      // Abre prompt e guarda a ativação como pendente.
+      App.state.strategicCampaignPrompt = { productId: Number(productId), pending: { areaId, templateId } };
+      App.render();
+      return;
+    }
+    if (result?.error || !result?.action) return Utils.toast('Não consegui ativar essa ação.');
+    const action = result.action;
     App.save(); App.render();
-    const linked = (App.state.actions || []).find(a => Number(a.id) === Number(action.id));
-    const linkedKrs = linked ? (StrategicMapEngine.getObjectiveByArea(productId, areaId)?.okrs || []).filter(k => (k.connectedActionIds || []).map(Number).includes(Number(action.id))).length : 0;
+    const linkedKrs = (StrategicMapEngine.getObjectiveByArea(productId, areaId)?.okrs || []).filter(k => (k.connectedActionIds || []).map(Number).includes(Number(action.id))).length;
     Utils.toast(linkedKrs ? `Ação ativada e vinculada a ${linkedKrs} número(s).` : 'Ação ativada. Preencha dono e cadência.');
+  },
+
+  // V28.4.1 — Atualiza o draft do prompt de campanha (input do nome).
+  updateStrategicCampaignDraft(field, value) {
+    const current = App.state.strategicCampaignPrompt || {};
+    App.state.strategicCampaignPrompt = { ...current, [field]: value };
+  },
+
+  // V28.4.1 — Confirma a campanha estratégica e roda a ativação pendente.
+  // mode: 'new' (cria com nome) ou 'existing' (vincula a campanha existente).
+  confirmStrategicCampaign(mode) {
+    const prompt = App.state.strategicCampaignPrompt;
+    if (!prompt) return;
+    const { productId, pending } = prompt;
+    if (!productId) return;
+    let campaign;
+    if (mode === 'existing') {
+      const id = Number(prompt.existingCampaignId);
+      if (!id) return Utils.toast('Escolha uma campanha existente.');
+      campaign = StrategicMapEngine.setStrategicCampaign(productId, null, id);
+    } else {
+      const name = String(prompt.newName || '').trim();
+      if (!name) return Utils.toast('Dê um nome à campanha estratégica.');
+      campaign = StrategicMapEngine.setStrategicCampaign(productId, name, null);
+    }
+    if (!campaign) return Utils.toast('Não consegui criar/vincular a campanha.');
+    App.state.strategicCampaignPrompt = null;
+    // Roda a ativação que estava pendente.
+    if (pending) {
+      const result = StrategicMapEngine.activateCatalogAction(productId, pending.areaId, pending.templateId);
+      if (result?.action) {
+        const linkedKrs = (StrategicMapEngine.getObjectiveByArea(productId, pending.areaId)?.okrs || []).filter(k => (k.connectedActionIds || []).map(Number).includes(Number(result.action.id))).length;
+        Utils.toast(`Campanha "${campaign.name}" definida e ação ativada${linkedKrs ? ` (vinculada a ${linkedKrs} número(s))` : ''}.`);
+      } else {
+        Utils.toast(`Campanha "${campaign.name}" definida.`);
+      }
+    } else {
+      Utils.toast(`Campanha "${campaign.name}" definida.`);
+    }
+    App.save(); App.render();
+  },
+
+  // V28.4.1 — Cancela o prompt sem definir campanha (ativação pendente é descartada).
+  dismissStrategicCampaignPrompt() {
+    App.state.strategicCampaignPrompt = null;
+    App.render();
+  },
+
+  // V28.4.1 — Renomeia a campanha estratégica via UI no header da etapa Ações.
+  renameStrategicCampaignAction(newName) {
+    const productId = App.state.strategicMapProductId;
+    if (!productId || !window.StrategicMapEngine) return;
+    const clean = String(newName || '').trim();
+    if (!clean) return Utils.toast('Nome não pode ficar vazio.');
+    const ok = StrategicMapEngine.renameStrategicCampaign(productId, clean);
+    if (ok) {
+      App.save(); App.render();
+      Utils.toast('Campanha renomeada.');
+    }
   },
 
   // V28.3.0 — Edita campo de uma ação estratégica (dono / cadência / status).

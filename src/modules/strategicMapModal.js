@@ -17,6 +17,53 @@ window.StrategicMapModal = {
       ${window.QuickActionModal ? QuickActionModal.render() : ''}
       ${window.StrategicOverviewModal ? StrategicOverviewModal.render() : ''}
       ${App.state.strategicHandoffPopup ? this._handoffPopup() : ''}
+      ${App.state.strategicCampaignPrompt ? this._strategicCampaignPromptModal() : ''}
+    </div>`;
+  },
+
+  // V28.4.1 — Popup pra nomear/vincular a campanha estratégica antes da 1ª ativação.
+  _strategicCampaignPromptModal() {
+    const prompt = App.state.strategicCampaignPrompt || {};
+    const productId = prompt.productId;
+    const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
+    const productName = product?.name || 'Produto';
+    // Lista campanhas existentes do produto que NÃO são guarda-chuva estratégica
+    // (pra opção de vincular a uma existente).
+    const existingCampaigns = (App.state.campaigns || []).filter(c =>
+      Number(c.productId) === Number(productId) && !c.isStrategicHost
+    );
+    const newName = String(prompt.newName || '').trim();
+    const placeholder = `Plano Comercial 2026 — ${productName}`;
+    return `<div class="fixed inset-0 z-[95] bg-slate-950/90 backdrop-blur-sm p-4 grid place-items-center overflow-auto">
+      <div class="rounded-3xl shadow-2xl text-white max-w-xl w-full" style="background:radial-gradient(circle at 0% 0%, rgba(34,197,94,.22), transparent 40%), #0b1428;">
+        <div class="p-6 space-y-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1.5"><i data-lucide="folder-plus" class="w-4 h-4 text-emerald-300"></i><p class="text-[11px] font-black text-emerald-200 uppercase tracking-wider">Antes de ativar a ação</p></div>
+            <h3 class="text-xl font-black leading-tight">Qual o nome da campanha estratégica deste produto?</h3>
+            <p class="text-[12px] text-slate-300 mt-1.5 leading-relaxed">Toda ação que você ativar no Mapa vai pra dentro desta campanha — assim ela aparece organizada no menu <b>Campanhas</b>, com nome próprio. Você só precisa fazer isso 1 vez por produto.</p>
+          </div>
+
+          <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-3 space-y-2">
+            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Criar uma nova</label>
+            <input value="${Utils.escape(newName)}" oninput="Actions.updateStrategicCampaignDraft('newName', this.value)" placeholder="${Utils.escape(placeholder)}" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" />
+            <button onclick="Actions.confirmStrategicCampaign('new')" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-1.5" style="color:#fff!important;"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Criar e usar essa</button>
+          </div>
+
+          ${existingCampaigns.length ? `<div class="text-center text-[10px] text-slate-500 font-bold">────────── ou ──────────</div>
+          <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-3 space-y-2">
+            <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Vincular a uma campanha existente do produto</label>
+            <select onchange="Actions.updateStrategicCampaignDraft('existingCampaignId', this.value)" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold" style="color-scheme:dark;">
+              <option value="">— escolha uma campanha —</option>
+              ${existingCampaigns.map(c => `<option value="${c.id}" ${String(prompt.existingCampaignId) === String(c.id) ? 'selected' : ''}>${Utils.escape(c.name)}</option>`).join('')}
+            </select>
+            <button onclick="Actions.confirmStrategicCampaign('existing')" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-600 text-white text-xs font-black flex items-center justify-center gap-1.5" style="color:#fff!important;"><i data-lucide="link" class="w-3.5 h-3.5"></i> Vincular ao existente</button>
+          </div>` : ''}
+
+          <div class="flex justify-end pt-1">
+            <button onclick="Actions.dismissStrategicCampaignPrompt()" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-xs font-black">Cancelar</button>
+          </div>
+        </div>
+      </div>
     </div>`;
   },
 
@@ -717,12 +764,37 @@ window.StrategicMapModal = {
         'Ação é o que move o número no dia-a-dia. Cada ação ativada do catálogo já é vinculada automaticamente aos números que ela costuma mover. Se um número confirmado fica sem ação vinculada, ele aparece com aviso — porque ninguém vai movê-lo.'
       )}
 
+      ${this._strategicCampaignHeader(product)}
+
       ${this._handoffNav(product)}
 
       ${this._areaAcoesSection(product)}
 
       ${this._stepCta('Próximo passo: colocar em campo', allConnected)}
     </section>`;
+  },
+
+  // V28.4.1 — Header mostrando a campanha estratégica vinculada (com botão renomear).
+  // Se ainda não foi definida, mostra "será criada quando você ativar a 1ª ação".
+  _strategicCampaignHeader(product) {
+    if (!window.StrategicMapEngine?.getStrategicCampaign) return '';
+    const campaign = StrategicMapEngine.getStrategicCampaign(product.id);
+    if (!campaign) {
+      return `<div class="rounded-2xl bg-amber-500/10 border border-amber-400/30 px-3 py-2.5 text-[11px] text-amber-200 flex items-center gap-2">
+        <i data-lucide="folder-plus" class="w-3.5 h-3.5 shrink-0"></i>
+        <span>Sua campanha estratégica ainda não tem nome — vai pedir quando você ativar a primeira ação.</span>
+      </div>`;
+    }
+    return `<div class="rounded-2xl bg-emerald-500/10 border border-emerald-400/30 p-3 flex items-center justify-between gap-2 flex-wrap">
+      <div class="flex items-center gap-2 min-w-0 flex-1">
+        <i data-lucide="folder-check" class="w-4 h-4 text-emerald-300 shrink-0"></i>
+        <div class="min-w-0">
+          <p class="text-[10px] font-black text-emerald-200 uppercase tracking-wider">Campanha estratégica deste produto</p>
+          <p class="text-sm font-black text-white truncate">${Utils.escape(campaign.name)}</p>
+        </div>
+      </div>
+      <button onclick="(function(){const n=prompt('Renomear campanha:', ${JSON.stringify(campaign.name).replace(/"/g, '&quot;')}); if(n) Actions.renameStrategicCampaignAction(n);})()" class="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 text-[10px] font-black flex items-center gap-1 shrink-0"><i data-lucide="edit-2" class="w-3 h-3"></i> Renomear</button>
+    </div>`;
   },
 
   // V28.3.0 — Painel da frente ativa: números confirmados como cabeçalho,

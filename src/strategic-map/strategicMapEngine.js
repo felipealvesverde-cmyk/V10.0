@@ -123,30 +123,35 @@ window.StrategicMapEngine = {
 
   // V28.3 — Catálogo guiado de AÇÕES típicas por segmento. Cada ação aponta
   // pros catalogId(s) dos KPIs que ela move — vínculo automático na ativação.
+  // V28.4.1 — Catálogo agora carrega sector/funnel/destSector/destFunnel/channel/
+  // actionType corretos por baixo (defaults invisíveis pro user no Mapa, mas que
+  // fazem a ação aparecer no setor/funil certo nos menus laterais).
+  // Handoffs cross-area (Webinar→Vendas, Promo→CS, Indicação→Mkt) materializam o
+  // ciclo do funil. Channel/actionType respeitam Config.channels e Config.actionTypes.
   STRATEGIC_ACTION_CATALOG: {
     marketing: [
-      { id: 'mkt_paid_traffic',  name: 'Campanha de tráfego pago',     description: 'Anúncios em Meta/Google pra trazer leads qualificados.', kpiIds: ['mkt_leads', 'mkt_cpl', 'mkt_visitors'],   channel: 'Tráfego Pago',     actionType: 'Anúncio' },
-      { id: 'mkt_email',         name: 'Email marketing / newsletter', description: 'Sequência de e-mails educativos pra nutrir lista e converter.', kpiIds: ['mkt_campaign_resp', 'mkt_leads'],  channel: 'Email',            actionType: 'Sequência' },
-      { id: 'mkt_seo',           name: 'Conteúdo / SEO orgânico',      description: 'Posts e materiais que ranqueiam e trazem tráfego qualificado de graça.', kpiIds: ['mkt_visitors', 'mkt_reach', 'mkt_leads'], channel: 'SEO/Conteúdo',     actionType: 'Post' },
-      { id: 'mkt_webinar',       name: 'Webinar / live / lançamento',  description: 'Evento online pra captar leads quentes que assistem ao vivo.', kpiIds: ['mkt_leads', 'mkt_mql_pct'],         channel: 'Webinar',          actionType: 'Live' },
-      { id: 'mkt_social',        name: 'Mídia social orgânica',         description: 'Conteúdo recorrente em redes pra alcance e engajamento.', kpiIds: ['mkt_reach', 'mkt_visitors'],          channel: 'Instagram Orgânico', actionType: 'Post' },
-      { id: 'mkt_partnerships',  name: 'Parcerias / co-marketing',     description: 'Trocas com marcas complementares pra ampliar audiência.', kpiIds: ['mkt_reach', 'mkt_leads'],            channel: 'Parceria',         actionType: 'Coprodução' }
+      { id: 'mkt_paid_traffic',  name: 'Campanha de tráfego pago',     description: 'Anúncios em Meta/Google pra trazer leads qualificados.', kpiIds: ['mkt_leads', 'mkt_cpl', 'mkt_visitors'],   sector: 'Marketing', funnel: 'TOF', destinationSector: 'Marketing', destinationFunnel: 'MOF', channel: 'Meta Ads',         actionType: 'Campanha' },
+      { id: 'mkt_email',         name: 'Email marketing / newsletter', description: 'Sequência de e-mails educativos pra nutrir lista e converter.', kpiIds: ['mkt_campaign_resp', 'mkt_leads'],  sector: 'Marketing', funnel: 'MOF', destinationSector: 'Marketing', destinationFunnel: 'MOF', channel: 'RD Email',         actionType: 'Sequência' },
+      { id: 'mkt_seo',           name: 'Conteúdo / SEO orgânico',      description: 'Posts e materiais que ranqueiam e trazem tráfego qualificado de graça.', kpiIds: ['mkt_visitors', 'mkt_reach', 'mkt_leads'], sector: 'Marketing', funnel: 'TOF', destinationSector: 'Marketing', destinationFunnel: 'MOF', channel: 'Outro',            actionType: 'Post' },
+      { id: 'mkt_webinar',       name: 'Webinar / live / lançamento',  description: 'Evento online pra captar leads quentes que assistem ao vivo.', kpiIds: ['mkt_leads', 'mkt_mql_pct'],         sector: 'Marketing', funnel: 'MOF', destinationSector: 'Vendas',    destinationFunnel: 'BOF', channel: 'Outro',            actionType: 'Webinar' },
+      { id: 'mkt_social',        name: 'Mídia social orgânica',         description: 'Conteúdo recorrente em redes pra alcance e engajamento.', kpiIds: ['mkt_reach', 'mkt_visitors'],          sector: 'Marketing', funnel: 'TOF', destinationSector: 'Marketing', destinationFunnel: 'MOF', channel: 'Instagram Orgânico', actionType: 'Post' },
+      { id: 'mkt_partnerships',  name: 'Parcerias / co-marketing',     description: 'Trocas com marcas complementares pra ampliar audiência.', kpiIds: ['mkt_reach', 'mkt_leads'],            sector: 'Marketing', funnel: 'TOF', destinationSector: 'Marketing', destinationFunnel: 'TOF', channel: 'Outro',            actionType: 'Campanha' }
     ],
     sales: [
-      { id: 'sal_outbound',  name: 'Cadência de outbound',         description: 'Cold email/call estruturados pra abrir conversa com prospects.', kpiIds: ['sal_new_clients', 'sal_conv_rate'],  channel: 'Outbound',  actionType: 'Cadência' },
-      { id: 'sal_demo',      name: 'Demo / reunião comercial',     description: 'Apresentação 1:1 pra mostrar valor e fechar.',                  kpiIds: ['sal_new_clients', 'sal_win_rate'],   channel: 'Reunião',   actionType: 'Demo' },
-      { id: 'sal_proposal',  name: 'Proposta / negociação',        description: 'Envio e ajuste de propostas até o aceite.',                     kpiIds: ['sal_avg_ticket', 'sal_win_rate'],    channel: 'Comercial', actionType: 'Proposta' },
-      { id: 'sal_qualif',    name: 'Qualificação inbound (SDR)',   description: 'Triagem dos leads que chegam pra entregar só os quentes ao closer.', kpiIds: ['sal_conv_rate', 'sal_cycle'],   channel: 'SDR',       actionType: 'Qualificação' },
-      { id: 'sal_promo',     name: 'Promoção / desconto sazonal',  description: 'Oferta limitada pra acelerar decisão e bater meta de receita.',  kpiIds: ['sal_new_clients', 'sal_new_revenue'], channel: 'Promo',    actionType: 'Campanha' },
-      { id: 'sal_upsell',    name: 'Upsell no momento da venda',   description: 'Combo/upgrade ofertado durante o fechamento pra subir ticket.',  kpiIds: ['sal_avg_ticket', 'sal_new_revenue'], channel: 'Comercial', actionType: 'Upsell' }
+      { id: 'sal_outbound',  name: 'Cadência de outbound',         description: 'Cold email/call estruturados pra abrir conversa com prospects.', kpiIds: ['sal_new_clients', 'sal_conv_rate'],  sector: 'Vendas', funnel: 'TOF', destinationSector: 'Vendas', destinationFunnel: 'MOF', channel: 'Outbound',  actionType: 'Sequência' },
+      { id: 'sal_demo',      name: 'Demo / reunião comercial',     description: 'Apresentação 1:1 pra mostrar valor e fechar.',                  kpiIds: ['sal_new_clients', 'sal_win_rate'],   sector: 'Vendas', funnel: 'MOF', destinationSector: 'Vendas', destinationFunnel: 'BOF', channel: 'Outro',     actionType: 'Ligação' },
+      { id: 'sal_proposal',  name: 'Proposta / negociação',        description: 'Envio e ajuste de propostas até o aceite.',                     kpiIds: ['sal_avg_ticket', 'sal_win_rate'],    sector: 'Vendas', funnel: 'BOF', destinationSector: 'Vendas', destinationFunnel: 'BOF', channel: 'Outro',     actionType: 'CRM' },
+      { id: 'sal_qualif',    name: 'Qualificação inbound (SDR)',   description: 'Triagem dos leads que chegam pra entregar só os quentes ao closer.', kpiIds: ['sal_conv_rate', 'sal_cycle'],   sector: 'Vendas', funnel: 'TOF', destinationSector: 'Vendas', destinationFunnel: 'MOF', channel: 'SDR',       actionType: 'SDR' },
+      { id: 'sal_promo',     name: 'Promoção / desconto sazonal',  description: 'Oferta limitada pra acelerar decisão e bater meta de receita.',  kpiIds: ['sal_new_clients', 'sal_new_revenue'], sector: 'Vendas', funnel: 'BOF', destinationSector: 'CS',     destinationFunnel: 'TOF', channel: 'Outro',     actionType: 'Campanha' },
+      { id: 'sal_upsell',    name: 'Upsell no momento da venda',   description: 'Combo/upgrade ofertado durante o fechamento pra subir ticket.',  kpiIds: ['sal_avg_ticket', 'sal_new_revenue'], sector: 'Vendas', funnel: 'BOF', destinationSector: 'Vendas', destinationFunnel: 'BOF', channel: 'Outro',     actionType: 'CRM' }
     ],
     cs: [
-      { id: 'cs_onboarding', name: 'Onboarding estruturado',         description: 'Roteiro de primeiros passos pra cliente extrair valor rápido.', kpiIds: ['cs_retention', 'cs_resolution_time'], channel: 'CS',       actionType: 'Onboarding' },
-      { id: 'cs_qbr',        name: 'Acompanhamento periódico (QBR)', description: 'Review trimestral 1:1 pra revisar resultado e renovar.',         kpiIds: ['cs_retention', 'cs_nps'],            channel: 'CS',       actionType: 'Reunião' },
-      { id: 'cs_support',    name: 'Suporte ativo (chat/tickets)',   description: 'Atendimento responsivo pra resolver dor antes de virar churn.',  kpiIds: ['cs_resolution_time', 'cs_nps'],      channel: 'Suporte',  actionType: 'Atendimento' },
-      { id: 'cs_loyalty',    name: 'Programa de fidelidade',         description: 'Recompensas pra quem volta a comprar — cria recorrência.',       kpiIds: ['cs_repurchase', 'cs_ltv'],           channel: 'CS',       actionType: 'Programa' },
-      { id: 'cs_nps_action', name: 'NPS + ação em detratores',       description: 'Survey periódico + plano de ação pra resgatar quem reclamou.',   kpiIds: ['cs_nps', 'cs_retention'],            channel: 'Pesquisa', actionType: 'Survey' },
-      { id: 'cs_advocacy',   name: 'Programa de indicação',          description: 'Mecânica formal pra cliente trazer outro cliente — fecha o loop com Marketing.', kpiIds: ['cs_referrals', 'cs_nps'], channel: 'Advocacy', actionType: 'Indicação' }
+      { id: 'cs_onboarding', name: 'Onboarding estruturado',         description: 'Roteiro de primeiros passos pra cliente extrair valor rápido.', kpiIds: ['cs_retention', 'cs_resolution_time'], sector: 'CS', funnel: 'TOF', destinationSector: 'CS',        destinationFunnel: 'MOF', channel: 'Outro',     actionType: 'CS' },
+      { id: 'cs_qbr',        name: 'Acompanhamento periódico (QBR)', description: 'Review trimestral 1:1 pra revisar resultado e renovar.',         kpiIds: ['cs_retention', 'cs_nps'],            sector: 'CS', funnel: 'MOF', destinationSector: 'CS',        destinationFunnel: 'MOF', channel: 'Outro',     actionType: 'CS' },
+      { id: 'cs_support',    name: 'Suporte ativo (chat/tickets)',   description: 'Atendimento responsivo pra resolver dor antes de virar churn.',  kpiIds: ['cs_resolution_time', 'cs_nps'],      sector: 'CS', funnel: 'MOF', destinationSector: 'CS',        destinationFunnel: 'MOF', channel: 'WhatsApp',  actionType: 'CS' },
+      { id: 'cs_loyalty',    name: 'Programa de fidelidade',         description: 'Recompensas pra quem volta a comprar — cria recorrência.',       kpiIds: ['cs_repurchase', 'cs_ltv'],           sector: 'CS', funnel: 'BOF', destinationSector: 'CS',        destinationFunnel: 'BOF', channel: 'Outro',     actionType: 'CS' },
+      { id: 'cs_nps_action', name: 'NPS + ação em detratores',       description: 'Survey periódico + plano de ação pra resgatar quem reclamou.',   kpiIds: ['cs_nps', 'cs_retention'],            sector: 'CS', funnel: 'MOF', destinationSector: 'CS',        destinationFunnel: 'MOF', channel: 'Outro',     actionType: 'CS' },
+      { id: 'cs_advocacy',   name: 'Programa de indicação',          description: 'Mecânica formal pra cliente trazer outro cliente — fecha o loop com Marketing.', kpiIds: ['cs_referrals', 'cs_nps'], sector: 'CS', funnel: 'BOF', destinationSector: 'Marketing', destinationFunnel: 'TOF', channel: 'Outro',     actionType: 'Canal de aquisição' }
     ]
   },
 
@@ -166,36 +171,150 @@ window.StrategicMapEngine = {
     { id: 'ended',   label: 'Encerrada', color: 'red' }
   ],
 
-  // V28.3 — Garante 1 campanha "guarda-chuva" estratégica do produto.
-  // Toda ação criada pelo catálogo da etapa Ações é hospedada nela,
-  // pra integrar com o pipeline existente (actionsForProduct → filtro por campaignId).
-  _ensureStrategicHostCampaign(productId) {
-    let campaign = (App.state.campaigns || []).find(c => Number(c.productId) === Number(productId) && c.isStrategicHost);
-    if (campaign) return campaign;
-    const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
-    campaign = {
-      id: Date.now(),
+  // V28.4.1 — Pega a campanha estratégica vinculada ao Mapa do produto.
+  // Retorna null se ainda não foi definida (user precisa nomear antes de ativar ação).
+  getStrategicCampaign(productId) {
+    const map = this.getForProduct(productId);
+    const campaignId = map?.strategicCampaignId;
+    if (!campaignId) return null;
+    return (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId)) || null;
+  },
+
+  // V28.4.1 — Define a campanha estratégica do produto. Pode criar nova OU vincular existente.
+  // - name + existingId=null → cria nova com esse nome
+  // - existingId setado → vincula a existente (name é ignorado)
+  setStrategicCampaign(productId, name, existingId) {
+    if (existingId) {
+      const existing = (App.state.campaigns || []).find(c => Number(c.id) === Number(existingId));
+      if (!existing) return null;
+      this.save(productId, { strategicCampaignId: Number(existing.id) });
+      // Marca como host estratégico (visual diferenciado).
+      App.state.campaigns = App.state.campaigns.map(c =>
+        Number(c.id) === Number(existing.id) ? { ...c, isStrategicHost: true } : c
+      );
+      return existing;
+    }
+    const clean = String(name || '').trim() || 'Campanha estratégica';
+    const campaign = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
       productId: Number(productId),
-      name: `Mapa da Receita${product?.name ? ` — ${product.name}` : ''}`,
+      name: clean,
+      objective: 'Campanha estratégica vinculada ao Mapa da Receita.',
       isStrategicHost: true,
       createdAt: new Date().toISOString()
     };
     App.state.campaigns = [campaign, ...(App.state.campaigns || [])];
+    this.save(productId, { strategicCampaignId: Number(campaign.id) });
     return campaign;
+  },
+
+  // V28.4.1 — Renomeia a campanha estratégica do produto.
+  renameStrategicCampaign(productId, newName) {
+    const map = this.getForProduct(productId);
+    const campaignId = map?.strategicCampaignId;
+    if (!campaignId) return false;
+    const clean = String(newName || '').trim();
+    if (!clean) return false;
+    App.state.campaigns = (App.state.campaigns || []).map(c =>
+      Number(c.id) === Number(campaignId) ? { ...c, name: clean } : c
+    );
+    return true;
+  },
+
+  // V28.4.1 — Migração one-shot: mescla campanhas estratégicas duplicadas do mesmo
+  // produto numa só. Mantém a primeira (mais antiga), move ações das outras pra ela,
+  // remove as duplicadas. Seta strategicCampaignId se o map ainda não tinha.
+  // Detecção: isStrategicHost OR nome começa com "Mapa da Receita".
+  migrateLegacyStrategicCampaigns(productId) {
+    const all = (App.state.campaigns || []).filter(c =>
+      Number(c.productId) === Number(productId) &&
+      (c.isStrategicHost === true || String(c.name || '').startsWith('Mapa da Receita'))
+    );
+    if (all.length <= 1) {
+      // Se tem só 1 e o map ainda não aponta pra ela, vincula.
+      if (all.length === 1) {
+        const map = this.getForProduct(productId);
+        if (!map?.strategicCampaignId) this.save(productId, { strategicCampaignId: Number(all[0].id) });
+        // Garante flag
+        App.state.campaigns = (App.state.campaigns || []).map(c =>
+          Number(c.id) === Number(all[0].id) ? { ...c, isStrategicHost: true } : c
+        );
+      }
+      return 0;
+    }
+    // Ordena por createdAt asc (mais antiga primeiro) — ela é a "keeper".
+    all.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
+    const keeper = all[0];
+    const duplicateIds = new Set(all.slice(1).map(c => Number(c.id)));
+    // Move ações pras keeper.
+    App.state.actions = (App.state.actions || []).map(a =>
+      duplicateIds.has(Number(a.campaignId)) ? { ...a, campaignId: Number(keeper.id) } : a
+    );
+    // Remove campanhas duplicadas.
+    App.state.campaigns = (App.state.campaigns || []).filter(c => !duplicateIds.has(Number(c.id)));
+    // Garante flag e nome da keeper.
+    App.state.campaigns = App.state.campaigns.map(c =>
+      Number(c.id) === Number(keeper.id) ? { ...c, isStrategicHost: true } : c
+    );
+    // Vincula no map.
+    this.save(productId, { strategicCampaignId: Number(keeper.id) });
+    return duplicateIds.size;
+  },
+
+  // V28.4.1 — Migração one-shot: pra cada action com strategicCatalogId, re-aplica
+  // os defaults do template (sector/funnel/destSector/destFunnel/channel/actionType).
+  // Conserta ações criadas em versões anteriores onde esses campos não eram propagados.
+  migrateLegacyStrategicActions(productId) {
+    const campaignIds = new Set((App.state.campaigns || []).filter(c => Number(c.productId) === Number(productId)).map(c => Number(c.id)));
+    let fixed = 0;
+    App.state.actions = (App.state.actions || []).map(a => {
+      if (!campaignIds.has(Number(a.campaignId)) || !a.strategicCatalogId || !a.strategicAreaId) return a;
+      const template = (this.STRATEGIC_ACTION_CATALOG[a.strategicAreaId] || []).find(t => t.id === a.strategicCatalogId);
+      if (!template) return a;
+      // Re-aplica apenas se algum dos campos de routing estiver faltando ou diferente do template.
+      const needsFix = (
+        a.sector !== template.sector ||
+        a.funnel !== template.funnel ||
+        a.destinationSector !== template.destinationSector ||
+        a.destinationFunnel !== template.destinationFunnel ||
+        a.channel !== template.channel ||
+        a.actionType !== template.actionType
+      );
+      if (!needsFix) return a;
+      fixed++;
+      return {
+        ...a,
+        sector: template.sector,
+        funnel: template.funnel,
+        destinationSector: template.destinationSector,
+        destinationFunnel: template.destinationFunnel,
+        channel: template.channel,
+        actionType: template.actionType
+      };
+    });
+    return fixed;
   },
 
   // V28.3 — Ativa uma ação do catálogo: cria entry em App.state.actions e auto-vincula
   // aos KRs ativos da área que match os kpiIds do template.
+  // V28.4.1 — REQUER strategicCampaignId definido no map. Se não, retorna { needsCampaign: true }
+  // pra Actions.activateStrategicCatalogAction abrir o prompt de campanha. Propaga todos
+  // os campos de routing do template (sector/funnel/destSector/destFunnel/channel/actionType).
   activateCatalogAction(productId, areaId, templateId) {
     const template = (this.STRATEGIC_ACTION_CATALOG[areaId] || []).find(a => a.id === templateId);
-    if (!template) return null;
-    const campaign = this._ensureStrategicHostCampaign(productId);
+    if (!template) return { error: 'template-not-found' };
+    const campaign = this.getStrategicCampaign(productId);
+    if (!campaign) return { needsCampaign: true };
     const action = {
       id: Date.now() + Math.floor(Math.random() * 1000),
       campaignId: Number(campaign.id),
       name: template.name,
       channel: template.channel,
       actionType: template.actionType,
+      sector: template.sector,
+      funnel: template.funnel,
+      destinationSector: template.destinationSector,
+      destinationFunnel: template.destinationFunnel,
       status: 'Rascunho estratégico',
       isDraft: true,
       strategicAreaId: areaId,
@@ -217,7 +336,7 @@ window.StrategicMapEngine = {
         }
       });
     }
-    return action;
+    return { action };
   },
 
   // V28.3 — Lista ações estratégicas de uma área (vinculadas à campanha do produto).
