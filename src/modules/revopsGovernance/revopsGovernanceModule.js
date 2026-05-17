@@ -19,7 +19,7 @@ var RevopsGovernanceModule = {
         ${this._acquisitionCard(config, metrics)}
       </div>
       ${this._operationalControls(config)}
-      ${this._governanceBlock(metrics, config)}
+      ${this._strategicMapBlock(productId, metrics, config)}
       ${window.RevopsSimulationModal ? RevopsSimulationModal.render() : ''}
       ${window.RevopsScenariosModal ? RevopsScenariosModal.render() : ''}
       ${window.RevopsScenarioNameModal ? RevopsScenarioNameModal.render() : ''}
@@ -332,6 +332,124 @@ var RevopsGovernanceModule = {
     </div>`;
   },
 
+  // V29.4.0 — Bloco do Mapa Estratégico V29 dentro da RevOps & Governança.
+  // Substitui o _governanceBlock antigo que mostrava OKRs/KPIs desconectados.
+  // 3 sub-seções: alertas no topo, saúde dos KRs-mãe (rollup), branches do produto.
+  _strategicMapBlock(productId, metrics, config) {
+    if (!window.StrategicMapEngine || !productId) return '';
+    const map = StrategicMapEngine.getForProduct(productId);
+    const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
+    if (!product) return '';
+    const vision = String(map?.vision || '').trim();
+    const productKrs = StrategicMapEngine.getProductKrs(productId);
+    const branches = StrategicMapEngine.getBranchesByProduct(productId);
+    const desplugadas = StrategicMapEngine.getDesplugedCampaigns(productId);
+    const orphans = StrategicMapEngine.getOrphanChildKrs(productId);
+    const executedAt = StrategicMapEngine.getMetricsExecutedAt ? StrategicMapEngine.getMetricsExecutedAt(productId) : null;
+
+    if (!vision && !productKrs.length && !branches.length) {
+      return `<div class="bg-slate-900 text-white rounded-3xl p-5 shadow-sm">
+        <div class="flex items-center gap-2 mb-2"><i data-lucide="compass" class="w-4 h-4 text-indigo-300"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Mapa da Receita</p></div>
+        <h3 class="text-xl font-black mb-1">Este produto ainda não tem Mapa da Receita.</h3>
+        <p class="text-sm text-slate-300 mb-3">Defina visão, números-mãe e campanhas pra ver aqui a saúde estratégica.</p>
+        <button onclick="Actions.openStrategicMap(${productId})" class="px-4 py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-slate-900 font-black text-xs flex items-center gap-1.5"><i data-lucide="rocket" class="w-3.5 h-3.5"></i> Abrir Mapa da Receita</button>
+      </div>`;
+    }
+
+    return `<div class="bg-slate-900 text-white rounded-3xl p-5 shadow-sm space-y-4">
+      ${this._smHeader(productId, product, vision, branches, desplugadas, orphans, executedAt)}
+      ${productKrs.length ? this._smRollupTable(productId, productKrs) : ''}
+      ${branches.length || desplugadas.length ? this._smBranchesList(productId, branches, desplugadas) : ''}
+    </div>`;
+  },
+
+  _smHeader(productId, product, vision, branches, desplugadas, orphans, executedAt) {
+    const dateStr = executedAt ? new Date(executedAt) : null;
+    const dateFmt = dateStr ? `${String(dateStr.getDate()).padStart(2,'0')}/${String(dateStr.getMonth()+1).padStart(2,'0')}` : null;
+    const totalAlerts = desplugadas.length + orphans.length;
+    return `<div class="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2 mb-1">
+          <i data-lucide="compass" class="w-4 h-4 text-indigo-300"></i>
+          <p class="text-xs font-black text-slate-300 uppercase tracking-wider">Mapa da Receita — saúde estratégica</p>
+          ${executedAt ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/20 text-emerald-200 border border-emerald-400/30">✓ publicado em ${dateFmt}</span>` : '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-200 border border-amber-400/30">⚠ não publicado</span>'}
+        </div>
+        ${vision ? `<p class="text-sm text-slate-200"><b>Objetivo:</b> ${Utils.escape(vision.length > 140 ? vision.slice(0, 140) + '…' : vision)}</p>` : '<p class="text-sm text-amber-300">⚠ Visão do produto ainda não definida.</p>'}
+        ${totalAlerts > 0 ? `<p class="text-[12px] mt-2 text-amber-200">⚠ <b>${totalAlerts} alerta(s):</b> ${desplugadas.length ? `${desplugadas.length} campanha(s) desplugada(s)` : ''}${desplugadas.length && orphans.length ? ' · ' : ''}${orphans.length ? `${orphans.length} número(s) órfão(s)` : ''}</p>` : ''}
+      </div>
+      <button onclick="Actions.openStrategicMap(${productId})" class="px-3 py-2 rounded-xl bg-violet-500 hover:bg-violet-600 text-white text-xs font-black flex items-center gap-1.5 shrink-0" style="color:#fff!important;"><i data-lucide="compass" class="w-3.5 h-3.5"></i> Abrir Mapa</button>
+    </div>`;
+  },
+
+  // V29.4.0 — Tabela do rollup dos KRs-mãe. Soma das filhas em todas as branches do produto.
+  _smRollupTable(productId, productKrs) {
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    return `<div class="rounded-2xl bg-white/[0.04] border border-white/10 p-3 overflow-x-auto">
+      <p class="text-[11px] font-black text-emerald-200 uppercase tracking-wider mb-2">Rollup dos KRs-mãe (CEO → soma das filhas)</p>
+      <table class="w-full text-[12px]">
+        <thead>
+          <tr class="text-left text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+            <th class="py-1.5 pr-3">Área</th>
+            <th class="py-1.5 pr-3">KR-mãe</th>
+            <th class="py-1.5 pr-3 text-right">Meta Segura</th>
+            <th class="py-1.5 pr-3 text-right">Atual (rollup)</th>
+            <th class="py-1.5 pr-3 text-right">%</th>
+            <th class="py-1.5 text-right">Branches</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${productKrs.map(pkr => {
+            const area = areas.find(a => a.id === pkr.area);
+            const rollup = StrategicMapEngine.rollupForProductKr(productId, pkr.id);
+            const target = Number(pkr.targetCommitted || 0);
+            const pct = target ? Math.round((rollup.current / target) * 100) : 0;
+            const pctColor = pct >= 100 ? 'text-emerald-300' : pct >= 70 ? 'text-amber-300' : 'text-red-300';
+            const autoBadge = pkr.createdBy === 'auto' ? `<span class="text-[9px] text-amber-300 ml-1" title="Criado automaticamente por gestor">⚠</span>` : '';
+            return `<tr class="border-b border-white/5">
+              <td class="py-1.5 pr-3"><span class="px-1.5 py-0.5 rounded text-[10px] font-black bg-${area?.color || 'slate'}-500/20 text-${area?.color || 'slate'}-200 border border-${area?.color || 'slate'}-400/30">${area?.label || pkr.area}</span></td>
+              <td class="py-1.5 pr-3 font-bold">${Utils.escape(pkr.name)}${autoBadge}</td>
+              <td class="py-1.5 pr-3 text-right">${target || '—'}</td>
+              <td class="py-1.5 pr-3 text-right font-black">${rollup.current}</td>
+              <td class="py-1.5 pr-3 text-right font-black ${pctColor}">${pct}%</td>
+              <td class="py-1.5 text-right text-slate-400">${rollup.contributors}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  },
+
+  // V29.4.0 — Lista das branches (plugadas e desplugadas) deste produto.
+  _smBranchesList(productId, branches, desplugadas) {
+    return `<div class="rounded-2xl bg-white/[0.04] border border-white/10 p-3 space-y-2">
+      <p class="text-[11px] font-black text-violet-200 uppercase tracking-wider">Campanhas deste produto · ${branches.length} plugada(s) · ${desplugadas.length} desplugada(s)</p>
+      ${branches.length ? `<div class="space-y-1.5">${branches.map(b => {
+        const c = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
+        if (!c) return '';
+        const status = StrategicMapEngine.getCampaignStrategicStatus(b.campaignId);
+        const statusInfo = { active: { color: 'emerald', label: 'Ativa' }, configuring: { color: 'amber', label: 'Em config' } }[status] || { color: 'slate', label: 'Pendente' };
+        const allKrs = (b.objectives || []).flatMap(o => o.okrs || []);
+        const plugged = allKrs.filter(k => k.parentProductKrId).length;
+        const actionsCount = (App.state.actions || []).filter(a => Number(a.campaignId) === Number(b.campaignId) && a.strategicAreaId).length;
+        return `<div class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-slate-800/40 border border-${statusInfo.color}-400/30">
+          <div class="min-w-0 flex-1">
+            <p class="font-black text-white text-[12px] truncate">${Utils.escape(c.name)} <span class="text-[10px] text-${statusInfo.color}-300 ml-1">● ${statusInfo.label}</span></p>
+            <p class="text-[10px] text-slate-400">${plugged} número(s) plugado(s) · ${actionsCount} ação(ões)</p>
+          </div>
+          <button onclick="Actions.openStrategicMapForCampaign(${b.campaignId})" class="px-2.5 py-1 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40 text-violet-100 text-[10px] font-black shrink-0">Abrir</button>
+        </div>`;
+      }).join('')}</div>` : ''}
+      ${desplugadas.length ? `<div class="pt-2 border-t border-white/10">
+        <p class="text-[10px] font-black text-red-300 uppercase mb-1">🔴 Desplugadas (não alimentam o rollup):</p>
+        <div class="space-y-1">${desplugadas.map(c => `<div class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-400/30">
+          <span class="text-[11px] text-white truncate">${Utils.escape(c.name)}</span>
+          <button onclick="Actions.activateStrategicMapForCampaign(${c.id})" class="px-2 py-0.5 rounded text-[10px] font-black bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 shrink-0">Ativar Mapa</button>
+        </div>`).join('')}</div>
+      </div>` : ''}
+    </div>`;
+  },
+
+  // DEPRECATED V29.4.0 — substituído por _strategicMapBlock. Mantido como dead code.
   _governanceBlock(metrics, config) {
     const okrs = (App.state.strategicOkrs || []);
     const kpis = (App.state.operationalKpis || []);
