@@ -274,34 +274,54 @@ window.StrategicMapModal = {
         'Pense nos números como o "entregável" de cada frente: Marketing entrega leads pra Vendas, Vendas entrega clientes pra CS, CS devolve advogados/indicações pro topo. Os números marcados com 🔁 são exatamente esse handoff.'
       )}
 
-      ${this._handoffBanner()}
+      ${this._handoffNav(product)}
 
       <div class="space-y-3">
-        ${objectives.map(o => this._okrsObjectiveCard(product, o)).join('')}
+        ${this._activeAreaObjective(product, objectives) ? this._okrsObjectiveCard(product, this._activeAreaObjective(product, objectives)) : '<p class="text-[11px] text-slate-500 italic">Selecione uma frente acima.</p>'}
       </div>
       ${this._stepCta('Próximo passo: conectar à operação', totalOkrs > 0)}
     </section>`;
   },
 
-  // V28.2 — Faixa visual do handoff entre as 3 frentes.
-  _handoffBanner() {
-    return `<div class="rounded-2xl bg-gradient-to-r from-sky-500/10 via-emerald-500/10 to-violet-500/10 border border-white/10 p-3">
-      <div class="grid grid-cols-3 gap-2 text-center text-[11px]">
-        <div class="flex flex-col items-center gap-1">
-          <div class="w-7 h-7 rounded-full bg-sky-500/25 grid place-items-center"><i data-lucide="megaphone" class="w-3.5 h-3.5 text-sky-200"></i></div>
-          <p class="font-black text-sky-100">Marketing</p>
-          <p class="text-[10px] text-slate-400">entrega <b>leads</b> →</p>
-        </div>
-        <div class="flex flex-col items-center gap-1">
-          <div class="w-7 h-7 rounded-full bg-emerald-500/25 grid place-items-center"><i data-lucide="handshake" class="w-3.5 h-3.5 text-emerald-200"></i></div>
-          <p class="font-black text-emerald-100">Vendas</p>
-          <p class="text-[10px] text-slate-400">entrega <b>clientes</b> →</p>
-        </div>
-        <div class="flex flex-col items-center gap-1">
-          <div class="w-7 h-7 rounded-full bg-violet-500/25 grid place-items-center"><i data-lucide="heart" class="w-3.5 h-3.5 text-violet-200"></i></div>
-          <p class="font-black text-violet-100">Sucesso do Cliente</p>
-          <p class="text-[10px] text-slate-400">devolve <b>advogados</b> ↩</p>
-        </div>
+  // V28.2.3 — Determina qual área está ativa (state user OU próxima a confirmar OU marketing).
+  _activeAreaId(productId) {
+    const stored = App.state.strategicActiveArea;
+    const valid = (StrategicMapEngine.COMERCIAL_AREAS || []).some(a => a.id === stored);
+    if (valid) return stored;
+    const next = StrategicMapEngine.nextUnconfirmedKr ? StrategicMapEngine.nextUnconfirmedKr(productId) : null;
+    return next?.areaId || 'marketing';
+  },
+
+  _activeAreaObjective(product, objectives) {
+    const areaId = this._activeAreaId(product.id);
+    return objectives.find(o => o.area === areaId);
+  },
+
+  // V28.2.3 — Banner do handoff agora é navegação (3 abas clicáveis).
+  // Substitui o _handoffBanner estático: cada frente vira tab, ativa fica destacada.
+  _handoffNav(product) {
+    const activeId = this._activeAreaId(product.id);
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    const handoffArrows = ['→', '→', '↩'];
+    return `<div class="rounded-2xl bg-gradient-to-r from-sky-500/10 via-emerald-500/10 to-violet-500/10 border border-white/10 p-2">
+      <div class="grid grid-cols-3 gap-2">
+        ${areas.map((area, i) => {
+          const isActive = activeId === area.id;
+          const objective = (StrategicMapEngine.getObjectiveByArea ? StrategicMapEngine.getObjectiveByArea(product.id, area.id) : null);
+          const okrs = objective?.okrs || [];
+          const confirmedCount = okrs.filter(k => k.confirmed).length;
+          const totalCount = okrs.length;
+          const stateLabel = !totalCount ? 'sem números ainda' : `${confirmedCount}/${totalCount} confirmado${confirmedCount === 1 ? '' : 's'}`;
+          const baseCls = isActive
+            ? `bg-${area.color}-500/20 border-${area.color}-400/60 ring-2 ring-${area.color}-400/40`
+            : `bg-white/[0.03] border-white/10 hover:bg-white/[0.07]`;
+          return `<button onclick="Actions.setStrategicActiveArea('${area.id}')" class="text-left p-2.5 rounded-xl border ${baseCls} transition flex flex-col items-center gap-1 cursor-pointer">
+            <div class="w-7 h-7 rounded-full bg-${area.color}-500/30 grid place-items-center"><i data-lucide="${area.icon}" class="w-3.5 h-3.5 text-${area.color}-200"></i></div>
+            <p class="font-black text-${area.color}-${isActive ? '100' : '200'} text-[12px]">${Utils.escape(area.label)}</p>
+            <p class="text-[10px] text-slate-400">${area.id === 'cs' ? 'devolve <b>advogados</b>' : (area.id === 'marketing' ? 'entrega <b>leads</b>' : 'entrega <b>clientes</b>')} ${handoffArrows[i]}</p>
+            <p class="text-[10px] ${isActive ? `text-${area.color}-200` : 'text-slate-500'} font-bold mt-0.5">${stateLabel}</p>
+          </button>`;
+        }).join('')}
       </div>
     </div>`;
   },
@@ -419,9 +439,10 @@ window.StrategicMapModal = {
     const hasAdv = Number(kr.targetStretch ?? 0) > 0;
     const missingAdv = hasSafe && !hasAdv;
     const complete = StrategicOkrEngine.isComplete(kr);
-    // V28.2.2 — Periodo Tatico unico (90d = 1 trimestre, padrao OKR).
-    // Removidas opcoes 7d/15d/30d/6m: borram conceito de "ciclo de OKR" pra quem nao conhece Doerr.
-    const periods = [{ d: 90, label: '90 dias — próximo trimestre' }];
+    // V28.2.3 — Período Tático = 90d default + alternativas (30/60) com aviso do Djow.
+    const currentPeriod = Number(kr.period) || 90;
+    const warning = App.state.strategicPeriodWarning;
+    const isWarningHere = warning && warning.krId === kr.id;
 
     return `<div class="rounded-2xl bg-black/30 border border-${tone}-400/20 p-3 ${ringCls}">
       <div class="flex items-start justify-between gap-2 mb-2">
@@ -454,10 +475,14 @@ window.StrategicMapModal = {
 
       <div class="mb-2">
         <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Período Tático</p>
-        <div class="flex flex-wrap gap-1.5">
-          ${periods.map(p => `<button onclick="Actions.setStrategicNumeroPeriod('${obj.id}','${kr.id}', ${p.d})" class="px-3 py-1.5 rounded-lg border text-[11px] font-bold ${Number(kr.period) === p.d ? `bg-${tone}-500/30 border-${tone}-400/60 text-white` : 'bg-slate-900 border-white/15 text-slate-300 hover:bg-slate-800'}">${p.label}</button>`).join('')}
+        <div class="flex flex-wrap gap-1.5 items-center">
+          <button onclick="Actions.tryChangeStrategicPeriod('${obj.id}','${kr.id}', 90)" class="px-3 py-1.5 rounded-lg border text-[11px] font-bold ${currentPeriod === 90 ? `bg-${tone}-500/30 border-${tone}-400/60 text-white` : 'bg-slate-900 border-white/15 text-slate-300 hover:bg-slate-800'}">90 dias — próximo trimestre</button>
+          <span class="text-[10px] text-slate-500">ou</span>
+          <button onclick="Actions.tryChangeStrategicPeriod('${obj.id}','${kr.id}', 30)" class="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold ${currentPeriod === 30 ? `bg-${tone}-500/30 border-${tone}-400/60 text-white` : 'bg-slate-900 border-white/15 text-slate-400 hover:bg-slate-800'}">30 dias</button>
+          <button onclick="Actions.tryChangeStrategicPeriod('${obj.id}','${kr.id}', 60)" class="px-2.5 py-1.5 rounded-lg border text-[11px] font-bold ${currentPeriod === 60 ? `bg-${tone}-500/30 border-${tone}-400/60 text-white` : 'bg-slate-900 border-white/15 text-slate-400 hover:bg-slate-800'}">60 dias</button>
         </div>
         <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">💡 <b class="text-slate-200">Por que 90 dias?</b> Em um trimestre você vê resultado real (não só promessa), e ainda dá tempo de corrigir rota antes de gastar o ano inteiro num caminho errado. No fim do período, você decide: manter, ajustar ou trocar o número.</p>
+        ${isWarningHere ? this._djowPeriodWarning(obj, kr, warning.attemptedDays) : ''}
       </div>
 
       <div class="flex justify-between items-center pt-2 border-t border-white/10">
@@ -469,8 +494,31 @@ window.StrategicMapModal = {
 
   _periodLabel(days) {
     // V28.2.2 — Periodo Tatico = 90d. Outros valores ficam como fallback pra dados legados.
-    const map = { 7: '7 dias', 15: '15 dias', 30: '30 dias', 90: '90 dias (1 trimestre)', 180: '6 meses' };
+    const map = { 7: '7 dias', 15: '15 dias', 30: '30 dias', 60: '60 dias', 90: '90 dias (1 trimestre)', 180: '6 meses' };
     return map[Number(days)] || (days ? `${days} dias` : 'sem período');
+  },
+
+  // V28.2.3 — Balão do Djow quando user tenta mudar pra 30 ou 60 dias.
+  // Conciso, pragmático, Doerr-aligned sem nominar Doerr.
+  _djowPeriodWarning(obj, kr, attemptedDays) {
+    const texts = {
+      30: `<b class="text-amber-200">30 dias é tempo de sprint, não de medir uma frente comercial.</b> Você vê movimento, mas não sabe se sustenta — pode ser sorte de uma semana. E te força a parar todo mês pra revisar com pouco dado, o que cansa o time e gera ajuste em cima de ruído.<br><br><b class="text-slate-200">Sugestão:</b> deixa em 90. Se você bater a meta antes, ganha tempo de sobra pro próximo ciclo.`,
+      60: `<b class="text-amber-200">60 dias é o pior dos mundos.</b> Curto demais pra você ter certeza (dados ainda voláteis), e longo demais pra ser sprint operacional. Você chega ao fim do período ainda em dúvida se o número realmente move.<br><br><b class="text-slate-200">Sugestão:</b> os 30 dias extras do trimestre eliminam essa zona cinzenta — você sai do "parece que funciona" pro "tenho certeza".`
+    };
+    const txt = texts[attemptedDays] || texts[30];
+    return `<div class="mt-3 rounded-2xl bg-amber-500/[0.08] border border-amber-400/40 p-3">
+      <div class="flex items-start gap-2 mb-2">
+        <div class="w-7 h-7 rounded-full bg-violet-500/30 grid place-items-center shrink-0"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-violet-200"></i></div>
+        <div class="min-w-0">
+          <p class="text-[10px] font-black text-violet-200 uppercase tracking-wider">Djow alerta</p>
+          <p class="text-[11px] text-slate-200 leading-relaxed mt-1">${txt}</p>
+        </div>
+      </div>
+      <div class="flex justify-end gap-1.5 mt-2">
+        <button onclick="Actions.confirmStrategicPeriodChange('${obj.id}','${kr.id}')" class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-[10px] font-black">Sei o que faço · manter ${attemptedDays} dias</button>
+        <button onclick="Actions.dismissStrategicPeriodWarning('${obj.id}','${kr.id}')" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black" style="color:#fff!important;">✓ Voltar pra 90 dias</button>
+      </div>
+    </div>`;
   },
 
   _okrDraftCard(draft, product, hideConnect) {
@@ -592,73 +640,191 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // -------------------- STEP 4: CONECTAR OPERAÇÃO --------------------
+  // -------------------- STEP 4: AS AÇÕES --------------------
+  // V28.3.0 — Mesmo padrão didático das etapas anteriores: tabs Mkt/Vendas/CS,
+  // catálogo curado de ações típicas por segmento, vínculo automático aos
+  // números pelo catalogId, edição inline (dono/cadência/status), aviso de
+  // número órfão (sem ação).
   _stepOperations(product) {
     const map = StrategicMapEngine.getForProduct(product.id);
     const objectives = map.objectives || [];
-    const okrs = objectives.flatMap(o => (o.okrs || []).map(kr => ({ obj: o, kr })));
-    const connected = okrs.filter(({ kr }) => (kr.connectedActionIds || []).length > 0);
-    const actions = StrategicFlowBridge.actionsForProduct(product.id);
-    if (!okrs.length) {
+    const confirmedKrs = objectives.flatMap(o => (o.okrs || []).filter(k => k.confirmed).map(kr => ({ obj: o, kr })));
+    if (!confirmedKrs.length) {
       return `<section class="space-y-3">
-        ${this._stepIntro('Conectar à Operação', 'Crie OKRs antes de conectar.', 'plug')}
+        ${this._stepIntro('As ações', 'Confirme números na etapa anterior antes de plugar ações.', 'plug')}
         <div class="rounded-3xl bg-amber-500/10 border border-amber-400/30 p-5 text-amber-200">
-          <p class="font-black mb-1">Faltam OKRs.</p>
-          <p class="text-sm">Volte para a etapa de OKRs e crie pelo menos um.</p>
-          <button onclick="Actions.setStrategicZoom('okrs')" class="mt-3 px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black">← Voltar para OKRs</button>
+          <p class="font-black mb-1">Faltam números confirmados.</p>
+          <p class="text-sm">Volte pra etapa <b>Os números</b> e confirme pelo menos um — número sem ação é promessa, ação sem número é trabalho à toa.</p>
+          <button onclick="Actions.setStrategicZoom('okrs')" class="mt-3 px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black">← Voltar pros Números</button>
         </div>
       </section>`;
     }
-    const hasCampaigns = (App.state.campaigns || []).some(c => Number(c.productId) === Number(product.id));
-    if (!actions.length) {
-      return `<section class="space-y-3">
-        ${this._stepIntro('Conectar à Operação', 'Conecte cada OKR às ações operacionais que entregam o resultado.', 'plug')}
-        <div class="rounded-3xl bg-amber-500/10 border border-amber-400/30 p-5 text-amber-200">
-          <p class="font-black mb-1">${hasCampaigns ? 'Nenhuma ação cadastrada ainda neste produto.' : 'Nenhuma campanha cadastrada para este produto.'}</p>
-          <p class="text-sm">${hasCampaigns ? 'Crie ações rapidamente em cada OKR abaixo, ou abra a aba Ações de Campanha para o cadastro completo.' : 'Crie uma campanha primeiro — depois aqui você pode criar ações rápidas direto pelos OKRs.'}</p>
-          ${!hasCampaigns ? '<button onclick="Actions.closeStrategicMap(); App.setTab(\'campaigns\');" class="mt-3 px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black">Ir para Campanhas →</button>' : ''}
-        </div>
-        ${hasCampaigns ? `<div class="space-y-3">${okrs.map(({ obj, kr }) => this._operationsOkrCard(product, obj, kr, [])).join('')}</div>` : ''}
-        ${this._stepCta('Próximo passo: executar via Djow', connected.length > 0)}
-      </section>`;
-    }
+    const allConnected = confirmedKrs.every(({ kr }) => (kr.connectedActionIds || []).length > 0);
     return `<section class="space-y-3">
-      ${this._stepIntro('Conectar à Operação', 'Para cada OKR, marque as ações que vão entregá-lo. Faltou alguma? Crie rápido pelo botão verde.', 'plug')}
-      <div class="space-y-3">
-        ${okrs.map(({ obj, kr }) => this._operationsOkrCard(product, obj, kr, actions)).join('')}
-      </div>
-      ${this._stepCta('Próximo passo: executar via Djow', connected.length > 0)}
+      ${this._stepIntro(
+        'Que ações vão mover cada número?',
+        'Pra cada frente, ative as ações que entregam os números. Número sem ação não mexe sozinho.',
+        'plug',
+        'operations',
+        'operations-acao-numero',
+        'Ação é o que move o número no dia-a-dia. Cada ação ativada do catálogo já é vinculada automaticamente aos números que ela costuma mover. Se um número confirmado fica sem ação vinculada, ele aparece com aviso — porque ninguém vai movê-lo.'
+      )}
+
+      ${this._handoffNav(product)}
+
+      ${this._areaAcoesSection(product)}
+
+      ${this._stepCta('Próximo passo: colocar em campo', allConnected)}
     </section>`;
   },
 
-  _operationsOkrCard(product, obj, kr, actions) {
-    const linked = new Set((kr.connectedActionIds || []).map(Number));
-    const hasDraftConnected = (kr.connectedActionIds || []).some(id => {
-      const a = (App.state.actions || []).find(a => Number(a.id) === Number(id));
-      return a?.isDraft;
-    });
-    return `<div class="rounded-3xl bg-white/[0.05] border border-white/10 p-4 space-y-3">
-      <div class="flex items-start justify-between gap-3">
+  // V28.3.0 — Painel da frente ativa: números confirmados como cabeçalho,
+  // alerta de KRs órfãos, ações já ativadas (cards editáveis), catálogo de
+  // ações disponíveis.
+  _areaAcoesSection(product) {
+    const areaId = this._activeAreaId(product.id);
+    const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === areaId);
+    if (!area) return '';
+    const objective = StrategicMapEngine.getObjectiveByArea(product.id, areaId);
+    const confirmedKrs = (objective?.okrs || []).filter(k => k.confirmed);
+    const activeActions = StrategicMapEngine.getStrategicActionsByArea(product.id, areaId);
+    const activatedTemplateIds = StrategicMapEngine.getActivatedCatalogActionIds(product.id, areaId);
+    const orphanKrs = StrategicMapEngine.getKrsWithoutActions(product.id, areaId);
+    const tone = area.color;
+
+    return `<div class="rounded-3xl bg-white/[0.05] border border-${tone}-400/30 p-4 space-y-3">
+      <div class="flex items-start gap-3">
+        <div class="w-9 h-9 rounded-xl bg-${tone}-500/20 grid place-items-center shrink-0"><i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i></div>
         <div class="min-w-0">
-          <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">${Utils.escape(obj.label)}</p>
-          <p class="font-black text-white">${Utils.escape(kr.name)}</p>
-          <p class="text-[11px] text-slate-400 mt-0.5">Meta ${Number(kr.target || 0)} ${Utils.escape(kr.metric)} · ${linked.size} ação(ões) conectada(s)</p>
+          <p class="font-black text-white">${Utils.escape(area.label)}</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">${confirmedKrs.length} número(s) confirmado(s) · ${activeActions.length} ação(ões) ativa(s)</p>
         </div>
-        <button onclick="Actions.openQuickActionModal(${product.id}, '${obj.id}', '${kr.id}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-[11px] font-black flex items-center gap-1 whitespace-nowrap" title="Criar e conectar uma ação ao OKR (modo rápido)"><i data-lucide="plus" class="w-3 h-3"></i> Criar ação</button>
       </div>
-      <div>
-        <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Ações disponíveis · clique para conectar</p>
-        ${actions.length ? `<div class="flex flex-wrap gap-1.5">${actions.map(a => {
-          const on = linked.has(Number(a.id));
-          const draft = Boolean(a.isDraft);
-          return `<button onclick="Actions.toggleStrategicOkrAction('${obj.id}','${kr.id}', ${a.id})" class="px-2.5 py-1.5 rounded-lg text-[11px] font-black transition flex items-center gap-1 ${on ? 'bg-emerald-500/30 text-emerald-100 border border-emerald-400/50' : 'bg-white/5 text-slate-300 border border-white/15 hover:bg-white/10'}">${on ? '✓ ' : ''}${Utils.escape(a.name || 'Ação')}${draft ? ' <span class="text-[9px] px-1 rounded bg-amber-400/30 text-amber-100 border border-amber-300/40">rascunho</span>' : ''}</button>`;
-        }).join('')}</div>` : '<p class="text-[11px] text-slate-500 italic">Nenhuma ação ainda. Use <b class="text-emerald-300">Criar ação</b> acima para cadastrar a primeira.</p>'}
-      </div>
-      ${hasDraftConnected ? `<div class="rounded-xl bg-amber-500/15 border border-amber-400/30 p-2.5 text-[11px] text-amber-100 flex items-start gap-2">
-        <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mt-0.5 shrink-0"></i>
-        <p>Há ações em <b>rascunho</b> conectadas a este OKR. <button onclick="Actions.closeStrategicMap(); App.setTab('actions');" class="underline font-black">Complete em Ações de Campanha</button> para a leitura ficar precisa.</p>
+
+      ${confirmedKrs.length ? `<div class="rounded-xl bg-slate-900/40 border border-white/10 p-2.5">
+        <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Números confirmados desta frente:</p>
+        <div class="flex flex-wrap gap-1.5">
+          ${confirmedKrs.map(kr => {
+            const acoesQueMovem = activeActions.filter(a => (kr.connectedActionIds || []).map(Number).includes(Number(a.id))).length;
+            const orphan = acoesQueMovem === 0;
+            return `<span class="px-2 py-1 rounded-lg text-[10px] font-bold ${orphan ? 'bg-amber-500/15 border border-amber-400/40 text-amber-200' : `bg-${tone}-500/15 border border-${tone}-400/30 text-${tone}-200`}" title="${acoesQueMovem} ação(ões) movem este número">${kr.isHandoff ? '🔁 ' : ''}${Utils.escape(kr.name)} · ${acoesQueMovem} ${acoesQueMovem === 1 ? 'ação' : 'ações'}</span>`;
+          }).join('')}
+        </div>
       </div>` : ''}
+
+      ${orphanKrs.length ? `<div class="rounded-xl bg-amber-500/10 border border-amber-400/40 p-2.5 text-[11px] text-amber-100">
+        ⚠️ <b>${orphanKrs.length} número${orphanKrs.length === 1 ? '' : 's'} sem ação vinculada</b> — ${orphanKrs.length === 1 ? 'ele não vai' : 'eles não vão'} se mover sozinho${orphanKrs.length === 1 ? '' : 's'}. Ative pelo menos uma ação abaixo.
+      </div>` : ''}
+
+      <div class="space-y-2">
+        ${activeActions.length ? activeActions.map(a => this._acaoCard(product, area, a)).join('') : '<p class="text-[11px] text-slate-500 italic">Nenhuma ação ativa nesta frente. Ative do catálogo abaixo.</p>'}
+      </div>
+
+      ${this._actionCatalogStrip(product, area, activatedTemplateIds)}
     </div>`;
+  },
+
+  // V28.3.0 — Strip de ações do catálogo ainda não ativadas.
+  _actionCatalogStrip(product, area, activatedTemplateIds) {
+    const catalog = (StrategicMapEngine.STRATEGIC_ACTION_CATALOG || {})[area.id] || [];
+    const available = catalog.filter(t => !activatedTemplateIds.has(t.id));
+    if (!available.length) {
+      return `<div class="rounded-xl bg-${area.color}-500/5 border border-${area.color}-400/20 p-2.5 text-[11px] text-${area.color}-200 italic">Todas as ações típicas de ${Utils.escape(area.label)} já estão ativas.</div>`;
+    }
+    const kpiCatalog = (StrategicMapEngine.KPI_CATALOG || {})[area.id] || [];
+    return `<div class="rounded-xl bg-${area.color}-500/5 border border-${area.color}-400/20 p-3">
+      <p class="text-[10px] font-black text-${area.color}-200 uppercase tracking-wider mb-2">Ações típicas de ${Utils.escape(area.label)} — clique pra ativar</p>
+      <div class="grid sm:grid-cols-2 gap-1.5">
+        ${available.map(t => {
+          const moves = (t.kpiIds || []).map(id => (kpiCatalog.find(k => k.id === id) || {}).name).filter(Boolean);
+          return `<button onclick="Actions.activateStrategicCatalogAction('${area.id}', '${t.id}')" title="${Utils.escape(t.description)}" class="text-left px-2.5 py-2 rounded-lg bg-slate-900/60 hover:bg-slate-800 border border-white/10 text-white text-[11px] font-bold flex items-start gap-1.5">
+            <i data-lucide="plus" class="w-3 h-3 text-${area.color}-300 shrink-0 mt-px"></i>
+            <span class="min-w-0">
+              ${Utils.escape(t.name)}
+              <span class="block text-[10px] text-slate-400 font-normal mt-0.5">${Utils.escape(t.description)}</span>
+              ${moves.length ? `<span class="block text-[10px] text-${area.color}-200 font-bold mt-1">Move: ${moves.map(m => Utils.escape(m)).join(' · ')}</span>` : ''}
+            </span>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  },
+
+  // V28.3.0 — Card de uma ação ativa. Sigue padrão do _numeroCard:
+  // confirmed = collapsed verde; senão = inputs inline + chips cadência + status.
+  _acaoCard(product, area, action) {
+    const tone = area.color;
+    const linkedKrs = this._krsLinkedToAction(product.id, area.id, action.id);
+    const linkedNames = linkedKrs.map(k => k.name);
+    const cadences = StrategicMapEngine.STRATEGIC_ACTION_CADENCES || [];
+    const statuses = StrategicMapEngine.STRATEGIC_ACTION_STATUSES || [];
+    const status = (statuses.find(s => s.id === action.strategicStatus) || statuses[0] || { id: 'planned', label: 'Planejada', color: 'slate' });
+    const desc = action.strategicDescription ? `<p class="text-[10px] text-slate-400 italic mb-2">${Utils.escape(action.strategicDescription)}</p>` : '';
+    const ownerSet = Boolean(String(action.strategicOwner || '').trim());
+    const cadenceSet = Boolean(action.strategicCadence);
+    const complete = ownerSet && cadenceSet;
+
+    if (action.strategicConfirmed) {
+      const cadenceLabel = (cadences.find(c => c.id === action.strategicCadence) || {}).label || '—';
+      return `<div class="rounded-2xl bg-emerald-500/[0.05] border border-emerald-400/30 p-3">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-1.5 flex-wrap mb-1">
+              <span class="text-emerald-300 font-black">✓</span>
+              <p class="font-black text-white text-sm">${Utils.escape(action.name)}</p>
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-${status.color}-500/20 text-${status.color}-200 border border-${status.color}-400/30">${status.label.toUpperCase()}</span>
+            </div>
+            <p class="text-[11px] text-slate-300">Dono <b class="text-white">${Utils.escape(action.strategicOwner || '—')}</b> · Cadência <b class="text-white">${Utils.escape(cadenceLabel)}</b>${linkedNames.length ? ` · Move <b class="text-${tone}-200">${linkedNames.map(n => Utils.escape(n)).join(', ')}</b>` : ''}</p>
+          </div>
+        </div>
+        <div class="flex justify-end gap-1 mt-2">
+          <button onclick="Actions.editStrategicAcao(${action.id})" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[10px] font-black">Editar</button>
+          <button onclick="Actions.removeStrategicCatalogAction(${action.id})" class="px-2 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-400/30 text-red-300 text-[10px] font-black">Remover</button>
+        </div>
+      </div>`;
+    }
+
+    return `<div class="rounded-2xl bg-black/30 border border-${tone}-400/20 p-3">
+      <div class="flex items-start justify-between gap-2 mb-2">
+        <div class="min-w-0 flex-1">
+          <p class="font-black text-white text-sm mb-0.5">${Utils.escape(action.name)}</p>
+          ${desc}
+          ${linkedNames.length ? `<p class="text-[10px] text-${tone}-200 font-bold">🔗 Move: ${linkedNames.map(n => Utils.escape(n)).join(' · ')}</p>` : `<p class="text-[10px] text-amber-300 font-bold">⚠️ Nenhum número confirmado dessa frente é movido por essa ação — ative os números primeiro.</p>`}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-2 mb-2">
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-slate-500 uppercase">Dono</span>
+          <input value="${Utils.escape(action.strategicOwner || '')}" oninput="Actions.updateStrategicActionField(${action.id}, 'strategicOwner', this.value)" placeholder="Quem executa essa ação?" class="px-2 py-1.5 rounded-lg bg-slate-900 border ${ownerSet ? `border-${tone}-400/40` : 'border-white/10'} text-white text-[12px] font-bold w-full placeholder:text-slate-600" />
+        </label>
+      </div>
+
+      <div class="mb-2">
+        <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Cadência</p>
+        <div class="flex flex-wrap gap-1.5">
+          ${cadences.map(c => `<button onclick="Actions.updateStrategicActionField(${action.id}, 'strategicCadence', '${c.id}')" class="px-2.5 py-1 rounded-lg border text-[11px] font-bold ${action.strategicCadence === c.id ? `bg-${tone}-500/30 border-${tone}-400/60 text-white` : 'bg-slate-900 border-white/15 text-slate-300 hover:bg-slate-800'}">${c.label}</button>`).join('')}
+        </div>
+      </div>
+
+      <div class="mb-2">
+        <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Status</p>
+        <div class="flex flex-wrap gap-1.5">
+          ${statuses.map(s => `<button onclick="Actions.updateStrategicActionField(${action.id}, 'strategicStatus', '${s.id}')" class="px-2.5 py-1 rounded-lg border text-[11px] font-bold ${action.strategicStatus === s.id ? `bg-${s.color}-500/30 border-${s.color}-400/60 text-white` : 'bg-slate-900 border-white/15 text-slate-300 hover:bg-slate-800'}">${s.label}</button>`).join('')}
+        </div>
+      </div>
+
+      <div class="flex justify-between items-center pt-2 border-t border-white/10">
+        <button onclick="Actions.removeStrategicCatalogAction(${action.id})" class="px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-400/30 text-red-300 text-[10px] font-black">Remover</button>
+        <button onclick="Actions.confirmStrategicAcao(${action.id})" ${complete ? '' : 'disabled'} class="px-3 py-1.5 rounded-lg ${complete ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'} text-[11px] font-black" ${complete ? 'style="color:#fff!important;"' : ''}>✓ Confirmar ação →</button>
+      </div>
+    </div>`;
+  },
+
+  _krsLinkedToAction(productId, areaId, actionId) {
+    const obj = StrategicMapEngine.getObjectiveByArea(productId, areaId);
+    if (!obj) return [];
+    return (obj.okrs || []).filter(kr => (kr.connectedActionIds || []).map(Number).includes(Number(actionId)));
   },
 
   // -------------------- STEP 5: EXECUTAR --------------------

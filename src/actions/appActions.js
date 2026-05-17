@@ -3566,6 +3566,7 @@ Object.assign(Actions, {
     App.state.strategicMapZoom = 'strategy';
     App.state.strategicObjectiveDraft = null;
     App.state.strategicOkrDraft = null;
+    App.state.strategicActiveArea = null; // V28.2.3 — fallback p/ próximo unconfirmed
     if (window.StrategicMapEngine) {
       StrategicMapEngine.ensure(Number(productId));
       // V28.1 — garante que as 3 frentes (Marketing/Vendas/CS) existam.
@@ -4488,8 +4489,36 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V28.2.3 — Tenta mudar período. Se for 90, aplica direto. Se for 30 ou 60,
+  // abre balão do Djow com explicação antes — user confirma ou volta.
+  tryChangeStrategicPeriod(objectiveId, okrId, periodDays) {
+    const days = Number(periodDays);
+    if (days === 90) {
+      App.state.strategicPeriodWarning = null;
+      return Actions.setStrategicNumeroPeriod(objectiveId, okrId, 90);
+    }
+    App.state.strategicPeriodWarning = { krId: okrId, objectiveId, attemptedDays: days };
+    App.render();
+  },
+
+  // V28.2.3 — Confirma a mudança pra período não-recomendado (após ler o aviso do Djow).
+  confirmStrategicPeriodChange(objectiveId, okrId) {
+    const warning = App.state.strategicPeriodWarning;
+    if (!warning || warning.krId !== okrId) return;
+    Actions.setStrategicNumeroPeriod(objectiveId, okrId, warning.attemptedDays);
+    App.state.strategicPeriodWarning = null;
+    App.render();
+  },
+
+  // V28.2.3 — Fecha o aviso e mantém em 90 dias.
+  dismissStrategicPeriodWarning(objectiveId, okrId) {
+    App.state.strategicPeriodWarning = null;
+    Actions.setStrategicNumeroPeriod(objectiveId, okrId, 90);
+  },
+
   // V28.2.1 — Confirma um número (valida que tem current + 2 metas + período).
   // Se for o último de todos, dispara mensagem do Djow.
+  // V28.2.3 — Auto-avança a aba ativa quando próximo unconfirmed está em outra área.
   confirmStrategicNumero(objectiveId, okrId) {
     const productId = App.state.strategicMapProductId;
     if (!productId || !window.StrategicOkrEngine) return;
@@ -4498,8 +4527,9 @@ Object.assign(Actions, {
     const kr = obj?.okrs?.find(k => k.id === okrId);
     if (!kr) return;
     if (!StrategicOkrEngine.isComplete(kr)) {
-      return Utils.toast('Preencha Atual, Meta Segura, Meta Avançada e Período antes de confirmar.');
+      return Utils.toast('Preencha Atual, Meta Segura, Meta Avançada e Período Tático antes de confirmar.');
     }
+    const currentAreaId = obj?.area;
     StrategicOkrEngine.update(productId, objectiveId, okrId, { confirmed: true });
     App.save();
     if (StrategicMapEngine.allKrsConfirmed(productId) && window.DjowStrategicAssistant) {
@@ -4507,9 +4537,90 @@ Object.assign(Actions, {
       DjowStrategicAssistant.append(productId, { role: 'agent', text: msg, ts: new Date().toISOString() });
       Utils.toast('🎯 Todos os números confirmados. Djow ativou o monitoramento.');
     } else {
-      Utils.toast('Número confirmado.');
+      // V28.2.3 — auto-advance: se próximo unconfirmed está em outra frente, mudar aba ativa.
+      const next = StrategicMapEngine.nextUnconfirmedKr(productId);
+      if (next && next.areaId && next.areaId !== currentAreaId) {
+        App.state.strategicActiveArea = next.areaId;
+        Utils.toast(`Número confirmado. Avançando pra próxima frente.`);
+      } else {
+        Utils.toast('Número confirmado.');
+      }
     }
     App.render();
+  },
+
+  // V28.2.3 — Seleciona qual frente está ativa (tab nav). V28.3: compartilhado
+  // entre as etapas Números e Ações.
+  setStrategicActiveArea(areaId) {
+    App.state.strategicActiveArea = areaId;
+    App.render();
+  },
+
+  // V28.3.0 — Ativa uma ação do catálogo na frente selecionada.
+  // Cria em App.state.actions + auto-vincula a KRs com catalogId matching.
+  activateStrategicCatalogAction(areaId, templateId) {
+    const productId = App.state.strategicMapProductId;
+    if (!productId || !window.StrategicMapEngine) return;
+    const already = StrategicMapEngine.getActivatedCatalogActionIds(productId, areaId);
+    if (already.has(templateId)) return Utils.toast('Essa ação já está ativa.');
+    const action = StrategicMapEngine.activateCatalogAction(productId, areaId, templateId);
+    if (!action) return Utils.toast('Não consegui ativar essa ação.');
+    App.save(); App.render();
+    const linked = (App.state.actions || []).find(a => Number(a.id) === Number(action.id));
+    const linkedKrs = linked ? (StrategicMapEngine.getObjectiveByArea(productId, areaId)?.okrs || []).filter(k => (k.connectedActionIds || []).map(Number).includes(Number(action.id))).length : 0;
+    Utils.toast(linkedKrs ? `Ação ativada e vinculada a ${linkedKrs} número(s).` : 'Ação ativada. Preencha dono e cadência.');
+  },
+
+  // V28.3.0 — Edita campo de uma ação estratégica (dono / cadência / status).
+  updateStrategicActionField(actionId, field, value) {
+    if (!actionId) return;
+    App.state.actions = (App.state.actions || []).map(a =>
+      Number(a.id) === Number(actionId) ? { ...a, [field]: (typeof value === 'string' ? value : value) } : a
+    );
+    App.save();
+    if (field === 'strategicStatus' || field === 'strategicCadence') App.render();
+  },
+
+  // V28.3.0 — Confirma uma ação (valida que tem dono e cadência).
+  confirmStrategicAcao(actionId) {
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
+    if (!action) return;
+    if (!String(action.strategicOwner || '').trim()) return Utils.toast('Defina o dono da ação antes de confirmar.');
+    if (!action.strategicCadence) return Utils.toast('Defina a cadência da ação antes de confirmar.');
+    App.state.actions = (App.state.actions || []).map(a =>
+      Number(a.id) === Number(actionId) ? { ...a, strategicConfirmed: true, strategicStatus: a.strategicStatus || 'planned' } : a
+    );
+    App.save(); App.render();
+    Utils.toast('Ação confirmada.');
+  },
+
+  // V28.3.0 — Reabre uma ação confirmada pra edição.
+  editStrategicAcao(actionId) {
+    App.state.actions = (App.state.actions || []).map(a =>
+      Number(a.id) === Number(actionId) ? { ...a, strategicConfirmed: false } : a
+    );
+    App.save(); App.render();
+  },
+
+  // V28.3.0 — Remove uma ação estratégica: tira de App.state.actions
+  // E remove o vínculo de todos os KRs que apontavam pra ela.
+  removeStrategicCatalogAction(actionId) {
+    const productId = App.state.strategicMapProductId;
+    if (!productId) return;
+    const numId = Number(actionId);
+    App.state.actions = (App.state.actions || []).filter(a => Number(a.id) !== numId);
+    // Limpa connectedActionIds em todos os KRs do produto.
+    const map = StrategicMapEngine.getForProduct(productId);
+    const objectives = (map?.objectives || []).map(o => ({
+      ...o,
+      okrs: (o.okrs || []).map(kr => ({
+        ...kr,
+        connectedActionIds: (kr.connectedActionIds || []).filter(id => Number(id) !== numId)
+      }))
+    }));
+    StrategicMapEngine.save(productId, { objectives });
+    App.save(); App.render();
+    Utils.toast('Ação removida.');
   },
 
   // V28.2.1 — Reabre um número confirmado pra edição.

@@ -121,6 +121,124 @@ window.StrategicMapEngine = {
     ]
   },
 
+  // V28.3 — Catálogo guiado de AÇÕES típicas por segmento. Cada ação aponta
+  // pros catalogId(s) dos KPIs que ela move — vínculo automático na ativação.
+  STRATEGIC_ACTION_CATALOG: {
+    marketing: [
+      { id: 'mkt_paid_traffic',  name: 'Campanha de tráfego pago',     description: 'Anúncios em Meta/Google pra trazer leads qualificados.', kpiIds: ['mkt_leads', 'mkt_cpl', 'mkt_visitors'],   channel: 'Tráfego Pago',     actionType: 'Anúncio' },
+      { id: 'mkt_email',         name: 'Email marketing / newsletter', description: 'Sequência de e-mails educativos pra nutrir lista e converter.', kpiIds: ['mkt_campaign_resp', 'mkt_leads'],  channel: 'Email',            actionType: 'Sequência' },
+      { id: 'mkt_seo',           name: 'Conteúdo / SEO orgânico',      description: 'Posts e materiais que ranqueiam e trazem tráfego qualificado de graça.', kpiIds: ['mkt_visitors', 'mkt_reach', 'mkt_leads'], channel: 'SEO/Conteúdo',     actionType: 'Post' },
+      { id: 'mkt_webinar',       name: 'Webinar / live / lançamento',  description: 'Evento online pra captar leads quentes que assistem ao vivo.', kpiIds: ['mkt_leads', 'mkt_mql_pct'],         channel: 'Webinar',          actionType: 'Live' },
+      { id: 'mkt_social',        name: 'Mídia social orgânica',         description: 'Conteúdo recorrente em redes pra alcance e engajamento.', kpiIds: ['mkt_reach', 'mkt_visitors'],          channel: 'Instagram Orgânico', actionType: 'Post' },
+      { id: 'mkt_partnerships',  name: 'Parcerias / co-marketing',     description: 'Trocas com marcas complementares pra ampliar audiência.', kpiIds: ['mkt_reach', 'mkt_leads'],            channel: 'Parceria',         actionType: 'Coprodução' }
+    ],
+    sales: [
+      { id: 'sal_outbound',  name: 'Cadência de outbound',         description: 'Cold email/call estruturados pra abrir conversa com prospects.', kpiIds: ['sal_new_clients', 'sal_conv_rate'],  channel: 'Outbound',  actionType: 'Cadência' },
+      { id: 'sal_demo',      name: 'Demo / reunião comercial',     description: 'Apresentação 1:1 pra mostrar valor e fechar.',                  kpiIds: ['sal_new_clients', 'sal_win_rate'],   channel: 'Reunião',   actionType: 'Demo' },
+      { id: 'sal_proposal',  name: 'Proposta / negociação',        description: 'Envio e ajuste de propostas até o aceite.',                     kpiIds: ['sal_avg_ticket', 'sal_win_rate'],    channel: 'Comercial', actionType: 'Proposta' },
+      { id: 'sal_qualif',    name: 'Qualificação inbound (SDR)',   description: 'Triagem dos leads que chegam pra entregar só os quentes ao closer.', kpiIds: ['sal_conv_rate', 'sal_cycle'],   channel: 'SDR',       actionType: 'Qualificação' },
+      { id: 'sal_promo',     name: 'Promoção / desconto sazonal',  description: 'Oferta limitada pra acelerar decisão e bater meta de receita.',  kpiIds: ['sal_new_clients', 'sal_new_revenue'], channel: 'Promo',    actionType: 'Campanha' },
+      { id: 'sal_upsell',    name: 'Upsell no momento da venda',   description: 'Combo/upgrade ofertado durante o fechamento pra subir ticket.',  kpiIds: ['sal_avg_ticket', 'sal_new_revenue'], channel: 'Comercial', actionType: 'Upsell' }
+    ],
+    cs: [
+      { id: 'cs_onboarding', name: 'Onboarding estruturado',         description: 'Roteiro de primeiros passos pra cliente extrair valor rápido.', kpiIds: ['cs_retention', 'cs_resolution_time'], channel: 'CS',       actionType: 'Onboarding' },
+      { id: 'cs_qbr',        name: 'Acompanhamento periódico (QBR)', description: 'Review trimestral 1:1 pra revisar resultado e renovar.',         kpiIds: ['cs_retention', 'cs_nps'],            channel: 'CS',       actionType: 'Reunião' },
+      { id: 'cs_support',    name: 'Suporte ativo (chat/tickets)',   description: 'Atendimento responsivo pra resolver dor antes de virar churn.',  kpiIds: ['cs_resolution_time', 'cs_nps'],      channel: 'Suporte',  actionType: 'Atendimento' },
+      { id: 'cs_loyalty',    name: 'Programa de fidelidade',         description: 'Recompensas pra quem volta a comprar — cria recorrência.',       kpiIds: ['cs_repurchase', 'cs_ltv'],           channel: 'CS',       actionType: 'Programa' },
+      { id: 'cs_nps_action', name: 'NPS + ação em detratores',       description: 'Survey periódico + plano de ação pra resgatar quem reclamou.',   kpiIds: ['cs_nps', 'cs_retention'],            channel: 'Pesquisa', actionType: 'Survey' },
+      { id: 'cs_advocacy',   name: 'Programa de indicação',          description: 'Mecânica formal pra cliente trazer outro cliente — fecha o loop com Marketing.', kpiIds: ['cs_referrals', 'cs_nps'], channel: 'Advocacy', actionType: 'Indicação' }
+    ]
+  },
+
+  // V28.3 — Cadências possíveis pra uma ação (chips inline no card).
+  STRATEGIC_ACTION_CADENCES: [
+    { id: 'once',     label: 'Única' },
+    { id: 'weekly',   label: 'Semanal' },
+    { id: 'biweekly', label: 'Quinzenal' },
+    { id: 'monthly',  label: 'Mensal' }
+  ],
+
+  // V28.3 — Status possíveis.
+  STRATEGIC_ACTION_STATUSES: [
+    { id: 'planned', label: 'Planejada', color: 'slate' },
+    { id: 'running', label: 'Rodando',   color: 'emerald' },
+    { id: 'paused',  label: 'Pausada',   color: 'amber' },
+    { id: 'ended',   label: 'Encerrada', color: 'red' }
+  ],
+
+  // V28.3 — Garante 1 campanha "guarda-chuva" estratégica do produto.
+  // Toda ação criada pelo catálogo da etapa Ações é hospedada nela,
+  // pra integrar com o pipeline existente (actionsForProduct → filtro por campaignId).
+  _ensureStrategicHostCampaign(productId) {
+    let campaign = (App.state.campaigns || []).find(c => Number(c.productId) === Number(productId) && c.isStrategicHost);
+    if (campaign) return campaign;
+    const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
+    campaign = {
+      id: Date.now(),
+      productId: Number(productId),
+      name: `Mapa da Receita${product?.name ? ` — ${product.name}` : ''}`,
+      isStrategicHost: true,
+      createdAt: new Date().toISOString()
+    };
+    App.state.campaigns = [campaign, ...(App.state.campaigns || [])];
+    return campaign;
+  },
+
+  // V28.3 — Ativa uma ação do catálogo: cria entry em App.state.actions e auto-vincula
+  // aos KRs ativos da área que match os kpiIds do template.
+  activateCatalogAction(productId, areaId, templateId) {
+    const template = (this.STRATEGIC_ACTION_CATALOG[areaId] || []).find(a => a.id === templateId);
+    if (!template) return null;
+    const campaign = this._ensureStrategicHostCampaign(productId);
+    const action = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      campaignId: Number(campaign.id),
+      name: template.name,
+      channel: template.channel,
+      actionType: template.actionType,
+      status: 'Rascunho estratégico',
+      isDraft: true,
+      strategicAreaId: areaId,
+      strategicCatalogId: templateId,
+      strategicDescription: template.description,
+      strategicOwner: '',
+      strategicCadence: null,
+      strategicStatus: 'planned',
+      strategicConfirmed: false,
+      createdAt: new Date().toISOString()
+    };
+    App.state.actions = [action, ...(App.state.actions || [])];
+    // Auto-vincula a KRs ativos com catalogId compatível.
+    const objective = this.getObjectiveByArea(productId, areaId);
+    if (objective && window.StrategicOkrEngine) {
+      (objective.okrs || []).forEach(kr => {
+        if (kr.catalogId && template.kpiIds.includes(kr.catalogId)) {
+          StrategicOkrEngine.toggleAction(productId, objective.id, kr.id, action.id);
+        }
+      });
+    }
+    return action;
+  },
+
+  // V28.3 — Lista ações estratégicas de uma área (vinculadas à campanha do produto).
+  getStrategicActionsByArea(productId, areaId) {
+    const campaignIds = new Set((App.state.campaigns || []).filter(c => Number(c.productId) === Number(productId)).map(c => Number(c.id)));
+    return (App.state.actions || []).filter(a =>
+      campaignIds.has(Number(a.campaignId)) && a.strategicAreaId === areaId
+    );
+  },
+
+  // V28.3 — IDs do catálogo já ativados na área (pra UI marcar/desabilitar).
+  getActivatedCatalogActionIds(productId, areaId) {
+    return new Set(this.getStrategicActionsByArea(productId, areaId).map(a => a.strategicCatalogId).filter(Boolean));
+  },
+
+  // V28.3 — KRs confirmados que não têm NENHUMA ação vinculada (alerta visual).
+  getKrsWithoutActions(productId, areaId) {
+    const obj = this.getObjectiveByArea(productId, areaId);
+    return (obj?.okrs || []).filter(kr => kr.confirmed && !(kr.connectedActionIds || []).length);
+  },
+
   // V28.2 — Ativa um KPI do catálogo como um novo número vazio (metas a preencher).
   // V28.2.1 — current começa null (input vazio) em vez de 0.
   activateCatalogKpi(productId, areaId, kpiId) {
@@ -136,7 +254,7 @@ window.StrategicMapEngine = {
       current: null,
       targetCommitted: null,
       targetStretch: null,
-      period: null,
+      period: 90, // V28.2.3 — Período Tático default = trimestre (Doerr-aligned)
       confirmed: false
     });
   },
