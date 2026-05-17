@@ -248,8 +248,8 @@ window.StrategicMapModal = {
   },
 
   // -------------------- STEP 3: OS NÚMEROS --------------------
-  // V28.1.0 — Por frente comercial (Marketing/Vendas/CS), defina 1-3 números
-  // que indicam se a frente está performando.
+  // V28.2.0 — Catálogo guiado por segmento + handoff visual entre frentes.
+  // Não pede pro user inventar números — ele ATIVA do catálogo curado e preenche meta.
   _stepOkrs(product) {
     const map = StrategicMapEngine.getForProduct(product.id);
     const objectives = map.objectives || [];
@@ -265,12 +265,45 @@ window.StrategicMapModal = {
       </section>`;
     }
     return `<section class="space-y-3">
-      ${this._stepIntro('Os números', 'Pra cada frente, escolha 1 a 3 números que dizem se ela está performando. Formato: "de X pra Y até Z".', 'target', 'keyresults')}
+      ${this._stepIntro(
+        'Que números dizem se cada frente está performando?',
+        'Ative 1 a 3 números por frente. Sugerimos os mais comuns — escolha os que fazem sentido pro seu produto.',
+        'target',
+        'keyresults',
+        'okrs-numeros-handoff',
+        'Pense nos números como o "entregável" de cada frente: Marketing entrega leads pra Vendas, Vendas entrega clientes pra CS, CS devolve advogados/indicações pro topo. Os números marcados com 🔁 são exatamente esse handoff.'
+      )}
+
+      ${this._handoffBanner()}
+
       <div class="space-y-3">
         ${objectives.map(o => this._okrsObjectiveCard(product, o)).join('')}
       </div>
       ${this._stepCta('Próximo passo: conectar à operação', totalOkrs > 0)}
     </section>`;
+  },
+
+  // V28.2 — Faixa visual do handoff entre as 3 frentes.
+  _handoffBanner() {
+    return `<div class="rounded-2xl bg-gradient-to-r from-sky-500/10 via-emerald-500/10 to-violet-500/10 border border-white/10 p-3">
+      <div class="grid grid-cols-3 gap-2 text-center text-[11px]">
+        <div class="flex flex-col items-center gap-1">
+          <div class="w-7 h-7 rounded-full bg-sky-500/25 grid place-items-center"><i data-lucide="megaphone" class="w-3.5 h-3.5 text-sky-200"></i></div>
+          <p class="font-black text-sky-100">Marketing</p>
+          <p class="text-[10px] text-slate-400">entrega <b>leads</b> →</p>
+        </div>
+        <div class="flex flex-col items-center gap-1">
+          <div class="w-7 h-7 rounded-full bg-emerald-500/25 grid place-items-center"><i data-lucide="handshake" class="w-3.5 h-3.5 text-emerald-200"></i></div>
+          <p class="font-black text-emerald-100">Vendas</p>
+          <p class="text-[10px] text-slate-400">entrega <b>clientes</b> →</p>
+        </div>
+        <div class="flex flex-col items-center gap-1">
+          <div class="w-7 h-7 rounded-full bg-violet-500/25 grid place-items-center"><i data-lucide="heart" class="w-3.5 h-3.5 text-violet-200"></i></div>
+          <p class="font-black text-violet-100">Sucesso do Cliente</p>
+          <p class="text-[10px] text-slate-400">devolve <b>advogados</b> ↩</p>
+        </div>
+      </div>
+    </div>`;
   },
 
   _okrsObjectiveCard(product, obj) {
@@ -287,45 +320,97 @@ window.StrategicMapModal = {
           ${area ? `<div class="w-9 h-9 rounded-xl bg-${tone}-500/20 grid place-items-center shrink-0"><i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i></div>` : ''}
           <div class="min-w-0">
             <p class="font-black text-white">${Utils.escape(headerLabel)}</p>
-            <p class="text-[11px] text-slate-400 mt-0.5">${sub ? `${sub} · ` : ''}${okrs.length} número(s)</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">${sub ? `${sub} · ` : ''}${okrs.length} número(s) ativo(s)${area?.handoff ? ` · ${area.handoff}` : ''}</p>
           </div>
         </div>
-        ${!isDraftHere ? `<button onclick="Actions.startStrategicOkrDraft('${obj.id}')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-500/20 border border-${tone}-400/30 text-${tone}-200 text-[11px] font-black flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Novo número</button>` : ''}
       </div>
-      ${isDraftHere ? this._okrDraftCard(draft, product, /* hideConnect */ true) : ''}
+
       <div class="space-y-2">
-        ${okrs.length ? okrs.map(kr => this._okrSummaryCard(product, obj, kr)).join('') : (isDraftHere ? '' : '<p class="text-[11px] text-slate-500 italic">Sem números nessa frente ainda.</p>')}
+        ${okrs.length ? okrs.map(kr => this._numeroCard(obj, kr, tone)).join('') : '<p class="text-[11px] text-slate-500 italic">Sem números ativos. Ative algum do catálogo abaixo.</p>'}
+      </div>
+
+      ${area && !isDraftHere ? this._kpiCatalogStrip(product, area, obj) : ''}
+
+      ${isDraftHere ? this._okrDraftCard(draft, product, /* hideConnect */ true) : ''}
+
+      ${!isDraftHere && area ? `<div class="flex justify-end pt-2 border-t border-white/10">
+        <button onclick="Actions.startStrategicOkrDraft('${obj.id}')" class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[11px] font-black flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Criar número customizado</button>
+      </div>` : ''}
+    </div>`;
+  },
+
+  // V28.2 — Strip do catálogo: mostra KPIs do segmento ainda não ativados.
+  _kpiCatalogStrip(product, area, obj) {
+    const catalog = (StrategicMapEngine.KPI_CATALOG || {})[area.id] || [];
+    const activated = StrategicMapEngine.getActivatedCatalogIds(product.id, area.id);
+    const available = catalog.filter(k => !activated.has(k.id));
+    if (!available.length) {
+      return `<div class="rounded-xl bg-${area.color}-500/5 border border-${area.color}-400/20 p-2.5 text-[11px] text-${area.color}-200 italic">Todos os números típicos de ${Utils.escape(area.label)} já estão ativos.</div>`;
+    }
+    return `<div class="rounded-xl bg-${area.color}-500/5 border border-${area.color}-400/20 p-3">
+      <p class="text-[10px] font-black text-${area.color}-200 uppercase tracking-wider mb-2">Números típicos de ${Utils.escape(area.label)} — clique pra ativar</p>
+      <div class="grid sm:grid-cols-2 gap-1.5">
+        ${available.map(k => `<button onclick="Actions.activateStrategicKpi('${area.id}', '${k.id}')" title="${Utils.escape(k.description)}" class="text-left px-2.5 py-2 rounded-lg bg-slate-900/60 hover:bg-slate-800 border border-white/10 text-white text-[11px] font-bold flex items-start gap-1.5">
+          ${k.handoff ? `<span class="shrink-0 text-amber-300 mt-px" title="Handoff: entrega pro próximo segmento">🔁</span>` : `<i data-lucide="plus" class="w-3 h-3 text-${area.color}-300 shrink-0 mt-px"></i>`}
+          <span class="min-w-0">${Utils.escape(k.name)}<span class="block text-[10px] text-slate-400 font-normal mt-0.5">${Utils.escape(k.description)}</span></span>
+        </button>`).join('')}
       </div>
     </div>`;
   },
 
-  _okrSummaryCard(product, obj, kr) {
-    // V27.0.0 — Card de KR mostra: score 0.0-1.0 (Doerr) + commitment badge + status color.
+  // V28.2 — Card editável inline de um número ativo.
+  // Sem botão "editar" — inputs sempre visíveis pra reduzir cliques.
+  _numeroCard(obj, kr, tone) {
     const progress = StrategicOkrEngine.progress(kr);
     const score = StrategicOkrEngine.score ? StrategicOkrEngine.score(kr) : (progress / 100);
     const scoreStatus = StrategicOkrEngine.scoreStatus ? StrategicOkrEngine.scoreStatus(kr) : { color: 'slate', label: '' };
-    const commitmentType = kr.commitmentType || 'stretch';
-    const commitmentBadge = commitmentType === 'committed'
-      ? `<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-200 border border-amber-400/30 inline-flex items-center gap-1"><i data-lucide="lock" class="w-2.5 h-2.5"></i> COMMITTED</span>`
-      : `<span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-violet-500/20 text-violet-200 border border-violet-400/30 inline-flex items-center gap-1"><i data-lucide="rocket" class="w-2.5 h-2.5"></i> STRETCH</span>`;
-    const startLabel = kr.startValue != null && Number(kr.startValue) !== 0 ? ` (de ${Number(kr.startValue)})` : '';
-    return `<div class="rounded-2xl bg-black/30 border border-white/10 p-3">
+    const isCommitted = (kr.commitmentType || 'stretch') === 'committed';
+    const handoffBadge = kr.isHandoff
+      ? `<span title="Handoff: entrega desse segmento pro próximo" class="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500/20 text-amber-200 border border-amber-400/30">🔁 HANDOFF</span>`
+      : '';
+    const desc = kr.catalogDescription ? `<p class="text-[10px] text-slate-400 italic mb-2">${Utils.escape(kr.catalogDescription)}</p>` : '';
+    return `<div class="rounded-2xl bg-black/30 border border-${tone}-400/20 p-3">
       <div class="flex items-start justify-between gap-2 mb-2">
-        <div class="min-w-0">
-          <div class="flex items-center gap-2 flex-wrap mb-1">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 flex-wrap mb-1">
             <p class="font-black text-white text-sm">${Utils.escape(kr.name)}</p>
-            ${commitmentBadge}
+            ${handoffBadge}
           </div>
-          <p class="text-[11px] text-slate-400">${Number(kr.current || 0)}/${Number(kr.target || 0)} ${Utils.escape(kr.metric)}${startLabel}${kr.deadline ? ` · até ${Utils.escape(kr.deadline)}` : ''}</p>
+          ${desc}
         </div>
         <div class="flex flex-col items-end gap-0.5 shrink-0">
           <span class="px-2 py-0.5 rounded-full text-[11px] font-black bg-${scoreStatus.color}-500/20 text-${scoreStatus.color}-200 border border-${scoreStatus.color}-400/30 whitespace-nowrap" title="${Utils.escape(scoreStatus.label)}">${score.toFixed(2)}</span>
           <span class="text-[9px] text-slate-500">${progress}%</span>
         </div>
       </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2">
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-slate-500 uppercase">Atual</span>
+          <input type="number" value="${Number(kr.current || 0)}" oninput="Actions.updateStrategicOkrField('${obj.id}','${kr.id}','current', this.value)" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-bold w-full" />
+        </label>
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-slate-500 uppercase">Meta</span>
+          <input type="number" value="${Number(kr.target || 0)}" oninput="Actions.updateStrategicOkrField('${obj.id}','${kr.id}','target', this.value)" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-bold w-full" />
+        </label>
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-slate-500 uppercase">Prazo</span>
+          <input type="date" value="${Utils.escape(kr.deadline || '')}" oninput="Actions.updateStrategicOkrField('${obj.id}','${kr.id}','deadline', this.value)" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-bold w-full" style="color-scheme:dark;" />
+        </label>
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-slate-500 uppercase">Tipo</span>
+          <select onchange="Actions.updateStrategicOkrField('${obj.id}','${kr.id}','commitmentType', this.value); App.render();" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-bold w-full" style="color-scheme:dark;">
+            <option value="committed" ${isCommitted ? 'selected' : ''}>🔒 Meta Segura</option>
+            <option value="stretch" ${!isCommitted ? 'selected' : ''}>🚀 Meta Avançada</option>
+          </select>
+        </label>
+      </div>
+
       ${StrategicMapRenderer.progressBar(progress, scoreStatus.color)}
-      <div class="flex justify-end gap-1 mt-2">
-        <button onclick="Actions.removeStrategicOkr('${obj.id}','${kr.id}')" class="px-2 py-1 rounded bg-red-500/10 border border-red-400/30 text-red-300 text-[10px] font-black">Remover</button>
+
+      <div class="flex justify-between items-center mt-2">
+        <span class="text-[10px] text-slate-500">${Utils.escape(kr.metric || '')}</span>
+        <button onclick="Actions.removeStrategicOkr('${obj.id}','${kr.id}')" class="px-2 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-400/30 text-red-300 text-[10px] font-black">Remover</button>
       </div>
     </div>`;
   },

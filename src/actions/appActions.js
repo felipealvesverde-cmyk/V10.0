@@ -4445,7 +4445,35 @@ Object.assign(Actions, {
     if (!productId) return;
     StrategicOkrEngine.remove(productId, objectiveId, okrId);
     App.save(); App.render();
-    Utils.toast('OKR removido.');
+    Utils.toast('Número removido.');
+  },
+
+  // V28.2 — Ativa um número do catálogo guiado (Marketing/Vendas/CS).
+  activateStrategicKpi(areaId, kpiId) {
+    const productId = App.state.strategicMapProductId;
+    if (!productId || !window.StrategicMapEngine) return;
+    const already = StrategicMapEngine.getActivatedCatalogIds(productId, areaId);
+    if (already.has(kpiId)) return Utils.toast('Esse número já está ativo.');
+    StrategicMapEngine.activateCatalogKpi(productId, areaId, kpiId);
+    App.save(); App.render();
+    Utils.toast('Número ativado. Preencha a meta.');
+  },
+
+  // V28.2 — Edita campo de um número (current/target/deadline/commitmentType) inline.
+  updateStrategicOkrField(objectiveId, okrId, field, value) {
+    const productId = App.state.strategicMapProductId;
+    if (!productId || !window.StrategicOkrEngine) return;
+    const numericFields = ['current', 'target', 'startValue'];
+    const patch = {};
+    if (numericFields.includes(field)) {
+      patch[field] = Number(value || 0);
+    } else if (field === 'deadline') {
+      patch.deadline = value || null;
+    } else {
+      patch[field] = String(value || '');
+    }
+    StrategicOkrEngine.update(productId, objectiveId, okrId, patch);
+    App.save();
   },
 
   syncStrategicOkrsFromOps() {

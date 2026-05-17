@@ -11,6 +11,7 @@ window.StrategicOkrEngine = {
   add(productId, objectiveId, draft) {
     // V27.0.0 — Adicionado commitmentType (stretch/committed) e startValue
     // pra scoring 0.0-1.0 conforme Doerr.
+    // V28.2 — catalogId/catalogDescription/isHandoff vindos do catálogo guiado.
     const okr = {
       id: `okr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       name: String(draft?.name || '').trim() || 'Key Result sem nome',
@@ -22,6 +23,9 @@ window.StrategicOkrEngine = {
       deadline: draft?.deadline || null,
       owner: String(draft?.owner || '').trim(),
       impact: String(draft?.impact || '').trim(),
+      catalogId: draft?.catalogId || null,                       // V28.2
+      catalogDescription: draft?.catalogDescription || null,     // V28.2
+      isHandoff: Boolean(draft?.isHandoff),                      // V28.2
       connectedActionIds: Array.isArray(draft?.connectedActionIds) ? draft.connectedActionIds.map(Number) : [],
       createdAt: new Date().toISOString()
     };
