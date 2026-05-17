@@ -623,6 +623,21 @@ window.StrategicMapEngine = {
     return 'active';                         // 🟣 roxo
   },
 
+  // V29.1.3 — Marca os KRs-mãe como "executados" (publicados pros gestores).
+  // É um ponto explícito de "agora vai pra produção". Antes disso, gestores
+  // veem os KRs como rascunho do CEO (não devem plugar).
+  markMetricsExecuted(productId) {
+    this.save(productId, { metricsExecutedAt: new Date().toISOString() });
+  },
+
+  getMetricsExecutedAt(productId) {
+    return this.getForProduct(productId)?.metricsExecutedAt || null;
+  },
+
+  isMetricsExecuted(productId) {
+    return Boolean(this.getMetricsExecutedAt(productId));
+  },
+
   // V29.0.1 — Dono compartilhado da área (mesmo Marketing cuida de todas as branches).
   // Armazenado em strategicMaps[productId].areaOwners = { marketing, sales, cs }.
   getAreaOwner(productId, areaId) {

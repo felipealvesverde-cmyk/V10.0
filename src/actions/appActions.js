@@ -4713,31 +4713,70 @@ Object.assign(Actions, {
     Actions.openStrategicMapForCampaign(Number(campaignId));
   },
 
-  // V29.1.2 — Popup didático CEO 1ª vez ao clicar "Executar Métricas".
-  // Espelha o popup do passe do bastão do Gestor, mas pra o CEO.
-  openStrategicOverviewWithPopupCheck() {
+  // V29.1.3 — "Executar Métricas" = publicar KRs-mãe pros gestores.
+  // Botão dourado do CEO. Antes desse botão, KRs-mãe ficam como rascunho do CEO.
+  // Abre popup de confirmação (com lista de campanhas plugadas/desplugadas).
+  // Se já foi executado antes, abre popup informando + opção de re-publicar (que sobrescreve).
+  executeStrategicMetrics() {
     const productId = App.state.strategicMapProductId;
-    const seen = App.state.strategicCeoPopupSeen || {};
-    if (productId && !seen[productId] && App.state.strategicMapMode === 'product') {
-      const productKrs = StrategicMapEngine.getProductKrs ? StrategicMapEngine.getProductKrs(productId) : [];
-      if (productKrs.length > 0) {
-        App.state.strategicCeoPopup = true;
-        App.render();
-        return;
-      }
-    }
-    Actions.openStrategicOverview();
+    if (!productId || !window.StrategicMapEngine) return;
+    const productKrs = StrategicMapEngine.getProductKrs(productId);
+    if (!productKrs.length) return Utils.toast('Adicione pelo menos 1 KR-mãe antes de executar.');
+    App.state.strategicExecuteMetricsPopup = true;
+    App.render();
   },
 
-  // V29.1.2 — Marca popup CEO como visto pra o produto atual e abre Visão Geral.
-  dismissStrategicCeoPopup(openOverview) {
+  // V29.1.3 — Confirma a publicação: marca timestamp + notifica branches via Djow lateral.
+  confirmExecuteMetrics() {
     const productId = App.state.strategicMapProductId;
-    if (productId) {
-      App.state.strategicCeoPopupSeen = { ...(App.state.strategicCeoPopupSeen || {}), [productId]: true };
+    if (!productId || !window.StrategicMapEngine) return;
+    const wasAlreadyExecuted = StrategicMapEngine.isMetricsExecuted(productId);
+    StrategicMapEngine.markMetricsExecuted(productId);
+    // Notifica todas as branches via chat lateral do Djow.
+    const branches = StrategicMapEngine.getBranchesByProduct(productId);
+    if (window.DjowStrategicAssistant) {
+      const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
+      const productKrs = StrategicMapEngine.getProductKrs(productId);
+      const msg = wasAlreadyExecuted
+        ? `🔄 CEO atualizou os números do produto "${product?.name || ''}" (${productKrs.length} KR-mãe). Revise se sua campanha precisa plugar números novos.`
+        : `🎯 CEO publicou os números do produto "${product?.name || ''}" (${productKrs.length} KR-mãe). Vá pra etapa Campanha do Mapa e pluga os que sua campanha vai contribuir.`;
+      branches.forEach(b => {
+        DjowStrategicAssistant.append(productId, { role: 'agent', text: msg, ts: new Date().toISOString() });
+      });
     }
-    App.state.strategicCeoPopup = false;
+    App.state.strategicExecuteMetricsPopup = false;
     App.save(); App.render();
-    if (openOverview) setTimeout(() => Actions.openStrategicOverview(), 50);
+    Utils.toast(wasAlreadyExecuted ? '🔄 Métricas re-publicadas. Gestores notificados.' : '🎯 Métricas publicadas. Gestores notificados.');
+  },
+
+  dismissExecuteMetricsPopup() {
+    App.state.strategicExecuteMetricsPopup = false;
+    App.render();
+  },
+
+  // V29.1.3 — Destrava o CEO pra trabalhar como gestor de uma branch.
+  // Abre popup pedindo escolha da branch. Confirmação avisa que esse trabalho
+  // normalmente é do gestor da campanha.
+  unlockCeoAsGestor() {
+    const productId = App.state.strategicMapProductId;
+    if (!productId || !window.StrategicMapEngine) return;
+    const branches = StrategicMapEngine.getBranchesByProduct(productId);
+    if (!branches.length) return Utils.toast('Nenhuma campanha plugada ainda. Ative o Mapa em alguma campanha primeiro.');
+    App.state.strategicUnlockCeoPopup = true;
+    App.render();
+  },
+
+  // V29.1.3 — Confirma destravagem e abre branch como gestor.
+  confirmUnlockCeoAsGestor(campaignId) {
+    App.state.strategicUnlockCeoPopup = false;
+    App.save(); App.render();
+    Utils.toast('🔓 Você está editando como gestor. Lembre-se: idealmente este trabalho é do dono da campanha.');
+    Actions.openStrategicMapForCampaign(Number(campaignId));
+  },
+
+  dismissUnlockCeoPopup() {
+    App.state.strategicUnlockCeoPopup = false;
+    App.render();
   },
 
   // V29.0.0 — Adiciona um KR-mãe no produto (vista CEO).

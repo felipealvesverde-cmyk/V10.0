@@ -18,58 +18,86 @@ window.StrategicMapModal = {
       ${window.StrategicOverviewModal ? StrategicOverviewModal.render() : ''}
       ${App.state.strategicHandoffPopup ? this._handoffPopup() : ''}
       ${App.state.strategicCampaignPrompt ? this._strategicCampaignPromptModal() : ''}
-      ${App.state.strategicCeoPopup ? this._ceoFirstTimePopup() : ''}
+      ${App.state.strategicExecuteMetricsPopup ? this._executeMetricsConfirmPopup() : ''}
+      ${App.state.strategicUnlockCeoPopup ? this._unlockCeoAsGestorPopup() : ''}
     </div>`;
   },
 
-  // V29.1.2 — Popup didático CEO: aparece 1x por produto quando ele clica
-  // "Executar Métricas". Explica que terminou a parte estratégica e que agora
-  // os gestores entram. Espelha o popup do passe do bastão do Gestor (V28.3.1).
-  _ceoFirstTimePopup() {
+  // V29.1.3 — Confirmação de "Executar Métricas" (publicar pros gestores).
+  // Lista campanhas plugadas/desplugadas pra dar visão pro CEO antes de publicar.
+  _executeMetricsConfirmPopup() {
     const productId = App.state.strategicMapProductId;
     const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
     const productKrs = StrategicMapEngine.getProductKrs ? StrategicMapEngine.getProductKrs(productId) : [];
     const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(productId) : [];
     const desplugadas = StrategicMapEngine.getDesplugedCampaigns ? StrategicMapEngine.getDesplugedCampaigns(productId) : [];
+    const wasExecuted = StrategicMapEngine.isMetricsExecuted ? StrategicMapEngine.isMetricsExecuted(productId) : false;
+    const executedAt = wasExecuted ? new Date(StrategicMapEngine.getMetricsExecutedAt(productId)) : null;
     return `<div class="fixed inset-0 z-[95] bg-slate-950/90 backdrop-blur-sm p-4 grid place-items-center overflow-auto">
-      <div class="rounded-3xl shadow-2xl text-white max-w-2xl w-full" style="background:radial-gradient(circle at 0% 0%, rgba(251,191,36,.25), transparent 35%), radial-gradient(circle at 100% 100%, rgba(139,92,246,.22), transparent 35%), #0b1428;">
+      <div class="rounded-3xl shadow-2xl text-white max-w-2xl w-full" style="background:radial-gradient(circle at 0% 0%, rgba(251,191,36,.25), transparent 35%), #0b1428;">
         <div class="p-6 lg:p-7 space-y-5">
           <div>
-            <div class="flex items-center gap-2 mb-2"><span class="text-amber-300 text-lg font-black">✓</span><p class="text-[11px] font-black text-amber-200 uppercase tracking-wider">Parte estratégica concluída</p></div>
-            <h2 class="text-2xl lg:text-3xl font-black leading-tight">Você definiu o macro. Hora dos gestores entrarem.</h2>
-            <p class="text-sm text-slate-300 mt-2 leading-relaxed">Você definiu a Visão do produto <b>${Utils.escape(product?.name || '...')}</b>, os donos das 3 frentes e ${productKrs.length} número(s)-mãe que o produto inteiro precisa entregar. A partir daqui é com o time tático.</p>
+            <div class="flex items-center gap-2 mb-2"><i data-lucide="rocket" class="w-4 h-4 text-amber-300"></i><p class="text-[11px] font-black text-amber-200 uppercase tracking-wider">${wasExecuted ? 'Re-publicar métricas' : 'Publicar métricas pros gestores'}</p></div>
+            <h2 class="text-2xl lg:text-3xl font-black leading-tight">${wasExecuted ? 'Atualizar o que os gestores recebem?' : 'Pronto pra mandar pros gestores?'}</h2>
+            <p class="text-sm text-slate-300 mt-2 leading-relaxed">Você definiu <b class="text-amber-300">${productKrs.length} KR-mãe</b> pro produto <b>${Utils.escape(product?.name || '...')}</b>. ${wasExecuted ? `Já foi publicado em <b>${String(executedAt.getDate()).padStart(2,'0')}/${String(executedAt.getMonth()+1).padStart(2,'0')}/${executedAt.getFullYear()}</b>. Re-publicar dispara nova notificação pros gestores avaliarem se precisam plugar mudanças.` : 'Ao confirmar, esses números viram oficiais e os gestores recebem notificação pra plugar nas campanhas.'}</p>
           </div>
 
           <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-4 space-y-3">
-            <p class="text-[11px] font-black text-violet-200 uppercase tracking-wider">O que muda agora?</p>
-            <p class="text-[13px] text-slate-200 leading-relaxed">Cada campanha plugada vai escolher quais dos seus números vai contribuir, definir meta local e ativar ações. Por baixo, o <b class="text-amber-300">rollup</b> soma tudo de volta automaticamente — você só acompanha o consolidado pelo <b class="text-amber-300">Executar Métricas</b>.</p>
-          </div>
-
-          <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-4 space-y-3">
-            <p class="text-[11px] font-black text-sky-200 uppercase tracking-wider">Status das campanhas deste produto</p>
-            ${branches.length === 0 && desplugadas.length === 0 ? '<p class="text-[12px] text-slate-400 italic">Nenhuma campanha vinculada ao produto ainda. Crie uma no menu Campanhas.</p>' : ''}
+            <p class="text-[11px] font-black text-sky-200 uppercase tracking-wider">Quem vai receber a notificação</p>
+            ${branches.length === 0 && desplugadas.length === 0 ? '<p class="text-[12px] text-amber-300 italic">⚠️ Nenhuma campanha vinculada ainda. Crie uma no menu Campanhas pra os números terem onde plugar.</p>' : ''}
             ${branches.length > 0 ? `<div>
-              <p class="text-[10px] font-black text-violet-200 uppercase tracking-wider mb-1.5">🟣 ${branches.length} plugada(s):</p>
+              <p class="text-[10px] font-black text-violet-200 uppercase tracking-wider mb-1.5">🟣 ${branches.length} campanha(s) plugada(s) — vão receber alerta no Djow:</p>
               <div class="flex flex-wrap gap-1.5">
                 ${branches.map(b => {
                   const c = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
-                  if (!c) return '';
-                  return `<button onclick="Actions.dismissStrategicCeoPopup(false); Actions.openStrategicMapForCampaign(${b.campaignId});" class="px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40 text-violet-100 text-[11px] font-black">${Utils.escape(c.name)} →</button>`;
+                  return c ? `<span class="px-2.5 py-1 rounded-lg bg-violet-500/15 border border-violet-400/30 text-violet-100 text-[11px] font-bold">${Utils.escape(c.name)}</span>` : '';
                 }).join('')}
               </div>
             </div>` : ''}
             ${desplugadas.length > 0 ? `<div>
-              <p class="text-[10px] font-black text-red-300 uppercase tracking-wider mb-1.5">🔴 ${desplugadas.length} desplugada(s):</p>
+              <p class="text-[10px] font-black text-red-300 uppercase tracking-wider mb-1.5">🔴 ${desplugadas.length} campanha(s) desplugada(s) — NÃO vão receber (ative o Mapa nelas primeiro se quiser que contribuam):</p>
               <div class="flex flex-wrap gap-1.5">
-                ${desplugadas.slice(0, 6).map(c => `<button onclick="Actions.dismissStrategicCeoPopup(false); Actions.activateStrategicMapForCampaign(${c.id});" class="px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-400/40 text-red-100 text-[11px] font-black">${Utils.escape(c.name)} — Ativar Mapa</button>`).join('')}
+                ${desplugadas.slice(0, 6).map(c => `<span class="px-2.5 py-1 rounded-lg bg-red-500/10 border border-red-400/30 text-red-200 text-[11px] font-bold">${Utils.escape(c.name)}</span>`).join('')}
                 ${desplugadas.length > 6 ? `<span class="text-[11px] text-slate-400 self-center">+${desplugadas.length - 6} mais</span>` : ''}
               </div>
             </div>` : ''}
           </div>
 
           <div class="flex flex-col sm:flex-row gap-2 justify-end pt-2">
-            <button onclick="Actions.dismissStrategicCeoPopup(false)" class="px-4 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-sm font-black">Voltar pro Mapa</button>
-            <button onclick="Actions.dismissStrategicCeoPopup(true)" class="px-5 py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important;"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Ver Métricas Consolidadas</button>
+            <button onclick="Actions.dismissExecuteMetricsPopup()" class="px-4 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-sm font-black">Cancelar</button>
+            <button onclick="Actions.confirmExecuteMetrics()" class="px-5 py-3 rounded-2xl text-sm font-black flex items-center justify-center gap-2" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important;"><i data-lucide="rocket" class="w-4 h-4"></i> ${wasExecuted ? 'Re-publicar' : 'Publicar e notificar gestores'}</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V29.1.3 — Popup "Continuar como Gestor" (destravar):
+  // CEO escolhe qual branch quer editar como gestor. Confirmação clara sobre
+  // estar saindo do papel CEO.
+  _unlockCeoAsGestorPopup() {
+    const productId = App.state.strategicMapProductId;
+    const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(productId) : [];
+    return `<div class="fixed inset-0 z-[95] bg-slate-950/90 backdrop-blur-sm p-4 grid place-items-center overflow-auto">
+      <div class="rounded-3xl shadow-2xl text-white max-w-xl w-full" style="background:radial-gradient(circle at 0% 0%, rgba(99,102,241,.22), transparent 35%), #0b1428;">
+        <div class="p-6 space-y-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1.5"><i data-lucide="unlock" class="w-4 h-4 text-indigo-300"></i><p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider">Destravar etapas do Gestor</p></div>
+            <h3 class="text-xl font-black leading-tight">Você quer trabalhar como gestor de qual campanha?</h3>
+            <p class="text-[12px] text-slate-300 mt-1.5 leading-relaxed">Idealmente esse trabalho é do dono da campanha. Mas se você precisa fazer pra destravar (empresa solo, gestor ausente, etc.), escolha qual campanha vai editar:</p>
+          </div>
+          <div class="space-y-1.5">
+            ${branches.map(b => {
+              const c = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
+              if (!c) return '';
+              return `<button onclick="Actions.confirmUnlockCeoAsGestor(${b.campaignId})" class="w-full text-left px-3 py-2.5 rounded-xl bg-white/5 hover:bg-violet-500/20 border border-white/10 hover:border-violet-400/40 transition flex items-center justify-between gap-2">
+                <span class="font-black text-white text-[12px]">${Utils.escape(c.name)}</span>
+                <span class="text-[10px] text-violet-300">Editar como Gestor →</span>
+              </button>`;
+            }).join('')}
+          </div>
+          <div class="flex justify-end pt-1">
+            <button onclick="Actions.dismissUnlockCeoPopup()" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-xs font-black">Cancelar</button>
           </div>
         </div>
       </div>
@@ -185,7 +213,7 @@ window.StrategicMapModal = {
         <p class="text-xs text-slate-300 mt-1">${subtitle}</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <button onclick="Actions.openStrategicOverviewWithPopupCheck()" title="Ver árvore consolidada do produto (Visão → KRs-mãe → Branches)" class="px-3 py-2.5 rounded-xl font-black text-xs flex items-center gap-1.5" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important; box-shadow: 0 2px 8px rgba(251,191,36,.3);"><i data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i> Executar Métricas</button>
+        ${this._executeMetricsButton({ compact: true })}
         <button onclick="Actions.openStrategicOnboarding()" title="Reabrir onboarding" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-black flex items-center gap-1"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i> Ajuda</button>
         <button onclick="Actions.syncStrategicOkrsFromOps()" title="Atualizar OKRs com leitura operacional" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-black flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sync geral</button>
         <button onclick="Actions.closeStrategicMap()" class="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-sm font-semibold flex items-center gap-2"><i data-lucide="x" class="w-4 h-4"></i> Fechar</button>
@@ -443,21 +471,39 @@ window.StrategicMapModal = {
     return this._stepVision(product);
   },
 
-  // V29.1.1 — Botão dourado "Executar Métricas" pra o CEO ir pra Visão Geral
-  // (árvore Visão → Objetivos → KRs) e ver o macro do produto a qualquer momento.
-  _executeMetricsButton() {
-    return `<button onclick="Actions.openStrategicOverviewWithPopupCheck()" class="px-5 py-3 rounded-2xl font-black flex items-center gap-2 transition" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important; box-shadow: 0 4px 14px rgba(251,191,36,.35);"><i data-lucide="bar-chart-3" class="w-4 h-4"></i> Executar Métricas <i data-lucide="external-link" class="w-3.5 h-3.5"></i></button>`;
+  // V29.1.3 — "Executar Métricas" = publicar KRs-mãe pros gestores.
+  // Se ainda não executado: botão dourado clicável.
+  // Se já executado: botão cinza com selo "✓ Executado em DD/MM" (re-clicar abre popup pra re-publicar).
+  _executeMetricsButton(opts) {
+    const compact = opts && opts.compact;
+    const productId = App.state.strategicMapProductId;
+    const executedAt = window.StrategicMapEngine?.getMetricsExecutedAt ? StrategicMapEngine.getMetricsExecutedAt(productId) : null;
+    if (executedAt) {
+      const d = new Date(executedAt);
+      const dateStr = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return `<button onclick="Actions.executeStrategicMetrics()" title="Métricas já publicadas. Clique pra re-publicar (sobrescreve)." class="px-${compact ? '3' : '5'} py-${compact ? '2.5' : '3'} rounded-${compact ? 'xl' : '2xl'} font-black flex items-center gap-${compact ? '1' : '2'} ${compact ? 'text-xs' : 'text-sm'}" style="background:rgba(16,185,129,.15); border:1px solid rgba(16,185,129,.4); color:#6ee7b7;"><i data-lucide="check-circle" class="w-${compact ? '3.5' : '4'} h-${compact ? '3.5' : '4'}"></i> Executado em ${dateStr}</button>`;
+    }
+    return `<button onclick="Actions.executeStrategicMetrics()" title="Publica as métricas pra os gestores começarem a plugar nas campanhas" class="px-${compact ? '3' : '5'} py-${compact ? '2.5' : '3'} rounded-${compact ? 'xl' : '2xl'} font-black flex items-center gap-${compact ? '1.5' : '2'} ${compact ? 'text-xs' : 'text-sm'} transition" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important; box-shadow: 0 4px 14px rgba(251,191,36,.35);"><i data-lucide="rocket" class="w-${compact ? '3.5' : '4'} h-${compact ? '3.5' : '4'}"></i> Executar Métricas</button>`;
   },
 
   _stepCta(label, enabled) {
-    // V29.1.1 — Em mode='product', adiciona botão dourado "Executar Métricas"
-    // ao lado pra CEO ir pra Visão Geral a qualquer momento (sem precisar concluir).
+    // V29.1.3 — Em mode='product':
+    //   - Botão dourado "Executar Métricas" (publica pros gestores)
+    //   - Botão "🔓 Continuar como Gestor" (destrava — CEO assume papel de gestor numa branch)
+    // Em mode='campaign': comportamento padrão (advanceStep).
     const mode = App.state.strategicMapMode || 'product';
+    if (mode === 'product') {
+      const stepId = StrategicZoomNavigation.current();
+      const isLastCeoStep = stepId === 'okrs';
+      return `<div class="flex justify-end items-center gap-2 pt-2 flex-wrap">
+        ${this._executeMetricsButton()}
+        ${isLastCeoStep ? `<button onclick="Actions.unlockCeoAsGestor()" title="Destrava as etapas 4-6 pra você editar como gestor de uma campanha (normalmente esse trabalho é do dono da campanha)" class="px-5 py-3 rounded-2xl bg-slate-700 hover:bg-slate-600 text-slate-200 font-black flex items-center gap-2 text-sm border border-slate-500"><i data-lucide="unlock" class="w-4 h-4"></i> Continuar como Gestor</button>` : ''}
+      </div>`;
+    }
     const cls = enabled
       ? 'bg-indigo-500 hover:bg-indigo-600 text-white cursor-pointer'
       : 'bg-white/5 text-slate-500 cursor-not-allowed';
     return `<div class="flex justify-end items-center gap-2 pt-2 flex-wrap">
-      ${mode === 'product' ? this._executeMetricsButton() : ''}
       <button ${enabled ? '' : 'disabled'} onclick="Actions.advanceStrategicStep()" class="px-5 py-3 rounded-2xl ${cls} font-black flex items-center gap-2" ${enabled ? 'style="color:#fff!important;"' : ''}>${Utils.escape(label)} <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
     </div>`;
   },
