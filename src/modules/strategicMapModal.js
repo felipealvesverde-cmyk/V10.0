@@ -775,7 +775,7 @@ window.StrategicMapModal = {
   },
 
   // V28.4.1 — Header mostrando a campanha estratégica vinculada (com botão renomear).
-  // Se ainda não foi definida, mostra "será criada quando você ativar a 1ª ação".
+  // V28.4.4 — Adicionado contador de ações órfãs (sem objetivo vinculado).
   _strategicCampaignHeader(product) {
     if (!window.StrategicMapEngine?.getStrategicCampaign) return '';
     const campaign = StrategicMapEngine.getStrategicCampaign(product.id);
@@ -785,12 +785,21 @@ window.StrategicMapModal = {
         <span>Sua campanha estratégica ainda não tem nome — vai pedir quando você ativar a primeira ação.</span>
       </div>`;
     }
+    // Conta ações órfãs (sem KR vinculado) e ações totais da campanha.
+    const campaignActions = (App.state.actions || []).filter(a => Number(a.campaignId) === Number(campaign.id));
+    const map = StrategicMapEngine.getForProduct(product.id);
+    const allKrs = (map?.objectives || []).flatMap(o => o.okrs || []);
+    const linkedActionIds = new Set(allKrs.flatMap(kr => (kr.connectedActionIds || []).map(Number)));
+    const orphanCount = campaignActions.filter(a => !linkedActionIds.has(Number(a.id))).length;
+    const totalCount = campaignActions.length;
+
     return `<div class="rounded-2xl bg-emerald-500/10 border border-emerald-400/30 p-3 flex items-center justify-between gap-2 flex-wrap">
       <div class="flex items-center gap-2 min-w-0 flex-1">
         <i data-lucide="folder-check" class="w-4 h-4 text-emerald-300 shrink-0"></i>
         <div class="min-w-0">
           <p class="text-[10px] font-black text-emerald-200 uppercase tracking-wider">Campanha estratégica deste produto</p>
           <p class="text-sm font-black text-white truncate">${Utils.escape(campaign.name)}</p>
+          ${totalCount > 0 ? `<p class="text-[11px] mt-0.5 ${orphanCount > 0 ? 'text-amber-200' : 'text-emerald-200'}">${orphanCount > 0 ? `⚠️ ${orphanCount} de ${totalCount} ação(ões) sem objetivo vinculado` : `✓ Todas as ${totalCount} ações estão vinculadas a algum objetivo`}</p>` : ''}
         </div>
       </div>
       <button onclick="(function(){const n=prompt('Renomear campanha:', ${JSON.stringify(campaign.name).replace(/"/g, '&quot;')}); if(n) Actions.renameStrategicCampaignAction(n);})()" class="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 text-[10px] font-black flex items-center gap-1 shrink-0"><i data-lucide="edit-2" class="w-3 h-3"></i> Renomear</button>

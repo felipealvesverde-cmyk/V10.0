@@ -4647,6 +4647,30 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V28.4.4 — Ativa Mapa da Receita pra uma campanha que ainda não é estratégica.
+  // Por enquanto: cada produto tem 1 mapa só. Se já existe outra campanha estratégica
+  // do mesmo produto, avisa que branches por campanha está no roadmap.
+  activateStrategicMapForCampaign(campaignId) {
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
+    if (!campaign) return Utils.toast('Campanha não encontrada.');
+    const productId = campaign.productId;
+    if (!productId) return Utils.toast('Esta campanha não tem produto vinculado.');
+    const otherStrategic = (App.state.campaigns || []).find(c =>
+      Number(c.productId) === Number(productId) && c.isStrategicHost && Number(c.id) !== Number(campaignId)
+    );
+    if (otherStrategic) {
+      return Utils.toast(`⚠️ Este produto já tem o Mapa ativo em "${otherStrategic.name}". Em breve: branches por campanha (estamos trabalhando nisso). Por enquanto, abra o Mapa pela campanha ativa.`);
+    }
+    App.state.campaigns = App.state.campaigns.map(c =>
+      Number(c.id) === Number(campaignId) ? { ...c, isStrategicHost: true } : c
+    );
+    if (window.StrategicMapEngine) {
+      StrategicMapEngine.save(productId, { strategicCampaignId: Number(campaignId) });
+    }
+    Utils.toast(`Mapa da Receita ativado em "${campaign.name}".`);
+    Actions.openStrategicMap(productId);
+  },
+
   // V28.4.1 — Renomeia a campanha estratégica via UI no header da etapa Ações.
   renameStrategicCampaignAction(newName) {
     const productId = App.state.strategicMapProductId;

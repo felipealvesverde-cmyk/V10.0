@@ -48,6 +48,7 @@ var CampaignModule = {
       ${this.cxBase()}
       ${CampaignFlowModal.render()}
       ${this.editCampaignModal()}
+      ${window.StrategicMapModal ? StrategicMapModal.render() : ''}
     </div>`;
   },
 
@@ -150,8 +151,12 @@ var CampaignModule = {
     // padrão (todos os botões funcionais), só diferenciada visualmente (roxo) +
     // selo no topo direito + 1 botão extra "Mapa da Receita" + contador de ações
     // sem objetivo (KR) vinculado.
+    // V28.4.4 — Texto descritivo limpo (sem "Mapa da Receita ativado", que já está
+    // no selo bottom-right). Quando objetivo é o default técnico vazio, esconde.
     const isStrategic = Boolean(campaign.isStrategicHost);
-    const objectiveText = isStrategic ? '📊 Mapa da Receita ativado' : (campaign.objective || 'Sem objetivo');
+    const defaultObjectivePlaceholder = 'Campanha estratégica vinculada ao Mapa da Receita.';
+    const rawObjective = String(campaign.objective || '').trim();
+    const objectiveText = (rawObjective && rawObjective !== defaultObjectivePlaceholder) ? rawObjective : '';
     // Contador de ações órfãs (sem KR vinculado).
     let actionsWithoutObjective = 0;
     if (window.StrategicMapEngine && product) {
@@ -178,7 +183,7 @@ var CampaignModule = {
       <div class="lj-entity-card-grid">
         <div class="lj-entity-copy pr-12">
           <h3 class="font-black text-lg ${isStrategic ? 'text-violet-900' : ''}">${Utils.escape(campaign.name)}</h3>
-          <p class="text-sm ${isStrategic ? 'text-violet-700 font-bold' : 'text-slate-500'} mt-1">${Utils.escape(objectiveText)}</p>
+          ${objectiveText ? `<p class="text-sm text-slate-500 mt-1">${Utils.escape(objectiveText)}</p>` : (isStrategic ? '' : '<p class="text-sm text-slate-500 mt-1">Sem objetivo</p>')}
           <p class="text-xs text-slate-400 mt-2">Produto: ${Utils.escape(product?.name || 'não vinculado')} • ${actions.length} ação(ões) • ${totalLeads} lead(s) • ${conversion}% conversão</p>
           ${hasPipeline ? `<p class="text-[11px] text-emerald-600 mt-1">Pipeline RD: <b>${Utils.escape(pipelineInfo?.pipelineName || '')}</b></p>` : ''}
           ${isStrategic && actionsWithoutObjective > 0 ? `<p class="text-[11px] text-amber-700 mt-1 font-bold">⚠️ ${actionsWithoutObjective} ação(ões) sem objetivo vinculado — veja detalhe no menu Ações.</p>` : ''}
@@ -192,7 +197,11 @@ var CampaignModule = {
         </div>
         <div class="lj-card-actions grid grid-cols-2 gap-2">
           <button onclick="event.stopPropagation(); Actions.generateCampaignPipeline(${campaign.id})" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black border-2 ${pipelineOutline} lj-dark-button flex items-center justify-center gap-1.5" style="color:#fff!important;"><i data-lucide="${pipelineIcon}" class="w-3.5 h-3.5"></i> ${pipelineLabel}</button>
-          ${isStrategic && product ? `<button onclick="event.stopPropagation(); Actions.openStrategicMap(${product.id})" class="px-3 py-2 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center justify-center gap-1.5" style="color:#fff!important;"><i data-lucide="compass" class="w-3.5 h-3.5"></i> Mapa da Receita</button>` : ''}
+          ${product ? (
+            isStrategic
+              ? `<button onclick="event.stopPropagation(); Actions.openStrategicMap(${product.id})" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black border-2 border-violet-500 lj-dark-button flex items-center justify-center gap-1.5" style="color:#fff!important;" title="Abrir Mapa da Receita desta campanha"><i data-lucide="compass" class="w-3.5 h-3.5"></i> Mapa da Receita</button>`
+              : `<button onclick="event.stopPropagation(); Actions.activateStrategicMapForCampaign(${campaign.id})" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black border-2 border-slate-700 hover:border-violet-400 lj-dark-button flex items-center justify-center gap-1.5 opacity-70 hover:opacity-100" style="color:#fff!important;" title="Ativar Mapa da Receita pra esta campanha (compartilha a Visão do produto)"><i data-lucide="compass" class="w-3.5 h-3.5"></i> Ativar Mapa</button>`
+          ) : ''}
           <button onclick="event.stopPropagation(); Actions.pushCampaignICPToRD(${campaign.id})" ${hasPipeline ? '' : 'disabled'} class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed lj-dark-button flex items-center justify-center gap-1.5" ${hasPipeline ? 'style="color:#fff!important;"' : ''}><i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar ICP pro RD</button>
           <button onclick="event.stopPropagation(); Actions.prepareActionForCampaign(${campaign.id})" ${hasPipeline ? '' : 'disabled'} title="${hasPipeline ? '' : 'Gere o pipeline antes de criar ações'}" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed lj-dark-button" ${hasPipeline ? 'style="color:#fff!important;"' : ''}>Criar Ação</button>
           <button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${campaign.id})" ${actions.length ? '' : 'disabled'} class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed lj-dark-button" style="color:#fff!important;">Fluxo da Campanha</button>

@@ -15,6 +15,7 @@ var ActionModule = {
       ${window.ActionLpModal ? ActionLpModal.render() : ''}
       ${window.DjowModal ? DjowModal.render() : ''}
       ${window.TasksModal ? TasksModal.render() : ''}
+      ${window.StrategicMapModal ? StrategicMapModal.render() : ''}
     </div>`;
   },
   emptyActionsState() {
