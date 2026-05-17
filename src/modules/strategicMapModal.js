@@ -1505,7 +1505,8 @@ window.StrategicMapModal = {
     const allTemplates = (StrategicMapEngine.STRATEGIC_ACTION_CATALOG[area.id] || []);
     const relevantTemplates = allTemplates.filter(t => (t.kpiIds || []).includes(pkr.catalogId));
     const activatedIds = StrategicMapEngine.getActivatedCatalogActionIds(product.id, area.id, campaignId);
-    const customs = StrategicMapEngine.getCustomActionsForArea ? StrategicMapEngine.getCustomActionsForArea(area.id) : [];
+    // V29.3.1 — passa krCatalogId pra aplicar ML (curva C esconde do KR)
+    const customs = StrategicMapEngine.getCustomActionsForArea ? StrategicMapEngine.getCustomActionsForArea(area.id, pkr.catalogId) : [];
     const activatedCustomIds = new Set(((App.state.actions || []).filter(a => Number(a.campaignId) === Number(campaignId) && a.strategicCustomActionId)).map(a => a.strategicCustomActionId));
     const helpOpen = App.state.strategicMetaHelpOpen || {};
     const safeKey = `kr-${childKr.id}-safe`;

@@ -676,20 +676,57 @@ window.StrategicMapEngine = {
   // Escopo: empresa toda (transversal entre produtos e mapas).
   // Cada custom tem sector + funnel + destination + channel + usageByKr (pra ML fase 2).
   // V1: filtragem só por sector (= área ativa); ML fase 2 esconde via curva C.
+  // V29.3.0 — Constantes ML (engine de aprendizado da fase 2).
+  CUSTOM_ACTION_ML_MIN_USAGE: 50,      // Min usos totais pra ML começar a decidir
+  CUSTOM_ACTION_ML_HIDE_THRESHOLD: 0.20, // Se KR usa < 20% do total, é curva C
+
   getCustomActions() {
     return App.state.customActionCatalog || [];
   },
 
-  getCustomActionsForArea(areaId) {
-    return this.getCustomActions().filter(c => c.sector === areaId);
+  // V29.3.1 — Aceita krCatalogId opcional pra aplicar ML (filtra customs escondidas
+  // por curva C nesse KR específico).
+  getCustomActionsForArea(areaId, krCatalogId) {
+    const all = this.getCustomActions().filter(c => c.sector === areaId);
+    if (!krCatalogId) return all;
+    return all.filter(c => !this.isCustomActionHiddenForKr(c, krCatalogId));
   },
 
-  // Dedup por nome (case-insensitive). Retorna {ok, action, error}.
+  // V29.3.1 — Decide se a custom action está escondida pro KR via ML (curva C).
+  // Regra: só decide se a custom tem ≥ 50 usos totais. Antes disso, sempre visível.
+  // Depois disso, se o KR usa < 20% do total → escondida.
+  isCustomActionHiddenForKr(custom, krCatalogId) {
+    const usage = custom.usageByKr || {};
+    const total = Object.values(usage).reduce((s, n) => s + Number(n || 0), 0);
+    if (total < this.CUSTOM_ACTION_ML_MIN_USAGE) return false;
+    const krUsage = Number(usage[krCatalogId] || 0);
+    const ratio = total > 0 ? krUsage / total : 0;
+    return ratio < this.CUSTOM_ACTION_ML_HIDE_THRESHOLD;
+  },
+
+  // Dedup por nome (case-insensitive). Retorna {ok, action, error, revived}.
+  // V29.3.1 — Recovery contextual: se já existe E está escondida pelo ML no KR
+  // contexto (originKrCatalogId), "ressuscita" — bump usage no KR pra trazê-la
+  // de volta + retorna ok=true com revived=true. User não precisa criar duplicata.
   addCustomAction(data) {
     const name = String(data.name || '').trim();
     if (!name) return { ok: false, error: 'Nome obrigatório.' };
     const existing = this.getCustomActions().find(c => c.name.toLowerCase() === name.toLowerCase());
-    if (existing) return { ok: false, error: `Já existe uma ação custom com o nome "${existing.name}". Escolha outro nome ou use a existente.` };
+    if (existing) {
+      // Se está escondida no KR contexto, ressuscita.
+      const krCatalogId = data.originKrCatalogId;
+      if (krCatalogId && this.isCustomActionHiddenForKr(existing, krCatalogId)) {
+        // Bump usage artificial pra tirar da curva C (incrementa o suficiente pra passar do threshold)
+        const usage = existing.usageByKr || {};
+        const total = Object.values(usage).reduce((s, n) => s + Number(n || 0), 0);
+        const minNeeded = Math.ceil(total * this.CUSTOM_ACTION_ML_HIDE_THRESHOLD);
+        const current = Number(usage[krCatalogId] || 0);
+        const bump = Math.max(1, minNeeded - current + 1);
+        for (let i = 0; i < bump; i++) this.incrementCustomActionUsage(existing.id, krCatalogId);
+        return { ok: true, action: existing, revived: true };
+      }
+      return { ok: false, error: `Já existe uma ação custom com o nome "${existing.name}". Escolha outro nome ou use a existente no catálogo.` };
+    }
     const action = {
       id: `cust_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       name,

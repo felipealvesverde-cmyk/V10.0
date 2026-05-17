@@ -4775,7 +4775,11 @@ Object.assign(Actions, {
     if (activation?.error) return Utils.toast(activation.error);
     App.state.customActionEngine = null;
     App.save(); App.render();
-    Utils.toast(`Ação custom "${name}" criada e plugada. Vai ficar na sua biblioteca pra reusar.`);
+    if (result.revived) {
+      Utils.toast(`✨ Ação "${result.action.name}" já existia (ficou escondida por baixo uso). Trouxe ela de volta pra este número.`);
+    } else {
+      Utils.toast(`Ação custom "${name}" criada e plugada. Vai ficar na sua biblioteca pra reusar.`);
+    }
   },
 
   // V29.3.0 — Ativa custom action já existente no catálogo (clicando no chip).
