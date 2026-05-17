@@ -285,8 +285,11 @@ var App = {
         // V26.1.0 — Smart preserve: se o user estava no rodapé (últimos 60px),
         // mantém no rodapé após o render (conteúdo cresceu). Senão preserva exato.
         // Resolve bug do modal "volta pra primeira pergunta" ao enviar nova msg.
+        // V28.3.2 — Preserva window.scrollY (página inteira) + container do Mapa.
+        // Sem isso, qualquer click em botão volta a tela pro topo.
         const _scrollSnapshots = {};
-        ['djowHomeRecent', 'djowMessages'].forEach(id => {
+        const _windowScroll = { x: window.scrollX || 0, y: window.scrollY || 0 };
+        ['djowHomeRecent', 'djowMessages', 'strategicMapScrollContainer'].forEach(id => {
           const el = document.getElementById(id);
           if (el) {
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
@@ -410,6 +413,11 @@ var App = {
           if (snap.atBottom) el.scrollTop = el.scrollHeight;
           else el.scrollTop = snap.top;
         });
+        // V28.3.2 — Restaura scroll da página inteira. Sem isso, qualquer click
+        // em botão (que dispara Actions.X() → App.render()) volta a tela pro topo.
+        if (_windowScroll.y || _windowScroll.x) {
+          window.scrollTo(_windowScroll.x, _windowScroll.y);
+        }
       },
       _escape(s) {
         return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

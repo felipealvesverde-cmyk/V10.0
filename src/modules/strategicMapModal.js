@@ -9,7 +9,7 @@ window.StrategicMapModal = {
     const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
     if (!product) return '';
     const showOnboarding = !StrategicOnboarding.hasSeen(productId);
-    return `<div class="fixed inset-0 z-[80] bg-slate-950/85 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center">
+    return `<div id="strategicMapScrollContainer" class="fixed inset-0 z-[80] bg-slate-950/85 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center">
       <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:92vw;max-width:1400px;background: radial-gradient(circle at 18% 8%, rgba(99,102,241,.25), transparent 32%), radial-gradient(circle at 82% 0%, rgba(34,197,94,.15), transparent 32%), #071326;">
         ${this._header(product)}
         ${showOnboarding ? this._onboarding(product) : this._body(product)}
