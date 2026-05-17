@@ -163,8 +163,45 @@ var ActionModule = {
           </div>
         </div>
         <div class="flex flex-wrap gap-2">${flow.path.map(stage => `<span class="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-black">${FlowResolutionEngine.label(stage)}</span>`).join('')}</div>
+        ${this._strategicTag(action)}
         ${krTag}
       </div>
+    </div>`;
+  },
+
+  // V28.4.0 — Tag estratégica: badge da área (Mkt/Vendas/CS) + status + cadência
+  // + KRs que essa ação move + atalho pro Mapa da Receita.
+  _strategicTag(action) {
+    if (!action.strategicAreaId || !window.StrategicMapEngine) return '';
+    const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === action.strategicAreaId);
+    if (!area) return '';
+    const cadences = StrategicMapEngine.STRATEGIC_ACTION_CADENCES || [];
+    const statuses = StrategicMapEngine.STRATEGIC_ACTION_STATUSES || [];
+    const cadenceLabel = (cadences.find(c => c.id === action.strategicCadence) || {}).label || 'sem cadência';
+    const status = (statuses.find(s => s.id === action.strategicStatus) || statuses[0] || { label: 'Planejada', color: 'slate' });
+    const confirmed = action.strategicConfirmed;
+
+    // Encontra o produto via campaign → KRs vinculados a essa ação na área certa
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
+    const productId = campaign?.productId;
+    const objective = productId ? StrategicMapEngine.getObjectiveByArea(productId, area.id) : null;
+    const linkedKrs = (objective?.okrs || []).filter(kr => (kr.connectedActionIds || []).map(Number).includes(Number(action.id)));
+    const linkedNames = linkedKrs.map(k => k.name);
+    const tone = area.color;
+
+    return `<div class="rounded-2xl border-2 border-${tone}-200 bg-${tone}-50 p-3 flex flex-col gap-2">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="px-2 py-1 rounded-full bg-${tone}-600 text-white text-[10px] font-black flex items-center gap-1" style="color:#fff!important;">📊 ${Utils.escape(area.label)}</span>
+          <span class="px-2 py-1 rounded-full bg-${status.color}-100 text-${status.color}-800 border border-${status.color}-300 text-[10px] font-black">${Utils.escape(status.label).toUpperCase()}</span>
+          <span class="text-[11px] text-slate-700">⏱ ${Utils.escape(cadenceLabel)}</span>
+          ${action.strategicOwner ? `<span class="text-[11px] text-slate-700">👤 ${Utils.escape(action.strategicOwner)}</span>` : ''}
+          ${confirmed ? '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 text-[10px] font-black">✓ CONFIRMADA</span>' : '<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 text-[10px] font-black">⚠ PENDENTE</span>'}
+        </div>
+        ${productId ? `<button onclick="event.stopPropagation(); Actions.openStrategicMap(${productId})" class="px-2 py-1 rounded-lg bg-white border border-${tone}-300 text-${tone}-700 text-[10px] font-black hover:bg-${tone}-100">Abrir no Mapa →</button>` : ''}
+      </div>
+      ${linkedNames.length ? `<p class="text-[11px] text-slate-700"><b class="text-${tone}-800">🔗 Move:</b> ${linkedNames.map(n => Utils.escape(n)).join(' · ')}</p>` : '<p class="text-[11px] text-amber-700">⚠️ Nenhum número confirmado é movido por essa ação ainda.</p>'}
+      ${action.strategicDescription ? `<p class="text-[11px] text-slate-500 italic">${Utils.escape(action.strategicDescription)}</p>` : ''}
     </div>`;
   },
 

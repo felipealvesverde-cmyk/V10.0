@@ -104,12 +104,50 @@ var ProductsModule = {
             <div class="bg-white rounded-2xl px-3 py-2"><div class="font-black">${product.healthScore || 0}</div><div class="text-xs text-slate-500">Health</div></div>
           </div>
         </div>
+        ${this._strategicMapSummary(product)}
         <div class="lj-product-card-actions grid grid-cols-3 gap-2">
           <button onclick="event.stopPropagation(); Actions.prepareCampaignForProduct(${product.id})" style="color:#fff!important;" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black lj-dark-button">Criar Campanha</button>
           <button onclick="event.stopPropagation(); Actions.editCampaignsForProduct(${product.id})" style="color:#fff!important;" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black lj-dark-button">Editar Campanha</button>
           <button onclick="event.stopPropagation(); Actions.openStrategicMap(${product.id})" style="color:#0f172a!important;" class="lj-strategic-map-btn px-3 py-1.5 rounded-2xl border-2 border-slate-900 bg-transparent hover:bg-slate-100 text-xs font-black transition leading-tight flex flex-col items-center justify-center"><span style="color:#0f172a!important;">Mapa da Receita</span><span style="color:#0f172a!important;" class="text-[9px] font-bold opacity-70 -mt-0.5">OKR's</span></button>
         </div>
       </div>
+    </div>`;
+  },
+
+  // V28.4.0 — Resumo do Mapa da Receita inline no card de produto.
+  // Mostra objetivo + 3 frentes com KRs confirmados + progresso médio.
+  _strategicMapSummary(product) {
+    if (!window.StrategicMapEngine) return '';
+    const map = StrategicMapEngine.getForProduct(product.id);
+    const vision = String(map?.vision || '').trim();
+    const objectives = map?.objectives || [];
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    const allKrs = objectives.flatMap(o => o.okrs || []);
+    const confirmedKrs = allKrs.filter(k => k.confirmed);
+    const snapshot = StrategicMapEngine.snapshot(product.id);
+    if (!vision && !confirmedKrs.length) {
+      return `<div class="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-[12px] text-amber-800 flex items-center justify-between gap-2">
+        <span>📋 Mapa da Receita ainda não foi preenchido para este produto.</span>
+        <button onclick="event.stopPropagation(); Actions.openStrategicMap(${product.id})" class="px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black" style="color:#fff!important;">Começar →</button>
+      </div>`;
+    }
+    return `<div class="rounded-2xl bg-slate-100 border border-slate-200 p-3 space-y-2">
+      ${vision ? `<p class="text-[12px] text-slate-700"><b class="text-slate-900">🎯 Objetivo:</b> ${Utils.escape(vision.length > 120 ? vision.slice(0, 120) + '…' : vision)}</p>` : '<p class="text-[12px] text-amber-700">⚠️ Objetivo do produto ainda não definido.</p>'}
+      <div class="grid grid-cols-3 gap-2">
+        ${areas.map(area => {
+          const obj = objectives.find(o => o.area === area.id);
+          const krs = obj?.okrs || [];
+          const confirmed = krs.filter(k => k.confirmed).length;
+          const actionsOfArea = (App.state.actions || []).filter(a => a.strategicAreaId === area.id && (App.state.campaigns || []).some(c => Number(c.id) === Number(a.campaignId) && Number(c.productId) === Number(product.id))).length;
+          const status = confirmed > 0 ? `${confirmed} nº · ${actionsOfArea} ação${actionsOfArea === 1 ? '' : 'ões'}` : 'pendente';
+          const tone = confirmed > 0 ? `bg-${area.color}-100 border-${area.color}-300 text-${area.color}-900` : 'bg-white border-slate-200 text-slate-500';
+          return `<div class="rounded-xl border ${tone} p-2 text-center" title="${Utils.escape(area.description)}">
+            <p class="text-[10px] font-black uppercase tracking-wider">${Utils.escape(area.label)}</p>
+            <p class="text-[10px] mt-0.5">${status}</p>
+          </div>`;
+        }).join('')}
+      </div>
+      <p class="text-[11px] text-slate-500 text-right">Progresso médio: <b class="text-slate-900">${snapshot.avgProgress}%</b></p>
     </div>`;
   },
 
