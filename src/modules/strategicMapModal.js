@@ -1330,33 +1330,6 @@ window.StrategicMapModal = {
         const pluggedKr = pluggedKrsByParent.get(pkr.id);
         if (pluggedKr) return this._stepCampaignPluggedCard(branchObjective, pluggedKr, pkr, tone);
         return this._stepCampaignNotPluggedCard(pkr, tone);
-
-  _anyPluggedInBranch(productId, campaignId) {
-    const branch = StrategicMapEngine.getBranchMap(campaignId);
-    if (!branch) return false;
-    return (branch.objectives || []).some(o => (o.okrs || []).some(kr => kr.parentProductKrId));
-  },
-
-  _stepCampaignAreaBlock(product, area, areaKrs, campaignId) {
-    const tone = area.color;
-    const branch = StrategicMapEngine.getBranchMap(campaignId);
-    const branchObjective = (branch?.objectives || []).find(o => o.area === area.id);
-    const branchKrs = branchObjective?.okrs || [];
-    const pluggedKrsByParent = new Map();
-    branchKrs.forEach(kr => { if (kr.parentProductKrId) pluggedKrsByParent.set(kr.parentProductKrId, kr); });
-
-    if (areaKrs.length === 0) {
-      return `<div class="rounded-2xl bg-${tone}-500/5 border border-${tone}-400/20 p-3">
-        <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-wider mb-1"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)}</p>
-        <p class="text-[11px] text-slate-500 italic">CEO não definiu números nesta área.</p>
-      </div>`;
-    }
-    return `<div class="rounded-2xl bg-${tone}-500/5 border border-${tone}-400/20 p-3 space-y-2">
-      <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-wider"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)} · ${pluggedKrsByParent.size}/${areaKrs.length} plugado(s)</p>
-      ${areaKrs.map(pkr => {
-        const pluggedKr = pluggedKrsByParent.get(pkr.id);
-        if (pluggedKr) return this._stepCampaignPluggedCard(branchObjective, pluggedKr, pkr, tone);
-        return this._stepCampaignNotPluggedCard(pkr, tone);
       }).join('')}
     </div>`;
   },
