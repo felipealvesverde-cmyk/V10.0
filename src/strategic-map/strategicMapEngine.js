@@ -788,7 +788,7 @@ window.StrategicMapEngine = {
       expectedConversion: 25, mailingDefined: false,
       strategicAreaId: areaId,
       strategicCustomActionId: customActionId,    // V29.3 — marca como custom
-      strategicDescription: `Ação custom criada via engine`,
+      strategicDescription: '', // V29.3.3 — sem tag custom no menu Ações; trata igual qualquer outra
       strategicOwner: '',
       strategicCadence: null,
       strategicStatus: 'planned',
