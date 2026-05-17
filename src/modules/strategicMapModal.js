@@ -1523,15 +1523,15 @@ window.StrategicMapModal = {
         <button onclick="Actions.removeStrategicOkr('${branchObj.id}','${childKr.id}')" title="Desplugar" class="px-1.5 py-0.5 rounded text-[10px] text-red-300 hover:bg-red-500/20 border border-red-400/30 shrink-0">×</button>
       </div>
 
-      <!-- Split: esquerda (engine) + direita (metas) -->
-      <div class="grid grid-cols-1 lg:grid-cols-4 gap-3">
-        <!-- ESQUERDA (3/4): engine -->
-        <div class="lg:col-span-3">
-          ${engineOpen ? this._customActionEngineForm(area, pkr) : `<button onclick="Actions.openCustomActionEngine('${area.id}', '${pkr.id}')" class="w-full px-3 py-2.5 rounded-xl bg-${tone}-500/10 hover:bg-${tone}-500/20 border border-dashed border-${tone}-400/40 text-${tone}-100 text-[12px] font-black flex items-center justify-center gap-1.5 transition"><i data-lucide="zap" class="w-3.5 h-3.5"></i> Criar engine de ação</button>`}
+      <!-- V29.3.2 — Split 50/50: engine na esquerda + metas na direita, ambos centralizados nas suas metades -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+        <!-- ESQUERDA (1/2): engine — botão com metade da largura da coluna, centralizado -->
+        <div class="flex justify-center">
+          ${engineOpen ? `<div class="w-full">${this._customActionEngineForm(area, pkr)}</div>` : `<button onclick="Actions.openCustomActionEngine('${area.id}', '${pkr.id}')" class="w-1/2 px-3 py-2.5 rounded-xl bg-${tone}-500/10 hover:bg-${tone}-500/20 border border-dashed border-${tone}-400/40 text-${tone}-100 text-[12px] font-black flex items-center justify-center gap-1.5 transition"><i data-lucide="zap" class="w-3.5 h-3.5"></i> Criar engine de ação</button>`}
         </div>
 
-        <!-- DIREITA (1/4): metas -->
-        <div class="lg:col-span-1 space-y-2">
+        <!-- DIREITA (1/2): metas — centralizadas na metade direita -->
+        <div class="space-y-2 mx-auto w-1/2">
           <div>
             <label class="flex items-center justify-between gap-1 mb-0.5">
               <span class="text-[9px] font-black text-emerald-300 uppercase">🔒 Meta Segura</span>
