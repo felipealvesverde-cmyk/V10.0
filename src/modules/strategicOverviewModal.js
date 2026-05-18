@@ -1,7 +1,8 @@
-// V31.0.11 — Strategic Overview Modal (Mapa de Fluxo)
-// Visão árvore COMPLETA do Mapa da Receita V29:
-//   Visão → KRs-mãe (productKrs por área) → Branches (cada uma com seus OKRs)
-// Antes lia só de map.objectives (legacy V28). Agora renderiza V29 inteira.
+// V31.2.2 — Strategic Overview Modal (Mapa de Fluxo)
+// Refatorado pra árvore hierárquica top-down (padrão OKR clássico):
+//   Visão → 3 frentes (Mkt/Vendas/CS) → KRs-mãe da frente → Ações conectadas → Tasks
+// Cada nível conectado ao pai via linhas CSS (border-left vertical + border-top
+// horizontal nos siblings). Substitui o SVG anterior que ficava bagunçado.
 window.StrategicOverviewModal = {
   render() {
     if (!App.state.showStrategicOverview) return '';
@@ -14,70 +15,14 @@ window.StrategicOverviewModal = {
       ? StrategicMapEngine.getBranchesByProduct(product.id)
       : [];
     const allBranchOkrs = branches.flatMap(b => (b.objectives || []).flatMap(o => o.okrs || []));
-    // V31.2.0 — Agenda redraw das linhas de fluxo pós-render
-    setTimeout(() => this._drawFlowLines(), 80);
     return `<div class="fixed inset-0 z-[90] bg-slate-950/90 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center">
       <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:93vw;max-width:1500px;background: radial-gradient(circle at 18% 8%, rgba(99,102,241,.25), transparent 32%), radial-gradient(circle at 82% 0%, rgba(34,197,94,.15), transparent 32%), #071326;">
         ${this._header(product, productKrs, branches, allBranchOkrs)}
         <div class="p-6 lg:p-8 overflow-auto" style="max-height:82vh;">
-          <div id="strategicFlowTreeContainer" class="relative">
-            <svg id="strategicFlowSvg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:visible;"></svg>
-            <div style="position:relative;z-index:1;">
-              ${this._tree(product, map, productKrs, branches)}
-            </div>
-          </div>
+          ${this._tree(product, map, productKrs, branches)}
         </div>
       </div>
     </div>`;
-  },
-
-  // V31.2.0 — Desenha linhas SVG conectando productKrs aos OKRs filhos
-  // (parentProductKrId). Roda pós-render via setTimeout no render() do modal.
-  _drawFlowLines() {
-    const svg = document.getElementById('strategicFlowSvg');
-    const container = document.getElementById('strategicFlowTreeContainer');
-    if (!svg || !container) return;
-    svg.innerHTML = '';
-    const containerRect = container.getBoundingClientRect();
-    const productKrCards = container.querySelectorAll('[data-flow-pkr]');
-    const childCards = container.querySelectorAll('[data-flow-child]');
-    if (!productKrCards.length || !childCards.length) return;
-
-    // Atualiza dimensões do SVG pra cobrir todo o container
-    svg.setAttribute('width', container.scrollWidth);
-    svg.setAttribute('height', container.scrollHeight);
-
-    const tones = {
-      marketing: 'rgba(56,189,248,0.45)', // sky
-      sales: 'rgba(52,211,153,0.45)',     // emerald
-      cs: 'rgba(167,139,250,0.45)'        // violet
-    };
-
-    productKrCards.forEach(pkrEl => {
-      const pkrId = pkrEl.getAttribute('data-flow-pkr');
-      const area = pkrEl.getAttribute('data-flow-area') || 'marketing';
-      const pkrRect = pkrEl.getBoundingClientRect();
-      const startX = pkrRect.left + pkrRect.width / 2 - containerRect.left;
-      const startY = pkrRect.bottom - containerRect.top;
-      const stroke = tones[area] || tones.marketing;
-      childCards.forEach(childEl => {
-        if (childEl.getAttribute('data-flow-child') !== pkrId) return;
-        const childRect = childEl.getBoundingClientRect();
-        const endX = childRect.left + childRect.width / 2 - containerRect.left;
-        const endY = childRect.top - containerRect.top;
-        // Curva Bezier suave (mid-control points pra desenhar curva descendente)
-        const dy = endY - startY;
-        const midY = startY + dy * 0.5;
-        const path = `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`;
-        const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        pathEl.setAttribute('d', path);
-        pathEl.setAttribute('stroke', stroke);
-        pathEl.setAttribute('stroke-width', '1.5');
-        pathEl.setAttribute('fill', 'none');
-        pathEl.setAttribute('stroke-linecap', 'round');
-        svg.appendChild(pathEl);
-      });
-    });
   },
 
   _header(product, productKrs, branches, allBranchOkrs) {
@@ -105,121 +50,133 @@ window.StrategicOverviewModal = {
         <p class="text-sm mt-1">Cadastre visão, KRs-mãe e branches no Mapa da Receita para ver a árvore aqui.</p>
       </div>`;
     }
-    return `<div class="space-y-8">
-      ${this._visionNode(vision)}
-      ${productKrs.length ? this._productKrsByArea(productKrs, branches) : ''}
-      ${branches.length ? this._branchesSection(branches) : ''}
-    </div>`;
-  },
-
-  _visionNode(vision) {
-    return `<div class="grid place-items-center">
-      <div class="rounded-2xl bg-gradient-to-br from-indigo-500/25 to-indigo-400/10 border border-indigo-400/40 px-5 py-4 max-w-3xl w-full text-center">
-        <div class="flex items-center justify-center gap-2 mb-1"><i data-lucide="eye" class="w-3.5 h-3.5 text-indigo-200"></i><p class="text-[10px] font-black text-indigo-200 uppercase tracking-wider">Visão</p></div>
-        <p class="font-black text-white text-base leading-snug">${Utils.escape(vision || '— Sem visão definida —')}</p>
-      </div>
-    </div>`;
-  },
-
-  // V31.0.11 — productKrs agrupados por área (Mkt/Vendas/CS), com indicação
-  // de quantas OKRs operacionais (filhas) rolam pra cada um.
-  _productKrsByArea(productKrs, branches) {
-    const areas = (StrategicMapEngine.COMERCIAL_AREAS || []);
-    const allChildOkrs = branches.flatMap(b => (b.objectives || []).flatMap(o => o.okrs || []));
-    const countChildren = pkrId => allChildOkrs.filter(k => k.parentProductKrId === pkrId).length;
-    return `<div>
-      <p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider mb-3 text-center">KRs-mãe do produto (CEO)</p>
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        ${areas.map(area => {
-          const krs = productKrs.filter(k => k.area === area.id);
-          const tone = area.color;
-          return `<div class="rounded-2xl bg-${tone}-500/10 border border-${tone}-400/30 p-4 space-y-3">
-            <div class="flex items-center gap-2">
-              <div class="w-8 h-8 rounded-xl bg-${tone}-500/20 grid place-items-center"><i data-lucide="${area.icon}" class="w-3.5 h-3.5 text-${tone}-200"></i></div>
-              <p class="font-black text-${tone}-100 text-sm">${Utils.escape(area.label)}</p>
-              <span class="ml-auto text-[10px] font-black text-${tone}-200">${krs.length} KR(s)</span>
-            </div>
-            ${krs.length === 0 ? `<p class="text-[11px] text-slate-500 italic">Nenhuma KR-mãe definida.</p>` : krs.map(kr => {
-              const children = countChildren(kr.id);
-              const progress = this._krProgress(kr);
-              const status = window.StrategicMapRenderer ? StrategicMapRenderer.okrStatus(progress) : { color: 'slate' };
-              return `<div data-flow-pkr="${Utils.escape(kr.id)}" data-flow-area="${Utils.escape(area.id)}" class="rounded-xl bg-black/30 border border-white/10 p-2.5">
-                <div class="flex items-center gap-1.5 mb-1"><i data-lucide="target" class="w-3 h-3 text-${tone}-300"></i><p class="text-[9px] font-black text-${tone}-200 uppercase tracking-wider">KR-mãe</p></div>
-                <p class="font-bold text-white text-xs leading-tight mb-1">${Utils.escape(kr.name || 'Sem nome')}</p>
-                <div class="flex items-center justify-between gap-2 mb-1">
-                  <p class="text-[9px] text-slate-400">${Number(kr.current || 0)}/${Number(kr.target || 0)} ${Utils.escape(kr.unit || kr.metric || '')} · ${children} filha(s)</p>
-                  <span class="text-[10px] font-black text-${status.color}-200">${progress}%</span>
-                </div>
-                ${window.StrategicMapRenderer ? StrategicMapRenderer.progressBar(progress, status.color) : ''}
-              </div>`;
-            }).join('')}
-          </div>`;
-        }).join('')}
-      </div>
-    </div>`;
-  },
-
-  // V31.0.11 — Cada branch (campanha) renderizada como sub-mapa com suas OKRs
-  // agrupadas por área. Mostra qual OKR plugou em qual productKr-mãe.
-  _branchesSection(branches) {
-    return `<div>
-      <p class="text-[11px] font-black text-violet-200 uppercase tracking-wider mb-3 text-center">Branches (campanhas plugadas)</p>
-      <div class="space-y-4">
-        ${branches.map(branch => this._branchNode(branch)).join('')}
-      </div>
-    </div>`;
-  },
-
-  _branchNode(branch) {
-    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(branch.campaignId));
-    const campaignName = campaign?.name || `Branch ${branch.campaignId}`;
-    const objectives = branch.objectives || [];
-    const allOkrs = objectives.flatMap(o => o.okrs || []);
-    const avgProgress = allOkrs.length
-      ? Math.round(allOkrs.reduce((s, k) => s + this._okrProgress(k), 0) / allOkrs.length)
-      : 0;
-    const status = window.StrategicMapRenderer ? StrategicMapRenderer.okrStatus(avgProgress) : { color: 'slate' };
-    return `<div class="rounded-2xl bg-violet-500/[0.08] border border-violet-400/30 p-4">
-      <div class="flex items-center justify-between gap-3 mb-3">
-        <div class="flex items-center gap-2 min-w-0">
-          <i data-lucide="git-branch" class="w-4 h-4 text-violet-300 shrink-0"></i>
-          <p class="font-black text-white text-sm truncate">${Utils.escape(campaignName)}</p>
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <span class="text-[10px] text-slate-400">${allOkrs.length} OKR(s)</span>
-          <span class="text-[11px] font-black text-${status.color}-200">${avgProgress}%</span>
+    const areas = window.StrategicMapEngine?.COMERCIAL_AREAS || [];
+    return `<div class="flex flex-col items-center space-y-0">
+      ${this._visionBlock(vision)}
+      ${this._verticalConnector()}
+      <div class="w-full">
+        ${this._horizontalBus(areas.length)}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          ${areas.map(area => this._areaSubTree(area, productKrs, branches)).join('')}
         </div>
       </div>
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
-        ${objectives.map(obj => this._branchObjectiveCard(obj)).join('')}
-      </div>
     </div>`;
   },
 
-  _branchObjectiveCard(obj) {
-    const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === obj.area) || { color: 'slate', icon: 'flag', label: obj.label || 'Frente' };
+  // ───────────── nível 0: Visão (centralizado) ─────────────
+  _visionBlock(vision) {
+    return `<div class="rounded-2xl bg-gradient-to-br from-indigo-500/30 to-indigo-400/15 border border-indigo-400/50 px-6 py-4 max-w-3xl w-full text-center">
+      <div class="flex items-center justify-center gap-2 mb-1.5"><i data-lucide="eye" class="w-3.5 h-3.5 text-indigo-200"></i><p class="text-[10px] font-black text-indigo-200 uppercase tracking-wider">Visão do Produto</p></div>
+      <p class="font-black text-white text-base leading-snug">${Utils.escape(vision || '— Sem visão definida —')}</p>
+    </div>`;
+  },
+
+  // Conector vertical entre níveis (visão → bus dos frentes; frente → bus dos KRs; etc.)
+  _verticalConnector(height = 24) {
+    return `<div style="width:1px;height:${height}px;background:rgba(255,255,255,0.22);"></div>`;
+  },
+
+  // Bus horizontal que distribui n filhos abaixo de um pai centralizado.
+  _horizontalBus(n) {
+    if (n <= 1) return '';
+    const inset = `calc(${100 / (n * 2)}% - 0px)`;
+    return `<div class="relative h-3 mb-1">
+      <div style="position:absolute;left:${inset};right:${inset};top:50%;height:1px;background:rgba(255,255,255,0.22);"></div>
+    </div>`;
+  },
+
+  // ───────────── nível 1: Frente comercial (Mkt/Vendas/CS) ─────────────
+  _areaSubTree(area, allProductKrs, branches) {
     const tone = area.color;
-    const okrs = obj.okrs || [];
-    return `<div class="rounded-xl bg-${tone}-500/5 border border-${tone}-400/20 p-3 space-y-2">
-      <div class="flex items-center gap-1.5 mb-1">
-        <i data-lucide="${area.icon}" class="w-3 h-3 text-${tone}-300"></i>
-        <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-wider">${Utils.escape(area.label || obj.label || 'Frente')}</p>
-        <span class="ml-auto text-[10px] text-slate-400">${okrs.length}</span>
-      </div>
-      ${okrs.length === 0 ? `<p class="text-[10px] text-slate-500 italic">Sem OKRs.</p>` : okrs.map(kr => {
-        const progress = this._okrProgress(kr);
-        const status = window.StrategicMapRenderer ? StrategicMapRenderer.okrStatus(progress) : { color: 'slate' };
-        const connected = (kr.connectedActionIds || []).length;
-        const parentAttr = kr.parentProductKrId ? `data-flow-child="${Utils.escape(kr.parentProductKrId)}"` : '';
-        return `<div ${parentAttr} class="rounded-lg bg-black/30 border border-white/10 p-2">
-          <p class="font-bold text-white text-[11px] leading-tight mb-1">${Utils.escape(kr.name || 'Sem nome')}</p>
-          <div class="flex items-center justify-between gap-2 mb-1">
-            <p class="text-[9px] text-slate-400">${Number(kr.current || 0)}/${Number(kr.targetCommitted || kr.target || 0)} · ${connected} ação(ões)</p>
-            <span class="text-[10px] font-black text-${status.color}-200">${progress}%</span>
+    const areaPkrs = allProductKrs.filter(k => k.area === area.id);
+    return `<div class="flex flex-col items-center">
+      <div class="relative w-full flex flex-col items-center">
+        <div style="width:1px;height:8px;background:rgba(255,255,255,0.22);"></div>
+        <div class="rounded-2xl bg-${tone}-500/20 border border-${tone}-400/50 px-4 py-3 w-full text-center">
+          <div class="flex items-center justify-center gap-2 mb-0.5">
+            <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-100"></i>
+            <p class="font-black text-${tone}-50 text-sm">${Utils.escape(area.label)}</p>
           </div>
-          ${window.StrategicMapRenderer ? StrategicMapRenderer.progressBar(progress, status.color) : ''}
-        </div>`;
-      }).join('')}
+          <p class="text-[10px] text-${tone}-200 opacity-80">${areaPkrs.length} KR(s)-mãe</p>
+        </div>
+      </div>
+      ${areaPkrs.length === 0
+        ? `<p class="text-[11px] text-slate-500 italic mt-3">CEO não definiu números nesta frente.</p>`
+        : `${this._verticalConnector(20)}
+            ${areaPkrs.length > 1 ? this._horizontalBus(areaPkrs.length) : ''}
+            <div class="grid ${areaPkrs.length > 1 ? 'grid-cols-' + Math.min(areaPkrs.length, 2) : 'grid-cols-1'} gap-3 w-full">
+              ${areaPkrs.map(pkr => this._pkrSubTree(pkr, tone, branches)).join('')}
+            </div>`}
+    </div>`;
+  },
+
+  // ───────────── nível 2: KR-mãe do produto ─────────────
+  _pkrSubTree(pkr, tone, branches) {
+    // Coleta todos os childKrs com parentProductKrId = pkr.id (across all branches)
+    const childOkrs = branches.flatMap(b =>
+      (b.objectives || [])
+        .flatMap(o => o.okrs || [])
+        .filter(k => k.parentProductKrId === pkr.id)
+        .map(k => ({ kr: k, branch: b }))
+    );
+    // Coleta todos os actionIds connected nesses childKrs
+    const actionIds = new Set();
+    childOkrs.forEach(({ kr }) => (kr.connectedActionIds || []).forEach(id => actionIds.add(Number(id))));
+    const actions = (App.state.actions || []).filter(a => actionIds.has(Number(a.id)));
+    const progress = this._krProgress(pkr);
+    const status = window.StrategicMapRenderer ? StrategicMapRenderer.okrStatus(progress) : { color: 'slate' };
+    return `<div class="flex flex-col items-center">
+      <div class="rounded-xl bg-black/40 border border-${tone}-400/30 p-3 w-full text-center">
+        <p class="text-[9px] font-black text-${tone}-200 uppercase tracking-wider mb-0.5">KR-mãe</p>
+        <p class="font-black text-white text-[12px] leading-tight mb-1">${Utils.escape(pkr.name)}</p>
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <p class="text-[9px] text-slate-400">${Number(pkr.current || 0)}/${Number(pkr.target || 0)} ${Utils.escape(pkr.unit || pkr.metric || '')}</p>
+          <span class="text-[10px] font-black text-${status.color}-200">${progress}%</span>
+        </div>
+        ${window.StrategicMapRenderer ? StrategicMapRenderer.progressBar(progress, status.color) : ''}
+      </div>
+      ${actions.length === 0
+        ? `<p class="text-[10px] text-slate-500 italic mt-2">Nenhuma ação conectada.</p>`
+        : `${this._verticalConnector(16)}
+            ${actions.length > 1 ? this._horizontalBus(actions.length) : ''}
+            <div class="grid grid-cols-${Math.min(actions.length, 2)} gap-2 w-full">
+              ${actions.map(a => this._actionLeaf(a, tone)).join('')}
+            </div>`}
+    </div>`;
+  },
+
+  // ───────────── nível 3: Ação operacional ─────────────
+  _actionLeaf(action, tone) {
+    const tasks = (App.state.executionTasks || []).filter(t => Number(t.linked_action_id) === Number(action.id));
+    const status = (window.StrategicMapEngine?.STRATEGIC_ACTION_STATUSES || []).find(s => s.id === action.strategicStatus) || { label: 'Planejada', color: 'slate' };
+    return `<div class="flex flex-col items-center">
+      <div class="rounded-lg bg-${tone}-500/10 border border-${tone}-400/30 p-2 w-full">
+        <p class="text-[9px] font-black text-${tone}-200 uppercase tracking-wider mb-0.5">${Utils.escape(action.channel || 'AÇÃO')}</p>
+        <p class="font-bold text-white text-[10px] leading-tight mb-1 truncate" title="${Utils.escape(action.name)}">${Utils.escape(action.name)}</p>
+        <div class="flex items-center justify-between gap-1">
+          <span class="px-1.5 py-0.5 rounded-full bg-${status.color}-500/30 border border-${status.color}-400/40 text-${status.color}-100 text-[8px] font-black">${Utils.escape(status.label).toUpperCase()}</span>
+          <button onclick="Actions.openActionFromMap(${action.id})" class="text-[9px] font-black text-white/60 hover:text-white" title="Abrir ação">↗</button>
+        </div>
+      </div>
+      ${tasks.length === 0
+        ? `<p class="text-[9px] text-slate-600 italic mt-1">sem tasks</p>`
+        : `${this._verticalConnector(12)}
+            ${tasks.length > 1 ? this._horizontalBus(tasks.length) : ''}
+            <div class="grid grid-cols-${Math.min(tasks.length, 2)} gap-1 w-full">
+              ${tasks.map(t => this._taskLeaf(t, tone)).join('')}
+            </div>`}
+    </div>`;
+  },
+
+  // ───────────── nível 4: Task de execução ─────────────
+  _taskLeaf(task, tone) {
+    const isDone = task.status === 'completed';
+    const isRunning = task.status === 'in_progress' || task.status === 'running';
+    const iconColor = isDone ? 'emerald' : isRunning ? 'amber' : 'slate';
+    const icon = isDone ? 'check' : isRunning ? 'play' : 'clock';
+    return `<div class="rounded-md bg-black/40 border border-${iconColor}-400/30 p-1.5 flex items-center gap-1">
+      <i data-lucide="${icon}" class="w-2.5 h-2.5 text-${iconColor}-300 shrink-0"></i>
+      <p class="text-[9px] text-slate-200 font-bold truncate" title="${Utils.escape(task.title || '')}">${Utils.escape((task.title || '').slice(0, 20))}</p>
     </div>`;
   },
 
