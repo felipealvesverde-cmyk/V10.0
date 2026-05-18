@@ -1,4 +1,111 @@
 var Actions = {
+      // V31.2.1 — Administrar Lead Journey: deletar produto em cascata.
+      // Master-only (Settings já gate por isMaster). Confirmação dupla via typed.
+      adminRequestDeleteProduct(productId) {
+        if (!App.currentUser?.isMaster) return Utils.toast('Apenas master pode apagar produtos.');
+        if (this._demoGuard && this._demoGuard('Apagar produto')) return;
+        App.state.adminDeleteProductPending = { productId: Number(productId), typed: '' };
+        App.render();
+      },
+      adminDeleteProductTyped(value) {
+        const pending = App.state.adminDeleteProductPending;
+        if (!pending) return;
+        pending.typed = String(value || '');
+        App.render();
+      },
+      adminCancelDeleteProduct() {
+        App.state.adminDeleteProductPending = null;
+        App.render();
+      },
+      adminConfirmDeleteProduct(productId) {
+        if (!App.currentUser?.isMaster) return Utils.toast('Apenas master pode apagar produtos.');
+        const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
+        if (!product) return Utils.toast('Produto não encontrado.');
+        const pending = App.state.adminDeleteProductPending;
+        if (!pending || pending.typed !== product.name) return Utils.toast('Confirme digitando o nome exato.');
+
+        const pid = Number(productId);
+        // Identifica dependências antes de deletar
+        const campaigns = (App.state.campaigns || []).filter(c => Number(c.productId) === pid);
+        const campaignIds = new Set(campaigns.map(c => Number(c.id)));
+        const actions = (App.state.actions || []).filter(a => campaignIds.has(Number(a.campaignId)));
+        const actionIds = new Set(actions.map(a => Number(a.id)));
+        const leadIds = new Set();
+        actions.forEach(a => (a.leads || []).forEach(l => leadIds.add(Number(l.id))));
+
+        // CASCADE — apaga tudo em ordem
+        // 1. Tabelas list-based
+        App.state.products = (App.state.products || []).filter(p => Number(p.id) !== pid);
+        App.state.campaigns = (App.state.campaigns || []).filter(c => !campaignIds.has(Number(c.id)));
+        App.state.actions = (App.state.actions || []).filter(a => !actionIds.has(Number(a.id)));
+        App.state.manualLeads = (App.state.manualLeads || []).filter(l =>
+          !campaignIds.has(Number(l.campaignId)) && !actionIds.has(Number(l.actionId))
+        );
+        App.state.executionTasks = (App.state.executionTasks || []).filter(t =>
+          !campaignIds.has(Number(t.linked_campaign_id)) && !actionIds.has(Number(t.linked_action_id))
+        );
+
+        // 2. Dicts keyed por productId
+        const strategicMaps = { ...(App.state.strategicMaps || {}) };
+        delete strategicMaps[pid];
+        App.state.strategicMaps = strategicMaps;
+
+        const revopsFinance = { ...(App.state.revopsFinance || {}) };
+        delete revopsFinance[pid];
+        App.state.revopsFinance = revopsFinance;
+
+        // 3. Dicts keyed por campaignId
+        const strategicCampaignMaps = { ...(App.state.strategicCampaignMaps || {}) };
+        campaignIds.forEach(cid => delete strategicCampaignMaps[cid]);
+        App.state.strategicCampaignMaps = strategicCampaignMaps;
+
+        const revenueScoreBlueprints = { ...(App.state.revenueScoreBlueprints || {}) };
+        campaignIds.forEach(cid => delete revenueScoreBlueprints[cid]);
+        App.state.revenueScoreBlueprints = revenueScoreBlueprints;
+
+        const revenueReadyTriggered = { ...(App.state.revenueReadyTriggered || {}) };
+        campaignIds.forEach(cid => delete revenueReadyTriggered[cid]);
+        App.state.revenueReadyTriggered = revenueReadyTriggered;
+
+        if (App.state.integrations?.rdCrm?.pipelinesByCampaign) {
+          const piby = { ...(App.state.integrations.rdCrm.pipelinesByCampaign) };
+          campaignIds.forEach(cid => delete piby[cid]);
+          App.state.integrations = {
+            ...App.state.integrations,
+            rdCrm: { ...(App.state.integrations.rdCrm || {}), pipelinesByCampaign: piby }
+          };
+        }
+
+        // 4. Dicts keyed por leadId
+        const leadOutcomes = { ...(App.state.leadOutcomes || {}) };
+        const leadScoreHistory = { ...(App.state.leadScoreHistory || {}) };
+        const leadEngagementHistory = { ...(App.state.leadEngagementHistory || {}) };
+        leadIds.forEach(lid => {
+          delete leadOutcomes[lid];
+          delete leadScoreHistory[lid];
+          delete leadEngagementHistory[lid];
+        });
+        App.state.leadOutcomes = leadOutcomes;
+        App.state.leadScoreHistory = leadScoreHistory;
+        App.state.leadEngagementHistory = leadEngagementHistory;
+
+        // 5. Seleção atual se apontava pro produto deletado
+        if (Number(App.state.selectedProductId) === pid) {
+          App.state.selectedProductId = (App.state.products[0] || {}).id || null;
+        }
+        if (campaignIds.has(Number(App.state.selectedCampaignId))) {
+          App.state.selectedCampaignId = (App.state.campaigns[0] || {}).id || null;
+        }
+        if (actionIds.has(Number(App.state.selectedActionId))) {
+          App.state.selectedActionId = null;
+        }
+
+        // 6. Limpa o pending + persiste
+        App.state.adminDeleteProductPending = null;
+        App.save(); App.render();
+        Utils.toast(`Produto "${product.name}" apagado: ${campaigns.length} campanha(s), ${actions.length} ação(ões), ${leadIds.size} lead(s).`);
+      },
+
       // V31.0.0 — Helpers demo mode. Backend bloqueia mutations (403) via middleware;
       // estes helpers no frontend são UX (toast amigável + abort) e ficam fora dos
       // Actions principais — quem quiser blindar uma Action chama Actions._demoGuard()
