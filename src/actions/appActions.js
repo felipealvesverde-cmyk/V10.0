@@ -3602,6 +3602,7 @@ Object.assign(Actions, {
     App.state.strategicMapMode = 'product';         // V29 — 'product' | 'campaign'
     App.state.showStrategicMap = true;
     App.state.strategicMapZoom = 'vision'; // V29.1.0 — CEO comeca pelo Objetivo (etapa 1)
+    App.state.strategicSkipOnboarding = false; // V31.2.0 — welcome screen sempre aparece
     App.state.strategicObjectiveDraft = null;
     App.state.strategicOkrDraft = null;
     App.state.strategicActiveArea = null;
@@ -4190,9 +4191,19 @@ Object.assign(Actions, {
   },
 
   dismissStrategicOnboarding() {
+    // V31.2.0 — Agora SÓ pula welcome dessa sessão de visualização (não persiste).
+    // Mantém StrategicOnboarding.markSeen pra compat com chamadas legacy.
     const productId = App.state.strategicMapProductId;
-    if (!productId || !window.StrategicOnboarding) return;
-    StrategicOnboarding.markSeen(productId);
+    if (productId && window.StrategicOnboarding) StrategicOnboarding.markSeen(productId);
+    App.state.strategicSkipOnboarding = true;
+    // Garante que entra na etapa Vision (semântica "Começar pela Visão")
+    if (window.StrategicZoomNavigation) StrategicZoomNavigation.set('vision');
+    App.save(); App.render();
+  },
+
+  // V31.2.0 — "Já configurou?" → pula welcome sem resetar etapa atual.
+  skipStrategicOnboarding() {
+    App.state.strategicSkipOnboarding = true;
     App.save(); App.render();
   },
 
@@ -4200,6 +4211,7 @@ Object.assign(Actions, {
     const productId = App.state.strategicMapProductId;
     if (!productId || !window.StrategicOnboarding) return;
     StrategicOnboarding.reset(productId);
+    App.state.strategicSkipOnboarding = false; // re-mostra welcome
     App.save(); App.render();
   },
 
@@ -4738,6 +4750,7 @@ Object.assign(Actions, {
     App.state.strategicMapMode = 'campaign';                  // V29
     App.state.showStrategicMap = true;
     App.state.strategicMapZoom = 'campaign'; // V29.1.0 — Gestor abre na etapa Campanha (onde pluga KRs)
+    App.state.strategicSkipOnboarding = false; // V31.2.0 — welcome aparece sempre ao abrir
     App.state.strategicObjectiveDraft = null;
     App.state.strategicOkrDraft = null;
     App.state.strategicActiveArea = null;

@@ -14,14 +14,70 @@ window.StrategicOverviewModal = {
       ? StrategicMapEngine.getBranchesByProduct(product.id)
       : [];
     const allBranchOkrs = branches.flatMap(b => (b.objectives || []).flatMap(o => o.okrs || []));
+    // V31.2.0 — Agenda redraw das linhas de fluxo pós-render
+    setTimeout(() => this._drawFlowLines(), 80);
     return `<div class="fixed inset-0 z-[90] bg-slate-950/90 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center">
       <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:93vw;max-width:1500px;background: radial-gradient(circle at 18% 8%, rgba(99,102,241,.25), transparent 32%), radial-gradient(circle at 82% 0%, rgba(34,197,94,.15), transparent 32%), #071326;">
         ${this._header(product, productKrs, branches, allBranchOkrs)}
         <div class="p-6 lg:p-8 overflow-auto" style="max-height:82vh;">
-          ${this._tree(product, map, productKrs, branches)}
+          <div id="strategicFlowTreeContainer" class="relative">
+            <svg id="strategicFlowSvg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:visible;"></svg>
+            <div style="position:relative;z-index:1;">
+              ${this._tree(product, map, productKrs, branches)}
+            </div>
+          </div>
         </div>
       </div>
     </div>`;
+  },
+
+  // V31.2.0 — Desenha linhas SVG conectando productKrs aos OKRs filhos
+  // (parentProductKrId). Roda pós-render via setTimeout no render() do modal.
+  _drawFlowLines() {
+    const svg = document.getElementById('strategicFlowSvg');
+    const container = document.getElementById('strategicFlowTreeContainer');
+    if (!svg || !container) return;
+    svg.innerHTML = '';
+    const containerRect = container.getBoundingClientRect();
+    const productKrCards = container.querySelectorAll('[data-flow-pkr]');
+    const childCards = container.querySelectorAll('[data-flow-child]');
+    if (!productKrCards.length || !childCards.length) return;
+
+    // Atualiza dimensões do SVG pra cobrir todo o container
+    svg.setAttribute('width', container.scrollWidth);
+    svg.setAttribute('height', container.scrollHeight);
+
+    const tones = {
+      marketing: 'rgba(56,189,248,0.45)', // sky
+      sales: 'rgba(52,211,153,0.45)',     // emerald
+      cs: 'rgba(167,139,250,0.45)'        // violet
+    };
+
+    productKrCards.forEach(pkrEl => {
+      const pkrId = pkrEl.getAttribute('data-flow-pkr');
+      const area = pkrEl.getAttribute('data-flow-area') || 'marketing';
+      const pkrRect = pkrEl.getBoundingClientRect();
+      const startX = pkrRect.left + pkrRect.width / 2 - containerRect.left;
+      const startY = pkrRect.bottom - containerRect.top;
+      const stroke = tones[area] || tones.marketing;
+      childCards.forEach(childEl => {
+        if (childEl.getAttribute('data-flow-child') !== pkrId) return;
+        const childRect = childEl.getBoundingClientRect();
+        const endX = childRect.left + childRect.width / 2 - containerRect.left;
+        const endY = childRect.top - containerRect.top;
+        // Curva Bezier suave (mid-control points pra desenhar curva descendente)
+        const dy = endY - startY;
+        const midY = startY + dy * 0.5;
+        const path = `M ${startX} ${startY} C ${startX} ${midY}, ${endX} ${midY}, ${endX} ${endY}`;
+        const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathEl.setAttribute('d', path);
+        pathEl.setAttribute('stroke', stroke);
+        pathEl.setAttribute('stroke-width', '1.5');
+        pathEl.setAttribute('fill', 'none');
+        pathEl.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(pathEl);
+      });
+    });
   },
 
   _header(product, productKrs, branches, allBranchOkrs) {
@@ -87,7 +143,7 @@ window.StrategicOverviewModal = {
               const children = countChildren(kr.id);
               const progress = this._krProgress(kr);
               const status = window.StrategicMapRenderer ? StrategicMapRenderer.okrStatus(progress) : { color: 'slate' };
-              return `<div class="rounded-xl bg-black/30 border border-white/10 p-2.5">
+              return `<div data-flow-pkr="${Utils.escape(kr.id)}" data-flow-area="${Utils.escape(area.id)}" class="rounded-xl bg-black/30 border border-white/10 p-2.5">
                 <div class="flex items-center gap-1.5 mb-1"><i data-lucide="target" class="w-3 h-3 text-${tone}-300"></i><p class="text-[9px] font-black text-${tone}-200 uppercase tracking-wider">KR-mãe</p></div>
                 <p class="font-bold text-white text-xs leading-tight mb-1">${Utils.escape(kr.name || 'Sem nome')}</p>
                 <div class="flex items-center justify-between gap-2 mb-1">
@@ -154,7 +210,8 @@ window.StrategicOverviewModal = {
         const progress = this._okrProgress(kr);
         const status = window.StrategicMapRenderer ? StrategicMapRenderer.okrStatus(progress) : { color: 'slate' };
         const connected = (kr.connectedActionIds || []).length;
-        return `<div class="rounded-lg bg-black/30 border border-white/10 p-2">
+        const parentAttr = kr.parentProductKrId ? `data-flow-child="${Utils.escape(kr.parentProductKrId)}"` : '';
+        return `<div ${parentAttr} class="rounded-lg bg-black/30 border border-white/10 p-2">
           <p class="font-bold text-white text-[11px] leading-tight mb-1">${Utils.escape(kr.name || 'Sem nome')}</p>
           <div class="flex items-center justify-between gap-2 mb-1">
             <p class="text-[9px] text-slate-400">${Number(kr.current || 0)}/${Number(kr.targetCommitted || kr.target || 0)} · ${connected} ação(ões)</p>

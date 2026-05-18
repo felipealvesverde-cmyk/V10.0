@@ -8,7 +8,9 @@ window.StrategicMapModal = {
     const productId = App.state.strategicMapProductId;
     const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
     if (!product) return '';
-    const showOnboarding = !StrategicOnboarding.hasSeen(productId);
+    // V31.2.0 — Welcome sempre aparece ao abrir Mapa (não persiste mais seen).
+    // Skip via "Já configurou?" usa flag transient resetada por openStrategicMap.
+    const showOnboarding = !App.state.strategicSkipOnboarding;
     return `<div id="strategicMapScrollContainer" class="fixed inset-0 z-[80] bg-slate-950/85 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center">
       <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:92vw;max-width:1400px;background: radial-gradient(circle at 18% 8%, rgba(99,102,241,.25), transparent 32%), radial-gradient(circle at 82% 0%, rgba(34,197,94,.15), transparent 32%), #071326;">
         ${this._header(product)}
@@ -277,6 +279,7 @@ window.StrategicMapModal = {
 
       <div class="flex flex-col sm:flex-row gap-3 justify-end">
         <button onclick="Actions.closeStrategicMap()" class="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-black">Voltar depois</button>
+        <button onclick="Actions.skipStrategicOnboarding()" class="px-5 py-3 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-100 font-black flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i> Já configurou?</button>
         <button onclick="Actions.dismissStrategicOnboarding()" style="color:#fff!important;" class="px-5 py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-black flex items-center gap-2"><i data-lucide="arrow-right" class="w-4 h-4"></i> Começar pela Visão</button>
       </div>
     </div>`;
@@ -721,18 +724,16 @@ window.StrategicMapModal = {
   // V29.1.0 — Em mode='product': CEO edita productKrs via _productKrsBlock.
   // Em mode='campaign': Gestor vê os KRs-mãe read-only + banner pra ir pra etapa Campanha.
   _stepOkrs(product) {
-    const mode = App.state.strategicMapMode || 'product';
-    if (mode === 'product') {
-      const productKrs = StrategicMapEngine.getProductKrs(product.id);
-      const orphans = StrategicMapEngine.getOrphanChildKrs ? StrategicMapEngine.getOrphanChildKrs(product.id) : [];
-      return `<section class="space-y-4">
-        ${this._stepIntro('Os números do produto', 'Defina quais números (KRs-mãe) o produto inteiro precisa entregar. Cada campanha plugada vai contribuir.', 'target', null, 'okrs-kr-mae', 'KR-mãe é a meta consolidada do produto. As campanhas (branches) "plugam" filhos que somam pra ela via rollup automático. CEO define a mãe; gestores definem os filhos.')}
-        ${this._productKrsBlock(product, productKrs, orphans)}
-        ${this._stepCta('Próximo passo (visão CEO encerra aqui)', productKrs.length > 0)}
-      </section>`;
-    }
-    // mode='campaign' read-only
-    return this._stepOkrsReadOnly(product);
+    // V31.2.0 — Sempre versão editável (não há mais distinção CEO/Gestor).
+    // Antes mode='campaign' mostrava read-only; agora qualquer um pode criar
+    // productKrs daqui — facilita coverage dos números pela campanha.
+    const productKrs = StrategicMapEngine.getProductKrs(product.id);
+    const orphans = StrategicMapEngine.getOrphanChildKrs ? StrategicMapEngine.getOrphanChildKrs(product.id) : [];
+    return `<section class="space-y-4">
+      ${this._stepIntro('Os números do produto', 'Defina quais números (KRs-mãe) o produto inteiro precisa entregar. Cada campanha plugada vai contribuir.', 'target', null, 'okrs-kr-mae', 'KR-mãe é a meta consolidada do produto. As campanhas (branches) "plugam" filhos que somam pra ela via rollup automático.')}
+      ${this._productKrsBlock(product, productKrs, orphans)}
+      ${this._stepCta('Próximo passo: plugar números nesta campanha', productKrs.length > 0)}
+    </section>`;
   },
 
   _stepOkrsReadOnly(product) {
@@ -1269,10 +1270,18 @@ window.StrategicMapModal = {
         'campaign-hub',
         'Cada campanha é uma APOSTA diferente pra entregar os números do produto. Várias campanhas podem rodar ao mesmo tempo, cada uma contribuindo um pedaço (rollup). Selecione uma aqui e siga pra etapa 5 onde você pluga os números e ativa as ações.'
       )}
-      <div class="rounded-xl bg-violet-500/10 border border-violet-400/25 px-3 py-2 text-[12px] text-violet-100 inline-flex items-center gap-2">
-        <span class="w-2 h-2 rounded-full bg-violet-400"></span>
-        <span><b>${totalCampanhas}</b> campanha(s) mapeada(s), sendo <b class="text-emerald-200">${branches.length}</b> plugada(s) e <b class="text-red-200">${desplugadas.length}</b> desplugada(s)</span>
-      </div>
+      ${(() => {
+        // V31.2.0 — Bolinha+pill ganha tom avermelhado quando tem desplugadas.
+        const hasDesp = desplugadas.length > 0;
+        const bg = hasDesp ? 'bg-red-500/10' : 'bg-violet-500/10';
+        const border = hasDesp ? 'border-red-400/30' : 'border-violet-400/25';
+        const text = hasDesp ? 'text-red-100' : 'text-violet-100';
+        const dot = hasDesp ? 'bg-red-400' : 'bg-violet-400';
+        return `<div class="rounded-xl ${bg} border ${border} px-3 py-2 text-[12px] ${text} inline-flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full ${dot}"></span>
+          <span><b>${totalCampanhas}</b> campanha(s) mapeada(s), sendo <b class="text-emerald-200">${branches.length}</b> plugada(s) e <b class="text-red-200">${desplugadas.length}</b> desplugada(s)</span>
+        </div>`;
+      })()}
 
       ${branches.length > 0 ? `<div class="space-y-2">
         ${branches.map(b => this._campaignHubCard(product, b)).join('')}
