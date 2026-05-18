@@ -3587,6 +3587,16 @@ Object.assign(Actions, {
   // V29.0.0 — Abre Mapa em vista PRODUTO (CEO mode): Visão + KRs-mãe + lista de branches.
   openStrategicMap(productId) {
     if (!productId) return Utils.toast('Selecione um produto.');
+    // V31.0.5 — Demo: abre direto na primeira branch (mode='campaign') pra ver
+    // tudo conectado nos 6 etapas (sem placeholders "Gestor preenche").
+    if (this._isDemoUser && this._isDemoUser()) {
+      const branches = window.StrategicMapEngine?.getBranchesByProduct
+        ? StrategicMapEngine.getBranchesByProduct(Number(productId))
+        : [];
+      if (branches.length) {
+        return Actions.openStrategicMapForCampaign(branches[0].campaignId);
+      }
+    }
     App.state.strategicMapProductId = Number(productId);
     App.state.strategicMapCampaignId = null;        // V29 — vista produto, não campanha
     App.state.strategicMapMode = 'product';         // V29 — 'product' | 'campaign'
