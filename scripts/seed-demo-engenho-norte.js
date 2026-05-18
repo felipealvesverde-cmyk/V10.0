@@ -161,6 +161,15 @@ function generateActions() {
         connectionStatus: status === 'Conectada' ? 'connected' : 'ready',
         mailingDefined: false,
         leads: [],
+        // V31.0.6 — Campos estratégicos pra ação contar como "ativa" no Mapa da Receita
+        // (filtro a.strategicAreaId em _campaignHubCard, RevOps governance, etc.).
+        strategicAreaId: sector, // 'marketing' | 'sales' | 'cs'
+        strategicCatalogId: null,
+        strategicDescription: '',
+        strategicOwner: isMkt ? 'Marina Costa' : isSales ? 'Rafael Almeida' : 'Beatriz Ribeiro',
+        strategicCadence: null,
+        strategicStatus: status === 'Conectada' ? 'active' : 'planned',
+        strategicConfirmed: status === 'Conectada' || i < 8,
         createdAt: iso(35 - Math.floor(i / 4))
       });
     }
@@ -565,12 +574,12 @@ function buildEngenhoNorteState() {
     dataCreatedAt: SEED_BASE_DATE,
     lastMigrationAt: NOW,
     lastSavedAt: NOW,
-    __demoSeed: 'engenho-norte-v3'
+    __demoSeed: 'engenho-norte-v4'
   };
 }
 
 // V31.0.2 — Versão do seed. Server.js compara com state existente pra decidir
 // se re-seeda ou não. Bump aqui sempre que mudar o conteúdo da empresa fictícia.
-const DEMO_SEED_VERSION = 'engenho-norte-v3';
+const DEMO_SEED_VERSION = 'engenho-norte-v4';
 
 module.exports = { buildEngenhoNorteState, DEMO_SEED_VERSION };
