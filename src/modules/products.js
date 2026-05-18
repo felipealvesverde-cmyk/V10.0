@@ -14,6 +14,51 @@ var ProductsModule = {
       ${this.productCampaignsModal()}
       ${window.CampaignModule?.editCampaignModal ? CampaignModule.editCampaignModal() : ''}
       ${window.StrategicMapModal ? StrategicMapModal.render() : ''}
+      ${this.newProductWithMapaPopup()}
+    </div>`;
+  },
+
+  // V31.2.5 — Popup curto pra criar produto JÁ no fluxo Mapa da Receita.
+  // Pede só o nome (e opcionalmente tipo + recorrência). Confirmar cria o
+  // produto e abre o Mapa direto na etapa Visão.
+  newProductWithMapaPopup() {
+    const draft = App.state.newProductWithMapaPopup;
+    if (!draft || !draft.open) return '';
+    return `<div class="fixed inset-0 z-[95] bg-slate-950/85 backdrop-blur-sm grid place-items-center p-4">
+      <div class="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-md overflow-hidden">
+        <header class="p-5 text-white" style="background:linear-gradient(135deg, #7C3AED, #4F46E5);">
+          <div class="flex items-center gap-2 mb-2"><i data-lucide="compass" class="w-4 h-4"></i><p class="text-[11px] font-black uppercase tracking-wider opacity-90">Estratégico-primeiro</p></div>
+          <h3 class="text-xl font-black">Criar Produto com Mapa da Receita</h3>
+          <p class="text-xs opacity-90 mt-1">Vamos começar pelo essencial e seguir direto pra Visão.</p>
+        </header>
+        <div class="p-5 space-y-3">
+          <div>
+            <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Nome do produto</label>
+            <input value="${Utils.escape(draft.name || '')}" oninput="Actions.updateNewProductWithMapaField('name', this.value)" autofocus placeholder="Ex: Diagnóstico Comercial" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900" />
+          </div>
+          <div>
+            <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Tipo de produto <span class="text-slate-400 font-normal">(opcional, dá pra editar depois)</span></label>
+            <input value="${Utils.escape(draft.type || '')}" oninput="Actions.updateNewProductWithMapaField('type', this.value)" placeholder="Ex: Consultoria, SaaS, Curso" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900" />
+          </div>
+          <div>
+            <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Recorrência</label>
+            <select onchange="Actions.updateNewProductWithMapaField('revenueModel', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900">
+              <option value="Venda única" ${(draft.revenueModel || 'Venda única') === 'Venda única' ? 'selected' : ''}>Venda única</option>
+              <option value="Recorrente" ${draft.revenueModel === 'Recorrente' ? 'selected' : ''}>Recorrente</option>
+            </select>
+          </div>
+          <div class="rounded-xl bg-indigo-50 border border-indigo-200 p-3 text-[11px] text-indigo-900 flex items-start gap-2">
+            <i data-lucide="info" class="w-3.5 h-3.5 mt-0.5 shrink-0 text-indigo-600"></i>
+            <p>Próximo passo: você cai direto no <b>Mapa da Receita</b> pra definir a Visão, as 3 frentes (Mkt/Vendas/CS) e os números. Resto dos dados financeiros você completa depois.</p>
+          </div>
+        </div>
+        <footer class="border-t border-slate-100 p-4 flex justify-end gap-2 bg-slate-50">
+          <button onclick="Actions.closeNewProductWithMapaPopup()" class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs">Cancelar</button>
+          <button onclick="Actions.confirmNewProductWithMapa()" class="px-4 py-2.5 rounded-2xl text-white font-black text-xs flex items-center gap-1.5" style="background:linear-gradient(135deg, #7C3AED, #4F46E5); color:#fff!important;">
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i> Criar e ir pra Visão
+          </button>
+        </footer>
+      </div>
     </div>`;
   },
 
@@ -66,7 +111,7 @@ var ProductsModule = {
     const d = App.state.productDraft || {};
     return `<div class="space-y-3">
       <!-- V31.2.4 — Caminho recomendado: criar produto JÁ ligado ao Mapa da Receita -->
-      <button onclick="Actions.createProductWithMapa()" class="w-full px-5 py-4 rounded-3xl text-white font-black flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition" style="background:linear-gradient(135deg, #7C3AED, #4F46E5); color:#fff!important;">
+      <button onclick="Actions.openNewProductWithMapaPopup()" class="w-full px-5 py-4 rounded-3xl text-white font-black flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition" style="background:linear-gradient(135deg, #7C3AED, #4F46E5); color:#fff!important;">
         <i data-lucide="compass" class="w-5 h-5"></i>
         <span class="text-base">Criar Produto com Mapa da Receita</span>
         <span class="text-[10px] font-bold opacity-80 ml-1">recomendado</span>

@@ -336,13 +336,55 @@ Object.assign(Actions, {
     return product;
   },
 
-  // V31.2.4 — Criar produto JUNTO com Mapa da Receita: cria o produto e abre
-  // imediatamente o Mapa da Receita guiado (Visão → Frentes → Números → ...).
-  // Caminho "estratégico-primeiro": evita ações órfãs sem norte.
+  // V31.2.5 — Caminho "estratégico-primeiro": botão Criar com Mapa abre popup
+  // mínimo (só nome do produto) e em seguida joga direto no Mapa da Receita
+  // pra construir Visão → Frentes → Números → Ações → Execução guiado.
+  openNewProductWithMapaPopup() {
+    if (this._demoGuard && this._demoGuard('Criar produto')) return;
+    App.state.newProductWithMapaPopup = { open: true, name: '', type: '', revenueModel: 'Venda única' };
+    App.render();
+  },
+  closeNewProductWithMapaPopup() {
+    App.state.newProductWithMapaPopup = null;
+    App.render();
+  },
+  updateNewProductWithMapaField(field, value) {
+    if (!App.state.newProductWithMapaPopup) return;
+    App.state.newProductWithMapaPopup[field] = value;
+  },
+  confirmNewProductWithMapa() {
+    const draft = App.state.newProductWithMapaPopup;
+    if (!draft) return;
+    const name = String(draft.name || '').trim();
+    if (!name) return Utils.toast('Digite um nome pro produto.');
+    // Cria o produto com defaults mínimos
+    const product = ProductRevenueEngine.normalize({
+      id: Date.now(),
+      name,
+      type: String(draft.type || '').trim(),
+      price: '',
+      revenueModel: draft.revenueModel || 'Venda única',
+      operationalCost: ''
+    });
+    App.state.products.unshift(product);
+    App.state.selectedProductId = product.id;
+    App.state.campaignDraft.productId = product.id;
+    App.state.newProductWithMapaPopup = null;
+    App.save();
+    Utils.toast(`Produto "${name}" criado. Vamos construir o Mapa da Receita.`);
+    setTimeout(() => {
+      Actions.openStrategicMap(product.id);
+      // Pula o welcome onboarding pra ir direto pra etapa Visão
+      App.state.strategicSkipOnboarding = true;
+      if (window.StrategicZoomNavigation) StrategicZoomNavigation.set('vision');
+      App.save(); App.render();
+    }, 80);
+  },
+
+  // V31.2.4 — Legado (chamava createProduct + openStrategicMap). Substituído pelo
+  // popup acima em V31.2.5. Mantido pra compat com possíveis chamadas.
   createProductWithMapa() {
-    const product = this.createProduct();
-    if (!product || !product.id) return;
-    setTimeout(() => Actions.openStrategicMap(product.id), 100);
+    Actions.openNewProductWithMapaPopup();
   },
   createCampaign() {
     const d = App.state.campaignDraft;
