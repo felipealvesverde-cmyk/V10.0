@@ -3587,15 +3587,15 @@ Object.assign(Actions, {
   // V29.0.0 — Abre Mapa em vista PRODUTO (CEO mode): Visão + KRs-mãe + lista de branches.
   openStrategicMap(productId) {
     if (!productId) return Utils.toast('Selecione um produto.');
-    // V31.0.5 — Demo: abre direto na primeira branch (mode='campaign') pra ver
-    // tudo conectado nos 6 etapas (sem placeholders "Gestor preenche").
-    if (this._isDemoUser && this._isDemoUser()) {
-      const branches = window.StrategicMapEngine?.getBranchesByProduct
-        ? StrategicMapEngine.getBranchesByProduct(Number(productId))
-        : [];
-      if (branches.length) {
-        return Actions.openStrategicMapForCampaign(branches[0].campaignId);
-      }
+    // V31.0.5 — Demo abria direto na primeira branch pra ver etapas 4-6 com conteúdo.
+    // V31.1.1 — Aplicado a TODOS users: se produto tem branches, abre na primeira
+    // (sem CEO/Gestor distinction = "criar livre"). Se não tem branches, abre em
+    // mode='product' (estado inicial) — etapa 4 hub vai oferecer criar campanha.
+    const branchesForRedirect = window.StrategicMapEngine?.getBranchesByProduct
+      ? StrategicMapEngine.getBranchesByProduct(Number(productId))
+      : [];
+    if (branchesForRedirect.length) {
+      return Actions.openStrategicMapForCampaign(branchesForRedirect[0].campaignId);
     }
     App.state.strategicMapProductId = Number(productId);
     App.state.strategicMapCampaignId = null;        // V29 — vista produto, não campanha
@@ -4207,6 +4207,12 @@ Object.assign(Actions, {
     if (!window.StrategicZoomNavigation) return;
     StrategicZoomNavigation.set(level);
     App.save(); App.render();
+    // V31.1.1 — Reseta scroll do container do Mapa pra topo ao trocar etapa.
+    // Junto com o stepper sticky, garante que o user vê a etapa do início.
+    setTimeout(() => {
+      const c = document.getElementById('strategicMapScrollContainer');
+      if (c) c.scrollTop = 0;
+    }, 30);
   },
 
   advanceStrategicStep() {

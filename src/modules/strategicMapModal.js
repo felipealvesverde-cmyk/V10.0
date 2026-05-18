@@ -283,13 +283,10 @@ window.StrategicMapModal = {
   },
 
   _body(product) {
-    // V29.1.0 — Unificado: ambos modos usam stepper. Etapas se adaptam ao mode
-    // (CEO edita 1-3, lê 4-6 como locked; Gestor edita 4-6, lê 1-3 como locked).
-    const mode = App.state.strategicMapMode || 'product';
+    // V31.1.1 — Removido switcher de BRANCHES e ModeHint (CEO/Gestor) do body.
+    // Navegação entre campanhas fica na etapa 4 "Campanha". Modo único: criar livre.
     const stepId = StrategicZoomNavigation.current();
     return `<div class="p-5 space-y-4">
-      ${this._branchSwitcher(product, mode)}
-      ${this._modeHint(product, mode)}
       ${this._stepper(product)}
       <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
         <div class="space-y-4 min-w-0">
@@ -319,12 +316,12 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // V31.0.4 — Helper: demo user vê o mapa em "view all unlocked" (sem distinção CEO/Gestor).
+  // V31.0.4 — Helper original: demo user vê o mapa unificado (sem CEO/Gestor).
+  // V31.1.1 — Aplicado a TODOS users por pedido do user. Modo CEO/Gestor "embaixo
+  // da fita" continua existindo (mode='product'|'campaign') mas a UI nunca mais
+  // mostra a distinção. Pra reverter, troca pra check de mode === 'demo'.
   _isDemoView() {
-    try {
-      const u = JSON.parse(localStorage.getItem('lj_user') || '{}');
-      return u.mode === 'demo';
-    } catch (_) { return false; }
+    return true;
   },
 
   // V29.0.0 — Switcher no topo: troca entre vista produto e branches (campanhas).
@@ -482,7 +479,9 @@ window.StrategicMapModal = {
     const current = StrategicZoomNavigation.current();
     const editableInCeo = new Set(['vision', 'objectives', 'okrs']);
     const editableInGestor = new Set(['campaign', 'operations', 'execution']);
-    return `<div class="rounded-3xl bg-white/[0.04] border border-white/10 p-3">
+    // V31.1.1 — Stepper sticky no topo do container scrollable. Não desaparece
+    // ao rolar a etapa pra baixo. Usa backdrop blur pra continuar legível.
+    return `<div class="rounded-3xl border border-white/10 p-3 sticky top-0 z-10" style="background: rgba(7, 19, 38, 0.92); backdrop-filter: blur(12px);">
       <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
         ${StrategicZoomNavigation.LEVELS.map((level, i) => {
           const done = progress[level.id];
@@ -574,10 +573,7 @@ window.StrategicMapModal = {
           </div>
           ${hasVision
             ? `<p class="text-base text-white font-semibold leading-relaxed">${Utils.escape(map.vision)}</p>`
-            : `<p class="text-sm text-slate-400 italic">⚠️ Nenhuma visão definida pro produto ainda. Volte pra vista CEO e defina.</p>`}
-          <div class="flex justify-end gap-2 mt-4">
-            <button onclick="Actions.openStrategicMap(${product.id})" class="px-3 py-2 rounded-xl bg-violet-500 hover:bg-violet-600 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="layout" class="w-3.5 h-3.5"></i> Abrir vista CEO pra editar</button>
-          </div>
+            : `<p class="text-sm text-slate-400 italic">⚠️ Nenhuma visão definida pro produto ainda.</p>`}
         </div>
         ${this._stepCta('Próximo passo: Comercial desta campanha', hasVision)}
       </section>`;
@@ -708,7 +704,7 @@ window.StrategicMapModal = {
         </div>
         <div>
           <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Prazo do ciclo</label>
-          <input type="date" value="${Utils.escape(deadline)}" oninput="Actions.updateStrategicAreaField('${area.id}', 'deadline', this.value)" class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-white/15 text-white text-[12px] font-bold" style="color-scheme:dark;" />
+          <div class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-white/15 text-white text-[12px] font-bold flex items-center gap-1.5"><i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i> 90 dias</div>
         </div>
       </div>
 
@@ -1262,23 +1258,27 @@ window.StrategicMapModal = {
       </section>`;
     }
 
+    // V31.1.1 — Título com nome do produto + subtitle único com bolinha roxa.
+    const totalCampanhas = branches.length + desplugadas.length;
     return `<section class="space-y-4">
       ${this._stepIntro(
-        'Em qual campanha você quer trabalhar agora?',
-        `${branches.length} campanha(s) plugada(s), ${desplugadas.length} desplugada(s). Clica em "Seguir →" pra começar a plugar números + ações.`,
+        `Em qual campanha do produto ${product.name} quer trabalhar agora?`,
+        '',
         'git-branch',
         'campaign',
         'campaign-hub',
         'Cada campanha é uma APOSTA diferente pra entregar os números do produto. Várias campanhas podem rodar ao mesmo tempo, cada uma contribuindo um pedaço (rollup). Selecione uma aqui e siga pra etapa 5 onde você pluga os números e ativa as ações.'
       )}
+      <div class="rounded-xl bg-violet-500/10 border border-violet-400/25 px-3 py-2 text-[12px] text-violet-100 inline-flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-violet-400"></span>
+        <span><b>${totalCampanhas}</b> campanha(s) mapeada(s), sendo <b class="text-emerald-200">${branches.length}</b> plugada(s) e <b class="text-red-200">${desplugadas.length}</b> desplugada(s)</span>
+      </div>
 
       ${branches.length > 0 ? `<div class="space-y-2">
-        <p class="text-[10px] font-black text-violet-200 uppercase tracking-wider">🟣 Campanhas plugadas</p>
         ${branches.map(b => this._campaignHubCard(product, b)).join('')}
       </div>` : ''}
 
       ${desplugadas.length > 0 ? `<div class="space-y-2 pt-2">
-        <p class="text-[10px] font-black text-red-300 uppercase tracking-wider">🔴 Campanhas desplugadas</p>
         ${desplugadas.map(c => this._campaignHubDesplugadaCard(product, c)).join('')}
       </div>` : ''}
 
@@ -1946,9 +1946,10 @@ window.StrategicMapModal = {
 
   // -------------------- COMMON --------------------
   _stepIntro(title, hint, icon, interviewKey, helpKey, helpText) {
-    // V27.0.0 — interviewKey opcional ativa botão "Djow me entrevista".
-    // V28.1.1 — helpKey+helpText opcionais ativam botão (?) com balão toggleable.
-    const interviewBtn = interviewKey ? `<button onclick="Actions.djowInterviewStrategic('${interviewKey}')" class="px-3 py-1.5 rounded-xl bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40 text-violet-100 text-[11px] font-black flex items-center gap-1.5 shrink-0" title="Djow conduz entrevista guiada"><i data-lucide="sparkles" class="w-3 h-3"></i> Djow me entrevista</button>` : '';
+    // V27.0.0 — interviewKey opcional ativava botão "Djow me entrevista".
+    // V31.1.1 — Botão removido globalmente (criando fricção). Mantém a API
+    // do _stepIntro (interviewKey segue sendo passado) mas não renderiza.
+    const interviewBtn = '';
     const helpOpen = helpKey && (App.state.strategicHelpOpen || {})[helpKey];
     const helpBtn = helpKey && helpText
       ? `<button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="w-5 h-5 rounded-full bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-400/30 text-indigo-200 text-[11px] font-black grid place-items-center transition" title="O que é isso?">?</button>`

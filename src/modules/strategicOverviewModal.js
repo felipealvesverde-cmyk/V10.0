@@ -15,7 +15,7 @@ window.StrategicOverviewModal = {
       : [];
     const allBranchOkrs = branches.flatMap(b => (b.objectives || []).flatMap(o => o.okrs || []));
     return `<div class="fixed inset-0 z-[90] bg-slate-950/90 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center">
-      <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:96vw;max-width:1500px;background: radial-gradient(circle at 18% 8%, rgba(99,102,241,.25), transparent 32%), radial-gradient(circle at 82% 0%, rgba(34,197,94,.15), transparent 32%), #071326;">
+      <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:93vw;max-width:1500px;background: radial-gradient(circle at 18% 8%, rgba(99,102,241,.25), transparent 32%), radial-gradient(circle at 82% 0%, rgba(34,197,94,.15), transparent 32%), #071326;">
         ${this._header(product, productKrs, branches, allBranchOkrs)}
         <div class="p-6 lg:p-8 overflow-auto" style="max-height:82vh;">
           ${this._tree(product, map, productKrs, branches)}
