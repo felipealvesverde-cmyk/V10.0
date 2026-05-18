@@ -1,9 +1,11 @@
-// V23.0.0 — GET /api/snapshots-list
-// Lista os últimos 50 snapshots do banco. POST cria um novo snapshot manual.
+// V31.0.0 — GET /api/snapshots-list (multi-tenant: scoped por owner_user_id)
+// Lista os últimos 50 snapshots do user autenticado. POST cria novo snapshot manual.
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+
+  const userId = req.user.sub;
 
   if (req.method === 'GET') {
     try {
@@ -11,8 +13,10 @@ module.exports = async function handler(req, res) {
         `SELECT s.id, s.label, s.created_at, u.username AS triggered_by
          FROM journey_snapshots s
          LEFT JOIN users u ON u.id = s.triggered_by_user_id
+         WHERE s.owner_user_id = $1
          ORDER BY s.created_at DESC
-         LIMIT 50`
+         LIMIT 50`,
+        [userId]
       );
       return res.status(200).json({ ok: true, snapshots: result.rows });
     } catch (err) {
@@ -22,7 +26,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    // Cria snapshot novo. Sandbox bloqueado.
+    // Cria snapshot novo. Sandbox bloqueado. Demo já barrado em middleware.
     if (req.user.mode === 'sandbox' && !req.user.isMaster) {
       return res.status(403).json({ ok: false, message: 'Sandbox não persiste snapshots.' });
     }
@@ -33,15 +37,20 @@ module.exports = async function handler(req, res) {
     }
     try {
       const result = await req.db.query(
-        `INSERT INTO journey_snapshots (state_json, label, triggered_by_user_id)
-         VALUES ($1, $2, $3) RETURNING id, created_at`,
-        [state, label, req.user.sub]
+        `INSERT INTO journey_snapshots (state_json, label, triggered_by_user_id, owner_user_id)
+         VALUES ($1, $2, $3, $3) RETURNING id, created_at`,
+        [state, label, userId]
       );
-      // Retenção: mantém últimos 50, deleta excedentes.
+      // Retenção: mantém últimos 50 do owner, deleta excedentes.
       await req.db.query(
-        `DELETE FROM journey_snapshots WHERE id NOT IN (
-           SELECT id FROM journey_snapshots ORDER BY created_at DESC LIMIT 50
-         )`
+        `DELETE FROM journey_snapshots
+         WHERE owner_user_id = $1
+         AND id NOT IN (
+           SELECT id FROM journey_snapshots
+           WHERE owner_user_id = $1
+           ORDER BY created_at DESC LIMIT 50
+         )`,
+        [userId]
       );
       return res.status(201).json({ ok: true, snapshot: result.rows[0] });
     } catch (err) {

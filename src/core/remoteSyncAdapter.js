@@ -25,6 +25,22 @@ window.RemoteSyncAdapter = {
     } catch (_) { return false; }
   },
 
+  // V31.0.0 — Demo lê do DB (igual produção) mas é read-only.
+  // Usado pra decidir se carrega state remoto no boot.
+  isDbBacked() {
+    try {
+      const u = JSON.parse(localStorage.getItem('lj_user') || '{}');
+      return u.mode === 'production' || u.mode === 'demo' || u.isMaster === true;
+    } catch (_) { return false; }
+  },
+
+  isDemo() {
+    try {
+      const u = JSON.parse(localStorage.getItem('lj_user') || '{}');
+      return u.mode === 'demo';
+    } catch (_) { return false; }
+  },
+
   // V23.0.0 — Baixa state remoto se existir. Retorna o state ou null.
   async loadRemoteState() {
     try {

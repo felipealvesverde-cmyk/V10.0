@@ -11,7 +11,7 @@ module.exports = async function handler(req, res) {
   const userId = Number(req.body?.userId);
   const mode = req.body?.mode;
   if (!userId) return res.status(400).json({ ok: false, message: 'userId obrigatório.' });
-  if (!['production', 'sandbox'].includes(mode)) return res.status(400).json({ ok: false, message: 'mode inválido.' });
+  if (!['production', 'sandbox', 'demo'].includes(mode)) return res.status(400).json({ ok: false, message: 'mode inválido.' });
 
   try {
     const result = await req.db.query(

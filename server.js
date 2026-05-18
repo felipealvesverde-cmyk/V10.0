@@ -138,6 +138,84 @@ async function runMigrations() {
         ON CONFLICT (username) DO UPDATE SET password_hash = $2, is_master = TRUE, is_approved = TRUE
       `, [MASTER_USERNAME, MASTER_PASSWORD_HASH]);
     }
+
+    // V31.0.0 — Multi-tenancy refactor: journey_state e journey_snapshots
+    // passam a ser chaveados por user_id.
+    //
+    // Step 1: Backup defensivo do state atual (id=1) em snapshots ANTES de mexer.
+    //   Idempotente: só insere se ainda não existe um snapshot com label específica.
+    await client.query(`
+      INSERT INTO journey_snapshots (state_json, label, triggered_by_user_id)
+      SELECT js.state_json, 'pre-V31-migration-backup', js.updated_by_user_id
+      FROM journey_state js
+      WHERE js.id = 1
+      AND NOT EXISTS (SELECT 1 FROM journey_snapshots WHERE label = 'pre-V31-migration-backup')
+    `).catch(err => {
+      // Se a coluna 'id' já foi removida (migration anterior rodou), ignora.
+      if (!/column .id. does not exist/i.test(err.message)) throw err;
+    });
+
+    // Step 2: Adiciona user_id em journey_state.
+    await client.query(`
+      ALTER TABLE journey_state ADD COLUMN IF NOT EXISTS user_id INT REFERENCES users(id) ON DELETE CASCADE
+    `);
+    // Backfill: linha id=1 atual vira do master user (Felipe).
+    await client.query(`
+      UPDATE journey_state SET user_id = (SELECT id FROM users WHERE is_master = TRUE LIMIT 1)
+      WHERE user_id IS NULL
+    `).catch(() => {}); // tolerante a tabela vazia
+    // NOT NULL + nova PK em user_id, dropa coluna id legada.
+    await client.query(`ALTER TABLE journey_state ALTER COLUMN user_id SET NOT NULL`).catch(() => {});
+    await client.query(`ALTER TABLE journey_state DROP CONSTRAINT IF EXISTS journey_state_pkey`);
+    await client.query(`ALTER TABLE journey_state ADD CONSTRAINT journey_state_pkey PRIMARY KEY (user_id)`).catch(err => {
+      // Se já existe PK em user_id, ignora.
+      if (!/already exists/i.test(err.message)) throw err;
+    });
+    await client.query(`ALTER TABLE journey_state DROP COLUMN IF EXISTS id`);
+
+    // Step 3: journey_snapshots ganha owner_user_id (separado do triggered_by — owner é o dono, triggered_by é o autor da ação).
+    await client.query(`
+      ALTER TABLE journey_snapshots ADD COLUMN IF NOT EXISTS owner_user_id INT REFERENCES users(id) ON DELETE CASCADE
+    `);
+    await client.query(`
+      UPDATE journey_snapshots SET owner_user_id = COALESCE(triggered_by_user_id, (SELECT id FROM users WHERE is_master = TRUE LIMIT 1))
+      WHERE owner_user_id IS NULL
+    `).catch(() => {});
+    await client.query(`ALTER TABLE journey_snapshots ALTER COLUMN owner_user_id SET NOT NULL`).catch(() => {});
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_journey_snapshots_owner ON journey_snapshots(owner_user_id, created_at DESC)
+    `);
+
+    // V31.0.0 — Seed do user demo (cervejaria fictícia Engenho Norte).
+    // Username: demo@leadjourney.app · senha: lj-demo-2026 · mode: demo.
+    const DEMO_USERNAME = 'demo@leadjourney.app';
+    const DEMO_PASSWORD = 'lj-demo-2026';
+    const demoHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+    await client.query(`
+      INSERT INTO users (username, email, password_hash, is_master, is_approved, mode)
+      VALUES ($1, $1, $2, FALSE, TRUE, 'demo')
+      ON CONFLICT (username) DO UPDATE SET is_approved = TRUE, mode = 'demo'
+    `, [DEMO_USERNAME, demoHash]);
+
+    // Step 4: Popula journey_state da empresa Engenho Norte se ainda não existe.
+    const { buildEngenhoNorteState } = require('./scripts/seed-demo-engenho-norte');
+    const demoUserRow = await client.query('SELECT id FROM users WHERE username = $1', [DEMO_USERNAME]);
+    const demoUserId = demoUserRow.rows[0]?.id;
+    if (demoUserId) {
+      const existing = await client.query('SELECT 1 FROM journey_state WHERE user_id = $1', [demoUserId]);
+      if (!existing.rows.length) {
+        const seedState = buildEngenhoNorteState();
+        await client.query(
+          `INSERT INTO journey_state (user_id, state_json, updated_at, updated_by_user_id)
+           VALUES ($1, $2, NOW(), $1)`,
+          [demoUserId, seedState]
+        );
+        console.log('[server] Seed da Engenho Norte populado pro user demo (id=' + demoUserId + ').');
+      } else {
+        console.log('[server] State demo já existe — seed pulado (idempotente).');
+      }
+    }
+
     console.log('[server] Migrations OK.');
     return { ok: true };
   } catch (err) {
@@ -186,6 +264,26 @@ app.use((req, res, next) => {
   if (PUBLIC_API_ROUTES.has(req.path)) return next();
   if (req.user) return next();
   return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+});
+
+// V31.0.0 — Gate demo: users com mode='demo' são read-only. Bloqueia
+// POST/PUT/DELETE/PATCH em qualquer rota /api/* (exceto auth e leitura).
+// Defesa real no backend, não só visual no frontend.
+const DEMO_MUTATION_WHITELIST = new Set([
+  '/api/auth-login',     // sair/logar precisa funcionar
+  '/api/auth-register',  // não bloqueamos cadastros novos (eles ficam pending)
+  '/api/auth-me'
+]);
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api/')) return next();
+  if (!req.user || req.user.mode !== 'demo') return next();
+  if (req.method === 'GET' || req.method === 'OPTIONS' || req.method === 'HEAD') return next();
+  if (DEMO_MUTATION_WHITELIST.has(req.path)) return next();
+  return res.status(403).json({
+    ok: false,
+    code: 'demo_readonly',
+    message: 'Modo demo: cadastros e edições estão desabilitados. Você está navegando uma empresa fictícia (Engenho Norte).'
+  });
 });
 
 // V23.0.0 — Expõe helpers globais pra os handlers /api/*.js.

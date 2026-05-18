@@ -981,6 +981,7 @@ var SettingsModal = {
             <select onchange="Actions.setUserMode(${u.id}, this.value)" class="px-2 py-1 rounded-xl bg-white border border-slate-200 text-xs font-black">
               <option value="sandbox" ${u.mode === 'sandbox' ? 'selected' : ''}>sandbox</option>
               <option value="production" ${u.mode === 'production' ? 'selected' : ''}>produção</option>
+              <option value="demo" ${u.mode === 'demo' ? 'selected' : ''}>demo (read-only)</option>
             </select>
             <button onclick="Actions.revokeUser(${u.id})" class="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-black">Revogar</button>
           `}

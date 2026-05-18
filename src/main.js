@@ -1,3 +1,25 @@
+// V31.0.0 — Interceptor global de fetch: quando backend retorna 403 com
+// code 'demo_readonly', mostra toast amigável. Single point pra detectar
+// tentativas de mutação bloqueadas no modo demo.
+(function installDemoFetchInterceptor() {
+  if (window.__demoFetchInstalled) return;
+  window.__demoFetchInstalled = true;
+  const _origFetch = window.fetch;
+  window.fetch = async function(...args) {
+    const res = await _origFetch.apply(this, args);
+    if (res.status === 403) {
+      try {
+        const clone = res.clone();
+        const data = await clone.json();
+        if (data?.code === 'demo_readonly' && window.Utils?.toast) {
+          Utils.toast(data.message || 'Modo demo: ação bloqueada.');
+        }
+      } catch (_) { /* não-JSON ou consumido — ignora */ }
+    }
+    return res;
+  };
+})();
+
 var App = {
       state: null,
       currentUser: null,  // V23.0.0 — preenchido após login OK
@@ -79,27 +101,38 @@ var App = {
       },
 
       // V23.0.0 — Carrega state: remoto primeiro (se produção/master), local depois.
+      // V31.0.0 — Demo: força carga remota sempre (state vem do DB, local é descartado).
       async _loadStateWithRemoteFallback() {
         const local = State.load();
         let useState = local;
         const user = this.currentUser || {};
-        const canSync = user.mode === 'production' || user.isMaster === true;
+        const isDemo = user.mode === 'demo';
+        const canSync = user.mode === 'production' || user.mode === 'demo' || user.isMaster === true;
         if (canSync && window.RemoteSyncAdapter) {
           try {
             const remote = await RemoteSyncAdapter.loadRemoteState();
             if (remote?.state) {
-              // Tem state remoto. Decide: usa remoto se for mais recente que local.
-              const localUpdated = local?.lastSavedAt ? new Date(local.lastSavedAt).getTime() : 0;
-              const remoteUpdated = remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0;
-              if (remoteUpdated >= localUpdated) {
+              if (isDemo) {
+                // Demo: SEMPRE usa remoto. Local é descartado (não confiável — pode ter
+                // sobras do master ou de outra sessão demo).
                 useState = State.normalize(remote.state);
                 useState = DatabaseService.applyMigrations(useState);
-                console.log('[App] state remoto carregado (atualizado em', remote.updatedAt, ')');
+                console.log('[App] DEMO mode: state remoto Engenho Norte carregado.');
               } else {
-                console.log('[App] state local mais novo que remoto, mantendo local');
+                // Master/production: compara remoto vs local, usa o mais recente.
+                const localUpdated = local?.lastSavedAt ? new Date(local.lastSavedAt).getTime() : 0;
+                const remoteUpdated = remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0;
+                if (remoteUpdated >= localUpdated) {
+                  useState = State.normalize(remote.state);
+                  useState = DatabaseService.applyMigrations(useState);
+                  console.log('[App] state remoto carregado (atualizado em', remote.updatedAt, ')');
+                } else {
+                  console.log('[App] state local mais novo que remoto, mantendo local');
+                }
               }
-            } else if (local && (local.products?.length || local.campaigns?.length)) {
+            } else if (!isDemo && local && (local.products?.length || local.campaigns?.length)) {
               // Banco vazio + local tem dados: faz primeira sincronização (push).
+              // Demo nunca faz isso (read-only).
               console.log('[App] banco vazio, fazendo primeira sincronização do local');
               setTimeout(() => RemoteSyncAdapter._doPush(), 1500);
             }
@@ -376,16 +409,21 @@ var App = {
         if (header) {
           // V25.0.2 — Header minimalista. Pra Home, oculto (HomeModule tem
           // greeting próprio). Pra outras abas, só título + subtítulo + sandbox warn.
+          // V31.0.0 — Adicionado banner MODO DEMO (mode === 'demo').
+          const sandboxBanner = user.mode === 'sandbox' && !user.isMaster
+            ? '<div class="lj-sandbox-warn"><i data-lucide="alert-triangle" class="w-3 h-3"></i> MODO SANDBOX — alterações não persistem no banco</div>'
+            : '';
+          const demoBanner = user.mode === 'demo'
+            ? '<div class="lj-demo-banner"><i data-lucide="eye" class="w-3 h-3"></i> MODO DEMO — Você está navegando a empresa fictícia <b>Engenho Norte</b>. Cadastros estão desabilitados.</div>'
+            : '';
           if (this.state.activeTab === 'home') {
-            header.innerHTML = user.mode === 'sandbox' && !user.isMaster
-              ? '<div class="lj-sandbox-warn"><i data-lucide="alert-triangle" class="w-3 h-3"></i> MODO SANDBOX — alterações não persistem no banco</div>'
-              : '';
+            header.innerHTML = sandboxBanner + demoBanner;
             header.classList.add('lj-page-header-collapsed');
           } else {
             header.classList.remove('lj-page-header-collapsed');
             header.innerHTML = `
               <div>
-                ${user.mode === 'sandbox' && !user.isMaster ? '<div class="lj-sandbox-warn"><i data-lucide="alert-triangle" class="w-3 h-3"></i> MODO SANDBOX — alterações não persistem no banco</div>' : ''}
+                ${sandboxBanner}${demoBanner}
                 <h1 class="lj-page-title">${meta.title}</h1>
                 <p class="lj-page-subtitle">${meta.subtitle}</p>
               </div>

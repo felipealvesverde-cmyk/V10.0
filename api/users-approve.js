@@ -9,7 +9,7 @@ module.exports = async function handler(req, res) {
   if (!req.user.isMaster) return res.status(403).json({ ok: false, message: 'Apenas o master pode aprovar.' });
 
   const userId = Number(req.body?.userId);
-  const mode = ['production', 'sandbox'].includes(req.body?.mode) ? req.body.mode : null;
+  const mode = ['production', 'sandbox', 'demo'].includes(req.body?.mode) ? req.body.mode : null;
 
   if (!userId) return res.status(400).json({ ok: false, message: 'userId obrigatório.' });
 

@@ -1,4 +1,21 @@
 var Actions = {
+      // V31.0.0 — Helpers demo mode. Backend bloqueia mutations (403) via middleware;
+      // estes helpers no frontend são UX (toast amigável + abort) e ficam fora dos
+      // Actions principais — quem quiser blindar uma Action chama Actions._demoGuard()
+      // no topo. Para Actions que não chamam, o backend ainda bloqueia: state
+      // in-memory pode mostrar mudança fantasma até reload, mas DB nunca é tocado.
+      _isDemoUser() {
+        try {
+          const u = JSON.parse(localStorage.getItem('lj_user') || '{}');
+          return u.mode === 'demo';
+        } catch (_) { return false; }
+      },
+      _demoGuard(label) {
+        if (!this._isDemoUser()) return false;
+        Utils.toast(`Modo demo · ${label || 'cadastros'} desabilitado. Navegue à vontade!`);
+        return true;
+      },
+
       selectCampaign(id) {
         const campaign = (App.state.campaigns || []).find(item => Number(item.id) === Number(id));
         if (!campaign) return Utils.toast('Campanha não encontrada.');
