@@ -6,7 +6,6 @@ var ActionModule = {
     const product = App.state.products.find(p => Number(p.id) === Number(selectedCampaign.productId));
     return `<div class="space-y-4">
       ${this.actionLayer(selectedCampaign, product, actions)}
-      ${this.operationalFlowRail(selectedCampaign, product)}
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-4"><div class="grid md:grid-cols-[1fr_auto] gap-3 md:items-end"><div><p class="text-xs font-black text-slate-500">Campanha selecionada</p><h2 class="text-2xl font-black">${Utils.escape(selectedCampaign.name)}</h2><p class="text-sm text-slate-500 mt-1">Produto: ${Utils.escape(product?.name || 'não vinculado')} • A ação é onde os OKRs nascem e alimentam funil, setor e Revenue Intelligence.</p></div><div><label class="text-xs font-black text-slate-500">Trocar campanha</label><select onchange="Actions.selectCampaignFromActions(Number(this.value))" class="w-full md:w-72 px-4 py-3 rounded-2xl bg-slate-100 font-bold">${App.state.campaigns.map(campaign => `<option value="${campaign.id}" ${campaign.id === selectedCampaign.id ? 'selected' : ''}>${Utils.escape(campaign.name)}</option>`).join('')}</select></div></div></div>
       <div class="grid lg:grid-cols-3 gap-4"><div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-1">Criar ação</h2><p class="text-sm text-slate-500 mb-4">Defina contexto operacional, origem, destino e base de leads.</p>${this._createTabs()}${App.state.actionCreateTab === 'ai' ? this._aiCreatePanel() : this._manualCreatePanel()}</div><div class="lg:col-span-2 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="flex items-start justify-between gap-3 mb-3"><div><h2 class="text-xl font-black mb-1">Ações plugadas</h2><p class="text-sm text-slate-500">Cada ação possui canal, KPIs, fluxo transversal, leads, score, conexão e resultado próprio.</p></div><button onclick="Actions.openFlowBuilder(${selectedCampaign.id})" class="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-2 whitespace-nowrap" style="color:#fff!important;"><i data-lucide="git-merge" class="w-3.5 h-3.5"></i> Construir Fluxo</button></div>${this._actionsListFilter(actions)}<div class="space-y-3">${this._filteredActionsList(actions)}</div></div></div>
       ${ActionFlowModal.render()}
@@ -21,7 +20,6 @@ var ActionModule = {
   emptyActionsState() {
     return `<div class="space-y-4">
       ${this.actionLayer(null, null, [])}
-      ${this.operationalFlowRail(null, null)}
       <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 text-center">
         <h2 class="text-2xl font-black mb-2">Nenhuma campanha selecionada</h2>
         <p class="text-sm text-slate-500 mb-5">Para criar ações, siga o fluxo: produto → campanha → ação.</p>

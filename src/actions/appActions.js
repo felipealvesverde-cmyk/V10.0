@@ -319,6 +319,7 @@ Object.assign(Actions, {
   createProduct() {
     const d = App.state.productDraft || {};
     if (!String(d.name || '').trim()) return Utils.toast('Digite o nome do produto.');
+    if (this._demoGuard && this._demoGuard('Criar produto')) return null;
     const product = ProductRevenueEngine.normalize({
       id: Date.now(),
       name: d.name.trim(),
@@ -332,6 +333,16 @@ Object.assign(Actions, {
     App.state.campaignDraft.productId = product.id;
     App.state.productDraft = { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' };
     App.save(); App.render(); Utils.toast('Produto criado e pronto para receber campanhas.');
+    return product;
+  },
+
+  // V31.2.4 — Criar produto JUNTO com Mapa da Receita: cria o produto e abre
+  // imediatamente o Mapa da Receita guiado (Visão → Frentes → Números → ...).
+  // Caminho "estratégico-primeiro": evita ações órfãs sem norte.
+  createProductWithMapa() {
+    const product = this.createProduct();
+    if (!product || !product.id) return;
+    setTimeout(() => Actions.openStrategicMap(product.id), 100);
   },
   createCampaign() {
     const d = App.state.campaignDraft;

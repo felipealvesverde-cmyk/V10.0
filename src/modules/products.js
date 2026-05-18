@@ -3,7 +3,6 @@ var ProductsModule = {
     const selected = this.selectedProduct();
     return `<div class="space-y-4">
       ${this.hero(selected)}
-      ${this.operationalFlowRail(selected)}
       <div class="grid lg:grid-cols-[1fr_1.2fr] gap-4">
         ${this.createPanel()}
         ${this.productsPanel()}
@@ -65,14 +64,31 @@ var ProductsModule = {
 
   createPanel() {
     const d = App.state.productDraft || {};
-    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-      <h2 class="text-xl font-black mb-1">Criar Produto</h2>
-      <p class="text-sm text-slate-500 mb-5">Cadastre apenas os dados que o dono da operação realmente sabe. O sistema calcula a leitura financeira por trás.</p>
-      <div class="grid md:grid-cols-2 gap-3">
-        <div class="md:col-span-2"><label class="text-xs font-black text-slate-500">Nome do produto</label><input value="${Utils.escape(d.name || '')}" oninput="App.state.productDraft.name=this.value; App.save();" placeholder="Ex: Diagnóstico Comercial" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-        <div><label class="text-xs font-black text-slate-500">Tipo de produto</label><input value="${Utils.escape(d.type || '')}" oninput="App.state.productDraft.type=this.value; App.save();" placeholder="Ex: Consultoria, SaaS, Curso" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-        <div><label class="text-xs font-black text-slate-500">Recorrência ou venda única</label><select onchange="App.state.productDraft.revenueModel=this.value; App.save();" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold"><option value="Venda única" ${(d.revenueModel || 'Venda única') === 'Venda única' ? 'selected' : ''}>Venda única</option><option value="Recorrente" ${d.revenueModel === 'Recorrente' ? 'selected' : ''}>Recorrente</option></select></div>
-        <button onclick="Actions.createProduct()" style="color:#fff!important;" class="md:col-span-2 px-5 py-3 rounded-2xl bg-slate-900 text-white font-black lj-dark-button">Criar Produto</button>
+    return `<div class="space-y-3">
+      <!-- V31.2.4 — Caminho recomendado: criar produto JÁ ligado ao Mapa da Receita -->
+      <button onclick="Actions.createProductWithMapa()" class="w-full px-5 py-4 rounded-3xl text-white font-black flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition" style="background:linear-gradient(135deg, #7C3AED, #4F46E5); color:#fff!important;">
+        <i data-lucide="compass" class="w-5 h-5"></i>
+        <span class="text-base">Criar Produto com Mapa da Receita</span>
+        <span class="text-[10px] font-bold opacity-80 ml-1">recomendado</span>
+      </button>
+
+      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+        <h2 class="text-xl font-black mb-1">Criar Produto</h2>
+        <p class="text-sm text-slate-500 mb-3">Cadastre apenas os dados que o dono da operação realmente sabe. O sistema calcula a leitura financeira por trás.</p>
+        <!-- V31.2.4 — Aviso: este caminho não conecta a objetivos -->
+        <div class="rounded-2xl bg-amber-50 border border-amber-300 p-3 text-[12px] text-amber-900 flex items-start gap-2 mb-4">
+          <i data-lucide="alert-triangle" class="w-4 h-4 mt-0.5 shrink-0 text-amber-700"></i>
+          <div>
+            <p class="font-black mb-0.5">Sem Mapa da Receita</p>
+            <p>Aqui o produto é cadastrado puro. Sem visão, sem KRs, sem rollup. Sua operação pode rodar ações sem norte e ficar sem trackeamento estratégico. Considere o caminho acima se quiser conectar tudo desde o início.</p>
+          </div>
+        </div>
+        <div class="grid md:grid-cols-2 gap-3">
+          <div class="md:col-span-2"><label class="text-xs font-black text-slate-500">Nome do produto</label><input value="${Utils.escape(d.name || '')}" oninput="App.state.productDraft.name=this.value; App.save();" placeholder="Ex: Diagnóstico Comercial" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
+          <div><label class="text-xs font-black text-slate-500">Tipo de produto</label><input value="${Utils.escape(d.type || '')}" oninput="App.state.productDraft.type=this.value; App.save();" placeholder="Ex: Consultoria, SaaS, Curso" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
+          <div><label class="text-xs font-black text-slate-500">Recorrência ou venda única</label><select onchange="App.state.productDraft.revenueModel=this.value; App.save();" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold"><option value="Venda única" ${(d.revenueModel || 'Venda única') === 'Venda única' ? 'selected' : ''}>Venda única</option><option value="Recorrente" ${d.revenueModel === 'Recorrente' ? 'selected' : ''}>Recorrente</option></select></div>
+          <button onclick="Actions.createProduct()" style="color:#fff!important;" class="md:col-span-2 px-5 py-3 rounded-2xl bg-slate-900 text-white font-black lj-dark-button">Criar Produto sem Mapa</button>
+        </div>
       </div>
     </div>`;
   },
