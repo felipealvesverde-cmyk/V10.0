@@ -410,6 +410,9 @@ var State = {
       strategicMapZoom: raw.strategicMapZoom || 'strategy',
       strategicMapOnboardingSeen: raw.strategicMapOnboardingSeen && typeof raw.strategicMapOnboardingSeen === 'object' ? raw.strategicMapOnboardingSeen : {},
       strategicMaps: raw.strategicMaps && typeof raw.strategicMaps === 'object' ? raw.strategicMaps : {},
+      // V31.0.4 — Fix core: strategicCampaignMaps (branches V29) não estava sendo
+      // preservado no normalize. Causa: cada load do state limpava as branches.
+      strategicCampaignMaps: raw.strategicCampaignMaps && typeof raw.strategicCampaignMaps === 'object' ? raw.strategicCampaignMaps : {},
       strategicDjowChats: raw.strategicDjowChats && typeof raw.strategicDjowChats === 'object' ? raw.strategicDjowChats : {},
       strategicDjowDraft: '',
       strategicDjowSending: false,

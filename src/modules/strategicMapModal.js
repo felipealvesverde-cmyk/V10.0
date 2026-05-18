@@ -300,7 +300,9 @@ window.StrategicMapModal = {
   },
 
   // V29.1.0 — Banner sutil indicando qual papel o user assume neste mode.
+  // V31.0.4 — Demo user não vê distinção CEO/Gestor (só explora o mapa pronto).
   _modeHint(product, mode) {
+    if (this._isDemoView()) return '';
     if (mode === 'campaign') {
       const campaignId = App.state.strategicMapCampaignId;
       const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
@@ -316,15 +318,25 @@ window.StrategicMapModal = {
     </div>`;
   },
 
+  // V31.0.4 — Helper: demo user vê o mapa em "view all unlocked" (sem distinção CEO/Gestor).
+  _isDemoView() {
+    try {
+      const u = JSON.parse(localStorage.getItem('lj_user') || '{}');
+      return u.mode === 'demo';
+    } catch (_) { return false; }
+  },
+
   // V29.0.0 — Switcher no topo: troca entre vista produto e branches (campanhas).
+  // V31.0.4 — Demo: sem botão "Produto (CEO)", só navegação entre branches.
   _branchSwitcher(product, mode) {
     const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(product.id) : [];
     const activeCampaignId = App.state.strategicMapCampaignId;
+    const isDemo = this._isDemoView();
     return `<div class="rounded-2xl bg-white/[0.05] border border-white/10 p-2.5 flex items-center gap-2 flex-wrap">
-      <span class="text-[10px] font-black text-slate-400 uppercase tracking-wider px-2">Vendo:</span>
-      <button onclick="Actions.openStrategicMap(${product.id})" class="px-3 py-1.5 rounded-lg text-[11px] font-black ${mode === 'product' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'}" ${mode === 'product' ? 'style="color:#fff!important;"' : ''}>
+      <span class="text-[10px] font-black text-slate-400 uppercase tracking-wider px-2">${isDemo ? 'Branches:' : 'Vendo:'}</span>
+      ${isDemo ? '' : `<button onclick="Actions.openStrategicMap(${product.id})" class="px-3 py-1.5 rounded-lg text-[11px] font-black ${mode === 'product' ? 'bg-indigo-500 text-white' : 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10'}" ${mode === 'product' ? 'style="color:#fff!important;"' : ''}>
         <i data-lucide="layout" class="w-3 h-3 inline-block mr-1"></i> Produto (CEO)
-      </button>
+      </button>`}
       ${branches.map(b => {
         const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
         if (!campaign) return '';
@@ -456,11 +468,16 @@ window.StrategicMapModal = {
     // V29.1.0 — Stepper único de 6 etapas. Lock visual conforme mode:
     //   CEO edita 1-3 (vision/objectives/okrs), 4-6 ficam locked
     //   Gestor edita 4-6 (campaign/operations/execution), 1-3 ficam locked
+    // V31.0.4 — Demo: todas as 6 etapas concluídas, sem lock (visão de "tudo conectado").
+    const isDemo = this._isDemoView();
     const mode = App.state.strategicMapMode || 'product';
     const campaignId = App.state.strategicMapCampaignId;
-    const progress = (mode === 'campaign' && campaignId)
+    const realProgress = (mode === 'campaign' && campaignId)
       ? StrategicMapEngine.journeyProgressForBranch(product.id, campaignId)
       : StrategicMapEngine.journeyProgressForProduct(product.id);
+    const progress = isDemo
+      ? { vision: true, objectives: true, okrs: true, campaign: true, operations: true, execution: true }
+      : realProgress;
     const current = StrategicZoomNavigation.current();
     const editableInCeo = new Set(['vision', 'objectives', 'okrs']);
     const editableInGestor = new Set(['campaign', 'operations', 'execution']);
@@ -469,7 +486,7 @@ window.StrategicMapModal = {
         ${StrategicZoomNavigation.LEVELS.map((level, i) => {
           const done = progress[level.id];
           const active = current === level.id;
-          const editable = (mode === 'product') ? editableInCeo.has(level.id) : editableInGestor.has(level.id);
+          const editable = isDemo ? true : ((mode === 'product') ? editableInCeo.has(level.id) : editableInGestor.has(level.id));
           const locked = !editable;
           const tone = active
             ? 'bg-indigo-500/25 border-indigo-400/50'
