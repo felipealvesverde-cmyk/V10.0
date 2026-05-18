@@ -115,14 +115,24 @@ var App = {
               if (isDemo) {
                 // Demo: SEMPRE usa remoto. Local é descartado (não confiável — pode ter
                 // sobras do master ou de outra sessão demo).
-                useState = State.normalize(remote.state);
-                useState = DatabaseService.applyMigrations(useState);
+                // V31.0.1: pre-assign this.state ANTES de normalize. ScoreEngine (e outros
+                // engines) lêem App.state.scores durante normalizeLead — se App.state for
+                // null, crashava e caía no fallback local (mostrando dados do master).
+                this.state = remote.state;
+                useState = remote.state; // fallback raw: se normalize crashar, ainda mostra Engenho Norte
+                try {
+                  useState = State.normalize(remote.state);
+                  useState = DatabaseService.applyMigrations(useState);
+                } catch (normErr) {
+                  console.warn('[App] DEMO normalize falhou — usando state raw do DB:', normErr);
+                }
                 console.log('[App] DEMO mode: state remoto Engenho Norte carregado.');
               } else {
                 // Master/production: compara remoto vs local, usa o mais recente.
                 const localUpdated = local?.lastSavedAt ? new Date(local.lastSavedAt).getTime() : 0;
                 const remoteUpdated = remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0;
                 if (remoteUpdated >= localUpdated) {
+                  this.state = remote.state; // V31.0.1: pre-assign idem (defesa em camadas)
                   useState = State.normalize(remote.state);
                   useState = DatabaseService.applyMigrations(useState);
                   console.log('[App] state remoto carregado (atualizado em', remote.updatedAt, ')');
