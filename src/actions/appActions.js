@@ -1640,18 +1640,23 @@ Object.assign(Actions, {
   },
 
   // V23.0.0 — Logout: limpa JWT + user cache + reload (vai pra tela de login).
+  // V31.2.3 — Fix vazamento entre contas no mesmo navegador:
+  //   1. Flush push pendente PRIMEIRO (garante deleções/edits no DB antes de sair)
+  //   2. Limpa state localStorage SEMPRE (antes só sandbox limpava → vazava
+  //      pra próxima conta que logasse no mesmo browser)
   async logout() {
     if (!confirm('Deslogar do LeadJourney? Mudanças não salvas podem ser perdidas.')) return;
+    // 1. Flush push pendente. Se master/production tinha edit pendente (ex: apagou
+    // produto e logou em < 2s do debounce), garante que o DB recebe antes do logout.
+    try {
+      if (window.RemoteSyncAdapter?.flushNow) await RemoteSyncAdapter.flushNow();
+    } catch (_) { /* segue mesmo se push falhar */ }
+    // 2. Limpa state local de QUALQUER user (master, production, demo, sandbox).
+    // DB é fonte da verdade; localStorage é só cache. Evita vazamento entre contas.
+    try { StorageAdapter?.clear?.(); } catch (_) {}
+    // 3. Limpa auth cache.
     localStorage.removeItem('lj_jwt');
     localStorage.removeItem('lj_user');
-    // V23.0.0 — Sandbox: limpa state local ao deslogar (regra escolhida pelo usuário).
-    try {
-      const u = window.App?.currentUser || JSON.parse(localStorage.getItem('lj_user') || '{}');
-      if (u && u.mode === 'sandbox' && !u.isMaster) {
-        // Limpa state local pra próxima sessão sandbox começar limpa.
-        StorageAdapter?.clear?.();
-      }
-    } catch (_) {}
     window.location.reload();
   },
 

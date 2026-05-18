@@ -15,6 +15,13 @@ var StorageAdapter = {
   },
 
   saveRaw(state) {
+    // V31.2.3 — Demo user NUNCA escreve localStorage state. Demo é read-only
+    // do DB; se escrever, contamina o localStorage de master/production que
+    // logar no mesmo navegador depois.
+    try {
+      const u = JSON.parse(localStorage.getItem('lj_user') || '{}');
+      if (u && u.mode === 'demo') return;
+    } catch (_) { /* segue salvando */ }
     const json = JSON.stringify(state);
     // Antes de sobrescrever, rotaciona backup. Só faz isso se o estado atual
     // tem dados REAIS (evita backup vazio sobrescrever backup bom).
