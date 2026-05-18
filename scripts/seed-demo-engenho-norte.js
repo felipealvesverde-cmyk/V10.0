@@ -222,15 +222,16 @@ function generateLeads() {
 }
 const ALL_LEADS = generateLeads();
 
-// --- Mapa Estratégico V29 (productKrs do CEO) ---
+// --- Mapa Estratégico V29 (productKrs do CEO) + Mapa da Receita ---
 function buildStrategicMaps() {
   const maps = {};
   PRODUCTS.forEach((product, idx) => {
     const visionByIdx = [
-      'Ser a IPA artesanal mais vendida do Sudeste em 12 meses.',
-      'Tornar-se referência em Weiss premium nos bares de São Paulo.',
-      'Liderar o segmento de cerveja escura artesanal no Brasil.'
+      'Ser a IPA artesanal mais vendida do Sudeste em 12 meses, focada em paladar lupulado e branding artesanal forte.',
+      'Tornar-se referência em Weiss premium nos bares de São Paulo, com presença em 100 pontos até dezembro.',
+      'Liderar o segmento de cerveja escura artesanal no Brasil, posicionando a Porter como cerveja de degustação premium.'
     ];
+    const firstCampaignId = CAMPAIGNS.find(c => c.productId === product.id)?.id || null;
     maps[product.id] = {
       productId: product.id,
       vision: visionByIdx[idx],
@@ -241,9 +242,53 @@ function buildStrategicMaps() {
         { id: uid('pkr'), name: 'NPS', metric: 'percentual', target: 70, current: 58, unit: 'pts', deadline: '2026-09-30', owner: 'CS', parentKrId: null, catalogId: 'ceo_nps' },
         { id: uid('pkr'), name: 'Recompra', metric: 'percentual', target: 35, current: 22, unit: '%', deadline: '2026-09-30', owner: 'CS', parentKrId: null, catalogId: 'ceo_retention' }
       ],
-      strategicCampaignId: CAMPAIGNS.find(c => c.productId === product.id)?.id || null,
+      strategicCampaignId: firstCampaignId,
+      // V31.0.2 — areaOwners compartilhados entre as branches do produto (CEO já publicou)
+      areaOwners: {
+        marketing: 'Marina Costa',
+        sales: 'Rafael Almeida',
+        cs: 'Beatriz Ribeiro'
+      },
+      // V31.0.2 — Métricas publicadas pros gestores (CEO já clicou "Executar Métricas")
+      metricsExecutedAt: iso(20),
       flowConnections: [],
-      objectives: [],
+      // V31.0.2 — Populamos legacy `objectives` espelhando o branch ativo, pra que
+      // journeyProgress() (que ainda lê do legacy) reconheça etapas 2-3 como completas.
+      objectives: [
+        {
+          id: uid('obj'),
+          label: 'Marketing',
+          area: 'marketing',
+          owner: 'Marina Costa',
+          deadline: '2026-09-30',
+          okrs: [
+            { id: uid('okr'), name: 'Leads gerados (snapshot trim.)', target: 800, current: 320 + idx * 40, unit: 'un', metric: 'quantidade', stageId: 'TOF' }
+          ],
+          createdAt: iso(30 - idx)
+        },
+        {
+          id: uid('obj'),
+          label: 'Vendas',
+          area: 'sales',
+          owner: 'Rafael Almeida',
+          deadline: '2026-09-30',
+          okrs: [
+            { id: uid('okr'), name: 'Vendas fechadas (snapshot trim.)', target: 200, current: 85 + idx * 12, unit: 'un', metric: 'quantidade', stageId: 'BOF' }
+          ],
+          createdAt: iso(30 - idx)
+        },
+        {
+          id: uid('obj'),
+          label: 'Sucesso do Cliente',
+          area: 'cs',
+          owner: 'Beatriz Ribeiro',
+          deadline: '2026-09-30',
+          okrs: [
+            { id: uid('okr'), name: 'NPS médio', target: 70, current: 58, unit: 'pts', metric: 'percentual', stageId: 'POST' }
+          ],
+          createdAt: iso(30 - idx)
+        }
+      ],
       createdAt: iso(45 - idx),
       updatedAt: iso(5)
     };
@@ -261,6 +306,17 @@ function buildCampaignBranches() {
     const parentEbitda = productMap.productKrs[1].id;
     const parentUnits = productMap.productKrs[2].id;
     const parentNps = productMap.productKrs[3].id;
+    // V31.0.2 — Pega as ações desta campanha pra plugar nas OKRs (etapa 5 "As ações").
+    // Distribui as 16 ações da campanha: primeiras 6 em mkt, próximas 4 em vendas, próximas 3 em cs.
+    const campActions = ACTIONS.filter(a => a.campaignId === camp.id);
+    const mktActionIds = campActions.filter(a => a.sector === 'marketing').slice(0, 6).map(a => a.id);
+    const salesActionIds = campActions.filter(a => a.sector === 'sales').slice(0, 4).map(a => a.id);
+    const csActionIds = campActions.filter(a => a.sector === 'cs').slice(0, 3).map(a => a.id);
+    // Se campanha é puramente Mkt/Sales/CS, usa as ações dela mesmo
+    const allCampActionIds = campActions.map(a => a.id);
+    const mkt = mktActionIds.length ? mktActionIds : allCampActionIds.slice(0, 6);
+    const sales = salesActionIds.length ? salesActionIds : allCampActionIds.slice(6, 10);
+    const cs = csActionIds.length ? csActionIds : allCampActionIds.slice(10, 13);
     branches[camp.id] = {
       campaignId: camp.id,
       productId: camp.productId,
@@ -270,12 +326,12 @@ function buildCampaignBranches() {
           id: uid('obj'),
           label: 'Marketing',
           area: 'marketing',
-          owner: 'Marina',
+          owner: 'Marina Costa',
           deadline: '2026-09-30',
           okrs: [
-            { id: uid('okr'), name: 'Leads gerados', metric: 'quantidade', catalogId: 'mkt_leads', isHandoff: true, current: 320 + cIdx * 40, targetCommitted: 800, targetStretch: 1200, period: 90, confirmed: true, connectedActionIds: [], parentProductKrId: parentRevenue },
-            { id: uid('okr'), name: 'CAC marketing', metric: 'reais', catalogId: 'mkt_cac', isHandoff: false, current: 38, targetCommitted: 30, targetStretch: 22, period: 90, confirmed: true, connectedActionIds: [], parentProductKrId: parentEbitda },
-            { id: uid('okr'), name: 'Engajamento Instagram', metric: 'percentual', catalogId: 'mkt_engagement', isHandoff: false, current: 4.2, targetCommitted: 6, targetStretch: 8, period: 90, confirmed: false, connectedActionIds: [], parentProductKrId: parentRevenue }
+            { id: uid('okr'), name: 'Leads gerados', metric: 'quantidade', catalogId: 'mkt_leads', isHandoff: true, current: 320 + cIdx * 40, targetCommitted: 800, targetStretch: 1200, period: 90, confirmed: true, connectedActionIds: mkt.slice(0, 3), parentProductKrId: parentRevenue },
+            { id: uid('okr'), name: 'CAC marketing', metric: 'reais', catalogId: 'mkt_cac', isHandoff: false, current: 38, targetCommitted: 30, targetStretch: 22, period: 90, confirmed: true, connectedActionIds: mkt.slice(3, 5), parentProductKrId: parentEbitda },
+            { id: uid('okr'), name: 'Engajamento Instagram', metric: 'percentual', catalogId: 'mkt_engagement', isHandoff: false, current: 4.2, targetCommitted: 6, targetStretch: 8, period: 90, confirmed: false, connectedActionIds: mkt.slice(5, 6), parentProductKrId: parentRevenue }
           ],
           createdAt: iso(30 - cIdx)
         },
@@ -283,11 +339,11 @@ function buildCampaignBranches() {
           id: uid('obj'),
           label: 'Vendas',
           area: 'sales',
-          owner: 'Rafael',
+          owner: 'Rafael Almeida',
           deadline: '2026-09-30',
           okrs: [
-            { id: uid('okr'), name: 'Vendas fechadas', metric: 'quantidade', catalogId: 'sal_new_clients', isHandoff: true, current: 85 + cIdx * 12, targetCommitted: 200, targetStretch: 300, period: 90, confirmed: true, connectedActionIds: [], parentProductKrId: parentUnits },
-            { id: uid('okr'), name: 'Taxa de conversão', metric: 'percentual', catalogId: 'sal_conversion', isHandoff: false, current: 12, targetCommitted: 18, targetStretch: 25, period: 90, confirmed: true, connectedActionIds: [], parentProductKrId: parentRevenue }
+            { id: uid('okr'), name: 'Vendas fechadas', metric: 'quantidade', catalogId: 'sal_new_clients', isHandoff: true, current: 85 + cIdx * 12, targetCommitted: 200, targetStretch: 300, period: 90, confirmed: true, connectedActionIds: sales.slice(0, 2), parentProductKrId: parentUnits },
+            { id: uid('okr'), name: 'Taxa de conversão', metric: 'percentual', catalogId: 'sal_conversion', isHandoff: false, current: 12, targetCommitted: 18, targetStretch: 25, period: 90, confirmed: true, connectedActionIds: sales.slice(2, 4), parentProductKrId: parentRevenue }
           ],
           createdAt: iso(30 - cIdx)
         },
@@ -295,11 +351,11 @@ function buildCampaignBranches() {
           id: uid('obj'),
           label: 'Sucesso do Cliente',
           area: 'cs',
-          owner: 'Beatriz',
+          owner: 'Beatriz Ribeiro',
           deadline: '2026-09-30',
           okrs: [
-            { id: uid('okr'), name: 'NPS por campanha', metric: 'percentual', catalogId: 'cs_nps', isHandoff: false, current: 58, targetCommitted: 70, targetStretch: 80, period: 90, confirmed: true, connectedActionIds: [], parentProductKrId: parentNps },
-            { id: uid('okr'), name: 'Recompra 30d', metric: 'percentual', catalogId: 'cs_retention', isHandoff: true, current: 18, targetCommitted: 28, targetStretch: 38, period: 90, confirmed: true, connectedActionIds: [], parentProductKrId: parentNps }
+            { id: uid('okr'), name: 'NPS por campanha', metric: 'percentual', catalogId: 'cs_nps', isHandoff: false, current: 58, targetCommitted: 70, targetStretch: 80, period: 90, confirmed: true, connectedActionIds: cs.slice(0, 2), parentProductKrId: parentNps },
+            { id: uid('okr'), name: 'Recompra 30d', metric: 'percentual', catalogId: 'cs_retention', isHandoff: true, current: 18, targetCommitted: 28, targetStretch: 38, period: 90, confirmed: true, connectedActionIds: cs.slice(2, 3), parentProductKrId: parentNps }
           ],
           createdAt: iso(30 - cIdx)
         }
@@ -453,8 +509,12 @@ function buildEngenhoNorteState() {
     dataCreatedAt: SEED_BASE_DATE,
     lastMigrationAt: NOW,
     lastSavedAt: NOW,
-    __demoSeed: 'engenho-norte-v1'
+    __demoSeed: 'engenho-norte-v2'
   };
 }
 
-module.exports = { buildEngenhoNorteState };
+// V31.0.2 — Versão do seed. Server.js compara com state existente pra decidir
+// se re-seeda ou não. Bump aqui sempre que mudar o conteúdo da empresa fictícia.
+const DEMO_SEED_VERSION = 'engenho-norte-v2';
+
+module.exports = { buildEngenhoNorteState, DEMO_SEED_VERSION };

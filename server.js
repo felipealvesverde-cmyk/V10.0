@@ -197,22 +197,31 @@ async function runMigrations() {
       ON CONFLICT (username) DO UPDATE SET is_approved = TRUE, mode = 'demo'
     `, [DEMO_USERNAME, demoHash]);
 
-    // Step 4: Popula journey_state da empresa Engenho Norte se ainda não existe.
-    const { buildEngenhoNorteState } = require('./scripts/seed-demo-engenho-norte');
+    // Step 4: Popula journey_state da empresa Engenho Norte.
+    // V31.0.2 — Versionado: se existing state tem __demoSeed antigo, RE-SEEDA
+    // (assim mudanças no seed entram em produção sem precisar dropar manualmente).
+    const { buildEngenhoNorteState, DEMO_SEED_VERSION } = require('./scripts/seed-demo-engenho-norte');
     const demoUserRow = await client.query('SELECT id FROM users WHERE username = $1', [DEMO_USERNAME]);
     const demoUserId = demoUserRow.rows[0]?.id;
     if (demoUserId) {
-      const existing = await client.query('SELECT 1 FROM journey_state WHERE user_id = $1', [demoUserId]);
-      if (!existing.rows.length) {
+      const existing = await client.query('SELECT state_json FROM journey_state WHERE user_id = $1', [demoUserId]);
+      const existingVersion = existing.rows[0]?.state_json?.__demoSeed || null;
+      const needsSeed = !existing.rows.length || existingVersion !== DEMO_SEED_VERSION;
+      if (needsSeed) {
         const seedState = buildEngenhoNorteState();
         await client.query(
           `INSERT INTO journey_state (user_id, state_json, updated_at, updated_by_user_id)
-           VALUES ($1, $2, NOW(), $1)`,
+           VALUES ($1, $2, NOW(), $1)
+           ON CONFLICT (user_id) DO UPDATE SET
+             state_json = EXCLUDED.state_json,
+             updated_at = NOW(),
+             updated_by_user_id = EXCLUDED.updated_by_user_id`,
           [demoUserId, seedState]
         );
-        console.log('[server] Seed da Engenho Norte populado pro user demo (id=' + demoUserId + ').');
+        const reason = !existing.rows.length ? 'novo' : `re-seed (${existingVersion} → ${DEMO_SEED_VERSION})`;
+        console.log(`[server] Seed da Engenho Norte aplicado pro user demo (id=${demoUserId}, ${reason}).`);
       } else {
-        console.log('[server] State demo já existe — seed pulado (idempotente).');
+        console.log(`[server] State demo já está em ${DEMO_SEED_VERSION} — seed pulado (idempotente).`);
       }
     }
 
