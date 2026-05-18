@@ -46,6 +46,10 @@ window.ExecutionTaskStore = {
       updated = { ...t, ...patch, last_synced_at: new Date().toISOString() };
       return updated;
     });
+    // V31.1.0 — Recompute strategicStatus da ação vinculada (auto-transição).
+    if (updated && updated.linked_action_id && window.StrategicStatusEngine) {
+      try { window.StrategicStatusEngine.recompute(updated.linked_action_id); } catch (_) {}
+    }
     return updated;
   },
 

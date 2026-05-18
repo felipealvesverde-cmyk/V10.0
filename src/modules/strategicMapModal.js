@@ -1569,6 +1569,9 @@ window.StrategicMapModal = {
         </div>
       </div>
 
+      <!-- V31.1.0 — Ações conectadas (operacional): listadas ANTES do catálogo -->
+      ${this._connectedActionsList(childKr, area)}
+
       <!-- Catálogo embaixo: scroll horizontal com curadas + customs -->
       <div class="pt-2 border-t border-emerald-400/20">
         <p class="text-[10px] font-black text-emerald-300 uppercase tracking-wider mb-1.5">Como cobrir esse número?</p>
@@ -1582,6 +1585,38 @@ window.StrategicMapModal = {
             return `<button onclick="Actions.activateExistingCustomAction('${area.id}', '${c.id}', '${pkr.id}')" ${isAct ? 'disabled' : ''} title="Custom · ${Utils.escape(c.channel)}" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border-2 border-dashed ${isAct ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-200 cursor-default' : `bg-slate-900 hover:bg-slate-800 border-${tone}-400/50 text-${tone}-100`}">${isAct ? '✓ ' : '✨ '}${Utils.escape(c.name)}<span class="opacity-60"> · sua</span></button>`;
           }).join('')}
         </div>`}
+      </div>
+    </div>`;
+  },
+
+  // V31.1.0 — Caminho inverso (estratégico → operacional): lista as ações reais
+  // já conectadas a este OKR, com canal/status/dono + atalho "Abrir ação".
+  // Antes só existia o caminho operacional → estratégico (retângulo azul no card).
+  _connectedActionsList(childKr, area) {
+    const ids = (childKr.connectedActionIds || []).map(Number);
+    if (!ids.length) return '';
+    const actions = (App.state.actions || []).filter(a => ids.includes(Number(a.id)));
+    if (!actions.length) return '';
+    const statuses = (window.StrategicMapEngine?.STRATEGIC_ACTION_STATUSES) || [];
+    const tone = area.color;
+    return `<div class="pt-2 border-t border-${tone}-400/20">
+      <p class="text-[10px] font-black text-${tone}-300 uppercase tracking-wider mb-1.5">${actions.length} ação(ões) conectada(s) a este número</p>
+      <div class="space-y-1.5">
+        ${actions.map(action => {
+          const status = statuses.find(s => s.id === action.strategicStatus) || statuses[0] || { label: 'Planejada', color: 'slate' };
+          return `<div class="rounded-xl bg-black/30 border border-white/10 p-2.5 flex items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-1.5 mb-0.5">
+                <span class="px-1.5 py-0.5 rounded-full bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[9px] font-black uppercase tracking-wider">${Utils.escape(action.channel || '—')}</span>
+                <span class="px-1.5 py-0.5 rounded-full bg-${status.color}-500/30 border border-${status.color}-400/40 text-${status.color}-100 text-[9px] font-black">${Utils.escape(status.label).toUpperCase()}</span>
+                ${action.strategicConfirmed ? '<span class="text-[9px] font-black text-emerald-300">✓</span>' : ''}
+              </div>
+              <p class="font-bold text-white text-[12px] leading-tight truncate">${Utils.escape(action.name)}</p>
+              <p class="text-[10px] text-slate-400 mt-0.5">${action.strategicOwner ? '👤 ' + Utils.escape(action.strategicOwner) + ' · ' : ''}${(action.leads || []).length} lead(s)</p>
+            </div>
+            <button onclick="Actions.openActionFromMap(${action.id})" class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 text-[10px] font-black flex items-center gap-1 shrink-0">Abrir ação <i data-lucide="arrow-right" class="w-3 h-3"></i></button>
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
   },

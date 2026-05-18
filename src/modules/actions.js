@@ -170,8 +170,24 @@ var ActionModule = {
         </div>
         <div class="flex flex-wrap gap-2">${flow.path.map(stage => `<span class="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-black">${FlowResolutionEngine.label(stage)}</span>`).join('')}</div>
         ${this._strategicTag(action)}
+        ${this._connectToMapaButton(action)}
         ${krTag}
       </div>
+    </div>`;
+  },
+
+  // V31.1.0 — Quando ação NÃO tem strategicAreaId, mostra CTA pra conectar
+  // ao Mapa da Receita. Click abre wizard (Frente → KR-mãe → Confirmar).
+  _connectToMapaButton(action) {
+    if (action.strategicAreaId) return ''; // já conectada — _strategicTag cobre
+    return `<div class="rounded-2xl border-2 border-dashed border-indigo-300 bg-indigo-50/50 p-3 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2 min-w-0">
+        <i data-lucide="compass" class="w-4 h-4 text-indigo-600 shrink-0"></i>
+        <p class="text-[12px] text-indigo-900"><b>Ação solta.</b> Conecte ao Mapa da Receita pra plugá-la num KR e gerar rollup.</p>
+      </div>
+      <button onclick="event.stopPropagation(); Actions.openConnectActionToMapa(${action.id})" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[11px] flex items-center gap-1.5 shrink-0" style="color:#fff!important;">
+        <i data-lucide="link" class="w-3 h-3"></i> Conectar ao Mapa
+      </button>
     </div>`;
   },
 

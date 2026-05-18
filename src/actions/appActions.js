@@ -5003,6 +5003,133 @@ Prioridade: ${d.priority}
     Actions.openStrategicMapForCampaign(Number(campaignId));
   },
 
+  // V31.1.0 — Abre ação operacional desde o Mapa da Receita (caminho inverso).
+  // Fecha o Mapa, navega pra aba Ações de Campanha, seleciona a campanha + ação.
+  openActionFromMap(actionId) {
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
+    if (!action) return Utils.toast('Ação não encontrada.');
+    App.state.showStrategicMap = false;
+    App.state.selectedActionId = Number(actionId);
+    App.state.selectedCampaignId = action.campaignId;
+    App.state.activeTab = 'actions';
+    App.save(); App.render();
+  },
+
+  // V31.1.0 — Wizard "Conectar ao Mapa da Receita" (Frente → KR-mãe → Confirmar).
+  // Plug uma ação operacional (do menu Ações de Campanha) num KR-mãe do produto.
+  openConnectActionToMapa(actionId) {
+    if (this._demoGuard && this._demoGuard('Conectar ao Mapa')) return;
+    App.state.connectActionWizard = { open: true, actionId: Number(actionId), step: 1, areaId: null, productKrId: null };
+    App.render();
+  },
+  closeConnectWizard() {
+    App.state.connectActionWizard = null;
+    App.render();
+  },
+  connectWizardPickArea(areaId) {
+    if (!App.state.connectActionWizard) return;
+    App.state.connectActionWizard.areaId = String(areaId);
+    App.state.connectActionWizard.productKrId = null; // reset se trocou de área
+    App.render();
+  },
+  connectWizardPickProductKr(productKrId) {
+    if (!App.state.connectActionWizard) return;
+    App.state.connectActionWizard.productKrId = String(productKrId);
+    App.render();
+  },
+  connectWizardNext() {
+    const wiz = App.state.connectActionWizard;
+    if (!wiz) return;
+    if (wiz.step === 1 && !wiz.areaId) return Utils.toast('Escolha uma frente comercial.');
+    if (wiz.step === 2 && !wiz.productKrId) return Utils.toast('Escolha um KR-mãe.');
+    wiz.step = Math.min(wiz.step + 1, 3);
+    App.render();
+  },
+  connectWizardBack() {
+    const wiz = App.state.connectActionWizard;
+    if (!wiz) return;
+    wiz.step = Math.max(wiz.step - 1, 1);
+    App.render();
+  },
+  connectWizardConfirm() {
+    const wiz = App.state.connectActionWizard;
+    if (!wiz) return;
+    const { actionId, areaId, productKrId } = wiz;
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
+    if (!action) return Utils.toast('Ação não encontrada.');
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
+    if (!campaign || !campaign.productId) return Utils.toast('Campanha sem produto vinculado.');
+    const productId = Number(campaign.productId);
+    const map = window.StrategicMapEngine?.getForProduct(productId);
+    const productKr = (map?.productKrs || []).find(k => k.id === productKrId);
+    if (!productKr) return Utils.toast('KR-mãe não encontrado.');
+
+    // 1. Set strategic fields na ação
+    action.strategicAreaId = areaId;
+    action.strategicOwner = (window.StrategicMapEngine?.getAreaOwner && StrategicMapEngine.getAreaOwner(productId, areaId)) || '';
+    action.strategicStatus = action.strategicStatus || 'planned';
+    action.strategicConfirmed = true;
+    action.strategicCadence = action.strategicCadence || null;
+    action.strategicCatalogId = action.strategicCatalogId || null;
+    action.strategicDescription = action.strategicDescription || '';
+
+    // 2. Ensure branch (strategicCampaignMap) pra essa campanha
+    let branch = window.StrategicMapEngine?.getBranchMap(campaign.id);
+    if (!branch) {
+      branch = window.StrategicMapEngine?.ensureBranchMap(campaign.id, productId);
+    }
+    if (!branch) return Utils.toast('Falha ao criar branch da campanha.');
+
+    // 3. Ensure objective (frente) dentro da branch
+    branch.objectives = branch.objectives || [];
+    let objective = branch.objectives.find(o => o.area === areaId);
+    if (!objective) {
+      const areaDef = (window.StrategicMapEngine?.COMERCIAL_AREAS || []).find(a => a.id === areaId);
+      objective = {
+        id: `obj_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        label: areaDef?.label || areaId,
+        area: areaId,
+        owner: action.strategicOwner,
+        deadline: '',
+        okrs: [],
+        createdAt: new Date().toISOString()
+      };
+      branch.objectives.push(objective);
+    }
+
+    // 4. Ensure child KR com parentProductKrId = productKr.id
+    let childKr = (objective.okrs || []).find(k => k.parentProductKrId === productKr.id);
+    if (!childKr) {
+      childKr = {
+        id: `okr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        name: productKr.name,
+        metric: productKr.metric || 'quantidade',
+        catalogId: productKr.catalogId || null,
+        isHandoff: false,
+        current: 0,
+        targetCommitted: productKr.targetCommitted ?? productKr.target ?? null,
+        targetStretch: productKr.targetStretch ?? null,
+        period: productKr.period || 90,
+        confirmed: false,
+        connectedActionIds: [],
+        parentProductKrId: productKr.id
+      };
+      objective.okrs = [...(objective.okrs || []), childKr];
+    }
+
+    // 5. Add action.id ao connectedActionIds (idempotente)
+    const ids = new Set((childKr.connectedActionIds || []).map(Number));
+    ids.add(Number(action.id));
+    childKr.connectedActionIds = Array.from(ids);
+
+    // 6. Persiste e fecha
+    branch.updatedAt = new Date().toISOString();
+    App.state.strategicCampaignMaps = { ...(App.state.strategicCampaignMaps || {}), [campaign.id]: branch };
+    App.state.connectActionWizard = null;
+    App.save(); App.render();
+    Utils.toast(`Ação plugada em ${productKr.name}. Retângulo azul ativado.`);
+  },
+
   // V29.3.0 — Abre a engine de criação de ação custom no contexto de um KR.
   openCustomActionEngine(areaId, parentProductKrId) {
     const productId = App.state.strategicMapProductId;

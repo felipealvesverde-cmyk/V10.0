@@ -59,6 +59,11 @@ var App = {
         if (window.RemoteSyncAdapter) {
           try { RemoteSyncAdapter.start(); } catch (e) { console.warn('RemoteSync start falhou:', e); }
         }
+        // V31.1.0 — Inicia tick do StrategicStatusEngine (5min) pra auto-transitar
+        // strategicStatus baseado em datas das tasks no provider operacional.
+        if (window.StrategicStatusEngine) {
+          try { StrategicStatusEngine.startTick(); StrategicStatusEngine.recomputeAll(); } catch (e) { console.warn('StrategicStatusEngine start falhou:', e); }
+        }
       },
 
       // V23.0.0 — Verifica sessão JWT chamando /api/auth-me.
@@ -444,7 +449,7 @@ var App = {
         const app = document.getElementById('app');
         // V25.0.0 — Adicionada aba "home" (HomeModule).
         const screens = { home: window.HomeModule, products: ProductsModule, campaigns: CampaignModule, actions: ActionModule, results: ResultModule, scores: ScoreModule, dashboard: DashboardModule, leads: LeadsModule, revops: window.RevopsGovernanceModule };
-        app.innerHTML = (screens[this.state.activeTab]?.render() || (window.HomeModule ? HomeModule.render() : ProductsModule.render())) + (window.SettingsModal ? SettingsModal.render() : '') + (window.CreateClickupTaskModal ? CreateClickupTaskModal.render() : '');
+        app.innerHTML = (screens[this.state.activeTab]?.render() || (window.HomeModule ? HomeModule.render() : ProductsModule.render())) + (window.SettingsModal ? SettingsModal.render() : '') + (window.CreateClickupTaskModal ? CreateClickupTaskModal.render() : '') + (window.ConnectActionWizardModal ? ConnectActionWizardModal.render() : '');
         // V26.0.4 — Modal Djow agora em root separado (#djowModalRoot fora de #app)
         // pra que position:fixed funcione corretamente (parent #app tem transform
         // via card-enter, que cria novo containing block e quebra position:fixed).
