@@ -141,88 +141,93 @@ async function runMigrations() {
 
     // V31.0.0 — Multi-tenancy refactor: journey_state e journey_snapshots
     // passam a ser chaveados por user_id.
-    //
-    // Step 1: Backup defensivo do state atual (id=1) em snapshots ANTES de mexer.
-    //   Idempotente: só insere se ainda não existe um snapshot com label específica.
-    await client.query(`
-      INSERT INTO journey_snapshots (state_json, label, triggered_by_user_id)
-      SELECT js.state_json, 'pre-V31-migration-backup', js.updated_by_user_id
-      FROM journey_state js
-      WHERE js.id = 1
-      AND NOT EXISTS (SELECT 1 FROM journey_snapshots WHERE label = 'pre-V31-migration-backup')
-    `).catch(err => {
-      // Se a coluna 'id' já foi removida (migration anterior rodou), ignora.
-      if (!/column .id. does not exist/i.test(err.message)) throw err;
-    });
+    // V31.0.10 — Isolado em try-catch próprio: falha aqui não impede o demo seed.
+    try {
+      console.log('[migrations] V31 multi-tenancy: começando...');
+      await client.query(`
+        INSERT INTO journey_snapshots (state_json, label, triggered_by_user_id)
+        SELECT js.state_json, 'pre-V31-migration-backup', js.updated_by_user_id
+        FROM journey_state js
+        WHERE js.id = 1
+        AND NOT EXISTS (SELECT 1 FROM journey_snapshots WHERE label = 'pre-V31-migration-backup')
+      `).catch(err => {
+        if (!/column .id. does not exist/i.test(err.message)) throw err;
+      });
+      await client.query(`
+        ALTER TABLE journey_state ADD COLUMN IF NOT EXISTS user_id INT REFERENCES users(id) ON DELETE CASCADE
+      `);
+      await client.query(`
+        UPDATE journey_state SET user_id = (SELECT id FROM users WHERE is_master = TRUE LIMIT 1)
+        WHERE user_id IS NULL
+      `).catch(() => {});
+      await client.query(`ALTER TABLE journey_state ALTER COLUMN user_id SET NOT NULL`).catch(() => {});
+      await client.query(`ALTER TABLE journey_state DROP CONSTRAINT IF EXISTS journey_state_pkey`);
+      await client.query(`ALTER TABLE journey_state ADD CONSTRAINT journey_state_pkey PRIMARY KEY (user_id)`).catch(err => {
+        if (!/already exists|multiple primary keys/i.test(err.message)) throw err;
+      });
+      await client.query(`ALTER TABLE journey_state DROP COLUMN IF EXISTS id`);
+      await client.query(`
+        ALTER TABLE journey_snapshots ADD COLUMN IF NOT EXISTS owner_user_id INT REFERENCES users(id) ON DELETE CASCADE
+      `);
+      await client.query(`
+        UPDATE journey_snapshots SET owner_user_id = COALESCE(triggered_by_user_id, (SELECT id FROM users WHERE is_master = TRUE LIMIT 1))
+        WHERE owner_user_id IS NULL
+      `).catch(() => {});
+      await client.query(`ALTER TABLE journey_snapshots ALTER COLUMN owner_user_id SET NOT NULL`).catch(() => {});
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_journey_snapshots_owner ON journey_snapshots(owner_user_id, created_at DESC)
+      `);
+      console.log('[migrations] V31 multi-tenancy: OK.');
+    } catch (err) {
+      console.error('[migrations] V31 multi-tenancy FALHOU (continuando assim mesmo):', err.message);
+    }
 
-    // Step 2: Adiciona user_id em journey_state.
-    await client.query(`
-      ALTER TABLE journey_state ADD COLUMN IF NOT EXISTS user_id INT REFERENCES users(id) ON DELETE CASCADE
-    `);
-    // Backfill: linha id=1 atual vira do master user (Felipe).
-    await client.query(`
-      UPDATE journey_state SET user_id = (SELECT id FROM users WHERE is_master = TRUE LIMIT 1)
-      WHERE user_id IS NULL
-    `).catch(() => {}); // tolerante a tabela vazia
-    // NOT NULL + nova PK em user_id, dropa coluna id legada.
-    await client.query(`ALTER TABLE journey_state ALTER COLUMN user_id SET NOT NULL`).catch(() => {});
-    await client.query(`ALTER TABLE journey_state DROP CONSTRAINT IF EXISTS journey_state_pkey`);
-    await client.query(`ALTER TABLE journey_state ADD CONSTRAINT journey_state_pkey PRIMARY KEY (user_id)`).catch(err => {
-      // Se já existe PK em user_id, ignora.
-      if (!/already exists/i.test(err.message)) throw err;
-    });
-    await client.query(`ALTER TABLE journey_state DROP COLUMN IF EXISTS id`);
+    // V31.0.10 — Demo seed isolado em try-catch + logging detalhado.
+    // Se algo falhar, NÃO bloqueia as migrations principais.
+    try {
+      console.log('[demo-seed] Começando...');
+      const DEMO_USERNAME = 'demo@leadjourney.app';
+      const DEMO_PASSWORD = 'lj-demo-2026';
+      const demoHash = await bcrypt.hash(DEMO_PASSWORD, 10);
+      await client.query(`
+        INSERT INTO users (username, email, password_hash, is_master, is_approved, mode)
+        VALUES ($1, $1, $2, FALSE, TRUE, 'demo')
+        ON CONFLICT (username) DO UPDATE SET is_approved = TRUE, mode = 'demo'
+      `, [DEMO_USERNAME, demoHash]);
+      console.log('[demo-seed] User demo upsertado.');
 
-    // Step 3: journey_snapshots ganha owner_user_id (separado do triggered_by — owner é o dono, triggered_by é o autor da ação).
-    await client.query(`
-      ALTER TABLE journey_snapshots ADD COLUMN IF NOT EXISTS owner_user_id INT REFERENCES users(id) ON DELETE CASCADE
-    `);
-    await client.query(`
-      UPDATE journey_snapshots SET owner_user_id = COALESCE(triggered_by_user_id, (SELECT id FROM users WHERE is_master = TRUE LIMIT 1))
-      WHERE owner_user_id IS NULL
-    `).catch(() => {});
-    await client.query(`ALTER TABLE journey_snapshots ALTER COLUMN owner_user_id SET NOT NULL`).catch(() => {});
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_journey_snapshots_owner ON journey_snapshots(owner_user_id, created_at DESC)
-    `);
-
-    // V31.0.0 — Seed do user demo (cervejaria fictícia Engenho Norte).
-    // Username: demo@leadjourney.app · senha: lj-demo-2026 · mode: demo.
-    const DEMO_USERNAME = 'demo@leadjourney.app';
-    const DEMO_PASSWORD = 'lj-demo-2026';
-    const demoHash = await bcrypt.hash(DEMO_PASSWORD, 10);
-    await client.query(`
-      INSERT INTO users (username, email, password_hash, is_master, is_approved, mode)
-      VALUES ($1, $1, $2, FALSE, TRUE, 'demo')
-      ON CONFLICT (username) DO UPDATE SET is_approved = TRUE, mode = 'demo'
-    `, [DEMO_USERNAME, demoHash]);
-
-    // Step 4: Popula journey_state da empresa Engenho Norte.
-    // V31.0.2 — Versionado: se existing state tem __demoSeed antigo, RE-SEEDA
-    // (assim mudanças no seed entram em produção sem precisar dropar manualmente).
-    const { buildEngenhoNorteState, DEMO_SEED_VERSION } = require('./scripts/seed-demo-engenho-norte');
-    const demoUserRow = await client.query('SELECT id FROM users WHERE username = $1', [DEMO_USERNAME]);
-    const demoUserId = demoUserRow.rows[0]?.id;
-    if (demoUserId) {
-      const existing = await client.query('SELECT state_json FROM journey_state WHERE user_id = $1', [demoUserId]);
-      const existingVersion = existing.rows[0]?.state_json?.__demoSeed || null;
-      const needsSeed = !existing.rows.length || existingVersion !== DEMO_SEED_VERSION;
-      if (needsSeed) {
-        const seedState = buildEngenhoNorteState();
-        await client.query(
-          `INSERT INTO journey_state (user_id, state_json, updated_at, updated_by_user_id)
-           VALUES ($1, $2, NOW(), $1)
-           ON CONFLICT (user_id) DO UPDATE SET
-             state_json = EXCLUDED.state_json,
-             updated_at = NOW(),
-             updated_by_user_id = EXCLUDED.updated_by_user_id`,
-          [demoUserId, seedState]
-        );
-        const reason = !existing.rows.length ? 'novo' : `re-seed (${existingVersion} → ${DEMO_SEED_VERSION})`;
-        console.log(`[server] Seed da Engenho Norte aplicado pro user demo (id=${demoUserId}, ${reason}).`);
+      const { buildEngenhoNorteState, DEMO_SEED_VERSION } = require('./scripts/seed-demo-engenho-norte');
+      console.log(`[demo-seed] DEMO_SEED_VERSION alvo: ${DEMO_SEED_VERSION}`);
+      const demoUserRow = await client.query('SELECT id FROM users WHERE username = $1', [DEMO_USERNAME]);
+      const demoUserId = demoUserRow.rows[0]?.id;
+      console.log(`[demo-seed] demoUserId: ${demoUserId}`);
+      if (demoUserId) {
+        const existing = await client.query('SELECT state_json FROM journey_state WHERE user_id = $1', [demoUserId]);
+        const existingVersion = existing.rows[0]?.state_json?.__demoSeed || null;
+        const needsSeed = !existing.rows.length || existingVersion !== DEMO_SEED_VERSION;
+        console.log(`[demo-seed] Existing version: ${existingVersion || '<nenhuma>'} · Precisa re-seedar: ${needsSeed}`);
+        if (needsSeed) {
+          const seedState = buildEngenhoNorteState();
+          await client.query(
+            `INSERT INTO journey_state (user_id, state_json, updated_at, updated_by_user_id)
+             VALUES ($1, $2, NOW(), $1)
+             ON CONFLICT (user_id) DO UPDATE SET
+               state_json = EXCLUDED.state_json,
+               updated_at = NOW(),
+               updated_by_user_id = EXCLUDED.updated_by_user_id`,
+            [demoUserId, seedState]
+          );
+          const reason = !existing.rows.length ? 'novo' : `re-seed (${existingVersion} → ${DEMO_SEED_VERSION})`;
+          console.log(`[demo-seed] ✓ Engenho Norte aplicado pro user demo (id=${demoUserId}, ${reason}).`);
+        } else {
+          console.log(`[demo-seed] ✓ State já está em ${DEMO_SEED_VERSION} — seed pulado.`);
+        }
       } else {
-        console.log(`[server] State demo já está em ${DEMO_SEED_VERSION} — seed pulado (idempotente).`);
+        console.warn('[demo-seed] User demo não encontrado após upsert — seed pulado.');
       }
+    } catch (err) {
+      console.error('[demo-seed] FALHOU:', err.message);
+      console.error('[demo-seed] Stack:', err.stack);
     }
 
     console.log('[server] Migrations OK.');
