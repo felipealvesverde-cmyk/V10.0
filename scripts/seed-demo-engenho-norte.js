@@ -254,6 +254,7 @@ function buildStrategicMaps() {
       flowConnections: [],
       // V31.0.2 — Populamos legacy `objectives` espelhando o branch ativo, pra que
       // journeyProgress() (que ainda lê do legacy) reconheça etapas 2-3 como completas.
+      // V31.0.3 — Adicionado connectedActionIds nos okrs legacy pra etapa 5 'Operations' completar.
       objectives: [
         {
           id: uid('obj'),
@@ -262,7 +263,7 @@ function buildStrategicMaps() {
           owner: 'Marina Costa',
           deadline: '2026-09-30',
           okrs: [
-            { id: uid('okr'), name: 'Leads gerados (snapshot trim.)', target: 800, current: 320 + idx * 40, unit: 'un', metric: 'quantidade', stageId: 'TOF' }
+            { id: uid('okr'), name: 'Leads gerados (snapshot trim.)', target: 800, current: 320 + idx * 40, unit: 'un', metric: 'quantidade', stageId: 'TOF', connectedActionIds: [] /* preenchido depois */ }
           ],
           createdAt: iso(30 - idx)
         },
@@ -273,7 +274,7 @@ function buildStrategicMaps() {
           owner: 'Rafael Almeida',
           deadline: '2026-09-30',
           okrs: [
-            { id: uid('okr'), name: 'Vendas fechadas (snapshot trim.)', target: 200, current: 85 + idx * 12, unit: 'un', metric: 'quantidade', stageId: 'BOF' }
+            { id: uid('okr'), name: 'Vendas fechadas (snapshot trim.)', target: 200, current: 85 + idx * 12, unit: 'un', metric: 'quantidade', stageId: 'BOF', connectedActionIds: [] }
           ],
           createdAt: iso(30 - idx)
         },
@@ -284,7 +285,7 @@ function buildStrategicMaps() {
           owner: 'Beatriz Ribeiro',
           deadline: '2026-09-30',
           okrs: [
-            { id: uid('okr'), name: 'NPS médio', target: 70, current: 58, unit: 'pts', metric: 'percentual', stageId: 'POST' }
+            { id: uid('okr'), name: 'NPS médio', target: 70, current: 58, unit: 'pts', metric: 'percentual', stageId: 'POST', connectedActionIds: [] }
           ],
           createdAt: iso(30 - idx)
         }
@@ -293,9 +294,61 @@ function buildStrategicMaps() {
       updatedAt: iso(5)
     };
   });
+  // V31.0.3 — Pós-passo: plugar 2-3 ações em cada okr legacy (depois das ações estarem geradas).
+  PRODUCTS.forEach(product => {
+    const map = maps[product.id];
+    const prodCampIds = CAMPAIGNS.filter(c => c.productId === product.id).map(c => c.id);
+    const prodActions = ACTIONS.filter(a => prodCampIds.includes(a.campaignId));
+    const mktActs = prodActions.filter(a => a.sector === 'marketing').slice(0, 3).map(a => a.id);
+    const salesActs = prodActions.filter(a => a.sector === 'sales').slice(0, 2).map(a => a.id);
+    const csActs = prodActions.filter(a => a.sector === 'cs').slice(0, 2).map(a => a.id);
+    map.objectives[0].okrs[0].connectedActionIds = mktActs;
+    map.objectives[1].okrs[0].connectedActionIds = salesActs;
+    map.objectives[2].okrs[0].connectedActionIds = csActs;
+  });
   return maps;
 }
 const STRATEGIC_MAPS = buildStrategicMaps();
+
+// --- Execution Tasks (etapa 6 'Colocar em campo') ---
+// V31.0.3 — Cria ~3 tasks por produto vinculadas às ações connectedActionIds.
+// Simulam que algumas ações já foram disparadas pro provider operacional (manual).
+function buildExecutionTasks() {
+  const tasks = [];
+  PRODUCTS.forEach((product, pIdx) => {
+    const map = STRATEGIC_MAPS[product.id];
+    const allConnectedIds = map.objectives.flatMap(o => o.okrs.flatMap(k => k.connectedActionIds || []));
+    allConnectedIds.slice(0, 3).forEach((actionId, tIdx) => {
+      const action = ACTIONS.find(a => a.id === actionId);
+      if (!action) return;
+      const statuses = ['in_progress', 'pending', 'completed'];
+      const status = statuses[tIdx % 3];
+      tasks.push({
+        task_id: `task_${product.id}_${tIdx}_${Date.now()}`,
+        provider: 'manual',
+        provider_task_id: null,
+        linked_action_id: actionId,
+        linked_campaign_id: action.campaignId,
+        linked_flow_id: null,
+        title: `${action.name} — execução`,
+        description: `Tarefa gerada a partir da ação "${action.name}" da campanha "${product.name}".`,
+        assignee: pIdx === 0 ? 'Marina Costa' : pIdx === 1 ? 'Rafael Almeida' : 'Beatriz Ribeiro',
+        due_date: iso(-7 + tIdx * 5),
+        priority: tIdx === 0 ? 'high' : 'normal',
+        status,
+        external_url: null,
+        source_agent: 'demo-seed',
+        execution_context: null,
+        created_at: iso(15 - tIdx),
+        started_at: status !== 'pending' ? iso(12 - tIdx) : null,
+        completed_at: status === 'completed' ? iso(2) : null,
+        last_synced_at: iso(1)
+      });
+    });
+  });
+  return tasks;
+}
+const EXECUTION_TASKS = buildExecutionTasks();
 
 // --- Branches por campanha (strategicCampaignMaps V29) ---
 function buildCampaignBranches() {
@@ -477,6 +530,9 @@ function buildEngenhoNorteState() {
     // Custom catalog
     customActionCatalog: CUSTOM_ACTION_CATALOG,
 
+    // V31.0.3 — Execution tasks (etapa 6 'Colocar em campo' do Mapa da Receita)
+    executionTasks: EXECUTION_TASKS,
+
     // Integrações (vazias — demo não conecta)
     integrations: { rd: {}, rdCrm: { pipelinesByCampaign: {}, dealsByLead: {} } },
     rdCrmLeadTags: {},
@@ -509,12 +565,12 @@ function buildEngenhoNorteState() {
     dataCreatedAt: SEED_BASE_DATE,
     lastMigrationAt: NOW,
     lastSavedAt: NOW,
-    __demoSeed: 'engenho-norte-v2'
+    __demoSeed: 'engenho-norte-v3'
   };
 }
 
 // V31.0.2 — Versão do seed. Server.js compara com state existente pra decidir
 // se re-seeda ou não. Bump aqui sempre que mudar o conteúdo da empresa fictícia.
-const DEMO_SEED_VERSION = 'engenho-norte-v2';
+const DEMO_SEED_VERSION = 'engenho-norte-v3';
 
 module.exports = { buildEngenhoNorteState, DEMO_SEED_VERSION };
