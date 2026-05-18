@@ -262,6 +262,17 @@ var State = {
       connectionStatus: action.connectionStatus || 'ready',
       status: action.status || 'Pronta para conectar',
       linkedCampaignKrId: action.linkedCampaignKrId || null,
+      // V31.0.7 — Fix core: campos estratégicos da ação não estavam sendo
+      // preservados pelo normalize. Sintoma: Mapa da Receita mostrava sempre
+      // "0 ação(ões) ativa(s)" porque o filtro depende de strategicAreaId.
+      strategicAreaId: action.strategicAreaId || null,
+      strategicCatalogId: action.strategicCatalogId || null,
+      strategicDescription: action.strategicDescription || '',
+      strategicOwner: action.strategicOwner || '',
+      strategicCadence: action.strategicCadence || null,
+      strategicStatus: action.strategicStatus || null,
+      strategicConfirmed: Boolean(action.strategicConfirmed),
+      isDraft: Boolean(action.isDraft),
       leads: Array.isArray(action.leads) ? action.leads.map((lead, leadIndex) => {
         const normalized = LeadParser.normalizeLead(lead, leadIndex, scoreId);
         const { score, ...plain } = normalized;
