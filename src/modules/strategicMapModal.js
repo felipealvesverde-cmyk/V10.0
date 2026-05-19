@@ -1754,23 +1754,17 @@ window.StrategicMapModal = {
           ${engineOpen ? `<div class="w-full">${this._customActionEngineForm(area, pkr)}</div>` : `<button onclick="Actions.openCustomActionEngine('${area.id}', '${pkr.id}')" class="w-1/2 px-3 py-2.5 rounded-xl bg-${tone}-500/10 hover:bg-${tone}-500/20 border border-dashed border-${tone}-400/40 text-${tone}-100 text-[12px] font-black flex items-center justify-center gap-1.5 transition"><i data-lucide="zap" class="w-3.5 h-3.5"></i> Criar ação</button>`}
         </div>
 
-        <!-- DIREITA (1/2): metas — centralizadas na metade direita -->
+        <!-- DIREITA (1/2): metas READ-ONLY — vêm do pkr-mãe definido em "Os Números".
+             V31.2.18 — Removidos inputs editáveis. Editar a meta é feito na etapa
+             "Os Números" (no card do KR-mãe). Aqui só mostra o que foi setado. -->
         <div class="space-y-2 mx-auto w-1/2">
-          <div>
-            <label class="flex items-center justify-between gap-1 mb-0.5">
-              <span class="text-[9px] font-black text-emerald-300 uppercase">🔒 Meta Segura</span>
-              <button onclick="Actions.toggleStrategicMetaHelp('${safeKey}')" title="O que é Meta Segura?" class="w-4 h-4 rounded-full bg-emerald-500/20 hover:bg-emerald-500/40 border border-emerald-400/30 text-emerald-200 text-[9px] font-black grid place-items-center">?</button>
-            </label>
-            <input type="number" value="${childKr.targetCommitted ?? ''}" placeholder="piso" oninput="Actions.updateStrategicOkrField('${branchObj.id}','${childKr.id}','targetCommitted', this.value)" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
-            ${helpOpen[safeKey] ? `<p class="text-[10px] text-emerald-100 bg-emerald-500/10 border border-emerald-400/30 rounded p-1.5 mt-1 leading-relaxed">É o piso: o número mínimo que essa campanha vai entregar. Se não bater, é falha. Sem ambição, só compromisso.</p>` : ''}
+          <div class="rounded-lg bg-emerald-500/10 border border-emerald-400/30 p-2.5">
+            <p class="text-[9px] font-black text-emerald-300 uppercase tracking-wider mb-0.5">🔒 Meta Segura</p>
+            <p class="font-black text-white text-base">${pkr.targetCommitted != null ? pkr.targetCommitted : '—'} <span class="text-[10px] text-slate-400 font-normal">${Utils.escape(pkr.metric || '')}</span></p>
           </div>
-          <div>
-            <label class="flex items-center justify-between gap-1 mb-0.5">
-              <span class="text-[9px] font-black text-violet-300 uppercase">🚀 Meta Avançada</span>
-              <button onclick="Actions.toggleStrategicMetaHelp('${advKey}')" title="O que é Meta Avançada?" class="w-4 h-4 rounded-full bg-violet-500/20 hover:bg-violet-500/40 border border-violet-400/30 text-violet-200 text-[9px] font-black grid place-items-center">?</button>
-            </label>
-            <input type="number" value="${childKr.targetStretch ?? ''}" placeholder="sonho" oninput="Actions.updateStrategicOkrField('${branchObj.id}','${childKr.id}','targetStretch', this.value)" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
-            ${helpOpen[advKey] ? `<p class="text-[10px] text-violet-100 bg-violet-500/10 border border-violet-400/30 rounded p-1.5 mt-1 leading-relaxed">É o sonho: o número que faz o time brilhar o olho. Geralmente 30-50% acima da Segura. Se atingir 70% da Avançada, já é vitória.</p>` : ''}
+          <div class="rounded-lg bg-violet-500/10 border border-violet-400/30 p-2.5">
+            <p class="text-[9px] font-black text-violet-300 uppercase tracking-wider mb-0.5">🚀 Meta Avançada</p>
+            <p class="font-black text-white text-base">${pkr.targetStretch != null ? pkr.targetStretch : '—'} <span class="text-[10px] text-slate-400 font-normal">${Utils.escape(pkr.metric || '')}</span></p>
           </div>
         </div>
       </div>
@@ -1839,11 +1833,14 @@ window.StrategicMapModal = {
       { v: 'BOF', l: 'Fundo (decisão)' }
     ];
     const sectorOptions = (StrategicMapEngine.COMERCIAL_AREAS || []);
-    // V31.2.17 — Bloco read-only mostrando qual OKR-mãe essa ação vai mover, com
-    // Meta Segura e Meta Avançada herdadas do pkr. Quando os números forem entrando,
-    // a ação alimenta o rollup do KR-mãe automaticamente.
-    const safe = pkr.targetCommitted != null ? pkr.targetCommitted : '—';
-    const stretch = pkr.targetStretch != null ? pkr.targetStretch : '—';
+    // V31.2.18 — User escolhe quais KR-mãe(s) esta ação vai mover via checkboxes.
+    // Antes era hardcoded pro pkr de origem (modal abria de dentro de um card).
+    // Agora abre com o pkr de origem pré-marcado, mas user pode marcar/desmarcar
+    // outros KRs da mesma área (ex: a ação Webinar pode mover Alcanse + MQL juntos).
+    const areaKrs = StrategicMapEngine.getProductKrs(App.state.strategicMapProductId).filter(k => k.area === area.id);
+    const selectedKrIds = Array.isArray(eng.selectedKrIds) && eng.selectedKrIds.length
+      ? eng.selectedKrIds
+      : [pkr.id]; // default: KR de origem pré-marcado
     return `<div class="rounded-xl bg-slate-900/60 border border-${tone}-400/40 p-3 space-y-2.5">
       <div class="flex items-center justify-between gap-2">
         <p class="text-[11px] font-black text-${tone}-200 uppercase tracking-wider"><i data-lucide="zap" class="w-3 h-3 inline-block"></i> Nova ação custom · ${Utils.escape(area.label)}</p>
@@ -1851,10 +1848,24 @@ window.StrategicMapModal = {
       </div>
 
       <div class="rounded-lg bg-${tone}-500/10 border border-${tone}-400/30 p-2.5">
-        <p class="text-[9px] font-black text-${tone}-200 uppercase tracking-wider mb-1">Esta ação vai mover</p>
-        <p class="font-black text-white text-[12px]">${Utils.escape(pkr.name)} <span class="text-[10px] text-slate-400 font-normal">(${Utils.escape(pkr.metric || 'quantidade')})</span></p>
-        <p class="text-[11px] text-slate-300 mt-0.5">🔒 Meta Segura <b class="text-emerald-300">${safe}</b> · 🚀 Meta Avançada <b class="text-violet-300">${stretch}</b></p>
-        <p class="text-[10px] text-slate-400 italic mt-1">Os números desta ação alimentam o rollup desse KR-mãe.</p>
+        <p class="text-[9px] font-black text-${tone}-200 uppercase tracking-wider mb-1.5">Esta ação vai mover quais OKR(s) de ${Utils.escape(area.label)}?</p>
+        <div class="space-y-1">
+          ${areaKrs.length === 0
+            ? '<p class="text-[10px] text-slate-400 italic">Nenhum KR-mãe nesta área ainda. Defina na etapa "Os Números".</p>'
+            : areaKrs.map(k => {
+                const checked = selectedKrIds.includes(k.id);
+                const safe = k.targetCommitted != null ? k.targetCommitted : '—';
+                const stretch = k.targetStretch != null ? k.targetStretch : '—';
+                return `<label class="flex items-start gap-2 p-1.5 rounded hover:bg-white/5 cursor-pointer">
+                  <input type="checkbox" ${checked ? 'checked' : ''} onchange="Actions.toggleCustomActionEngineKr('${k.id}')" class="mt-1 shrink-0" />
+                  <div class="min-w-0 flex-1">
+                    <p class="font-black text-white text-[11px]">${Utils.escape(k.name)} <span class="text-[10px] text-slate-400 font-normal">(${Utils.escape(k.metric || 'quantidade')})</span></p>
+                    <p class="text-[10px] text-slate-300">🔒 Segura <b class="text-emerald-300">${safe}</b> · 🚀 Avançada <b class="text-violet-300">${stretch}</b></p>
+                  </div>
+                </label>`;
+              }).join('')}
+        </div>
+        <p class="text-[10px] text-slate-400 italic mt-1.5">Os números desta ação alimentam o rollup do(s) KR(s) marcado(s).</p>
       </div>
 
       <div>

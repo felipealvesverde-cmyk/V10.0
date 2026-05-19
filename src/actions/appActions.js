@@ -5362,6 +5362,7 @@ Prioridade: ${d.priority}
   },
 
   // V29.3.0 — Abre a engine de criação de ação custom no contexto de um KR.
+  // V31.2.18 — Adicionado selectedKrIds (multi-select). Pre-marca o KR de origem.
   openCustomActionEngine(areaId, parentProductKrId) {
     const productId = App.state.strategicMapProductId;
     const productKr = StrategicMapEngine.getProductKrs(productId).find(k => k.id === parentProductKrId);
@@ -5369,6 +5370,7 @@ Prioridade: ${d.priority}
       open: true,
       areaId,
       parentProductKrId,
+      selectedKrIds: parentProductKrId ? [parentProductKrId] : [],
       originKrCatalogId: productKr?.catalogId || null,
       name: '',
       funnelPoint: '',          // 'TOF' | 'MOF' | 'BOF'
@@ -5377,6 +5379,17 @@ Prioridade: ${d.priority}
       channel: '',
       channelOther: ''
     };
+    App.render();
+  },
+
+  // V31.2.18 — Marca/desmarca um KR da lista de OKRs que essa ação vai mover.
+  toggleCustomActionEngineKr(krId) {
+    const eng = App.state.customActionEngine;
+    if (!eng) return;
+    const list = Array.isArray(eng.selectedKrIds) ? eng.selectedKrIds.slice() : [];
+    const idx = list.indexOf(krId);
+    if (idx >= 0) list.splice(idx, 1); else list.push(krId);
+    App.state.customActionEngine = { ...eng, selectedKrIds: list };
     App.render();
   },
 
@@ -5413,15 +5426,24 @@ Prioridade: ${d.priority}
       originKrCatalogId: eng.originKrCatalogId
     });
     if (!result.ok) return Utils.toast(result.error);
-    // Ativa a custom já criada pro KR atual.
-    const activation = StrategicMapEngine.activateCustomAction(productId, eng.areaId, result.action.id, eng.parentProductKrId);
-    if (activation?.error) return Utils.toast(activation.error);
+    // V31.2.18 — Ativa a custom em TODOS os KRs marcados pelo user (multi-select).
+    // Antes ativava só pro parentProductKrId de origem. Agora loop em selectedKrIds.
+    const targetKrIds = Array.isArray(eng.selectedKrIds) && eng.selectedKrIds.length
+      ? eng.selectedKrIds
+      : [eng.parentProductKrId];
+    let activationError = null;
+    targetKrIds.forEach(krId => {
+      if (!krId) return;
+      const act = StrategicMapEngine.activateCustomAction(productId, eng.areaId, result.action.id, krId);
+      if (act?.error) activationError = act.error;
+    });
+    if (activationError) return Utils.toast(activationError);
     App.state.customActionEngine = null;
     App.save(); App.render();
     if (result.revived) {
-      Utils.toast(`✨ Ação "${result.action.name}" já existia (ficou escondida por baixo uso). Trouxe ela de volta pra este número.`);
+      Utils.toast(`✨ Ação "${result.action.name}" já existia. Plugada em ${targetKrIds.length} OKR(s).`);
     } else {
-      Utils.toast(`Ação custom "${name}" criada e plugada. Vai ficar na sua biblioteca pra reusar.`);
+      Utils.toast(`Ação custom "${name}" criada e plugada em ${targetKrIds.length} OKR(s). Vai ficar na sua biblioteca pra reusar.`);
     }
   },
 
