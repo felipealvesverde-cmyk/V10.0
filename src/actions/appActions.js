@@ -4968,8 +4968,24 @@ Object.assign(Actions, {
       const token = localStorage.getItem('lj_jwt');
       const r = await fetch('/api/rd-credentials', { headers: { Authorization: `Bearer ${token}` } });
       const data = await r.json();
-      if (!data.ok || !data.credentials) return;
-      const creds = data.credentials;
+      if (!data.ok) return;
+      const creds = data.credentials || {};
+      // V31.2.38 — Migration one-shot: se DB está vazio mas App.state tem tokens
+      // de versões antigas (pré V31.2.36), backfill o DB com o que tem em state.
+      // Isso cobre o gap onde write-through só dispara em mutação.
+      const hasDbAny = Boolean(creds.crm_pat?.access_token || creds.marketing_oauth?.access_token || creds.crm_oauth?.access_token);
+      if (!hasDbAny) {
+        const rdState = App.state.integrations?.rd || {};
+        const stateHasAny = Boolean(rdState.crmPersonalToken || rdState.accessToken || rdState.crmOauth?.accessToken);
+        if (stateHasAny) {
+          console.log('[rd] DB vazio + state com tokens → backfill DB (one-shot migration).');
+          this._persistRdToDb('crm_pat');
+          this._persistRdToDb('marketing_oauth');
+          this._persistRdToDb('crm_oauth');
+          // Não chama loadRdCredentialsFromDb recursivo. Próximo boot vai ler do DB normalmente.
+          return;
+        }
+      }
       const rd = App.state.integrations?.rd || (window.RDConfig ? RDConfig.defaultConfig() : {});
       let changed = false;
       // CRM PAT (estático)

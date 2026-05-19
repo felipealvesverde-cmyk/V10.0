@@ -46,21 +46,28 @@ module.exports = async function handler(req, res) {
   }
 
   // V31.2.37 — Resolve token: prioriza token_source (DB lookup), fallback pro body legado.
+  // V31.2.38 — Se token_source falhar mas o frontend mandou token legado, usa o legado
+  // (cobre o gap de usuários cujo token nunca foi escrito no DB — write-through V31.2.36
+  // só dispara em mutação; tokens antigos no state não migravam automaticamente).
   let effectiveToken = String(token || '').trim();
-  if (token_source && VALID_SOURCES.has(token_source)) {
-    if (!req.user) return res.status(401).json({ ok: false, message: 'token_source requer autenticação.' });
-    if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
+  let usedSource = 'body';
+  if (token_source && VALID_SOURCES.has(token_source) && req.user && req.db) {
     try {
       const cred = await getRdCredential(req.db, req.user.sub, token_source);
-      effectiveToken = cred.token || '';
-    } catch (err) {
-      if (err.message?.includes('não conectado')) {
-        return res.status(404).json({ ok: false, message: `RD ${token_source} não conectado. Reconecte em Configurações.` });
+      if (cred.token) {
+        effectiveToken = cred.token;
+        usedSource = 'db';
       }
+      // Se DB tem registro mas token vazio: deixa o effectiveToken do body (já setado acima)
+    } catch (err) {
       if (err.message?.includes('ENCRYPTION_KEY')) {
         return res.status(503).json({ ok: false, message: 'ENCRYPTION_KEY ausente no servidor.' });
       }
-      return res.status(500).json({ ok: false, message: err.message });
+      // err.message inclui "não conectado": tolera silenciosamente se o body tem token legado.
+      if (!effectiveToken && err.message?.includes('não conectado')) {
+        return res.status(404).json({ ok: false, message: `RD ${token_source} não conectado. Reconecte em Configurações.` });
+      }
+      // Senão, segue usando effectiveToken do body
     }
   }
 
