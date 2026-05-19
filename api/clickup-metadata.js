@@ -46,17 +46,32 @@ module.exports = async function handler(req, res) {
       }
     }
 
-    const result = { ok: true, workspaceId, listId, spaceId, members: [], statuses: [], tags: [], customFields: [] };
+    const result = { ok: true, workspaceId, listId, spaceId, members: [], statuses: [], tags: [], customFields: [], debug: {} };
 
-    // Members do workspace
+    // V31.2.34 — Members vêm de GET /team (workspace list inclui members no payload).
+    // O endpoint /team/{id}/member existe mas tem permission quirks; /team funciona pra
+    // qualquer user autorizado e já traz a array de members do workspace que importa.
     try {
-      const r = await clickupFetch(req.db, userId, 'GET', `/team/${workspaceId}/member`);
-      if (r.ok && Array.isArray(r.data?.members)) {
-        result.members = r.data.members
+      const r = await clickupFetch(req.db, userId, 'GET', '/team');
+      if (r.ok && Array.isArray(r.data?.teams)) {
+        const team = r.data.teams.find(t => String(t.id) === String(workspaceId)) || r.data.teams[0];
+        const members = Array.isArray(team?.members) ? team.members : [];
+        result.members = members
           .filter(m => m.user?.id)
-          .map(m => ({ id: m.user.id, username: m.user.username || m.user.email || 'sem nome', email: m.user.email || null, color: m.user.color || null, initials: m.user.initials || null, profilePicture: m.user.profilePicture || null }));
+          .map(m => ({
+            id: m.user.id,
+            username: m.user.username || m.user.email || 'sem nome',
+            email: m.user.email || null,
+            color: m.user.color || null,
+            initials: m.user.initials || null,
+            profilePicture: m.user.profilePicture || null
+          }));
+      } else {
+        result.debug.members_error = `status ${r.status}`;
       }
-    } catch (_) {}
+    } catch (err) {
+      result.debug.members_error = err.message;
+    }
 
     // Detail da list (statuses + space_id pra puxar tags)
     if (listId) {

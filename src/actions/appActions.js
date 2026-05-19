@@ -5102,8 +5102,117 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V31.2.34 — Abre modal de chat Djow acima do taskCreationModal.
+  // User digita o que precisa, Djow propõe drafts (tool propose_task_draft),
+  // user clica "Aplicar" pra copiar pra modal pai.
+  openDjowTaskChat() {
+    if (!App.state.taskCreationModal?.open) return;
+    App.state.djowTaskChat = {
+      open: true,
+      actionId: App.state.taskCreationModal.actionId,
+      messages: [],
+      input: '',
+      loading: false
+    };
+    App.render();
+  },
+
+  closeDjowTaskChat() {
+    App.state.djowTaskChat = null;
+    App.render();
+  },
+
+  updateDjowChatInput(value) {
+    if (!App.state.djowTaskChat) return;
+    App.state.djowTaskChat = { ...App.state.djowTaskChat, input: String(value || '') };
+  },
+
+  async sendDjowTaskMessage() {
+    const c = App.state.djowTaskChat;
+    if (!c || c.loading) return;
+    const text = String(c.input || '').trim();
+    if (!text) return;
+    const userMsg = { role: 'user', content: text };
+    const newMessages = [...(c.messages || []), userMsg];
+    App.state.djowTaskChat = { ...c, messages: newMessages, input: '', loading: true };
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-task-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          actionId: c.actionId,
+          messages: newMessages.map(m => ({ role: m.role, content: m.content }))
+        })
+      });
+      const data = await r.json();
+      if (data.ok) {
+        const assistantMsg = { role: 'assistant', content: data.reply || '...', _draft: data.draft || null };
+        App.state.djowTaskChat = {
+          ...App.state.djowTaskChat,
+          messages: [...newMessages, assistantMsg],
+          loading: false
+        };
+        App.render();
+      } else {
+        App.state.djowTaskChat = {
+          ...App.state.djowTaskChat,
+          messages: [...newMessages, { role: 'assistant', content: `Erro: ${data.message || 'falha desconhecida'}` }],
+          loading: false
+        };
+        App.render();
+      }
+    } catch (err) {
+      App.state.djowTaskChat = {
+        ...App.state.djowTaskChat,
+        messages: [...newMessages, { role: 'assistant', content: `Erro de rede: ${err.message}` }],
+        loading: false
+      };
+      App.render();
+    }
+  },
+
+  // Aplica o draft proposto pelo Djow no taskCreationModal. Sobrescreve só
+  // os campos preenchidos pelo Djow — não toca o que o user já tinha digitado
+  // se o draft veio sem aquele campo.
+  applyDjowDraftToTask(draft) {
+    if (!App.state.taskCreationModal?.open || !draft) return;
+    const cur = App.state.taskCreationModal.draft;
+    const next = { ...cur };
+    if (draft.name) next.name = draft.name;
+    if (draft.description) next.description = draft.description;
+    if (draft.priority) next.priority = draft.priority;
+    if (draft.status) next.status = draft.status;
+    if (draft.due_date) { next.due_date = draft.due_date; next.due_date_time = String(draft.due_date).includes('T'); }
+    if (draft.start_date) { next.start_date = draft.start_date; next.start_date_time = String(draft.start_date).includes('T'); }
+    if (Array.isArray(draft.tags) && draft.tags.length) next.tags = draft.tags;
+    if (Number.isFinite(draft.time_estimate_hours)) next.time_estimate_hours = String(draft.time_estimate_hours);
+    if (Number.isFinite(draft.points)) next.points = String(draft.points);
+    // Assignees: tenta matchar hints com members do workspace
+    if (Array.isArray(draft.assignees_hints) && draft.assignees_hints.length && App.state.clickupMeta?.members?.length) {
+      const members = App.state.clickupMeta.members;
+      const matched = [];
+      draft.assignees_hints.forEach(hint => {
+        const h = String(hint || '').toLowerCase().trim();
+        if (!h) return;
+        const found = members.find(m =>
+          String(m.username || '').toLowerCase().includes(h)
+          || String(m.email || '').toLowerCase().includes(h)
+        );
+        if (found && !matched.includes(found.id)) matched.push(found.id);
+      });
+      if (matched.length) next.assignees = matched;
+    }
+    App.state.taskCreationModal = { ...App.state.taskCreationModal, draft: next };
+    App.state.djowTaskChat = null;
+    App.render();
+    Utils.toast('✓ Draft aplicado. Revisa e clica em "Criar no ClickUp".');
+  },
+
   // Djow auto-fill: pede pro Djow gerar nome+description+priority com base no contexto da ação.
   // Substitui só os campos vazios pra não sobrescrever o que o user já digitou.
+  // V31.2.34 — DEPRECATED: substituído pelo modal de chat openDjowTaskChat. Mantido por compat.
   async fillTaskDraftWithDjow() {
     if (!App.state.taskCreationModal) return;
     const action = (App.state.actions || []).find(a => Number(a.id) === Number(App.state.taskCreationModal.actionId));

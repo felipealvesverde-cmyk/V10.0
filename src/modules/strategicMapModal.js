@@ -29,7 +29,65 @@ window.StrategicMapModal = {
       ${App.state.connectActionToKrsModal ? this._connectActionToKrsModalRender() : ''}
       ${App.state.strategicActionDetailModalId ? this._actionDetailModalRender() : ''}
       ${App.state.taskCreationModal?.open ? this._taskCreationModalRender() : ''}
+      ${App.state.djowTaskChat?.open ? this._djowTaskChatRender() : ''}
       ${window.ActionEditModal ? ActionEditModal.render() : ''}
+    </div>`;
+  },
+
+  // V31.2.34 — Chat modal-on-modal: abre acima do taskCreationModal pra conversar
+  // com o Djow. Quando Djow propõe um draft (tool propose_task_draft), aparece
+  // botão "Aplicar à ação" que copia os campos pra modal pai e fecha o chat.
+  _djowTaskChatRender() {
+    const c = App.state.djowTaskChat;
+    if (!c || !c.open) return '';
+    const messages = c.messages || [];
+    return `<div class="fixed inset-0 z-[99] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target === this) Actions.closeDjowTaskChat()">
+      <div class="bg-slate-950 border border-violet-400/40 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
+        <div class="p-4 border-b border-white/10 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-fuchsia-500 grid place-items-center"><i data-lucide="sparkles" class="w-4 h-4 text-white"></i></div>
+            <div>
+              <p class="text-[10px] font-black text-violet-300 uppercase tracking-wider">Djow</p>
+              <p class="text-[13px] font-black text-white">Vamos montar a task juntos</p>
+            </div>
+          </div>
+          <button onclick="Actions.closeDjowTaskChat()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 text-white font-black text-xl">×</button>
+        </div>
+
+        <div id="djowTaskChatScroll" class="flex-1 overflow-y-auto p-4 space-y-3">
+          ${messages.length === 0 ? `<div class="text-center py-8">
+            <p class="text-[12px] text-slate-400 mb-2">Conta o que essa task precisa entregar.</p>
+            <p class="text-[11px] text-slate-500 italic">Exemplos: "preciso de uma task pra revisar a copy do e-mail" · "data limite sexta-feira, prioridade alta" · "atribui pra equipe de mkt"</p>
+          </div>` : messages.map(m => {
+            if (m.role === 'user') {
+              const text = typeof m.content === 'string' ? m.content : (Array.isArray(m.content) ? m.content.map(x => x.text || '').join('') : '');
+              return `<div class="flex justify-end"><div class="max-w-[80%] rounded-2xl rounded-br-sm bg-violet-600 text-white px-3 py-2 text-[12px] whitespace-pre-wrap">${Utils.escape(text)}</div></div>`;
+            }
+            // assistant
+            const text = typeof m.content === 'string' ? m.content : (Array.isArray(m.content) ? m.content.filter(x => x.type === 'text').map(x => x.text).join('') : '');
+            const hasDraft = m._draft || null;
+            return `<div class="flex justify-start"><div class="max-w-[85%]">
+              <div class="rounded-2xl rounded-bl-sm bg-slate-800 border border-white/10 text-slate-100 px-3 py-2 text-[12px] whitespace-pre-wrap">${Utils.escape(text || '...')}</div>
+              ${hasDraft ? `<div class="mt-2 rounded-xl bg-emerald-500/10 border border-emerald-400/30 p-2 text-[11px] text-emerald-100">
+                <p class="font-black mb-1">📋 Draft proposto</p>
+                <p><b>Nome:</b> ${Utils.escape(hasDraft.name || '—')}</p>
+                <p class="mt-0.5"><b>Descrição:</b> ${Utils.escape((hasDraft.description || '').slice(0, 180))}${(hasDraft.description || '').length > 180 ? '…' : ''}</p>
+                ${hasDraft.priority ? `<p class="mt-0.5"><b>Prioridade:</b> ${Utils.escape(hasDraft.priority)}</p>` : ''}
+                ${hasDraft.due_date ? `<p class="mt-0.5"><b>Entrega:</b> ${Utils.escape(hasDraft.due_date)}</p>` : ''}
+                ${hasDraft.assignees_hints?.length ? `<p class="mt-0.5"><b>Sugeridos:</b> ${hasDraft.assignees_hints.map(a => Utils.escape(a)).join(', ')}</p>` : ''}
+                ${hasDraft.reasoning ? `<p class="mt-1 italic text-emerald-200/80">💡 ${Utils.escape(hasDraft.reasoning)}</p>` : ''}
+                <button onclick='Actions.applyDjowDraftToTask(${JSON.stringify(hasDraft).replace(/'/g, "&#39;")})' class="mt-2 w-full px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black" style="color:#fff!important;">✓ Aplicar à ação</button>
+              </div>` : ''}
+            </div></div>`;
+          }).join('')}
+          ${c.loading ? `<div class="flex justify-start"><div class="rounded-2xl rounded-bl-sm bg-slate-800 border border-white/10 text-slate-400 px-3 py-2 text-[12px] flex items-center gap-2"><i data-lucide="loader" class="w-3 h-3 animate-spin"></i> Djow pensando...</div></div>` : ''}
+        </div>
+
+        <div class="p-3 border-t border-white/10 flex items-end gap-2">
+          <textarea id="djowTaskChatInput" oninput="Actions.updateDjowChatInput(this.value)" onkeydown="if(event.key === 'Enter' && !event.shiftKey){ event.preventDefault(); Actions.sendDjowTaskMessage(); }" placeholder="Conta o que tu precisa..." rows="2" class="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-white/10 text-white text-[12px] resize-none">${Utils.escape(c.input || '')}</textarea>
+          <button onclick="Actions.sendDjowTaskMessage()" ${c.loading || !String(c.input || '').trim() ? 'disabled' : ''} class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-black text-[12px] disabled:opacity-50 flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar</button>
+        </div>
+      </div>
     </div>`;
   },
 
@@ -65,8 +123,8 @@ window.StrategicMapModal = {
         </div>
 
         <div class="p-5 space-y-4">
-          <!-- Djow button -->
-          <button onclick="Actions.fillTaskDraftWithDjow()" ${djowLoading ? 'disabled' : ''} class="w-full px-3 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-black text-[12px] flex items-center justify-center gap-2 disabled:opacity-50" style="color:#fff!important;"><i data-lucide="${djowLoading ? 'loader' : 'sparkles'}" class="w-4 h-4 ${djowLoading ? 'animate-spin' : ''}"></i> ${djowLoading ? 'Djow pensando...' : 'Deixar Djow preencher'}</button>
+          <!-- Djow chat trigger -->
+          <button onclick="Actions.openDjowTaskChat()" ${djowLoading ? 'disabled' : ''} class="w-full px-3 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-black text-[12px] flex items-center justify-center gap-2 disabled:opacity-50" style="color:#fff!important;"><i data-lucide="${djowLoading ? 'loader' : 'message-square'}" class="w-4 h-4 ${djowLoading ? 'animate-spin' : ''}"></i> ${djowLoading ? 'Djow pensando...' : 'Pedir para o Djow'}</button>
 
           <!-- Normal -->
           <div class="space-y-3">
@@ -90,6 +148,17 @@ window.StrategicMapModal = {
                 }).join('')}
               </div>`}
             </div>
+            <!-- V31.2.34 — Datas movidas pro Normal -->
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Data de entrega</label>
+                <input type="datetime-local" value="${Utils.escape(d.due_date)}" oninput="Actions.updateTaskDraft('due_date', this.value); Actions.updateTaskDraft('due_date_time', this.value.includes('T'))" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Data de início</label>
+                <input type="datetime-local" value="${Utils.escape(d.start_date)}" oninput="Actions.updateTaskDraft('start_date', this.value); Actions.updateTaskDraft('start_date_time', this.value.includes('T'))" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;" />
+              </div>
+            </div>
           </div>
 
           <!-- Toggle Avançado -->
@@ -112,17 +181,6 @@ window.StrategicMapModal = {
                   <option value="">— default da list —</option>
                   ${meta.statuses.map(s => `<option value="${Utils.escape(s.status)}" ${d.status === s.status ? 'selected' : ''}>${Utils.escape(s.status)}</option>`).join('')}
                 </select>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Data de entrega</label>
-                <input type="datetime-local" value="${Utils.escape(d.due_date)}" oninput="Actions.updateTaskDraft('due_date', this.value); Actions.updateTaskDraft('due_date_time', !!this.value.includes('T'))" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;" />
-              </div>
-              <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Data de início</label>
-                <input type="datetime-local" value="${Utils.escape(d.start_date)}" oninput="Actions.updateTaskDraft('start_date', this.value); Actions.updateTaskDraft('start_date_time', !!this.value.includes('T'))" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;" />
               </div>
             </div>
 
