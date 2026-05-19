@@ -5361,6 +5361,17 @@ Prioridade: ${d.priority}
     App.render();
   },
 
+  // V31.2.20 — Modal-on-modal "Ver ações plugadas": mini-dashboard + lista
+  // de ações conectadas a um KR-mãe (across todas branches do produto).
+  openPluggedActionsModal(pkrId) {
+    App.state.pluggedActionsModal = { open: true, pkrId };
+    App.render();
+  },
+  closePluggedActionsModal() {
+    App.state.pluggedActionsModal = null;
+    App.render();
+  },
+
   // V29.3.0 — Abre a engine de criação de ação custom no contexto de um KR.
   // V31.2.18 — Adicionado selectedKrIds (multi-select). Pre-marca o KR de origem.
   openCustomActionEngine(areaId, parentProductKrId) {

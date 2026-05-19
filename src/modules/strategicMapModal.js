@@ -25,6 +25,132 @@ window.StrategicMapModal = {
       ${App.state.strategicCreateCampaignPopup ? this._createCampaignPopup() : ''}
       ${App.state.activateCatalogKrModal ? this._activateCatalogKrModalRender() : ''}
       ${App.state.createCustomKrModal ? this._createCustomKrModalRender() : ''}
+      ${App.state.pluggedActionsModal ? this._pluggedActionsModalRender() : ''}
+    </div>`;
+  },
+
+  // V31.2.20 — Modal-on-modal: ver ações plugadas a um KR-mãe.
+  // Aparece em z-[96] (acima do Mapa da Receita que é z-[80]). Mostra:
+  //   - Mini-dashboard (velocímetro) do KR: rollup atual vs Meta Segura/Avançada
+  //   - Lista de ações conectadas (across todas branches do produto) com
+  //     canal/status/dono + link "Abrir ação" pra editar no menu Ações.
+  _pluggedActionsModalRender() {
+    const m = App.state.pluggedActionsModal;
+    if (!m || !m.open) return '';
+    const productId = App.state.strategicMapProductId;
+    const pkr = StrategicMapEngine.getProductKrs(productId).find(k => k.id === m.pkrId);
+    if (!pkr) return '';
+    const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === pkr.area);
+    const tone = area?.color || 'indigo';
+    // Coleta TODOS os childKrs do produto que apontam pra esse pkr-mãe (across branches)
+    const branches = StrategicMapEngine.getBranchesByProduct(productId);
+    const childKrs = branches.flatMap(b => (b.objectives || []).flatMap(o => (o.okrs || []).map(kr => ({ ...kr, branchId: b.campaignId }))))
+      .filter(k => k.parentProductKrId === pkr.id);
+    // Rollup atual: soma current de todos os childKrs
+    const rollupCurrent = childKrs.reduce((sum, k) => sum + Number(k.current || 0), 0);
+    const safeTarget = Number(pkr.targetCommitted || 0);
+    const stretchTarget = Number(pkr.targetStretch || 0);
+    const pctSafe = safeTarget ? Math.min(100, Math.round((rollupCurrent / safeTarget) * 100)) : 0;
+    const pctStretch = stretchTarget ? Math.min(100, Math.round((rollupCurrent / stretchTarget) * 100)) : 0;
+    // Coleta todas as actions conectadas
+    const connectedActionIds = new Set(childKrs.flatMap(k => (k.connectedActionIds || []).map(Number)));
+    const actions = (App.state.actions || []).filter(a => connectedActionIds.has(Number(a.id)));
+    const statuses = (StrategicMapEngine.STRATEGIC_ACTION_STATUSES || []);
+    return `<div class="fixed inset-0 z-[96] bg-slate-950/85 backdrop-blur-md grid place-items-center p-4">
+      <div class="bg-slate-900 rounded-[2rem] shadow-2xl border-2 border-${tone}-400/40 w-full max-w-3xl overflow-hidden max-h-[92vh] flex flex-col">
+        <header class="p-5 bg-${tone}-500/15 border-b border-${tone}-400/30 flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <i data-lucide="${area?.icon || 'target'}" class="w-4 h-4 text-${tone}-200"></i>
+              <p class="text-[11px] font-black text-${tone}-200 uppercase tracking-wider">${Utils.escape(area?.label || '')} · Ações plugadas a este KR</p>
+            </div>
+            <h3 class="text-xl font-black text-white">${Utils.escape(pkr.name)}</h3>
+            <p class="text-[11px] text-slate-300 mt-0.5">${actions.length} ação(ões) ativa(s) em ${childKrs.length} branch(es)</p>
+          </div>
+          <button onclick="Actions.closePluggedActionsModal()" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-white text-xs font-black flex items-center gap-1.5">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i> Fechar
+          </button>
+        </header>
+
+        <div class="p-5 overflow-y-auto space-y-4">
+          ${this._pluggedActionsDashboard(pkr, rollupCurrent, safeTarget, stretchTarget, pctSafe, pctStretch, tone)}
+
+          <div>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Ações alimentando este KR</p>
+            ${actions.length === 0
+              ? `<div class="rounded-xl bg-slate-800/50 border border-dashed border-white/15 p-4 text-center text-slate-400 text-sm italic">Nenhuma ação plugada ainda. Crie uma na etapa Ações pra esse número começar a se mover.</div>`
+              : `<div class="space-y-2">${actions.map(a => this._pluggedActionRow(a, tone)).join('')}</div>`}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V31.2.20 — Mini-dashboard com velocímetro semicircular + métricas.
+  _pluggedActionsDashboard(pkr, rollupCurrent, safeTarget, stretchTarget, pctSafe, pctStretch, tone) {
+    // Velocímetro: arc semicircular SVG. Ângulo varia de 180° (esquerda) a 0° (direita).
+    // Posição da agulha baseada em pctSafe (clampa 0-100). Verde se >=70%, amber 40-70, red <40.
+    const angleDeg = 180 - (pctSafe * 1.8); // 0% = 180°, 100% = 0°
+    const needleColor = pctSafe >= 70 ? '#10B981' : (pctSafe >= 40 ? '#F59E0B' : '#EF4444');
+    return `<div class="rounded-2xl bg-slate-800/50 border border-white/10 p-4">
+      <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-3">Como esse KR está</p>
+      <div class="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4 items-center">
+        <div class="flex flex-col items-center">
+          <svg viewBox="0 0 200 120" class="w-full max-w-[200px]">
+            <!-- Arc background -->
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="14" stroke-linecap="round"/>
+            <!-- Arc fill (até pctSafe) -->
+            <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="${needleColor}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${(pctSafe / 100) * 251} 251"/>
+            <!-- Needle -->
+            <line x1="100" y1="100" x2="${100 + 70 * Math.cos(angleDeg * Math.PI / 180)}" y2="${100 - 70 * Math.sin(angleDeg * Math.PI / 180)}" stroke="white" stroke-width="3" stroke-linecap="round"/>
+            <circle cx="100" cy="100" r="5" fill="white"/>
+            <!-- Percentage label -->
+            <text x="100" y="90" text-anchor="middle" fill="white" font-size="22" font-weight="900">${pctSafe}%</text>
+          </svg>
+          <p class="text-[10px] text-slate-400 -mt-2">do piso (Meta Segura)</p>
+        </div>
+        <div class="space-y-2">
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="rounded-lg bg-slate-900/60 border border-white/10 p-2.5">
+              <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider">Hoje</p>
+              <p class="font-black text-white text-lg">${rollupCurrent}</p>
+              <p class="text-[9px] text-slate-500">${Utils.escape(pkr.metric || '')}</p>
+            </div>
+            <div class="rounded-lg bg-emerald-500/10 border border-emerald-400/30 p-2.5">
+              <p class="text-[9px] font-black text-emerald-300 uppercase tracking-wider">🔒 Segura</p>
+              <p class="font-black text-white text-lg">${safeTarget || '—'}</p>
+              <p class="text-[9px] text-emerald-200">${pctSafe}%</p>
+            </div>
+            <div class="rounded-lg bg-violet-500/10 border border-violet-400/30 p-2.5">
+              <p class="text-[9px] font-black text-violet-300 uppercase tracking-wider">🚀 Avançada</p>
+              <p class="font-black text-white text-lg">${stretchTarget || '—'}</p>
+              <p class="text-[9px] text-violet-200">${pctStretch}%</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V31.2.20 — Card compact de uma ação plugada. Mostra canal/status/dono + leads.
+  // Botão "Abrir ação" navega pro menu Ações de Campanha (caminho já existente).
+  _pluggedActionRow(action, tone) {
+    const statuses = (StrategicMapEngine.STRATEGIC_ACTION_STATUSES || []);
+    const status = statuses.find(s => s.id === action.strategicStatus) || statuses[0] || { label: 'Planejada', color: 'slate' };
+    const leadsCount = (action.leads || []).length;
+    return `<div class="rounded-xl bg-slate-800/50 border border-white/10 p-3 flex items-center justify-between gap-3 hover:bg-slate-800/80 transition">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-1.5 mb-1 flex-wrap">
+          <span class="px-1.5 py-0.5 rounded-full bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[9px] font-black uppercase tracking-wider">${Utils.escape(action.channel || '—')}</span>
+          <span class="px-1.5 py-0.5 rounded-full bg-${status.color}-500/30 border border-${status.color}-400/40 text-${status.color}-100 text-[9px] font-black">${Utils.escape(status.label).toUpperCase()}</span>
+          ${action.strategicConfirmed ? '<span class="text-[10px] font-black text-emerald-300">✓ confirmada</span>' : ''}
+        </div>
+        <p class="font-bold text-white text-[12px] leading-tight">${Utils.escape(action.name)}</p>
+        <p class="text-[10px] text-slate-400 mt-0.5">${action.strategicOwner ? '👤 ' + Utils.escape(action.strategicOwner) + ' · ' : ''}${leadsCount} lead(s) · ${Utils.escape(action.actionType || '—')}</p>
+      </div>
+      <button onclick="Actions.closePluggedActionsModal(); Actions.openActionFromMap(${action.id})" class="px-3 py-2 rounded-xl bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black flex items-center gap-1.5 shrink-0">
+        Editar <i data-lucide="arrow-right" class="w-3 h-3"></i>
+      </button>
     </div>`;
   },
 
@@ -1713,12 +1839,17 @@ window.StrategicMapModal = {
     // V31.2.15 — Botão renomeado "+ Plugar" → "+ Criar ação". Internamente continua
     // chamando plugProductKrIntoBranch (que cria o childKr na branch) — a ação real
     // é criada depois via o _unifiedKrPluggedCard que aparece pós-plugagem.
+    // V31.2.20 — Adicionado botão "Ver ações" que abre modal-on-modal com dashboard
+    // + lista de ações conectadas a esse KR-mãe (across todas as branches do produto).
     return `<div class="rounded-xl bg-slate-900/40 border border-${tone}-400/20 p-2.5 flex items-center justify-between gap-2">
       <div class="min-w-0">
         <p class="font-black text-white text-[12px]">${Utils.escape(pkr.name)}</p>
         <p class="text-[10px] text-slate-400">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${pkr.metric || ''}</p>
       </div>
-      <button onclick="Actions.plugProductKrIntoBranch('${pkr.id}')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black shrink-0">+ Criar ação</button>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button onclick="Actions.openPluggedActionsModal('${pkr.id}')" class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[11px] font-black flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> Ver ações</button>
+        <button onclick="Actions.plugProductKrIntoBranch('${pkr.id}')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black">+ Criar ação</button>
+      </div>
     </div>`;
   },
 
@@ -1744,7 +1875,10 @@ window.StrategicMapModal = {
           <p class="font-black text-white text-[13px]"><span class="text-emerald-300">✓ Plugado</span> · ${Utils.escape(childKr.name)}</p>
           <p class="text-[10px] text-slate-400 mt-0.5">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${childKr.metric || ''}</p>
         </div>
-        <button onclick="Actions.removeStrategicOkr('${branchObj.id}','${childKr.id}')" title="Desplugar" class="px-1.5 py-0.5 rounded text-[10px] text-red-300 hover:bg-red-500/20 border border-red-400/30 shrink-0">×</button>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button onclick="Actions.openPluggedActionsModal('${pkr.id}')" title="Ver ações plugadas a esse KR" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[10px] font-black flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> Ver ações</button>
+          <button onclick="Actions.removeStrategicOkr('${branchObj.id}','${childKr.id}')" title="Desplugar" class="px-1.5 py-0.5 rounded text-[10px] text-red-300 hover:bg-red-500/20 border border-red-400/30">×</button>
+        </div>
       </div>
 
       <!-- V29.3.2 — Split 50/50: engine na esquerda + metas na direita, ambos centralizados nas suas metades -->
