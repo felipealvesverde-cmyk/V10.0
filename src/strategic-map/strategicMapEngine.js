@@ -762,6 +762,9 @@ window.StrategicMapEngine = {
       actionType: data.actionType || 'Outro',
       origin: { productId: data.originProductId || null, krCatalogId: data.originKrCatalogId || null },
       usageByKr: {},                              // pra ML fase 2: {krCatalogId: count}
+      // V31.2.22 — KRs que o user marcou na engine quando criou a custom.
+      // Usado pelo Actions.plugCoverageChip pra plugar em batch ao clicar "Plugar".
+      pendingKrTargets: Array.isArray(data.pendingKrTargets) ? data.pendingKrTargets : [],
       createdAt: new Date().toISOString()
     };
     App.state.customActionCatalog = [...this.getCustomActions(), action];

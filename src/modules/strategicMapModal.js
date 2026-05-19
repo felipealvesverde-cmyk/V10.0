@@ -2023,9 +2023,25 @@ window.StrategicMapModal = {
           }).join('')}
           ${customs.map(c => {
             const isAct = activatedCustomIds.has(c.id);
-            return `<button onclick="Actions.activateExistingCustomAction('${area.id}', '${c.id}', '${pkr.id}')" ${isAct ? 'disabled' : ''} title="Custom · ${Utils.escape(c.channel)}" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border-2 border-dashed ${isAct ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-200 cursor-default' : `bg-slate-900 hover:bg-slate-800 border-${tone}-400/50 text-${tone}-100`}">${isAct ? '✓ ' : '✨ '}${Utils.escape(c.name)}<span class="opacity-60"> · sua</span></button>`;
+            const isSel = App.state.coverageChipSelected === c.id;
+            const ring = isSel ? ` ring-2 ring-${tone}-300` : '';
+            return `<button onclick="Actions.toggleCoverageChip('${c.id}')" title="Custom · ${Utils.escape(c.channel)}" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border-2 border-dashed${ring} ${isAct ? 'bg-emerald-500/20 border-emerald-400/60 text-emerald-200' : `bg-slate-900 hover:bg-slate-800 border-${tone}-400/50 text-${tone}-100`}">${isAct ? '✓ ' : '✨ '}${Utils.escape(c.name)}<span class="opacity-60"> · sua</span></button>`;
           }).join('')}
         </div>`}
+        ${(() => {
+          // V31.2.22 — Quando user seleciona uma chip custom, mostra barra
+          // de ação com Plugar/Desplugar. Antes a chip ativava direto.
+          const selId = App.state.coverageChipSelected;
+          if (!selId) return '';
+          const sel = customs.find(c => c.id === selId);
+          if (!sel) return '';
+          return `<div class="mt-2 flex items-center gap-2 rounded-lg bg-slate-900/60 border border-${tone}-400/30 p-2">
+            <p class="text-[11px] text-slate-300 flex-1 min-w-0 truncate"><b class="text-${tone}-200">${Utils.escape(sel.name)}</b> selecionada</p>
+            <button onclick="Actions.plugCoverageChip('${sel.id}', '${area.id}', '${pkr.id}')" class="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black flex items-center gap-1" style="color:#fff!important;"><i data-lucide="plug" class="w-3 h-3"></i> Plugar</button>
+            <button onclick="Actions.unplugCoverageChip('${sel.id}', '${area.id}', '${pkr.id}')" class="px-2.5 py-1 rounded bg-red-500/80 hover:bg-red-600 text-white text-[10px] font-black flex items-center gap-1" style="color:#fff!important;"><i data-lucide="unplug" class="w-3 h-3"></i> Desplugar</button>
+            <button onclick="Actions.toggleCoverageChip('${sel.id}')" title="Cancelar seleção" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-[10px] font-black">✕</button>
+          </div>`;
+        })()}
       </div>
     </div>`;
   },
@@ -2202,7 +2218,7 @@ window.StrategicMapModal = {
 
       <div class="flex justify-end gap-1.5 pt-1">
         <button onclick="Actions.closeCustomActionEngine()" class="px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-[10px] font-black">Cancelar</button>
-        <button onclick="Actions.createCustomAction()" class="px-3 py-1 rounded bg-${tone}-500 hover:bg-${tone}-600 text-white text-[10px] font-black flex items-center gap-1" style="color:#fff!important;"><i data-lucide="rocket" class="w-3 h-3"></i> Criar e plugar</button>
+        <button onclick="Actions.createCustomAction()" class="px-3 py-1 rounded bg-${tone}-500 hover:bg-${tone}-600 text-white text-[10px] font-black flex items-center gap-1" style="color:#fff!important;"><i data-lucide="plus" class="w-3 h-3"></i> Criar</button>
       </div>
     </div>`;
   },

@@ -5516,7 +5516,9 @@ Prioridade: ${d.priority}
     App.render();
   },
 
-  // V29.3.0 — Cria custom action via engine. Valida → adiciona ao catálogo → pluga no KR atual.
+  // V31.2.22 — "Criar" agora SÓ adiciona ao catálogo (sem plugar).
+  // Os KRs marcados na engine ficam guardados em pendingKrTargets pra serem
+  // usados quando o user clicar "Plugar" no chip em "Como cobrir esse número?".
   createCustomAction() {
     const eng = App.state.customActionEngine;
     if (!eng) return;
@@ -5527,6 +5529,9 @@ Prioridade: ${d.priority}
     if (!eng.channel) return Utils.toast('Escolha o canal.');
     const productId = App.state.strategicMapProductId;
     const finalChannel = eng.channel === 'Outro' && eng.channelOther ? `Outro: ${String(eng.channelOther).trim()}` : eng.channel;
+    const pendingKrTargets = Array.isArray(eng.selectedKrIds) && eng.selectedKrIds.length
+      ? eng.selectedKrIds.slice()
+      : (eng.parentProductKrId ? [eng.parentProductKrId] : []);
     const result = StrategicMapEngine.addCustomAction({
       name,
       sector: eng.areaId,
@@ -5536,28 +5541,23 @@ Prioridade: ${d.priority}
       channel: finalChannel,
       actionType: 'Outro',
       originProductId: productId,
-      originKrCatalogId: eng.originKrCatalogId
+      originKrCatalogId: eng.originKrCatalogId,
+      pendingKrTargets
     });
     if (!result.ok) return Utils.toast(result.error);
-    // V31.2.18 — Ativa a custom em TODOS os KRs marcados pelo user (multi-select).
-    // Antes ativava só pro parentProductKrId de origem. Agora loop em selectedKrIds.
-    const targetKrIds = Array.isArray(eng.selectedKrIds) && eng.selectedKrIds.length
-      ? eng.selectedKrIds
-      : [eng.parentProductKrId];
-    let activationError = null;
-    targetKrIds.forEach(krId => {
-      if (!krId) return;
-      const act = StrategicMapEngine.activateCustomAction(productId, eng.areaId, result.action.id, krId);
-      if (act?.error) activationError = act.error;
-    });
-    if (activationError) return Utils.toast(activationError);
-    App.state.customActionEngine = null;
-    App.save(); App.render();
+    // V31.2.22 — Sobrescreve pendingKrTargets também no caso "revived" (já existia).
     if (result.revived) {
-      Utils.toast(`✨ Ação "${result.action.name}" já existia. Plugada em ${targetKrIds.length} OKR(s).`);
-    } else {
-      Utils.toast(`Ação custom "${name}" criada e plugada em ${targetKrIds.length} OKR(s). Vai ficar na sua biblioteca pra reusar.`);
+      App.state.customActionCatalog = (App.state.customActionCatalog || []).map(c =>
+        c.id === result.action.id ? { ...c, pendingKrTargets } : c
+      );
     }
+    App.state.customActionEngine = null;
+    // Pré-seleciona a chip recém-criada pra abrir a barra Plugar/Desplugar.
+    App.state.coverageChipSelected = result.action.id;
+    App.save(); App.render();
+    Utils.toast(result.revived
+      ? `✨ Ação "${result.action.name}" já existia. Selecione em "Como cobrir" + Plugar.`
+      : `Ação custom "${name}" criada. Selecione em "Como cobrir" + Plugar.`);
   },
 
   // V29.3.0 — Ativa custom action já existente no catálogo (clicando no chip).
@@ -5567,6 +5567,109 @@ Prioridade: ${d.priority}
     if (result?.error) return Utils.toast(result.error);
     App.save(); App.render();
     Utils.toast('Ação plugada.');
+  },
+
+  // V31.2.22 — Seleciona/deseleciona uma chip custom em "Como cobrir esse número?".
+  // Antes a chip ativava direto; agora seleciona pra mostrar Plugar/Desplugar.
+  toggleCoverageChip(customId) {
+    const current = App.state.coverageChipSelected;
+    App.state.coverageChipSelected = (current === customId ? null : customId);
+    App.render();
+  },
+
+  // V31.2.22 — Pluga a custom selecionada. Usa pendingKrTargets do catálogo
+  // (KRs que o user marcou na engine quando criou). Idempotente: se já tinha
+  // sido plugada antes nesta campanha, só vincula KRs faltantes ao Action existente.
+  plugCoverageChip(customId, areaId, parentProductKrId) {
+    const productId = App.state.strategicMapProductId;
+    const campaignId = App.state.strategicMapCampaignId;
+    const custom = (App.state.customActionCatalog || []).find(c => c.id === customId);
+    if (!custom) return Utils.toast('Ação custom não encontrada.');
+    const targets = (Array.isArray(custom.pendingKrTargets) && custom.pendingKrTargets.length)
+      ? custom.pendingKrTargets.slice()
+      : [parentProductKrId];
+    // Se já existe um Action record dessa custom nesta campanha, reusa em vez de duplicar.
+    const existing = (App.state.actions || []).find(a =>
+      a.strategicCustomActionId === customId && Number(a.campaignId) === Number(campaignId)
+    );
+    if (existing) {
+      const branch = StrategicMapEngine.getBranchMap(campaignId);
+      let linkedNow = 0;
+      targets.forEach(parentKrId => {
+        if (!parentKrId) return;
+        (branch?.objectives || []).forEach(obj => {
+          (obj.okrs || []).forEach(kr => {
+            if (kr.parentProductKrId !== parentKrId) return;
+            const linked = (kr.connectedActionIds || []).map(Number).includes(Number(existing.id));
+            if (!linked && window.StrategicOkrEngine) {
+              StrategicOkrEngine.toggleAction(productId, obj.id, kr.id, existing.id, campaignId);
+              linkedNow++;
+            }
+          });
+        });
+      });
+      App.state.coverageChipSelected = null;
+      App.state.customActionEngine = null;
+      App.save(); App.render();
+      Utils.toast(linkedNow ? `Ação "${custom.name}" plugada em mais ${linkedNow} KR(s).` : `Ação "${custom.name}" já estava plugada nestes KR(s).`);
+      return;
+    }
+    // Primeiro plug: cria Action record + vincula a todos os KRs em targets.
+    let actionId = null;
+    let activationError = null;
+    targets.forEach((krId, idx) => {
+      if (!krId) return;
+      if (idx === 0) {
+        const act = StrategicMapEngine.activateCustomAction(productId, areaId, customId, krId, campaignId);
+        if (act?.error) { activationError = act.error; return; }
+        actionId = act?.action?.id;
+      } else if (actionId && window.StrategicOkrEngine) {
+        const branch = StrategicMapEngine.getBranchMap(campaignId);
+        (branch?.objectives || []).forEach(obj => {
+          (obj.okrs || []).forEach(kr => {
+            if (kr.parentProductKrId === krId && !(kr.connectedActionIds || []).map(Number).includes(Number(actionId))) {
+              StrategicOkrEngine.toggleAction(productId, obj.id, kr.id, actionId, campaignId);
+            }
+          });
+        });
+      }
+    });
+    if (activationError) return Utils.toast(activationError);
+    App.state.coverageChipSelected = null;
+    App.state.customActionEngine = null;
+    App.save(); App.render();
+    Utils.toast(`Ação "${custom.name}" plugada em ${targets.length} KR(s).`);
+  },
+
+  // V31.2.22 — Desconecta TODOS os Actions desta custom na campanha atual:
+  // remove vínculos com KRs (toggleAction off) + remove os registros de App.state.actions.
+  unplugCoverageChip(customId /*, areaId, parentProductKrId */) {
+    const productId = App.state.strategicMapProductId;
+    const campaignId = App.state.strategicMapCampaignId;
+    const matching = (App.state.actions || []).filter(a =>
+      a.strategicCustomActionId === customId && Number(a.campaignId) === Number(campaignId)
+    );
+    if (!matching.length) {
+      App.state.coverageChipSelected = null;
+      App.render();
+      return Utils.toast('Essa ação não está plugada nesta campanha.');
+    }
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    matching.forEach(action => {
+      if (branch && window.StrategicOkrEngine) {
+        (branch.objectives || []).forEach(obj => {
+          (obj.okrs || []).forEach(kr => {
+            if ((kr.connectedActionIds || []).map(Number).includes(Number(action.id))) {
+              StrategicOkrEngine.toggleAction(productId, obj.id, kr.id, action.id, campaignId);
+            }
+          });
+        });
+      }
+      App.state.actions = (App.state.actions || []).filter(a => Number(a.id) !== Number(action.id));
+    });
+    App.state.coverageChipSelected = null;
+    App.save(); App.render();
+    Utils.toast(`Ação desplugada (${matching.length} registro(s) removido(s)).`);
   },
 
   // V29.3.0 — Toggle balão de ajuda (?) inline nas metas.
