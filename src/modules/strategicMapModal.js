@@ -27,6 +27,7 @@ window.StrategicMapModal = {
       ${App.state.createCustomKrModal ? this._createCustomKrModalRender() : ''}
       ${App.state.pluggedActionsModal ? this._pluggedActionsModalRender() : ''}
       ${App.state.connectActionToKrsModal ? this._connectActionToKrsModalRender() : ''}
+      ${App.state.strategicActionDetailModalId ? this._actionDetailModalRender() : ''}
       ${window.ActionEditModal ? ActionEditModal.render() : ''}
     </div>`;
   },
@@ -89,6 +90,105 @@ window.StrategicMapModal = {
             <i data-lucide="link" class="w-3.5 h-3.5"></i> Conectar
           </button>
         </footer>
+      </div>
+    </div>`;
+  },
+
+  // V31.2.25 — Modal de detalhe da ação operacional, aberto ao clicar na pill
+  // de uma ação dentro do card de KR-mãe. Antes a pill navegava pro menu Ações
+  // (forçando sair do Mapa); agora abre detalhe full inline com:
+  //   - Info da ação (canal, travessia, status, dono, campanha)
+  //   - Dashboard (leads, score médio, etapas do fluxo, KRs plugados)
+  //   - KRs conectados (across todas branches do produto)
+  //   - Execuções/tasks linkadas com contadores
+  //   - Botões Editar / Desplugar / Deletar com guardrails
+  _actionDetailModalRender() {
+    const actionId = Number(App.state.strategicActionDetailModalId);
+    const action = (App.state.actions || []).find(a => Number(a.id) === actionId);
+    if (!action) return '';
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
+    const productId = campaign?.productId || App.state.strategicMapProductId;
+    const branches = productId ? (StrategicMapEngine.getBranchesByProduct(productId) || []) : [];
+    const linkedKrs = [];
+    branches.forEach(b => {
+      (b.objectives || []).forEach(o => {
+        (o.okrs || []).forEach(kr => {
+          if ((kr.connectedActionIds || []).map(Number).includes(actionId)) {
+            const parentPkr = StrategicMapEngine.getProductKrs(productId).find(p => p.id === kr.parentProductKrId);
+            const c = (App.state.campaigns || []).find(x => Number(x.id) === Number(b.campaignId));
+            linkedKrs.push({ kr, parentPkr, campaign: c });
+          }
+        });
+      });
+    });
+    const tasks = window.ExecutionTaskStore ? ExecutionTaskStore.byAction(actionId) : [];
+    const execStatus = window.ExecutionStatusEngine ? ExecutionStatusEngine.forAction(actionId) : { toExecute: 0, executing: 0, executed: 0, blocked: 0 };
+    const status = (StrategicMapEngine.STRATEGIC_ACTION_STATUSES || []).find(s => s.id === action.strategicStatus) || { label: 'Planejada', color: 'slate' };
+    const leadsCount = (action.leads || []).length;
+    const score = leadsCount > 0 ? (action.leads.reduce((sum, l) => sum + Number(l.score || 0), 0) / leadsCount) : 0;
+    const flowSteps = Array.isArray(action.flowPath) ? action.flowPath.length : 0;
+    const canDelete = linkedKrs.length === 0;
+    return `<div class="fixed inset-0 z-[97] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target === this) Actions.closeStrategicActionDetail()">
+      <div class="bg-slate-950 border border-violet-400/30 rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-auto p-5 space-y-4 shadow-2xl">
+        <div class="flex items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <p class="text-[10px] font-black text-violet-300 uppercase tracking-wider"><i data-lucide="rocket" class="w-3 h-3 inline-block"></i> Ação operacional</p>
+            <h2 class="text-xl font-black text-white mt-0.5">${Utils.escape(action.name)}</h2>
+            <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+              <span class="px-2 py-0.5 rounded-full bg-violet-500/20 border border-violet-400/40 text-violet-100 text-[10px] font-black">${Utils.escape(action.channel || '—')}</span>
+              <span class="px-2 py-0.5 rounded-full bg-${status.color}-500/20 border border-${status.color}-400/40 text-${status.color}-100 text-[10px] font-black">${Utils.escape(status.label).toUpperCase()}</span>
+              ${action.strategicConfirmed ? '<span class="text-[10px] font-black text-emerald-300">✓ CONFIRMADA</span>' : '<span class="text-[10px] font-black text-amber-300">⚠ PENDENTE</span>'}
+              ${action.strategicOwner ? `<span class="text-[10px] text-slate-400">👤 ${Utils.escape(action.strategicOwner)}</span>` : ''}
+              ${campaign ? `<span class="text-[10px] text-slate-400">📁 ${Utils.escape(campaign.name)}</span>` : ''}
+            </div>
+          </div>
+          <button onclick="Actions.closeStrategicActionDetail()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 text-white font-black text-xl shrink-0">×</button>
+        </div>
+
+        <div class="rounded-xl bg-slate-900/60 border border-white/10 p-3">
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Travessia da ação</p>
+          <p class="text-[13px] text-white"><b>${Utils.escape(action.originSector || action.sector || '—')}</b> <span class="text-slate-500">${Utils.escape(action.originFunnel || action.funnel || '')}</span> <span class="mx-2 text-violet-400">→</span> <b>${Utils.escape(action.destinationSector || '—')}</b> <span class="text-slate-500">${Utils.escape(action.destinationFunnel || '')}</span></p>
+          ${action.strategicDescription && action.strategicDescription !== 'Ação custom criada via engine' ? `<p class="text-[11px] text-slate-400 italic mt-1.5">${Utils.escape(action.strategicDescription)}</p>` : ''}
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div class="rounded-xl bg-blue-500/10 border border-blue-400/30 p-3"><p class="text-[9px] font-black text-blue-300 uppercase tracking-wider">Leads</p><p class="text-xl font-black text-white">${leadsCount}</p></div>
+          <div class="rounded-xl bg-amber-500/10 border border-amber-400/30 p-3"><p class="text-[9px] font-black text-amber-300 uppercase tracking-wider">Score médio</p><p class="text-xl font-black text-white">${score.toFixed(1)}</p></div>
+          <div class="rounded-xl bg-violet-500/10 border border-violet-400/30 p-3"><p class="text-[9px] font-black text-violet-300 uppercase tracking-wider">Etapas do fluxo</p><p class="text-xl font-black text-white">${flowSteps}</p></div>
+          <div class="rounded-xl bg-emerald-500/10 border border-emerald-400/30 p-3"><p class="text-[9px] font-black text-emerald-300 uppercase tracking-wider">KRs plugados</p><p class="text-xl font-black text-white">${linkedKrs.length}</p></div>
+        </div>
+
+        <div class="rounded-xl bg-slate-900/60 border border-white/10 p-3">
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">${linkedKrs.length ? linkedKrs.length + ' KR(s) conectados' : 'Nenhum KR conectado'}</p>
+          ${linkedKrs.length ? `<div class="space-y-1.5">
+            ${linkedKrs.map(({ kr, parentPkr, campaign: c }) => `<div class="rounded-lg bg-black/30 border border-white/10 p-2 flex items-center justify-between gap-2">
+              <div class="min-w-0">
+                <p class="font-black text-white text-[12px]">${Utils.escape(kr.name)}${parentPkr ? ` <span class="text-[10px] text-slate-500 font-normal">(filho de ${Utils.escape(parentPkr.name)})</span>` : ''}</p>
+                <p class="text-[10px] text-slate-400">Meta: <b>${kr.targetCommitted || '—'}</b> ${Utils.escape(kr.metric || '')} · Atual: <b class="text-emerald-300">${kr.current || 0}</b>${c ? ' · 📁 ' + Utils.escape(c.name) : ''}</p>
+              </div>
+            </div>`).join('')}
+          </div>` : '<p class="text-[11px] text-slate-500 italic">Ação não está plugada em nenhum KR. Pode ser deletada com segurança.</p>'}
+        </div>
+
+        <div class="rounded-xl bg-slate-900/60 border border-white/10 p-3">
+          <div class="flex items-center justify-between mb-2 gap-2 flex-wrap">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Execuções (${tasks.length})</p>
+            <p class="text-[10px] text-slate-400"><span class="text-amber-300 font-black">${execStatus.toExecute || 0}</span> a executar · <span class="text-blue-300 font-black">${execStatus.executing || 0}</span> executando · <span class="text-emerald-300 font-black">${execStatus.executed || 0}</span> executadas</p>
+          </div>
+          ${tasks.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem tasks ainda. Use "Criar Tarefas" na ação pra começar.</p>' : `<div class="space-y-1">
+            ${tasks.slice(0, 10).map(t => `<div class="rounded bg-black/30 border border-white/10 p-1.5 flex items-center justify-between gap-2">
+              <p class="text-[11px] text-white truncate flex-1">${Utils.escape(t.title || t.name || 'Task')}</p>
+              <span class="text-[9px] font-black ${t.status === 'completed' ? 'text-emerald-300' : t.status === 'in_progress' ? 'text-blue-300' : 'text-amber-300'}">${Utils.escape(String(t.status || '—'))}</span>
+            </div>`).join('')}
+            ${tasks.length > 10 ? `<p class="text-[10px] text-slate-500 italic">... mais ${tasks.length - 10} tasks</p>` : ''}
+          </div>`}
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-white/10 flex-wrap">
+          <button onclick="Actions.editActionFromDetail(${action.id})" class="px-3 py-2 rounded-xl bg-sky-500 hover:bg-sky-600 text-white text-[12px] font-black flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="edit-2" class="w-3.5 h-3.5"></i> Editar</button>
+          <button onclick="Actions.desplugActionFromDetail(${action.id})" ${linkedKrs.length === 0 ? 'disabled' : ''} class="px-3 py-2 rounded-xl ${linkedKrs.length === 0 ? 'bg-slate-700/40 text-slate-500 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-600 text-white'} text-[12px] font-black flex items-center gap-1.5" ${linkedKrs.length === 0 ? '' : 'style="color:#fff!important;"'} title="${linkedKrs.length === 0 ? 'Ação já está desplugada' : 'Remover dos KRs (mantém a ação)'}"><i data-lucide="unplug" class="w-3.5 h-3.5"></i> Desplugar</button>
+          <button onclick="Actions.deleteActionFromDetail(${action.id})" class="px-3 py-2 rounded-xl ${canDelete ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-slate-700/40 text-slate-500'} text-[12px] font-black flex items-center gap-1.5" ${canDelete ? 'style="color:#fff!important;"' : ''} title="${canDelete ? 'Excluir ação permanentemente' : 'Desplugue antes de deletar'}"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Deletar</button>
+        </div>
       </div>
     </div>`;
   },
@@ -1988,7 +2088,7 @@ window.StrategicMapModal = {
     if (!actions.length) return '';
     return `<div class="mt-2 flex flex-wrap gap-1">
       <span class="text-[10px] font-black text-slate-400 self-center mr-1">${actions.length} ação(ões):</span>
-      ${actions.map(a => `<button onclick="event.stopPropagation(); Actions.openActionFromMap(${a.id})" title="Abrir '${Utils.escape(a.name)}'" class="px-2 py-0.5 rounded bg-${tone}-500/10 hover:bg-${tone}-500/20 border border-${tone}-400/30 text-${tone}-100 text-[10px] font-bold hover:underline">${Utils.escape(a.name)}</button>`).join('')}
+      ${actions.map(a => `<button onclick="event.stopPropagation(); Actions.openStrategicActionDetail(${a.id})" title="Ver detalhe da ação '${Utils.escape(a.name)}'" class="px-2 py-0.5 rounded bg-${tone}-500/10 hover:bg-${tone}-500/20 border border-${tone}-400/30 text-${tone}-100 text-[10px] font-bold hover:underline">${Utils.escape(a.name)}</button>`).join('')}
     </div>`;
   },
 

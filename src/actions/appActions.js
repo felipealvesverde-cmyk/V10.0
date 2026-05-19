@@ -5206,6 +5206,109 @@ Prioridade: ${d.priority}
     Actions.openStrategicMapForCampaign(Number(campaignId));
   },
 
+  // V31.2.25 — Abre o modal de detalhe da ação operacional inline no Mapa.
+  // Substitui o redirect pro menu Ações que existia quando clicava em pill.
+  openStrategicActionDetail(actionId) {
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
+    if (!action) return Utils.toast('Ação não encontrada.');
+    App.state.strategicActionDetailModalId = Number(actionId);
+    App.render();
+  },
+
+  closeStrategicActionDetail() {
+    App.state.strategicActionDetailModalId = null;
+    App.render();
+  },
+
+  // V31.2.25 — Editar ação a partir do modal de detalhe: fecha o detalhe e
+  // delega pro ActionEditModal já existente. Reusa toda a engine de edição.
+  editActionFromDetail(actionId) {
+    App.state.strategicActionDetailModalId = null;
+    if (typeof this.openActionEditModal === 'function') this.openActionEditModal(actionId);
+    else App.render();
+  },
+
+  // V31.2.25 — Desplugar: remove a ação de TODOS os childKrs que ela toca
+  // (across todas as branches do produto). Mantém o Action record + tasks +
+  // leads — só remove os vínculos. Confirma antes listando os KRs afetados.
+  desplugActionFromDetail(actionId) {
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
+    if (!action) return Utils.toast('Ação não encontrada.');
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
+    const productId = campaign?.productId || App.state.strategicMapProductId;
+    if (!productId) return Utils.toast('Produto não encontrado.');
+    const branches = StrategicMapEngine.getBranchesByProduct(productId) || [];
+    const linked = [];
+    branches.forEach(b => {
+      const c = (App.state.campaigns || []).find(x => Number(x.id) === Number(b.campaignId));
+      (b.objectives || []).forEach(o => {
+        (o.okrs || []).forEach(kr => {
+          if ((kr.connectedActionIds || []).map(Number).includes(Number(actionId))) {
+            linked.push({ branch: b, objective: o, kr, campaign: c });
+          }
+        });
+      });
+    });
+    if (!linked.length) return Utils.toast('Ação já está desplugada.');
+    const msg = `Vai DESPLUGAR a ação "${action.name}".\n\n` +
+      `Você vai perder a contribuição dela pros seguintes KRs:\n` +
+      linked.map(l => `  • ${l.kr.name} (campanha "${l.campaign?.name || '—'}")`).join('\n') +
+      `\n\nA ação continua existindo (você pode replugar depois). Confirma?`;
+    if (!confirm(msg)) return;
+    linked.forEach(({ objective, kr, branch }) => {
+      if (window.StrategicOkrEngine) {
+        StrategicOkrEngine.toggleAction(productId, objective.id, kr.id, Number(actionId), branch.campaignId);
+      }
+    });
+    App.save(); App.render();
+    Utils.toast(`Ação "${action.name}" desplugada de ${linked.length} KR(s).`);
+  },
+
+  // V31.2.25 — Deletar ação. Só permite se desplugada (linkedKrs vazio).
+  // Senão alerta pra desplugar primeiro. Quando deletar, remove o Action +
+  // todas tasks de execução vinculadas. Operação irreversível.
+  deleteActionFromDetail(actionId) {
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
+    if (!action) return Utils.toast('Ação não encontrada.');
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
+    const productId = campaign?.productId || App.state.strategicMapProductId;
+    let connectedCount = 0;
+    if (productId) {
+      const branches = StrategicMapEngine.getBranchesByProduct(productId) || [];
+      branches.forEach(b => {
+        (b.objectives || []).forEach(o => {
+          (o.okrs || []).forEach(kr => {
+            if ((kr.connectedActionIds || []).map(Number).includes(Number(actionId))) connectedCount++;
+          });
+        });
+      });
+    }
+    if (connectedCount > 0) {
+      alert(
+        `Não dá pra deletar "${action.name}" enquanto estiver plugada (${connectedCount} KR(s)).\n\n` +
+        `Pra deletar:\n  1) Clique em "Desplugar" pra remover de todos os KRs\n  2) Depois clique em "Deletar"\n\n` +
+        `Motivo: deletar uma ação plugada apaga toda a contribuição dela (leads, score) dos KRs que ela alimenta. Essa proteção evita que dados estratégicos sumam sem aviso.`
+      );
+      return;
+    }
+    const tasksCount = (window.ExecutionTaskStore?.byAction(actionId) || []).length;
+    const leadsCount = (action.leads || []).length;
+    const ok = confirm(
+      `DELETAR PERMANENTEMENTE a ação "${action.name}"?\n\n` +
+      `Isso vai apagar:\n` +
+      `  • A ação\n` +
+      `  • ${tasksCount} task(s) de execução\n` +
+      `  • ${leadsCount} lead(s) vinculados\n\n` +
+      `Esta operação é IRREVERSÍVEL. Confirma?`
+    );
+    if (!ok) return;
+    App.state.executionTasks = (App.state.executionTasks || []).filter(t => Number(t.linked_action_id) !== Number(actionId));
+    App.state.actions = (App.state.actions || []).filter(a => Number(a.id) !== Number(actionId));
+    App.state.strategicActionDetailModalId = null;
+    App.save(); App.render();
+    Utils.toast(`Ação "${action.name}" deletada.`);
+  },
+
   // V31.1.0 — Abre ação operacional desde o Mapa da Receita (caminho inverso).
   // Fecha o Mapa, navega pra aba Ações de Campanha, seleciona a campanha + ação.
   openActionFromMap(actionId) {
