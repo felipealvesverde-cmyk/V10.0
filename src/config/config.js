@@ -16,13 +16,13 @@ var Config = {
         // V25.0.0 — Página inicial (home cockpit). Primeira do menu.
         { id: 'home', label: 'Início', icon: 'home' },
         { id: 'products', label: 'Produtos', icon: 'package' },
-        { id: 'revops', label: 'RevOps & Governança', icon: 'landmark' },
         { id: 'campaigns', label: 'Campanhas', icon: 'megaphone' },
         { id: 'actions', label: 'Ações da campanha', icon: 'plug' },
         { id: 'results', label: 'Resultado da campanha', icon: 'bar-chart-3' },
         { id: 'scores', label: 'Score', icon: 'gauge' },
         { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
-        { id: 'leads', label: 'Leads', icon: 'users-round' }
+        { id: 'leads', label: 'Leads', icon: 'users-round' },
+        { id: 'revops', label: 'RevOps & Governança', icon: 'landmark' }
       ],
       emptyOkrs: [
         { name: '', target: '', current: '' },
