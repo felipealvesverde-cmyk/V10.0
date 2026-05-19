@@ -5569,6 +5569,24 @@ Prioridade: ${d.priority}
     Utils.toast('Ação plugada.');
   },
 
+  // V31.2.23 — Expande o card plugado pra mostrar engine + chips. Default
+  // dos cards plugados é colapsado (visual igual aos desplugados, só com pills).
+  // Auto-abre a engine ao expandir (matches "+ Criar ação" mental model).
+  expandPluggedKrCard(areaId, pkrId) {
+    App.state.strategicKrCardOpen = { ...(App.state.strategicKrCardOpen || {}), [pkrId]: true };
+    this.openCustomActionEngine(areaId, pkrId);
+  },
+
+  // V31.2.23 — Recolhe o card plugado (fecha engine + limpa seleção de chip).
+  collapsePluggedKrCard(pkrId) {
+    App.state.strategicKrCardOpen = { ...(App.state.strategicKrCardOpen || {}), [pkrId]: false };
+    if (App.state.customActionEngine && App.state.customActionEngine.parentProductKrId === pkrId) {
+      App.state.customActionEngine = null;
+    }
+    App.state.coverageChipSelected = null;
+    App.render();
+  },
+
   // V31.2.22 — Seleciona/deseleciona uma chip custom em "Como cobrir esse número?".
   // Antes a chip ativava direto; agora seleciona pra mostrar Plugar/Desplugar.
   toggleCoverageChip(customId) {
@@ -5610,6 +5628,7 @@ Prioridade: ${d.priority}
       });
       App.state.coverageChipSelected = null;
       App.state.customActionEngine = null;
+      App.state.strategicKrCardOpen = { ...(App.state.strategicKrCardOpen || {}), [parentProductKrId]: false };
       App.save(); App.render();
       Utils.toast(linkedNow ? `Ação "${custom.name}" plugada em mais ${linkedNow} KR(s).` : `Ação "${custom.name}" já estava plugada nestes KR(s).`);
       return;
@@ -5637,13 +5656,15 @@ Prioridade: ${d.priority}
     if (activationError) return Utils.toast(activationError);
     App.state.coverageChipSelected = null;
     App.state.customActionEngine = null;
+    App.state.strategicKrCardOpen = { ...(App.state.strategicKrCardOpen || {}), [parentProductKrId]: false };
     App.save(); App.render();
     Utils.toast(`Ação "${custom.name}" plugada em ${targets.length} KR(s).`);
   },
 
   // V31.2.22 — Desconecta TODOS os Actions desta custom na campanha atual:
   // remove vínculos com KRs (toggleAction off) + remove os registros de App.state.actions.
-  unplugCoverageChip(customId /*, areaId, parentProductKrId */) {
+  // V31.2.23 — Colapsa o card do parentProductKrId após desplugar.
+  unplugCoverageChip(customId, areaId, parentProductKrId) {
     const productId = App.state.strategicMapProductId;
     const campaignId = App.state.strategicMapCampaignId;
     const matching = (App.state.actions || []).filter(a =>
@@ -5668,6 +5689,9 @@ Prioridade: ${d.priority}
       App.state.actions = (App.state.actions || []).filter(a => Number(a.id) !== Number(action.id));
     });
     App.state.coverageChipSelected = null;
+    if (parentProductKrId) {
+      App.state.strategicKrCardOpen = { ...(App.state.strategicKrCardOpen || {}), [parentProductKrId]: false };
+    }
     App.save(); App.render();
     Utils.toast(`Ação desplugada (${matching.length} registro(s) removido(s)).`);
   },

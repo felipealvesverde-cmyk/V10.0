@@ -1891,11 +1891,36 @@ window.StrategicMapModal = {
       <p class="text-[12px] text-slate-300 leading-relaxed">Conecte ações à campanha para cobrir os números que a campanha-mãe exige.</p>
       ${areaProductKrs.map(pkr => {
         const child = pluggedByParent.get(pkr.id);
-        return child
+        if (!child) return this._unifiedKrNotPluggedCard(pkr, area);
+        // V31.2.23 — Plugado: por padrão renderiza colapsado (estilo simples
+        // tipo not-plugged, mas com pills das ações). Expande só quando user
+        // clica "+ Criar ação" no card colapsado.
+        const isOpen = !!(App.state.strategicKrCardOpen && App.state.strategicKrCardOpen[pkr.id]);
+        return isOpen
           ? this._unifiedKrPluggedCard(product, area, pkr, branchObj, child, campaignId)
-          : this._unifiedKrNotPluggedCard(pkr, area);
+          : this._unifiedKrPluggedCardCollapsed(pkr, area);
       }).join('')}
       ${this._unpluggedActionsLayer(area, campaignId)}
+    </div>`;
+  },
+
+  // V31.2.23 — Versão recolhida do card plugado: visualmente idêntica ao
+  // _unifiedKrNotPluggedCard (rowzinha simples com nome + meta + Ver ações +
+  // Criar ação), mas com as pills das ações conectadas abaixo da meta e o
+  // botão "+ Criar ação" expande pro card cheio + abre a engine.
+  _unifiedKrPluggedCardCollapsed(pkr, area) {
+    const tone = area.color;
+    const actionsPills = this._actionPillsForKr(pkr, tone);
+    return `<div class="rounded-xl bg-slate-900/40 border border-${tone}-400/20 p-2.5 flex items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <p class="font-black text-white text-[12px]">${Utils.escape(pkr.name)}</p>
+        <p class="text-[10px] text-slate-400">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${pkr.metric || ''}</p>
+        ${actionsPills}
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button onclick="Actions.openPluggedActionsModal('${pkr.id}')" class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[11px] font-black flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> Ver ações</button>
+        <button onclick="Actions.expandPluggedKrCard('${area.id}', '${pkr.id}')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black">+ Criar ação</button>
+      </div>
     </div>`;
   },
 
@@ -1992,7 +2017,8 @@ window.StrategicMapModal = {
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
           <button onclick="Actions.openPluggedActionsModal('${pkr.id}')" title="Ver ações plugadas a esse KR" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[10px] font-black flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> Ver ações</button>
-          <button onclick="Actions.removeStrategicOkr('${branchObj.id}','${childKr.id}')" title="Desplugar" class="px-1.5 py-0.5 rounded text-[10px] text-red-300 hover:bg-red-500/20 border border-red-400/30">×</button>
+          <button onclick="Actions.collapsePluggedKrCard('${pkr.id}')" title="Recolher" class="px-1.5 py-0.5 rounded text-[10px] text-slate-300 hover:bg-white/10 border border-white/15"><i data-lucide="chevron-up" class="w-3 h-3"></i></button>
+          <button onclick="Actions.removeStrategicOkr('${branchObj.id}','${childKr.id}')" title="Desplugar KR da branch" class="px-1.5 py-0.5 rounded text-[10px] text-red-300 hover:bg-red-500/20 border border-red-400/30">×</button>
         </div>
       </div>
 
