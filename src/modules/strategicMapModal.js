@@ -1698,6 +1698,7 @@ window.StrategicMapModal = {
     branchKrs.forEach(kr => { if (kr.parentProductKrId) pluggedByParent.set(kr.parentProductKrId, kr); });
     return `<div class="rounded-3xl bg-${tone}-500/5 border border-${tone}-400/30 p-3 space-y-2.5">
       <p class="text-[11px] font-black text-${tone}-200 uppercase tracking-wider"><i data-lucide="${area.icon}" class="w-3.5 h-3.5 inline-block"></i> ${Utils.escape(area.label)} · ${pluggedByParent.size}/${areaProductKrs.length} plugado(s)</p>
+      <p class="text-[12px] text-slate-300 leading-relaxed">Conecte ações à campanha para cobrir os números que a campanha-mãe exige.</p>
       ${areaProductKrs.map(pkr => {
         const child = pluggedByParent.get(pkr.id);
         return child
@@ -1709,12 +1710,15 @@ window.StrategicMapModal = {
 
   _unifiedKrNotPluggedCard(pkr, area) {
     const tone = area.color;
+    // V31.2.15 — Botão renomeado "+ Plugar" → "+ Criar ação". Internamente continua
+    // chamando plugProductKrIntoBranch (que cria o childKr na branch) — a ação real
+    // é criada depois via o _unifiedKrPluggedCard que aparece pós-plugagem.
     return `<div class="rounded-xl bg-slate-900/40 border border-${tone}-400/20 p-2.5 flex items-center justify-between gap-2">
       <div class="min-w-0">
         <p class="font-black text-white text-[12px]">${Utils.escape(pkr.name)}</p>
-        <p class="text-[10px] text-slate-400">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${pkr.metric || ''} · período ${pkr.period || 90}d</p>
+        <p class="text-[10px] text-slate-400">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${pkr.metric || ''}</p>
       </div>
-      <button onclick="Actions.plugProductKrIntoBranch('${pkr.id}')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black shrink-0">+ Plugar nesta campanha</button>
+      <button onclick="Actions.plugProductKrIntoBranch('${pkr.id}')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black shrink-0">+ Criar ação</button>
     </div>`;
   },
 
@@ -1747,7 +1751,7 @@ window.StrategicMapModal = {
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
         <!-- ESQUERDA (1/2): engine — botão com metade da largura da coluna, centralizado -->
         <div class="flex justify-center">
-          ${engineOpen ? `<div class="w-full">${this._customActionEngineForm(area, pkr)}</div>` : `<button onclick="Actions.openCustomActionEngine('${area.id}', '${pkr.id}')" class="w-1/2 px-3 py-2.5 rounded-xl bg-${tone}-500/10 hover:bg-${tone}-500/20 border border-dashed border-${tone}-400/40 text-${tone}-100 text-[12px] font-black flex items-center justify-center gap-1.5 transition"><i data-lucide="zap" class="w-3.5 h-3.5"></i> Criar engine de ação</button>`}
+          ${engineOpen ? `<div class="w-full">${this._customActionEngineForm(area, pkr)}</div>` : `<button onclick="Actions.openCustomActionEngine('${area.id}', '${pkr.id}')" class="w-1/2 px-3 py-2.5 rounded-xl bg-${tone}-500/10 hover:bg-${tone}-500/20 border border-dashed border-${tone}-400/40 text-${tone}-100 text-[12px] font-black flex items-center justify-center gap-1.5 transition"><i data-lucide="zap" class="w-3.5 h-3.5"></i> Criar ação</button>`}
         </div>
 
         <!-- DIREITA (1/2): metas — centralizadas na metade direita -->
@@ -1777,7 +1781,7 @@ window.StrategicMapModal = {
       <!-- Catálogo embaixo: scroll horizontal com curadas + customs -->
       <div class="pt-2 border-t border-emerald-400/20">
         <p class="text-[10px] font-black text-emerald-300 uppercase tracking-wider mb-1.5">Como cobrir esse número?</p>
-        ${relevantTemplates.length === 0 && customs.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem ações do catálogo que movam este número. Use o "Criar engine de ação" ao lado.</p>' : `<div class="flex gap-1.5 overflow-x-auto pb-2" style="scrollbar-width:thin;">
+        ${relevantTemplates.length === 0 && customs.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem ações do catálogo que movam este número. Use o "Criar ação" ao lado.</p>' : `<div class="flex gap-1.5 overflow-x-auto pb-2" style="scrollbar-width:thin;">
           ${relevantTemplates.map(t => {
             const isAct = activatedIds.has(t.id);
             return `<button onclick="Actions.activateStrategicCatalogAction('${area.id}', '${t.id}')" ${isAct ? 'disabled' : ''} title="${Utils.escape(t.description)}" class="shrink-0 px-2.5 py-1.5 rounded-lg text-[11px] font-bold border ${isAct ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-200 cursor-default' : `bg-slate-900 hover:bg-slate-800 border-${tone}-400/30 text-${tone}-100`}">${isAct ? '✓ ' : '+ '}${Utils.escape(t.name)}</button>`;
