@@ -246,7 +246,6 @@ window.StrategicMapModal = {
         <p class="text-xs text-slate-300 mt-1">${subtitle}</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        ${this._executeMetricsButton({ compact: true })}
         <button onclick="Actions.openStrategicOverview()" title="Mapa de fluxo: árvore consolidada Visão → KRs-mãe → Branches → OKRs" class="px-3 py-2.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-100 text-xs font-black flex items-center gap-1"><i data-lucide="git-fork" class="w-3.5 h-3.5"></i> Mapa de Fluxo</button>
         <button onclick="Actions.openStrategicOnboarding()" title="Reabrir onboarding" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-black flex items-center gap-1"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i> Ajuda</button>
         <button onclick="Actions.syncStrategicOkrsFromOps()" title="Atualizar OKRs com leitura operacional" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-black flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sync geral</button>
@@ -319,12 +318,15 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // V31.0.4 — Helper original: demo user vê o mapa unificado (sem CEO/Gestor).
-  // V31.1.1 — Aplicado a TODOS users por pedido do user. Modo CEO/Gestor "embaixo
-  // da fita" continua existindo (mode='product'|'campaign') mas a UI nunca mais
-  // mostra a distinção. Pra reverter, troca pra check de mode === 'demo'.
+  // V31.0.4 — Helper: demo user vê o mapa unificado (sem CEO/Gestor).
+  // V31.1.1 → V31.2.6 — Era todos users (aplica unificação UI). Agora voltou
+  // só pra demo. CEO/Gestor distinction segue desativada via remoção dos
+  // ifs em cada _stepX, sem precisar de hack global.
   _isDemoView() {
-    return true;
+    try {
+      const u = JSON.parse(localStorage.getItem('lj_user') || '{}');
+      return u.mode === 'demo';
+    } catch (_) { return false; }
   },
 
   // V29.0.0 — Switcher no topo: troca entre vista produto e branches (campanhas).
@@ -466,40 +468,33 @@ window.StrategicMapModal = {
   },
 
   _stepper(product) {
-    // V29.1.0 — Stepper único de 6 etapas. Lock visual conforme mode:
-    //   CEO edita 1-3 (vision/objectives/okrs), 4-6 ficam locked
-    //   Gestor edita 4-6 (campaign/operations/execution), 1-3 ficam locked
-    // V31.0.4 — Demo: todas as 6 etapas concluídas, sem lock (visão de "tudo conectado").
-    const isDemo = this._isDemoView();
+    // V31.2.6 — Sem distinção CEO/Gestor. Stepper mostra progress REAL de cada
+    // etapa (vision, objectives, okrs, campaign, operations, execution).
+    //   - Demo: state seedado → tudo verdadeiramente concluído (sem hack all-true)
+    //   - Master/production: progress real baseado nos dados
     const mode = App.state.strategicMapMode || 'product';
     const campaignId = App.state.strategicMapCampaignId;
-    const realProgress = (mode === 'campaign' && campaignId)
+    // Quando tem campaign selecionada usa progress por branch (cobre 6 etapas).
+    // Sem campaign, usa progress do produto (cobre etapas 1-3 reais; 4-6 = false).
+    const progress = (campaignId && StrategicMapEngine.journeyProgressForBranch)
       ? StrategicMapEngine.journeyProgressForBranch(product.id, campaignId)
       : StrategicMapEngine.journeyProgressForProduct(product.id);
-    const progress = isDemo
-      ? { vision: true, objectives: true, okrs: true, campaign: true, operations: true, execution: true }
-      : realProgress;
     const current = StrategicZoomNavigation.current();
-    const editableInCeo = new Set(['vision', 'objectives', 'okrs']);
-    const editableInGestor = new Set(['campaign', 'operations', 'execution']);
-    // V31.1.1 — Stepper sticky no topo do container scrollable. Não desaparece
-    // ao rolar a etapa pra baixo. Usa backdrop blur pra continuar legível.
+    // V31.1.1 — Stepper sticky no topo do container scrollable.
     return `<div class="rounded-3xl border border-white/10 p-3 sticky top-0 z-10" style="background: rgba(7, 19, 38, 0.92); backdrop-filter: blur(12px);">
       <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
         ${StrategicZoomNavigation.LEVELS.map((level, i) => {
           const done = progress[level.id];
           const active = current === level.id;
-          const editable = isDemo ? true : ((mode === 'product') ? editableInCeo.has(level.id) : editableInGestor.has(level.id));
-          const locked = !editable;
           const tone = active
             ? 'bg-indigo-500/25 border-indigo-400/50'
-            : (done ? 'bg-emerald-500/15 border-emerald-400/30' : (locked ? 'bg-white/[0.02] border-white/5' : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]'));
+            : (done ? 'bg-emerald-500/15 border-emerald-400/30' : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]');
           const numTone = active
             ? 'bg-indigo-500 text-white'
-            : (done ? 'bg-emerald-500 text-white' : (locked ? 'bg-slate-800 text-slate-500' : 'bg-white/10 text-slate-300'));
-          const textOpacity = locked && !active && !done ? 'opacity-50' : '';
-          const lockIcon = locked ? `<i data-lucide="lock" class="w-2.5 h-2.5 text-slate-500 inline-block ml-1"></i>` : '';
-          const subLabel = done ? 'Concluído' : active ? 'Em foco' : (locked ? (mode === 'product' ? 'Gestor preenche' : 'CEO preenche') : 'Pendente');
+            : (done ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-300');
+          const textOpacity = '';
+          const lockIcon = '';
+          const subLabel = done ? 'Concluído' : active ? 'Em foco' : 'Pendente';
           return `<button onclick="Actions.setStrategicZoom('${level.id}')" title="${locked ? (mode === 'product' ? 'Esta etapa é preenchida pelo Gestor da campanha' : 'Esta etapa foi preenchida pelo CEO') : level.description}" class="text-left p-3 rounded-2xl border ${tone} ${textOpacity} transition flex items-center gap-2.5">
             <div class="w-7 h-7 rounded-xl ${numTone} grid place-items-center font-black text-xs shrink-0">${done ? '✓' : (i + 1)}</div>
             <div class="min-w-0">
@@ -538,19 +533,8 @@ window.StrategicMapModal = {
   },
 
   _stepCta(label, enabled) {
-    // V29.1.3 — Em mode='product':
-    //   - Botão dourado "Executar Métricas" (publica pros gestores)
-    //   - Botão "🔓 Continuar como Gestor" (destrava — CEO assume papel de gestor numa branch)
-    // Em mode='campaign': comportamento padrão (advanceStep).
-    const mode = App.state.strategicMapMode || 'product';
-    if (mode === 'product') {
-      const stepId = StrategicZoomNavigation.current();
-      const isLastCeoStep = stepId === 'okrs';
-      return `<div class="flex justify-end items-center gap-2 pt-2 flex-wrap">
-        ${this._executeMetricsButton()}
-        ${isLastCeoStep ? `<button onclick="Actions.unlockCeoAsGestor()" title="Destrava as etapas 4-6 pra você editar como gestor de uma campanha (normalmente esse trabalho é do dono da campanha)" class="px-5 py-3 rounded-2xl bg-slate-700 hover:bg-slate-600 text-slate-200 font-black flex items-center gap-2 text-sm border border-slate-500"><i data-lucide="unlock" class="w-4 h-4"></i> Continuar como Gestor</button>` : ''}
-      </div>`;
-    }
+    // V31.2.6 — Removida distinção CEO/Gestor + Executar Métricas + Continuar como Gestor.
+    // Todos os modos usam o mesmo CTA simples de avançar.
     const cls = enabled
       ? 'bg-indigo-500 hover:bg-indigo-600 text-white cursor-pointer'
       : 'bg-white/5 text-slate-500 cursor-not-allowed';
@@ -561,27 +545,11 @@ window.StrategicMapModal = {
 
   // -------------------- STEP 1: OBJETIVO DO PRODUTO --------------------
   // V28.1.0 — Vocabulário RevOps: foco é "produto" + ambição.
-  // V29.0.3 — Em mode='campaign' vira banner read-only (Visão é do produto, não da branch).
+  // V31.2.6 — Sem bifurcação CEO/Gestor: sempre versão editável, mesmo dentro
+  // de uma campanha. Visão é compartilhada pelo produto inteiro.
   _stepVision(product) {
-    const mode = App.state.strategicMapMode || 'product';
     const map = StrategicMapEngine.getForProduct(product.id);
     const hasVision = Boolean(String(map.vision || '').trim());
-    if (mode === 'campaign') {
-      return `<section class="space-y-3">
-        ${this._stepIntro('Objetivo do Produto', 'Esta visão é compartilhada por todas as campanhas deste produto. Edita-se na vista CEO.', 'star')}
-        <div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
-          <div class="flex items-center gap-2 mb-2">
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">🔒 Compartilhado</span>
-            <span class="text-[11px] text-slate-400">Visão do produto — afeta todas as branches</span>
-          </div>
-          ${hasVision
-            ? `<p class="text-base text-white font-semibold leading-relaxed">${Utils.escape(map.vision)}</p>`
-            : `<p class="text-sm text-slate-400 italic">⚠️ Nenhuma visão definida pro produto ainda.</p>`}
-        </div>
-        ${this._stepCta('Próximo passo: Comercial desta campanha', hasVision)}
-      </section>`;
-    }
-    // Vista produto (CEO): mantém comportamento original com textarea editável.
 
     const exampleCacau = 'Ser o chocolate em barra preferido das famílias brasileiras até 2027.';
     const otherExamples = [
@@ -1212,31 +1180,7 @@ window.StrategicMapModal = {
   // Onde o gestor pluga KRs-mãe do produto na campanha (cria KRs-filhos com meta).
   // CEO vê locked com banner explicando.
   _stepCampaign(product) {
-    const mode = App.state.strategicMapMode || 'product';
-    if (mode === 'product') {
-      // Vista CEO: locked — quem preenche é o gestor.
-      const branches = StrategicMapEngine.getBranchesByProduct(product.id);
-      return `<section class="space-y-4">
-        ${this._stepIntro('Campanha', 'Esta etapa é preenchida pelo gestor de cada campanha. Você (CEO) só vê o resultado das plugagens.', 'git-branch')}
-        <div class="rounded-3xl bg-indigo-500/10 border border-indigo-400/30 p-5">
-          <p class="text-sm text-slate-200 leading-relaxed mb-3">🔒 <b class="text-indigo-200">Etapa do Gestor</b></p>
-          <p class="text-[13px] text-slate-300 leading-relaxed">A partir daqui é o gestor de cada campanha que entra em ação. Pra cada número que você definiu (etapa 3), o gestor decide quais campanhas vão contribuir e com qual meta local. As contribuições somam automaticamente no rollup dos seus KRs-mãe.</p>
-          ${branches.length ? `<div class="mt-4 pt-3 border-t border-white/10">
-            <p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider mb-2">${branches.length} campanha(s) plugada(s):</p>
-            <div class="flex flex-wrap gap-2">
-              ${branches.map(b => {
-                const c = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
-                if (!c) return '';
-                return `<button onclick="Actions.openStrategicMapForCampaign(${b.campaignId})" class="px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40 text-violet-100 text-[11px] font-black">${Utils.escape(c.name)} →</button>`;
-              }).join('')}
-            </div>
-          </div>` : '<p class="text-[12px] text-slate-400 italic mt-3">Nenhuma campanha plugada ainda. Vá no menu Campanhas e clique em "Ativar Mapa" em alguma campanha do produto.</p>'}
-        </div>
-        ${this._stepCta('Próximo passo (visão CEO encerra aqui)', false)}
-      </section>`;
-    }
-
-    // V29.2.0 — Vista Gestor: HUB de campanhas (lista todas + seleciona uma pra trabalhar).
+    // V31.2.6 — Sem bifurcação CEO/Gestor. Sempre renderiza o hub.
     return this._stepCampaignHub(product);
   },
 
@@ -1426,10 +1370,7 @@ window.StrategicMapModal = {
   // números pelo catalogId, edição inline (dono/cadência/status), aviso de
   // número órfão (sem ação).
   _stepOperations(product) {
-    // V29.1.1 — Mode CEO: placeholder informativo.
-    if ((App.state.strategicMapMode || 'product') === 'product') {
-      return this._stepGestorOnlyPlaceholder(product, 'As ações', 'plug', 'Aqui o gestor de cada campanha pluga os números do produto e ativa as ações que cobrem cada um.');
-    }
+    // V31.2.6 — Sem bifurcação CEO/Gestor. Sempre renderiza versão completa.
     // V29.2.0 — Trabalho unificado: plugar números + ativar ações que cobrem.
     const productKrs = StrategicMapEngine.getProductKrs(product.id);
     const campaignId = App.state.strategicMapCampaignId;
@@ -1877,10 +1818,7 @@ window.StrategicMapModal = {
 
   // -------------------- STEP 5: EXECUTAR --------------------
   _stepExecution(product) {
-    // V29.1.1 — Mode CEO: placeholder informativo.
-    if ((App.state.strategicMapMode || 'product') === 'product') {
-      return this._stepGestorOnlyPlaceholder(product, 'Colocar em campo', 'send', 'Aqui o gestor dispara as tarefas reais no provider (ClickUp/Trello/etc.).');
-    }
+    // V31.2.6 — Sem bifurcação CEO/Gestor. Sempre renderiza versão completa.
     // V29.0.3 — Lê da branch ativa (campaignId) quando em vista campanha; fallback no legacy.
     const campaignId = App.state.strategicMapCampaignId;
     const source = (campaignId && StrategicMapEngine.getBranchMap)
