@@ -172,8 +172,12 @@ var State = {
     };
   },
   normalizeKeyResults(raw, scope = 'product') {
+    // V31.2.9 — Spread preserva campos extras (owner, status, deadline, unit,
+    // current, frequency, priority, etc.) que sejam adicionados futuramente.
+    // Antes só os 5 campos explícitos eram preservados → perda silenciosa.
     const list = Array.isArray(raw) ? raw : [];
     return list.map((kr, index) => ({
+      ...kr,
       id: kr.id || `kr_${Date.now()}_${index}_${Math.floor(Math.random() * 1000)}`,
       label: String(kr.label || '').trim(),
       metric: typeof kr.metric === 'string' ? kr.metric : (scope === 'product' ? 'ebitda' : 'campaignCAC'),
@@ -182,10 +186,12 @@ var State = {
     }));
   },
   normalizeCampaignOkrs(raw) {
+    // V31.2.9 — Spread preserva campos extras (owner, status, priority, notes).
     const list = Array.isArray(raw) ? raw : [];
     if (!list.length) return [];
     if (list[0] && typeof list[0] === 'object' && 'objective' in list[0] && 'keyResults' in list[0]) {
       return list.map((okr, index) => ({
+        ...okr,
         id: okr.id || `okrc_${Date.now()}_${index}`,
         objective: String(okr.objective || '').trim(),
         keyResults: this.normalizeKeyResults(okr.keyResults, 'campaign'),
@@ -240,7 +246,11 @@ var State = {
     const baseOkrs = okrs.length
       ? okrs
       : OkrSuggestionEngine.defaultFor(sector, funnel, action.channel, action.actionType || 'Post');
+    // V31.2.9 — Spread inicial preserva QUALQUER campo extra que chegue na action
+    // (defesa em camadas contra perda silenciosa de fields novos não-listados).
+    // Os campos explícitos abaixo sobrescrevem o spread com versões normalizadas.
     return {
+      ...action,
       id: action.id || Date.now() + index,
       campaignId: action.campaignId || base.selectedCampaignId,
       name: action.name || 'Ação sem nome',
@@ -323,7 +333,11 @@ var State = {
     const fallbackScoreId = scores[0].id;
     const products = Array.isArray(raw.products) && raw.products.length ? raw.products.map((product, index) => ProductRevenueEngine.normalize(product, index)) : base.products;
     const selectedProductId = raw.selectedProductId || products[0]?.id || base.selectedProductId;
+    // V31.2.9 — Spread preserva campos extras das campanhas (description, budget,
+    // startDate, endDate, funnel, stage, leadTarget, isStrategicHost, etc.) que
+    // sejam adicionados em futuras versões. Antes só os 10 campos explícitos.
     const campaigns = Array.isArray(raw.campaigns) ? raw.campaigns.map((campaign, index) => ({
+      ...campaign,
       id: campaign.id || now + index,
       productId: campaign.productId || selectedProductId,
       name: campaign.name || 'Campanha sem nome',
