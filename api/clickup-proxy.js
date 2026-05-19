@@ -30,7 +30,7 @@ module.exports = async function handler(req, res) {
   if (!isPathAllowed(String(path))) return res.status(403).json({ ok: false, message: `Path não permitido: ${path}` });
 
   try {
-    const result = await clickupFetch(req.db, req.user.id, method.toUpperCase(), path, body);
+    const result = await clickupFetch(req.db, req.user.sub, method.toUpperCase(), path, body);
     return res.status(200).json({ ok: result.ok, status: result.status, data: result.data });
   } catch (err) {
     return res.status(500).json({ ok: false, message: err.message });

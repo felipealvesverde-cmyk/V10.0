@@ -10,7 +10,8 @@ module.exports = async function handler(req, res) {
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
 
-  const userId = req.user.id;
+  // V31.2.30 — JWT payload usa 'sub' (RFC 7519), não 'id'.
+  const userId = req.user.sub;
 
   if (req.method === 'GET') {
     try {

@@ -18,13 +18,13 @@ module.exports = async function handler(req, res) {
   if (!isConfigured()) return res.status(503).json({ ok: false, message: 'ENCRYPTION_KEY não configurada no servidor.' });
 
   try {
-    const r = await req.db.query('SELECT client_id_enc FROM clickup_config WHERE user_id = $1', [req.user.id]);
+    const r = await req.db.query('SELECT client_id_enc FROM clickup_config WHERE user_id = $1', [req.user.sub]);
     if (!r.rows.length) return res.status(404).json({ ok: false, message: 'Configure Client ID/Secret primeiro.' });
     const clientId = decrypt(r.rows[0].client_id_enc);
     const redirectUri = redirectUriFor(req);
     // State: user_id + nonce (timestamp + random). Decodificado no callback pra associar o token ao user.
     const nonce = crypto.randomBytes(8).toString('hex');
-    const state = Buffer.from(JSON.stringify({ u: req.user.id, n: nonce, t: Date.now() })).toString('base64url');
+    const state = Buffer.from(JSON.stringify({ u: req.user.sub, n: nonce, t: Date.now() })).toString('base64url');
     const url = `https://app.clickup.com/api?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
     return res.status(200).json({ ok: true, url, redirectUri });
   } catch (err) {

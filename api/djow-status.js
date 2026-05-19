@@ -44,10 +44,10 @@ module.exports = async function handler(req, res) {
   try {
     const r = await req.db.query(
       'SELECT COALESCE(SUM(cost_usd), 0)::numeric AS total FROM djow_messages WHERE conversation_id IN (SELECT id FROM djow_conversations WHERE user_id = $1)',
-      [req.user.id]
+      [req.user.sub]
     );
     totalCostUsd = Number(r.rows[0]?.total || 0);
-    const c = await req.db.query('SELECT COUNT(*)::int AS n FROM djow_conversations WHERE user_id = $1', [req.user.id]);
+    const c = await req.db.query('SELECT COUNT(*)::int AS n FROM djow_conversations WHERE user_id = $1', [req.user.sub]);
     conversationCount = c.rows[0]?.n || 0;
   } catch (_) {}
 
