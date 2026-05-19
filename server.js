@@ -139,6 +139,31 @@ async function runMigrations() {
     await client.query(`
       ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS default_list_id VARCHAR(64);
     `);
+    // V31.2.36 — RD Station/CRM credentials encriptados em tabela própria.
+    // 3 token types possíveis (PK composta user_id + token_type):
+    //   - 'crm_pat': RD CRM Personal Access Token (estático, sem refresh)
+    //   - 'marketing_oauth': RD Marketing OAuth (access + refresh + expires_at)
+    //   - 'crm_oauth': RD CRM OAuth v2 (access + refresh + expires_at)
+    // Write-through: App.state.integrations.rd continua sendo a API de leitura
+    // interna, mas cada mutação dispara save em paralelo aqui — DB vira safety
+    // net contra perda de state. ENCRYPTION_KEY usado igual ClickUp.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS rd_credentials (
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token_type VARCHAR(32) NOT NULL,
+        access_token_enc TEXT,
+        refresh_token_enc TEXT,
+        client_id_enc TEXT,
+        client_secret_enc TEXT,
+        redirect_uri TEXT,
+        expires_at TIMESTAMPTZ,
+        account_name VARCHAR(255),
+        workspace_id VARCHAR(64),
+        status VARCHAR(32),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (user_id, token_type)
+      );
+    `);
     // Seed master user se ainda não existe e env vars disponíveis.
     if (MASTER_USERNAME && MASTER_PASSWORD) {
       if (!MASTER_PASSWORD_HASH) {

@@ -1656,6 +1656,9 @@ Object.assign(Actions, {
       App.state.integrations.rd.crmTestAt = '';
     }
     App.save();
+    // V31.2.36 — Write-through pro DB. Decide tipo pelo campo mutado.
+    if (field === 'crmPersonalToken') this._persistRdToDb('crm_pat');
+    else if (['accessToken', 'refreshToken', 'expiresAt', 'clientId', 'clientSecret', 'redirectUri', 'accountName', 'workspaceId', 'status'].includes(field)) this._persistRdToDb('marketing_oauth');
   },
 
   generateRDAuthUrl() {
@@ -1681,6 +1684,7 @@ Object.assign(Actions, {
     App.state.integrations.rd.crmTestAt = result.testedAt || new Date().toISOString();
     App.save();
     App.render();
+    this._persistRdToDb('crm_pat'); // V31.2.36 — write-through
     Utils.toast(result.message || 'Teste RD finalizado.');
   },
 
@@ -1689,6 +1693,7 @@ Object.assign(Actions, {
     App.state.integrations.rd = RDConfig.defaultConfig();
     App.save();
     App.render();
+    this._deleteRdCredentialFromDb(); // V31.2.36 — apaga TODOS os 3 tipos do DB
     Utils.toast('Configuração RD limpa.');
   },
 
@@ -1902,6 +1907,7 @@ Object.assign(Actions, {
     cfg.authorizationCode = ''; // one-shot
     App.save();
     App.render();
+    this._persistRdToDb('crm_oauth'); // V31.2.36 — write-through
     Utils.toast('✓ OAuth CRM conectado.');
   },
 
@@ -1923,6 +1929,7 @@ Object.assign(Actions, {
     cfg.lastTestAt = new Date().toISOString();
     App.save();
     App.render();
+    this._persistRdToDb('crm_oauth'); // V31.2.36 — write-through após refresh
     Utils.toast('✓ Token CRM renovado.');
   },
 
@@ -1931,6 +1938,7 @@ Object.assign(Actions, {
     App.state.integrations.rd.crmOauth = window.RDConfig ? RDConfig.defaultCrmOauth() : {};
     App.save();
     App.render();
+    this._deleteRdCredentialFromDb('crm_oauth'); // V31.2.36 — apaga só crm_oauth no DB
     Utils.toast('OAuth CRM resetado.');
   },
 
@@ -2583,6 +2591,7 @@ Object.assign(Actions, {
     // V21.8 — code é one-shot: o RD invalida após troca. Limpamos pra não confundir.
     cfg.authorizationCode = '';
     App.save(); App.render();
+    this._persistRdToDb('marketing_oauth'); // V31.2.36 — write-through
     Utils.toast('✓ Token RD obtido e salvo.');
   },
 
@@ -2604,6 +2613,7 @@ Object.assign(Actions, {
     cfg.status = 'connected';
     cfg.lastTestAt = new Date().toISOString();
     App.save(); App.render();
+    this._persistRdToDb('marketing_oauth'); // V31.2.36 — write-through após refresh
     Utils.toast('✓ Token RD renovado.');
   },
 
@@ -4945,6 +4955,134 @@ Object.assign(Actions, {
       StrategicMapEngine.ensureComercialAreas(Number(campaign.productId), Number(campaignId));
     }
     App.save(); App.render();
+  },
+
+  // V31.2.36 — RD STATION/CRM CREDENTIALS WRITE-THROUGH
+  // Strategy: tokens continuam vivendo em App.state.integrations.rd (mesma
+  // API de leitura interna), mas TODA mutação dispara save criptografado no
+  // backend pra DB sobreviver a perda de state. No boot, hidrata do DB pra
+  // recuperar conexões caso state tenha sido limpo.
+
+  async loadRdCredentialsFromDb() {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/rd-credentials', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok || !data.credentials) return;
+      const creds = data.credentials;
+      const rd = App.state.integrations?.rd || (window.RDConfig ? RDConfig.defaultConfig() : {});
+      let changed = false;
+      // CRM PAT (estático)
+      if (creds.crm_pat?.access_token && !rd.crmPersonalToken) {
+        rd.crmPersonalToken = creds.crm_pat.access_token;
+        if (creds.crm_pat.status) rd.crmTestStatus = creds.crm_pat.status;
+        changed = true;
+      }
+      // Marketing OAuth
+      const mkt = creds.marketing_oauth;
+      if (mkt && (!rd.accessToken || !rd.refreshToken)) {
+        if (mkt.access_token) rd.accessToken = mkt.access_token;
+        if (mkt.refresh_token) rd.refreshToken = mkt.refresh_token;
+        if (mkt.client_id) rd.clientId = mkt.client_id;
+        if (mkt.client_secret) rd.clientSecret = mkt.client_secret;
+        if (mkt.redirect_uri) rd.redirectUri = mkt.redirect_uri;
+        if (mkt.expires_at) rd.expiresAt = mkt.expires_at;
+        if (mkt.account_name) rd.accountName = mkt.account_name;
+        if (mkt.workspace_id) rd.workspaceId = mkt.workspace_id;
+        if (mkt.status) rd.status = mkt.status;
+        changed = true;
+      }
+      // CRM OAuth v2 (nested em rd.crmOauth)
+      const crmO = creds.crm_oauth;
+      if (crmO && (!rd.crmOauth?.accessToken || !rd.crmOauth?.refreshToken)) {
+        rd.crmOauth = rd.crmOauth || {};
+        if (crmO.access_token) rd.crmOauth.accessToken = crmO.access_token;
+        if (crmO.refresh_token) rd.crmOauth.refreshToken = crmO.refresh_token;
+        if (crmO.client_id) rd.crmOauth.clientId = crmO.client_id;
+        if (crmO.client_secret) rd.crmOauth.clientSecret = crmO.client_secret;
+        if (crmO.redirect_uri) rd.crmOauth.redirectUri = crmO.redirect_uri;
+        if (crmO.expires_at) rd.crmOauth.expiresAt = crmO.expires_at;
+        if (crmO.status) rd.crmOauth.status = crmO.status;
+        changed = true;
+      }
+      if (changed) {
+        App.state.integrations = { ...(App.state.integrations || {}), rd };
+        App.save(); App.render();
+      }
+    } catch (err) { console.warn('[rd] loadCredentialsFromDb erro:', err); }
+  },
+
+  // Salva 1 token type no DB criptografado. Não-bloqueante: erro de rede só
+  // loga warn. Frontend continua usando App.state normal — DB é shadow copy.
+  async _saveRdCredentialToDb(tokenType, fields) {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const body = { token_type: tokenType, ...fields };
+      const r = await fetch('/api/rd-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        console.warn(`[rd] saveCredential ${tokenType} falhou: ${data.message || r.status}`);
+      }
+    } catch (err) { console.warn(`[rd] saveCredential ${tokenType} erro:`, err); }
+  },
+
+  // Dispara write-through pros 3 token types lendo do estado atual.
+  // Chamado sempre que alguma action muta os tokens.
+  async _persistRdToDb(tokenType) {
+    const rd = App.state.integrations?.rd;
+    if (!rd) return;
+    if (tokenType === 'crm_pat' || !tokenType) {
+      if (rd.crmPersonalToken) {
+        this._saveRdCredentialToDb('crm_pat', {
+          access_token: rd.crmPersonalToken,
+          status: rd.crmTestStatus || null
+        });
+      }
+    }
+    if (tokenType === 'marketing_oauth' || !tokenType) {
+      if (rd.accessToken || rd.refreshToken || rd.clientId) {
+        this._saveRdCredentialToDb('marketing_oauth', {
+          access_token: rd.accessToken || null,
+          refresh_token: rd.refreshToken || null,
+          client_id: rd.clientId || null,
+          client_secret: rd.clientSecret || null,
+          redirect_uri: rd.redirectUri || null,
+          expires_at: rd.expiresAt || null,
+          account_name: rd.accountName || null,
+          workspace_id: rd.workspaceId || null,
+          status: rd.status || null
+        });
+      }
+    }
+    if (tokenType === 'crm_oauth' || !tokenType) {
+      const co = rd.crmOauth;
+      if (co && (co.accessToken || co.refreshToken || co.clientId)) {
+        this._saveRdCredentialToDb('crm_oauth', {
+          access_token: co.accessToken || null,
+          refresh_token: co.refreshToken || null,
+          client_id: co.clientId || null,
+          client_secret: co.clientSecret || null,
+          redirect_uri: co.redirectUri || null,
+          expires_at: co.expiresAt || null,
+          status: co.status || null
+        });
+      }
+    }
+  },
+
+  async _deleteRdCredentialFromDb(tokenType) {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const qs = tokenType ? `?token_type=${encodeURIComponent(tokenType)}` : '';
+      await fetch('/api/rd-credentials' + qs, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch (err) { console.warn(`[rd] deleteCredential ${tokenType || 'all'} erro:`, err); }
   },
 
   // V30.0.0 — INTEGRAÇÃO CLICKUP. Actions pra Settings UI + criar task via modal.

@@ -31,6 +31,8 @@ window.RdCrmApiClient = {
         expiresAt: r.expiresAt || cfg.expiresAt
       };
       try { App.save(); } catch (_) {}
+      // V31.2.36 — Write-through pro DB após auto-refresh em 401.
+      try { window.Actions?._persistRdToDb?.('crm_oauth'); } catch (_) {}
       return { ok: true };
     }
     const cfg = App.state.integrations?.rd || {};
@@ -45,6 +47,8 @@ window.RdCrmApiClient = {
       expiresAt: r.expiresAt || cfg.expiresAt
     };
     try { App.save(); } catch (_) {}
+    // V31.2.36 — Write-through pro DB após auto-refresh em 401.
+    try { window.Actions?._persistRdToDb?.('marketing_oauth'); } catch (_) {}
     return { ok: true };
   },
 

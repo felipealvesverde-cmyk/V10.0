@@ -60,6 +60,12 @@ var App = {
         if (window.Actions?.loadClickupStatus) {
           setTimeout(() => Actions.loadClickupStatus(), 250);
         }
+        // V31.2.36 — Hidrata credenciais RD do DB criptografado (safety net contra
+        // perda de state). Continua usando App.state como API de leitura interna,
+        // mas DB vira fonte autoritativa pra restaurar conexões perdidas.
+        if (window.Actions?.loadRdCredentialsFromDb) {
+          setTimeout(() => Actions.loadRdCredentialsFromDb(), 300);
+        }
         // V23.0.0 — Inicia sync remoto + auto-snapshot.
         if (window.RemoteSyncAdapter) {
           try { RemoteSyncAdapter.start(); } catch (e) { console.warn('RemoteSync start falhou:', e); }
