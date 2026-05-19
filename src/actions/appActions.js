@@ -5383,12 +5383,26 @@ Prioridade: ${d.priority}
   },
 
   // V31.2.18 — Marca/desmarca um KR da lista de OKRs que essa ação vai mover.
+  // V31.2.19 — Se tentar DESMARCAR o KR de origem (parentProductKrId), confirma
+  // antes via popup. Se confirmar retirada, o frame da engine fica vermelho com
+  // aviso pedindo pra remarcar o KR original (não bloqueia mas avisa o usuário
+  // que os KRs ficaram desfigurados da verdade).
   toggleCustomActionEngineKr(krId) {
     const eng = App.state.customActionEngine;
     if (!eng) return;
     const list = Array.isArray(eng.selectedKrIds) ? eng.selectedKrIds.slice() : [];
     const idx = list.indexOf(krId);
-    if (idx >= 0) list.splice(idx, 1); else list.push(krId);
+    const isRemoving = idx >= 0;
+    const isOriginKr = String(krId) === String(eng.parentProductKrId);
+    if (isRemoving && isOriginKr) {
+      const ok = confirm(
+        'Esse KR é o do lugar onde você abriu a engine — ele é o destino "óbvio" dessa ação.\n\n' +
+        'Se você retirar, os KRs ficam desfigurados da verdade (a ação que nasceu pra cobrir esse número vai mover outros). ' +
+        'Tem certeza que quer desmarcar?'
+      );
+      if (!ok) return;
+    }
+    if (isRemoving) list.splice(idx, 1); else list.push(krId);
     App.state.customActionEngine = { ...eng, selectedKrIds: list };
     App.render();
   },
