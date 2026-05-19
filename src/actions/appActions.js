@@ -4677,10 +4677,26 @@ Object.assign(Actions, {
     const draft = App.state.strategicOkrDraft;
     if (!productId || !draft) return;
     if (!String(draft.name || '').trim()) return Utils.toast('Dê um nome ao OKR.');
-    StrategicOkrEngine.add(productId, draft.objectiveId, draft);
+    // V31.2.10 — Roteia baseado em draft.area (V29 productKr) vs draft.objectiveId (legacy V28).
+    if (draft.area) {
+      const target = Number(draft.target || 0);
+      const tipo = draft.commitmentType === 'committed' ? 'committed' : 'stretch';
+      StrategicMapEngine.addProductKr(Number(productId), {
+        area: draft.area,
+        name: draft.name,
+        metric: draft.metric || 'quantidade',
+        // commitmentType decide se 'target' vai pra targetCommitted (seguro) ou targetStretch (avançado)
+        targetCommitted: tipo === 'committed' ? target : null,
+        targetStretch: tipo === 'stretch' ? target : null,
+        period: 90,
+        owner: String(draft.owner || '').trim()
+      });
+    } else {
+      StrategicOkrEngine.add(productId, draft.objectiveId, draft);
+    }
     App.state.strategicOkrDraft = null;
     App.save(); App.render();
-    Utils.toast('OKR adicionado.');
+    Utils.toast('Número adicionado.');
   },
 
   removeStrategicOkr(objectiveId, okrId) {
@@ -5314,46 +5330,32 @@ Prioridade: ${d.priority}
     Utils.toast(`Ação plugada em ${productKr.name}. Retângulo azul ativado.`);
   },
 
-  // V31.2.8 — Engine inline pra criar KR-mãe customizado (que não está no catálogo).
-  // Funciona como draft: abre form, preenche, confirma → addProductKr.
-  openProductKrCustomDraft(areaId) {
+  // V31.2.10 — Tabs Mkt/Vendas/CS na etapa "Os Números do Produto".
+  setStrategicNumberAreaTab(areaId) {
+    App.state.strategicNumberAreaTab = String(areaId);
+    App.state.strategicOkrDraft = null; // limpa draft ao trocar de aba
+    App.render();
+  },
+
+  // V31.2.10 — Inicia o wizard 7-passos pra criar productKr custom numa área.
+  // Reutiliza _okrDraftCard (existente) marcando draft.area pra rotear no save.
+  startStrategicProductKrDraft(areaId) {
     if (this._demoGuard && this._demoGuard('Criar KR-mãe customizado')) return;
-    App.state.productKrCustomDraft = {
-      area: String(areaId),
+    App.state.strategicOkrDraft = {
+      area: String(areaId),        // V29 marker: salva como productKr
       name: '',
       metric: 'quantidade',
-      period: 90,
-      targetCommitted: '',
-      targetStretch: ''
+      target: 0,
+      current: 0,
+      startValue: 0,
+      owner: '',
+      deadline: '',
+      impact: '',
+      commitmentType: 'stretch',
+      connectedActionIds: [],
+      wizardStep: 1
     };
     App.render();
-  },
-  closeProductKrCustomDraft() {
-    App.state.productKrCustomDraft = null;
-    App.render();
-  },
-  updateProductKrCustomDraftField(field, value) {
-    if (!App.state.productKrCustomDraft) return;
-    App.state.productKrCustomDraft[field] = value;
-  },
-  confirmProductKrCustomDraft(productId) {
-    const draft = App.state.productKrCustomDraft;
-    if (!draft) return;
-    const name = String(draft.name || '').trim();
-    if (!name) return Utils.toast('Digite o nome do KR-mãe.');
-    if (!window.StrategicMapEngine?.addProductKr) return Utils.toast('Engine não disponível.');
-    StrategicMapEngine.addProductKr(Number(productId), {
-      area: draft.area,
-      name,
-      metric: draft.metric || 'quantidade',
-      period: Number(draft.period) || 90,
-      targetCommitted: draft.targetCommitted !== '' ? Number(draft.targetCommitted) : null,
-      targetStretch: draft.targetStretch !== '' ? Number(draft.targetStretch) : null,
-      owner: ''
-    });
-    App.state.productKrCustomDraft = null;
-    App.save(); App.render();
-    Utils.toast(`KR-mãe "${name}" criado.`);
   },
 
   // V29.3.0 — Abre a engine de criação de ação custom no contexto de um KR.

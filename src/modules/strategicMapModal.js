@@ -377,86 +377,59 @@ window.StrategicMapModal = {
   },
 
   _productKrsBlock(product, productKrs, orphans) {
+    // V31.2.10 — Tabs Mkt/Vendas/CS no topo + renderiza só a área ativa abaixo.
+    // Antes empilhava as 3 áreas, agora navega por aba (igual etapa 5 V29.3.0).
     const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    const activeAreaId = App.state.strategicNumberAreaTab || areas[0]?.id || 'marketing';
+    const activeArea = areas.find(a => a.id === activeAreaId) || areas[0];
+    const draft = App.state.strategicOkrDraft;
+    const isDraftForActiveArea = draft && draft.area === activeArea.id;
     return `<section class="rounded-3xl bg-white/[0.05] border border-white/10 p-5 space-y-3">
       <div class="flex items-center justify-between gap-2">
         <div class="flex items-center gap-2"><i data-lucide="target" class="w-4 h-4 text-emerald-300"></i><p class="text-[11px] font-black text-emerald-200 uppercase tracking-wider">KRs-Mãe (números que o produto inteiro precisa entregar)</p></div>
       </div>
       ${orphans.length ? `<div class="rounded-xl bg-amber-500/10 border border-amber-400/30 p-2.5 text-[11px] text-amber-200">⚠️ ${orphans.length} número(s) em branches sem KR-mãe correspondente. Crie a mãe pra ativar o rollup.</div>` : ''}
       ${productKrs.length === 0 ? '<p class="text-[12px] text-slate-400 italic">Nenhum KR-mãe criado ainda. Adicione pelo menos um pra começar o rollup.</p>' : ''}
-      ${areas.map(area => {
-        const areaKrs = productKrs.filter(k => k.area === area.id);
-        const catalog = (StrategicMapEngine.KPI_CATALOG || {})[area.id] || [];
-        const activatedIds = new Set(areaKrs.map(k => k.catalogId));
-        const available = catalog.filter(c => !activatedIds.has(c.id));
-        const owner = StrategicMapEngine.getAreaOwner ? StrategicMapEngine.getAreaOwner(product.id, area.id) : '';
-        return `<div class="rounded-2xl bg-${area.color}-500/5 border border-${area.color}-400/20 p-3">
-          <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
-            <p class="text-[10px] font-black text-${area.color}-200 uppercase tracking-wider"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)}</p>
-            <label class="flex items-center gap-1.5 text-[10px] text-slate-400">Dono (compartilhado): <input value="${Utils.escape(owner)}" oninput="Actions.setStrategicAreaOwner(${product.id}, '${area.id}', this.value)" placeholder="quem responde" class="px-2 py-0.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold w-32" /></label>
-          </div>
-          ${areaKrs.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem KRs-mãe nesta área.</p>' : '<div class="space-y-2">' + areaKrs.map(kr => this._productKrCard(product, kr, area.color)).join('') + '</div>'}
-          ${available.length ? `<div class="mt-2 pt-2 border-t border-${area.color}-400/20">
-            <p class="text-[9px] font-black text-${area.color}-300/70 uppercase mb-1">+ Adicionar KR-mãe do catálogo:</p>
-            <div class="flex flex-wrap gap-1">${available.map(c => `<button onclick="Actions.addProductKrAction(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description)}" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-white/10 text-${area.color}-200 text-[10px] font-bold">+ ${Utils.escape(c.name)}</button>`).join('')}</div>
-          </div>` : ''}
-          ${this._productKrCustomEngine(product, area)}
-        </div>`;
-      }).join('')}
+      <div class="grid grid-cols-3 gap-2">
+        ${areas.map(area => {
+          const isActive = area.id === activeArea.id;
+          const countInArea = productKrs.filter(k => k.area === area.id).length;
+          return `<button onclick="Actions.setStrategicNumberAreaTab('${area.id}')" class="px-3 py-2 rounded-2xl border ${isActive ? `bg-${area.color}-500/20 border-${area.color}-400/50` : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]'} text-left flex items-center gap-2 transition">
+            <div class="w-7 h-7 rounded-lg ${isActive ? `bg-${area.color}-500/40` : 'bg-white/5'} grid place-items-center shrink-0"><i data-lucide="${area.icon}" class="w-3.5 h-3.5 text-${area.color}-200"></i></div>
+            <div class="min-w-0">
+              <p class="text-[11px] font-black ${isActive ? `text-${area.color}-100` : 'text-slate-300'} truncate">${Utils.escape(area.label)}</p>
+              <p class="text-[10px] ${isActive ? `text-${area.color}-300` : 'text-slate-500'}">${countInArea} número(s)</p>
+            </div>
+          </button>`;
+        }).join('')}
+      </div>
+      ${this._productKrsAreaPanel(product, activeArea, productKrs, isDraftForActiveArea, draft)}
     </section>`;
   },
 
-  // V31.2.8 — Engine inline pra criar KR-mãe custom (que não está no catálogo).
-  // Abre form pequeno com nome, métrica, metas. Cria via StrategicMapEngine.addProductKr.
-  _productKrCustomEngine(product, area) {
-    const draft = App.state.productKrCustomDraft;
-    const isOpen = draft && draft.area === area.id;
-    if (!isOpen) {
-      return `<div class="mt-2 pt-2 border-t border-${area.color}-400/20">
-        <button onclick="Actions.openProductKrCustomDraft('${area.id}')" class="px-2.5 py-1.5 rounded-lg bg-${area.color}-500/15 hover:bg-${area.color}-500/25 border border-dashed border-${area.color}-400/40 text-${area.color}-100 text-[10px] font-black flex items-center gap-1.5">
-          <i data-lucide="zap" class="w-3 h-3"></i> Criar KR-mãe customizado
-        </button>
-      </div>`;
-    }
-    return `<div class="mt-2 pt-2 border-t border-${area.color}-400/20">
-      <div class="rounded-xl bg-${area.color}-500/10 border border-${area.color}-400/30 p-2.5 space-y-2">
-        <div class="flex items-center justify-between">
-          <p class="text-[10px] font-black text-${area.color}-100 uppercase tracking-wider"><i data-lucide="zap" class="w-3 h-3 inline-block"></i> Novo KR-mãe customizado</p>
-          <button onclick="Actions.closeProductKrCustomDraft()" class="text-[10px] text-slate-400 hover:text-white">×</button>
-        </div>
-        <div>
-          <label class="text-[9px] font-black text-slate-400 uppercase mb-0.5 block">Nome do número</label>
-          <input value="${Utils.escape(draft.name || '')}" oninput="Actions.updateProductKrCustomDraftField('name', this.value)" autofocus placeholder="Ex: Engajamento por post" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
-        </div>
-        <div class="grid grid-cols-2 gap-1.5">
-          <label class="flex flex-col gap-0.5">
-            <span class="text-[9px] font-black text-slate-400 uppercase">Métrica</span>
-            <select onchange="Actions.updateProductKrCustomDraftField('metric', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold">
-              <option value="quantidade" ${draft.metric === 'quantidade' ? 'selected' : ''}>quantidade</option>
-              <option value="reais" ${draft.metric === 'reais' ? 'selected' : ''}>reais</option>
-              <option value="percentual" ${draft.metric === 'percentual' ? 'selected' : ''}>percentual</option>
-              <option value="tempo" ${draft.metric === 'tempo' ? 'selected' : ''}>tempo</option>
-            </select>
-          </label>
-          <label class="flex flex-col gap-0.5">
-            <span class="text-[9px] font-black text-slate-400 uppercase">Período (dias)</span>
-            <input type="number" value="${draft.period || 90}" oninput="Actions.updateProductKrCustomDraftField('period', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
-          </label>
-        </div>
-        <div class="grid grid-cols-2 gap-1.5">
-          <label class="flex flex-col gap-0.5">
-            <span class="text-[9px] font-black text-emerald-300 uppercase">🔒 Meta Segura</span>
-            <input type="number" value="${draft.targetCommitted || ''}" oninput="Actions.updateProductKrCustomDraftField('targetCommitted', this.value)" placeholder="piso" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
-          </label>
-          <label class="flex flex-col gap-0.5">
-            <span class="text-[9px] font-black text-violet-300 uppercase">🚀 Meta Avançada</span>
-            <input type="number" value="${draft.targetStretch || ''}" oninput="Actions.updateProductKrCustomDraftField('targetStretch', this.value)" placeholder="sonho" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
-          </label>
-        </div>
-        <div class="flex justify-end gap-1 pt-1">
-          <button onclick="Actions.closeProductKrCustomDraft()" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[10px] font-black">Cancelar</button>
-          <button onclick="Actions.confirmProductKrCustomDraft(${product.id})" class="px-2.5 py-1 rounded-lg bg-${area.color}-500 hover:bg-${area.color}-600 text-white text-[10px] font-black" style="color:#fff!important;">+ Criar</button>
-        </div>
+  // V31.2.10 — Painel da área ativa: lista KRs + catálogo + wizard de criação.
+  _productKrsAreaPanel(product, area, productKrs, isDraftForActiveArea, draft) {
+    const areaKrs = productKrs.filter(k => k.area === area.id);
+    const catalog = (StrategicMapEngine.KPI_CATALOG || {})[area.id] || [];
+    const activatedIds = new Set(areaKrs.map(k => k.catalogId));
+    const available = catalog.filter(c => !activatedIds.has(c.id));
+    const owner = StrategicMapEngine.getAreaOwner ? StrategicMapEngine.getAreaOwner(product.id, area.id) : '';
+    return `<div class="rounded-2xl bg-${area.color}-500/5 border border-${area.color}-400/20 p-3">
+      <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+        <p class="text-[10px] font-black text-${area.color}-200 uppercase tracking-wider"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)}</p>
+        <label class="flex items-center gap-1.5 text-[10px] text-slate-400">Dono (compartilhado): <input value="${Utils.escape(owner)}" oninput="Actions.setStrategicAreaOwner(${product.id}, '${area.id}', this.value)" placeholder="quem responde" class="px-2 py-0.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold w-32" /></label>
+      </div>
+      ${areaKrs.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem KRs-mãe nesta área.</p>' : '<div class="space-y-2">' + areaKrs.map(kr => this._productKrCard(product, kr, area.color)).join('') + '</div>'}
+      ${available.length ? `<div class="mt-2 pt-2 border-t border-${area.color}-400/20">
+        <p class="text-[9px] font-black text-${area.color}-300/70 uppercase mb-1">+ Adicionar KR-mãe do catálogo:</p>
+        <div class="flex flex-wrap gap-1">${available.map(c => `<button onclick="Actions.addProductKrAction(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description)}" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-white/10 text-${area.color}-200 text-[10px] font-bold">+ ${Utils.escape(c.name)}</button>`).join('')}</div>
+      </div>` : ''}
+      <div class="mt-2 pt-2 border-t border-${area.color}-400/20">
+        ${isDraftForActiveArea
+          ? this._okrDraftCard(draft, product, /* hideConnect */ true)
+          : `<button onclick="Actions.startStrategicProductKrDraft('${area.id}')" class="px-2.5 py-1.5 rounded-lg bg-${area.color}-500/15 hover:bg-${area.color}-500/25 border border-dashed border-${area.color}-400/40 text-${area.color}-100 text-[10px] font-black flex items-center gap-1.5">
+              <i data-lucide="zap" class="w-3 h-3"></i> Criar KR-mãe customizado (wizard guiado)
+            </button>`}
       </div>
     </div>`;
   },
