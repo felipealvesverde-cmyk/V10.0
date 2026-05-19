@@ -374,8 +374,8 @@ Object.assign(Actions, {
     Utils.toast(`Produto "${name}" criado. Vamos construir o Mapa da Receita.`);
     setTimeout(() => {
       Actions.openStrategicMap(product.id);
-      // Pula o welcome onboarding pra ir direto pra etapa Visão
-      App.state.strategicSkipOnboarding = true;
+      // V31.2.16 — Welcome aparece (user pediu que pelo caminho "Criar Produto com
+      // Mapa" o welcome também apareça). Etapa Visão fica como destino após dismiss.
       if (window.StrategicZoomNavigation) StrategicZoomNavigation.set('vision');
       App.save(); App.render();
     }, 80);
@@ -4931,7 +4931,10 @@ Object.assign(Actions, {
     App.state.strategicMapMode = 'campaign';                  // V29
     App.state.showStrategicMap = true;
     App.state.strategicMapZoom = 'campaign'; // V29.1.0 — Gestor abre na etapa Campanha (onde pluga KRs)
-    App.state.strategicSkipOnboarding = false; // V31.2.0 — welcome aparece sempre ao abrir
+    // V31.2.16 — Quando o Mapa é aberto VINDO de uma campanha (card de campanha,
+    // Djow, action, etc.), pula o welcome — só aparece pelo caminho 'Mapa da
+    // Receita' do menu Produtos ou 'Criar Produto com Mapa'.
+    App.state.strategicSkipOnboarding = true;
     App.state.strategicObjectiveDraft = null;
     App.state.strategicOkrDraft = null;
     App.state.strategicActiveArea = null;
