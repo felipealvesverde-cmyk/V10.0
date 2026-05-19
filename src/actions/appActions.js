@@ -5798,21 +5798,24 @@ Prioridade: ${d.priority}
     if (!objective || !window.StrategicOkrEngine) return Utils.toast('Frente não encontrada nesta branch.');
     const kpi = (StrategicMapEngine.KPI_CATALOG[pkr.area] || []).find(k => k.id === pkr.catalogId);
     const o = opts || {};
+    // V31.2.17 — Default-fill com valores do pkr-mãe. Antes vinha tudo null (placeholder
+    // "piso"/"sonho"). Agora a contribuição da campanha começa igualada à meta-mãe;
+    // gestor ajusta pra refletir o pedaço real que essa campanha vai entregar.
     StrategicOkrEngine.add(productId, objective.id, {
       name: pkr.name,
       metric: pkr.metric,
       catalogId: pkr.catalogId,
       catalogDescription: kpi?.description || '',
       isHandoff: Boolean(kpi?.handoff),
-      current: o.current != null ? Number(o.current) : null,
-      targetCommitted: o.targetCommitted != null ? Number(o.targetCommitted) : null,
-      targetStretch: o.targetStretch != null ? Number(o.targetStretch) : null,
+      current: o.current != null ? Number(o.current) : (pkr.current != null ? Number(pkr.current) : null),
+      targetCommitted: o.targetCommitted != null ? Number(o.targetCommitted) : (pkr.targetCommitted != null ? Number(pkr.targetCommitted) : null),
+      targetStretch: o.targetStretch != null ? Number(o.targetStretch) : (pkr.targetStretch != null ? Number(pkr.targetStretch) : null),
       period: o.period != null ? Number(o.period) : 90,
       confirmed: false,
       parentProductKrId: pkr.id
     }, campaignId);
     App.save(); App.render();
-    Utils.toast(`"${pkr.name}" plugado nesta campanha.`);
+    Utils.toast(`"${pkr.name}" plugado nesta campanha (metas herdadas do KR-mãe — ajuste se necessário).`);
   },
 
   // V29.0.0 — Remove KR-mãe (e desvincula filhas).

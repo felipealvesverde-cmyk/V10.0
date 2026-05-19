@@ -1839,10 +1839,22 @@ window.StrategicMapModal = {
       { v: 'BOF', l: 'Fundo (decisão)' }
     ];
     const sectorOptions = (StrategicMapEngine.COMERCIAL_AREAS || []);
+    // V31.2.17 — Bloco read-only mostrando qual OKR-mãe essa ação vai mover, com
+    // Meta Segura e Meta Avançada herdadas do pkr. Quando os números forem entrando,
+    // a ação alimenta o rollup do KR-mãe automaticamente.
+    const safe = pkr.targetCommitted != null ? pkr.targetCommitted : '—';
+    const stretch = pkr.targetStretch != null ? pkr.targetStretch : '—';
     return `<div class="rounded-xl bg-slate-900/60 border border-${tone}-400/40 p-3 space-y-2.5">
       <div class="flex items-center justify-between gap-2">
         <p class="text-[11px] font-black text-${tone}-200 uppercase tracking-wider"><i data-lucide="zap" class="w-3 h-3 inline-block"></i> Nova ação custom · ${Utils.escape(area.label)}</p>
         <button onclick="Actions.closeCustomActionEngine()" class="text-slate-400 hover:text-white text-[12px] font-black">✕</button>
+      </div>
+
+      <div class="rounded-lg bg-${tone}-500/10 border border-${tone}-400/30 p-2.5">
+        <p class="text-[9px] font-black text-${tone}-200 uppercase tracking-wider mb-1">Esta ação vai mover</p>
+        <p class="font-black text-white text-[12px]">${Utils.escape(pkr.name)} <span class="text-[10px] text-slate-400 font-normal">(${Utils.escape(pkr.metric || 'quantidade')})</span></p>
+        <p class="text-[11px] text-slate-300 mt-0.5">🔒 Meta Segura <b class="text-emerald-300">${safe}</b> · 🚀 Meta Avançada <b class="text-violet-300">${stretch}</b></p>
+        <p class="text-[10px] text-slate-400 italic mt-1">Os números desta ação alimentam o rollup desse KR-mãe.</p>
       </div>
 
       <div>
