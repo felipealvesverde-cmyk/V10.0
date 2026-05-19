@@ -129,19 +129,43 @@ window.StrategicMapEngine = {
   },
 
   // V29.1.0 — Progress da vista CEO (escopo produto, sem branch).
-  // Mostra completude das 3 etapas do CEO; etapas 4-6 sempre false (gestor preenche).
+  // V31.2.14 — Distinção CEO/Gestor abandonada (V31.2.6). Agora as 6 etapas
+  // refletem progresso REAL do produto inteiro (não mais campaign/operations/
+  // execution hardcoded false). Campanha = pelo menos 1 branch existir;
+  // Operations = pelo menos 1 OKR com ação conectada (em qualquer branch);
+  // Execution = pelo menos 1 task vinculada a alguma dessas ações.
   journeyProgressForProduct(productId) {
     const map = this.getForProduct(productId);
     const productKrs = this.getProductKrs(productId);
     const areaOwners = map?.areaOwners || {};
     const hasAnyOwner = Object.values(areaOwners).some(o => String(o || '').trim());
+
+    // Pelo menos 1 campanha do produto JÁ é "campaign concluída"
+    const productCampaignIds = new Set(
+      (App.state.campaigns || [])
+        .filter(c => Number(c.productId) === Number(productId))
+        .map(c => Number(c.id))
+    );
+    const hasCampaign = productCampaignIds.size > 0;
+
+    // Operations: pelo menos 1 OKR (em qualquer branch deste produto) com ações conectadas
+    const branches = this.getBranchesByProduct(productId);
+    const allBranchOkrs = branches.flatMap(b => (b.objectives || []).flatMap(o => o.okrs || []));
+    const connectedOkrs = allBranchOkrs.filter(k => (k.connectedActionIds || []).length > 0);
+    const hasOperations = connectedOkrs.length > 0;
+
+    // Execution: pelo menos 1 task vinculada a alguma ação conectada
+    const connectedActionIds = new Set(connectedOkrs.flatMap(o => (o.connectedActionIds || []).map(Number)));
+    const tasks = window.ExecutionTaskStore?.all() || [];
+    const hasExecutionTask = tasks.some(t => connectedActionIds.has(Number(t.linked_action_id)));
+
     return {
       vision: Boolean(String(map?.vision || '').trim()),
       objectives: hasAnyOwner,
       okrs: productKrs.length > 0,
-      campaign: false,                          // gestor preenche
-      operations: false,                        // gestor preenche
-      execution: false                          // gestor preenche
+      campaign: hasCampaign,
+      operations: hasOperations,
+      execution: hasExecutionTask
     };
   },
 
