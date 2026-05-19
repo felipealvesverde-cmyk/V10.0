@@ -5599,8 +5599,11 @@ Prioridade: ${d.priority}
   },
 
   // V29.0.0 — Adiciona um KR-mãe no produto (vista CEO).
+  // V31.2.11 — Inicia em estado editing (confirmed=false). Vira confirmed só
+  // após user preencher Meta Segura + Meta Avançada e clicar "Confirmar número".
   addProductKrAction(productId, area, catalogId) {
     if (!productId || !window.StrategicMapEngine) return;
+    if (this._demoGuard && this._demoGuard('Adicionar KR-mãe')) return;
     const kpi = (StrategicMapEngine.KPI_CATALOG[area] || []).find(k => k.id === catalogId);
     if (!kpi) return Utils.toast('KPI não encontrado.');
     const existing = StrategicMapEngine.getProductKrs(productId).find(k => k.area === area && k.catalogId === catalogId);
@@ -5609,19 +5612,45 @@ Prioridade: ${d.priority}
       area, catalogId,
       name: kpi.name,
       metric: kpi.metric,
+      catalogDescription: kpi.description || '',
+      isHandoff: Boolean(kpi.handoff),
+      current: null,
       targetCommitted: null,
       targetStretch: null,
       period: 90,
-      owner: ''
+      owner: '',
+      confirmed: false
     }, 'ceo');
     App.save(); App.render();
-    Utils.toast(`KR-mãe "${kpi.name}" adicionado.`);
+    Utils.toast(`KR-mãe "${kpi.name}" ativado. Preencha Atual + Meta Segura + Meta Avançada e confirme.`);
+  },
+
+  // V31.2.11 — Confirma o KR-mãe (estado editing → confirmed verde).
+  // Exige Meta Segura e Meta Avançada preenchidas pra confirmar.
+  confirmProductKr(productId, krId) {
+    if (!productId || !window.StrategicMapEngine) return;
+    const kr = StrategicMapEngine.getProductKrs(productId).find(k => k.id === krId);
+    if (!kr) return Utils.toast('KR-mãe não encontrado.');
+    const hasSafe = Number(kr.targetCommitted || 0) > 0;
+    const hasAdv = Number(kr.targetStretch || 0) > 0;
+    if (!hasSafe || !hasAdv) return Utils.toast('Preencha Meta Segura E Meta Avançada antes de confirmar.');
+    StrategicMapEngine.updateProductKr(productId, krId, { confirmed: true });
+    App.save(); App.render();
+    Utils.toast(`✓ Número confirmado.`);
+  },
+
+  // V31.2.11 — Volta KR confirmado pra estado editing (pra ajustar).
+  editProductKr(productId, krId) {
+    if (!productId || !window.StrategicMapEngine) return;
+    StrategicMapEngine.updateProductKr(productId, krId, { confirmed: false });
+    App.save(); App.render();
   },
 
   // V29.0.0 — Edita campo do KR-mãe.
+  // V31.2.11 — Adicionado 'current' aos campos numéricos.
   updateProductKrField(productId, krId, field, value) {
     if (!productId || !window.StrategicMapEngine) return;
-    const numericFields = ['targetCommitted', 'targetStretch', 'period'];
+    const numericFields = ['current', 'targetCommitted', 'targetStretch', 'period'];
     const patch = {};
     if (numericFields.includes(field)) {
       patch[field] = (value === '' || value === null || value === undefined) ? null : Number(value);

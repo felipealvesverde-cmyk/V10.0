@@ -850,16 +850,31 @@ window.StrategicMapEngine = {
       catalogId: krData.catalogId || null,
       name: String(krData.name || '').trim() || 'KR-mãe sem nome',
       metric: krData.metric || 'quantidade',
+      current: krData.current != null ? Number(krData.current) : null,
       targetCommitted: krData.targetCommitted != null ? Number(krData.targetCommitted) : null,
       targetStretch: krData.targetStretch != null ? Number(krData.targetStretch) : null,
       period: krData.period != null ? Number(krData.period) : 90,
       owner: String(krData.owner || '').trim(),
+      // V31.2.11 — Padrão V28.2: kr começa em editing (confirmed=false). Vira true
+      // só quando user clica "✓ Confirmar número →". Estado tri-fase: criado/
+      // ativado → editando inline → confirmado verde colapsado.
+      confirmed: Boolean(krData.confirmed),
+      isHandoff: Boolean(krData.isHandoff),
+      catalogDescription: krData.catalogDescription || '',
       createdBy: source,                    // 'ceo' | 'auto' (K3)
       createdAt: new Date().toISOString()
     };
     const productKrs = [...(map.productKrs || []), kr];
     this.save(productId, { productKrs });
     return kr;
+  },
+
+  // V31.2.11 — Helper: próximo KR não-confirmado pra UI guiar foco com ring + badge.
+  nextUnconfirmedProductKr(productId) {
+    const map = this.getForProduct(productId);
+    const list = map?.productKrs || [];
+    const next = list.find(k => !k.confirmed);
+    return next ? { krId: next.id, areaId: next.area } : null;
   },
 
   updateProductKr(productId, krId, patch) {

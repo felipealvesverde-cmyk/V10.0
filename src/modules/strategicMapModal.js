@@ -434,28 +434,96 @@ window.StrategicMapModal = {
     </div>`;
   },
 
+  // V31.2.11 — Refator padrão V28.2: card bi-estado (editing → confirmed verde).
   _productKrCard(product, kr, tone) {
+    const handoffBadge = kr.isHandoff
+      ? `<span title="Handoff: entrega desse segmento pro próximo" class="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500/20 text-amber-200 border border-amber-400/30">🔁 HANDOFF</span>`
+      : '';
+    if (kr.confirmed) return this._productKrCardConfirmed(product, kr, tone, handoffBadge);
+    return this._productKrCardEditing(product, kr, tone, handoffBadge);
+  },
+
+  // V31.2.11 — Card verde colapsado após confirmar (read-only com botão Editar).
+  _productKrCardConfirmed(product, kr, tone, handoffBadge) {
     const rollup = StrategicMapEngine.rollupForProductKr ? StrategicMapEngine.rollupForProductKr(product.id, kr.id) : { current: 0, contributors: 0 };
     const target = Number(kr.targetCommitted || 0);
     const progress = target ? Math.round((rollup.current / target) * 100) : 0;
-    const autoCreatedBadge = kr.createdBy === 'auto' ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500/20 text-amber-200 border border-amber-400/30">CRIADO POR MKT — REVISE</span>' : '';
-    return `<div class="rounded-xl bg-slate-900/40 border border-${tone}-400/20 p-2.5">
+    return `<div class="rounded-2xl bg-emerald-500/[0.05] border border-emerald-400/30 p-3">
       <div class="flex items-start justify-between gap-2 mb-1.5">
         <div class="min-w-0 flex-1">
-          <p class="font-black text-white text-[12px]">${Utils.escape(kr.name)} ${autoCreatedBadge}</p>
-          <p class="text-[10px] text-slate-400 mt-0.5">Rollup: <b class="text-${tone}-200">${rollup.current}</b> / meta ${target || '—'} ${kr.metric || ''} · ${rollup.contributors} branch(es) contribuindo · ${progress}%</p>
+          <div class="flex items-center gap-1.5 flex-wrap mb-1">
+            <span class="text-emerald-300 font-black">✓</span>
+            <p class="font-black text-white text-[13px]">${Utils.escape(kr.name)}</p>
+            ${handoffBadge}
+          </div>
+          <p class="text-[11px] text-slate-300">
+            Hoje <b class="text-white">${Number(kr.current ?? 0)}</b>
+            · Segura <b class="text-emerald-300">${Number(kr.targetCommitted ?? 0)}</b>
+            · Avançada <b class="text-violet-300">${Number(kr.targetStretch ?? 0)}</b>
+            · em <b class="text-white">${kr.period || 90} dias</b>
+          </p>
+          <p class="text-[10px] text-slate-400 mt-1">Rollup: <b class="text-${tone}-200">${rollup.current}</b> de ${rollup.contributors} branch(es) contribuindo · ${progress}%</p>
         </div>
-        <button onclick="Actions.removeProductKrAction(${product.id}, '${kr.id}')" title="Remover KR-mãe" class="px-1.5 py-0.5 rounded text-[10px] text-red-300 hover:bg-red-500/20 border border-red-400/30 shrink-0">×</button>
       </div>
-      <div class="grid grid-cols-2 gap-1.5">
+      ${window.StrategicMapRenderer ? StrategicMapRenderer.progressBar(progress, 'emerald') : ''}
+      <div class="flex justify-end gap-1 mt-2">
+        <button onclick="Actions.editProductKr(${product.id}, '${kr.id}')" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[10px] font-black">Editar</button>
+        <button onclick="Actions.removeProductKrAction(${product.id}, '${kr.id}')" class="px-2 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-400/30 text-red-300 text-[10px] font-black">Remover</button>
+      </div>
+    </div>`;
+  },
+
+  // V31.2.11 — Card editing inline com 4 campos (Atual + Meta Segura + Meta
+  // Avançada + Período em chips) + botão Confirmar (só ativa quando os 3
+  // numéricos estão preenchidos). Ring colorido + badge PRÓXIMO no kr da fila.
+  _productKrCardEditing(product, kr, tone, handoffBadge) {
+    const productId = product.id;
+    const next = StrategicMapEngine.nextUnconfirmedProductKr ? StrategicMapEngine.nextUnconfirmedProductKr(productId) : null;
+    const isNext = next && next.krId === kr.id;
+    const ringCls = isNext ? `ring-2 ring-${tone}-400 shadow-lg shadow-${tone}-500/20` : '';
+    const desc = kr.catalogDescription ? `<p class="text-[10px] text-slate-400 italic mb-2">${Utils.escape(kr.catalogDescription)}</p>` : '';
+    const hasSafe = Number(kr.targetCommitted ?? 0) > 0;
+    const hasAdv = Number(kr.targetStretch ?? 0) > 0;
+    const missingAdv = hasSafe && !hasAdv;
+    const complete = hasSafe && hasAdv && (kr.current !== null && kr.current !== undefined && kr.current !== '');
+    return `<div class="rounded-2xl bg-black/30 border border-${tone}-400/30 p-3 ${ringCls}">
+      <div class="flex items-start justify-between gap-2 mb-2">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 flex-wrap mb-1">
+            ${isNext ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-${tone}-500/30 text-${tone}-100 border border-${tone}-400/40">PRÓXIMO</span>` : ''}
+            <p class="font-black text-white text-[13px]">${Utils.escape(kr.name)}</p>
+            ${handoffBadge}
+          </div>
+          ${desc}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-1.5 mb-2">
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-slate-500 uppercase">Atual</span>
+          <input type="number" value="${kr.current ?? ''}" placeholder="0" onfocus="this.select()" oninput="Actions.updateProductKrField(${productId}, '${kr.id}', 'current', this.value)" class="px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-bold w-full placeholder:text-slate-600" />
+        </label>
         <label class="flex flex-col gap-0.5">
           <span class="text-[9px] font-black text-emerald-300 uppercase">🔒 Meta Segura</span>
-          <input type="number" value="${kr.targetCommitted ?? ''}" placeholder="piso" oninput="Actions.updateProductKrField(${product.id}, '${kr.id}', 'targetCommitted', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+          <input type="number" value="${kr.targetCommitted ?? ''}" placeholder="piso" onfocus="this.select()" oninput="Actions.updateProductKrField(${productId}, '${kr.id}', 'targetCommitted', this.value)" class="px-2 py-1.5 rounded-lg bg-slate-900 border ${hasSafe ? 'border-emerald-400/40' : 'border-white/10'} text-white text-[12px] font-bold w-full placeholder:text-slate-600" />
         </label>
         <label class="flex flex-col gap-0.5">
           <span class="text-[9px] font-black text-violet-300 uppercase">🚀 Meta Avançada</span>
-          <input type="number" value="${kr.targetStretch ?? ''}" placeholder="sonho" oninput="Actions.updateProductKrField(${product.id}, '${kr.id}', 'targetStretch', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+          <input type="number" value="${kr.targetStretch ?? ''}" placeholder="sonho" onfocus="this.select()" oninput="Actions.updateProductKrField(${productId}, '${kr.id}', 'targetStretch', this.value)" class="px-2 py-1.5 rounded-lg bg-slate-900 border ${hasAdv ? 'border-violet-400/40' : (missingAdv ? 'border-amber-400/60' : 'border-white/10')} text-white text-[12px] font-bold w-full placeholder:text-slate-600" />
         </label>
+      </div>
+
+      ${missingAdv ? `<div class="rounded-lg bg-amber-500/10 border border-amber-400/30 p-2 text-[11px] text-amber-200 mb-2">⚠️ Você definiu a Meta Segura. Agora preencha a <b>Meta Avançada</b> — o sonho do time. Sem ela, o número fica só com o piso e perde a ambição.</div>` : ''}
+
+      <div class="mb-2">
+        <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Período Tático</p>
+        <button class="px-3 py-1.5 rounded-lg border bg-${tone}-500/30 border-${tone}-400/60 text-white text-[11px] font-bold cursor-default">90 dias — próximo trimestre</button>
+        <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">💡 <b class="text-slate-200">Por que 90 dias?</b> Em um trimestre você vê resultado real (não só promessa), e ainda dá tempo de corrigir rota antes de gastar o ano inteiro num caminho errado.</p>
+      </div>
+
+      <div class="flex justify-between items-center pt-2 border-t border-white/10">
+        <button onclick="Actions.removeProductKrAction(${productId}, '${kr.id}')" class="px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-400/30 text-red-300 text-[10px] font-black">Remover</button>
+        <button onclick="Actions.confirmProductKr(${productId}, '${kr.id}')" ${complete ? '' : 'disabled'} class="px-3 py-1.5 rounded-lg ${complete ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'} text-[11px] font-black" ${complete ? 'style="color:#fff!important;"' : ''}>✓ Confirmar número →</button>
       </div>
     </div>`;
   },
