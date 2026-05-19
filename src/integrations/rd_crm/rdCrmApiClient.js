@@ -58,8 +58,13 @@ window.RdCrmApiClient = {
     // V24.0.0 — Quando options.useCrmOauthV2=true, usa o accessToken do app
     // OAuth do CRM (separado do Marketing). Necessário pra /crm/v2/* porque
     // o OAuth do Marketing não tem scope CRM.
+    // V31.2.37 — Em vez de extrair o token do state e enviar no body, agora
+    // mandamos `token_source` (qual tipo usar) e o backend lê do DB criptografado.
+    // Continua passando o token legado como fallback pra OAuth setup (quando
+    // token ainda não está no DB).
     const useLegacyForToken = options.legacy !== false;
     const useCrmOauthV2 = options.useCrmOauthV2 === true;
+    const tokenSource = useCrmOauthV2 ? 'crm_oauth' : (useLegacyForToken ? 'crm_pat' : 'marketing_oauth');
     let token;
     if (useCrmOauthV2) {
       token = window.App?.state?.integrations?.rd?.crmOauth?.accessToken || '';
@@ -92,15 +97,20 @@ window.RdCrmApiClient = {
     const rdPath = path.startsWith('/') ? path : `/${path}`;
     // V21.4.2 — Legacy CRM API rejeita Authorization: Bearer; usa ?token=X.
     const useQueryToken = useLegacy;
+    // V31.2.37 — Adiciona JWT no header pra backend conseguir resolver token_source.
+    const jwt = localStorage.getItem('lj_jwt');
+    const reqHeaders = { 'Content-Type': 'application/json' };
+    if (jwt) reqHeaders.Authorization = `Bearer ${jwt}`;
     try {
       let response = await fetch('/api/rd-proxy', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: reqHeaders,
         body: JSON.stringify({
           method,
           path: rdPath,
           body: options.body,
-          token,
+          token,             // fallback legado (OAuth setup, antes do DB ter o token)
+          token_source: tokenSource, // V31.2.37 — preferido (backend lê do DB)
           legacy: useLegacy,
           useQueryToken
         })
