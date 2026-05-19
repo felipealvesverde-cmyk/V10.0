@@ -400,9 +400,65 @@ window.StrategicMapModal = {
             <p class="text-[9px] font-black text-${area.color}-300/70 uppercase mb-1">+ Adicionar KR-mãe do catálogo:</p>
             <div class="flex flex-wrap gap-1">${available.map(c => `<button onclick="Actions.addProductKrAction(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description)}" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-white/10 text-${area.color}-200 text-[10px] font-bold">+ ${Utils.escape(c.name)}</button>`).join('')}</div>
           </div>` : ''}
+          ${this._productKrCustomEngine(product, area)}
         </div>`;
       }).join('')}
     </section>`;
+  },
+
+  // V31.2.8 — Engine inline pra criar KR-mãe custom (que não está no catálogo).
+  // Abre form pequeno com nome, métrica, metas. Cria via StrategicMapEngine.addProductKr.
+  _productKrCustomEngine(product, area) {
+    const draft = App.state.productKrCustomDraft;
+    const isOpen = draft && draft.area === area.id;
+    if (!isOpen) {
+      return `<div class="mt-2 pt-2 border-t border-${area.color}-400/20">
+        <button onclick="Actions.openProductKrCustomDraft('${area.id}')" class="px-2.5 py-1.5 rounded-lg bg-${area.color}-500/15 hover:bg-${area.color}-500/25 border border-dashed border-${area.color}-400/40 text-${area.color}-100 text-[10px] font-black flex items-center gap-1.5">
+          <i data-lucide="zap" class="w-3 h-3"></i> Criar KR-mãe customizado
+        </button>
+      </div>`;
+    }
+    return `<div class="mt-2 pt-2 border-t border-${area.color}-400/20">
+      <div class="rounded-xl bg-${area.color}-500/10 border border-${area.color}-400/30 p-2.5 space-y-2">
+        <div class="flex items-center justify-between">
+          <p class="text-[10px] font-black text-${area.color}-100 uppercase tracking-wider"><i data-lucide="zap" class="w-3 h-3 inline-block"></i> Novo KR-mãe customizado</p>
+          <button onclick="Actions.closeProductKrCustomDraft()" class="text-[10px] text-slate-400 hover:text-white">×</button>
+        </div>
+        <div>
+          <label class="text-[9px] font-black text-slate-400 uppercase mb-0.5 block">Nome do número</label>
+          <input value="${Utils.escape(draft.name || '')}" oninput="Actions.updateProductKrCustomDraftField('name', this.value)" autofocus placeholder="Ex: Engajamento por post" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+        </div>
+        <div class="grid grid-cols-2 gap-1.5">
+          <label class="flex flex-col gap-0.5">
+            <span class="text-[9px] font-black text-slate-400 uppercase">Métrica</span>
+            <select onchange="Actions.updateProductKrCustomDraftField('metric', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold">
+              <option value="quantidade" ${draft.metric === 'quantidade' ? 'selected' : ''}>quantidade</option>
+              <option value="reais" ${draft.metric === 'reais' ? 'selected' : ''}>reais</option>
+              <option value="percentual" ${draft.metric === 'percentual' ? 'selected' : ''}>percentual</option>
+              <option value="tempo" ${draft.metric === 'tempo' ? 'selected' : ''}>tempo</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-0.5">
+            <span class="text-[9px] font-black text-slate-400 uppercase">Período (dias)</span>
+            <input type="number" value="${draft.period || 90}" oninput="Actions.updateProductKrCustomDraftField('period', this.value)" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+          </label>
+        </div>
+        <div class="grid grid-cols-2 gap-1.5">
+          <label class="flex flex-col gap-0.5">
+            <span class="text-[9px] font-black text-emerald-300 uppercase">🔒 Meta Segura</span>
+            <input type="number" value="${draft.targetCommitted || ''}" oninput="Actions.updateProductKrCustomDraftField('targetCommitted', this.value)" placeholder="piso" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+          </label>
+          <label class="flex flex-col gap-0.5">
+            <span class="text-[9px] font-black text-violet-300 uppercase">🚀 Meta Avançada</span>
+            <input type="number" value="${draft.targetStretch || ''}" oninput="Actions.updateProductKrCustomDraftField('targetStretch', this.value)" placeholder="sonho" class="px-2 py-1 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold" />
+          </label>
+        </div>
+        <div class="flex justify-end gap-1 pt-1">
+          <button onclick="Actions.closeProductKrCustomDraft()" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[10px] font-black">Cancelar</button>
+          <button onclick="Actions.confirmProductKrCustomDraft(${product.id})" class="px-2.5 py-1 rounded-lg bg-${area.color}-500 hover:bg-${area.color}-600 text-white text-[10px] font-black" style="color:#fff!important;">+ Criar</button>
+        </div>
+      </div>
+    </div>`;
   },
 
   _productKrCard(product, kr, tone) {

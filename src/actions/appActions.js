@@ -5314,6 +5314,48 @@ Prioridade: ${d.priority}
     Utils.toast(`Ação plugada em ${productKr.name}. Retângulo azul ativado.`);
   },
 
+  // V31.2.8 — Engine inline pra criar KR-mãe customizado (que não está no catálogo).
+  // Funciona como draft: abre form, preenche, confirma → addProductKr.
+  openProductKrCustomDraft(areaId) {
+    if (this._demoGuard && this._demoGuard('Criar KR-mãe customizado')) return;
+    App.state.productKrCustomDraft = {
+      area: String(areaId),
+      name: '',
+      metric: 'quantidade',
+      period: 90,
+      targetCommitted: '',
+      targetStretch: ''
+    };
+    App.render();
+  },
+  closeProductKrCustomDraft() {
+    App.state.productKrCustomDraft = null;
+    App.render();
+  },
+  updateProductKrCustomDraftField(field, value) {
+    if (!App.state.productKrCustomDraft) return;
+    App.state.productKrCustomDraft[field] = value;
+  },
+  confirmProductKrCustomDraft(productId) {
+    const draft = App.state.productKrCustomDraft;
+    if (!draft) return;
+    const name = String(draft.name || '').trim();
+    if (!name) return Utils.toast('Digite o nome do KR-mãe.');
+    if (!window.StrategicMapEngine?.addProductKr) return Utils.toast('Engine não disponível.');
+    StrategicMapEngine.addProductKr(Number(productId), {
+      area: draft.area,
+      name,
+      metric: draft.metric || 'quantidade',
+      period: Number(draft.period) || 90,
+      targetCommitted: draft.targetCommitted !== '' ? Number(draft.targetCommitted) : null,
+      targetStretch: draft.targetStretch !== '' ? Number(draft.targetStretch) : null,
+      owner: ''
+    });
+    App.state.productKrCustomDraft = null;
+    App.save(); App.render();
+    Utils.toast(`KR-mãe "${name}" criado.`);
+  },
+
   // V29.3.0 — Abre a engine de criação de ação custom no contexto de um KR.
   openCustomActionEngine(areaId, parentProductKrId) {
     const productId = App.state.strategicMapProductId;
