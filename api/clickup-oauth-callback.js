@@ -70,9 +70,9 @@ module.exports = async function handler(req, res) {
     // Salva criptografado
     const tokenEnc = encrypt(accessToken);
     await req.db.query(
-      `INSERT INTO clickup_credentials (user_id, access_token_enc, workspace_id, workspace_name, connected_at)
-       VALUES ($1, $2, $3, $4, NOW())
-       ON CONFLICT (user_id) DO UPDATE SET access_token_enc = $2, workspace_id = $3, workspace_name = $4, connected_at = NOW()`,
+      `INSERT INTO clickup_credentials (user_id, access_token_enc, workspace_id, workspace_name, token_type, connected_at)
+       VALUES ($1, $2, $3, $4, 'oauth', NOW())
+       ON CONFLICT (user_id) DO UPDATE SET access_token_enc = $2, workspace_id = $3, workspace_name = $4, token_type = 'oauth', connected_at = NOW()`,
       [userId, tokenEnc, workspaceId, workspaceName]
     );
 

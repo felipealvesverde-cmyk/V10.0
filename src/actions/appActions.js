@@ -4992,6 +4992,33 @@ Object.assign(Actions, {
     } catch (err) { Utils.toast(`Erro de rede: ${err.message}`); }
   },
 
+  // V31.2.29 — Conexão via Personal API Token. Substitui o flow OAuth na UI.
+  updateClickupPatDraft(value) {
+    App.state.clickupPatDraft = String(value || '');
+  },
+
+  async connectClickupWithPAT() {
+    const pat = String(App.state.clickupPatDraft || '').trim();
+    if (!pat) return Utils.toast('Cole o Personal API Token primeiro.');
+    if (!pat.startsWith('pk_')) return Utils.toast('Token inválido — Personal API Token do ClickUp começa com "pk_".');
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-connect-pat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ pat })
+      });
+      const data = await r.json();
+      if (data.ok) {
+        App.state.clickupPatDraft = '';
+        Utils.toast(`✓ Conectado ao workspace "${data.workspaceName || '—'}".`);
+        await Actions.loadClickupStatus();
+      } else {
+        Utils.toast(`Falhou: ${data.message || 'erro desconhecido'}`);
+      }
+    } catch (err) { Utils.toast(`Erro de rede: ${err.message}`); }
+  },
+
   async connectClickup() {
     try {
       const token = localStorage.getItem('lj_jwt');

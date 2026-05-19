@@ -127,6 +127,12 @@ async function runMigrations() {
         connected_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
+    // V31.2.29 — Coluna token_type distingue OAuth ('oauth') de Personal API
+    // Token ('pat'). PATs entram pela rota /api/clickup-connect-pat. Header
+    // Authorization muda: OAuth precisa 'Bearer <token>', PAT é '<token>' cru.
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS token_type VARCHAR(16) DEFAULT 'oauth';
+    `);
     // Seed master user se ainda não existe e env vars disponíveis.
     if (MASTER_USERNAME && MASTER_PASSWORD) {
       if (!MASTER_PASSWORD_HASH) {
