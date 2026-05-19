@@ -133,6 +133,12 @@ async function runMigrations() {
     await client.query(`
       ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS token_type VARCHAR(16) DEFAULT 'oauth';
     `);
+    // V31.2.32 — default_list_id: lista do ClickUp onde tarefas criadas via Djow
+    // são gravadas. Auto-descoberta na primeira call (/api/clickup-create-task)
+    // se NULL: pega primeira list folderless OU primeiro folder → primeira list.
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS default_list_id VARCHAR(64);
+    `);
     // Seed master user se ainda não existe e env vars disponíveis.
     if (MASTER_USERNAME && MASTER_PASSWORD) {
       if (!MASTER_PASSWORD_HASH) {
