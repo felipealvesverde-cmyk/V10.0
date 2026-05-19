@@ -28,6 +28,30 @@ window.StrategicMapModal = {
     </div>`;
   },
 
+  // V31.2.13 — Helper: prefix/suffix visual conforme a unidade do número.
+  //   reais → "R$" antes  ·  percentual → "%" depois  ·  quantidade → "un" depois
+  //   pontuacao → "pts" depois  ·  numero → sem decoração
+  _unitDecoration(metric) {
+    const m = String(metric || '').toLowerCase();
+    if (m === 'reais') return { prefix: 'R$', suffix: '' };
+    if (m === 'percentual') return { prefix: '', suffix: '%' };
+    if (m === 'quantidade') return { prefix: '', suffix: 'un' };
+    if (m === 'pontuacao') return { prefix: '', suffix: 'pts' };
+    return { prefix: '', suffix: '' };
+  },
+
+  // V31.2.13 — Helper: input numérico com prefix/suffix visual.
+  // borderColor = 'emerald'|'violet'|'white/10' etc. fieldKey usado no oninput.
+  _unitDecoratedInput(metric, value, placeholder, borderColor, oninputCall) {
+    const { prefix, suffix } = this._unitDecoration(metric);
+    const valAttr = (value === null || value === undefined || value === '') ? '' : value;
+    return `<div class="flex items-center px-3 py-2.5 rounded-xl bg-slate-800 border ${borderColor}">
+      ${prefix ? `<span class="text-slate-300 text-sm font-bold mr-1.5 shrink-0">${prefix}</span>` : ''}
+      <input type="number" value="${valAttr}" placeholder="${Utils.escape(placeholder)}" onfocus="this.select()" oninput="${oninputCall}" class="bg-transparent text-white text-sm font-bold w-full focus:outline-none placeholder:text-slate-500 min-w-0" />
+      ${suffix ? `<span class="text-slate-400 text-sm font-bold ml-1.5 shrink-0">${suffix}</span>` : ''}
+    </div>`;
+  },
+
   // V31.2.12 — Modal pra ATIVAR KPI do catálogo: 3 inputs (Atual / Meta Segura
   // / Meta Avançada). Sem período (tempo vem da campanha quando plugar). Confirma →
   // cria productKr direto com confirmed:true e cai na lista verde da frente.
@@ -57,15 +81,15 @@ window.StrategicMapModal = {
           <div class="grid grid-cols-3 gap-2">
             <label class="flex flex-col gap-1">
               <span class="text-[10px] font-black text-slate-400 uppercase tracking-wide">Atual</span>
-              <input type="number" value="${m.current ?? ''}" placeholder="0" onfocus="this.select()" oninput="Actions.updateActivateCatalogKrModalField('current', this.value)" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-white/10 text-white text-sm font-bold placeholder:text-slate-500" />
+              ${this._unitDecoratedInput(kpi.metric, m.current, '0', 'border-white/10', "Actions.updateActivateCatalogKrModalField('current', this.value)")}
             </label>
             <label class="flex flex-col gap-1">
               <span class="text-[10px] font-black text-emerald-300 uppercase tracking-wide">🔒 Meta Segura</span>
-              <input type="number" value="${m.targetCommitted ?? ''}" placeholder="piso" onfocus="this.select()" oninput="Actions.updateActivateCatalogKrModalField('targetCommitted', this.value)" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-emerald-400/30 text-white text-sm font-bold placeholder:text-slate-500" />
+              ${this._unitDecoratedInput(kpi.metric, m.targetCommitted, 'piso', 'border-emerald-400/30', "Actions.updateActivateCatalogKrModalField('targetCommitted', this.value)")}
             </label>
             <label class="flex flex-col gap-1">
               <span class="text-[10px] font-black text-violet-300 uppercase tracking-wide">🚀 Meta Avançada</span>
-              <input type="number" value="${m.targetStretch ?? ''}" placeholder="sonho" onfocus="this.select()" oninput="Actions.updateActivateCatalogKrModalField('targetStretch', this.value)" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-violet-400/30 text-white text-sm font-bold placeholder:text-slate-500" />
+              ${this._unitDecoratedInput(kpi.metric, m.targetStretch, 'sonho', 'border-violet-400/30', "Actions.updateActivateCatalogKrModalField('targetStretch', this.value)")}
             </label>
           </div>
           <div class="rounded-xl bg-indigo-500/10 border border-indigo-400/30 p-3 text-[11px] text-indigo-100 flex items-start gap-2">
@@ -123,15 +147,15 @@ window.StrategicMapModal = {
           <div class="grid grid-cols-3 gap-2">
             <label class="flex flex-col gap-1">
               <span class="text-[10px] font-black text-slate-400 uppercase tracking-wide">Atual</span>
-              <input type="number" value="${m.current ?? ''}" placeholder="0" onfocus="this.select()" oninput="Actions.updateCreateCustomKrModalField('current', this.value)" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-white/10 text-white text-sm font-bold placeholder:text-slate-500" />
+              ${this._unitDecoratedInput(m.metric, m.current, '0', 'border-white/10', "Actions.updateCreateCustomKrModalField('current', this.value)")}
             </label>
             <label class="flex flex-col gap-1">
               <span class="text-[10px] font-black text-emerald-300 uppercase tracking-wide">🔒 Meta Segura</span>
-              <input type="number" value="${m.targetCommitted ?? ''}" placeholder="piso" onfocus="this.select()" oninput="Actions.updateCreateCustomKrModalField('targetCommitted', this.value)" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-emerald-400/30 text-white text-sm font-bold placeholder:text-slate-500" />
+              ${this._unitDecoratedInput(m.metric, m.targetCommitted, 'piso', 'border-emerald-400/30', "Actions.updateCreateCustomKrModalField('targetCommitted', this.value)")}
             </label>
             <label class="flex flex-col gap-1">
               <span class="text-[10px] font-black text-violet-300 uppercase tracking-wide">🚀 Meta Avançada</span>
-              <input type="number" value="${m.targetStretch ?? ''}" placeholder="sonho" onfocus="this.select()" oninput="Actions.updateCreateCustomKrModalField('targetStretch', this.value)" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-violet-400/30 text-white text-sm font-bold placeholder:text-slate-500" />
+              ${this._unitDecoratedInput(m.metric, m.targetStretch, 'sonho', 'border-violet-400/30', "Actions.updateCreateCustomKrModalField('targetStretch', this.value)")}
             </label>
           </div>
           <div class="rounded-xl bg-indigo-500/10 border border-indigo-400/30 p-3 text-[11px] text-indigo-100 flex items-start gap-2">

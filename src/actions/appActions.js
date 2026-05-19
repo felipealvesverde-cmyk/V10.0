@@ -5703,6 +5703,8 @@ Prioridade: ${d.priority}
   updateCreateCustomKrModalField(field, value) {
     if (!App.state.createCustomKrModal) return;
     App.state.createCustomKrModal[field] = value;
+    // V31.2.13 — Trocar unidade re-renderiza pra refletir prefix/suffix nos inputs.
+    if (field === 'metric') App.render();
   },
   confirmCreateCustomKr() {
     const m = App.state.createCustomKrModal;
