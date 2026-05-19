@@ -877,6 +877,32 @@ window.StrategicMapEngine = {
     return next ? { krId: next.id, areaId: next.area } : null;
   },
 
+  // V31.2.12 — Adiciona KPI customizado ao catálogo aprendido (base de conhecimento
+  // global, mesclada com KPI_CATALOG no render). Aparece como sugestão pros futuros
+  // produtos. Dedupe por nome case-insensitive.
+  addCustomKpiToCatalog(areaId, kpiData) {
+    const area = String(areaId);
+    const list = (App.state.customKpiCatalog && App.state.customKpiCatalog[area]) || [];
+    const name = String(kpiData.name || '').trim();
+    if (!name) return null;
+    if (list.some(k => String(k.name || '').toLowerCase() === name.toLowerCase())) return null;
+    const id = `cuskpi_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const kpi = {
+      id,
+      name,
+      metric: kpiData.metric || 'quantidade',
+      description: kpiData.description || `Custom de ${area} (aprendido)`,
+      handoff: Boolean(kpiData.handoff),
+      learned: true,
+      createdAt: new Date().toISOString()
+    };
+    App.state.customKpiCatalog = {
+      ...(App.state.customKpiCatalog || {}),
+      [area]: [...list, kpi]
+    };
+    return kpi;
+  },
+
   updateProductKr(productId, krId, patch) {
     const map = this.ensure(productId);
     const productKrs = (map.productKrs || []).map(k => k.id === krId ? { ...k, ...patch } : k);

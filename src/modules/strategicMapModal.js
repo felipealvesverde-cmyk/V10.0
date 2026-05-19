@@ -23,6 +23,133 @@ window.StrategicMapModal = {
       ${App.state.strategicExecuteMetricsPopup ? this._executeMetricsConfirmPopup() : ''}
       ${App.state.strategicUnlockCeoPopup ? this._unlockCeoAsGestorPopup() : ''}
       ${App.state.strategicCreateCampaignPopup ? this._createCampaignPopup() : ''}
+      ${App.state.activateCatalogKrModal ? this._activateCatalogKrModalRender() : ''}
+      ${App.state.createCustomKrModal ? this._createCustomKrModalRender() : ''}
+    </div>`;
+  },
+
+  // V31.2.12 — Modal pra ATIVAR KPI do catálogo: 3 inputs (Atual / Meta Segura
+  // / Meta Avançada). Sem período (tempo vem da campanha quando plugar). Confirma →
+  // cria productKr direto com confirmed:true e cai na lista verde da frente.
+  _activateCatalogKrModalRender() {
+    const m = App.state.activateCatalogKrModal;
+    if (!m || !m.open) return '';
+    const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === m.area);
+    if (!area) return '';
+    // Pega KPI do catálogo curado OU do catálogo customizado aprendido
+    const curated = (StrategicMapEngine.KPI_CATALOG || {})[m.area] || [];
+    const custom = (App.state.customKpiCatalog || {})[m.area] || [];
+    const kpi = curated.find(k => k.id === m.catalogId) || custom.find(k => k.id === m.catalogId);
+    if (!kpi) return '';
+    const tone = area.color;
+    return `<div class="fixed inset-0 z-[95] bg-slate-950/85 backdrop-blur-sm grid place-items-center p-4">
+      <div class="bg-slate-900 rounded-[2rem] shadow-2xl border border-${tone}-400/40 w-full max-w-xl overflow-hidden">
+        <header class="p-5 bg-${tone}-500/20 border-b border-${tone}-400/30">
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
+            <p class="text-[11px] font-black text-${tone}-200 uppercase tracking-wider">${Utils.escape(area.label)} · Ativar número</p>
+            ${kpi.handoff ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500/20 text-amber-200 border border-amber-400/30 ml-1">🔁 HANDOFF</span>' : ''}
+          </div>
+          <h3 class="text-xl font-black text-white">${Utils.escape(kpi.name)}</h3>
+          ${kpi.description ? `<p class="text-xs text-slate-300 mt-1">${Utils.escape(kpi.description)}</p>` : ''}
+        </header>
+        <div class="p-5 space-y-3">
+          <div class="grid grid-cols-3 gap-2">
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] font-black text-slate-400 uppercase tracking-wide">Atual</span>
+              <input type="number" value="${m.current ?? ''}" placeholder="0" onfocus="this.select()" oninput="Actions.updateActivateCatalogKrModalField('current', this.value)" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-white/10 text-white text-sm font-bold placeholder:text-slate-500" />
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] font-black text-emerald-300 uppercase tracking-wide">🔒 Meta Segura</span>
+              <input type="number" value="${m.targetCommitted ?? ''}" placeholder="piso" onfocus="this.select()" oninput="Actions.updateActivateCatalogKrModalField('targetCommitted', this.value)" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-emerald-400/30 text-white text-sm font-bold placeholder:text-slate-500" />
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] font-black text-violet-300 uppercase tracking-wide">🚀 Meta Avançada</span>
+              <input type="number" value="${m.targetStretch ?? ''}" placeholder="sonho" onfocus="this.select()" oninput="Actions.updateActivateCatalogKrModalField('targetStretch', this.value)" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-violet-400/30 text-white text-sm font-bold placeholder:text-slate-500" />
+            </label>
+          </div>
+          <div class="rounded-xl bg-indigo-500/10 border border-indigo-400/30 p-3 text-[11px] text-indigo-100 flex items-start gap-2">
+            <i data-lucide="info" class="w-3.5 h-3.5 mt-0.5 shrink-0 text-indigo-300"></i>
+            <p><b>Sem prazo aqui.</b> O tempo é definido lá na campanha — quando você plugar este número numa campanha, ela injeta a faixa de tempo dela.</p>
+          </div>
+        </div>
+        <footer class="border-t border-white/10 p-4 flex items-center justify-end gap-2 bg-slate-950/40">
+          <button onclick="Actions.closeActivateCatalogKrModal()" class="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 font-black text-xs">Cancelar</button>
+          <button onclick="Actions.confirmActivateCatalogKr()" class="px-4 py-2.5 rounded-2xl bg-${tone}-500 hover:bg-${tone}-600 text-white font-black text-xs flex items-center gap-1.5" style="color:#fff!important;">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i> Confirmar OKR
+          </button>
+        </footer>
+      </div>
+    </div>`;
+  },
+
+  // V31.2.12 — Modal pra CRIAR KR custom: 5 inputs (nome, unidade select,
+  // atual, segura, avançada). Sem período. Confirma → cria productKr + adiciona
+  // no customKpiCatalog[area] (base de conhecimento → vira sugestão futura).
+  _createCustomKrModalRender() {
+    const m = App.state.createCustomKrModal;
+    if (!m || !m.open) return '';
+    const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === m.area);
+    if (!area) return '';
+    const tone = area.color;
+    const units = [
+      { v: 'percentual',  l: '% (porcentagem)' },
+      { v: 'quantidade',  l: 'Quantidade (unidades)' },
+      { v: 'pontuacao',   l: 'Pontuação (NPS, CSAT)' },
+      { v: 'reais',       l: 'R$ (reais)' },
+      { v: 'numero',      l: 'Número' }
+    ];
+    return `<div class="fixed inset-0 z-[95] bg-slate-950/85 backdrop-blur-sm grid place-items-center p-4">
+      <div class="bg-slate-900 rounded-[2rem] shadow-2xl border border-${tone}-400/40 w-full max-w-xl overflow-hidden max-h-[92vh] flex flex-col">
+        <header class="p-5 bg-${tone}-500/20 border-b border-${tone}-400/30">
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
+            <p class="text-[11px] font-black text-${tone}-200 uppercase tracking-wider">${Utils.escape(area.label)} · Novo número</p>
+          </div>
+          <h3 class="text-xl font-black text-white">Criar KR-mãe customizado</h3>
+          <p class="text-xs text-slate-300 mt-1">Defina o número, a unidade e as duas metas. Vai pra base de conhecimento e aparece como sugestão pros próximos produtos.</p>
+        </header>
+        <div class="p-5 space-y-3 overflow-y-auto">
+          <div>
+            <label class="text-[10px] font-black text-slate-400 uppercase tracking-wide">Nome do número</label>
+            <input value="${Utils.escape(m.name || '')}" oninput="Actions.updateCreateCustomKrModalField('name', this.value)" autofocus placeholder="Ex: Engajamento Instagram" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-800 border border-white/10 text-white font-semibold placeholder:text-slate-500" />
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-slate-400 uppercase tracking-wide">Unidade</label>
+            <select onchange="Actions.updateCreateCustomKrModalField('metric', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-800 border border-white/10 text-white font-semibold">
+              ${units.map(u => `<option value="${u.v}" ${m.metric === u.v ? 'selected' : ''}>${u.l}</option>`).join('')}
+            </select>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] font-black text-slate-400 uppercase tracking-wide">Atual</span>
+              <input type="number" value="${m.current ?? ''}" placeholder="0" onfocus="this.select()" oninput="Actions.updateCreateCustomKrModalField('current', this.value)" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-white/10 text-white text-sm font-bold placeholder:text-slate-500" />
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] font-black text-emerald-300 uppercase tracking-wide">🔒 Meta Segura</span>
+              <input type="number" value="${m.targetCommitted ?? ''}" placeholder="piso" onfocus="this.select()" oninput="Actions.updateCreateCustomKrModalField('targetCommitted', this.value)" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-emerald-400/30 text-white text-sm font-bold placeholder:text-slate-500" />
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-[10px] font-black text-violet-300 uppercase tracking-wide">🚀 Meta Avançada</span>
+              <input type="number" value="${m.targetStretch ?? ''}" placeholder="sonho" onfocus="this.select()" oninput="Actions.updateCreateCustomKrModalField('targetStretch', this.value)" class="px-3 py-2.5 rounded-xl bg-slate-800 border border-violet-400/30 text-white text-sm font-bold placeholder:text-slate-500" />
+            </label>
+          </div>
+          <div class="rounded-xl bg-indigo-500/10 border border-indigo-400/30 p-3 text-[11px] text-indigo-100 flex items-start gap-2">
+            <i data-lucide="info" class="w-3.5 h-3.5 mt-0.5 shrink-0 text-indigo-300"></i>
+            <p><b>Sem prazo aqui.</b> O tempo é definido lá na campanha quando você plugar o número nela.</p>
+          </div>
+          <div class="rounded-xl bg-${tone}-500/10 border border-${tone}-400/30 p-3 text-[11px] text-${tone}-100 flex items-start gap-2">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 mt-0.5 shrink-0 text-${tone}-300"></i>
+            <p><b>Aprendizado:</b> esse número entra na base de conhecimento de <b>${Utils.escape(area.label)}</b> e aparece como sugestão pros próximos produtos.</p>
+          </div>
+        </div>
+        <footer class="border-t border-white/10 p-4 flex items-center justify-end gap-2 bg-slate-950/40">
+          <button onclick="Actions.closeCreateCustomKrModal()" class="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 font-black text-xs">Cancelar</button>
+          <button onclick="Actions.confirmCreateCustomKr()" class="px-4 py-2.5 rounded-2xl bg-${tone}-500 hover:bg-${tone}-600 text-white font-black text-xs flex items-center gap-1.5" style="color:#fff!important;">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i> Confirmar OKR
+          </button>
+        </footer>
+      </div>
     </div>`;
   },
 
@@ -407,12 +534,17 @@ window.StrategicMapModal = {
     </section>`;
   },
 
-  // V31.2.10 — Painel da área ativa: lista KRs + catálogo + wizard de criação.
+  // V31.2.10 — Painel da área ativa: lista KRs + catálogo (curado + aprendido) + criar custom.
+  // V31.2.12 — Chip do catálogo abre MODAL com 3 inputs (atual/segura/avançada).
+  // Botão "Criar customizado" abre OUTRO MODAL com 5 inputs (nome/unidade + 3 metas).
+  // Customs criados aparecem no catálogo da área como sugestões (base de conhecimento).
   _productKrsAreaPanel(product, area, productKrs, isDraftForActiveArea, draft) {
     const areaKrs = productKrs.filter(k => k.area === area.id);
-    const catalog = (StrategicMapEngine.KPI_CATALOG || {})[area.id] || [];
-    const activatedIds = new Set(areaKrs.map(k => k.catalogId));
-    const available = catalog.filter(c => !activatedIds.has(c.id));
+    const curated = (StrategicMapEngine.KPI_CATALOG || {})[area.id] || [];
+    const learned = (App.state.customKpiCatalog || {})[area.id] || [];
+    const activatedIds = new Set(areaKrs.map(k => k.catalogId).filter(Boolean));
+    const availableCurated = curated.filter(c => !activatedIds.has(c.id));
+    const availableLearned = learned.filter(c => !activatedIds.has(c.id));
     const owner = StrategicMapEngine.getAreaOwner ? StrategicMapEngine.getAreaOwner(product.id, area.id) : '';
     return `<div class="rounded-2xl bg-${area.color}-500/5 border border-${area.color}-400/20 p-3">
       <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
@@ -420,16 +552,17 @@ window.StrategicMapModal = {
         <label class="flex items-center gap-1.5 text-[10px] text-slate-400">Dono (compartilhado): <input value="${Utils.escape(owner)}" oninput="Actions.setStrategicAreaOwner(${product.id}, '${area.id}', this.value)" placeholder="quem responde" class="px-2 py-0.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold w-32" /></label>
       </div>
       ${areaKrs.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem KRs-mãe nesta área.</p>' : '<div class="space-y-2">' + areaKrs.map(kr => this._productKrCard(product, kr, area.color)).join('') + '</div>'}
-      ${available.length ? `<div class="mt-2 pt-2 border-t border-${area.color}-400/20">
+      ${(availableCurated.length || availableLearned.length) ? `<div class="mt-2 pt-2 border-t border-${area.color}-400/20">
         <p class="text-[9px] font-black text-${area.color}-300/70 uppercase mb-1">+ Adicionar KR-mãe do catálogo:</p>
-        <div class="flex flex-wrap gap-1">${available.map(c => `<button onclick="Actions.addProductKrAction(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description)}" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-white/10 text-${area.color}-200 text-[10px] font-bold">+ ${Utils.escape(c.name)}</button>`).join('')}</div>
+        <div class="flex flex-wrap gap-1">
+          ${availableCurated.map(c => `<button onclick="Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || '')}" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-white/10 text-${area.color}-200 text-[10px] font-bold">+ ${Utils.escape(c.name)}</button>`).join('')}
+          ${availableLearned.map(c => `<button onclick="Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || 'Sugerido a partir de um KR custom criado anteriormente')}" class="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border-2 border-dashed border-${area.color}-400/40 text-${area.color}-100 text-[10px] font-bold flex items-center gap-1">✨ ${Utils.escape(c.name)}</button>`).join('')}
+        </div>
       </div>` : ''}
       <div class="mt-2 pt-2 border-t border-${area.color}-400/20">
-        ${isDraftForActiveArea
-          ? this._okrDraftCard(draft, product, /* hideConnect */ true)
-          : `<button onclick="Actions.startStrategicProductKrDraft('${area.id}')" class="px-2.5 py-1.5 rounded-lg bg-${area.color}-500/15 hover:bg-${area.color}-500/25 border border-dashed border-${area.color}-400/40 text-${area.color}-100 text-[10px] font-black flex items-center gap-1.5">
-              <i data-lucide="zap" class="w-3 h-3"></i> Criar KR-mãe customizado (wizard guiado)
-            </button>`}
+        <button onclick="Actions.openCreateCustomKrModal(${product.id}, '${area.id}')" class="px-2.5 py-1.5 rounded-lg bg-${area.color}-500/15 hover:bg-${area.color}-500/25 border border-dashed border-${area.color}-400/40 text-${area.color}-100 text-[10px] font-black flex items-center gap-1.5">
+          <i data-lucide="zap" class="w-3 h-3"></i> Criar KR-mãe customizado
+        </button>
       </div>
     </div>`;
   },

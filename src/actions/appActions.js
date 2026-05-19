@@ -5625,6 +5625,118 @@ Prioridade: ${d.priority}
     Utils.toast(`KR-mãe "${kpi.name}" ativado. Preencha Atual + Meta Segura + Meta Avançada e confirme.`);
   },
 
+  // V31.2.12 — Modal "Ativar KPI do catálogo": abre janela com 3 inputs (atual,
+  // meta segura, meta avançada). Sem período. Confirma → cria productKr com
+  // confirmed:true direto, sem etapa intermediária de edição inline.
+  openActivateCatalogKrModal(productId, area, catalogId) {
+    if (this._demoGuard && this._demoGuard('Ativar KR-mãe do catálogo')) return;
+    App.state.activateCatalogKrModal = {
+      open: true,
+      productId: Number(productId),
+      area: String(area),
+      catalogId: String(catalogId),
+      current: '',
+      targetCommitted: '',
+      targetStretch: ''
+    };
+    App.render();
+  },
+  closeActivateCatalogKrModal() {
+    App.state.activateCatalogKrModal = null;
+    App.render();
+  },
+  updateActivateCatalogKrModalField(field, value) {
+    if (!App.state.activateCatalogKrModal) return;
+    App.state.activateCatalogKrModal[field] = value;
+  },
+  confirmActivateCatalogKr() {
+    const m = App.state.activateCatalogKrModal;
+    if (!m || !m.open) return;
+    if (!window.StrategicMapEngine) return;
+    // KPI pode estar no catálogo curado OU no aprendido (customKpiCatalog)
+    const curated = (StrategicMapEngine.KPI_CATALOG[m.area] || []).find(k => k.id === m.catalogId);
+    const learned = ((App.state.customKpiCatalog || {})[m.area] || []).find(k => k.id === m.catalogId);
+    const kpi = curated || learned;
+    if (!kpi) return Utils.toast('KPI não encontrado.');
+    const existing = StrategicMapEngine.getProductKrs(m.productId).find(k => k.area === m.area && k.catalogId === m.catalogId);
+    if (existing) return Utils.toast('Este KR-mãe já existe.');
+    StrategicMapEngine.addProductKr(m.productId, {
+      area: m.area,
+      catalogId: m.catalogId,
+      name: kpi.name,
+      metric: kpi.metric,
+      catalogDescription: kpi.description || '',
+      isHandoff: Boolean(kpi.handoff),
+      current: m.current !== '' ? Number(m.current) : null,
+      targetCommitted: m.targetCommitted !== '' ? Number(m.targetCommitted) : null,
+      targetStretch: m.targetStretch !== '' ? Number(m.targetStretch) : null,
+      period: 90,
+      owner: '',
+      confirmed: true
+    }, 'ceo');
+    App.state.activateCatalogKrModal = null;
+    App.save(); App.render();
+    Utils.toast(`✓ "${kpi.name}" confirmado em ${m.area}.`);
+  },
+
+  // V31.2.12 — Modal "Criar KR-mãe customizado": 5 inputs (nome, unidade,
+  // atual, segura, avançada). Sem período. Confirma → cria productKr +
+  // adiciona ao customKpiCatalog[area] (base de conhecimento aprendida).
+  openCreateCustomKrModal(productId, area) {
+    if (this._demoGuard && this._demoGuard('Criar KR-mãe customizado')) return;
+    App.state.createCustomKrModal = {
+      open: true,
+      productId: Number(productId),
+      area: String(area),
+      name: '',
+      metric: 'quantidade',
+      current: '',
+      targetCommitted: '',
+      targetStretch: ''
+    };
+    App.render();
+  },
+  closeCreateCustomKrModal() {
+    App.state.createCustomKrModal = null;
+    App.render();
+  },
+  updateCreateCustomKrModalField(field, value) {
+    if (!App.state.createCustomKrModal) return;
+    App.state.createCustomKrModal[field] = value;
+  },
+  confirmCreateCustomKr() {
+    const m = App.state.createCustomKrModal;
+    if (!m || !m.open) return;
+    const name = String(m.name || '').trim();
+    if (!name) return Utils.toast('Digite o nome do KR-mãe.');
+    if (!window.StrategicMapEngine) return;
+    // 1. Adiciona ao customKpiCatalog (base de conhecimento global)
+    const learnedKpi = StrategicMapEngine.addCustomKpiToCatalog(m.area, {
+      name,
+      metric: m.metric || 'quantidade',
+      description: `Custom criado em ${m.area}`,
+      handoff: false
+    });
+    // 2. Cria productKr no produto atual já confirmed
+    StrategicMapEngine.addProductKr(m.productId, {
+      area: m.area,
+      catalogId: learnedKpi ? learnedKpi.id : null,
+      name,
+      metric: m.metric || 'quantidade',
+      catalogDescription: `Custom (aprendido) em ${m.area}`,
+      isHandoff: false,
+      current: m.current !== '' ? Number(m.current) : null,
+      targetCommitted: m.targetCommitted !== '' ? Number(m.targetCommitted) : null,
+      targetStretch: m.targetStretch !== '' ? Number(m.targetStretch) : null,
+      period: 90,
+      owner: '',
+      confirmed: true
+    }, 'ceo');
+    App.state.createCustomKrModal = null;
+    App.save(); App.render();
+    Utils.toast(`✓ "${name}" criado e adicionado à base de conhecimento de ${m.area}.`);
+  },
+
   // V31.2.11 — Confirma o KR-mãe (estado editing → confirmed verde).
   // Exige Meta Segura e Meta Avançada preenchidas pra confirmar.
   confirmProductKr(productId, krId) {

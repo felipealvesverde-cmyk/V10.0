@@ -96,6 +96,9 @@ var State = {
       strategicMapZoom: 'strategy',
       strategicMapOnboardingSeen: {},
       strategicMaps: {},
+      // V31.2.12 — Catálogo aprendido: KRs customizados criados pelo user viram
+      // sugestões pros próximos produtos. Estrutura: { marketing: [...], sales: [...], cs: [...] }.
+      customKpiCatalog: {},
       strategicDjowChats: {},
       strategicDjowDraft: '',
       strategicDjowSending: false,
@@ -438,6 +441,8 @@ var State = {
       // V31.0.4 — Fix core: strategicCampaignMaps (branches V29) não estava sendo
       // preservado no normalize. Causa: cada load do state limpava as branches.
       strategicCampaignMaps: raw.strategicCampaignMaps && typeof raw.strategicCampaignMaps === 'object' ? raw.strategicCampaignMaps : {},
+      // V31.2.12 — Base de conhecimento: KPIs customizados aprendidos por área.
+      customKpiCatalog: raw.customKpiCatalog && typeof raw.customKpiCatalog === 'object' ? raw.customKpiCatalog : {},
       strategicDjowChats: raw.strategicDjowChats && typeof raw.strategicDjowChats === 'object' ? raw.strategicDjowChats : {},
       strategicDjowDraft: '',
       strategicDjowSending: false,
