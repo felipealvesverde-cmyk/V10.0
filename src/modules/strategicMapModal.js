@@ -492,13 +492,11 @@ window.StrategicMapModal = {
           const numTone = active
             ? 'bg-indigo-500 text-white'
             : (done ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-300');
-          const textOpacity = '';
-          const lockIcon = '';
           const subLabel = done ? 'Concluído' : active ? 'Em foco' : 'Pendente';
-          return `<button onclick="Actions.setStrategicZoom('${level.id}')" title="${locked ? (mode === 'product' ? 'Esta etapa é preenchida pelo Gestor da campanha' : 'Esta etapa foi preenchida pelo CEO') : level.description}" class="text-left p-3 rounded-2xl border ${tone} ${textOpacity} transition flex items-center gap-2.5">
+          return `<button onclick="Actions.setStrategicZoom('${level.id}')" title="${Utils.escape(level.description)}" class="text-left p-3 rounded-2xl border ${tone} transition flex items-center gap-2.5">
             <div class="w-7 h-7 rounded-xl ${numTone} grid place-items-center font-black text-xs shrink-0">${done ? '✓' : (i + 1)}</div>
             <div class="min-w-0">
-              <p class="text-[11px] font-black text-white truncate">${Utils.escape(level.short)}${lockIcon}</p>
+              <p class="text-[11px] font-black text-white truncate">${Utils.escape(level.short)}</p>
               <p class="text-[10px] text-slate-400 truncate">${subLabel}</p>
             </div>
           </button>`;
