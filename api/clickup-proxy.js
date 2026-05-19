@@ -33,6 +33,13 @@ module.exports = async function handler(req, res) {
     const result = await clickupFetch(req.db, req.user.sub, method.toUpperCase(), path, body);
     return res.status(200).json({ ok: result.ok, status: result.status, data: result.data });
   } catch (err) {
+    // V31.2.35 — Mensagem clara quando ENCRYPTION_KEY some/quebra em vez de 500 mudo.
+    if (err.message?.includes('ENCRYPTION_KEY')) {
+      return res.status(503).json({ ok: false, message: 'ENCRYPTION_KEY ausente ou inválida no servidor. Admin precisa configurar Railway → Variables.' });
+    }
+    if (err.message?.includes('ClickUp não conectado')) {
+      return res.status(404).json({ ok: false, message: 'ClickUp não conectado. Vá em Configurações → Integrações pra reconectar.' });
+    }
     return res.status(500).json({ ok: false, message: err.message });
   }
 };

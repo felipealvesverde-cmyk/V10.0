@@ -36,7 +36,9 @@ async function discoverFirstList(req, userId) {
     }
   }
 
-  throw new Error('Nenhuma list disponível no primeiro space.');
+  // V31.2.35 — Mensagem específica pro user resolver. Ainda joga error mas
+  // o handler abaixo captura e retorna 400 com texto acionável.
+  throw new Error('NO_LIST_FOUND: nenhuma list encontrada em "' + (space?.name || 'primeiro space') + '". Crie uma list folderless ou dentro de um folder no ClickUp pra poder criar tasks.');
 }
 
 module.exports = async function handler(req, res) {
@@ -118,6 +120,16 @@ module.exports = async function handler(req, res) {
       listId: targetListId
     });
   } catch (err) {
+    // V31.2.35 — Mensagens específicas pro user agir
+    if (err.message?.startsWith('NO_LIST_FOUND:')) {
+      return res.status(400).json({ ok: false, message: err.message.replace('NO_LIST_FOUND: ', '') });
+    }
+    if (err.message?.includes('ENCRYPTION_KEY')) {
+      return res.status(503).json({ ok: false, message: 'ENCRYPTION_KEY ausente ou inválida no servidor.' });
+    }
+    if (err.message?.includes('ClickUp não conectado')) {
+      return res.status(404).json({ ok: false, message: 'ClickUp não conectado. Reconecte em Configurações → Integrações.' });
+    }
     return res.status(500).json({ ok: false, message: err.message });
   }
 };

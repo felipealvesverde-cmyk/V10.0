@@ -42,6 +42,16 @@ var State = {
         rdCrm: window.RdCrmConfig ? RdCrmConfig.defaultConfig() : {}
       },
       rdCrmLeadTags: {},
+      // V31.2.35 — Campos ClickUp esquecidos: clickupStatus + clickupMeta sumiam
+      // a cada normalize() porque não estavam declarados. Resultado: user perdia
+      // a UI de "Conectado" toda vez que atualizávamos. Inicializa aqui pra
+      // preservar no normalize() abaixo.
+      clickupStatus: { connected: false, configured: false, encryptionReady: true, workspaceName: null },
+      clickupMeta: { loaded: false, loadedAt: null, workspaceId: null, listId: null, spaceId: null, members: [], statuses: [], tags: [], customFields: [] },
+      clickupConfigDraft: { client_id: '', client_secret: '' },
+      clickupPatDraft: '',
+      taskCreationModal: null,
+      djowTaskChat: null,
       selectedProductId: null,
       selectedCampaignId: null,
       selectedActionId: null,
@@ -587,7 +597,33 @@ var State = {
         : { id: null, messages: [] },
       djowOpen: false,    // sempre fechado no boot
       djowSending: false, // sempre false no boot
-      djowInput: ''
+      djowInput: '',
+      // V31.2.35 — Preserva campos ClickUp do raw, ou usa default. ANTES esses
+      // sumiam silenciosamente em cada normalize, fazendo o user perder a UI
+      // de "Conectado" mesmo com credentials válidas no DB.
+      clickupStatus: (raw.clickupStatus && typeof raw.clickupStatus === 'object')
+        ? { connected: !!raw.clickupStatus.connected, configured: !!raw.clickupStatus.configured, encryptionReady: raw.clickupStatus.encryptionReady !== false, workspaceName: raw.clickupStatus.workspaceName || null }
+        : base.clickupStatus,
+      clickupMeta: (raw.clickupMeta && typeof raw.clickupMeta === 'object')
+        ? {
+            loaded: !!raw.clickupMeta.loaded,
+            loadedAt: raw.clickupMeta.loadedAt || null,
+            workspaceId: raw.clickupMeta.workspaceId || null,
+            listId: raw.clickupMeta.listId || null,
+            spaceId: raw.clickupMeta.spaceId || null,
+            members: Array.isArray(raw.clickupMeta.members) ? raw.clickupMeta.members : [],
+            statuses: Array.isArray(raw.clickupMeta.statuses) ? raw.clickupMeta.statuses : [],
+            tags: Array.isArray(raw.clickupMeta.tags) ? raw.clickupMeta.tags : [],
+            customFields: Array.isArray(raw.clickupMeta.customFields) ? raw.clickupMeta.customFields : []
+          }
+        : base.clickupMeta,
+      clickupConfigDraft: (raw.clickupConfigDraft && typeof raw.clickupConfigDraft === 'object')
+        ? { client_id: String(raw.clickupConfigDraft.client_id || ''), client_secret: String(raw.clickupConfigDraft.client_secret || '') }
+        : base.clickupConfigDraft,
+      clickupPatDraft: typeof raw.clickupPatDraft === 'string' ? raw.clickupPatDraft : '',
+      // Modais ficam SEMPRE fechados no boot (UI state, não persiste aberto)
+      taskCreationModal: null,
+      djowTaskChat: null
     };
   },
   load() {

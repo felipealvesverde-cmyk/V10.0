@@ -55,6 +55,11 @@ var App = {
         if (window.Actions?.loadDjowStatus) {
           setTimeout(() => Actions.loadDjowStatus(), 200);
         }
+        // V31.2.35 — Carrega status ClickUp em background. Antes só era chamado
+        // ao abrir Settings → user via "Não conectado" no boot mesmo com PAT salvo.
+        if (window.Actions?.loadClickupStatus) {
+          setTimeout(() => Actions.loadClickupStatus(), 250);
+        }
         // V23.0.0 — Inicia sync remoto + auto-snapshot.
         if (window.RemoteSyncAdapter) {
           try { RemoteSyncAdapter.start(); } catch (e) { console.warn('RemoteSync start falhou:', e); }
