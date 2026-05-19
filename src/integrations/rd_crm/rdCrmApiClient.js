@@ -115,6 +115,15 @@ window.RdCrmApiClient = {
           useQueryToken
         })
       });
+      // V31.2.39 — Log diagnóstico quando o RD rejeita (401/403/4xx). Ajuda
+      // a entender qual token tá falhando sem precisar abrir Network tab.
+      if (!response.ok && (response.status === 401 || response.status === 403 || response.status >= 400)) {
+        const tokenPreview = token ? `${token.slice(0, 8)}...${token.slice(-4)}` : '(vazio)';
+        const respClone = response.clone();
+        const errText = await respClone.text().catch(() => '');
+        console.warn(`[rd] ${response.status} ${method} ${rdPath} (source=${tokenSource}, token=${tokenPreview}, legacy=${useLegacy})`);
+        console.warn(`[rd] resposta:`, errText.slice(0, 500));
+      }
       // Auto-refresh em 401 (uma única vez).
       // V24.0.0 — Quando useCrmOauthV2=true, refresca o CRM OAuth.
       if (response.status === 401 && !options._retried) {
