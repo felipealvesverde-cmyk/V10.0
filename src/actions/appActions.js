@@ -5519,6 +5519,8 @@ Prioridade: ${d.priority}
   // V31.2.22 — "Criar" agora SÓ adiciona ao catálogo (sem plugar).
   // Os KRs marcados na engine ficam guardados em pendingKrTargets pra serem
   // usados quando o user clicar "Plugar" no chip em "Como cobrir esse número?".
+  // V31.2.24 — Suporta edit mode: se eng.editingCustomId, atualiza o catálogo
+  // em vez de criar novo (toggle via Actions.editCoverageChip).
   createCustomAction() {
     const eng = App.state.customActionEngine;
     if (!eng) return;
@@ -5532,6 +5534,34 @@ Prioridade: ${d.priority}
     const pendingKrTargets = Array.isArray(eng.selectedKrIds) && eng.selectedKrIds.length
       ? eng.selectedKrIds.slice()
       : (eng.parentProductKrId ? [eng.parentProductKrId] : []);
+    // V31.2.24 — Edit mode: atualiza catálogo direto e propaga p/ Actions já plugados.
+    if (eng.editingCustomId) {
+      const existing = (App.state.customActionCatalog || []).find(c => c.id === eng.editingCustomId);
+      if (!existing) return Utils.toast('Ação não encontrada no catálogo.');
+      // Dedup: outro custom com mesmo nome (case-insensitive) que NÃO seja o editado
+      const dup = (App.state.customActionCatalog || []).find(c =>
+        c.id !== eng.editingCustomId && String(c.name).toLowerCase() === name.toLowerCase()
+      );
+      if (dup) return Utils.toast(`Já existe outra ação custom chamada "${dup.name}".`);
+      App.state.customActionCatalog = (App.state.customActionCatalog || []).map(c => c.id === eng.editingCustomId ? ({
+        ...c,
+        name,
+        sector: eng.areaId,
+        funnel: eng.funnelPoint,
+        destinationSector: eng.destSector,
+        destinationFunnel: eng.destFunnelPoint,
+        channel: finalChannel,
+        pendingKrTargets
+      }) : c);
+      // Propaga pros Actions já criados dessa custom (name + channel visíveis na UI)
+      App.state.actions = (App.state.actions || []).map(a => a.strategicCustomActionId === eng.editingCustomId ? ({
+        ...a, name, channel: finalChannel
+      }) : a);
+      App.state.customActionEngine = null;
+      App.state.coverageChipSelected = eng.editingCustomId;
+      App.save(); App.render();
+      return Utils.toast(`Ação "${name}" atualizada.`);
+    }
     const result = StrategicMapEngine.addCustomAction({
       name,
       sector: eng.areaId,
@@ -5582,6 +5612,35 @@ Prioridade: ${d.priority}
     App.state.strategicKrCardOpen = { ...(App.state.strategicKrCardOpen || {}), [pkrId]: false };
     if (App.state.customActionEngine && App.state.customActionEngine.parentProductKrId === pkrId) {
       App.state.customActionEngine = null;
+    }
+    App.state.coverageChipSelected = null;
+    App.render();
+  },
+
+  // V31.2.24 — Abre a engine em modo edição pré-preenchida com os campos da
+  // custom selecionada. Salvar atualiza o catálogo (e propaga name/channel
+  // pros Actions já plugados dessa custom).
+  editCoverageChip(customId, areaId, parentProductKrId) {
+    const custom = (App.state.customActionCatalog || []).find(c => c.id === customId);
+    if (!custom) return Utils.toast('Ação não encontrada.');
+    const isOutro = String(custom.channel || '').startsWith('Outro:');
+    App.state.customActionEngine = {
+      open: true,
+      editingCustomId: customId,
+      areaId: areaId || custom.sector,
+      parentProductKrId: parentProductKrId || (Array.isArray(custom.pendingKrTargets) ? custom.pendingKrTargets[0] : null),
+      selectedKrIds: Array.isArray(custom.pendingKrTargets) ? custom.pendingKrTargets.slice() : (parentProductKrId ? [parentProductKrId] : []),
+      originKrCatalogId: custom.origin?.krCatalogId || null,
+      name: custom.name || '',
+      funnelPoint: custom.funnel || '',
+      destSector: custom.destinationSector || custom.sector || '',
+      destFunnelPoint: custom.destinationFunnel || '',
+      channel: isOutro ? 'Outro' : (custom.channel || ''),
+      channelOther: isOutro ? String(custom.channel).slice('Outro:'.length).trim() : ''
+    };
+    // Garante que o card do KR atual está expandido pra engine ficar visível
+    if (parentProductKrId) {
+      App.state.strategicKrCardOpen = { ...(App.state.strategicKrCardOpen || {}), [parentProductKrId]: true };
     }
     App.state.coverageChipSelected = null;
     App.render();
