@@ -2574,18 +2574,27 @@ window.StrategicMapModal = {
     const provider = window.ExecutionProviderRegistry?.byId(providerId);
     const cfg = window.ExecutionProviderRegistry?.getProviderConfig(providerId) || {};
     const isManual = providerId === 'manual';
-    const isConnected = isManual || Boolean(cfg.connected);
+    // V31.2.31 — ClickUp tem 2 paths possíveis: legado V16.3 (Execução Operacional)
+    // grava cfg.connected em App.state.executionProviders; novo V31.2.29 (Integrações)
+    // grava App.state.clickupStatus.connected via /api/clickup-config. Banner respeita ambos.
+    const isClickup = providerId === 'clickup';
+    const clickupNewConnected = isClickup && Boolean(App.state.clickupStatus?.connected);
+    const isConnected = isManual || Boolean(cfg.connected) || clickupNewConnected;
     const tone = isConnected ? 'from-emerald-500/15 to-emerald-400/5 border-emerald-400/30 text-emerald-100' : 'from-amber-500/15 to-amber-400/5 border-amber-400/30 text-amber-100';
+    const workspaceTag = clickupNewConnected && App.state.clickupStatus?.workspaceName
+      ? ` <span class="text-[10px] font-bold opacity-80">· ${Utils.escape(App.state.clickupStatus.workspaceName)}</span>`
+      : '';
+    const configureSection = isClickup ? 'integrations' : 'execution';
     return `<div class="rounded-3xl bg-gradient-to-br ${tone} border p-4 flex items-start justify-between gap-3">
       <div class="flex items-start gap-3">
         <div class="w-10 h-10 rounded-xl bg-white/10 grid place-items-center"><i data-lucide="${provider?.icon || 'edit'}" class="w-5 h-5"></i></div>
         <div>
           <p class="text-[10px] font-black uppercase tracking-wider opacity-80">Provider operacional ativo</p>
-          <p class="font-black text-base">${Utils.escape(provider?.label || 'Manual')}</p>
+          <p class="font-black text-base">${Utils.escape(provider?.label || 'Manual')}${workspaceTag}</p>
           <p class="text-[11px] opacity-80 mt-0.5">${isManual ? 'Tarefas ficam no LeadJourney. Configure ClickUp/Trello para sair para sua squad.' : (isConnected ? 'Tarefas criadas aqui serão enviadas para sua squad automaticamente.' : 'Credenciais não testadas. Configure antes de disparar.')}</p>
         </div>
       </div>
-      ${isManual || !isConnected ? '<button onclick="Actions.closeStrategicMap(); Actions.openSettingsModal(); Actions.setSettingsSection(\'execution\');" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-black whitespace-nowrap">Configurar</button>' : ''}
+      ${isManual || !isConnected ? `<button onclick="Actions.closeStrategicMap(); Actions.openSettingsModal(); Actions.setSettingsSection('${configureSection}');" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-black whitespace-nowrap">Configurar</button>` : ''}
     </div>`;
   },
 
