@@ -57,7 +57,8 @@ module.exports = async function handler(req, res) {
     let workspaceName = null;
     let workspaceId = null;
     try {
-      const teamsRes = await fetch('https://api.clickup.com/api/v2/team', { headers: { Authorization: accessToken } });
+      // V31.2.28 — OAuth tokens precisam de 'Bearer' prefix (docs ClickUp).
+      const teamsRes = await fetch('https://api.clickup.com/api/v2/team', { headers: { Authorization: `Bearer ${accessToken}` } });
       const teamsData = await teamsRes.json();
       if (teamsRes.ok && Array.isArray(teamsData.teams) && teamsData.teams.length) {
         // Pega o primeiro workspace (user pode trocar depois nas Settings se tiver mais)
