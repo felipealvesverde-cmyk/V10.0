@@ -26,6 +26,70 @@ window.StrategicMapModal = {
       ${App.state.activateCatalogKrModal ? this._activateCatalogKrModalRender() : ''}
       ${App.state.createCustomKrModal ? this._createCustomKrModalRender() : ''}
       ${App.state.pluggedActionsModal ? this._pluggedActionsModalRender() : ''}
+      ${App.state.connectActionToKrsModal ? this._connectActionToKrsModalRender() : ''}
+      ${window.ActionEditModal ? ActionEditModal.render() : ''}
+    </div>`;
+  },
+
+  // V31.2.21 — Modal "Conectar ação a KRs": engine de checkboxes pra plugar
+  // uma ação JÁ EXISTENTE em um ou mais KRs-mãe da área dela. Reusa o padrão
+  // visual do _customActionEngineForm mas pra ação existente, não criando nova.
+  _connectActionToKrsModalRender() {
+    const m = App.state.connectActionToKrsModal;
+    if (!m || !m.open) return '';
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(m.actionId));
+    if (!action) return '';
+    const areaId = action.strategicAreaId || 'marketing';
+    const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === areaId);
+    const tone = area?.color || 'indigo';
+    const productId = App.state.strategicMapProductId;
+    const campaignId = App.state.strategicMapCampaignId;
+    const areaKrs = StrategicMapEngine.getProductKrs(productId).filter(k => k.area === areaId);
+    const selectedKrIds = Array.isArray(m.selectedKrIds) ? m.selectedKrIds : [];
+    return `<div class="fixed inset-0 z-[96] bg-slate-950/85 backdrop-blur-md grid place-items-center p-4">
+      <div class="bg-slate-900 rounded-[2rem] shadow-2xl border-2 border-${tone}-400/40 w-full max-w-2xl overflow-hidden max-h-[92vh] flex flex-col">
+        <header class="p-5 bg-${tone}-500/15 border-b border-${tone}-400/30 flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <i data-lucide="link" class="w-4 h-4 text-${tone}-200"></i>
+              <p class="text-[11px] font-black text-${tone}-200 uppercase tracking-wider">${Utils.escape(area?.label || '')} · Conectar ação a KRs</p>
+            </div>
+            <h3 class="text-xl font-black text-white">${Utils.escape(action.name)}</h3>
+            <p class="text-[11px] text-slate-300 mt-0.5">${Utils.escape(action.channel || '—')} · ${Utils.escape(action.actionType || '—')}</p>
+          </div>
+          <button onclick="Actions.closeConnectActionToKrsModal()" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-white text-xs font-black flex items-center gap-1.5">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i> Fechar
+          </button>
+        </header>
+
+        <div class="p-5 overflow-y-auto space-y-3">
+          <div class="rounded-lg bg-${tone}-500/10 border border-${tone}-400/30 p-3">
+            <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-wider mb-2">Esta ação vai mover quais OKR(s) de ${Utils.escape(area?.label || '')}?</p>
+            <div class="space-y-1.5">
+              ${areaKrs.length === 0
+                ? '<p class="text-[11px] text-slate-400 italic">Nenhum KR-mãe nesta área. Defina na etapa "Os Números".</p>'
+                : areaKrs.map(k => {
+                    const checked = selectedKrIds.includes(k.id);
+                    const safe = k.targetCommitted != null ? k.targetCommitted : '—';
+                    const stretch = k.targetStretch != null ? k.targetStretch : '—';
+                    return `<label class="flex items-start gap-2 p-2 rounded-lg bg-slate-800/40 hover:bg-slate-800/80 cursor-pointer">
+                      <input type="checkbox" ${checked ? 'checked' : ''} onchange="Actions.toggleConnectActionKr('${k.id}')" class="mt-1 shrink-0" />
+                      <div class="min-w-0 flex-1">
+                        <p class="font-black text-white text-[12px]">${Utils.escape(k.name)} <span class="text-[10px] text-slate-400 font-normal">(${Utils.escape(k.metric || 'quantidade')})</span></p>
+                        <p class="text-[10px] text-slate-300">🔒 Segura <b class="text-emerald-300">${safe}</b> · 🚀 Avançada <b class="text-violet-300">${stretch}</b></p>
+                      </div>
+                    </label>`;
+                  }).join('')}
+            </div>
+          </div>
+        </div>
+        <footer class="border-t border-white/10 p-4 flex justify-end gap-2 bg-slate-950/40">
+          <button onclick="Actions.closeConnectActionToKrsModal()" class="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 font-black text-xs">Cancelar</button>
+          <button onclick="Actions.confirmConnectActionToKrs()" class="px-4 py-2.5 rounded-2xl bg-${tone}-500 hover:bg-${tone}-600 text-white font-black text-xs flex items-center gap-1.5" style="color:#fff!important;">
+            <i data-lucide="link" class="w-3.5 h-3.5"></i> Conectar
+          </button>
+        </footer>
+      </div>
     </div>`;
   },
 
@@ -1831,25 +1895,75 @@ window.StrategicMapModal = {
           ? this._unifiedKrPluggedCard(product, area, pkr, branchObj, child, campaignId)
           : this._unifiedKrNotPluggedCard(pkr, area);
       }).join('')}
+      ${this._unpluggedActionsLayer(area, campaignId)}
+    </div>`;
+  },
+
+  // V31.2.21 — Layer "Ações não plugadas a nenhum KR" abaixo da lista de KRs
+  // da área. Lista ações da campanha que pertencem à área mas não estão
+  // conectadas a nenhum childKr da branch atual. Cada ação tem botões
+  // [Editar] e [Conectar a KRs].
+  _unpluggedActionsLayer(area, campaignId) {
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    const branchObj = (branch?.objectives || []).find(o => o.area === area.id);
+    const connectedIds = new Set((branchObj?.okrs || []).flatMap(k => (k.connectedActionIds || []).map(Number)));
+    const unplugged = (App.state.actions || []).filter(a =>
+      Number(a.campaignId) === Number(campaignId)
+      && a.strategicAreaId === area.id
+      && !connectedIds.has(Number(a.id))
+    );
+    if (!unplugged.length) return '';
+    const tone = area.color;
+    return `<div class="rounded-2xl bg-amber-500/5 border border-amber-400/30 p-2.5 space-y-2 mt-2">
+      <p class="text-[10px] font-black text-amber-200 uppercase tracking-wider"><i data-lucide="alert-triangle" class="w-3 h-3 inline-block"></i> ${unplugged.length} ação(ões) sem KR vinculado</p>
+      <p class="text-[11px] text-slate-300">Estas ações estão soltas — clique <b>Conectar</b> pra escolher qual(is) KR(s) elas movem.</p>
+      <div class="space-y-1.5">
+        ${unplugged.map(a => `<div class="rounded-lg bg-slate-900/40 border border-white/10 p-2 flex items-center justify-between gap-2">
+          <div class="min-w-0 flex-1">
+            <p class="font-black text-white text-[12px] truncate">${Utils.escape(a.name)}</p>
+            <p class="text-[10px] text-slate-400">${Utils.escape(a.channel || '—')} · ${Utils.escape(a.actionType || '—')}</p>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button onclick="Actions.openConnectActionToKrsModal(${a.id})" class="px-2 py-1 rounded-lg bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[10px] font-black flex items-center gap-1"><i data-lucide="link" class="w-3 h-3"></i> Conectar</button>
+            <button onclick="Actions.openEditActionFromMap(${a.id})" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[10px] font-black flex items-center gap-1"><i data-lucide="edit-2" class="w-3 h-3"></i> Editar</button>
+          </div>
+        </div>`).join('')}
+      </div>
     </div>`;
   },
 
   _unifiedKrNotPluggedCard(pkr, area) {
     const tone = area.color;
-    // V31.2.15 — Botão renomeado "+ Plugar" → "+ Criar ação". Internamente continua
-    // chamando plugProductKrIntoBranch (que cria o childKr na branch) — a ação real
-    // é criada depois via o _unifiedKrPluggedCard que aparece pós-plugagem.
-    // V31.2.20 — Adicionado botão "Ver ações" que abre modal-on-modal com dashboard
-    // + lista de ações conectadas a esse KR-mãe (across todas as branches do produto).
-    return `<div class="rounded-xl bg-slate-900/40 border border-${tone}-400/20 p-2.5 flex items-center justify-between gap-2">
-      <div class="min-w-0">
+    // V31.2.21 — Layout muda: KR ocupa toda a largura. Botões em coluna à
+    // direita pra liberar espaço pras pills de ações conectadas abaixo da meta.
+    const actionsPills = this._actionPillsForKr(pkr, tone);
+    return `<div class="rounded-xl bg-slate-900/40 border border-${tone}-400/20 p-2.5 flex items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
         <p class="font-black text-white text-[12px]">${Utils.escape(pkr.name)}</p>
         <p class="text-[10px] text-slate-400">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${pkr.metric || ''}</p>
+        ${actionsPills}
       </div>
       <div class="flex items-center gap-1.5 shrink-0">
         <button onclick="Actions.openPluggedActionsModal('${pkr.id}')" class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[11px] font-black flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> Ver ações</button>
         <button onclick="Actions.plugProductKrIntoBranch('${pkr.id}')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black">+ Criar ação</button>
       </div>
+    </div>`;
+  },
+
+  // V31.2.21 — Pills com nomes das ações conectadas a um KR-mãe. Aparece
+  // abaixo da meta, flex-wrap. Cada pill é link que abre a ação no menu.
+  _actionPillsForKr(pkr, tone) {
+    const productId = App.state.strategicMapProductId;
+    const branches = StrategicMapEngine.getBranchesByProduct(productId);
+    const childKrs = branches.flatMap(b => (b.objectives || []).flatMap(o => o.okrs || []))
+      .filter(k => k.parentProductKrId === pkr.id);
+    const actionIds = new Set(childKrs.flatMap(k => (k.connectedActionIds || []).map(Number)));
+    if (!actionIds.size) return '';
+    const actions = (App.state.actions || []).filter(a => actionIds.has(Number(a.id)));
+    if (!actions.length) return '';
+    return `<div class="mt-2 flex flex-wrap gap-1">
+      <span class="text-[10px] font-black text-slate-400 self-center mr-1">${actions.length} ação(ões):</span>
+      ${actions.map(a => `<button onclick="event.stopPropagation(); Actions.openActionFromMap(${a.id})" title="Abrir '${Utils.escape(a.name)}'" class="px-2 py-0.5 rounded bg-${tone}-500/10 hover:bg-${tone}-500/20 border border-${tone}-400/30 text-${tone}-100 text-[10px] font-bold hover:underline">${Utils.escape(a.name)}</button>`).join('')}
     </div>`;
   },
 
@@ -1874,6 +1988,7 @@ window.StrategicMapModal = {
         <div class="min-w-0 flex-1">
           <p class="font-black text-white text-[13px]"><span class="text-emerald-300">✓ Plugado</span> · ${Utils.escape(childKr.name)}</p>
           <p class="text-[10px] text-slate-400 mt-0.5">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${childKr.metric || ''}</p>
+          ${this._actionPillsForKr(pkr, tone)}
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
           <button onclick="Actions.openPluggedActionsModal('${pkr.id}')" title="Ver ações plugadas a esse KR" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[10px] font-black flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> Ver ações</button>

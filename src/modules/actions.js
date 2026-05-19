@@ -218,7 +218,7 @@ var ActionModule = {
           ${action.strategicOwner ? `<span class="text-[11px] text-slate-700">👤 ${Utils.escape(action.strategicOwner)}</span>` : ''}
           ${confirmed ? '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 text-[10px] font-black">✓ CONFIRMADA</span>' : '<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 text-[10px] font-black">⚠ PENDENTE</span>'}
         </div>
-        ${productId ? `<button onclick="event.stopPropagation(); Actions.openStrategicMap(${productId})" class="px-2 py-1 rounded-lg bg-white border border-${tone}-300 text-${tone}-700 text-[10px] font-black hover:bg-${tone}-100">Abrir no Mapa →</button>` : ''}
+        ${productId ? `<button onclick="event.stopPropagation(); Actions.openActionOnMap(${productId}, ${action.id})" class="px-2 py-1 rounded-lg bg-white border border-${tone}-300 text-${tone}-700 text-[10px] font-black hover:bg-${tone}-100">Abrir no Mapa →</button>` : ''}
       </div>
       ${linkedNames.length ? `<p class="text-[11px] text-slate-700"><b class="text-${tone}-800">🔗 Move:</b> ${linkedNames.map(n => Utils.escape(n)).join(' · ')}</p>` : '<p class="text-[11px] text-amber-700">⚠️ Nenhum número confirmado é movido por essa ação ainda.</p>'}
       ${action.strategicDescription && action.strategicDescription !== 'Ação custom criada via engine' ? `<p class="text-[11px] text-slate-500 italic">${Utils.escape(action.strategicDescription)}</p>` : ''}

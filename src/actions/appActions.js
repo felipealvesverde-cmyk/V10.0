@@ -5361,6 +5361,23 @@ Prioridade: ${d.priority}
     App.render();
   },
 
+  // V31.2.21 — "Abrir no Mapa" do retângulo azul (_strategicTag) leva direto
+  // pra etapa 5 "Ações" da campanha da ação, NÃO mais pra etapa 4 hub.
+  openActionOnMap(productId, actionId) {
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
+    if (!action) return Utils.toast('Ação não encontrada.');
+    const campaignId = Number(action.campaignId);
+    if (!campaignId) return Utils.toast('Ação sem campanha.');
+    // Abre na branch da campanha + etapa Ações
+    Actions.openStrategicMapForCampaign(campaignId);
+    setTimeout(() => {
+      if (window.StrategicZoomNavigation) StrategicZoomNavigation.set('operations');
+      App.state.strategicActiveArea = action.strategicAreaId || null;
+      App.state.strategicSkipOnboarding = true;
+      App.save(); App.render();
+    }, 50);
+  },
+
   // V31.2.20 — Modal-on-modal "Ver ações plugadas": mini-dashboard + lista
   // de ações conectadas a um KR-mãe (across todas branches do produto).
   openPluggedActionsModal(pkrId) {
@@ -5370,6 +5387,77 @@ Prioridade: ${d.priority}
   closePluggedActionsModal() {
     App.state.pluggedActionsModal = null;
     App.render();
+  },
+
+  // V31.2.21 — Modal "Conectar ação a KRs" (pra ação já existente, sem KR vinculado).
+  openConnectActionToKrsModal(actionId) {
+    if (this._demoGuard && this._demoGuard('Conectar ação a KRs')) return;
+    App.state.connectActionToKrsModal = { open: true, actionId: Number(actionId), selectedKrIds: [] };
+    App.render();
+  },
+  closeConnectActionToKrsModal() {
+    App.state.connectActionToKrsModal = null;
+    App.render();
+  },
+  toggleConnectActionKr(krId) {
+    const m = App.state.connectActionToKrsModal;
+    if (!m) return;
+    const list = Array.isArray(m.selectedKrIds) ? m.selectedKrIds.slice() : [];
+    const idx = list.indexOf(krId);
+    if (idx >= 0) list.splice(idx, 1); else list.push(krId);
+    App.state.connectActionToKrsModal = { ...m, selectedKrIds: list };
+    App.render();
+  },
+  confirmConnectActionToKrs() {
+    const m = App.state.connectActionToKrsModal;
+    if (!m) return;
+    if (!m.selectedKrIds || !m.selectedKrIds.length) return Utils.toast('Marque pelo menos um KR.');
+    const productId = App.state.strategicMapProductId;
+    const campaignId = App.state.strategicMapCampaignId;
+    if (!productId || !campaignId) return Utils.toast('Sem branch ativa.');
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    if (!branch) return Utils.toast('Branch não encontrada.');
+    // Pra cada KR marcado: garante childKr na branch (se não tem) e adiciona action.id em connectedActionIds
+    m.selectedKrIds.forEach(krId => {
+      const pkr = StrategicMapEngine.getProductKrs(productId).find(k => k.id === krId);
+      if (!pkr) return;
+      const objective = (branch.objectives || []).find(o => o.area === pkr.area);
+      if (!objective) return;
+      let childKr = (objective.okrs || []).find(k => k.parentProductKrId === krId);
+      if (!childKr) {
+        // Cria childKr na branch herdando do pkr
+        const newId = `okr_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+        childKr = {
+          id: newId,
+          name: pkr.name,
+          metric: pkr.metric,
+          catalogId: pkr.catalogId,
+          isHandoff: Boolean(pkr.isHandoff),
+          current: pkr.current != null ? Number(pkr.current) : null,
+          targetCommitted: pkr.targetCommitted != null ? Number(pkr.targetCommitted) : null,
+          targetStretch: pkr.targetStretch != null ? Number(pkr.targetStretch) : null,
+          period: pkr.period || 90,
+          confirmed: false,
+          connectedActionIds: [],
+          parentProductKrId: pkr.id
+        };
+        objective.okrs = [...(objective.okrs || []), childKr];
+      }
+      // Adiciona action.id (idempotente)
+      const ids = new Set((childKr.connectedActionIds || []).map(Number));
+      ids.add(Number(m.actionId));
+      childKr.connectedActionIds = Array.from(ids);
+    });
+    branch.updatedAt = new Date().toISOString();
+    App.state.strategicCampaignMaps = { ...(App.state.strategicCampaignMaps || {}), [campaignId]: branch };
+    App.state.connectActionToKrsModal = null;
+    App.save(); App.render();
+    Utils.toast(`Ação conectada a ${m.selectedKrIds.length} KR(s).`);
+  },
+
+  // V31.2.21 — Editar ação a partir do Mapa: reusa Actions.openActionEditModal existente.
+  openEditActionFromMap(actionId) {
+    if (typeof this.openActionEditModal === 'function') return this.openActionEditModal(actionId);
   },
 
   // V29.3.0 — Abre a engine de criação de ação custom no contexto de um KR.
