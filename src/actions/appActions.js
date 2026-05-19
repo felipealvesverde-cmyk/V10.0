@@ -4963,8 +4963,40 @@ Object.assign(Actions, {
           encryptionReady: data.encryptionReady
         };
         App.save(); App.render();
+        // V31.2.33 — Quando conecta, pre-fetch metadata pra modal de criar task abrir instantâneo.
+        if (data.connected && !App.state.clickupMeta?.loaded) {
+          this.loadClickupMetadata();
+        }
       }
     } catch (err) { console.warn('[clickup] loadStatus erro:', err); }
+  },
+
+  // V31.2.33 — Pre-fetch members/statuses/tags/custom_fields do ClickUp.
+  // Chamado após login + connected, ou ao abrir modal de criar task se cache vazio.
+  async loadClickupMetadata() {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-metadata', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (data.ok) {
+        App.state.clickupMeta = {
+          loaded: true,
+          loadedAt: Date.now(),
+          workspaceId: data.workspaceId,
+          listId: data.listId,
+          spaceId: data.spaceId,
+          members: data.members || [],
+          statuses: data.statuses || [],
+          tags: data.tags || [],
+          customFields: data.customFields || []
+        };
+        App.save();
+        // Re-render se modal de task já tá aberto (pra preencher os dropdowns).
+        if (App.state.taskCreationModal?.open) App.render();
+      } else {
+        console.warn('[clickup] loadMetadata falhou:', data.message);
+      }
+    } catch (err) { console.warn('[clickup] loadMetadata erro:', err); }
   },
 
   updateClickupConfigDraft(field, value) {
@@ -4990,6 +5022,189 @@ Object.assign(Actions, {
         Utils.toast(`Erro: ${data.message}`);
       }
     } catch (err) { Utils.toast(`Erro de rede: ${err.message}`); }
+  },
+
+  // V31.2.33 — TASK CREATION MODAL: ponte ação → execução ClickUp.
+  // Substitui o clique direto do antigo "Criar tarefa via Djow" no Mapa.
+  // 3 modos: form Normal (obrigatório), expand Avançado (opcional), botão Djow (auto).
+  openTaskCreationModal(actionId) {
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
+    if (!action) return Utils.toast('Ação não encontrada.');
+    // Pre-fetch metadata se ainda não tem
+    if (!App.state.clickupMeta?.loaded) this.loadClickupMetadata();
+    App.state.taskCreationModal = {
+      open: true,
+      actionId: Number(actionId),
+      showAdvanced: false,
+      djowLoading: false,
+      submitting: false,
+      draft: {
+        name: action.name || '',
+        description: action.strategicDescription && action.strategicDescription !== 'Ação custom criada via engine'
+          ? action.strategicDescription
+          : `Ação operacional: ${action.name}. Canal: ${action.channel || '—'}.`,
+        assignees: [],
+        // Avançado (vazio por default)
+        priority: '',
+        status: '',
+        due_date: '',
+        due_date_time: false,
+        start_date: '',
+        start_date_time: false,
+        tags: [],
+        time_estimate_hours: '',
+        points: '',
+        parent: '',
+        links_to: '',
+        markdown_content: '',
+        custom_fields: {}
+      }
+    };
+    App.render();
+  },
+
+  closeTaskCreationModal() {
+    App.state.taskCreationModal = null;
+    App.render();
+  },
+
+  updateTaskDraft(field, value) {
+    if (!App.state.taskCreationModal) return;
+    App.state.taskCreationModal = {
+      ...App.state.taskCreationModal,
+      draft: { ...App.state.taskCreationModal.draft, [field]: value }
+    };
+  },
+
+  toggleTaskAssignee(memberId) {
+    if (!App.state.taskCreationModal) return;
+    const list = App.state.taskCreationModal.draft.assignees || [];
+    const id = Number(memberId);
+    const next = list.includes(id) ? list.filter(x => x !== id) : [...list, id];
+    this.updateTaskDraft('assignees', next);
+    App.render();
+  },
+
+  toggleTaskTag(tagName) {
+    if (!App.state.taskCreationModal) return;
+    const list = App.state.taskCreationModal.draft.tags || [];
+    const next = list.includes(tagName) ? list.filter(x => x !== tagName) : [...list, tagName];
+    this.updateTaskDraft('tags', next);
+    App.render();
+  },
+
+  toggleTaskAdvanced() {
+    if (!App.state.taskCreationModal) return;
+    App.state.taskCreationModal = {
+      ...App.state.taskCreationModal,
+      showAdvanced: !App.state.taskCreationModal.showAdvanced
+    };
+    App.render();
+  },
+
+  // Djow auto-fill: pede pro Djow gerar nome+description+priority com base no contexto da ação.
+  // Substitui só os campos vazios pra não sobrescrever o que o user já digitou.
+  async fillTaskDraftWithDjow() {
+    if (!App.state.taskCreationModal) return;
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(App.state.taskCreationModal.actionId));
+    if (!action) return Utils.toast('Ação não encontrada.');
+    App.state.taskCreationModal = { ...App.state.taskCreationModal, djowLoading: true };
+    App.render();
+    try {
+      // Reusa o flow de auto-generation via Djow Modal (V16.3).
+      // Se DjowModal não estiver disponível, faz heurística local (sem call ao Claude).
+      const draft = App.state.taskCreationModal.draft;
+      const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
+      const heuristicName = `${action.name} — ${campaign?.name || 'campanha'}`;
+      const heuristicDesc = `Ação: ${action.name}\nCampanha: ${campaign?.name || '—'}\nCanal: ${action.channel || '—'}\nTravessia: ${action.originSector || ''} ${action.originFunnel || ''} → ${action.destinationSector || ''} ${action.destinationFunnel || ''}\n\nObjetivo: executar a ação no canal definido e capturar os leads/sinais que ela gera.`;
+      const next = {
+        ...draft,
+        name: draft.name || heuristicName,
+        description: draft.description || heuristicDesc,
+        priority: draft.priority || 'normal'
+      };
+      App.state.taskCreationModal = { ...App.state.taskCreationModal, draft: next, djowLoading: false };
+      App.render();
+      Utils.toast('Djow preencheu os campos. Revisa e ajusta antes de criar.');
+    } catch (err) {
+      App.state.taskCreationModal = { ...App.state.taskCreationModal, djowLoading: false };
+      App.render();
+      Utils.toast(`Djow falhou: ${err.message}`);
+    }
+  },
+
+  // Submit: valida Normal + envia tudo ao backend.
+  async submitTaskCreation() {
+    const m = App.state.taskCreationModal;
+    if (!m) return;
+    const d = m.draft;
+    // Validação Normal
+    if (!String(d.name || '').trim()) return Utils.toast('Nome é obrigatório.');
+    if (!String(d.description || '').trim()) return Utils.toast('Descrição é obrigatória.');
+    if (!Array.isArray(d.assignees) || !d.assignees.length) return Utils.toast('Selecione pelo menos 1 responsável.');
+
+    App.state.taskCreationModal = { ...m, submitting: true };
+    App.render();
+
+    // Monta payload pro backend
+    const payload = {
+      name: d.name.trim(),
+      description: d.description.trim(),
+      assignees: d.assignees,
+      list_id: App.state.clickupMeta?.listId || undefined
+    };
+    // Avançados — só inclui se preenchidos
+    if (d.priority) payload.priority = d.priority;
+    if (d.status) payload.status = d.status;
+    if (d.due_date) { payload.due_date = d.due_date; payload.due_date_time = !!d.due_date_time; }
+    if (d.start_date) { payload.start_date = d.start_date; payload.start_date_time = !!d.start_date_time; }
+    if (Array.isArray(d.tags) && d.tags.length) payload.tags = d.tags;
+    if (d.time_estimate_hours && Number(d.time_estimate_hours) > 0) payload.time_estimate = Math.round(Number(d.time_estimate_hours) * 3600000);
+    if (d.points !== '' && Number.isFinite(Number(d.points))) payload.points = Number(d.points);
+    if (d.parent) payload.parent = d.parent;
+    if (d.links_to) payload.links_to = d.links_to;
+    if (d.markdown_content && d.markdown_content.trim()) payload.markdown_content = d.markdown_content.trim();
+    // custom_fields: transforma object {id: value} em array [{id, value}]
+    if (d.custom_fields && Object.keys(d.custom_fields).length) {
+      payload.custom_fields = Object.entries(d.custom_fields)
+        .filter(([_, v]) => v !== '' && v != null)
+        .map(([id, value]) => ({ id, value }));
+    }
+
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-create-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json();
+      if (data.ok) {
+        // Persiste o registro local também
+        if (window.ExecutionTaskStore) {
+          ExecutionTaskStore.create({
+            linked_action_id: m.actionId,
+            title: payload.name,
+            description: payload.description,
+            status: 'pending',
+            provider: 'clickup',
+            provider_task_id: data.providerTaskId,
+            external_url: data.externalUrl
+          });
+        }
+        App.state.taskCreationModal = null;
+        App.save(); App.render();
+        Utils.toast(`✓ Task criada no ClickUp${data.externalUrl ? '. Clique no toast pra abrir.' : '.'}`);
+      } else {
+        App.state.taskCreationModal = { ...m, submitting: false };
+        App.render();
+        Utils.toast(`Falhou: ${data.message || 'erro desconhecido'}`);
+      }
+    } catch (err) {
+      App.state.taskCreationModal = { ...m, submitting: false };
+      App.render();
+      Utils.toast(`Erro de rede: ${err.message}`);
+    }
   },
 
   // V31.2.29 — Conexão via Personal API Token. Substitui o flow OAuth na UI.

@@ -28,7 +28,159 @@ window.StrategicMapModal = {
       ${App.state.pluggedActionsModal ? this._pluggedActionsModalRender() : ''}
       ${App.state.connectActionToKrsModal ? this._connectActionToKrsModalRender() : ''}
       ${App.state.strategicActionDetailModalId ? this._actionDetailModalRender() : ''}
+      ${App.state.taskCreationModal?.open ? this._taskCreationModalRender() : ''}
       ${window.ActionEditModal ? ActionEditModal.render() : ''}
+    </div>`;
+  },
+
+  // V31.2.33 — Modal de transição ação → execução no ClickUp.
+  // Layout: form Normal sempre visível + expander "Mostrar avançado" + botão lateral Djow.
+  // Sem ações destrutivas — só CREATE. Não edita/deleta tasks, links, users existentes.
+  _taskCreationModalRender() {
+    const m = App.state.taskCreationModal;
+    if (!m || !m.open) return '';
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(m.actionId));
+    if (!action) return '';
+    const d = m.draft;
+    const meta = App.state.clickupMeta || { loaded: false, members: [], statuses: [], tags: [], customFields: [] };
+    const submitting = m.submitting;
+    const djowLoading = m.djowLoading;
+    const priorityOpts = [
+      { v: '', l: '— sem prioridade —' },
+      { v: 'urgent', l: '🔴 Urgente' },
+      { v: 'high', l: '🟠 Alta' },
+      { v: 'normal', l: '🔵 Normal' },
+      { v: 'low', l: '⚪ Baixa' }
+    ];
+    return `<div class="fixed inset-0 z-[98] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target === this) Actions.closeTaskCreationModal()">
+      <div class="bg-slate-950 border border-purple-400/30 rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-auto shadow-2xl">
+        <!-- Header -->
+        <div class="p-5 border-b border-white/10 flex items-start justify-between gap-3 sticky top-0 bg-slate-950 z-10">
+          <div class="min-w-0 flex-1">
+            <p class="text-[10px] font-black text-purple-300 uppercase tracking-wider"><i data-lucide="send" class="w-3 h-3 inline-block"></i> Ação → ClickUp</p>
+            <h2 class="text-lg font-black text-white mt-0.5 truncate">${Utils.escape(action.name)}</h2>
+            <p class="text-[11px] text-slate-400 mt-0.5">Workspace: <b>${Utils.escape(App.state.clickupStatus?.workspaceName || '—')}</b>${meta.listId ? ` · List ID: <code class="text-[10px]">${Utils.escape(String(meta.listId))}</code>` : ''}</p>
+          </div>
+          <button onclick="Actions.closeTaskCreationModal()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 text-white font-black text-xl shrink-0">×</button>
+        </div>
+
+        <div class="p-5 space-y-4">
+          <!-- Djow button -->
+          <button onclick="Actions.fillTaskDraftWithDjow()" ${djowLoading ? 'disabled' : ''} class="w-full px-3 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700 text-white font-black text-[12px] flex items-center justify-center gap-2 disabled:opacity-50" style="color:#fff!important;"><i data-lucide="${djowLoading ? 'loader' : 'sparkles'}" class="w-4 h-4 ${djowLoading ? 'animate-spin' : ''}"></i> ${djowLoading ? 'Djow pensando...' : 'Deixar Djow preencher'}</button>
+
+          <!-- Normal -->
+          <div class="space-y-3">
+            <div>
+              <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Nome *</label>
+              <input value="${Utils.escape(d.name)}" oninput="Actions.updateTaskDraft('name', this.value)" placeholder="Ex: Lançar campanha de e-mail" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[13px]" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Descrição *</label>
+              <textarea oninput="Actions.updateTaskDraft('description', this.value)" placeholder="O que precisa ser feito + critério de pronto." rows="3" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[13px] resize-y">${Utils.escape(d.description)}</textarea>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Responsáveis * <span class="text-slate-500 font-normal">(${d.assignees.length} selecionado(s))</span></label>
+              ${meta.members.length === 0 ? `<p class="text-[11px] text-slate-500 italic px-3 py-2 rounded-lg bg-slate-900/50 border border-white/5">${meta.loaded ? 'Nenhum membro encontrado no workspace.' : 'Carregando membros...'}</p>` : `<div class="rounded-lg bg-slate-900 border border-white/10 p-2 max-h-44 overflow-y-auto space-y-0.5">
+                ${meta.members.map(mem => {
+                  const checked = d.assignees.includes(mem.id);
+                  return `<label class="flex items-center gap-2 p-1.5 rounded hover:bg-white/5 cursor-pointer">
+                    <input type="checkbox" ${checked ? 'checked' : ''} onchange="Actions.toggleTaskAssignee(${mem.id})" />
+                    <span class="text-[12px] text-white truncate">${Utils.escape(mem.username)}${mem.email && mem.email !== mem.username ? ` <span class="text-slate-500 text-[10px]">${Utils.escape(mem.email)}</span>` : ''}</span>
+                  </label>`;
+                }).join('')}
+              </div>`}
+            </div>
+          </div>
+
+          <!-- Toggle Avançado -->
+          <button onclick="Actions.toggleTaskAdvanced()" class="w-full px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[12px] font-black flex items-center justify-between">
+            <span>${m.showAdvanced ? '▴' : '▾'} Campos avançados (opcionais)</span>
+            <span class="text-[10px] font-normal text-slate-500">${m.showAdvanced ? 'esconder' : 'expandir'}</span>
+          </button>
+
+          ${m.showAdvanced ? `<div class="space-y-3 rounded-xl bg-slate-900/30 border border-white/5 p-3">
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Prioridade</label>
+                <select onchange="Actions.updateTaskDraft('priority', this.value)" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;">
+                  ${priorityOpts.map(o => `<option value="${o.v}" ${d.priority === o.v ? 'selected' : ''}>${o.l}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Status</label>
+                <select onchange="Actions.updateTaskDraft('status', this.value)" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;">
+                  <option value="">— default da list —</option>
+                  ${meta.statuses.map(s => `<option value="${Utils.escape(s.status)}" ${d.status === s.status ? 'selected' : ''}>${Utils.escape(s.status)}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Data de entrega</label>
+                <input type="datetime-local" value="${Utils.escape(d.due_date)}" oninput="Actions.updateTaskDraft('due_date', this.value); Actions.updateTaskDraft('due_date_time', !!this.value.includes('T'))" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Data de início</label>
+                <input type="datetime-local" value="${Utils.escape(d.start_date)}" oninput="Actions.updateTaskDraft('start_date', this.value); Actions.updateTaskDraft('start_date_time', !!this.value.includes('T'))" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Estimativa (horas)</label>
+                <input type="number" min="0" step="0.5" value="${Utils.escape(String(d.time_estimate_hours))}" oninput="Actions.updateTaskDraft('time_estimate_hours', this.value)" placeholder="ex: 2.5" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Pontos (Sprint)</label>
+                <input type="number" min="0" value="${Utils.escape(String(d.points))}" oninput="Actions.updateTaskDraft('points', this.value)" placeholder="ex: 3" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" />
+              </div>
+            </div>
+
+            ${meta.tags.length > 0 ? `<div>
+              <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Tags <span class="text-slate-500 font-normal">(${d.tags.length} selecionada(s))</span></label>
+              <div class="flex flex-wrap gap-1">
+                ${meta.tags.map(t => {
+                  const active = d.tags.includes(t.name);
+                  return `<button onclick="Actions.toggleTaskTag('${Utils.escape(t.name)}')" class="px-2 py-0.5 rounded-full text-[10px] font-bold border ${active ? 'bg-emerald-700 border-emerald-600 text-white' : 'bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700'}">${Utils.escape(t.name)}</button>`;
+                }).join('')}
+              </div>
+            </div>` : ''}
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Subtask de (parent task ID)</label>
+                <input value="${Utils.escape(d.parent)}" oninput="Actions.updateTaskDraft('parent', this.value)" placeholder="ex: abc123def" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-mono" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Dependência de (task ID)</label>
+                <input value="${Utils.escape(d.links_to)}" oninput="Actions.updateTaskDraft('links_to', this.value)" placeholder="ex: xyz789" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-mono" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Markdown (sobrescreve descrição se preenchido)</label>
+              <textarea oninput="Actions.updateTaskDraft('markdown_content', this.value)" rows="3" placeholder="# Título\n- bullet\n- outra coisa" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-mono resize-y">${Utils.escape(d.markdown_content)}</textarea>
+            </div>
+
+            ${meta.customFields.length > 0 ? `<div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Custom fields da list</p>
+              <div class="space-y-2">
+                ${meta.customFields.map(cf => `<div>
+                  <label class="block text-[10px] font-bold text-slate-400 mb-0.5">${Utils.escape(cf.name)} <span class="text-slate-500">(${Utils.escape(cf.type)})</span>${cf.required ? ' <span class="text-red-400">*</span>' : ''}</label>
+                  <input value="${Utils.escape(String(d.custom_fields[cf.id] || ''))}" oninput="Actions.updateTaskDraft('custom_fields', { ...App.state.taskCreationModal.draft.custom_fields, '${cf.id}': this.value })" placeholder="valor" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" />
+                </div>`).join('')}
+              </div>
+            </div>` : ''}
+          </div>` : ''}
+        </div>
+
+        <!-- Footer -->
+        <div class="p-4 border-t border-white/10 flex items-center justify-end gap-2 sticky bottom-0 bg-slate-950">
+          <button onclick="Actions.closeTaskCreationModal()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-[12px] font-black">Cancelar</button>
+          <button onclick="Actions.submitTaskCreation()" ${submitting ? 'disabled' : ''} class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[12px] font-black flex items-center gap-1.5 disabled:opacity-50" style="color:#fff!important;"><i data-lucide="${submitting ? 'loader' : 'send'}" class="w-3.5 h-3.5 ${submitting ? 'animate-spin' : ''}"></i> ${submitting ? 'Enviando...' : 'Criar no ClickUp'}</button>
+        </div>
+      </div>
     </div>`;
   },
 
@@ -2616,7 +2768,7 @@ window.StrategicMapModal = {
       </div>
       ${StrategicMapRenderer.progressBar(progress, status.color)}
       <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/10">
-        ${actions.map(a => `<button onclick="Actions.createTaskFromOkr(${product.id}, '${obj.id}', '${kr.id}', ${a.id})" class="px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-[11px] font-black flex items-center gap-1.5" style="color:#fff!important;" title="Abrir Djow já preenchido para criar tarefa nesta ação"><i data-lucide="send" class="w-3 h-3"></i> Criar tarefa via Djow · ${Utils.escape(a.name)}</button>`).join('')}
+        ${actions.map(a => `<button onclick="Actions.openTaskCreationModal(${a.id})" class="px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-[11px] font-black flex items-center gap-1.5" style="color:#fff!important;" title="Abrir modal de transição ação → ClickUp"><i data-lucide="send" class="w-3 h-3"></i> Criar task · ${Utils.escape(a.name)}</button>`).join('')}
         <button onclick="Actions.syncStrategicOkrSingle('${obj.id}','${kr.id}')" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[11px] font-black flex items-center gap-1.5"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Atualizar leitura</button>
         ${tasks.length ? `<button onclick="Actions.closeStrategicMap(); Actions.openTasksModal(${actions[0]?.id || 0});" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[11px] font-black">Ver ${tasks.length} tarefa(s)</button>` : ''}
       </div>

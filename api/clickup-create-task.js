@@ -45,7 +45,21 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
 
   const userId = req.user.sub;
-  const { name, description, due_date, priority, assignee, list_id } = req.body || {};
+  // V31.2.33 — Aceita todos os campos do POST /list/{list_id}/task da ClickUp API.
+  // Normal: name (req), description, assignees.
+  // Avançado opcional: due_date(+_time), start_date(+_time), priority, status, tags,
+  //   time_estimate, points, parent, links_to, custom_fields, markdown_content.
+  const {
+    name, description, markdown_content,
+    assignees, assignee, // assignee single é legado; assignees array é o novo
+    list_id,
+    due_date, due_date_time,
+    start_date, start_date_time,
+    priority, status, tags,
+    time_estimate, points,
+    parent, links_to,
+    custom_fields
+  } = req.body || {};
   if (!name) return res.status(400).json({ ok: false, message: 'name é obrigatório.' });
 
   try {
@@ -59,12 +73,36 @@ module.exports = async function handler(req, res) {
       await req.db.query('UPDATE clickup_credentials SET default_list_id = $1 WHERE user_id = $2', [targetListId, userId]);
     }
 
+    // Normaliza assignees: aceita array ou singular (compat).
+    let assigneesArr = null;
+    if (Array.isArray(assignees) && assignees.length) assigneesArr = assignees.map(Number).filter(Boolean);
+    else if (assignee) assigneesArr = [Number(assignee)].filter(Boolean);
+
+    // Priority: aceita string ('urgent'|'high'|'normal'|'low') ou int direto 1-4.
+    let priorityInt;
+    if (typeof priority === 'number') priorityInt = priority;
+    else if (priority === 'urgent') priorityInt = 1;
+    else if (priority === 'high') priorityInt = 2;
+    else if (priority === 'normal') priorityInt = 3;
+    else if (priority === 'low') priorityInt = 4;
+
     const taskBody = {
       name: String(name).slice(0, 255),
       description: description ? String(description) : undefined,
+      markdown_content: markdown_content ? String(markdown_content) : undefined,
+      assignees: assigneesArr || undefined,
       due_date: due_date ? new Date(due_date).getTime() : undefined,
-      assignees: assignee ? [assignee] : undefined,
-      priority: priority === 'high' ? 1 : priority === 'low' ? 4 : 3
+      due_date_time: typeof due_date_time === 'boolean' ? due_date_time : undefined,
+      start_date: start_date ? new Date(start_date).getTime() : undefined,
+      start_date_time: typeof start_date_time === 'boolean' ? start_date_time : undefined,
+      priority: priorityInt,
+      status: status ? String(status) : undefined,
+      tags: Array.isArray(tags) && tags.length ? tags.map(String) : undefined,
+      time_estimate: Number.isFinite(Number(time_estimate)) && Number(time_estimate) > 0 ? Number(time_estimate) : undefined,
+      points: Number.isFinite(Number(points)) ? Number(points) : undefined,
+      parent: parent ? String(parent) : undefined,
+      links_to: links_to ? String(links_to) : undefined,
+      custom_fields: Array.isArray(custom_fields) && custom_fields.length ? custom_fields : undefined
     };
     // Remove campos undefined pro JSON ficar limpo
     Object.keys(taskBody).forEach(k => taskBody[k] === undefined && delete taskBody[k]);
