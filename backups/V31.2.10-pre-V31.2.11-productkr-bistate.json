@@ -1,0 +1,9 @@
+{
+  "_placeholder": true,
+  "_note": "Backup retroativo criado em V31.2.11. Pra preencher com seu state real: logado como master, rode no console F12 → copy(JSON.stringify(App.state, null, 2)) e cole sobrescrevendo este arquivo inteiro.",
+  "_pre_version": "V31.2.10",
+  "_target_version": "V31.2.11",
+  "_motivo": "productkr-bistate (refator schema do productKr: campos confirmed, current, isHandoff, catalogDescription adicionados)",
+  "_risco": "productKrs antigos sem campo 'confirmed' caem em editing por default (sem perda). Mas refator de schema sempre tem risco residual.",
+  "_como_restaurar": "Cola o JSON real aqui, depois rode no console: App.state = JSON.parse(/* conteúdo do arquivo */); App.save(); App.render();"
+}
