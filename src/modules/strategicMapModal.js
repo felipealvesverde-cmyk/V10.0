@@ -312,8 +312,8 @@ window.StrategicMapModal = {
         <p class="font-bold text-white text-[12px] leading-tight">${Utils.escape(action.name)}</p>
         <p class="text-[10px] text-slate-400 mt-0.5">${action.strategicOwner ? '👤 ' + Utils.escape(action.strategicOwner) + ' · ' : ''}${leadsCount} lead(s) · ${Utils.escape(action.actionType || '—')}</p>
       </div>
-      <button onclick="Actions.closePluggedActionsModal(); Actions.openActionFromMap(${action.id})" class="px-3 py-2 rounded-xl bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black flex items-center gap-1.5 shrink-0">
-        Editar <i data-lucide="arrow-right" class="w-3 h-3"></i>
+      <button onclick="Actions.openStrategicActionDetail(${action.id})" class="px-3 py-2 rounded-xl bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black flex items-center gap-1.5 shrink-0">
+        Abrir <i data-lucide="arrow-right" class="w-3 h-3"></i>
       </button>
     </div>`;
   },
@@ -2247,7 +2247,7 @@ window.StrategicMapModal = {
               <p class="font-bold text-white text-[12px] leading-tight truncate">${Utils.escape(action.name)}</p>
               <p class="text-[10px] text-slate-400 mt-0.5">${action.strategicOwner ? '👤 ' + Utils.escape(action.strategicOwner) + ' · ' : ''}${(action.leads || []).length} lead(s)</p>
             </div>
-            <button onclick="Actions.openActionFromMap(${action.id})" class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 text-[10px] font-black flex items-center gap-1 shrink-0">Abrir ação <i data-lucide="arrow-right" class="w-3 h-3"></i></button>
+            <button onclick="Actions.openStrategicActionDetail(${action.id})" class="px-2 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 text-[10px] font-black flex items-center gap-1 shrink-0">Abrir ação <i data-lucide="arrow-right" class="w-3 h-3"></i></button>
           </div>`;
         }).join('')}
       </div>
