@@ -516,15 +516,29 @@ var SettingsModal = {
           </div>
         ` : `
           <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4">
-            <div class="flex items-center justify-between gap-3 mb-3">
-              <div>
+            <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+              <div class="min-w-0">
                 <h4 class="font-black text-slate-900 text-sm">Eventos que o Journey vai ouvir</h4>
                 <p class="text-[11px] text-slate-500">${registeredCount}/${totalDesired} cadastrado(s) · URL alvo: <code class="text-slate-700">${Utils.escape(webhookUrl)}</code></p>
+                ${(() => {
+                  // V31.2.52 — Timestamp da última verificação contra o RD.
+                  const lastSync = App.state.rdWebhooksLastSyncAt;
+                  if (!lastSync) return '';
+                  const ageMin = Math.max(1, Math.round((Date.now() - new Date(lastSync).getTime()) / 60000));
+                  const stale = ageMin > 30;
+                  return `<p class="text-[10px] ${stale ? 'text-amber-700' : 'text-slate-400'} mt-0.5">${stale ? '⚠ ' : '✓ '}Última verificação no RD: há ${ageMin} min${stale ? ' (stale)' : ''}</p>`;
+                })()}
               </div>
-              <button onclick="Actions.registerRdWebhooks()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5 shrink-0" style="color:#fff;">
-                <i data-lucide="${allRegistered ? 'refresh-cw' : 'plus'}" class="w-3.5 h-3.5"></i>
-                ${allRegistered ? 'Re-verificar' : registeredCount > 0 ? `Cadastrar ${totalDesired - registeredCount} faltantes` : 'Cadastrar webhooks'}
-              </button>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button onclick="Actions.syncRdWebhooksWithRd()" title="Sincroniza state local com RD: pula divergências automaticamente" class="px-3 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-black flex items-center gap-1.5">
+                  <i data-lucide="git-compare" class="w-3.5 h-3.5"></i>
+                  Sincronizar
+                </button>
+                <button onclick="Actions.registerRdWebhooks()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff;">
+                  <i data-lucide="${allRegistered ? 'refresh-cw' : 'plus'}" class="w-3.5 h-3.5"></i>
+                  ${allRegistered ? 'Re-verificar' : registeredCount > 0 ? `Cadastrar ${totalDesired - registeredCount} faltantes` : 'Cadastrar webhooks'}
+                </button>
+              </div>
             </div>
 
             ${registered.length > 0 ? `

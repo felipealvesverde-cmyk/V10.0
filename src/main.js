@@ -66,6 +66,21 @@ var App = {
         if (window.Actions?.loadRdCredentialsFromDb) {
           setTimeout(() => Actions.loadRdCredentialsFromDb(), 300);
         }
+        // V31.2.52 — Auto-sync webhooks RD a cada 30 min (se OAuth CRM conectado).
+        // Detecta drift: webhook deletado no RD manualmente, mudança de domínio,
+        // qualquer divergência entre state local e verdade no RD. Re-cadastra
+        // faltantes automaticamente. Cleanup ao destroy.
+        if (!window._rdWebhookSyncInterval) {
+          window._rdWebhookSyncInterval = setInterval(() => {
+            const rdCfg = window.App?.state?.integrations?.rd;
+            const hasCrmOauth = Boolean(rdCfg?.crmOauth?.accessToken);
+            if (!hasCrmOauth) return;
+            if (document.hidden) return; // só sync se aba ativa (economiza calls)
+            if (window.Actions?.syncRdWebhooksWithRd) {
+              Actions.syncRdWebhooksWithRd().catch(_ => {}); // silencioso
+            }
+          }, 30 * 60 * 1000); // 30 min
+        }
         // V23.0.0 — Inicia sync remoto + auto-snapshot.
         if (window.RemoteSyncAdapter) {
           try { RemoteSyncAdapter.start(); } catch (e) { console.warn('RemoteSync start falhou:', e); }

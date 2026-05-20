@@ -2004,6 +2004,8 @@ Object.assign(Actions, {
     console.log(`[rd] webhooks dedup: total=${Array.isArray(list) ? list.length : 0}, ours=${ours.length}, alvo=${targetUrl}`);
     App.state.rdWebhooks = ours;
     App.state.rdWebhookRegistrationError = '';
+    // V31.2.52 — Timestamp pra UI mostrar 'última verificação há X min'.
+    App.state.rdWebhooksLastSyncAt = new Date().toISOString();
     App.save();
     App.render();
     return { ok: true, webhooks: ours };
