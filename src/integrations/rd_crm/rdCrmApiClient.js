@@ -145,11 +145,42 @@ window.RdCrmApiClient = {
       if (response.status === 401) {
         return { ok: false, status: 401, data, message: 'Token RD expirado. Refresh do OAuth necessário.' };
       }
+      // V31.2.49 — Log diagnóstico em 4xx/5xx pra ver o que RD respondeu (RD
+      // não documenta formatos consistentes — pode ser data.errors, data.error,
+      // data.detail, data.code, data.description, raw string, etc).
+      if (!response.ok) {
+        console.warn(`[rd-crm] ${method} ${rdPath} → ${response.status}`, data);
+      }
+      // Extrai mensagem do erro tentando vários formatos possíveis do RD
+      let extractedMessage;
+      if (response.ok) {
+        extractedMessage = 'Requisição RD CRM realizada.';
+      } else if (data && typeof data === 'object') {
+        if (data.errors) {
+          extractedMessage = Array.isArray(data.errors)
+            ? data.errors.map(e => (typeof e === 'string' ? e : (e.message || e.detail || e.description || JSON.stringify(e)))).join(' | ')
+            : JSON.stringify(data.errors);
+        } else if (data.error) {
+          extractedMessage = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+        } else if (data.message) {
+          extractedMessage = String(data.message);
+        } else if (data.detail) {
+          extractedMessage = String(data.detail);
+        } else if (data.description) {
+          extractedMessage = String(data.description);
+        } else {
+          extractedMessage = `HTTP ${response.status} — body: ${JSON.stringify(data).slice(0, 200)}`;
+        }
+      } else if (typeof data === 'string' && data.length) {
+        extractedMessage = `HTTP ${response.status} — ${data.slice(0, 200)}`;
+      } else {
+        extractedMessage = `HTTP ${response.status} (resposta vazia)`;
+      }
       return {
         ok: response.ok,
         status: response.status,
         data,
-        message: response.ok ? 'Requisição RD CRM realizada.' : (data?.errors ? JSON.stringify(data.errors) : (data?.message || `HTTP ${response.status}`))
+        message: extractedMessage
       };
     } catch (error) {
       return { ok: false, status: 'network_error', message: error?.message || 'Falha de rede ao chamar /api/rd-proxy.', error };
