@@ -106,7 +106,11 @@ window.RDAuthService = {
         body: JSON.stringify({
           clientId: cfg.clientId.trim(),
           clientSecret: cfg.clientSecret.trim(),
-          code: cfg.authorizationCode.trim()
+          code: cfg.authorizationCode.trim(),
+          // V31.2.46 — OAuth 2.0 (RFC 6749 §4.1.3) exige redirect_uri no token
+          // exchange quando foi enviado na authorization step. Sem isso, RD
+          // pode responder 401 ACCESS_DENIED 'Wrong credentials provided'.
+          redirectUri: (cfg.redirectUri || '').trim()
         })
       });
       const text = await res.text();

@@ -24,7 +24,7 @@ module.exports = async function handler(req, res) {
   }
 
   const body = req.body || {};
-  const { clientId, clientSecret, code, refreshToken, grantType } = body;
+  const { clientId, clientSecret, code, refreshToken, grantType, redirectUri } = body;
   if (!clientId || !clientSecret) {
     return res.status(400).json({ ok: false, message: 'clientId e clientSecret são obrigatórios.' });
   }
@@ -33,10 +33,18 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, message: 'code, refreshToken ou grantType=client_credentials obrigatório.' });
   }
 
+  // V31.2.46 — Repassa redirect_uri pro RD quando trocando code → token.
+  // OAuth 2.0 (RFC 6749 §4.1.3) exige que redirect_uri seja idêntico ao usado
+  // na authorization step. Sem isso, alguns providers retornam 401.
   const rdBody = isClientCreds
     ? { client_id: String(clientId).trim(), client_secret: String(clientSecret).trim(), grant_type: 'client_credentials' }
     : code
-      ? { client_id: String(clientId).trim(), client_secret: String(clientSecret).trim(), code: String(code).trim() }
+      ? {
+          client_id: String(clientId).trim(),
+          client_secret: String(clientSecret).trim(),
+          code: String(code).trim(),
+          ...(redirectUri ? { redirect_uri: String(redirectUri).trim() } : {})
+        }
       : { client_id: String(clientId).trim(), client_secret: String(clientSecret).trim(), refresh_token: String(refreshToken).trim() };
 
   try {
