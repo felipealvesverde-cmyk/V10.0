@@ -2650,7 +2650,7 @@ var SettingsModal = {
       : resolvedActive === 'admin' ? this.adminPanel()
       : this.databasePanel();
 
-    return `<div class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm p-4 overflow-auto">
+    return `<div id="settingsModalBackdrop" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm p-4 overflow-auto">
       <section id="settingsModal" class="max-w-6xl mx-auto rounded-[2rem] bg-slate-50 shadow-2xl overflow-hidden border border-white/20">
         <header class="bg-slate-950 text-white p-6 flex items-start justify-between gap-4">
           <div>
