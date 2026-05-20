@@ -52,6 +52,15 @@ var State = {
       clickupPatDraft: '',
       taskCreationModal: null,
       djowTaskChat: null,
+      // V31.2.41 — Status das 3 conexões RD (atualizado por testAllRdConnections).
+      // status: 'unknown' | 'connected' | 'missing' | 'error'
+      rdConnectionStatus: {
+        crm_pat: { status: 'unknown', message: null, testedAt: null },
+        marketing_oauth: { status: 'unknown', message: null, testedAt: null },
+        crm_oauth: { status: 'unknown', message: null, testedAt: null }
+      },
+      rdInfoModal: null, // { open, openSection: 'pat'|'crm_oauth'|'marketing_oauth'|null }
+      rdTestingConnections: false,
       selectedProductId: null,
       selectedCampaignId: null,
       selectedActionId: null,
@@ -623,7 +632,17 @@ var State = {
       clickupPatDraft: typeof raw.clickupPatDraft === 'string' ? raw.clickupPatDraft : '',
       // Modais ficam SEMPRE fechados no boot (UI state, não persiste aberto)
       taskCreationModal: null,
-      djowTaskChat: null
+      djowTaskChat: null,
+      // V31.2.41 — Persiste rdConnectionStatus do raw; modal e flag de teste sempre resetam no boot.
+      rdConnectionStatus: (raw.rdConnectionStatus && typeof raw.rdConnectionStatus === 'object')
+        ? {
+            crm_pat: { ...base.rdConnectionStatus.crm_pat, ...(raw.rdConnectionStatus.crm_pat || {}) },
+            marketing_oauth: { ...base.rdConnectionStatus.marketing_oauth, ...(raw.rdConnectionStatus.marketing_oauth || {}) },
+            crm_oauth: { ...base.rdConnectionStatus.crm_oauth, ...(raw.rdConnectionStatus.crm_oauth || {}) }
+          }
+        : base.rdConnectionStatus,
+      rdInfoModal: null,
+      rdTestingConnections: false
     };
   },
   load() {

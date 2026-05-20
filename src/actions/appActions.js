@@ -4957,6 +4957,87 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V31.2.41 — Modal info "RD + LeadJourney" (accordion das 3 conexões).
+  openRdInfoModal() {
+    App.state.rdInfoModal = { open: true, openSection: null };
+    App.render();
+  },
+  closeRdInfoModal() {
+    App.state.rdInfoModal = null;
+    App.render();
+  },
+  toggleRdInfoSection(section) {
+    if (!App.state.rdInfoModal) return;
+    const current = App.state.rdInfoModal.openSection;
+    App.state.rdInfoModal = { ...App.state.rdInfoModal, openSection: current === section ? null : section };
+    App.render();
+  },
+
+  // V31.2.41 — Testa as 3 conexões RD em sequência e atualiza rdConnectionStatus.
+  // Status por conexão:
+  //   - 'missing': sem token configurado
+  //   - 'connected': RD respondeu 2xx
+  //   - 'error': RD respondeu 4xx/5xx OU falha de rede
+  async testAllRdConnections() {
+    if (App.state.rdTestingConnections) return;
+    App.state.rdTestingConnections = true;
+    App.render();
+    const rdCfg = App.state.integrations?.rd || {};
+    const jwt = localStorage.getItem('lj_jwt');
+    const now = new Date().toISOString();
+
+    const tests = [
+      {
+        key: 'crm_pat',
+        hasToken: Boolean(rdCfg.crmPersonalToken),
+        method: 'GET', path: '/deal_pipelines', legacy: true, useQueryToken: true
+      },
+      {
+        key: 'marketing_oauth',
+        hasToken: Boolean(rdCfg.accessToken),
+        method: 'GET', path: '/platform/account_info', legacy: false, useQueryToken: false
+      },
+      {
+        key: 'crm_oauth',
+        hasToken: Boolean(rdCfg.crmOauth?.accessToken),
+        method: 'GET', path: '/crm/v2/webhooks', legacy: false, useQueryToken: false, useCrmOauthV2: true
+      }
+    ];
+
+    const results = {};
+    for (const t of tests) {
+      if (!t.hasToken) {
+        results[t.key] = { status: 'missing', message: 'Não conectado — clique nos passos abaixo pra configurar', testedAt: now };
+        continue;
+      }
+      try {
+        const token = t.key === 'crm_pat' ? rdCfg.crmPersonalToken
+          : t.key === 'marketing_oauth' ? rdCfg.accessToken
+          : rdCfg.crmOauth?.accessToken;
+        const r = await fetch('/api/rd-proxy', {
+          method: 'POST',
+          headers: jwt ? { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` } : { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ method: t.method, path: t.path, token, token_source: t.key, legacy: t.legacy, useQueryToken: t.useQueryToken })
+        });
+        if (r.ok) {
+          results[t.key] = { status: 'connected', message: 'RD respondeu OK', testedAt: now };
+        } else {
+          const body = await r.json().catch(() => ({}));
+          const msg = body?.error || body?.message || `HTTP ${r.status}`;
+          results[t.key] = { status: 'error', message: `${r.status}: ${msg}`, testedAt: now };
+        }
+      } catch (err) {
+        results[t.key] = { status: 'error', message: `Rede: ${err.message}`, testedAt: now };
+      }
+    }
+
+    App.state.rdConnectionStatus = results;
+    App.state.rdTestingConnections = false;
+    App.save(); App.render();
+    const connected = Object.values(results).filter(r => r.status === 'connected').length;
+    Utils.toast(`Teste finalizado: ${connected}/3 conectada(s).`);
+  },
+
   // V31.2.36 — RD STATION/CRM CREDENTIALS WRITE-THROUGH
   // Strategy: tokens continuam vivendo em App.state.integrations.rd (mesma
   // API de leitura interna), mas TODA mutação dispara save criptografado no

@@ -71,6 +71,7 @@ var SettingsModal = {
 
     return `<div class="space-y-4">
       ${this._rdAccountHeader(rdCfg, crmCfg)}
+      ${App.state.rdInfoModal?.open ? this._rdInfoModalRender() : ''}
       ${this._rdTabsBar(rdCfg, crmCfg, activeTab)}
       <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
         ${activeTab === 'marketing'
@@ -84,38 +85,138 @@ var SettingsModal = {
   // V24.0.0 — Cada aba = 1 PRODUTO do RD (CRM ou Marketing). Dentro de CRM
   // existem 2 mecanismos de auth (PAT e OAuth), mas isso é detalhe interno
   // da aba, não merece tab separada.
+  // V31.2.41 — Header repaginado:
+  //   - Botão 1 "RD + LeadJourney" abre modal com explicação user-friendly das 3 conexões
+  //   - Botão 2 "Testar conexão" dispara teste real das 3 (resultados em rdConnectionStatus)
+  //   - 3 badges abaixo refletem status atual (cinza=unknown, verde=connected, amarelo=missing, vermelho=error)
   _rdAccountHeader(rdCfg, crmCfg) {
-    const crmConnected = rdCfg.crmTestStatus === 'connected' && Boolean(rdCfg.crmTestAt);
-    const mktConnected = Boolean(rdCfg.accessToken);
     const accountLabel = (rdCfg.accountName || '').trim() || 'Conta RD não identificada';
     const crmAt = rdCfg.crmTestAt ? new Date(rdCfg.crmTestAt).toLocaleString('pt-BR') : null;
-    // V24.1.0 — Botão de refresh manual (auto-loops desligados pra escala).
-    const refreshing = Boolean(App.state.rdRefreshing);
-    const lastRefresh = App.state.rdLastManualRefreshAt
-      ? `há ${Math.max(1, Math.round((Date.now() - new Date(App.state.rdLastManualRefreshAt).getTime()) / 60000))} min`
-      : '—';
+    const testing = Boolean(App.state.rdTestingConnections);
+    const status = App.state.rdConnectionStatus || {};
+    const lastTested = ['crm_pat', 'marketing_oauth', 'crm_oauth']
+      .map(k => status[k]?.testedAt ? new Date(status[k].testedAt).getTime() : 0)
+      .reduce((a, b) => Math.max(a, b), 0);
+    const lastTestedLabel = lastTested
+      ? `testado há ${Math.max(1, Math.round((Date.now() - lastTested) / 60000))} min`
+      : 'nunca testado';
+
+    const badgeFor = (key, label) => {
+      const s = status[key] || { status: 'unknown' };
+      const cls = s.status === 'connected'
+        ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/40'
+        : s.status === 'missing'
+          ? 'bg-amber-500/20 text-amber-200 border-amber-400/40'
+          : s.status === 'error'
+            ? 'bg-red-500/20 text-red-200 border-red-400/40'
+            : 'bg-slate-600/20 text-slate-300 border-slate-500/30';
+      const icon = s.status === 'connected' ? '🟢' : s.status === 'missing' ? '🟡' : s.status === 'error' ? '🔴' : '⚪';
+      const title = s.message ? Utils.escape(s.message) : (s.status === 'unknown' ? 'Ainda não testada — clique em "Testar conexão"' : '');
+      return `<span title="${title}" class="px-3 py-1.5 rounded-full text-[11px] font-black border ${cls} flex items-center gap-1.5">${icon} ${label}</span>`;
+    };
 
     return `<div class="rounded-3xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white p-5">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div class="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-3">
         <div class="flex items-center gap-3">
           <div class="w-11 h-11 rounded-2xl bg-white/10 grid place-items-center"><i data-lucide="plug-zap" class="w-6 h-6"></i></div>
           <div>
             <p class="text-[10px] font-black text-sky-300 uppercase tracking-widest">Conta RD Station</p>
             <p class="text-base font-black">${Utils.escape(accountLabel)}</p>
-            <p class="text-[10px] text-slate-400">${crmAt ? `CRM validado em ${Utils.escape(crmAt)} · ` : ''}última atualização: ${lastRefresh}</p>
+            <p class="text-[10px] text-slate-400">${crmAt ? `Última validação CRM: ${Utils.escape(crmAt)} · ` : ''}${lastTestedLabel}</p>
           </div>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-          <button onclick="Actions.refreshAllRdData()" ${refreshing ? 'disabled' : ''} class="px-3 py-1.5 rounded-full text-[11px] font-black bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center gap-1.5 disabled:opacity-50" style="color:#fff;">
-            <i data-lucide="${refreshing ? 'loader-2' : 'refresh-cw'}" class="w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}"></i>
-            ${refreshing ? 'Atualizando…' : 'Atualizar dados RD'}
+          <button onclick="Actions.openRdInfoModal()" class="px-3 py-1.5 rounded-full text-[11px] font-black bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-100 flex items-center gap-1.5" style="color:#e0f2fe;">
+            <i data-lucide="help-circle" class="w-3.5 h-3.5"></i>
+            RD + LeadJourney
           </button>
-          <span class="px-3 py-1.5 rounded-full text-[11px] font-black ${crmConnected ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30' : 'bg-slate-600/20 text-slate-300 border border-slate-500/30'}">
-            CRM: ${crmConnected ? '✓ ativo' : '—'}
-          </span>
-          <span class="px-3 py-1.5 rounded-full text-[11px] font-black ${mktConnected ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30' : 'bg-slate-600/20 text-slate-300 border border-slate-500/30'}">
-            Marketing: ${mktConnected ? '✓ ativo' : '— (opcional)'}
-          </span>
+          <button onclick="Actions.testAllRdConnections()" ${testing ? 'disabled' : ''} class="px-3 py-1.5 rounded-full text-[11px] font-black bg-white/10 hover:bg-white/20 border border-white/20 text-white flex items-center gap-1.5 disabled:opacity-50" style="color:#fff;">
+            <i data-lucide="${testing ? 'loader-2' : 'activity'}" class="w-3.5 h-3.5 ${testing ? 'animate-spin' : ''}"></i>
+            ${testing ? 'Testando…' : 'Testar conexão'}
+          </button>
+        </div>
+      </div>
+      <!-- Badges das 3 conexões -->
+      <div class="flex flex-wrap gap-2 pt-3 border-t border-white/10">
+        ${badgeFor('crm_pat', 'Token do CRM')}
+        ${badgeFor('crm_oauth', 'Tempo Real do CRM')}
+        ${badgeFor('marketing_oauth', 'RD Marketing')}
+      </div>
+    </div>`;
+  },
+
+  // V31.2.41 — Modal info "RD + LeadJourney": explica em linguagem amigável as
+  // 3 conexões. Accordion (uma seção aberta por vez), com indicador de status
+  // de cada conexão usando rdConnectionStatus.
+  _rdInfoModalRender() {
+    const m = App.state.rdInfoModal;
+    if (!m || !m.open) return '';
+    const status = App.state.rdConnectionStatus || {};
+    const open = m.openSection || null;
+    const statusDot = (key) => {
+      const s = status[key]?.status || 'unknown';
+      const colors = { connected: 'bg-emerald-500', missing: 'bg-amber-400', error: 'bg-red-500', unknown: 'bg-slate-400' };
+      const labels = { connected: 'Conectada', missing: 'Falta informação', error: 'Erro', unknown: 'Não testada' };
+      return `<span class="inline-flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full ${colors[s]}"></span><span class="text-[10px] font-bold text-slate-600">${labels[s]}</span></span>`;
+    };
+    const section = (key, title, emoji, body) => {
+      const isOpen = open === key;
+      return `<div class="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <button onclick="Actions.toggleRdInfoSection('${key}')" class="w-full px-4 py-3 flex items-center justify-between hover:bg-slate-50">
+          <div class="flex items-center gap-2 text-left">
+            <span class="text-xl">${emoji}</span>
+            <div>
+              <p class="font-black text-sm text-slate-900">${title}</p>
+              ${statusDot(key)}
+            </div>
+          </div>
+          <i data-lucide="${isOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 text-slate-500"></i>
+        </button>
+        ${isOpen ? `<div class="px-4 pb-4 text-sm text-slate-700 space-y-2 border-t border-slate-100 pt-3">${body}</div>` : ''}
+      </div>`;
+    };
+
+    return `<div class="fixed inset-0 z-[95] bg-black/70 backdrop-blur-sm grid place-items-center p-4" onclick="if(event.target === this) Actions.closeRdInfoModal()">
+      <div class="bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-auto shadow-2xl">
+        <div class="p-5 border-b border-slate-100 flex items-start justify-between gap-3 sticky top-0 bg-white z-10">
+          <div>
+            <p class="text-[10px] font-black text-sky-600 uppercase tracking-widest">RD + LeadJourney</p>
+            <h2 class="text-xl font-black text-slate-900 mt-0.5">Como o LJ conversa com o RD?</h2>
+          </div>
+          <button onclick="Actions.closeRdInfoModal()" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xl">×</button>
+        </div>
+
+        <div class="p-5 space-y-4">
+          <!-- Intro -->
+          <div class="rounded-2xl bg-sky-50 border border-sky-200 p-4 text-sm text-slate-700 leading-relaxed">
+            <p class="font-black text-sky-900 mb-1">Por que o LeadJourney usa o RD?</p>
+            <p>O RD Station é dividido em <b>2 produtos</b> que funcionam como sistemas separados: <b>RD CRM</b> (onde tu gerencia funis, deals e contatos de venda) e <b>RD Marketing</b> (onde tu cria campanhas, automações e listas de e-mail).</p>
+            <p class="mt-2">Pra trazer o melhor dos dois pro Journey, a gente conecta cada um separado. Tem 3 conexões possíveis — só a primeira é obrigatória, as outras 2 são opcionais dependendo do que tu usa.</p>
+            <p class="mt-2 text-[12px] text-sky-700">Clica em cada conexão abaixo pra entender. <b>Pra conectar, feche esta janela e siga os passos no card abaixo (no mesmo painel).</b></p>
+          </div>
+
+          <!-- 3 sections (accordion) -->
+          <div class="space-y-2">
+            ${section('crm_pat', 'Token do CRM (obrigatório)', '🔑', `
+              <p><b>O que é:</b> uma chave única gerada no teu próprio RD CRM, em <i>Perfil → Token de API</i>.</p>
+              <p><b>Pra que serve:</b> o LJ usa pra criar/mover negociações, ler tags e funis no teu RD CRM. É o básico.</p>
+              <p><b>Quando precisa:</b> sempre, pra qualquer integração com CRM.</p>
+            `)}
+            ${section('crm_oauth', 'Tempo Real do CRM (opcional)', '⚡', `
+              <p><b>O que é:</b> conexão que avisa o LJ na hora quando algo muda no CRM (deal mudou de fase, novo lead, etc).</p>
+              <p><b>Pra que serve:</b> sem isso, o LJ verifica o CRM de 5 em 5 min. Com isso, atualização é instantânea.</p>
+              <p><b>Quando precisa:</b> se tu quer ver mudanças do CRM ao vivo no LJ.</p>
+            `)}
+            ${section('marketing_oauth', 'RD Marketing (opcional)', '📧', `
+              <p><b>O que é:</b> conexão com o produto RD Marketing (campanhas, automações, listas).</p>
+              <p><b>Pra que serve:</b> sincronizar eventos de marketing (conversões, formulários, lead scoring) entre LJ e RD.</p>
+              <p><b>Quando precisa:</b> só se tu usa o RD Marketing além do CRM. Se só faz CRM, pode pular.</p>
+            `)}
+          </div>
+        </div>
+
+        <div class="p-4 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
+          <button onclick="Actions.closeRdInfoModal()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-black" style="color:#fff;">Fechar e ir para os passos</button>
         </div>
       </div>
     </div>`;
