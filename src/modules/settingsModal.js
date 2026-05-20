@@ -393,7 +393,7 @@ var SettingsModal = {
     const fields = [
       ['clientId','Client ID','Client ID do app RD CRM','text'],
       ['clientSecret','Client Secret','Client Secret do app','password'],
-      ['redirectUri','Redirect URI','https://seu-dominio.up.railway.app','text'],
+      ['redirectUri','Redirect URI (LJ adiciona / final automaticamente)','https://seu-dominio.up.railway.app/','text'],
       ['authorizationCode','Authorization Code','Code retornado após autorizar','text']
     ];
     const status = cfg.status || 'not_configured';
@@ -745,7 +745,7 @@ var SettingsModal = {
     const fields = [
       ['clientId','Client ID','Cole o Client ID do app Marketing','text'],
       ['clientSecret','Client Secret','Cole o Client Secret','password'],
-      ['redirectUri','Redirect URI','https://leadjourney.up.railway.app','text'],
+      ['redirectUri','Redirect URI (LJ adiciona / final automaticamente)','https://leadjourney.up.railway.app/','text'],
       ['authorizationCode','Authorization Code','Cole o code retornado pelo RD','text'],
       ['accountName','Conta / Workspace','Rótulo da conta (opcional)','text']
     ];
@@ -906,7 +906,7 @@ var SettingsModal = {
     const fields = [
       ['clientId','Client ID','Client ID do app RD Marketing','text'],
       ['clientSecret','Client Secret','Client Secret do app','password'],
-      ['redirectUri','Redirect URI','https://leadjourney.up.railway.app','text'],
+      ['redirectUri','Redirect URI (LJ adiciona / final automaticamente)','https://leadjourney.up.railway.app/','text'],
       ['authorizationCode','Authorization Code','Code retornado após autorizar','text'],
       ['accountName','Conta / Workspace','Rótulo da conta','text']
     ];
@@ -2679,7 +2679,7 @@ var SettingsModal = {
             ${App.currentUser?.isMaster ? `<div class="border-t border-slate-200 my-3"></div>${this.sectionButton('admin','Administrar Lead Journey','shield-alert')}` : ''}
           </aside>
 
-          <section class="p-5 lg:p-6 overflow-auto">
+          <section id="settingsModalScroll" class="p-5 lg:p-6 overflow-auto">
             ${content}
           </section>
         </main>

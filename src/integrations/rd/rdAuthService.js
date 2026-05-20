@@ -15,7 +15,10 @@ window.RDAuthService = {
 
     const url = new URL("https://api.rd.services/auth/dialog");
     url.searchParams.set("client_id", cfg.clientId.trim());
-    url.searchParams.set("redirect_uri", cfg.redirectUri.trim());
+    // V31.2.42 — Garante '/' no final do redirect_uri (RD exige match exato).
+    let redirect = cfg.redirectUri.trim();
+    if (redirect && !redirect.endsWith('/')) redirect += '/';
+    url.searchParams.set("redirect_uri", redirect);
     url.searchParams.set("response_type", "code");
 
     return {

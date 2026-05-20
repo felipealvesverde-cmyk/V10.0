@@ -1647,6 +1647,11 @@ Object.assign(Actions, {
   updateRDConfig(field, value) {
     this.ensureIntegrations();
     const prev = App.state.integrations.rd[field];
+    // V31.2.42 — Auto-normaliza redirectUri pra ter '/' no final (RD exige match exato).
+    if (field === 'redirectUri' && value && typeof value === 'string') {
+      const trimmed = value.trim();
+      value = trimmed.endsWith('/') || !trimmed ? trimmed : trimmed + '/';
+    }
     App.state.integrations.rd[field] = value;
     // V22.3.6 — Quando o token CRM muda, força re-validação (crmTestStatus
     // volta a 'not_tested'). Sem isso o assistente acharia que a conexão
@@ -1859,7 +1864,15 @@ Object.assign(Actions, {
 
   updateRdCrmOauthField(field, value) {
     const cfg = this._ensureCrmOauth();
-    cfg[field] = value;
+    // V31.2.42 — Auto-normaliza redirectUri pra SEMPRE ter '/' no final.
+    // RD CRM registra o callback com '/' no final mas o user esquece de
+    // digitar — causa mismatch ("redirect_uri inválido"). Forçando aqui.
+    if (field === 'redirectUri' && value && typeof value === 'string') {
+      const trimmed = value.trim();
+      cfg[field] = trimmed.endsWith('/') || !trimmed ? trimmed : trimmed + '/';
+    } else {
+      cfg[field] = value;
+    }
     App.save();
   },
 

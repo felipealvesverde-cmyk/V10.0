@@ -348,7 +348,10 @@ var App = {
         // Sem isso, qualquer click em botão volta a tela pro topo.
         const _scrollSnapshots = {};
         const _windowScroll = { x: window.scrollX || 0, y: window.scrollY || 0 };
-        ['djowHomeRecent', 'djowMessages', 'strategicMapScrollContainer'].forEach(id => {
+        // V31.2.42 — Adicionado settingsModalScroll pra evitar pulo pro topo
+        // toda vez que App.render() roda dentro do modal de Configurações (auto-sync,
+        // refresh de RD, click em botão, etc.).
+        ['djowHomeRecent', 'djowMessages', 'strategicMapScrollContainer', 'settingsModalScroll'].forEach(id => {
           const el = document.getElementById(id);
           if (el) {
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
