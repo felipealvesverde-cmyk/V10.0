@@ -1987,16 +1987,21 @@ Object.assign(Actions, {
       App.render();
       return { ok: false, message: res.message };
     }
-    const list = res.data?.webhooks || res.data?.data || res.data || [];
+    // V31.2.50 — Loga estrutura do response pra debug (RD não documenta formato consistente).
+    console.log('[rd] GET /integrations/webhooks raw response:', res.data);
+    const list = res.data?.webhooks || res.data?.subscriptions || res.data?.data || res.data || [];
+    // V31.2.50 — Match de URL mais tolerante (case-insensitive + strip trailing slash).
+    const targetUrl = String(this._webhookUrl() || '').toLowerCase().replace(/\/$/, '');
     const ours = (Array.isArray(list) ? list : []).filter(w => {
-      const url = w.url || '';
-      return url === this._webhookUrl();
+      const url = String(w.url || w.callback_url || '').toLowerCase().replace(/\/$/, '');
+      return url === targetUrl;
     }).map(w => ({
       id: w.uuid || w.id || '',
       eventName: w.event_type || w.event_name || '',
-      url: w.url || '',
+      url: w.url || w.callback_url || '',
       createdAt: w.created_at || ''
     }));
+    console.log(`[rd] webhooks dedup: total=${Array.isArray(list) ? list.length : 0}, ours=${ours.length}, alvo=${targetUrl}`);
     App.state.rdWebhooks = ours;
     App.state.rdWebhookRegistrationError = '';
     App.save();
@@ -2054,7 +2059,26 @@ Object.assign(Actions, {
           createdAt: res.data?.created_at || new Date().toISOString()
         });
       } else {
-        failures.push(`${eventType}: HTTP ${res.status} ${res.message}`);
+        // V31.2.50 — Se RD retornar DUPLICATED_URL, a subscription JÁ EXISTE
+        // (cadastro anterior bem-sucedido). Trata como sucesso pra UI não
+        // marcar como falha. UUID fica vazio nesse caso — refreshRdWebhooks
+        // depois preenche se conseguir listar.
+        const errorBlob = JSON.stringify(res.data || {});
+        if (errorBlob.includes('DUPLICATED_URL')) {
+          created += 1;
+          App.state.rdWebhooks = App.state.rdWebhooks || [];
+          if (!App.state.rdWebhooks.some(w => w.eventName === eventType)) {
+            App.state.rdWebhooks.push({
+              id: '', // UUID desconhecido — RD não retornou no erro
+              eventName: eventType,
+              url,
+              createdAt: new Date().toISOString(),
+              alreadyExistedAtRd: true
+            });
+          }
+        } else {
+          failures.push(`${eventType}: HTTP ${res.status} ${res.message}`);
+        }
       }
     }
     if (failures.length && !created) {
