@@ -1647,10 +1647,9 @@ Object.assign(Actions, {
   updateRDConfig(field, value) {
     this.ensureIntegrations();
     const prev = App.state.integrations.rd[field];
-    // V31.2.42 — Auto-normaliza redirectUri pra ter '/' no final (RD exige match exato).
-    if (field === 'redirectUri' && value && typeof value === 'string') {
-      const trimmed = value.trim();
-      value = trimmed.endsWith('/') || !trimmed ? trimmed : trimmed + '/';
+    // V31.2.44 — Removido auto-/ (V31.2.42 quebrou caso RD app cadastrado SEM /).
+    if (field === 'redirectUri' && typeof value === 'string') {
+      value = value.trim();
     }
     App.state.integrations.rd[field] = value;
     // V22.3.6 — Quando o token CRM muda, força re-validação (crmTestStatus
@@ -1864,12 +1863,11 @@ Object.assign(Actions, {
 
   updateRdCrmOauthField(field, value) {
     const cfg = this._ensureCrmOauth();
-    // V31.2.42 — Auto-normaliza redirectUri pra SEMPRE ter '/' no final.
-    // RD CRM registra o callback com '/' no final mas o user esquece de
-    // digitar — causa mismatch ("redirect_uri inválido"). Forçando aqui.
-    if (field === 'redirectUri' && value && typeof value === 'string') {
-      const trimmed = value.trim();
-      cfg[field] = trimmed.endsWith('/') || !trimmed ? trimmed : trimmed + '/';
+    // V31.2.44 — Removido auto-/ no redirectUri (V31.2.42 quebrou pra users que
+    // cadastram callback SEM / no RD app). Agora mantém EXATAMENTE o que o user
+    // digitou. RD exige match exato — responsabilidade do user copiar igual.
+    if (field === 'redirectUri' && typeof value === 'string') {
+      cfg[field] = value.trim();
     } else {
       cfg[field] = value;
     }
