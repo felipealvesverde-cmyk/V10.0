@@ -518,8 +518,8 @@ var SettingsModal = {
       <div class="p-5 space-y-3">
         ${this._rdBulletStep(1, currentStep, step1Done, 'Gerar Token no RD CRM', [
           'Abra <a href="https://crm.rdstation.com" target="_blank" class="underline text-sky-700 font-black">crm.rdstation.com</a> e faça login',
-          'Topo direito → <b>engrenagem ⚙</b> → <b>Todas as configurações</b>',
-          'Menu lateral → <b>Integrações</b> → <b>Token de API</b>',
+          'Topo direito → <b>seta ▾</b> ao lado do avatar → <b>Perfil</b>',
+          'Na página de Perfil, role até a seção <b>Token de API</b>',
           'Clique <b>Gerar token</b> e copie (só aparece 1 vez)',
           'Cole abaixo no campo <b>Token pessoal do CRM ↓</b>'
         ])}
@@ -783,10 +783,10 @@ var SettingsModal = {
             <summary class="cursor-pointer font-black underline">Como gerar este token (45 s)</summary>
             <ol class="mt-2 ml-4 list-decimal space-y-1">
               <li>Abra <a href="https://crm.rdstation.com" target="_blank" class="underline">crm.rdstation.com</a> e faça login.</li>
-              <li>Clique na engrenagem → <b>Todas as configurações</b>.</li>
-              <li>Procure <b>Integrações</b> ou <b>API</b>.</li>
-              <li>Clique em <b>Gerar token</b> e copie o valor.</li>
-              <li>Volte aqui e cole abaixo. Não precisa fazer mais nada.</li>
+              <li>Topo direito → clique na <b>seta ▾</b> ao lado do seu avatar.</li>
+              <li>No dropdown, clique em <b>Perfil</b>.</li>
+              <li>Role até a seção <b>Token de API</b> e clique em <b>Gerar token</b>.</li>
+              <li>Copie o valor (só aparece 1 vez) e cole abaixo.</li>
             </ol>
           </details>
           ${this._input('crmPersonalToken','','Cole o token aqui','password',cfg.crmPersonalToken)}
@@ -1174,10 +1174,10 @@ var SettingsModal = {
 
         <p class="text-sm font-black text-slate-700 mb-2">Depois de abrir, faça nessa ordem:</p>
         <div class="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-2 divide-y divide-slate-200">
-          ${this._rdAssistantSubstep(1, 'No topo direito do RD CRM, clique no ícone de <b>engrenagem ⚙</b>.')}
-          ${this._rdAssistantSubstep(2, 'Clique em <b>Todas as configurações</b> (link azul no fim do dropdown).')}
-          ${this._rdAssistantSubstep(3, 'No menu lateral da nova tela, procure por <b>Integrações</b> ou <b>API</b>.')}
-          ${this._rdAssistantSubstep(4, 'Encontre <b>Token de API</b> e clique em <b>Gerar token</b>.')}
+          ${this._rdAssistantSubstep(1, 'No topo direito do RD CRM, clique na <b>seta ▾</b> ao lado do seu avatar.')}
+          ${this._rdAssistantSubstep(2, 'No dropdown que abrir, clique em <b>Perfil</b>.')}
+          ${this._rdAssistantSubstep(3, 'Na página de Perfil, role até a seção <b>Token de API</b>.')}
+          ${this._rdAssistantSubstep(4, 'Clique em <b>Gerar token</b>.')}
           ${this._rdAssistantSubstep(5, 'Copie o valor exibido — <b>ele só aparece UMA vez</b>.')}
           ${this._rdAssistantSubstep(6, 'Volte aqui e cole abaixo, no campo <b>"Token pessoal do CRM"</b>.')}
         </div>
