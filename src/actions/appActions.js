@@ -5009,9 +5009,12 @@ Object.assign(Actions, {
         method: 'GET', path: '/platform/account_info', legacy: false, useQueryToken: false
       },
       {
+        // V31.2.45 — Era /crm/v2/webhooks (exigia scope de webhook). Trocado pra
+        // /crm/v2/users que basta scope CRM básico. Test não fica 401 só porque
+        // o app não tem permissão pra cadastrar webhook ainda.
         key: 'crm_oauth',
         hasToken: Boolean(rdCfg.crmOauth?.accessToken),
-        method: 'GET', path: '/crm/v2/webhooks', legacy: false, useQueryToken: false, useCrmOauthV2: true
+        method: 'GET', path: '/crm/v2/users', legacy: false, useQueryToken: false, useCrmOauthV2: true
       }
     ];
 
