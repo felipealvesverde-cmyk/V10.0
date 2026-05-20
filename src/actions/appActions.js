@@ -2030,11 +2030,15 @@ Object.assign(Actions, {
     let failures = [];
     for (const eventType of toCreate) {
       // V24.0.0 — Body schema do endpoint /integrations/webhooks (multiproduto).
-      // Sem wrapper "data". entity_type é obrigatório e só aceita 'CONTACT'.
-      // event_identifiers só pra eventos WEBHOOK.CONVERTED (não pros crm_deal_*).
+      // Sem wrapper "data". entity_type é obrigatório:
+      //   - 'DEAL' para eventos crm_deal_* (crm_deal_created, crm_deal_updated, crm_deal_deleted)
+      //   - 'CONTACT' para eventos WEBHOOK.* (Marketing, ex: WEBHOOK.CONVERTED)
+      // V31.2.48 — Fix: estava hardcoded 'CONTACT' pra TODOS, daí RD recusava
+      // crm_deal_* com HTTP 422 (entity_type incompatível com event_type).
+      const entityType = eventType.startsWith('crm_deal') ? 'DEAL' : 'CONTACT';
       const body = {
         event_type: eventType,
-        entity_type: 'CONTACT',
+        entity_type: entityType,
         url,
         http_method: 'POST'
       };
