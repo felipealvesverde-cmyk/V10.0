@@ -2088,11 +2088,67 @@ Object.assign(Actions, {
     }
     App.save();
     App.render();
+    // V31.2.51 — Hardening: após qualquer mutação (cadastro novo OU
+    // detecção de duplicado), refaz refresh do RD pra capturar UUIDs reais
+    // e garantir que state local = verdade no RD. Previne situação onde
+    // user cadastra → state diz ok mas UUID vazio → não consegue deletar.
+    try { await this.refreshRdWebhooks(); } catch (_) {}
     if (created) {
       Utils.toast(`${created} webhook(s) cadastrado(s) no RD. ${failures.length ? `${failures.length} falharam.` : ''}`);
     } else {
       Utils.toast(`Nenhum webhook cadastrado. Erro: ${failures[0] || 'desconhecido'}`);
     }
+  },
+
+  // V31.2.51 — Classifica erros do RD em códigos acionáveis. Usado pra mostrar
+  // mensagens consistentes e decidir auto-recovery (token expirado → refresh,
+  // duplicado → idempotência, etc).
+  _classifyRdError(res) {
+    if (!res) return { code: 'unknown', message: 'Sem resposta.' };
+    if (res.ok) return { code: 'ok', message: '' };
+    const status = res.status || 0;
+    const blob = JSON.stringify(res.data || {}).toLowerCase() + ' ' + String(res.message || '').toLowerCase();
+    if (blob.includes('duplicated_url') || blob.includes('already exists')) {
+      return { code: 'already_exists', message: 'Recurso já existe no RD.', friendly: 'Já cadastrado — está no ar.' };
+    }
+    if (blob.includes('invalid_token') || blob.includes('invalid token') || status === 401) {
+      return { code: 'token_invalid', message: 'Token RD inválido ou expirado.', friendly: 'OAuth precisa reconectar. Vai em Configurações → RD.' };
+    }
+    if (blob.includes('access_denied') || blob.includes('permission denied') || status === 403) {
+      return { code: 'forbidden', message: 'Sem permissão (scope errado).', friendly: 'App OAuth foi criado como produto errado. Verifique se é "RD Station CRM" no Publisher.' };
+    }
+    if (status === 422) {
+      return { code: 'validation', message: res.message || 'Validação falhou.', friendly: `Validação RD: ${res.message || 'detalhes no console'}` };
+    }
+    if (status === 429) {
+      return { code: 'rate_limited', message: 'Rate limit RD.', friendly: 'Muitas chamadas. Espera 1 min e tenta de novo.' };
+    }
+    if (status >= 500) {
+      return { code: 'server_error', message: `RD ${status}.`, friendly: 'RD com problema. Tenta novamente em alguns minutos.' };
+    }
+    return { code: 'unknown', message: res.message || `HTTP ${status}`, friendly: res.message || `Erro inesperado (${status}).` };
+  },
+
+  // V31.2.51 — Sync explícito de webhooks: pull do RD, compara com local,
+  // reconcilia. Útil pra recuperar quando state local diverge da verdade
+  // no RD (deleção manual no RD, mudança de domínio, etc).
+  async syncRdWebhooksWithRd() {
+    const refreshResult = await this.refreshRdWebhooks();
+    if (!refreshResult.ok) {
+      const c = this._classifyRdError({ ok: false, status: 0, message: refreshResult.message });
+      Utils.toast(`Sync falhou: ${c.friendly}`);
+      return { ok: false, message: refreshResult.message };
+    }
+    const localEvents = new Set((App.state.rdWebhooks || []).map(w => w.eventName));
+    const expected = new Set(this._RD_WEBHOOK_EVENTS);
+    const missing = [...expected].filter(ev => !localEvents.has(ev));
+    if (missing.length) {
+      Utils.toast(`${missing.length} webhook(s) faltando no RD. Re-cadastrando...`);
+      await this.registerRdWebhooks();
+    } else {
+      Utils.toast(`✓ Sync OK — ${App.state.rdWebhooks.length} webhook(s) ativos no RD.`);
+    }
+    return { ok: true, missing };
   },
 
   // V24.1.0 — Mailing RD: criar segmentação no RD Marketing a partir de leads
@@ -2759,6 +2815,11 @@ Object.assign(Actions, {
     const hasAny = Boolean(rdCfg.crmPersonalToken || rdCfg.accessToken || rdCfg.crmOauth?.accessToken);
     if (!hasAny) return;
     this.refreshAllRdData({ silent: true });
+    // V31.2.51 — Hardening: também refresh os webhooks especificamente.
+    // Detecta se state local diverge do RD (ex: user deletou no RD manualmente).
+    if (rdCfg.crmOauth?.accessToken) {
+      this.refreshRdWebhooks().catch(_ => {});
+    }
   }
 });
 window.Actions = Actions;
