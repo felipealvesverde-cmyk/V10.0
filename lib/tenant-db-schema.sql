@@ -119,6 +119,36 @@ CREATE TABLE IF NOT EXISTS rd_credentials (
 );
 
 -- ============================================================================
+-- EXECUTION PROVIDERS (Trello, Monday, Jira, Notion, etc — credenciais criptografadas)
+-- V32.0.14 — Substitui o legacy executionConfig.providers[].apiToken em
+-- App.state (localStorage / journey_state plaintext). Cada provider que entra
+-- no padrão V30+ ganha row aqui (user_id + provider_id como PK composta).
+--
+-- Schema flexível por design: providers diferentes precisam de campos
+-- diferentes (Trello = apiKey + token + board; Jira = url + email +
+-- apiToken + project; Notion = apiToken + databaseId; Monday = apiToken +
+-- workspace + boardId). Pra evitar 1 coluna por field × N providers, guardamos
+-- todos criptografados juntos em `fields_enc` (JSON encriptado AES-256-GCM).
+-- Metadata não-secreta (account_name pra exibir, default_list, etc) fica
+-- em `display_meta` (JSONB plain pra UI).
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS execution_credentials (
+  user_id INT NOT NULL,
+  provider_id VARCHAR(32) NOT NULL,  -- 'trello' | 'monday' | 'jira' | 'notion' | 'clickup' (futuro merge)
+  fields_enc TEXT NOT NULL,          -- JSON dos campos sensíveis, criptografado
+  display_meta JSONB DEFAULT '{}',   -- metadata pra UI (workspace_name, account, default_list_id, etc)
+  status VARCHAR(32),                -- 'connected' | 'error' | 'pending'
+  last_tested_at TIMESTAMPTZ,
+  last_error TEXT,
+  connected_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, provider_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_execution_credentials_user
+  ON execution_credentials(user_id);
+
+-- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS tenant_schema_meta (
@@ -127,5 +157,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v32.0.0')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v32.0.14')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();

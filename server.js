@@ -172,6 +172,31 @@ async function runMigrations() {
         PRIMARY KEY (user_id, token_type)
       );
     `);
+    // V32.0.14 — execution_credentials criptografado por provider.
+    // Substitui o legacy executionConfig.providers[].apiToken (que vivia em
+    // journey_state.state_json plaintext). Schema flexível: fields_enc guarda
+    // JSON encriptado dos campos sensíveis (apiKey, token, etc — variável por
+    // provider), display_meta guarda metadata exibível na UI.
+    // Providers que vão migrar pra cá: trello, monday, jira, notion (V32.0.16+).
+    // ClickUp continua em clickup_credentials próprio (compat).
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS execution_credentials (
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        provider_id VARCHAR(32) NOT NULL,
+        fields_enc TEXT NOT NULL,
+        display_meta JSONB DEFAULT '{}',
+        status VARCHAR(32),
+        last_tested_at TIMESTAMPTZ,
+        last_error TEXT,
+        connected_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (user_id, provider_id)
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_execution_credentials_user
+        ON execution_credentials(user_id);
+    `);
     // V32.0.0 — Global Mode (control plane).
     // tenants = empresas-cliente. tenant_members = quem pertence a qual tenant.
     // users.default_tenant_id = tenant que abre por padrão no login.
