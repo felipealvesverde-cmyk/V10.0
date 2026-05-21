@@ -62,8 +62,9 @@ module.exports = async function handler(req, res) {
   if (!username) return res.status(400).json({ ok: false, message: 'Username obrigatório.' });
 
   try {
+    // V32.0.7 — Busca default_tenant_id pra incluir no JWT.
     const result = await req.db.query(
-      'SELECT id, username, email, password_hash, is_master, is_approved, mode FROM users WHERE LOWER(username) = $1',
+      'SELECT id, username, email, password_hash, is_master, is_approved, mode, default_tenant_id FROM users WHERE LOWER(username) = $1',
       [username]
     );
     const user = result.rows[0];
@@ -89,11 +90,14 @@ module.exports = async function handler(req, res) {
     }
     // Não-master: aprovação é suficiente, não checa password.
 
+    // V32.0.7 — Inclui tenantId no JWT pra middleware popular req.tenantDb.
+    // Pra master sem tenant (admin global), tenantId fica null.
     const tokenPayload = {
       sub: user.id,
       username: user.username,
       isMaster: user.is_master,
-      mode: user.mode || 'sandbox'
+      mode: user.mode || 'sandbox',
+      tenantId: user.default_tenant_id || null
     };
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: JWT_TTL });
 
@@ -109,7 +113,8 @@ module.exports = async function handler(req, res) {
         username: user.username,
         email: user.email,
         isMaster: user.is_master,
-        mode: user.mode || 'sandbox'
+        mode: user.mode || 'sandbox',
+        tenantId: user.default_tenant_id || null
       }
     });
   } catch (err) {

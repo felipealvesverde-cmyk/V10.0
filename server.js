@@ -735,6 +735,48 @@ app.use((req, res, next) => {
   });
 });
 
+// V32.0.7 — Middleware de roteamento por tenant.
+// Popula em CADA request autenticada:
+//   req.tenantId — id do tenant (null pro master sem default_tenant_id)
+//   req.tenant   — { id, slug, name, status, plan } (null se sem tenant)
+//   req.tenantDb — Pool a usar pra dados do tenant
+//                  • Se tenant tem db_connection_string_enc preenchido → pool específico
+//                  • Senão                                              → req.db (control plane)
+//
+// Comportamento atual (V32.0.7): nenhum handler usa req.tenantDb ainda. A infra
+// fica plantada pros refactors V32.0.8+ migrarem handler-por-handler de req.db
+// pra req.tenantDb sem big-bang.
+//
+// Pra requests sem JWT (rotas públicas), req.tenantDb também = req.db (fallback).
+const tenantPoolHelper = require('./lib/tenant-pool');
+app.use(async (req, res, next) => {
+  req.tenantId = null;
+  req.tenant = null;
+  req.tenantDb = req.db; // fallback default — control plane
+
+  if (!req.user) return next();
+  const tenantId = req.user.tenantId;
+  if (!tenantId) return next(); // master ou user sem default tenant
+
+  try {
+    const tenant = await tenantPoolHelper.getTenant(req.db, tenantId);
+    if (!tenant) {
+      console.warn(`[tenant-middleware] tenant ${tenantId} (do JWT) não existe no control plane.`);
+      return next();
+    }
+    if (tenant.status === 'suspended') {
+      return res.status(403).json({ ok: false, code: 'tenant_suspended', message: 'Conta suspensa. Contate o administrador.' });
+    }
+    req.tenantId = tenant.id;
+    req.tenant = tenant;
+    const tenantPool = await tenantPoolHelper.getTenantPool(req.db, tenantId);
+    if (tenantPool) req.tenantDb = tenantPool; // override só se tenant tem DB próprio
+  } catch (err) {
+    console.error('[tenant-middleware] erro (continuando com fallback control plane):', err.message);
+  }
+  next();
+});
+
 // V23.0.0 — Expõe helpers globais pra os handlers /api/*.js.
 app.set('pgPool', pgPool);
 app.set('jwtSecret', JWT_SECRET);
