@@ -42,7 +42,8 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const r = await req.db.query('SELECT * FROM rd_credentials WHERE user_id = $1', [userId]);
+      // V32.0.10 — rd_credentials vivem no tenant plane.
+      const r = await req.tenantDb.query('SELECT * FROM rd_credentials WHERE user_id = $1', [userId]);
       const credentials = {};
       r.rows.forEach(row => { credentials[row.token_type] = rowToCred(row); });
       return res.status(200).json({ ok: true, credentials });
@@ -62,7 +63,7 @@ module.exports = async function handler(req, res) {
     }
     try {
       // Carrega valor existente pra preservar campos não enviados
-      const existingRes = await req.db.query('SELECT * FROM rd_credentials WHERE user_id = $1 AND token_type = $2', [userId, tokenType]);
+      const existingRes = await req.tenantDb.query('SELECT * FROM rd_credentials WHERE user_id = $1 AND token_type = $2', [userId, tokenType]);
       const existing = existingRes.rows[0];
 
       // Helper: usa novo valor se enviado (mesmo string vazia = apagar), senão preserva o antigo
@@ -87,7 +88,7 @@ module.exports = async function handler(req, res) {
       const workspace_id = useNewPlain(body.workspace_id, existing?.workspace_id);
       const status = useNewPlain(body.status, existing?.status);
 
-      await req.db.query(
+      await req.tenantDb.query(
         `INSERT INTO rd_credentials (user_id, token_type, access_token_enc, refresh_token_enc, client_id_enc, client_secret_enc, redirect_uri, expires_at, account_name, workspace_id, status, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
          ON CONFLICT (user_id, token_type) DO UPDATE SET
@@ -108,9 +109,9 @@ module.exports = async function handler(req, res) {
     const tokenType = String(req.query?.token_type || '');
     try {
       if (tokenType && VALID_TYPES.has(tokenType)) {
-        await req.db.query('DELETE FROM rd_credentials WHERE user_id = $1 AND token_type = $2', [userId, tokenType]);
+        await req.tenantDb.query('DELETE FROM rd_credentials WHERE user_id = $1 AND token_type = $2', [userId, tokenType]);
       } else {
-        await req.db.query('DELETE FROM rd_credentials WHERE user_id = $1', [userId]);
+        await req.tenantDb.query('DELETE FROM rd_credentials WHERE user_id = $1', [userId]);
       }
       return res.status(200).json({ ok: true });
     } catch (err) {

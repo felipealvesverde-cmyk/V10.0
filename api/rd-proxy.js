@@ -51,9 +51,10 @@ module.exports = async function handler(req, res) {
   // só dispara em mutação; tokens antigos no state não migravam automaticamente).
   let effectiveToken = String(token || '').trim();
   let usedSource = 'body';
-  if (token_source && VALID_SOURCES.has(token_source) && req.user && req.db) {
+  if (token_source && VALID_SOURCES.has(token_source) && req.user && req.tenantDb) {
     try {
-      const cred = await getRdCredential(req.db, req.user.sub, token_source);
+      // V32.0.10 — rd_credentials vivem no tenant plane.
+      const cred = await getRdCredential(req.tenantDb, req.user.sub, token_source);
       if (cred.token) {
         effectiveToken = cred.token;
         usedSource = 'db';
