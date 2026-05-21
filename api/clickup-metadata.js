@@ -7,18 +7,20 @@
 // Se default_list_id ainda não foi descoberto, tenta descobrir (lazy bootstrap).
 const { clickupFetch } = require('../lib/clickup-client');
 
+// V32.0.9 — clickup_credentials vivem no tenant plane. clickupFetch usa o Pool
+// que o caller passa, então passamos req.tenantDb pra todos os fetches.
 async function discoverFirstList(req, userId, workspaceId) {
-  const spacesRes = await clickupFetch(req.db, userId, 'GET', `/team/${workspaceId}/space`);
+  const spacesRes = await clickupFetch(req.tenantDb, userId, 'GET', `/team/${workspaceId}/space`);
   if (!spacesRes.ok) return null;
   const spaces = Array.isArray(spacesRes.data?.spaces) ? spacesRes.data.spaces : [];
   if (!spaces.length) return null;
   const space = spaces[0];
-  const folderlessRes = await clickupFetch(req.db, userId, 'GET', `/space/${space.id}/list`);
+  const folderlessRes = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${space.id}/list`);
   if (folderlessRes.ok && (folderlessRes.data?.lists || []).length) return { listId: folderlessRes.data.lists[0].id, spaceId: space.id };
-  const foldersRes = await clickupFetch(req.db, userId, 'GET', `/space/${space.id}/folder`);
+  const foldersRes = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${space.id}/folder`);
   const folders = foldersRes.ok ? (foldersRes.data?.folders || []) : [];
   if (folders.length) {
-    const listsRes = await clickupFetch(req.db, userId, 'GET', `/folder/${folders[0].id}/list`);
+    const listsRes = await clickupFetch(req.tenantDb, userId, 'GET', `/folder/${folders[0].id}/list`);
     if (listsRes.ok && (listsRes.data?.lists || []).length) return { listId: listsRes.data.lists[0].id, spaceId: space.id };
   }
   return null;
@@ -31,7 +33,8 @@ module.exports = async function handler(req, res) {
 
   const userId = req.user.sub;
   try {
-    const cred = await req.db.query('SELECT workspace_id, default_list_id FROM clickup_credentials WHERE user_id = $1', [userId]);
+    // V32.0.9 — clickup_credentials vivem no tenant plane.
+    const cred = await req.tenantDb.query('SELECT workspace_id, default_list_id FROM clickup_credentials WHERE user_id = $1', [userId]);
     if (!cred.rows.length) return res.status(404).json({ ok: false, message: 'ClickUp não conectado.' });
     const workspaceId = cred.rows[0].workspace_id;
     let listId = cred.rows[0].default_list_id;
@@ -42,7 +45,7 @@ module.exports = async function handler(req, res) {
       if (discovered) {
         listId = discovered.listId;
         spaceId = discovered.spaceId;
-        await req.db.query('UPDATE clickup_credentials SET default_list_id = $1 WHERE user_id = $2', [listId, userId]);
+        await req.tenantDb.query('UPDATE clickup_credentials SET default_list_id = $1 WHERE user_id = $2', [listId, userId]);
       }
     }
 
@@ -52,7 +55,7 @@ module.exports = async function handler(req, res) {
     // O endpoint /team/{id}/member existe mas tem permission quirks; /team funciona pra
     // qualquer user autorizado e já traz a array de members do workspace que importa.
     try {
-      const r = await clickupFetch(req.db, userId, 'GET', '/team');
+      const r = await clickupFetch(req.tenantDb, userId, 'GET', '/team');
       if (r.ok && Array.isArray(r.data?.teams)) {
         const team = r.data.teams.find(t => String(t.id) === String(workspaceId)) || r.data.teams[0];
         const members = Array.isArray(team?.members) ? team.members : [];
@@ -76,7 +79,7 @@ module.exports = async function handler(req, res) {
     // Detail da list (statuses + space_id pra puxar tags)
     if (listId) {
       try {
-        const r = await clickupFetch(req.db, userId, 'GET', `/list/${listId}`);
+        const r = await clickupFetch(req.tenantDb, userId, 'GET', `/list/${listId}`);
         if (r.ok) {
           result.statuses = (r.data?.statuses || []).map(s => ({ status: s.status, color: s.color, type: s.type, orderindex: s.orderindex }));
           if (!spaceId) spaceId = r.data?.space?.id || null;
@@ -84,7 +87,7 @@ module.exports = async function handler(req, res) {
       } catch (_) {}
 
       try {
-        const r = await clickupFetch(req.db, userId, 'GET', `/list/${listId}/field`);
+        const r = await clickupFetch(req.tenantDb, userId, 'GET', `/list/${listId}/field`);
         if (r.ok) {
           result.customFields = (r.data?.fields || []).map(f => ({ id: f.id, name: f.name, type: f.type, type_config: f.type_config || null, required: f.required || false }));
         }
@@ -94,7 +97,7 @@ module.exports = async function handler(req, res) {
     // Tags do space (se conseguimos descobrir o spaceId)
     if (spaceId) {
       try {
-        const r = await clickupFetch(req.db, userId, 'GET', `/space/${spaceId}/tag`);
+        const r = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${spaceId}/tag`);
         if (r.ok) {
           result.tags = (r.data?.tags || []).map(t => ({ name: t.name, fg: t.tag_fg, bg: t.tag_bg }));
         }

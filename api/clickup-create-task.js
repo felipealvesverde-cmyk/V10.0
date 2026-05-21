@@ -7,30 +7,31 @@
 // Retorna: { ok, providerTaskId, externalUrl, listId }
 const { clickupFetch } = require('../lib/clickup-client');
 
+// V32.0.9 — clickup_credentials vivem no tenant plane. Tudo aqui usa req.tenantDb.
 async function discoverFirstList(req, userId) {
   // Pega workspace_id armazenado
-  const cred = await req.db.query('SELECT workspace_id FROM clickup_credentials WHERE user_id = $1', [userId]);
+  const cred = await req.tenantDb.query('SELECT workspace_id FROM clickup_credentials WHERE user_id = $1', [userId]);
   const workspaceId = cred.rows[0]?.workspace_id;
   if (!workspaceId) throw new Error('Workspace não encontrado nas credenciais.');
 
   // 1. Lista spaces do workspace
-  const spacesRes = await clickupFetch(req.db, userId, 'GET', `/team/${workspaceId}/space`);
+  const spacesRes = await clickupFetch(req.tenantDb, userId, 'GET', `/team/${workspaceId}/space`);
   if (!spacesRes.ok) throw new Error(`ClickUp /space falhou (${spacesRes.status}).`);
   const spaces = Array.isArray(spacesRes.data?.spaces) ? spacesRes.data.spaces : [];
   if (!spaces.length) throw new Error('Workspace sem spaces.');
   const space = spaces[0];
 
   // 2. Tenta folderless list primeiro (mais simples)
-  const folderlessRes = await clickupFetch(req.db, userId, 'GET', `/space/${space.id}/list`);
+  const folderlessRes = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${space.id}/list`);
   if (folderlessRes.ok && Array.isArray(folderlessRes.data?.lists) && folderlessRes.data.lists.length) {
     return folderlessRes.data.lists[0].id;
   }
 
   // 3. Se não tem folderless, busca em folders
-  const foldersRes = await clickupFetch(req.db, userId, 'GET', `/space/${space.id}/folder`);
+  const foldersRes = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${space.id}/folder`);
   if (foldersRes.ok && Array.isArray(foldersRes.data?.folders) && foldersRes.data.folders.length) {
     const folder = foldersRes.data.folders[0];
-    const listsRes = await clickupFetch(req.db, userId, 'GET', `/folder/${folder.id}/list`);
+    const listsRes = await clickupFetch(req.tenantDb, userId, 'GET', `/folder/${folder.id}/list`);
     if (listsRes.ok && Array.isArray(listsRes.data?.lists) && listsRes.data.lists.length) {
       return listsRes.data.lists[0].id;
     }
@@ -67,12 +68,12 @@ module.exports = async function handler(req, res) {
   try {
     let targetListId = list_id;
     if (!targetListId) {
-      const cached = await req.db.query('SELECT default_list_id FROM clickup_credentials WHERE user_id = $1', [userId]);
+      const cached = await req.tenantDb.query('SELECT default_list_id FROM clickup_credentials WHERE user_id = $1', [userId]);
       targetListId = cached.rows[0]?.default_list_id;
     }
     if (!targetListId) {
       targetListId = await discoverFirstList(req, userId);
-      await req.db.query('UPDATE clickup_credentials SET default_list_id = $1 WHERE user_id = $2', [targetListId, userId]);
+      await req.tenantDb.query('UPDATE clickup_credentials SET default_list_id = $1 WHERE user_id = $2', [targetListId, userId]);
     }
 
     // Normaliza assignees: aceita array ou singular (compat).
@@ -109,7 +110,7 @@ module.exports = async function handler(req, res) {
     // Remove campos undefined pro JSON ficar limpo
     Object.keys(taskBody).forEach(k => taskBody[k] === undefined && delete taskBody[k]);
 
-    const createRes = await clickupFetch(req.db, userId, 'POST', `/list/${targetListId}/task`, taskBody);
+    const createRes = await clickupFetch(req.tenantDb, userId, 'POST', `/list/${targetListId}/task`, taskBody);
     if (!createRes.ok) {
       return res.status(502).json({ ok: false, message: `ClickUp recusou (${createRes.status}).`, details: createRes.data, listId: targetListId });
     }

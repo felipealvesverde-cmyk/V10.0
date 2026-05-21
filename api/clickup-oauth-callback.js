@@ -4,8 +4,27 @@
 // ClickUp API, salvamos criptografado, e renderizamos página simples que fecha
 // a janela / redireciona pro app.
 const { encrypt, decrypt, isConfigured } = require('../lib/clickup-crypto');
+const tenantPoolHelper = require('../lib/tenant-pool');
 
 const CLICKUP_TOKEN_URL = 'https://api.clickup.com/api/v2/oauth/token';
+
+// V32.0.9 — Rota pública (sem JWT), middleware não preenche req.tenantDb com
+// tenant-pool específico. Resolvemos manualmente a partir do userId decodificado
+// do OAuth state. Se tenant não tem DB próprio → fallback pro control plane.
+async function resolveTenantDb(req, userId) {
+  try {
+    const r = await req.db.query(
+      'SELECT default_tenant_id FROM users WHERE id = $1',
+      [userId]
+    );
+    const tenantId = r.rows[0]?.default_tenant_id;
+    if (!tenantId) return req.db;
+    const pool = await tenantPoolHelper.getTenantPool(req.db, tenantId);
+    return pool || req.db;
+  } catch (_) {
+    return req.db;
+  }
+}
 
 function html(title, body) {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
@@ -37,8 +56,10 @@ module.exports = async function handler(req, res) {
   if (!userId) return res.status(400).send(html('Erro', '<h1 class="err">user_id não encontrado no state.</h1>'));
 
   try {
+    // V32.0.9 — Resolve tenant DB do user (clickup_config/credentials moved to tenant plane).
+    const tenantDb = await resolveTenantDb(req, userId);
     // Pega credenciais OAuth do user
-    const cfg = await req.db.query('SELECT client_id_enc, client_secret_enc FROM clickup_config WHERE user_id = $1', [userId]);
+    const cfg = await tenantDb.query('SELECT client_id_enc, client_secret_enc FROM clickup_config WHERE user_id = $1', [userId]);
     if (!cfg.rows.length) return res.status(404).send(html('Erro', '<h1 class="err">OAuth config não encontrada pro user.</h1>'));
     const clientId = decrypt(cfg.rows[0].client_id_enc);
     const clientSecret = decrypt(cfg.rows[0].client_secret_enc);
@@ -67,9 +88,9 @@ module.exports = async function handler(req, res) {
       }
     } catch (_) {}
 
-    // Salva criptografado
+    // Salva criptografado no tenant DB do user.
     const tokenEnc = encrypt(accessToken);
-    await req.db.query(
+    await tenantDb.query(
       `INSERT INTO clickup_credentials (user_id, access_token_enc, workspace_id, workspace_name, token_type, connected_at)
        VALUES ($1, $2, $3, $4, 'oauth', NOW())
        ON CONFLICT (user_id) DO UPDATE SET access_token_enc = $2, workspace_id = $3, workspace_name = $4, token_type = 'oauth', connected_at = NOW()`,

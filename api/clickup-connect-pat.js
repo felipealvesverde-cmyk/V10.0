@@ -38,7 +38,8 @@ module.exports = async function handler(req, res) {
     const workspaceName = teams[0].name || null;
 
     const tokenEnc = encrypt(token);
-    await req.db.query(
+    // V32.0.9 — dados ClickUp vivem no tenant plane.
+    await req.tenantDb.query(
       `INSERT INTO clickup_credentials (user_id, access_token_enc, workspace_id, workspace_name, token_type, connected_at)
        VALUES ($1, $2, $3, $4, 'pat', NOW())
        ON CONFLICT (user_id) DO UPDATE SET access_token_enc = $2, workspace_id = $3, workspace_name = $4, token_type = 'pat', connected_at = NOW()`,

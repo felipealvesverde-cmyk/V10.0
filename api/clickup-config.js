@@ -15,8 +15,9 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const cfg = await req.db.query('SELECT 1 FROM clickup_config WHERE user_id = $1', [userId]);
-      const cred = await req.db.query('SELECT workspace_name FROM clickup_credentials WHERE user_id = $1', [userId]);
+      // V32.0.9 — dados ClickUp vivem no tenant plane.
+      const cfg = await req.tenantDb.query('SELECT 1 FROM clickup_config WHERE user_id = $1', [userId]);
+      const cred = await req.tenantDb.query('SELECT workspace_name FROM clickup_credentials WHERE user_id = $1', [userId]);
       return res.status(200).json({
         ok: true,
         configured: cfg.rows.length > 0,
@@ -43,7 +44,8 @@ module.exports = async function handler(req, res) {
     try {
       const idEnc = encrypt(String(client_id).trim());
       const secretEnc = encrypt(String(client_secret).trim());
-      await req.db.query(
+      // V32.0.9 — dados ClickUp vivem no tenant plane.
+      await req.tenantDb.query(
         `INSERT INTO clickup_config (user_id, client_id_enc, client_secret_enc, updated_at)
          VALUES ($1, $2, $3, NOW())
          ON CONFLICT (user_id) DO UPDATE SET client_id_enc = $2, client_secret_enc = $3, updated_at = NOW()`,
@@ -57,8 +59,9 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'DELETE') {
     try {
-      await req.db.query('DELETE FROM clickup_credentials WHERE user_id = $1', [userId]);
-      await req.db.query('DELETE FROM clickup_config WHERE user_id = $1', [userId]);
+      // V32.0.9 — dados ClickUp vivem no tenant plane.
+      await req.tenantDb.query('DELETE FROM clickup_credentials WHERE user_id = $1', [userId]);
+      await req.tenantDb.query('DELETE FROM clickup_config WHERE user_id = $1', [userId]);
       return res.status(200).json({ ok: true });
     } catch (err) {
       return res.status(500).json({ ok: false, message: err.message });

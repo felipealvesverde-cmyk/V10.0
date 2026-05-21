@@ -30,7 +30,8 @@ module.exports = async function handler(req, res) {
   if (!isPathAllowed(String(path))) return res.status(403).json({ ok: false, message: `Path não permitido: ${path}` });
 
   try {
-    const result = await clickupFetch(req.db, req.user.sub, method.toUpperCase(), path, body);
+    // V32.0.9 — clickup_credentials vivem no tenant plane.
+    const result = await clickupFetch(req.tenantDb, req.user.sub, method.toUpperCase(), path, body);
     return res.status(200).json({ ok: result.ok, status: result.status, data: result.data });
   } catch (err) {
     // V31.2.35 — Mensagem clara quando ENCRYPTION_KEY some/quebra em vez de 500 mudo.

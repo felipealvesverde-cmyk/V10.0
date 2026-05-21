@@ -18,7 +18,8 @@ module.exports = async function handler(req, res) {
   if (!isConfigured()) return res.status(503).json({ ok: false, message: 'ENCRYPTION_KEY não configurada no servidor.' });
 
   try {
-    const r = await req.db.query('SELECT client_id_enc FROM clickup_config WHERE user_id = $1', [req.user.sub]);
+    // V32.0.9 — clickup_config vive no tenant plane.
+    const r = await req.tenantDb.query('SELECT client_id_enc FROM clickup_config WHERE user_id = $1', [req.user.sub]);
     if (!r.rows.length) return res.status(404).json({ ok: false, message: 'Configure Client ID/Secret primeiro.' });
     const clientId = decrypt(r.rows[0].client_id_enc);
     const redirectUri = redirectUriFor(req);
