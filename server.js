@@ -704,7 +704,8 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/rd-crm-sync',
   '/api/rd-webhook',
   '/api/rd-events-fetch',
-  '/api/clickup-oauth-callback'  // V30.0.0 — ClickUp redireciona aqui sem JWT
+  '/api/clickup-oauth-callback',  // V30.0.0 — ClickUp redireciona aqui sem JWT
+  '/api/env-info'  // V32.0.13 — frontend identifica staging × produção mesmo no login
 ]);
 
 // V23.0.0 — Gate de auth: rotas privadas /api/* exigem req.user.

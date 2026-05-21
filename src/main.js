@@ -1,3 +1,43 @@
+// V32.0.13 — Banner amarelo "🚧 STAGING" quando ENVIRONMENT=staging no backend.
+// Roda no boot ANTES de qualquer outra coisa pra Felipe nunca confundir
+// staging × produção. Visível inclusive na tela de login.
+//
+// Por que injection via DOM: simples + portável, sem precisar tocar CSS/HTML.
+// Fetch contra /api/env-info (rota pública, sem JWT).
+(function installEnvironmentBanner() {
+  if (window.__envBannerInstalled) return;
+  window.__envBannerInstalled = true;
+  fetch('/api/env-info').then(r => r.json()).then(data => {
+    const env = data?.environment;
+    if (!env || env === 'production') return;
+    const isStaging = env === 'staging';
+    const banner = document.createElement('div');
+    banner.id = 'lj-env-banner';
+    banner.style.cssText = `
+      position: sticky; top: 0; left: 0; right: 0; z-index: 99999;
+      background: ${isStaging ? '#fcd34d' : '#fca5a5'};
+      color: #1f2937; font-weight: 900; font-size: 13px;
+      padding: 6px 16px; text-align: center;
+      border-bottom: 2px solid ${isStaging ? '#d97706' : '#dc2626'};
+      font-family: system-ui, -apple-system, sans-serif;
+      letter-spacing: 0.5px;
+    `;
+    const label = isStaging ? '🚧 STAGING' : `⚠️ ${env.toUpperCase()}`;
+    banner.innerHTML = `${label} — este é o ambiente de TESTE, não produção. Dados aqui são descartáveis.`;
+    // Insere no TOPO do body antes de qualquer outra coisa renderizar
+    const insert = () => {
+      if (document.body && !document.getElementById('lj-env-banner')) {
+        document.body.insertBefore(banner, document.body.firstChild);
+      }
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', insert);
+    } else {
+      insert();
+    }
+  }).catch(() => {/* silencioso — backend velho não tem env-info */});
+})();
+
 // V31.0.0 — Interceptor global de fetch: quando backend retorna 403 com
 // code 'demo_readonly', mostra toast amigável. Single point pra detectar
 // tentativas de mutação bloqueadas no modo demo.
