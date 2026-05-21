@@ -76,19 +76,22 @@ module.exports = async function handler(req, res) {
       return res.status(403).json({ ok: false, message: 'Cadastro pendente de aprovação pelo administrador.' });
     }
 
-    // Master: exige password válida via bcrypt.
-    if (user.is_master) {
-      if (!password) {
-        recordFailure(ip);
-        return res.status(401).json({ ok: false, message: 'Senha obrigatória para o master.' });
-      }
-      const valid = user.password_hash && await bcrypt.compare(password, user.password_hash);
-      if (!valid) {
-        recordFailure(ip);
-        return res.status(401).json({ ok: false, message: 'Senha incorreta.' });
-      }
+    // V32.0.17 — Senha obrigatória pra TODOS os users (não só master).
+    // Pré-V32.0.17: não-master logava só com username (gap de segurança).
+    // Cliente externo (Sansone) precisa de proteção real.
+    if (!password) {
+      recordFailure(ip);
+      return res.status(401).json({ ok: false, message: 'Senha obrigatória.' });
     }
-    // Não-master: aprovação é suficiente, não checa password.
+    if (!user.password_hash) {
+      recordFailure(ip);
+      return res.status(401).json({ ok: false, message: 'Usuário sem senha definida. Peça ao admin pra resetar via /api/admin-set-user-password.' });
+    }
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) {
+      recordFailure(ip);
+      return res.status(401).json({ ok: false, message: 'Senha incorreta.' });
+    }
 
     // V32.0.7 — Inclui tenantId no JWT pra middleware popular req.tenantDb.
     // Pra master sem tenant (admin global), tenantId fica null.
