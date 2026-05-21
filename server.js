@@ -404,6 +404,127 @@ async function runMigrations() {
       console.error('[v32-tenant-seed] Stack:', err.stack);
     }
 
+    // V32.0.5 — Rotação de master: felipe@w2c.pro.br (CEO antigo) → felipealvesverde@gmail.com (CEO novo).
+    // Modelo final desejado:
+    //   - felipealvesverde@gmail.com = MASTER, dono do LeadJourney (CEO Felipe)
+    //   - felipe@w2c.pro.br = owner do tenant 'sansone' (primeiro CLIENTE externo)
+    //   - demo@leadjourney.app = owner do tenant 'engenho-norte' (staging do Felipe)
+    //
+    // Esta migration:
+    //   1. Migra TODOS os dados do felipe@w2c.pro.br pro felipealvesverde@gmail.com
+    //      (mesma lógica do V32.0.4 mas com IDs diferentes).
+    //   2. Linka felipe@w2c.pro.br como owner do tenant 'sansone' (que estava reservado).
+    //   3. Atualiza tenants.owner_user_id = felipe@w2c.pro.br id pro tenant 'sansone'.
+    //   4. Seta users.default_tenant_id = sansone pro felipe@w2c.pro.br.
+    //
+    // Pré-requisito: MASTER_USERNAME=felipealvesverde@gmail.com no Railway. Senão
+    // o user destino não existe e a migração pula com warning.
+    //
+    // Idempotente: depois que rodar 1x, felipe@w2c.pro.br fica VAZIO. Re-rodar
+    // só re-confirma o tenant link (não copia dados de volta).
+    try {
+      const FROM_USERNAME = 'felipe@w2c.pro.br';
+      const TO_USERNAME = 'felipealvesverde@gmail.com';
+
+      const fromRow = await client.query('SELECT id, is_master FROM users WHERE username = $1', [FROM_USERNAME]);
+      const toRow = await client.query('SELECT id, is_master FROM users WHERE username = $1', [TO_USERNAME]);
+      const fromId = fromRow.rows[0]?.id;
+      const toId = toRow.rows[0]?.id;
+
+      if (!fromId) {
+        console.log(`[v32-master-rotate] User ${FROM_USERNAME} não existe — nada a fazer.`);
+      } else if (!toId) {
+        console.warn(`[v32-master-rotate] ⚠ User ${TO_USERNAME} não existe. Setar MASTER_USERNAME=${TO_USERNAME} no Railway e redeploy.`);
+      } else if (fromId === toId) {
+        console.log('[v32-master-rotate] FROM e TO são o mesmo user — nada a fazer.');
+      } else if (fromRow.rows[0].is_master) {
+        console.warn(`[v32-master-rotate] ⚠ ${FROM_USERNAME} ainda é master. Esperando demote (que roda no V32 tenant-seed). Próximo deploy resolve.`);
+      } else {
+        console.log(`[v32-master-rotate] Migrando: ${FROM_USERNAME}(id=${fromId}) → ${TO_USERNAME}(id=${toId})...`);
+
+        // Single-row-per-user: DELETE destino → UPDATE source.
+        await client.query('DELETE FROM journey_state WHERE user_id = $1', [toId]);
+        const stateMoved = await client.query(
+          'UPDATE journey_state SET user_id = $1, updated_by_user_id = $1 WHERE user_id = $2',
+          [toId, fromId]
+        );
+        console.log(`[v32-master-rotate]   journey_state: ${stateMoved.rowCount} row(s).`);
+
+        const snapsMoved = await client.query(
+          'UPDATE journey_snapshots SET owner_user_id = $1 WHERE owner_user_id = $2',
+          [toId, fromId]
+        );
+        await client.query(
+          'UPDATE journey_snapshots SET triggered_by_user_id = $1 WHERE triggered_by_user_id = $2',
+          [toId, fromId]
+        );
+        console.log(`[v32-master-rotate]   journey_snapshots: ${snapsMoved.rowCount} row(s).`);
+
+        const djowMoved = await client.query(
+          'UPDATE djow_conversations SET user_id = $1 WHERE user_id = $2',
+          [toId, fromId]
+        );
+        console.log(`[v32-master-rotate]   djow_conversations: ${djowMoved.rowCount} row(s).`);
+
+        await client.query('DELETE FROM clickup_config WHERE user_id = $1', [toId]);
+        const cfgMoved = await client.query(
+          'UPDATE clickup_config SET user_id = $1 WHERE user_id = $2',
+          [toId, fromId]
+        );
+        console.log(`[v32-master-rotate]   clickup_config: ${cfgMoved.rowCount} row(s).`);
+
+        await client.query('DELETE FROM clickup_credentials WHERE user_id = $1', [toId]);
+        const credMoved = await client.query(
+          'UPDATE clickup_credentials SET user_id = $1 WHERE user_id = $2',
+          [toId, fromId]
+        );
+        console.log(`[v32-master-rotate]   clickup_credentials: ${credMoved.rowCount} row(s).`);
+
+        await client.query('DELETE FROM rd_credentials WHERE user_id = $1', [toId]);
+        const rdMoved = await client.query(
+          'UPDATE rd_credentials SET user_id = $1 WHERE user_id = $2',
+          [toId, fromId]
+        );
+        console.log(`[v32-master-rotate]   rd_credentials: ${rdMoved.rowCount} row(s).`);
+
+        // Preserva default_tenant_id do FROM no TO (improvável mas garantia)
+        await client.query(`
+          UPDATE users SET default_tenant_id = (SELECT default_tenant_id FROM users WHERE id = $1)
+          WHERE id = $2 AND default_tenant_id IS NULL
+        `, [fromId, toId]);
+        // E zera o do FROM porque vamos setar pro tenant Sansone logo abaixo.
+        await client.query('UPDATE users SET default_tenant_id = NULL WHERE id = $1', [fromId]);
+
+        console.log('[v32-master-rotate] ✓ Dados migrados.');
+      }
+
+      // Sempre (idempotente): linkar felipe@w2c.pro.br como owner do tenant 'sansone',
+      // mesmo que migração tenha sido no-op em re-deploys.
+      if (fromId) {
+        const sansoneTenantRow = await client.query("SELECT id FROM tenants WHERE slug = 'sansone'");
+        const sansoneTenantId = sansoneTenantRow.rows[0]?.id;
+        if (sansoneTenantId) {
+          await client.query(
+            'UPDATE tenants SET owner_user_id = $1, updated_at = NOW() WHERE id = $2 AND (owner_user_id IS NULL OR owner_user_id <> $1)',
+            [fromId, sansoneTenantId]
+          );
+          await client.query(`
+            INSERT INTO tenant_members (tenant_id, user_id, role, joined_at)
+            VALUES ($1, $2, 'owner', NOW())
+            ON CONFLICT (tenant_id, user_id) DO UPDATE SET role = 'owner'
+          `, [sansoneTenantId, fromId]);
+          await client.query(
+            'UPDATE users SET default_tenant_id = $1 WHERE id = $2 AND default_tenant_id IS NULL',
+            [sansoneTenantId, fromId]
+          );
+          console.log(`[v32-master-rotate] ✓ ${FROM_USERNAME} (id=${fromId}) é owner do tenant 'sansone' (id=${sansoneTenantId}).`);
+        }
+      }
+    } catch (err) {
+      console.error('[v32-master-rotate] FALHOU (continuando):', err.message);
+      console.error('[v32-master-rotate] Stack:', err.stack);
+    }
+
     // V32.0.4 — Migração de dados legacy joao.sansone@gmail.com → felipe@w2c.pro.br
     // ANTES do V32.0.3 cleanup deletar o legacy.
     //
