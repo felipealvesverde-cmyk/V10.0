@@ -17,7 +17,9 @@ var JourneyPipelineModule = {
     'Saudável': 'bg-emerald-100 text-emerald-700',
     'Atenção': 'bg-amber-100 text-amber-700',
     'Gargalo': 'bg-red-100 text-red-700',
-    'Inativa': 'bg-slate-200 text-slate-500'
+    // V31.2.57 — Era 'text-slate-500' = #64748b em fundo #e2e8f0 (contraste 3:1 — falha WCAG AA pra texto pequeno).
+    // Trocado pra text-slate-800 (#1e293b) que vence WCAG (~10:1).
+    'Inativa': 'bg-slate-200 text-slate-800'
   },
 
   visualVersion: 'revenue-flow-v2-bolinhas',
@@ -154,7 +156,9 @@ var JourneyPipelineModule = {
     return `<div class="fixed inset-0 bg-slate-950/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"><div class="bg-white rounded-[2rem] shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-auto p-5 lg:p-6"><div class="flex items-start justify-between gap-4 mb-5"><div><h3 class="text-2xl font-black">Editar fase</h3><p class="text-sm text-slate-500">As fases são fixas no RevOps pragmático. Aqui você edita métricas, saúde, status e leitura operacional.</p></div><button onclick="JourneyPipelineModule.closeStageModal()" class="w-10 h-10 rounded-2xl bg-slate-100 grid place-items-center font-black">×</button></div><div class="grid md:grid-cols-2 gap-3">${this.input('stageFormLabel', 'Fase', stage.label, 'text', true)}${this.input('stageFormArea', 'Setor', stage.area, 'text', true)}${this.input('stageFormVolume', 'Volume', stage.volume, 'number')}${this.input('stageFormConversion', 'Conversão', stage.conversion)}${this.input('stageFormIntent', 'Intenção média', stage.intent, 'number')}${this.input('stageFormVelocity', 'Velocidade', stage.velocity)}<div><label class="text-xs font-black text-slate-500">Saúde</label><select id="stageFormHealth" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold">${['Saudável','Atenção','Gargalo','Inativa'].map(h => `<option ${h === (stage.active === false ? 'Inativa' : stage.health) ? 'selected' : ''}>${h}</option>`).join('')}</select></div><div><label class="text-xs font-black text-slate-500">Fase ativa?</label><select id="stageFormActive" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold"><option value="true" ${stage.active !== false ? 'selected' : ''}>Ativa</option><option value="false" ${stage.active === false ? 'selected' : ''}>Inativa</option></select></div>${this.input('stageFormGravity', 'Gravidade operacional', stage.gravity, 'number')}<div></div>${this.textarea('stageFormInsight', 'Insight RevOps', stage.insight)}${this.textarea('stageFormAction', 'Ação recomendada', stage.action)}${this.textarea('stageFormRisk', 'Risco', stage.risk)}</div><div class="flex flex-col md:flex-row gap-2 mt-5"><button onclick="JourneyPipelineModule.saveStageFromModal()" class="flex-1 px-5 py-3 rounded-2xl bg-slate-950 text-white font-black">Salvar fase</button><button onclick="JourneyPipelineModule.closeStageModal()" class="px-5 py-3 rounded-2xl bg-slate-100 font-black">Cancelar</button></div></div></div>`;
   },
 
-  input(id, label, value, type = 'text', disabled = false) { return `<div><label class="text-xs font-black text-slate-500">${label}</label><input id="${id}" ${disabled ? 'disabled' : ''} type="${type}" value="${Utils.escape(value)}" class="w-full px-4 py-3 rounded-2xl ${disabled ? 'bg-slate-200 text-slate-500' : 'bg-slate-100'} font-semibold" /></div>`; },
+  // V31.2.57 — Era 'text-slate-500' em input disabled (contraste insuficiente).
+  // Trocado pra text-slate-700 que mantém aparência "desabilitada" sem ser ilegível.
+  input(id, label, value, type = 'text', disabled = false) { return `<div><label class="text-xs font-black text-slate-500">${label}</label><input id="${id}" ${disabled ? 'disabled' : ''} type="${type}" value="${Utils.escape(value)}" class="w-full px-4 py-3 rounded-2xl ${disabled ? 'bg-slate-200 text-slate-700' : 'bg-slate-100'} font-semibold" /></div>`; },
   textarea(id, label, value) { return `<div class="md:col-span-2"><label class="text-xs font-black text-slate-500">${label}</label><textarea id="${id}" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold min-h-[80px]">${Utils.escape(value)}</textarea></div>`; },
 
   setLeadSubTab(tab) { App.state.activeLeadSubTab = tab; App.state.selectedLeadId = null; App.save(); App.render(); },

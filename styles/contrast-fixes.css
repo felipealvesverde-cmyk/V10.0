@@ -179,6 +179,37 @@ button.lj-dark-button {
   color: #ffffff !important;
 }
 
+/* V31.2.57 — Fix badges escuros COM letra escura dentro de cards bg-white.
+   Bug: regra ".bg-white .text-white { color: dark !important }" (linha 27-37)
+   tem specificity 0,2,0 que vencia ".bg-slate-900 { color: white !important }"
+   (specificity 0,1,0), fazendo badges dark com texto dark.
+   Fix: targetando o badge dark DENTRO de bg-white com mesma specificity (0,2,0)
+   declarada DEPOIS — cascade order resolve, força texto branco. */
+.bg-white .bg-slate-900,
+.bg-white .bg-slate-950,
+.bg-white .bg-slate-800,
+[class*="bg-white/90"] .bg-slate-900,
+[class*="bg-white/90"] .bg-slate-950,
+[class*="bg-white/95"] .bg-slate-900,
+[class*="bg-white/95"] .bg-slate-950,
+[class*="bg-white/100"] .bg-slate-900,
+[class*="bg-white/100"] .bg-slate-950,
+[class*="from-white"] .bg-slate-900,
+[class*="from-white"] .bg-slate-950,
+[class*="to-white"] .bg-slate-900,
+[class*="to-white"] .bg-slate-950 {
+  color: #ffffff !important;
+}
+/* E o text-white explícito DENTRO desses badges também (caso a regra acima não pegue por cascade) */
+.bg-white .bg-slate-900 .text-white,
+.bg-white .bg-slate-950 .text-white,
+.bg-white .bg-slate-800 .text-white,
+.bg-white .bg-slate-900.text-white,
+.bg-white .bg-slate-950.text-white,
+.bg-white .bg-slate-800.text-white {
+  color: #ffffff !important;
+}
+
 #app button.bg-slate-900 *,
 #app button.bg-slate-950 *,
 #app .lj-dark-button * {
