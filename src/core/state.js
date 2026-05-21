@@ -61,6 +61,11 @@ var State = {
       },
       rdInfoModal: null, // { open, openSection: 'pat'|'crm_oauth'|'marketing_oauth'|null }
       rdTestingConnections: false,
+      // V31.2.54 — Webhooks RD cadastrados (cache local do estado no RD).
+      // CRÍTICO preservar em normalize() — F5 derrubava antes da V31.2.54.
+      rdWebhooks: [],
+      rdWebhookRegistrationError: '',
+      rdWebhooksLastSyncAt: null,
       selectedProductId: null,
       selectedCampaignId: null,
       selectedActionId: null,
@@ -642,7 +647,21 @@ var State = {
           }
         : base.rdConnectionStatus,
       rdInfoModal: null,
-      rdTestingConnections: false
+      rdTestingConnections: false,
+      // V31.2.54 — Preserva webhooks RD do raw. ANTES sumiam silenciosamente
+      // a cada F5 (mesmo padrão do bug clickupStatus V31.2.35), fazendo user
+      // ter que recadastrar webhook toda vez que atualizava a página.
+      rdWebhooks: Array.isArray(raw.rdWebhooks)
+        ? raw.rdWebhooks.filter(w => w && typeof w === 'object' && w.eventName).map(w => ({
+            id: String(w.id || ''),
+            eventName: String(w.eventName),
+            url: String(w.url || ''),
+            createdAt: String(w.createdAt || ''),
+            alreadyExistedAtRd: Boolean(w.alreadyExistedAtRd)
+          }))
+        : [],
+      rdWebhookRegistrationError: typeof raw.rdWebhookRegistrationError === 'string' ? raw.rdWebhookRegistrationError : '',
+      rdWebhooksLastSyncAt: raw.rdWebhooksLastSyncAt || null
     };
   },
   load() {
