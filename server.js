@@ -237,6 +237,12 @@ async function runMigrations() {
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS default_tenant_id INT REFERENCES tenants(id) ON DELETE SET NULL;
     `);
+    // V32.1.2 — display_name editável pelo próprio user (saudação na UI).
+    // Substitui derivação automática do email (que mostrava "Felipe" pra
+    // qualquer cliente cujo email começasse com felipe@ — confuso pro Sansone).
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(128);
+    `);
     // Seed master user se ainda não existe e env vars disponíveis.
     if (MASTER_USERNAME && MASTER_PASSWORD) {
       if (!MASTER_PASSWORD_HASH) {

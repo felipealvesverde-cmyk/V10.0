@@ -1937,6 +1937,33 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.1.2 — "Minha Conta": user edita o próprio display_name.
+  updateProfileDisplayNameDraft(value) {
+    App.state.profileDisplayNameDraft = String(value || '');
+  },
+
+  async saveUserProfile() {
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return Utils.toast('Sessão expirada — faça login.');
+    const displayName = String(App.state.profileDisplayNameDraft || '').trim();
+    try {
+      const res = await fetch('/api/user-update-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ display_name: displayName })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ ${data.message}`);
+      await this._refreshCurrentUserInfo();
+      // Limpa draft pra próxima edição não confundir
+      App.state.profileDisplayNameDraft = '';
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V32.1.1 — Helper: re-fetch auth-me pra atualizar App.currentUser (tenantDbPlugged etc).
   async _refreshCurrentUserInfo() {
     const token = localStorage.getItem('lj_jwt');

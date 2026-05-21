@@ -82,6 +82,8 @@ var State = {
       // Draft do form pra plugar próprio Postgres.
       tenantDbPlugDraft: '',
       tenantDbPlugError: '',
+      // V32.1.2 — Section "Minha Conta": draft do display_name editável.
+      profileDisplayNameDraft: '',
       selectedProductId: null,
       selectedCampaignId: null,
       selectedActionId: null,
@@ -696,7 +698,9 @@ var State = {
         : { apiKey: '', token: '', board: '', listTodo: '', listDone: '' },
       // V32.1.1 — drafts do form "Meu Banco". Nunca persiste erro de tentativa anterior.
       tenantDbPlugDraft: typeof raw.tenantDbPlugDraft === 'string' ? raw.tenantDbPlugDraft : '',
-      tenantDbPlugError: ''
+      tenantDbPlugError: '',
+      // V32.1.2 — draft do nome em "Minha Conta".
+      profileDisplayNameDraft: typeof raw.profileDisplayNameDraft === 'string' ? raw.profileDisplayNameDraft : ''
     };
   },
   load() {

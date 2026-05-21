@@ -16,6 +16,7 @@ module.exports = async function handler(req, res) {
     try {
       const result = await req.db.query(
         `SELECT u.id, u.username, u.email, u.is_master, u.is_approved, u.mode, u.default_tenant_id,
+                u.display_name,
                 t.slug AS tenant_slug, t.name AS tenant_name, t.status AS tenant_status,
                 t.db_connection_string_enc IS NOT NULL AS tenant_db_plugged
          FROM users u
@@ -34,6 +35,7 @@ module.exports = async function handler(req, res) {
           id: row.id,
           username: row.username,
           email: row.email,
+          displayName: row.display_name || null,
           isMaster: row.is_master,
           mode: row.mode || 'sandbox',
           tenantId: row.default_tenant_id || null,

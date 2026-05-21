@@ -27,12 +27,25 @@ window.HomeModule = {
   },
 
   _userFirstName() {
+    // V32.1.2 — Prioridade:
+    //   1. user.displayName (setado em Configurações → Minha Conta) → usa cru
+    //   2. fallback: primeiro segmento do DOMAIN do email (não do prefixo).
+    //      Antes era prefixo do email → derivava "Felipe" pra qualquer email
+    //      felipe@..., confundindo clientes não-Felipe.
+    //      Agora felipe@w2c.pro.br → "W2c" (neutro até o user setar nome real).
     const u = App.currentUser || {};
-    const raw = String(u.username || '').trim();
+    if (u.displayName && String(u.displayName).trim()) {
+      return String(u.displayName).trim();
+    }
+    const raw = String(u.username || u.email || '').trim();
     if (!raw) return 'visitante';
-    const base = raw.includes('@') ? raw.split('@')[0] : raw;
-    const first = base.split(/[.\s_-]/)[0] || base;
-    return first.charAt(0).toUpperCase() + first.slice(1);
+    if (raw.includes('@')) {
+      const domain = raw.split('@')[1] || '';
+      const firstSeg = domain.split('.')[0] || domain;
+      if (firstSeg) return firstSeg.charAt(0).toUpperCase() + firstSeg.slice(1);
+    }
+    // Sem @: usa raw direto
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
   },
 
   _today() {

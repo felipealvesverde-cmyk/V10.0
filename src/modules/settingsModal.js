@@ -2688,6 +2688,83 @@ var SettingsModal = {
     </div>`;
   },
 
+  // V32.1.2 — "Minha Conta" — qualquer user edita o próprio perfil.
+  // Hoje só display_name. Futuro: avatar, timezone, language, trocar senha.
+  myAccountPanel() {
+    const user = App.currentUser || {};
+    const draft = App.state.profileDisplayNameDraft;
+    const currentName = user.displayName || '';
+    const placeholder = currentName || this._displayNameFallback(user);
+    const inputValue = (draft !== undefined && draft !== '') ? draft : (currentName || '');
+
+    return `<div class="space-y-5">
+      <div class="rounded-2xl bg-violet-50 border border-violet-300 p-4 text-violet-900 flex items-start gap-3">
+        <i data-lucide="user" class="w-5 h-5 mt-0.5 shrink-0 text-violet-700"></i>
+        <div>
+          <p class="font-black text-sm mb-1">Seu perfil neste LeadJourney</p>
+          <p class="text-xs leading-relaxed">Personalize como você aparece — a saudação no topo, futuras assinaturas, etc. O nome aqui não muda o seu login, só como o LJ se refere a você.</p>
+        </div>
+      </div>
+
+      <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm space-y-4">
+        <div>
+          <h3 class="text-2xl font-black text-slate-950 mb-1">Identidade</h3>
+          <p class="text-sm text-slate-500">Como o LeadJourney te chama na interface.</p>
+        </div>
+
+        <div>
+          <label class="text-xs font-black text-slate-500 uppercase tracking-wide">E-mail (login)</label>
+          <input type="text" value="${Utils.escape(user.username || user.email || '')}" disabled class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 font-semibold cursor-not-allowed" />
+          <p class="text-[11px] text-slate-400 mt-1">Pra trocar de e-mail (login), peça pro admin global.</p>
+        </div>
+
+        <div>
+          <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Nome de exibição</label>
+          <input
+            type="text"
+            value="${Utils.escape(inputValue)}"
+            oninput="Actions.updateProfileDisplayNameDraft(this.value)"
+            placeholder="${Utils.escape(placeholder)}"
+            class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-slate-900"
+          />
+          <p class="text-[11px] text-slate-500 mt-1">
+            ${currentName
+              ? `Atualmente: <b>${Utils.escape(currentName)}</b>. Deixe em branco e salve pra voltar pro padrão.`
+              : `Sem nome customizado. O LJ está usando: <b>"${Utils.escape(placeholder)}"</b> (derivado do seu e-mail).`
+            }
+          </p>
+        </div>
+
+        ${user.tenantName ? `
+          <div>
+            <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Tenant (empresa)</label>
+            <input type="text" value="${Utils.escape(user.tenantName)}" disabled class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 font-semibold cursor-not-allowed" />
+            <p class="text-[11px] text-slate-400 mt-1">Você pertence a este tenant. Pra trocar, peça pro admin global.</p>
+          </div>
+        ` : ''}
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button onclick="Actions.saveUserProfile()" class="px-5 py-3 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black text-sm" style="color:#fff!important;">
+            <i data-lucide="check" class="w-4 h-4 inline mr-1"></i>Salvar
+          </button>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V32.1.2 — Helper: fallback do display name baseado no e-mail (primeiro
+  // segmento do DOMAIN, capitalizado). Espelha lógica de home.js _userFirstName.
+  _displayNameFallback(user) {
+    const raw = String(user?.username || user?.email || '').trim();
+    if (!raw) return 'visitante';
+    if (raw.includes('@')) {
+      const domain = raw.split('@')[1] || '';
+      const firstSeg = domain.split('.')[0] || domain;
+      if (firstSeg) return firstSeg.charAt(0).toUpperCase() + firstSeg.slice(1);
+    }
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  },
+
   // V32.1.1 — "Meu Banco" — self-service de tenant DB pra cliente.
   // Visível pra QUALQUER user que tem default_tenant_id (= todo cliente real,
   // independente de master ou não). Master sem tenant não vê — usa o menu
@@ -2924,7 +3001,7 @@ var SettingsModal = {
     // V22.2 — Consolidação: 'rd' e 'rdCrm' viraram uma seção só "Conexão RD Station".
     // Mantemos o alias 'rdCrm' redirecionando p/ 'rd' por compat de bookmarks/links.
     const resolvedActive = active === 'rdCrm' ? 'rd' : active;
-    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários', admin: 'Administrar Lead Journey', tenants: 'Tenants (Global Mode)', myDb: 'Meu Banco' };
+    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários', admin: 'Administrar Lead Journey', tenants: 'Tenants (Global Mode)', myDb: 'Meu Banco', myAccount: 'Minha Conta' };
     const subtitleMap = {
       rd: 'Token CRM, pipelines por campanha, sincronização de leads e (opcional) RD Marketing — tudo em um lugar.',
       backup: 'Prepare snapshots, restauração e segurança dos dados.',
@@ -2935,7 +3012,8 @@ var SettingsModal = {
       users: 'V23.0.0 — Aprove cadastros pendentes, gerencie modo (produção/sandbox) e revogue acessos.',
       admin: 'V31.2.1 — Ações administrativas críticas. Cuidado: aqui você apaga dados em cascata sem volta.',
       tenants: 'V32.0.12 — Multi-tenant SaaS. Cada cliente tem um tenant; pode opcionalmente ter Postgres próprio plugado.',
-      myDb: 'V32.1.1 — Plug seu próprio Postgres pra isolar 100% seus dados. Connection string fica criptografada no servidor.'
+      myDb: 'V32.1.1 — Plug seu próprio Postgres pra isolar 100% seus dados. Connection string fica criptografada no servidor.',
+      myAccount: 'V32.1.2 — Personalize seu nome de exibição. Login (e-mail) e tenant são imutáveis aqui.'
     };
     const title = titleMap[resolvedActive] || titleMap.database;
     const subtitle = subtitleMap[resolvedActive] || subtitleMap.database;
@@ -2949,6 +3027,7 @@ var SettingsModal = {
       : resolvedActive === 'admin' ? this.adminPanel()
       : resolvedActive === 'tenants' ? this.tenantsPanel()
       : resolvedActive === 'myDb' ? this.myDbPanel()
+      : resolvedActive === 'myAccount' ? this.myAccountPanel()
       : this.databasePanel();
 
     return `<div id="settingsModalBackdrop" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm p-4 overflow-auto">
@@ -2970,6 +3049,7 @@ var SettingsModal = {
 
         <main class="grid lg:grid-cols-[260px_1fr] min-h-[620px]">
           <aside class="bg-white border-r border-slate-200 p-5 space-y-3">
+            ${this.sectionButton('myAccount','Minha Conta','user')}
             ${this.sectionButton('database','Banco de Dados','database')}
             ${App.currentUser?.tenantId ? this.sectionButton('myDb','Meu Banco','hard-drive-download') : ''}
             ${this.sectionButton('rd','Conexão RD Station','plug-zap')}
