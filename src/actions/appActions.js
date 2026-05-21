@@ -5105,9 +5105,13 @@ Object.assign(Actions, {
         method: 'GET', path: '/deal_pipelines', legacy: true, useQueryToken: true
       },
       {
+        // V31.2.56 — Era /platform/account_info que retornava 404 (RD mudou
+        // ou o path nunca existiu). Troca pra /integrations/webhooks que é
+        // multi-produto (qualquer OAuth válido passa). Mesmo padrão do
+        // crm_oauth (V31.2.55).
         key: 'marketing_oauth',
         hasToken: Boolean(rdCfg.accessToken),
-        method: 'GET', path: '/platform/account_info', legacy: false, useQueryToken: false
+        method: 'GET', path: '/integrations/webhooks', legacy: false, useQueryToken: false
       },
       {
         // V31.2.55 — Era /crm/v2/deals?limit=1 mas alguns apps OAuth só tem
