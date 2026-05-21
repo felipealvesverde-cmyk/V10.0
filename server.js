@@ -307,6 +307,81 @@ async function runMigrations() {
       console.error('[demo-seed] Stack:', err.stack);
     }
 
+    // V32.0.1 — Global Mode tenant seed.
+    // Cria os 2 tenants iniciais (Sansone Management + Engenho Norte) e linka
+    // os users existentes como owners. Idempotente: re-rodar não duplica nada.
+    //
+    // NÃO move dados ainda. db_connection_string_enc continua NULL nos dois →
+    // app segue usando o DB central exatamente como V31. V32.0.2 acopla o
+    // roteamento (middleware req.tenantDb) com fallback gracioso.
+    try {
+      console.log('[v32-tenant-seed] Começando...');
+
+      // 1. Tenant Sansone Management ← master user (joao.sansone)
+      const masterRow = await client.query('SELECT id, username FROM users WHERE is_master = TRUE LIMIT 1');
+      const masterUserId = masterRow.rows[0]?.id;
+      if (masterUserId) {
+        await client.query(`
+          INSERT INTO tenants (slug, name, status, plan, owner_user_id)
+          VALUES ('sansone', 'Sansone Management', 'active', 'owner', $1)
+          ON CONFLICT (slug) DO UPDATE SET
+            owner_user_id = COALESCE(tenants.owner_user_id, EXCLUDED.owner_user_id),
+            updated_at = NOW()
+        `, [masterUserId]);
+        const sansoneRow = await client.query("SELECT id FROM tenants WHERE slug = 'sansone'");
+        const sansoneTenantId = sansoneRow.rows[0]?.id;
+        if (sansoneTenantId) {
+          await client.query(`
+            INSERT INTO tenant_members (tenant_id, user_id, role, joined_at)
+            VALUES ($1, $2, 'owner', NOW())
+            ON CONFLICT (tenant_id, user_id) DO UPDATE SET role = 'owner'
+          `, [sansoneTenantId, masterUserId]);
+          // Só define default_tenant_id se ainda for NULL (preserva escolha do user em sessões futuras).
+          await client.query(`
+            UPDATE users SET default_tenant_id = $1
+            WHERE id = $2 AND default_tenant_id IS NULL
+          `, [sansoneTenantId, masterUserId]);
+          console.log(`[v32-tenant-seed] ✓ Sansone Management (id=${sansoneTenantId}) ← user ${masterRow.rows[0].username} (id=${masterUserId}) como owner.`);
+        }
+      } else {
+        console.warn('[v32-tenant-seed] Master user não encontrado — tenant Sansone pulado.');
+      }
+
+      // 2. Tenant Engenho Norte ← demo user (demo@leadjourney.app)
+      const demoUserRow2 = await client.query("SELECT id FROM users WHERE username = 'demo@leadjourney.app' LIMIT 1");
+      const demoUserId2 = demoUserRow2.rows[0]?.id;
+      if (demoUserId2) {
+        await client.query(`
+          INSERT INTO tenants (slug, name, status, plan, owner_user_id)
+          VALUES ('engenho-norte', 'Engenho Norte', 'demo', 'demo', $1)
+          ON CONFLICT (slug) DO UPDATE SET
+            owner_user_id = COALESCE(tenants.owner_user_id, EXCLUDED.owner_user_id),
+            updated_at = NOW()
+        `, [demoUserId2]);
+        const engenhoRow = await client.query("SELECT id FROM tenants WHERE slug = 'engenho-norte'");
+        const engenhoTenantId = engenhoRow.rows[0]?.id;
+        if (engenhoTenantId) {
+          await client.query(`
+            INSERT INTO tenant_members (tenant_id, user_id, role, joined_at)
+            VALUES ($1, $2, 'owner', NOW())
+            ON CONFLICT (tenant_id, user_id) DO UPDATE SET role = 'owner'
+          `, [engenhoTenantId, demoUserId2]);
+          await client.query(`
+            UPDATE users SET default_tenant_id = $1
+            WHERE id = $2 AND default_tenant_id IS NULL
+          `, [engenhoTenantId, demoUserId2]);
+          console.log(`[v32-tenant-seed] ✓ Engenho Norte (id=${engenhoTenantId}) ← user demo (id=${demoUserId2}) como owner.`);
+        }
+      } else {
+        console.warn('[v32-tenant-seed] User demo não encontrado — tenant Engenho Norte pulado.');
+      }
+
+      console.log('[v32-tenant-seed] OK.');
+    } catch (err) {
+      console.error('[v32-tenant-seed] FALHOU (continuando):', err.message);
+      console.error('[v32-tenant-seed] Stack:', err.stack);
+    }
+
     console.log('[server] Migrations OK.');
     return { ok: true };
   } catch (err) {
