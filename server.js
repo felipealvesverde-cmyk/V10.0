@@ -144,8 +144,36 @@ async function runMigrations() {
     // V31.2.32 — default_list_id: lista do ClickUp onde tarefas criadas via Djow
     // são gravadas. Auto-descoberta na primeira call (/api/clickup-create-task)
     // se NULL: pega primeira list folderless OU primeiro folder → primeira list.
+    // V32.1.3 — Auto-discovery DEPRECATED. List passa a ser selecionada
+    // explicitamente pelo user (audit Geraldo: chutar primeira list bagunça o
+    // ClickUp do cliente).
     await client.query(`
       ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS default_list_id VARCHAR(64);
+    `);
+    // V32.1.3-1.6 — Geraldo safe-integration columns:
+    //   default_space_id: necessário pra criar/atachar tag (tag vive em space)
+    //   default_list_name: cache exibível na UI sem novo fetch
+    //   task_prefix: prefixo opcional no nome ("[LJ] " etc) — V32.1.4
+    //   lj_tag_name: nome da tag automática (default 'lj-auto') — V32.1.4
+    //   status_map_json: { pending: "to do", in_progress: "doing", completed: "done" } — V32.1.5
+    //   write_enabled: toggle read-only (default TRUE) — V32.1.6
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS default_space_id VARCHAR(64);
+    `);
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS default_list_name VARCHAR(255);
+    `);
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS task_prefix VARCHAR(32);
+    `);
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS lj_tag_name VARCHAR(64) DEFAULT 'lj-auto';
+    `);
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS status_map_json TEXT;
+    `);
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS write_enabled BOOLEAN DEFAULT TRUE;
     `);
     // V31.2.36 — RD Station/CRM credentials encriptados em tabela própria.
     // 3 token types possíveis (PK composta user_id + token_type):

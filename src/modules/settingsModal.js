@@ -2986,12 +2986,134 @@ var SettingsModal = {
           <input type="password" value="${Utils.escape(draft)}" oninput="Actions.updateClickupPatDraft(this.value)" placeholder="pk_xxxxxxxxxxxxxxxxxxxxxxxxxx" class="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
           <button onclick="Actions.connectClickupWithPAT()" ${!status.encryptionReady ? 'disabled' : ''} class="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black disabled:opacity-50" style="color:#fff!important;">🔗 Conectar ao ClickUp</button>
         </div>
-        ` : `<div class="rounded-2xl bg-emerald-50 border-2 border-emerald-300 p-4">
+        ` : `
+        <div class="rounded-2xl bg-emerald-50 border-2 border-emerald-300 p-4">
           <p class="font-black text-emerald-900 mb-1">✓ ClickUp conectado em <b>${Utils.escape(status.workspaceName || '')}</b></p>
           <p class="text-sm text-emerald-800">Agora você pode criar tarefas no ClickUp diretamente do Mapa da Receita (botão "Criar tarefa via Djow") ou pedindo pro Djow no chat: <i>"cria uma task pra revisar a campanha"</i>.</p>
-        </div>`}
+        </div>
+
+        ${this._clickupListConfigCard(status)}
+        `}
+      </div>
+
+      ${App.state.showClickupListPicker ? this._clickupListPickerModal() : ''}
+    </div>`;
+  },
+
+  // V32.1.3 — Card "List de destino" no painel Integrações (visível quando ClickUp conectado).
+  // Geraldo safe-integration: força user escolher explicitamente onde tasks nascem,
+  // em vez de chutar a primeira list do ClickUp do cliente.
+  _clickupListConfigCard(status) {
+    const hasList = Boolean(status.defaultListId);
+    return `<div class="rounded-2xl ${hasList ? 'bg-white border border-slate-200' : 'bg-amber-50 border-2 border-amber-300'} p-4 space-y-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <p class="font-black ${hasList ? 'text-slate-900' : 'text-amber-900'} text-sm flex items-center gap-2">
+            <i data-lucide="${hasList ? 'check-circle' : 'alert-triangle'}" class="w-4 h-4"></i>
+            ${hasList ? 'List de destino configurada' : 'ATENÇÃO — List de destino NÃO configurada'}
+          </p>
+          ${hasList
+            ? `<p class="text-xs text-slate-600 mt-1">Tasks criadas pelo LJ vão pra: <b>${Utils.escape(status.defaultListName || status.defaultListId)}</b> <code class="text-[10px] bg-slate-100 px-1 py-0.5 rounded ml-1">${Utils.escape(String(status.defaultListId))}</code></p>`
+            : `<p class="text-xs text-amber-800 mt-1 leading-relaxed">Por segurança, o LJ NÃO escolhe automaticamente onde criar tasks. Tentar criar agora vai dar erro. Clique abaixo pra escolher a list (recomendado: crie uma list dedicada chamada "LeadJourney" no seu ClickUp antes).</p>`
+          }
+        </div>
+        <button onclick="Actions.openClickupListPicker()" class="px-3 py-2 rounded-xl ${hasList ? 'bg-slate-900 text-white' : 'bg-amber-600 text-white animate-pulse'} font-black text-xs flex items-center gap-1.5 shrink-0" style="color:#fff!important;">
+          <i data-lucide="list-tree" class="w-3.5 h-3.5"></i>${hasList ? 'Trocar' : 'Configurar list'}
+        </button>
       </div>
     </div>`;
+  },
+
+  // V32.1.3 — Modal de seleção de list (tree picker: spaces > folders/lists > lists).
+  _clickupListPickerModal() {
+    const tree = App.state._clickupTreeCache;
+    const loading = App.state.clickupTreeLoading;
+
+    return `<div class="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onclick="event.target===this && Actions.closeClickupListPicker()">
+      <div class="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        <header class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div>
+            <h3 class="text-xl font-black text-slate-950">Escolher list de destino</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Onde o LJ vai criar tasks no seu ClickUp.</p>
+          </div>
+          <button onclick="Actions.closeClickupListPicker()" class="p-2 rounded-xl hover:bg-slate-100"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </header>
+
+        <div class="overflow-auto p-5">
+          <div class="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 mb-4 flex items-start gap-2">
+            <i data-lucide="info" class="w-4 h-4 mt-0.5 shrink-0"></i>
+            <div>
+              <p class="font-black mb-0.5">Recomendação Geraldo:</p>
+              <p>Antes de escolher, crie uma list dedicada no ClickUp (sugestão de nome: "LeadJourney"). Isso evita misturar tasks automatizadas com o trabalho do seu time.</p>
+            </div>
+          </div>
+
+          ${loading || !tree ? `
+            <div class="rounded-2xl bg-slate-50 border border-slate-200 p-8 text-center">
+              <i data-lucide="loader" class="w-6 h-6 animate-spin mx-auto text-slate-500"></i>
+              <p class="text-sm text-slate-500 mt-3">Carregando árvore do ClickUp...</p>
+            </div>
+          ` : (tree.spaces || []).length === 0 ? `
+            <div class="rounded-2xl bg-slate-50 border border-slate-200 p-6 text-center text-slate-500 text-sm">
+              Nenhum space encontrado neste workspace.
+            </div>
+          ` : `
+            <div class="space-y-3">
+              ${(tree.spaces || []).map(space => this._clickupListPickerSpace(space, tree.defaultListId)).join('')}
+            </div>
+          `}
+        </div>
+
+        <footer class="px-6 py-3 border-t border-slate-200 flex justify-between items-center gap-2">
+          <button onclick="Actions.loadClickupTree()" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black flex items-center gap-1.5">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>Recarregar
+          </button>
+          <button onclick="Actions.closeClickupListPicker()" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-xs">Cancelar</button>
+        </footer>
+      </div>
+    </div>`;
+  },
+
+  _clickupListPickerSpace(space, currentListId) {
+    return `<div class="rounded-2xl bg-slate-50 border border-slate-200 p-3">
+      <div class="flex items-center gap-2 mb-2">
+        <i data-lucide="layout-grid" class="w-4 h-4 text-slate-500"></i>
+        <p class="font-black text-slate-700 text-sm">${Utils.escape(space.name)}</p>
+        <code class="text-[10px] text-slate-400">${Utils.escape(space.id)}</code>
+      </div>
+
+      ${(space.folderlessLists || []).length > 0 ? `
+        <div class="space-y-1 mb-2">
+          ${(space.folderlessLists || []).map(l => this._clickupListPickerRow(l, space, currentListId)).join('')}
+        </div>
+      ` : ''}
+
+      ${(space.folders || []).map(folder => `
+        <div class="ml-3 pl-3 border-l-2 border-slate-200 mt-2">
+          <p class="text-xs font-black text-slate-500 mb-1 flex items-center gap-1">
+            <i data-lucide="folder" class="w-3 h-3"></i>${Utils.escape(folder.name)}
+          </p>
+          <div class="space-y-1">
+            ${(folder.lists || []).map(l => this._clickupListPickerRow(l, space, currentListId)).join('')}
+          </div>
+        </div>
+      `).join('')}
+
+      ${(space.folderlessLists || []).length === 0 && (space.folders || []).length === 0 ? `
+        <p class="text-xs text-slate-400 italic">— Sem lists neste space —</p>
+      ` : ''}
+    </div>`;
+  },
+
+  _clickupListPickerRow(list, space, currentListId) {
+    const isCurrent = String(currentListId) === String(list.id);
+    return `<button onclick="Actions.selectClickupList('${Utils.escape(String(list.id))}', '${Utils.escape(String(space.id))}', '${Utils.escape(list.name).replace(/'/g, "&#39;")}')" class="w-full text-left px-3 py-2 rounded-lg flex items-center justify-between gap-2 ${isCurrent ? 'bg-emerald-100 border-2 border-emerald-300' : 'bg-white border border-slate-200 hover:bg-slate-50'}">
+      <span class="flex items-center gap-2 text-sm">
+        <i data-lucide="${isCurrent ? 'check-circle' : 'circle'}" class="w-3.5 h-3.5 ${isCurrent ? 'text-emerald-700' : 'text-slate-300'}"></i>
+        <span class="${isCurrent ? 'font-black text-emerald-900' : 'text-slate-700'}">${Utils.escape(list.name)}</span>
+      </span>
+      <code class="text-[10px] text-slate-400">${Utils.escape(String(list.id))}</code>
+    </button>`;
   },
 
   render() {

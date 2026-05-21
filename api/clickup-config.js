@@ -16,13 +16,22 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     try {
       // V32.0.9 — dados ClickUp vivem no tenant plane.
+      // V32.1.3 — Retorna também list info salva pra UI mostrar status sem
+      // novo fetch (defaultListId/Name/SpaceId, definidos pelo /api/clickup-set-list).
       const cfg = await req.tenantDb.query('SELECT 1 FROM clickup_config WHERE user_id = $1', [userId]);
-      const cred = await req.tenantDb.query('SELECT workspace_name FROM clickup_credentials WHERE user_id = $1', [userId]);
+      const cred = await req.tenantDb.query(
+        `SELECT workspace_name, default_list_id, default_list_name, default_space_id
+         FROM clickup_credentials WHERE user_id = $1`,
+        [userId]
+      );
       return res.status(200).json({
         ok: true,
         configured: cfg.rows.length > 0,
         connected: cred.rows.length > 0,
         workspaceName: cred.rows[0]?.workspace_name || null,
+        defaultListId: cred.rows[0]?.default_list_id || null,
+        defaultListName: cred.rows[0]?.default_list_name || null,
+        defaultSpaceId: cred.rows[0]?.default_space_id || null,
         encryptionReady: isEncryptionReady()
       });
     } catch (err) {

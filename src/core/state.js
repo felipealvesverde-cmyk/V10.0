@@ -46,7 +46,9 @@ var State = {
       // a cada normalize() porque não estavam declarados. Resultado: user perdia
       // a UI de "Conectado" toda vez que atualizávamos. Inicializa aqui pra
       // preservar no normalize() abaixo.
-      clickupStatus: { connected: false, configured: false, encryptionReady: true, workspaceName: null },
+      // V32.1.3 — clickupStatus expandido com info da list selecionada explicitamente
+      // (defaultListId/Name/SpaceId). Substitui auto-discovery do V31.2.32.
+      clickupStatus: { connected: false, configured: false, encryptionReady: true, workspaceName: null, defaultListId: null, defaultListName: null, defaultSpaceId: null },
       clickupMeta: { loaded: false, loadedAt: null, workspaceId: null, listId: null, spaceId: null, members: [], statuses: [], tags: [], customFields: [] },
       clickupConfigDraft: { client_id: '', client_secret: '' },
       clickupPatDraft: '',
@@ -84,6 +86,12 @@ var State = {
       tenantDbPlugError: '',
       // V32.1.2 — Section "Minha Conta": draft do display_name editável.
       profileDisplayNameDraft: '',
+      // V32.1.3 — Modal de list-picker do ClickUp (Geraldo safe integration).
+      // _clickupTreeCache: árvore completa (spaces > folders > lists) hidratada
+      // sob demanda quando user abre o picker. Não persiste no localStorage.
+      showClickupListPicker: false,
+      _clickupTreeCache: null,
+      clickupTreeLoading: false,
       selectedProductId: null,
       selectedCampaignId: null,
       selectedActionId: null,
@@ -634,7 +642,16 @@ var State = {
       // sumiam silenciosamente em cada normalize, fazendo o user perder a UI
       // de "Conectado" mesmo com credentials válidas no DB.
       clickupStatus: (raw.clickupStatus && typeof raw.clickupStatus === 'object')
-        ? { connected: !!raw.clickupStatus.connected, configured: !!raw.clickupStatus.configured, encryptionReady: raw.clickupStatus.encryptionReady !== false, workspaceName: raw.clickupStatus.workspaceName || null }
+        ? {
+            connected: !!raw.clickupStatus.connected,
+            configured: !!raw.clickupStatus.configured,
+            encryptionReady: raw.clickupStatus.encryptionReady !== false,
+            workspaceName: raw.clickupStatus.workspaceName || null,
+            // V32.1.3 — preserva list info do raw em F5
+            defaultListId: raw.clickupStatus.defaultListId || null,
+            defaultListName: raw.clickupStatus.defaultListName || null,
+            defaultSpaceId: raw.clickupStatus.defaultSpaceId || null
+          }
         : base.clickupStatus,
       clickupMeta: (raw.clickupMeta && typeof raw.clickupMeta === 'object')
         ? {
@@ -700,7 +717,12 @@ var State = {
       tenantDbPlugDraft: typeof raw.tenantDbPlugDraft === 'string' ? raw.tenantDbPlugDraft : '',
       tenantDbPlugError: '',
       // V32.1.2 — draft do nome em "Minha Conta".
-      profileDisplayNameDraft: typeof raw.profileDisplayNameDraft === 'string' ? raw.profileDisplayNameDraft : ''
+      profileDisplayNameDraft: typeof raw.profileDisplayNameDraft === 'string' ? raw.profileDisplayNameDraft : '',
+      // V32.1.3 — Modal de list-picker do ClickUp. Modal sempre fechado no boot;
+      // cache nunca persiste (re-fetch sob demanda).
+      showClickupListPicker: false,
+      _clickupTreeCache: null,
+      clickupTreeLoading: false
     };
   },
   load() {

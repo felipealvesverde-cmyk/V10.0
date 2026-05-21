@@ -71,9 +71,15 @@ module.exports = async function handler(req, res) {
       const cached = await req.tenantDb.query('SELECT default_list_id FROM clickup_credentials WHERE user_id = $1', [userId]);
       targetListId = cached.rows[0]?.default_list_id;
     }
+    // V32.1.3 — Auto-discovery DEPRECATED (Geraldo audit). Chutar a primeira
+    // list bagunçava o ClickUp do cliente externo. User precisa escolher
+    // explicitamente em Configurações → ClickUp → Configurar list de destino.
     if (!targetListId) {
-      targetListId = await discoverFirstList(req, userId);
-      await req.tenantDb.query('UPDATE clickup_credentials SET default_list_id = $1 WHERE user_id = $2', [targetListId, userId]);
+      return res.status(400).json({
+        ok: false,
+        code: 'no_default_list',
+        message: 'List de destino do ClickUp não foi configurada. Vá em Configurações → Integrações → ClickUp → Configurar list e escolha onde tasks devem nascer. Por segurança, o LJ NÃO escolhe automaticamente.'
+      });
     }
 
     // Normaliza assignees: aceita array ou singular (compat).

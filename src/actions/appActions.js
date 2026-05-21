@@ -5559,6 +5559,8 @@ Object.assign(Actions, {
   // V30.0.0 — INTEGRAÇÃO CLICKUP. Actions pra Settings UI + criar task via modal.
 
   // Carrega status ClickUp do backend.
+  // V32.1.3 — agora também hidrata defaultListId/Name/SpaceId pra UI mostrar
+  // qual list o LJ vai usar (substitui auto-discovery).
   async loadClickupStatus() {
     try {
       const token = localStorage.getItem('lj_jwt');
@@ -5569,7 +5571,10 @@ Object.assign(Actions, {
           configured: data.configured,
           connected: data.connected,
           workspaceName: data.workspaceName,
-          encryptionReady: data.encryptionReady
+          encryptionReady: data.encryptionReady,
+          defaultListId: data.defaultListId || null,
+          defaultListName: data.defaultListName || null,
+          defaultSpaceId: data.defaultSpaceId || null
         };
         App.save(); App.render();
         // V31.2.33 — Quando conecta, pre-fetch metadata pra modal de criar task abrir instantâneo.
@@ -5578,6 +5583,60 @@ Object.assign(Actions, {
         }
       }
     } catch (err) { console.warn('[clickup] loadStatus erro:', err); }
+  },
+
+  // V32.1.3 — Picker de list ClickUp (Geraldo safe integration).
+  openClickupListPicker() {
+    App.state.showClickupListPicker = true;
+    App.save(); App.render();
+    if (!App.state._clickupTreeCache) {
+      this.loadClickupTree();
+    }
+  },
+
+  closeClickupListPicker() {
+    App.state.showClickupListPicker = false;
+    App.save(); App.render();
+  },
+
+  async loadClickupTree() {
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return;
+    App.state.clickupTreeLoading = true;
+    App.render();
+    try {
+      const r = await fetch('/api/clickup-tree', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (data.ok) {
+        App.state._clickupTreeCache = data;
+      } else {
+        Utils.toast(`Falha ao carregar árvore: ${data.message}`);
+      }
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    } finally {
+      App.state.clickupTreeLoading = false;
+      App.render();
+    }
+  },
+
+  async selectClickupList(listId, spaceId, listName) {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch('/api/clickup-set-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ list_id: listId, space_id: spaceId, list_name: listName })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ ${data.message}`);
+      App.state.showClickupListPicker = false;
+      // Re-hidrata status pra mostrar lista nova
+      await this.loadClickupStatus();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
   },
 
   // V31.2.33 — Pre-fetch members/statuses/tags/custom_fields do ClickUp.
