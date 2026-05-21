@@ -404,6 +404,41 @@ async function runMigrations() {
       console.error('[v32-tenant-seed] Stack:', err.stack);
     }
 
+    // V32.0.3 — Limpeza do user legacy 'joao.sansone@gmail.com'.
+    // Esse email era a identidade Anthropic do Felipe (Claude Code login) que
+    // foi usado por engano como MASTER_USERNAME em algum momento. Agora que o
+    // master correto é felipe@w2c.pro.br, esse user antigo vira lixo no DB.
+    //
+    // O slug 'sansone' está reservado pro CLIENTE João Sansone (pessoa
+    // diferente, ainda sem login). Manter joao.sansone@gmail.com no DB
+    // confundiria a auditoria. Decisão Felipe 2026-05-21: deletar.
+    //
+    // CASCADE: o ON DELETE CASCADE em users(id) leva junto:
+    //   journey_state, journey_snapshots, djow_conversations, djow_messages,
+    //   clickup_config, clickup_credentials, rd_credentials, tenant_members
+    //
+    // Guarda: SÓ deleta se o user já NÃO for o master atual (segurança extra,
+    // caso Felipe não tenha trocado MASTER_USERNAME no Railway ainda — não
+    // queremos deletar o login pelo qual ele está logado agora).
+    try {
+      const LEGACY_USERNAME = 'joao.sansone@gmail.com';
+      const legacyRow = await client.query(
+        'SELECT id, is_master FROM users WHERE username = $1',
+        [LEGACY_USERNAME]
+      );
+      const legacy = legacyRow.rows[0];
+      if (!legacy) {
+        console.log('[v32-legacy-cleanup] User joao.sansone@gmail.com não existe — nada a fazer.');
+      } else if (legacy.is_master) {
+        console.warn(`[v32-legacy-cleanup] ⚠ User joao.sansone@gmail.com (id=${legacy.id}) ainda é MASTER. Trocar MASTER_USERNAME=felipe@w2c.pro.br no Railway e redeploy ANTES dessa limpeza rodar.`);
+      } else {
+        await client.query('DELETE FROM users WHERE id = $1', [legacy.id]);
+        console.log(`[v32-legacy-cleanup] ✓ User joao.sansone@gmail.com (id=${legacy.id}) deletado (cascade levou state/snapshots/integrations).`);
+      }
+    } catch (err) {
+      console.error('[v32-legacy-cleanup] FALHOU (continuando):', err.message);
+    }
+
     console.log('[server] Migrations OK.');
     return { ok: true };
   } catch (err) {
