@@ -95,8 +95,9 @@ module.exports = async function handler(req, res) {
   if (!Array.isArray(messages) || !messages.length) return res.status(400).json({ ok: false, message: 'messages array obrigatório.' });
 
   try {
-    // Carrega contexto da ação do journey_state do user (não do body — server trusted).
-    const stateRow = await req.db.query('SELECT state_json FROM journey_state WHERE user_id = $1 ORDER BY id DESC LIMIT 1', [req.user.sub]);
+    // V32.0.11 — journey_state vive no tenant plane.
+    // Nota: ORDER BY id é bug legado (column dropped em V31). Mantida intocada.
+    const stateRow = await req.tenantDb.query('SELECT state_json FROM journey_state WHERE user_id = $1 ORDER BY id DESC LIMIT 1', [req.user.sub]);
     const state = stateRow.rows[0]?.state_json || {};
     const action = (state.actions || []).find(a => Number(a.id) === Number(actionId));
     if (!action) return res.status(404).json({ ok: false, message: 'Ação não encontrada no state do user.' });

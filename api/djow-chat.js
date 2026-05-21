@@ -807,7 +807,8 @@ module.exports = async function handler(req, res) {
   if (!message) return res.status(400).json({ ok: false, message: 'message obrigatório.' });
 
   // Carrega state do user (pra contexto + tools)
-  const state = await getUserState(req.db);
+  // V32.0.11 — Dados Djow (journey_state, djow_*) vivem no tenant plane.
+  const state = await getUserState(req.tenantDb);
   const djowCfg = state.djowConfig || {};
   const model = djowCfg.model || 'claude-sonnet-4-6';
 
@@ -887,12 +888,12 @@ NÃO use tool de write (V27.0.x não tem ainda).`
   // Carrega/cria conversa
   let conv;
   if (conversationId) {
-    const r = await req.db.query('SELECT * FROM djow_conversations WHERE id = $1 AND user_id = $2', [conversationId, req.user.sub]);
+    const r = await req.tenantDb.query('SELECT * FROM djow_conversations WHERE id = $1 AND user_id = $2', [conversationId, req.user.sub]);
     conv = r.rows[0];
     if (!conv) conversationId = null;
   }
   if (!conv) {
-    const r = await req.db.query(
+    const r = await req.tenantDb.query(
       'INSERT INTO djow_conversations (user_id, title) VALUES ($1, $2) RETURNING *',
       [req.user.sub, message.slice(0, 80)]
     );
@@ -901,7 +902,7 @@ NÃO use tool de write (V27.0.x não tem ainda).`
   }
 
   // Carrega histórico (últimas 20 msgs)
-  const histR = await req.db.query(
+  const histR = await req.tenantDb.query(
     'SELECT role, content FROM djow_messages WHERE conversation_id = $1 ORDER BY created_at ASC LIMIT 40',
     [conversationId]
   );
@@ -909,7 +910,7 @@ NÃO use tool de write (V27.0.x não tem ainda).`
   messages.push({ role: 'user', content: message });
 
   // Salva mensagem do user
-  await req.db.query(
+  await req.tenantDb.query(
     'INSERT INTO djow_messages (conversation_id, role, content) VALUES ($1, $2, $3)',
     [conversationId, 'user', JSON.stringify(message)]
   );
@@ -946,10 +947,11 @@ NÃO use tool de write (V27.0.x não tem ainda).`
     const toolResults = [];
     for (const tu of toolUses) {
       // V30.0.0 — execTool agora é async + recebe ctx { db, userId } pras tools ClickUp.
-      const result = await execTool(tu.name, tu.input || {}, state, { db: req.db, userId: req.user.sub });
+      // V32.0.11 — passa req.tenantDb (tools ClickUp + writes em journey_state usam tenant plane).
+      const result = await execTool(tu.name, tu.input || {}, state, { db: req.tenantDb, userId: req.user.sub });
       // Se tool retornou _pendingWrite, aplica no Postgres e atualiza state local
       if (result && result._pendingWrite) {
-        const writeRes = await applyStateWrite(req.db, req.user.sub, result._pendingWrite);
+        const writeRes = await applyStateWrite(req.tenantDb, req.user.sub, result._pendingWrite);
         if (writeRes.ok) {
           stateModified = true;
           entitiesCreated.push({ kind: result._pendingWrite.kind, payload: result.created });
@@ -994,11 +996,11 @@ NÃO use tool de write (V27.0.x não tem ainda).`
   const costUsd = (totalTokensIn * costPerInTokenSonnet) + (totalTokensOut * costPerOutTokenSonnet);
 
   // Salva resposta
-  await req.db.query(
+  await req.tenantDb.query(
     'INSERT INTO djow_messages (conversation_id, role, content, tokens_in, tokens_out, cost_usd) VALUES ($1, $2, $3, $4, $5, $6)',
     [conversationId, 'assistant', JSON.stringify(finalText), totalTokensIn, totalTokensOut, costUsd]
   );
-  await req.db.query('UPDATE djow_conversations SET updated_at = NOW() WHERE id = $1', [conversationId]);
+  await req.tenantDb.query('UPDATE djow_conversations SET updated_at = NOW() WHERE id = $1', [conversationId]);
 
   res.status(200).json({
     ok: true,

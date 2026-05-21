@@ -31,7 +31,10 @@ module.exports = async function handler(req, res) {
   let model = 'claude-sonnet-4-6';
   let allowedRoles = ['master'];
   try {
-    const r = await req.db.query('SELECT state_json FROM journey_state WHERE id = 1 LIMIT 1');
+    // V32.0.11 — Dados Djow (journey_state, djow_*) vivem no tenant plane.
+    // Nota: query WHERE id = 1 é bug legado (id column foi removida em V31).
+    // Mantida intocada — fix fica pra outro momento.
+    const r = await req.tenantDb.query('SELECT state_json FROM journey_state WHERE id = 1 LIMIT 1');
     const state = r.rows[0]?.state_json || {};
     const cfg = state.djowConfig || {};
     model = cfg.model || model;
@@ -42,12 +45,12 @@ module.exports = async function handler(req, res) {
   let totalCostUsd = 0;
   let conversationCount = 0;
   try {
-    const r = await req.db.query(
+    const r = await req.tenantDb.query(
       'SELECT COALESCE(SUM(cost_usd), 0)::numeric AS total FROM djow_messages WHERE conversation_id IN (SELECT id FROM djow_conversations WHERE user_id = $1)',
       [req.user.sub]
     );
     totalCostUsd = Number(r.rows[0]?.total || 0);
-    const c = await req.db.query('SELECT COUNT(*)::int AS n FROM djow_conversations WHERE user_id = $1', [req.user.sub]);
+    const c = await req.tenantDb.query('SELECT COUNT(*)::int AS n FROM djow_conversations WHERE user_id = $1', [req.user.sub]);
     conversationCount = c.rows[0]?.n || 0;
   } catch (_) {}
 
