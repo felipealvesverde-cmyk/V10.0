@@ -2308,6 +2308,10 @@ var SettingsModal = {
     const cfg = App.state.executionConfig || (window.ExecutionProviderRegistry ? ExecutionProviderRegistry.defaultConfig() : { defaultProvider: 'manual', providers: {} });
     const providers = window.ExecutionProviderRegistry ? ExecutionProviderRegistry.list() : [];
     const stat = window.ExecutionStatusEngine ? ExecutionStatusEngine.globalSnapshot() : { total: 0, byProvider: {} };
+    // V32.0.16 — Hidrata credenciais V32+ ao abrir o painel (lazy load).
+    if (!App.state._executionCredentialsCache || App.state._executionCredentialsCache.length === 0) {
+      setTimeout(() => Actions.loadExecutionCredentials?.(), 50);
+    }
     return `<div class="space-y-5">
       <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
@@ -2340,6 +2344,10 @@ var SettingsModal = {
   },
 
   _providerConfigCard(provider, cfg) {
+    // V32.0.16 — Trello tem fluxo novo (execution_credentials criptografado).
+    // Demais providers (Monday/Jira/Notion) ainda no path legacy até V32.0.17+.
+    if (provider.id === 'trello') return this._trelloConfigCard(provider, cfg);
+
     const connectedBadge = cfg.connected
       ? '<span class="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-black">● Conectado</span>'
       : '<span class="px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600 text-[11px] font-black">○ Não conectado</span>';
@@ -2356,6 +2364,85 @@ var SettingsModal = {
         ${cfg.lastError ? `<span class="text-xs text-red-600 font-black flex items-center">⚠ ${Utils.escape(cfg.lastError)}</span>` : ''}
         ${cfg.lastTested ? `<span class="text-[11px] text-slate-400 self-center">Último teste: ${Utils.escape(new Date(cfg.lastTested).toLocaleString('pt-BR'))}</span>` : ''}
       </div>
+    </div>`;
+  },
+
+  // V32.0.16 — Card Trello com fluxo encrypted (DB) + fallback legacy embaixo.
+  // Quando user conecta via fluxo novo (POST /api/execution-connect), credenciais
+  // ficam criptografadas em execution_credentials. Tasks criam via backend proxy.
+  _trelloConfigCard(provider, legacyCfg) {
+    const credList = App.state._executionCredentialsCache || [];
+    const newConnected = credList.find(p => p.providerId === 'trello' && p.status === 'connected');
+    const draft = App.state.trelloConnectDraft || { apiKey: '', token: '', board: '', listTodo: '', listDone: '' };
+
+    const headerBadge = newConnected
+      ? '<span class="px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-black">● Conectado (DB criptografado)</span>'
+      : (legacyCfg.connected
+        ? '<span class="px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-black">⚠ Legacy (plaintext)</span>'
+        : '<span class="px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600 text-[11px] font-black">○ Não conectado</span>');
+
+    return `<div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div class="flex items-center gap-2"><i data-lucide="${provider.icon}" class="w-5 h-5" style="color:${provider.tone};"></i><h4 class="text-lg font-black text-slate-900">${Utils.escape(provider.label)}</h4></div>
+        ${headerBadge}
+      </div>
+
+      ${newConnected ? `
+        <div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-4 space-y-2">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="font-black text-emerald-900 text-sm">✓ Trello conectado via padrão V32.0.14+</p>
+              <p class="text-xs text-emerald-800 mt-1">Credenciais criptografadas no DB. Tasks são criadas via backend proxy — token nunca toca o browser.</p>
+              ${newConnected.lastTestedAt ? `<p class="text-[11px] text-emerald-700 mt-1">Último teste: ${new Date(newConnected.lastTestedAt).toLocaleString('pt-BR')}</p>` : ''}
+              ${newConnected.lastError ? `<p class="text-[11px] text-red-700 mt-1">⚠ Último erro: ${Utils.escape(newConnected.lastError)}</p>` : ''}
+            </div>
+            <button onclick="Actions.disconnectTrelloNew()" class="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-black shrink-0"><i data-lucide="unplug" class="w-3.5 h-3.5 inline mr-1"></i>Desconectar</button>
+          </div>
+        </div>
+      ` : `
+        <div class="rounded-2xl bg-violet-50 border-2 border-violet-200 p-4 space-y-3">
+          <div>
+            <p class="font-black text-violet-900 text-sm">Conectar Trello (padrão novo — credenciais criptografadas)</p>
+            <p class="text-xs text-violet-800 mt-1">Pegar key+token em <a href="https://trello.com/app-key" target="_blank" class="underline font-bold">trello.com/app-key</a> · listIds: abre o card no Trello e copia o ID da URL.</p>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs font-black text-slate-700 uppercase">API Key *</label>
+              <input type="text" value="${Utils.escape(draft.apiKey || '')}" oninput="Actions.updateTrelloConnectDraftField('apiKey', this.value)" placeholder="32 chars hex" class="mt-1 w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
+            </div>
+            <div>
+              <label class="text-xs font-black text-slate-700 uppercase">Token *</label>
+              <input type="password" value="${Utils.escape(draft.token || '')}" oninput="Actions.updateTrelloConnectDraftField('token', this.value)" placeholder="ATTA..." class="mt-1 w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
+            </div>
+            <div>
+              <label class="text-xs font-black text-slate-700 uppercase">Board ID (opcional)</label>
+              <input type="text" value="${Utils.escape(draft.board || '')}" oninput="Actions.updateTrelloConnectDraftField('board', this.value)" class="mt-1 w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-sm" />
+            </div>
+            <div>
+              <label class="text-xs font-black text-slate-700 uppercase">List "To Do" ID *</label>
+              <input type="text" value="${Utils.escape(draft.listTodo || '')}" oninput="Actions.updateTrelloConnectDraftField('listTodo', this.value)" placeholder="onde tasks novas entram" class="mt-1 w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-sm" />
+            </div>
+            <div class="md:col-span-2">
+              <label class="text-xs font-black text-slate-700 uppercase">List "Done" ID (opcional)</label>
+              <input type="text" value="${Utils.escape(draft.listDone || '')}" oninput="Actions.updateTrelloConnectDraftField('listDone', this.value)" placeholder="pra mover quando completar" class="mt-1 w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-sm" />
+            </div>
+          </div>
+
+          <button onclick="Actions.connectTrelloNew()" class="px-5 py-3 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black text-sm" style="color:#fff!important;"><i data-lucide="plug" class="w-4 h-4 inline mr-1"></i>Conectar Trello</button>
+        </div>
+      `}
+
+      <details class="mt-4 text-xs text-slate-500">
+        <summary class="cursor-pointer font-black select-none">Modo legacy (campos em plaintext — apenas pra compatibilidade V13-V31)</summary>
+        <div class="mt-3 grid md:grid-cols-2 gap-3">
+          ${provider.fields.map(field => this._providerInput(provider.id, field, legacyCfg[field])).join('')}
+        </div>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button onclick="Actions.testExecutionProvider('${provider.id}')" class="px-3 py-1.5 rounded-xl bg-slate-200 text-slate-700 font-black text-xs">Testar legacy</button>
+          ${legacyCfg.lastError ? `<span class="text-[11px] text-red-600 font-black flex items-center">⚠ ${Utils.escape(legacyCfg.lastError)}</span>` : ''}
+        </div>
+      </details>
     </div>`;
   },
 

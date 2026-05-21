@@ -71,6 +71,12 @@ var State = {
       // (mesma regra: novo campo em App.state precisa entrar em initial + normalize).
       _tenantsListCache: [],
       tenantPlugDraft: {},
+      // V32.0.16 — Cache de providers conectados via execution_credentials (DB
+      // criptografado). Hidratado por Actions.loadExecutionCredentials() ao
+      // abrir Settings → Execução. Provider bridges (_isNewPathConnected) leem
+      // daqui pra decidir entre path novo (backend) e legacy (frontend).
+      _executionCredentialsCache: [],
+      trelloConnectDraft: { apiKey: '', token: '', board: '', listTodo: '', listDone: '' },
       selectedProductId: null,
       selectedCampaignId: null,
       selectedActionId: null,
@@ -671,7 +677,18 @@ var State = {
       // string. _tenantsListCache nunca persiste no localStorage (sempre fetch
       // fresco) mas listamos pra normalize não dropar enquanto a sessão tá ativa.
       _tenantsListCache: Array.isArray(raw._tenantsListCache) ? raw._tenantsListCache : [],
-      tenantPlugDraft: (raw.tenantPlugDraft && typeof raw.tenantPlugDraft === 'object') ? raw.tenantPlugDraft : {}
+      tenantPlugDraft: (raw.tenantPlugDraft && typeof raw.tenantPlugDraft === 'object') ? raw.tenantPlugDraft : {},
+      // V32.0.16 — Cache + draft de execution_credentials.
+      _executionCredentialsCache: Array.isArray(raw._executionCredentialsCache) ? raw._executionCredentialsCache : [],
+      trelloConnectDraft: (raw.trelloConnectDraft && typeof raw.trelloConnectDraft === 'object')
+        ? {
+            apiKey: String(raw.trelloConnectDraft.apiKey || ''),
+            token: String(raw.trelloConnectDraft.token || ''),
+            board: String(raw.trelloConnectDraft.board || ''),
+            listTodo: String(raw.trelloConnectDraft.listTodo || ''),
+            listDone: String(raw.trelloConnectDraft.listDone || '')
+          }
+        : { apiKey: '', token: '', board: '', listTodo: '', listDone: '' }
     };
   },
   load() {

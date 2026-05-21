@@ -1792,6 +1792,84 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.0.16 — Execution credentials novo padrão (encrypted DB).
+  async loadExecutionCredentials() {
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return;
+    try {
+      const res = await fetch('/api/execution-credentials', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        App.state._executionCredentialsCache = data.providers || [];
+        App.save();
+        App.render();
+      }
+    } catch (err) { console.warn('[loadExecutionCredentials]', err); }
+  },
+
+  updateTrelloConnectDraftField(field, value) {
+    App.state.trelloConnectDraft = {
+      ...(App.state.trelloConnectDraft || { apiKey: '', token: '', board: '', listTodo: '', listDone: '' }),
+      [field]: String(value || '')
+    };
+  },
+
+  async connectTrelloNew() {
+    const draft = App.state.trelloConnectDraft || {};
+    if (!draft.apiKey || !draft.token) {
+      return Utils.toast('API Key e Token são obrigatórios pra conectar.');
+    }
+    if (!draft.listTodo) {
+      return Utils.toast('Informe o List ID "To Do" — sem ele tasks não nascem em lugar nenhum.');
+    }
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return Utils.toast('Sessão expirada — faça login.');
+    try {
+      const res = await fetch('/api/execution-connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          provider: 'trello',
+          fields: {
+            apiKey: draft.apiKey,
+            token: draft.token,
+            board: draft.board || null,
+            listTodo: draft.listTodo,
+            listDone: draft.listDone || null
+          },
+          meta: { board: draft.board || null }
+        })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ ${data.message}`);
+      App.state.trelloConnectDraft = { apiKey: '', token: '', board: '', listTodo: '', listDone: '' };
+      await this.loadExecutionCredentials();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async disconnectTrelloNew() {
+    if (!confirm('Desconectar Trello?\n\nO LJ vai parar de criar cards lá. Credenciais criptografadas serão apagadas do DB.')) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/execution-disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ provider: 'trello' })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ Trello desconectado.');
+      await this.loadExecutionCredentials();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V32.0.12 — Tenants admin (master only).
   async loadTenantsList() {
     const token = localStorage.getItem('lj_jwt');

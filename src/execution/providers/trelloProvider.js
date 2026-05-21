@@ -1,5 +1,8 @@
 // V16.3 — Trello Provider
 // API: https://api.trello.com/1. Usa apiKey + token como query params.
+// V32.0.16 — Bridge pra padrão novo (execution_credentials criptografado no DB).
+// Quando o user está conectado via /api/execution-connect, roteia createTask
+// pelo backend (token nunca toca o browser). Senão, fluxo legado V16.3.
 window.ExecutionProviders = window.ExecutionProviders || {};
 window.ExecutionProviders.trello = {
   id: 'trello',
@@ -7,7 +10,15 @@ window.ExecutionProviders.trello = {
 
   _auth(cfg) { return `key=${encodeURIComponent(cfg.apiKey || '')}&token=${encodeURIComponent(cfg.token || '')}`; },
 
+  _isNewPathConnected() {
+    const list = window.App?.state?._executionCredentialsCache || [];
+    return list.some(p => p.providerId === 'trello' && p.status === 'connected');
+  },
+
   async testConnection(cfg) {
+    if (this._isNewPathConnected()) {
+      return { ok: true, message: 'Conectado via execution_credentials (DB criptografado).' };
+    }
     if (!cfg?.apiKey || !cfg?.token) return { ok: false, message: 'Informe API Key e Token do Trello.' };
     try {
       const res = await fetch(`${this._baseUrl}/members/me?${this._auth(cfg)}`);
@@ -17,6 +28,27 @@ window.ExecutionProviders.trello = {
   },
 
   async createTask(payload, cfg) {
+    // V32.0.16 — Caminho novo via backend (credenciais criptografadas).
+    if (this._isNewPathConnected()) {
+      try {
+        const jwt = localStorage.getItem('lj_jwt');
+        const res = await fetch('/api/trello-create-task', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+          body: JSON.stringify({
+            name: payload.title || payload.name,
+            description: payload.description,
+            due_date: payload.due_date
+          })
+        });
+        const data = await res.json();
+        if (data.ok) return { providerTaskId: data.providerTaskId, externalUrl: data.externalUrl };
+        return { providerTaskId: `trello_mock_${Date.now()}`, externalUrl: null, error: data.message || 'Trello create-task falhou.' };
+      } catch (err) {
+        return { providerTaskId: `trello_mock_${Date.now()}`, externalUrl: null, error: String(err?.message || err) };
+      }
+    }
+    // Caminho legado V16.3
     if (!cfg?.apiKey || !cfg?.token || !cfg?.listTodo) return { providerTaskId: `trello_mock_${Date.now()}`, externalUrl: null };
     try {
       const body = new URLSearchParams({
