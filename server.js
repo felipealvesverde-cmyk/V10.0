@@ -307,55 +307,77 @@ async function runMigrations() {
       console.error('[demo-seed] Stack:', err.stack);
     }
 
-    // V32.0.1 — Global Mode tenant seed.
-    // Cria os 2 tenants iniciais (Sansone Management + Engenho Norte) e linka
-    // os users existentes como owners. Idempotente: re-rodar não duplica nada.
+    // V32.0.2 — Global Mode tenant seed (REVISADO).
+    // Modelo correto de quem-é-quem:
+    //   - Felipe Alves (CEO/dev) → master (felipe@w2c.pro.br) + demo (demo@leadjourney.app)
+    //     Master é admin global, NÃO é dono de nenhum tenant.
+    //     Demo é staging do Felipe, dono do tenant 'engenho-norte' (cervejaria fictícia).
+    //   - João Sansone (primeiro CLIENTE EXTERNO) → vai ganhar user próprio + tenant
+    //     'sansone' como owner + DB próprio plugado. Ainda não criado.
     //
-    // NÃO move dados ainda. db_connection_string_enc continua NULL nos dois →
-    // app segue usando o DB central exatamente como V31. V32.0.2 acopla o
-    // roteamento (middleware req.tenantDb) com fallback gracioso.
+    // Esta seed:
+    //   1. Garante tenant 'sansone' existe com owner_user_id=NULL (reservado pro João)
+    //   2. Se algum user (ex.: master antigo) foi linkado como tenant_member ou owner
+    //      do 'sansone' por um seed anterior bugado, REMOVE essa ligação.
+    //   3. Garante tenant 'engenho-norte' linkado ao demo user como owner.
+    //   4. Se mais de 1 user com is_master=TRUE existir, demote todos exceto o atual
+    //      MASTER_USERNAME (caso env var tenha mudado no Railway).
+    //   5. Limpa default_tenant_id do master (master é admin global, não fica preso a tenant).
+    //
+    // Idempotente — re-rodar é seguro.
     try {
-      console.log('[v32-tenant-seed] Começando...');
+      console.log('[v32-tenant-seed] Começando (V32.0.2 revisado)...');
 
-      // 1. Tenant Sansone Management ← master user (joao.sansone)
-      const masterRow = await client.query('SELECT id, username FROM users WHERE is_master = TRUE LIMIT 1');
-      const masterUserId = masterRow.rows[0]?.id;
-      if (masterUserId) {
-        await client.query(`
-          INSERT INTO tenants (slug, name, status, plan, owner_user_id)
-          VALUES ('sansone', 'Sansone Management', 'active', 'owner', $1)
-          ON CONFLICT (slug) DO UPDATE SET
-            owner_user_id = COALESCE(tenants.owner_user_id, EXCLUDED.owner_user_id),
-            updated_at = NOW()
-        `, [masterUserId]);
-        const sansoneRow = await client.query("SELECT id FROM tenants WHERE slug = 'sansone'");
-        const sansoneTenantId = sansoneRow.rows[0]?.id;
-        if (sansoneTenantId) {
-          await client.query(`
-            INSERT INTO tenant_members (tenant_id, user_id, role, joined_at)
-            VALUES ($1, $2, 'owner', NOW())
-            ON CONFLICT (tenant_id, user_id) DO UPDATE SET role = 'owner'
-          `, [sansoneTenantId, masterUserId]);
-          // Só define default_tenant_id se ainda for NULL (preserva escolha do user em sessões futuras).
-          await client.query(`
-            UPDATE users SET default_tenant_id = $1
-            WHERE id = $2 AND default_tenant_id IS NULL
-          `, [sansoneTenantId, masterUserId]);
-          console.log(`[v32-tenant-seed] ✓ Sansone Management (id=${sansoneTenantId}) ← user ${masterRow.rows[0].username} (id=${masterUserId}) como owner.`);
+      // 0. Demote masters órfãos: se MASTER_USERNAME no env não bate com algum
+      //    is_master=TRUE existente, derruba o flag dos antigos.
+      if (MASTER_USERNAME) {
+        const demoteResult = await client.query(
+          `UPDATE users SET is_master = FALSE
+           WHERE is_master = TRUE AND username <> $1
+           RETURNING id, username`,
+          [MASTER_USERNAME]
+        );
+        if (demoteResult.rowCount > 0) {
+          console.log(`[v32-tenant-seed] Demoted ${demoteResult.rowCount} master(s) órfãos:`,
+            demoteResult.rows.map(r => r.username).join(', '));
         }
-      } else {
-        console.warn('[v32-tenant-seed] Master user não encontrado — tenant Sansone pulado.');
       }
 
-      // 2. Tenant Engenho Norte ← demo user (demo@leadjourney.app)
+      // 1. Tenant Sansone Management — RESERVADO. owner_user_id = NULL até João existir.
+      await client.query(`
+        INSERT INTO tenants (slug, name, status, plan, owner_user_id)
+        VALUES ('sansone', 'Sansone Management', 'active', 'starter', NULL)
+        ON CONFLICT (slug) DO UPDATE SET
+          name = 'Sansone Management',
+          status = 'active',
+          updated_at = NOW()
+      `);
+      const sansoneRow = await client.query("SELECT id FROM tenants WHERE slug = 'sansone'");
+      const sansoneTenantId = sansoneRow.rows[0]?.id;
+
+      // Limpa qualquer linkagem errada anterior (master havia sido linkado em V32.0.1 buggy).
+      if (sansoneTenantId) {
+        const masterRow = await client.query('SELECT id FROM users WHERE is_master = TRUE LIMIT 1');
+        const masterUserId = masterRow.rows[0]?.id;
+        if (masterUserId) {
+          await client.query('DELETE FROM tenant_members WHERE tenant_id = $1 AND user_id = $2', [sansoneTenantId, masterUserId]);
+          await client.query('UPDATE tenants SET owner_user_id = NULL WHERE id = $1 AND owner_user_id = $2', [sansoneTenantId, masterUserId]);
+          await client.query('UPDATE users SET default_tenant_id = NULL WHERE id = $1 AND default_tenant_id = $2', [masterUserId, sansoneTenantId]);
+        }
+        console.log(`[v32-tenant-seed] ✓ Tenant 'sansone' (id=${sansoneTenantId}) RESERVADO sem owner — aguardando criação do user João Sansone.`);
+      }
+
+      // 2. Tenant Engenho Norte ← demo user (Felipe's staging)
       const demoUserRow2 = await client.query("SELECT id FROM users WHERE username = 'demo@leadjourney.app' LIMIT 1");
       const demoUserId2 = demoUserRow2.rows[0]?.id;
       if (demoUserId2) {
         await client.query(`
           INSERT INTO tenants (slug, name, status, plan, owner_user_id)
-          VALUES ('engenho-norte', 'Engenho Norte', 'demo', 'demo', $1)
+          VALUES ('engenho-norte', 'Engenho Norte (staging)', 'demo', 'demo', $1)
           ON CONFLICT (slug) DO UPDATE SET
-            owner_user_id = COALESCE(tenants.owner_user_id, EXCLUDED.owner_user_id),
+            name = 'Engenho Norte (staging)',
+            status = 'demo',
+            owner_user_id = $1,
             updated_at = NOW()
         `, [demoUserId2]);
         const engenhoRow = await client.query("SELECT id FROM tenants WHERE slug = 'engenho-norte'");
@@ -368,9 +390,9 @@ async function runMigrations() {
           `, [engenhoTenantId, demoUserId2]);
           await client.query(`
             UPDATE users SET default_tenant_id = $1
-            WHERE id = $2 AND default_tenant_id IS NULL
+            WHERE id = $2 AND (default_tenant_id IS NULL OR default_tenant_id <> $1)
           `, [engenhoTenantId, demoUserId2]);
-          console.log(`[v32-tenant-seed] ✓ Engenho Norte (id=${engenhoTenantId}) ← user demo (id=${demoUserId2}) como owner.`);
+          console.log(`[v32-tenant-seed] ✓ Tenant 'engenho-norte' (id=${engenhoTenantId}) ← user demo (id=${demoUserId2}) como owner.`);
         }
       } else {
         console.warn('[v32-tenant-seed] User demo não encontrado — tenant Engenho Norte pulado.');
