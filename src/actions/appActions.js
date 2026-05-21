@@ -1988,8 +1988,10 @@ Object.assign(Actions, {
       return { ok: false, message: res.message };
     }
     // V31.2.50 — Loga estrutura do response pra debug (RD não documenta formato consistente).
-    console.log('[rd] GET /integrations/webhooks raw response:', res.data);
-    const list = res.data?.webhooks || res.data?.subscriptions || res.data?.data || res.data || [];
+    // V31.2.53 — Stringify inline pra user conseguir ler sem expandir (e me mandar print).
+    console.log('[rd] GET /integrations/webhooks raw:', JSON.stringify(res.data).slice(0, 800));
+    const list = res.data?.webhooks || res.data?.subscriptions || res.data?.data
+      || (Array.isArray(res.data) ? res.data : null) || [];
     // V31.2.50 — Match de URL mais tolerante (case-insensitive + strip trailing slash).
     const targetUrl = String(this._webhookUrl() || '').toLowerCase().replace(/\/$/, '');
     const ours = (Array.isArray(list) ? list : []).filter(w => {
@@ -2001,14 +2003,22 @@ Object.assign(Actions, {
       url: w.url || w.callback_url || '',
       createdAt: w.created_at || ''
     }));
-    console.log(`[rd] webhooks dedup: total=${Array.isArray(list) ? list.length : 0}, ours=${ours.length}, alvo=${targetUrl}`);
-    App.state.rdWebhooks = ours;
+    // V31.2.53 — Smart merge: preserva entries locais marcadas alreadyExistedAtRd
+    // se RD não retornou. RD GET /integrations/webhooks às vezes retorna vazio
+    // mesmo com webhooks cadastrados (provavelmente paginação ou scope errado),
+    // e a sobrescrita destruía as entradas que o handler DUPLICATED_URL adicionou.
+    const localOrphans = (App.state.rdWebhooks || []).filter(l =>
+      l.alreadyExistedAtRd && !ours.some(r => r.eventName === l.eventName)
+    );
+    const merged = [...ours, ...localOrphans];
+    console.log(`[rd] webhooks dedup: rdList=${Array.isArray(list) ? list.length : 0}, ours=${ours.length}, orphansPreservados=${localOrphans.length}, total=${merged.length}, alvo=${targetUrl}`);
+    App.state.rdWebhooks = merged;
     App.state.rdWebhookRegistrationError = '';
     // V31.2.52 — Timestamp pra UI mostrar 'última verificação há X min'.
     App.state.rdWebhooksLastSyncAt = new Date().toISOString();
     App.save();
     App.render();
-    return { ok: true, webhooks: ours };
+    return { ok: true, webhooks: merged };
   },
 
   // V24.0.0 — Cadastra UM webhook por event_name no RD via API v2.
