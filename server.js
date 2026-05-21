@@ -47,6 +47,14 @@ let MASTER_PASSWORD_HASH = '';
 if (!JWT_SECRET) console.warn('[server] JWT_SECRET ausente — auth desabilitado.');
 if (!MASTER_USERNAME || !MASTER_PASSWORD) console.warn('[server] MASTER_USERNAME / MASTER_PASSWORD ausentes — login do master indisponível.');
 
+// V32.0.6 — Diagnostic: imprime exatamente o que Railway entregou pra gente.
+// Sem isso é difícil saber se env var foi atualizada ou tá vindo cacheada.
+console.log(`[server] ENV CHECK: MASTER_USERNAME=${JSON.stringify(MASTER_USERNAME)} (length=${MASTER_USERNAME.length})`);
+console.log(`[server] ENV CHECK: MASTER_PASSWORD=${MASTER_PASSWORD ? '<set, length=' + MASTER_PASSWORD.length + '>' : '<empty>'}`);
+console.log(`[server] ENV CHECK: JWT_SECRET=${JWT_SECRET ? '<set, length=' + JWT_SECRET.length + '>' : '<empty>'}`);
+console.log(`[server] ENV CHECK: DATABASE_URL=${process.env.DATABASE_URL ? '<set>' : '<empty>'}`);
+console.log(`[server] ENV CHECK: ENCRYPTION_KEY=${process.env.ENCRYPTION_KEY ? '<set, length=' + process.env.ENCRYPTION_KEY.length + '>' : '<empty>'}`);
+
 // V23.0.0 — Migrations automáticas. Roda uma vez no startup.
 async function runMigrations() {
   if (!pgPool) return { ok: false, message: 'No pool' };
