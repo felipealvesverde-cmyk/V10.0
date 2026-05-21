@@ -77,6 +77,11 @@ var State = {
       // daqui pra decidir entre path novo (backend) e legacy (frontend).
       _executionCredentialsCache: [],
       trelloConnectDraft: { apiKey: '', token: '', board: '', listTodo: '', listDone: '' },
+      // V32.1.1 — Section "Meu Banco" (self-service tenant DB).
+      // Estado vem de auth-me (tenantDbPlugged) — não precisa cache separado.
+      // Draft do form pra plugar próprio Postgres.
+      tenantDbPlugDraft: '',
+      tenantDbPlugError: '',
       selectedProductId: null,
       selectedCampaignId: null,
       selectedActionId: null,
@@ -688,7 +693,10 @@ var State = {
             listTodo: String(raw.trelloConnectDraft.listTodo || ''),
             listDone: String(raw.trelloConnectDraft.listDone || '')
           }
-        : { apiKey: '', token: '', board: '', listTodo: '', listDone: '' }
+        : { apiKey: '', token: '', board: '', listTodo: '', listDone: '' },
+      // V32.1.1 — drafts do form "Meu Banco". Nunca persiste erro de tentativa anterior.
+      tenantDbPlugDraft: typeof raw.tenantDbPlugDraft === 'string' ? raw.tenantDbPlugDraft : '',
+      tenantDbPlugError: ''
     };
   },
   load() {

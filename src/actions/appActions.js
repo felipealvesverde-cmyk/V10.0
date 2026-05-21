@@ -1870,6 +1870,87 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.1.1 — "Meu Banco" self-service (qualquer user com tenant).
+  updateTenantDbPlugDraft(value) {
+    App.state.tenantDbPlugDraft = String(value || '');
+  },
+
+  async plugOwnTenantDb() {
+    const url = String(App.state.tenantDbPlugDraft || '').trim();
+    if (!url) {
+      App.state.tenantDbPlugError = 'Cole a connection string primeiro.';
+      App.render();
+      return;
+    }
+    if (!url.startsWith('postgres://') && !url.startsWith('postgresql://')) {
+      App.state.tenantDbPlugError = 'URL precisa começar com postgres:// ou postgresql://';
+      App.render();
+      return;
+    }
+    if (!confirm('Plugar este Postgres no seu tenant?\n\n• A conexão será testada\n• Se OK, o schema do LJ será criado automaticamente (não destrói dados existentes — apenas adiciona tabelas faltantes)\n• Próximas requests suas vão pro banco novo\n• Dados que estão hoje no armazenamento compartilhado NÃO migram automaticamente\n\nConfirma?')) return;
+
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return Utils.toast('Sessão expirada — faça login.');
+    App.state.tenantDbPlugError = '';
+    App.render();
+
+    try {
+      const res = await fetch('/api/tenant-plug-own-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ connection_string: url })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        App.state.tenantDbPlugError = `${data.step ? '[' + data.step + '] ' : ''}${data.message || 'Falha desconhecida.'}`;
+        App.render();
+        return;
+      }
+      Utils.toast(`✓ ${data.message}`);
+      App.state.tenantDbPlugDraft = '';
+      App.state.tenantDbPlugError = '';
+      // Refresca info do user (auth-me) — agora tenantDbPlugged = true
+      await this._refreshCurrentUserInfo?.();
+      App.render();
+    } catch (err) {
+      App.state.tenantDbPlugError = `Erro: ${err.message}`;
+      App.render();
+    }
+  },
+
+  async unplugOwnTenantDb() {
+    if (!confirm('Desplugar seu banco?\n\n⚠ ATENÇÃO: dados que você criou neste banco próprio FICAM lá (não são deletados, mas o LJ deixa de ler).\n\nVocê volta a operar no armazenamento compartilhado. Pra recuperar acesso aos dados antigos, basta plugar a mesma URL de novo.\n\nConfirma?')) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/tenant-unplug-own-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ confirm: true })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ ${data.message}`);
+      await this._refreshCurrentUserInfo?.();
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V32.1.1 — Helper: re-fetch auth-me pra atualizar App.currentUser (tenantDbPlugged etc).
+  async _refreshCurrentUserInfo() {
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return;
+    try {
+      const res = await fetch('/api/auth-me', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data?.ok && data?.user) {
+        App.currentUser = data.user;
+        localStorage.setItem('lj_user', JSON.stringify(data.user));
+      }
+    } catch (_) { /* silencioso */ }
+  },
+
   // V32.0.12 — Tenants admin (master only).
   async loadTenantsList() {
     const token = localStorage.getItem('lj_jwt');

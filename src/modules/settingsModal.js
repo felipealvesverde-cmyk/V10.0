@@ -2688,6 +2688,95 @@ var SettingsModal = {
     </div>`;
   },
 
+  // V32.1.1 — "Meu Banco" — self-service de tenant DB pra cliente.
+  // Visível pra QUALQUER user que tem default_tenant_id (= todo cliente real,
+  // independente de master ou não). Master sem tenant não vê — usa o menu
+  // Tenants global pra mexer em tenant de outros.
+  //
+  // Diferente do menu Tenants (master-only): aqui o user só vê e mexe no
+  // PRÓPRIO tenant. Backend força isso via req.user.tenantId do JWT.
+  myDbPanel() {
+    const user = App.currentUser || {};
+    const tenantName = user.tenantName || user.tenantSlug || 'seu tenant';
+    const dbPlugged = Boolean(user.tenantDbPlugged);
+    const draft = String(App.state.tenantDbPlugDraft || '');
+    const error = String(App.state.tenantDbPlugError || '');
+
+    if (!user.tenantId) {
+      return `<div class="rounded-3xl bg-amber-50 border border-amber-200 p-6">
+        <h3 class="text-xl font-black text-amber-900 mb-1">Sem tenant associado</h3>
+        <p class="text-sm text-amber-800">Você é admin global (master) sem tenant próprio. Pra plugar banco de algum cliente, use Configurações → Tenants (Global Mode).</p>
+      </div>`;
+    }
+
+    return `<div class="space-y-5">
+      <div class="rounded-2xl bg-violet-50 border border-violet-300 p-4 text-violet-900 flex items-start gap-3">
+        <i data-lucide="database" class="w-5 h-5 mt-0.5 shrink-0 text-violet-700"></i>
+        <div>
+          <p class="font-black text-sm mb-1">Banco do tenant "${Utils.escape(tenantName)}"</p>
+          <p class="text-xs leading-relaxed">Por padrão seus dados ficam no armazenamento compartilhado do LeadJourney. Você pode plugar um Postgres próprio (Supabase / AWS RDS / Railway / qualquer Postgres-compat) pra isolar 100% seus dados. A connection string fica criptografada no servidor (AES-256-GCM) e nunca toca o navegador.</p>
+        </div>
+      </div>
+
+      <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
+        <div class="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 class="text-2xl font-black text-slate-950">Status atual</h3>
+            <p class="text-sm text-slate-500">Onde seus dados estão sendo gravados agora.</p>
+          </div>
+          ${dbPlugged
+            ? '<span class="px-3 py-2 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-black">🔌 Banco próprio plugado</span>'
+            : '<span class="px-3 py-2 rounded-2xl bg-slate-100 border border-slate-200 text-slate-700 text-xs font-black">📦 Armazenamento compartilhado</span>'
+          }
+        </div>
+
+        ${dbPlugged ? `
+          <div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-4">
+            <p class="text-sm font-black text-emerald-900 mb-1">✓ Seus dados estão isolados</p>
+            <p class="text-xs text-emerald-800 mb-3">Toda gravação (state, snapshots, integrações) vai direto pro Postgres que você configurou. Latência depende da região do banco.</p>
+            <button onclick="Actions.unplugOwnTenantDb()" class="px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-black flex items-center gap-1.5">
+              <i data-lucide="unplug" class="w-3.5 h-3.5"></i>Desplugar e voltar pro compartilhado
+            </button>
+          </div>
+        ` : `
+          <div class="rounded-2xl bg-violet-50 border-2 border-violet-200 p-4 space-y-3">
+            <div>
+              <p class="font-black text-violet-900 text-sm">Plugar Postgres próprio (opcional)</p>
+              <p class="text-xs text-violet-800 mt-1">Provisione um banco em qualquer provedor (Supabase free tier 500MB, Railway, AWS RDS, Neon, etc), cole a connection string aqui. O LJ vai testar a conexão, criar o schema e migrar.</p>
+            </div>
+
+            <input
+              type="password"
+              value="${Utils.escape(draft)}"
+              oninput="Actions.updateTenantDbPlugDraft(this.value)"
+              placeholder="postgres://user:senha@host:5432/dbname"
+              class="w-full px-3 py-2.5 rounded-xl bg-white border border-violet-300 text-sm font-mono"
+            />
+
+            ${error ? `<div class="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700 font-black">⚠ ${Utils.escape(error)}</div>` : ''}
+
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <p class="text-[11px] text-violet-700">A conexão e schema serão validados antes de salvar.</p>
+              <button onclick="Actions.plugOwnTenantDb()" class="px-5 py-3 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black text-sm" style="color:#fff!important;">
+                <i data-lucide="plug" class="w-4 h-4 inline mr-1"></i>Plugar meu banco
+              </button>
+            </div>
+          </div>
+
+          <details class="mt-4 text-xs text-slate-500">
+            <summary class="cursor-pointer font-black select-none">Como pegar a connection string?</summary>
+            <div class="mt-3 space-y-3 text-slate-600">
+              <p><b>Supabase:</b> dashboard → seu projeto → Project Settings → Database → "Connection string" → URI → cole aqui.</p>
+              <p><b>Railway dele:</b> seu projeto Railway → service Postgres → Variables → copia <code class="bg-white px-1 py-0.5 rounded">DATABASE_URL</code>.</p>
+              <p><b>AWS RDS / Neon / outros:</b> monte o URL no formato <code class="bg-white px-1 py-0.5 rounded">postgres://user:senha@host:5432/dbname</code>.</p>
+              <p class="text-amber-700"><b>Atenção:</b> o usuário do banco precisa de permissão <code>CREATE TABLE</code> — o LJ vai criar ~10 tabelas automaticamente no primeiro plug.</p>
+            </div>
+          </details>
+        `}
+      </div>
+    </div>`;
+  },
+
   // V32.0.12 — Multi-tenant admin (master only).
   // Lista tenants do control plane com status + plug/unplug DB.
   // Cada tenant pode ter um Postgres próprio (db_plugged=true) ou usar control
@@ -2835,7 +2924,7 @@ var SettingsModal = {
     // V22.2 — Consolidação: 'rd' e 'rdCrm' viraram uma seção só "Conexão RD Station".
     // Mantemos o alias 'rdCrm' redirecionando p/ 'rd' por compat de bookmarks/links.
     const resolvedActive = active === 'rdCrm' ? 'rd' : active;
-    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários', admin: 'Administrar Lead Journey', tenants: 'Tenants (Global Mode)' };
+    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários', admin: 'Administrar Lead Journey', tenants: 'Tenants (Global Mode)', myDb: 'Meu Banco' };
     const subtitleMap = {
       rd: 'Token CRM, pipelines por campanha, sincronização de leads e (opcional) RD Marketing — tudo em um lugar.',
       backup: 'Prepare snapshots, restauração e segurança dos dados.',
@@ -2845,7 +2934,8 @@ var SettingsModal = {
       agents: 'Configure o Djow (Railway) e outros agentes que interpretam comandos em linguagem natural.',
       users: 'V23.0.0 — Aprove cadastros pendentes, gerencie modo (produção/sandbox) e revogue acessos.',
       admin: 'V31.2.1 — Ações administrativas críticas. Cuidado: aqui você apaga dados em cascata sem volta.',
-      tenants: 'V32.0.12 — Multi-tenant SaaS. Cada cliente tem um tenant; pode opcionalmente ter Postgres próprio plugado.'
+      tenants: 'V32.0.12 — Multi-tenant SaaS. Cada cliente tem um tenant; pode opcionalmente ter Postgres próprio plugado.',
+      myDb: 'V32.1.1 — Plug seu próprio Postgres pra isolar 100% seus dados. Connection string fica criptografada no servidor.'
     };
     const title = titleMap[resolvedActive] || titleMap.database;
     const subtitle = subtitleMap[resolvedActive] || subtitleMap.database;
@@ -2858,6 +2948,7 @@ var SettingsModal = {
       : resolvedActive === 'users' ? this.usersPanel()
       : resolvedActive === 'admin' ? this.adminPanel()
       : resolvedActive === 'tenants' ? this.tenantsPanel()
+      : resolvedActive === 'myDb' ? this.myDbPanel()
       : this.databasePanel();
 
     return `<div id="settingsModalBackdrop" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm p-4 overflow-auto">
@@ -2880,6 +2971,7 @@ var SettingsModal = {
         <main class="grid lg:grid-cols-[260px_1fr] min-h-[620px]">
           <aside class="bg-white border-r border-slate-200 p-5 space-y-3">
             ${this.sectionButton('database','Banco de Dados','database')}
+            ${App.currentUser?.tenantId ? this.sectionButton('myDb','Meu Banco','hard-drive-download') : ''}
             ${this.sectionButton('rd','Conexão RD Station','plug-zap')}
             ${App.currentUser?.isMaster ? this.sectionButton('users','Usuários','users') : ''}
             ${this.sectionButton('execution','Execução Operacional','kanban')}
