@@ -18,7 +18,8 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
-      const result = await req.db.query(
+      // V32.0.8 — req.tenantDb pra dados (control plane fallback se tenant sem DB próprio).
+      const result = await req.tenantDb.query(
         'SELECT state_json, updated_at FROM journey_state WHERE user_id = $1',
         [userId]
       );
@@ -50,7 +51,8 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      await req.db.query(
+      // V32.0.8 — req.tenantDb pra dados.
+      await req.tenantDb.query(
         `INSERT INTO journey_state (user_id, state_json, updated_at, updated_by_user_id)
          VALUES ($1, $2, NOW(), $1)
          ON CONFLICT (user_id) DO UPDATE SET

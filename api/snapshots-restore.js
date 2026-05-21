@@ -14,17 +14,18 @@ module.exports = async function handler(req, res) {
   if (!snapshotId) return res.status(400).json({ ok: false, message: 'snapshotId obrigatório.' });
 
   try {
+    // V32.0.8 — Snapshots e state vivem em req.tenantDb (tenant plane).
     // 1. Busca o snapshot (scoped por owner)
-    const snap = await req.db.query(
+    const snap = await req.tenantDb.query(
       'SELECT state_json, label, created_at, owner_user_id FROM journey_snapshots WHERE id = $1 AND owner_user_id = $2',
       [snapshotId, userId]
     );
     if (!snap.rows[0]) return res.status(404).json({ ok: false, message: 'Snapshot não encontrado.' });
 
     // 2. Backup do state atual ANTES de restaurar
-    const current = await req.db.query('SELECT state_json FROM journey_state WHERE user_id = $1', [userId]);
+    const current = await req.tenantDb.query('SELECT state_json FROM journey_state WHERE user_id = $1', [userId]);
     if (current.rows[0]) {
-      await req.db.query(
+      await req.tenantDb.query(
         `INSERT INTO journey_snapshots (state_json, label, triggered_by_user_id, owner_user_id)
          VALUES ($1, $2, $3, $3)`,
         [current.rows[0].state_json, `pre-restore-${new Date().toISOString().slice(0, 19)}`, userId]
@@ -32,7 +33,7 @@ module.exports = async function handler(req, res) {
     }
 
     // 3. Restaura
-    await req.db.query(
+    await req.tenantDb.query(
       `INSERT INTO journey_state (user_id, state_json, updated_at, updated_by_user_id)
        VALUES ($1, $2, NOW(), $1)
        ON CONFLICT (user_id) DO UPDATE SET
