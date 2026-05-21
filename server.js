@@ -404,6 +404,103 @@ async function runMigrations() {
       console.error('[v32-tenant-seed] Stack:', err.stack);
     }
 
+    // V32.0.4 — Migração de dados legacy joao.sansone@gmail.com → felipe@w2c.pro.br
+    // ANTES do V32.0.3 cleanup deletar o legacy.
+    //
+    // Por que: o user joao.sansone@gmail.com pode ter state/snapshots/integrações
+    // úteis (Felipe testou coisas logado nesse email no passado). Em vez de
+    // descartar via cascade, copiamos pro novo master felipe@w2c.pro.br.
+    //
+    // Estratégia por tabela:
+    //   - journey_state (PK user_id): DELETE felipe (recém-criado, vazio) → UPDATE legacy → felipe
+    //   - journey_snapshots: UPDATE owner_user_id + triggered_by_user_id
+    //   - djow_conversations: UPDATE user_id
+    //   - djow_messages: FK via conversation_id, segue junto
+    //   - clickup_config (PK user_id): DELETE felipe → UPDATE legacy
+    //   - clickup_credentials (PK user_id): DELETE felipe → UPDATE legacy
+    //   - rd_credentials (PK user_id+token_type): DELETE felipe → UPDATE legacy
+    //   - tenant_members: nenhum (V32.0.2 já limpou)
+    //
+    // Guarda: só roda se AMBOS users existem E são distintos. Idempotente
+    // depois do delete pq legacy some.
+    try {
+      const legacy = await client.query("SELECT id FROM users WHERE username = 'joao.sansone@gmail.com'");
+      const felipe = await client.query("SELECT id FROM users WHERE username = 'felipe@w2c.pro.br'");
+      const legacyId = legacy.rows[0]?.id;
+      const felipeId = felipe.rows[0]?.id;
+
+      if (!legacyId) {
+        console.log('[v32-legacy-migrate] User legacy não existe — nada a migrar.');
+      } else if (!felipeId) {
+        console.warn('[v32-legacy-migrate] User felipe@w2c.pro.br não existe ainda. Trocar MASTER_USERNAME no Railway e redeploy. Migração pulada (legacy preservado).');
+      } else if (legacyId === felipeId) {
+        console.log('[v32-legacy-migrate] Legacy e Felipe são o mesmo user — nada a migrar.');
+      } else {
+        console.log(`[v32-legacy-migrate] Começando migração: legacy(id=${legacyId}) → felipe(id=${felipeId})...`);
+
+        // journey_state (single row per user)
+        await client.query('DELETE FROM journey_state WHERE user_id = $1', [felipeId]);
+        const stateMoved = await client.query(
+          'UPDATE journey_state SET user_id = $1, updated_by_user_id = $1 WHERE user_id = $2 RETURNING user_id',
+          [felipeId, legacyId]
+        );
+        console.log(`[v32-legacy-migrate]   journey_state: ${stateMoved.rowCount} row(s) movidas.`);
+
+        // journey_snapshots
+        const snapshotsOwner = await client.query(
+          'UPDATE journey_snapshots SET owner_user_id = $1 WHERE owner_user_id = $2',
+          [felipeId, legacyId]
+        );
+        await client.query(
+          'UPDATE journey_snapshots SET triggered_by_user_id = $1 WHERE triggered_by_user_id = $2',
+          [felipeId, legacyId]
+        );
+        console.log(`[v32-legacy-migrate]   journey_snapshots: ${snapshotsOwner.rowCount} row(s) movidas.`);
+
+        // djow_conversations (messages seguem via FK)
+        const djowMoved = await client.query(
+          'UPDATE djow_conversations SET user_id = $1 WHERE user_id = $2',
+          [felipeId, legacyId]
+        );
+        console.log(`[v32-legacy-migrate]   djow_conversations: ${djowMoved.rowCount} row(s) movidas.`);
+
+        // clickup_config (single row per user)
+        await client.query('DELETE FROM clickup_config WHERE user_id = $1', [felipeId]);
+        const clickupCfgMoved = await client.query(
+          'UPDATE clickup_config SET user_id = $1 WHERE user_id = $2',
+          [felipeId, legacyId]
+        );
+        console.log(`[v32-legacy-migrate]   clickup_config: ${clickupCfgMoved.rowCount} row(s) movidas.`);
+
+        // clickup_credentials (single row per user)
+        await client.query('DELETE FROM clickup_credentials WHERE user_id = $1', [felipeId]);
+        const clickupCredMoved = await client.query(
+          'UPDATE clickup_credentials SET user_id = $1 WHERE user_id = $2',
+          [felipeId, legacyId]
+        );
+        console.log(`[v32-legacy-migrate]   clickup_credentials: ${clickupCredMoved.rowCount} row(s) movidas.`);
+
+        // rd_credentials (multiple token_types per user)
+        await client.query('DELETE FROM rd_credentials WHERE user_id = $1', [felipeId]);
+        const rdMoved = await client.query(
+          'UPDATE rd_credentials SET user_id = $1 WHERE user_id = $2',
+          [felipeId, legacyId]
+        );
+        console.log(`[v32-legacy-migrate]   rd_credentials: ${rdMoved.rowCount} row(s) movidas.`);
+
+        // Preserva o default_tenant_id (legacy não devia ter, mas garantia):
+        await client.query(`
+          UPDATE users SET default_tenant_id = (SELECT default_tenant_id FROM users WHERE id = $1)
+          WHERE id = $2 AND default_tenant_id IS NULL
+        `, [legacyId, felipeId]);
+
+        console.log('[v32-legacy-migrate] ✓ Migração concluída — pronto pro cleanup deletar o legacy.');
+      }
+    } catch (err) {
+      console.error('[v32-legacy-migrate] FALHOU (continuando, MAS cleanup vai pular delete):', err.message);
+      console.error('[v32-legacy-migrate] Stack:', err.stack);
+    }
+
     // V32.0.3 — Limpeza do user legacy 'joao.sansone@gmail.com'.
     // Esse email era a identidade Anthropic do Felipe (Claude Code login) que
     // foi usado por engano como MASTER_USERNAME em algum momento. Agora que o
