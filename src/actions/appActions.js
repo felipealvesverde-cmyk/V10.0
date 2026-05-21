@@ -1792,6 +1792,73 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.0.12 — Tenants admin (master only).
+  async loadTenantsList() {
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return Utils.toast('Sessão expirada — faça login de novo.');
+    try {
+      const res = await fetch('/api/tenants-list', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      App.state._tenantsListCache = data.tenants;
+      App.save();
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  updateTenantPlugDraft(tenantId, value) {
+    App.state.tenantPlugDraft = App.state.tenantPlugDraft || {};
+    App.state.tenantPlugDraft[String(tenantId)] = String(value || '');
+    // Sem render — input em tempo real, é só store.
+  },
+
+  async plugTenantDb(tenantId) {
+    const token = localStorage.getItem('lj_jwt');
+    const draft = (App.state.tenantPlugDraft || {})[String(tenantId)];
+    const connStr = String(draft || '').trim();
+    if (!connStr) return Utils.toast('Cole a connection string primeiro.');
+    if (!connStr.startsWith('postgres://') && !connStr.startsWith('postgresql://')) {
+      return Utils.toast('Connection string precisa começar com postgres:// ou postgresql://');
+    }
+    if (!confirm(`Plugar este Postgres no tenant ${tenantId}?\n\nIMPORTANTE: rode lib/tenant-db-schema.sql contra esse DB ANTES, senão as tabelas vão estar vazias e endpoints vão dar erro.`)) return;
+    try {
+      const res = await fetch('/api/tenants-plug-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ tenant_id: tenantId, connection_string: connStr })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ ${data.message}`);
+      delete App.state.tenantPlugDraft[String(tenantId)];
+      await this.loadTenantsList();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async unplugTenantDb(tenantId) {
+    const token = localStorage.getItem('lj_jwt');
+    if (!confirm(`Desplugar o DB do tenant ${tenantId}?\n\nO tenant volta a operar no control plane. Dados que estavam no DB plugado FICAM ÓRFÃOS (não são deletados, mas LJ deixa de ler).\n\nConfirma?`)) return;
+    try {
+      const res = await fetch('/api/tenants-unplug-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ tenant_id: tenantId, confirm: true })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ ${data.message}`);
+      await this.loadTenantsList();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V23.1.0 — Troca aba ativa do painel "Conexão RD" (CRM | Marketing).
   // Estado persiste em App.state pra preservar entre re-renders.
   setRdActiveTab(tab) {

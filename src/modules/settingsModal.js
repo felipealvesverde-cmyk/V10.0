@@ -2590,6 +2590,98 @@ var SettingsModal = {
     </div>`;
   },
 
+  // V32.0.12 — Multi-tenant admin (master only).
+  // Lista tenants do control plane com status + plug/unplug DB.
+  // Cada tenant pode ter um Postgres próprio (db_plugged=true) ou usar control
+  // plane (db_plugged=false). Plugar = cola connection string, encrypta + salva.
+  tenantsPanel() {
+    const tenants = App.state._tenantsListCache || [];
+    if (!tenants.length) {
+      setTimeout(() => Actions.loadTenantsList(), 50);
+      return `<div class="rounded-3xl bg-white border border-slate-100 p-6 shadow-sm">
+        <p class="text-sm text-slate-500">Carregando lista de tenants...</p>
+      </div>`;
+    }
+    return `<div class="space-y-5">
+      <div class="rounded-2xl bg-violet-50 border border-violet-300 p-4 text-violet-900 flex items-start gap-3">
+        <i data-lucide="layers" class="w-5 h-5 mt-0.5 shrink-0 text-violet-700"></i>
+        <div>
+          <p class="font-black text-sm mb-1">Global Mode — Multi-tenant</p>
+          <p class="text-xs leading-relaxed">Cada tenant pode operar no DB central (control plane) ou ter Postgres próprio plugado. Para plugar um DB próprio: provisione um Postgres no Railway/Supabase, rode <code class="bg-white px-1 py-0.5 rounded">lib/tenant-db-schema.sql</code> contra ele, e cole a connection string aqui. Próximas requests do tenant vão direto pro novo DB.</p>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-2xl font-black text-slate-950">Tenants (${tenants.length})</h3>
+          <p class="text-sm text-slate-500">Master é admin global. Não aparece aqui — só clientes.</p>
+        </div>
+        <button onclick="Actions.loadTenantsList()" class="px-4 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black flex items-center gap-1.5 lj-dark-button" style="color:#fff;"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Atualizar</button>
+      </div>
+
+      <div class="space-y-3">
+        ${tenants.map(t => this._tenantRow(t)).join('')}
+      </div>
+    </div>`;
+  },
+
+  _tenantRow(t) {
+    const draft = (App.state.tenantPlugDraft || {})[String(t.id)] || '';
+    const statusChip = t.status === 'active'
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700">ativo</span>'
+      : t.status === 'demo'
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-sky-100 text-sky-700">demo/staging</span>'
+      : t.status === 'suspended'
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-red-100 text-red-700">suspenso</span>'
+      : `<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-700">${Utils.escape(t.status)}</span>`;
+    const dbChip = t.db_plugged
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-violet-600 text-white" style="color:#fff;">🔌 DB próprio plugado</span>'
+      : '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-700">Control plane (fallback)</span>';
+    return `<div class="rounded-2xl bg-white border border-slate-200 p-4">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="font-black text-slate-900 text-base">${Utils.escape(t.name)}</p>
+            <code class="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-700">${Utils.escape(t.slug)}</code>
+            ${statusChip}
+            ${dbChip}
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1">
+            Plan: <b>${Utils.escape(t.plan || '—')}</b> ·
+            Owner: <b>${Utils.escape(t.owner_username || '— (sem owner)')}</b> ·
+            ${t.members_count || 0} membro(s) ·
+            ${t.migrated_at ? `migrado em ${new Date(t.migrated_at).toLocaleDateString('pt-BR')}` : 'nunca migrado'}
+          </p>
+        </div>
+      </div>
+
+      ${t.db_plugged ? `
+        <div class="flex items-center justify-between gap-3 rounded-xl bg-violet-50 border border-violet-200 p-3">
+          <div class="text-[11px] text-violet-900">
+            <p class="font-black mb-0.5">DB plugado e ativo.</p>
+            <p>Toda request deste tenant lê/escreve no Postgres próprio. Connection string criptografada com ENCRYPTION_KEY.</p>
+          </div>
+          <button onclick="Actions.unplugTenantDb(${t.id})" class="px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-black flex items-center gap-1.5 shrink-0"><i data-lucide="unplug" class="w-3.5 h-3.5"></i> Desplugar</button>
+        </div>
+      ` : `
+        <div class="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
+          <p class="text-[11px] font-black text-slate-700">Plugar Postgres próprio (opcional)</p>
+          <input
+            type="password"
+            value="${Utils.escape(draft)}"
+            oninput="Actions.updateTenantPlugDraft(${t.id}, this.value)"
+            placeholder="postgres://user:pass@host:port/dbname"
+            class="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 text-xs font-mono"
+          />
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-[10px] text-slate-500">Rode <code class="bg-white px-1 py-0.5 rounded">lib/tenant-db-schema.sql</code> contra o DB ANTES de plugar.</p>
+            <button onclick="Actions.plugTenantDb(${t.id})" class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5 shrink-0" style="color:#fff;"><i data-lucide="plug" class="w-3.5 h-3.5"></i> Plugar DB</button>
+          </div>
+        </div>
+      `}
+    </div>`;
+  },
+
   // V30.0.0 — Painel de Integrações. Por enquanto só ClickUp.
   // V31.2.29 — Reescrito: conexão via Personal API Token (PAT) em 1 passo.
   // OAuth flow removido da UI (continua no backend pra quem já está conectado).
@@ -2641,7 +2733,7 @@ var SettingsModal = {
     // V22.2 — Consolidação: 'rd' e 'rdCrm' viraram uma seção só "Conexão RD Station".
     // Mantemos o alias 'rdCrm' redirecionando p/ 'rd' por compat de bookmarks/links.
     const resolvedActive = active === 'rdCrm' ? 'rd' : active;
-    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários', admin: 'Administrar Lead Journey' };
+    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários', admin: 'Administrar Lead Journey', tenants: 'Tenants (Global Mode)' };
     const subtitleMap = {
       rd: 'Token CRM, pipelines por campanha, sincronização de leads e (opcional) RD Marketing — tudo em um lugar.',
       backup: 'Prepare snapshots, restauração e segurança dos dados.',
@@ -2650,7 +2742,8 @@ var SettingsModal = {
       integrations: 'Conecte serviços externos (ClickUp, etc.) pra criar tarefas automaticamente via Djow ou modal.',
       agents: 'Configure o Djow (Railway) e outros agentes que interpretam comandos em linguagem natural.',
       users: 'V23.0.0 — Aprove cadastros pendentes, gerencie modo (produção/sandbox) e revogue acessos.',
-      admin: 'V31.2.1 — Ações administrativas críticas. Cuidado: aqui você apaga dados em cascata sem volta.'
+      admin: 'V31.2.1 — Ações administrativas críticas. Cuidado: aqui você apaga dados em cascata sem volta.',
+      tenants: 'V32.0.12 — Multi-tenant SaaS. Cada cliente tem um tenant; pode opcionalmente ter Postgres próprio plugado.'
     };
     const title = titleMap[resolvedActive] || titleMap.database;
     const subtitle = subtitleMap[resolvedActive] || subtitleMap.database;
@@ -2662,6 +2755,7 @@ var SettingsModal = {
       : resolvedActive === 'backup' ? this.backupPanel()
       : resolvedActive === 'users' ? this.usersPanel()
       : resolvedActive === 'admin' ? this.adminPanel()
+      : resolvedActive === 'tenants' ? this.tenantsPanel()
       : this.databasePanel();
 
     return `<div id="settingsModalBackdrop" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm p-4 overflow-auto">
@@ -2690,7 +2784,7 @@ var SettingsModal = {
             ${this.sectionButton('integrations','Integrações','link')}
             ${this.sectionButton('agents','Agentes Externos','cpu')}
             ${this.sectionButton('backup','Backup em breve','archive')}
-            ${App.currentUser?.isMaster ? `<div class="border-t border-slate-200 my-3"></div>${this.sectionButton('admin','Administrar Lead Journey','shield-alert')}` : ''}
+            ${App.currentUser?.isMaster ? `<div class="border-t border-slate-200 my-3"></div>${this.sectionButton('admin','Administrar Lead Journey','shield-alert')}${this.sectionButton('tenants','Tenants (Global Mode)','layers')}` : ''}
           </aside>
 
           <section id="settingsModalScroll" class="p-5 lg:p-6 overflow-auto">

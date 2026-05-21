@@ -66,6 +66,11 @@ var State = {
       rdWebhooks: [],
       rdWebhookRegistrationError: '',
       rdWebhooksLastSyncAt: null,
+      // V32.0.12 — Lista de tenants (só master usa) + draft do connection string
+      // pra plugar DB num tenant. CRÍTICO listar em normalize() pra preservar
+      // (mesma regra: novo campo em App.state precisa entrar em initial + normalize).
+      _tenantsListCache: [],
+      tenantPlugDraft: {},
       selectedProductId: null,
       selectedCampaignId: null,
       selectedActionId: null,
@@ -661,7 +666,12 @@ var State = {
           }))
         : [],
       rdWebhookRegistrationError: typeof raw.rdWebhookRegistrationError === 'string' ? raw.rdWebhookRegistrationError : '',
-      rdWebhooksLastSyncAt: raw.rdWebhooksLastSyncAt || null
+      rdWebhooksLastSyncAt: raw.rdWebhooksLastSyncAt || null,
+      // V32.0.12 — Multi-tenant admin: lista de tenants e drafts de connection
+      // string. _tenantsListCache nunca persiste no localStorage (sempre fetch
+      // fresco) mas listamos pra normalize não dropar enquanto a sessão tá ativa.
+      _tenantsListCache: Array.isArray(raw._tenantsListCache) ? raw._tenantsListCache : [],
+      tenantPlugDraft: (raw.tenantPlugDraft && typeof raw.tenantPlugDraft === 'object') ? raw.tenantPlugDraft : {}
     };
   },
   load() {
