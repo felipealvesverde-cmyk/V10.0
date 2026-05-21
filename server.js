@@ -164,6 +164,46 @@ async function runMigrations() {
         PRIMARY KEY (user_id, token_type)
       );
     `);
+    // V32.0.0 — Global Mode (control plane).
+    // tenants = empresas-cliente. tenant_members = quem pertence a qual tenant.
+    // users.default_tenant_id = tenant que abre por padrão no login.
+    //
+    // Isolamento: cada tenant pode ter db_connection_string_enc preenchido (DB
+    // Postgres próprio na Railway/Supabase). Enquanto NULL, o tenant ainda usa
+    // o control plane (compat com V31). Migração tenant-by-tenant em V32.0.1+.
+    //
+    // status: 'active' | 'demo' | 'suspended' | 'trial'
+    // role:   'owner'  | 'admin' | 'member'   | 'viewer'
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tenants (
+        id SERIAL PRIMARY KEY,
+        slug VARCHAR(64) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'active',
+        plan VARCHAR(32) NOT NULL DEFAULT 'starter',
+        db_connection_string_enc TEXT,
+        owner_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+        migrated_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tenant_members (
+        tenant_id INT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(32) NOT NULL DEFAULT 'member',
+        invited_at TIMESTAMPTZ,
+        joined_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (tenant_id, user_id)
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_tenant_members_user ON tenant_members(user_id);
+    `);
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS default_tenant_id INT REFERENCES tenants(id) ON DELETE SET NULL;
+    `);
     // Seed master user se ainda não existe e env vars disponíveis.
     if (MASTER_USERNAME && MASTER_PASSWORD) {
       if (!MASTER_PASSWORD_HASH) {
