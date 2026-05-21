@@ -1037,8 +1037,13 @@ var SettingsModal = {
   usersPanel() {
     const users = App.state._usersListCache || [];
     if (!users.length) {
-      // Auto-load se ainda não carregou
-      setTimeout(() => Actions.loadUsersList(), 50);
+      // V32.0.18 — flag em App pra evitar loop quando API retorna [] (bug latente
+      // se admin não tem nenhum user — improvável mas previne defesa em
+      // profundidade). Padrão idêntico ao executionPanel.
+      if (!App._usersListHydrated) {
+        App._usersListHydrated = true;
+        setTimeout(() => Actions.loadUsersList(), 50);
+      }
       return `<div class="rounded-3xl bg-white border border-slate-100 p-6 shadow-sm">
         <p class="text-sm text-slate-500">Carregando lista de usuários...</p>
       </div>`;
@@ -2308,8 +2313,14 @@ var SettingsModal = {
     const cfg = App.state.executionConfig || (window.ExecutionProviderRegistry ? ExecutionProviderRegistry.defaultConfig() : { defaultProvider: 'manual', providers: {} });
     const providers = window.ExecutionProviderRegistry ? ExecutionProviderRegistry.list() : [];
     const stat = window.ExecutionStatusEngine ? ExecutionStatusEngine.globalSnapshot() : { total: 0, byProvider: {} };
-    // V32.0.16 — Hidrata credenciais V32+ ao abrir o painel (lazy load).
-    if (!App.state._executionCredentialsCache || App.state._executionCredentialsCache.length === 0) {
+    // V32.0.16 / V32.0.18 — Hidrata credenciais V32+ ao abrir o painel (lazy load).
+    // V32.0.18 fix: usa flag transitória em App (não-persistida) pra evitar loop
+    // infinito de render quando a API retorna array vazio. Antes: cache.length===0
+    // disparava setTimeout a cada re-render → load completa com [] → re-render →
+    // dispara de novo → ∞. Agora: dispara 1× por sessão. Ações explícitas
+    // (connectTrelloNew/disconnectTrelloNew) continuam re-fetcham via chamada direta.
+    if (!App._execCredsHydrated) {
+      App._execCredsHydrated = true;
       setTimeout(() => Actions.loadExecutionCredentials?.(), 50);
     }
     return `<div class="space-y-5">
@@ -2684,7 +2695,11 @@ var SettingsModal = {
   tenantsPanel() {
     const tenants = App.state._tenantsListCache || [];
     if (!tenants.length) {
-      setTimeout(() => Actions.loadTenantsList(), 50);
+      // V32.0.18 — flag em App pra evitar loop. Mesmo padrão executionPanel/usersPanel.
+      if (!App._tenantsListHydrated) {
+        App._tenantsListHydrated = true;
+        setTimeout(() => Actions.loadTenantsList(), 50);
+      }
       return `<div class="rounded-3xl bg-white border border-slate-100 p-6 shadow-sm">
         <p class="text-sm text-slate-500">Carregando lista de tenants...</p>
       </div>`;
