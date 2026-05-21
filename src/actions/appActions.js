@@ -5110,12 +5110,14 @@ Object.assign(Actions, {
         method: 'GET', path: '/platform/account_info', legacy: false, useQueryToken: false
       },
       {
-        // V31.2.47 — Era /crm/v2/users (retornava 401 invalid_token — talvez nem
-        // exista esse endpoint). Trocado pra /crm/v2/deals?limit=1, endpoint
-        // mais básico e documentado da CRM v2 API.
+        // V31.2.55 — Era /crm/v2/deals?limit=1 mas alguns apps OAuth só tem
+        // scope de cadastrar webhook (não de ler deals). Testando /integrations/webhooks
+        // (multi-produto, mesmo endpoint que cadastra webhook), bate exatamente
+        // a permissão que essa feature usa. Se GET aqui funciona, o OAuth é OK
+        // pra propósito de receber eventos em tempo real.
         key: 'crm_oauth',
         hasToken: Boolean(rdCfg.crmOauth?.accessToken),
-        method: 'GET', path: '/crm/v2/deals?limit=1', legacy: false, useQueryToken: false, useCrmOauthV2: true
+        method: 'GET', path: '/integrations/webhooks', legacy: false, useQueryToken: false, useCrmOauthV2: true
       }
     ];
 
