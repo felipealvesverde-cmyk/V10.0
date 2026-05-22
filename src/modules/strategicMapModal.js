@@ -2680,9 +2680,10 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // V28.3.0 — Painel da frente ativa: números confirmados como cabeçalho,
-  // alerta de KRs órfãos, ações já ativadas (cards editáveis), catálogo de
-  // ações disponíveis.
+  // V28.3.0 → V32.6.6 — Painel da frente ativa com progressive disclosure.
+  // Geraldo: 1 ação expandida por vez (em foco). Pendentes sem foco ficam
+  // colapsadas com CTA "Configurar". Confirmadas mini-card verde compacto.
+  // Reduz "muralha de 6 blocos × N ações" que confundia o cliente.
   _areaAcoesSection(product) {
     const areaId = this._activeAreaId(product.id);
     const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === areaId);
@@ -2695,6 +2696,28 @@ window.StrategicMapModal = {
     const activatedTemplateIds = StrategicMapEngine.getActivatedCatalogActionIds(product.id, areaId, campaignId);
     const orphanKrs = StrategicMapEngine.getKrsWithoutActions(product.id, areaId, campaignId);
     const tone = area.color;
+
+    // V32.6.6 — Auto-foco na primeira pendente da frente quando nada está em
+    // foco. Cliente sempre vê a próxima decisão exposta. Hydratado via setTimeout
+    // (não muda state durante render).
+    const activeId = Number(App.state.strategicActiveActionId || 0);
+    const activeBelongsHere = activeId && activeActions.some(a => Number(a.id) === activeId);
+    if (!activeBelongsHere) {
+      const firstPending = activeActions.find(a => !a.strategicConfirmed);
+      if (firstPending && Number(firstPending.id) !== activeId) {
+        const targetId = Number(firstPending.id);
+        if (!App._strategicAutofocusScheduled) {
+          App._strategicAutofocusScheduled = true;
+          setTimeout(() => {
+            App._strategicAutofocusScheduled = false;
+            if (App.state.strategicActiveActionId !== targetId) {
+              App.state.strategicActiveActionId = targetId;
+              App.save(); App.render();
+            }
+          }, 30);
+        }
+      }
+    }
 
     return `<div class="rounded-3xl bg-white/[0.05] border border-${tone}-400/30 p-4 space-y-3">
       <div class="flex items-start gap-3">
@@ -2754,8 +2777,15 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // V28.3.0 — Card de uma ação ativa. Sigue padrão do _numeroCard:
-  // confirmed = collapsed verde; senão = inputs inline + chips cadência + status.
+  // V28.3.0 → V32.6.6 — Card de ação em 3 estados (progressive disclosure):
+  //
+  // 1. CONFIRMED        → mini-card verde compacto (dono/cadência inline)
+  // 2. PENDING + active → expandido (dono input + chips cadência + confirmar)
+  // 3. PENDING + idle   → mini-card cinza CTA "Configurar →" (collapsed)
+  //
+  // Status (Planejada/Rodando/Encerrada) só aparece quando CONFIRMED — decisão
+  // prematura antes disso. Cliente preenche dono+cadência → confirma → próxima
+  // pendente da frente entra em foco automático.
   _acaoCard(product, area, action) {
     const tone = area.color;
     const linkedKrs = this._krsLinkedToAction(product.id, area.id, action.id);
@@ -2763,11 +2793,12 @@ window.StrategicMapModal = {
     const cadences = StrategicMapEngine.STRATEGIC_ACTION_CADENCES || [];
     const statuses = StrategicMapEngine.STRATEGIC_ACTION_STATUSES || [];
     const status = (statuses.find(s => s.id === action.strategicStatus) || statuses[0] || { id: 'planned', label: 'Planejada', color: 'slate' });
-    const desc = action.strategicDescription ? `<p class="text-[10px] text-slate-400 italic mb-2">${Utils.escape(action.strategicDescription)}</p>` : '';
     const ownerSet = Boolean(String(action.strategicOwner || '').trim());
     const cadenceSet = Boolean(action.strategicCadence);
     const complete = ownerSet && cadenceSet;
+    const isActive = Number(App.state.strategicActiveActionId) === Number(action.id);
 
+    // ── ESTADO 1: CONFIRMED — mini-card verde ────────────────────
     if (action.strategicConfirmed) {
       const cadenceLabel = (cadences.find(c => c.id === action.strategicCadence) || {}).label || '—';
       return `<div class="rounded-2xl bg-emerald-500/[0.05] border border-emerald-400/30 p-3">
@@ -2788,13 +2819,40 @@ window.StrategicMapModal = {
       </div>`;
     }
 
-    return `<div class="rounded-2xl bg-black/30 border border-${tone}-400/20 p-3">
+    // ── ESTADO 3: PENDING + IDLE — mini-card colapsado com CTA ─────
+    if (!isActive) {
+      const missing = [];
+      if (!ownerSet) missing.push('dono');
+      if (!cadenceSet) missing.push('cadência');
+      const missingLabel = missing.length ? `Falta ${missing.join(' + ')}` : 'Pronta pra confirmar';
+      return `<button onclick="Actions.setStrategicActiveAction(${action.id})" class="w-full text-left rounded-2xl bg-black/20 hover:bg-black/30 border border-white/10 hover:border-${tone}-400/40 p-3 transition flex items-center justify-between gap-3 group">
+        <div class="min-w-0 flex-1">
+          <p class="font-black text-white text-sm truncate">${Utils.escape(action.name)}</p>
+          <p class="text-[10px] text-${missing.length ? 'amber-300' : 'emerald-300'} font-bold mt-0.5">${missing.length ? '○' : '●'} ${missingLabel}${linkedNames.length ? ` · Move ${linkedNames.length} número${linkedNames.length > 1 ? 's' : ''}` : ''}</p>
+        </div>
+        <span class="text-[11px] font-black text-${tone}-200 group-hover:text-${tone}-100 flex items-center gap-1 shrink-0">Configurar <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i></span>
+      </button>`;
+    }
+
+    // ── ESTADO 2: PENDING + ACTIVE — expandido (foco) ──────────────
+    // Borda mais grossa + bg destacado pra cliente saber onde está.
+    const desc = action.strategicDescription ? `<p class="text-[10px] text-slate-400 italic mb-2">${Utils.escape(action.strategicDescription)}</p>` : '';
+    const missingForCopy = [];
+    if (!ownerSet) missingForCopy.push('dono');
+    if (!cadenceSet) missingForCopy.push('cadência');
+    return `<div class="rounded-2xl bg-${tone}-500/[0.08] border-2 border-${tone}-400/50 p-3 shadow-lg shadow-${tone}-500/10">
       <div class="flex items-start justify-between gap-2 mb-2">
         <div class="min-w-0 flex-1">
-          <p class="font-black text-white text-sm mb-0.5">${Utils.escape(action.name)}</p>
+          <div class="flex items-center gap-2 mb-0.5">
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-${tone}-500/30 text-${tone}-100 border border-${tone}-400/50 uppercase tracking-wider">Em foco</span>
+            <p class="font-black text-white text-sm">${Utils.escape(action.name)}</p>
+          </div>
           ${desc}
           ${linkedNames.length ? `<p class="text-[10px] text-${tone}-200 font-bold">🔗 Move: ${linkedNames.map(n => Utils.escape(n)).join(' · ')}</p>` : `<p class="text-[10px] text-amber-300 font-bold">⚠️ Nenhum número confirmado dessa frente é movido por essa ação — ative os números primeiro.</p>`}
         </div>
+        <button onclick="Actions.setStrategicActiveAction(null)" title="Fechar (sem perder o que digitou)" class="w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-slate-400 grid place-items-center shrink-0">
+          <i data-lucide="x" class="w-3 h-3"></i>
+        </button>
       </div>
 
       <div class="grid grid-cols-1 gap-2 mb-2">
@@ -2811,16 +2869,16 @@ window.StrategicMapModal = {
         </div>
       </div>
 
-      <div class="mb-2">
-        <p class="text-[9px] font-black text-slate-500 uppercase mb-1">Status</p>
-        <div class="flex flex-wrap gap-1.5">
-          ${statuses.map(s => `<button onclick="Actions.updateStrategicActionField(${action.id}, 'strategicStatus', '${s.id}')" class="px-2.5 py-1 rounded-lg border text-[11px] font-bold ${action.strategicStatus === s.id ? `bg-${s.color}-500/30 border-${s.color}-400/60 text-white` : 'bg-slate-900 border-white/15 text-slate-300 hover:bg-slate-800'}">${s.label}</button>`).join('')}
-        </div>
-      </div>
+      ${/* V32.6.6 — Removido bloco "Status" pré-confirmação. Status (Planejada/
+          Rodando/Encerrada) só faz sentido APÓS confirmar a ação. Decisão
+          prematura confundia o cliente. Status aparece no card confirmed. */ ''}
 
       <div class="flex justify-between items-center pt-2 border-t border-white/10">
         <button onclick="Actions.removeStrategicCatalogAction(${action.id})" class="px-2 py-1 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-400/30 text-red-300 text-[10px] font-black">Remover</button>
-        <button onclick="Actions.confirmStrategicAcao(${action.id})" ${complete ? '' : 'disabled'} class="px-3 py-1.5 rounded-lg ${complete ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'} text-[11px] font-black" ${complete ? 'style="color:#fff!important;"' : ''}>✓ Confirmar ação →</button>
+        <div class="flex items-center gap-2">
+          ${!complete ? `<span class="text-[10px] text-amber-300 font-bold">Falta ${missingForCopy.join(' + ')}</span>` : ''}
+          <button onclick="Actions.confirmStrategicAcao(${action.id})" ${complete ? '' : 'disabled'} class="px-3 py-1.5 rounded-lg ${complete ? 'bg-emerald-500 hover:bg-emerald-600 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'} text-[11px] font-black" ${complete ? 'style="color:#fff!important;"' : ''}>✓ Confirmar ação →</button>
+        </div>
       </div>
     </div>`;
   },

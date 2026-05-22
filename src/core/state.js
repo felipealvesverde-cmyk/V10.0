@@ -184,6 +184,10 @@ var State = {
       strategicMapZoom: 'strategy',
       strategicMapOnboardingSeen: {},
       strategicMaps: {},
+      // V32.6.6 — Progressive disclosure no zoom "As Ações": uma ação expandida
+      // por vez (em foco). Pendentes sem foco ficam colapsadas com CTA. Reduz
+      // "muralha de decisões" que confundia o cliente após criar campanha.
+      strategicActiveActionId: null,
       // V31.2.12 — Catálogo aprendido: KRs customizados criados pelo user viram
       // sugestões pros próximos produtos. Estrutura: { marketing: [...], sales: [...], cs: [...] }.
       customKpiCatalog: {},
@@ -524,6 +528,8 @@ var State = {
       strategicMapZoom: raw.strategicMapZoom || 'strategy',
       strategicMapOnboardingSeen: raw.strategicMapOnboardingSeen && typeof raw.strategicMapOnboardingSeen === 'object' ? raw.strategicMapOnboardingSeen : {},
       strategicMaps: raw.strategicMaps && typeof raw.strategicMaps === 'object' ? raw.strategicMaps : {},
+      // V32.6.6 — progressive disclosure no zoom "As Ações" (boot null = nada em foco).
+      strategicActiveActionId: raw.strategicActiveActionId ? Number(raw.strategicActiveActionId) : null,
       // V31.0.4 — Fix core: strategicCampaignMaps (branches V29) não estava sendo
       // preservado no normalize. Causa: cada load do state limpava as branches.
       strategicCampaignMaps: raw.strategicCampaignMaps && typeof raw.strategicCampaignMaps === 'object' ? raw.strategicCampaignMaps : {},

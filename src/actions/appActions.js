@@ -7853,6 +7853,7 @@ Prioridade: ${d.priority}
   },
 
   // V28.3.0 — Confirma uma ação (valida que tem dono e cadência).
+  // V32.6.6 — Após confirmar, auto-foca na PRÓXIMA ação pendente da mesma frente.
   confirmStrategicAcao(actionId) {
     const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
     if (!action) return;
@@ -7861,15 +7862,33 @@ Prioridade: ${d.priority}
     App.state.actions = (App.state.actions || []).map(a =>
       Number(a.id) === Number(actionId) ? { ...a, strategicConfirmed: true, strategicStatus: a.strategicStatus || 'planned' } : a
     );
+    // V32.6.6 — Auto-foca na próxima pendente da mesma frente (campaign + area).
+    // Reduz "e agora?" — cliente já vê a próxima decisão exposta.
+    const sameFrenteNextPending = (App.state.actions || []).find(a =>
+      Number(a.id) !== Number(actionId)
+      && Number(a.campaignId) === Number(action.campaignId)
+      && a.strategicAreaId === action.strategicAreaId
+      && !a.strategicConfirmed
+    );
+    App.state.strategicActiveActionId = sameFrenteNextPending ? Number(sameFrenteNextPending.id) : null;
     App.save(); App.render();
-    Utils.toast('Ação confirmada.');
+    Utils.toast(sameFrenteNextPending ? 'Ação confirmada. Próxima pendente em foco.' : 'Ação confirmada. Frente fechada.');
   },
 
   // V28.3.0 — Reabre uma ação confirmada pra edição.
+  // V32.6.6 — Reabrir = trazer pro foco também.
   editStrategicAcao(actionId) {
     App.state.actions = (App.state.actions || []).map(a =>
       Number(a.id) === Number(actionId) ? { ...a, strategicConfirmed: false } : a
     );
+    App.state.strategicActiveActionId = Number(actionId);
+    App.save(); App.render();
+  },
+
+  // V32.6.6 — Coloca uma ação pendente em foco (a anterior fecha automaticamente
+  // porque só 1 active por vez). Click no card collapsed dispara isso.
+  setStrategicActiveAction(actionId) {
+    App.state.strategicActiveActionId = actionId ? Number(actionId) : null;
     App.save(); App.render();
   },
 
