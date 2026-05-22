@@ -2664,6 +2664,31 @@ var SettingsModal = {
           </div>
         </div>
 
+        ${/* V32.6.1 — Banner CTA quando conectou mas ainda não escolheu raiz.
+            Evita cliente ficar perdido procurando onde configurar. Auto-abre
+            o wizard pelo loadClickupStatus também, mas banner cobre o caso
+            de cliente fechar o modal sem confirmar. */ ''}
+        ${status.connected && !(status.rootId || status.ljSpaceId) ? `
+          <div class="rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-400 p-5 flex items-start gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500 grid place-items-center shrink-0 animate-pulse">
+              <i data-lucide="map-pin" class="w-6 h-6 text-white"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-black text-amber-900 text-sm mb-1">Próximo passo: dizer ao LJ ONDE morar no seu ClickUp</p>
+              <p class="text-xs text-amber-800 leading-relaxed mb-3">
+                Você conectou o ClickUp, mas o LJ ainda não sabe em que Space/Folder/List vai criar as tarefas.
+                Navegue a árvore do seu workspace e escolha o lugar — pode ser um Space novo, um Folder de algum time
+                ou direto uma List existente.
+              </p>
+              <button onclick="Actions.openClickupSpaceWizard()" class="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs flex items-center gap-2" style="color:#fff!important;">
+                <i data-lucide="folder-tree" class="w-4 h-4"></i>
+                Escolher onde o LJ vai morar
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        ` : ''}
+
         ${this._clickupMirrorCard(status)}
         ${this._clickupListConfigCard(status)}
 

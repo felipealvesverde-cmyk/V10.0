@@ -5489,6 +5489,12 @@ Object.assign(Actions, {
       const r = await fetch('/api/clickup-config', { headers: { Authorization: `Bearer ${token}` } });
       const data = await r.json();
       if (data.ok) {
+        // V32.6.1 — detecta transição "acabou de conectar sem raiz" pra
+        // abrir o wizard automaticamente (cliente não fica perdido procurando).
+        const wasConnected = !!(App.state.clickupStatus && App.state.clickupStatus.connected);
+        const nowConnected = !!data.connected;
+        const hasRoot = !!(data.rootId || data.ljSpaceId);
+        const justConnected = nowConnected && !wasConnected && !hasRoot;
         App.state.clickupStatus = {
           configured: data.configured,
           connected: data.connected,
@@ -5516,6 +5522,11 @@ Object.assign(Actions, {
         // V31.2.33 — Quando conecta, pre-fetch metadata pra modal de criar task abrir instantâneo.
         if (data.connected && !App.state.clickupMeta?.loaded) {
           this.loadClickupMetadata();
+        }
+        // V32.6.1 — Empurra o cliente direto pro setup wizard logo após conectar.
+        // Evita o usuário ficar perdido procurando "onde escolher a list?".
+        if (justConnected && !App.state.clickupSpaceWizard?.open) {
+          setTimeout(() => Actions.openClickupSpaceWizard(), 400);
         }
       }
     } catch (err) { console.warn('[clickup] loadStatus erro:', err); }
