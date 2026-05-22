@@ -461,15 +461,17 @@
   gap: 12px;
   margin-bottom: 14px;
 }
+/* V32.3.3 — Djow migrou pra paleta do RevOps (#AB3ED8). RGB 171,62,216 +
+   124,45,146 deep. Djow é o especialista de RevOps materializado. */
 .lj-home-djow-mark {
   width: 36px;
   height: 36px;
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: linear-gradient(135deg, #8B5CF6, #5B21B6);
+  background: linear-gradient(135deg, #AB3ED8, #7C2D92);
   color: #fff;
-  box-shadow: 0 12px 24px rgba(139,92,246,.30);
+  box-shadow: 0 12px 24px rgba(171,62,216,.30);
 }
 
 /* V25.0.2 — Avatar do Djow (carinha de robô SVG). */
@@ -477,7 +479,7 @@
   width: 48px;
   height: 48px;
   flex-shrink: 0;
-  filter: drop-shadow(0 8px 18px rgba(139,92,246,.45));
+  filter: drop-shadow(0 8px 18px rgba(171,62,216,.45));
   animation: lj-djow-float 4s ease-in-out infinite;
 }
 .lj-home-djow-avatar svg {
@@ -512,8 +514,8 @@
   font-weight: 950;
   padding: 2px 6px;
   border-radius: 6px;
-  background: rgba(139,92,246,.20);
-  color: #C4B5FD;
+  background: rgba(171,62,216,.20);
+  color: #E9D5FF;
   letter-spacing: .08em;
 }
 .lj-home-side-sub {
@@ -527,9 +529,9 @@
   gap: 10px;
 }
 .lj-home-djow-placeholder {
-  background: rgba(139,92,246,.06);
-  border: 1px dashed rgba(139,92,246,.25);
-  color: #A78BFA;
+  background: rgba(171,62,216,.06);
+  border: 1px dashed rgba(171,62,216,.25);
+  color: #C084FC;
   padding: 10px 12px;
   border-radius: 12px;
   font-size: 12px;

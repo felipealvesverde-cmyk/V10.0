@@ -29,6 +29,21 @@
   --lj-revenue-soft: #FDE68A;
   --lj-revops: #AB3ED8;
   --lj-revops-soft: #C084FC;
+  --lj-revops-deep: #7C2D92;
+
+  /* V32.3.3 — Eixo Leste-Oeste Leonardo (decisão Felipe 2026-05-22).
+     Escala de terra/horizonte: do bege amplo ao marrom granular.
+     Hierarquia visual NÃO compete com áreas (Marketing/Vendas/CS/etc)
+     porque é dessaturada/térrea — as áreas ganham sempre voz vibrante,
+     a hierarquia respira como mapa de fundo. */
+  --lj-product:       #FCD9B6;
+  --lj-product-soft:  #FED7AA;
+  --lj-campaign:      #D4A574;
+  --lj-campaign-soft: #E1B584;
+  --lj-action:        #A77B5B;
+  --lj-action-soft:   #BE9275;
+  --lj-task:          #5C4033;
+  --lj-task-soft:     #7A5A47;
   /* Alias legacy — --lj-cx era "Customer Experience" laranja. Hoje mapeia
      pra Receita pra não quebrar callers antigos. Aposentar quando refator
      dos badges (.lj-badge-cx) varrer o codebase. */

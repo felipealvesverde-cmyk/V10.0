@@ -21,12 +21,15 @@ window.DjowAIModal = {
     const isConfigured = status.configured;
     const canUse = status.canUse !== false;
 
+    // V32.3.3 — Robotinho Djow migrou pra paleta do RevOps (Djow é o
+    // especialista de RevOps materializado). Família roxa #AB3ED8 +
+    // #7C2D92 deep + #C084FC soft + #E9D5FF luz.
     const robotSvg = `<svg viewBox="0 0 64 64" class="w-8 h-8" xmlns="http://www.w3.org/2000/svg">
-      <defs><linearGradient id="djow-ai-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#A78BFA"/><stop offset="100%" stop-color="#5B21B6"/></linearGradient></defs>
-      <circle cx="32" cy="8" r="3" fill="#C4B5FD"/><line x1="32" y1="11" x2="32" y2="16" stroke="#A78BFA" stroke-width="2"/>
-      <rect x="14" y="16" width="36" height="32" rx="11" fill="url(#djow-ai-grad)" stroke="#7C3AED" stroke-width="1.5"/>
+      <defs><linearGradient id="djow-ai-grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#C084FC"/><stop offset="100%" stop-color="#7C2D92"/></linearGradient></defs>
+      <circle cx="32" cy="8" r="3" fill="#E9D5FF"/><line x1="32" y1="11" x2="32" y2="16" stroke="#C084FC" stroke-width="2"/>
+      <rect x="14" y="16" width="36" height="32" rx="11" fill="url(#djow-ai-grad)" stroke="#AB3ED8" stroke-width="1.5"/>
       <circle cx="24" cy="30" r="3.5" fill="#fff"/><circle cx="40" cy="30" r="3.5" fill="#fff"/>
-      <circle cx="24" cy="30" r="1.5" fill="#5B21B6"/><circle cx="40" cy="30" r="1.5" fill="#5B21B6"/>
+      <circle cx="24" cy="30" r="1.5" fill="#7C2D92"/><circle cx="40" cy="30" r="1.5" fill="#7C2D92"/>
       <path d="M26 40 Q32 43 38 40" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/>
     </svg>`;
 

@@ -1,5 +1,8 @@
 /* V26.0.0 — Djow AI: chat na home + modal flutuante (Ctrl+K).
-   Estilo coerente com home-v25.css. Cores violet/purple da marca. */
+   Estilo coerente com home-v25.css.
+   V32.3.3 — Cores migraram pro roxo do RevOps (#AB3ED8) pois Djow é o
+   especialista de RevOps materializado. RGB(171,62,216) substitui o
+   RGB(139,92,246) antigo. Deep RGB(124,45,146) substitui RGB(91,33,182). */
 
 /* V26.0.3 — Botão flutuante (FAB) sempre visível, fallback do Ctrl+K. */
 .lj-djow-fab {
@@ -9,10 +12,10 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #8B5CF6 0%, #5B21B6 100%);
-  border: 1px solid rgba(167, 139, 250, .4);
+  background: linear-gradient(135deg, #AB3ED8 0%, #7C2D92 100%);
+  border: 1px solid rgba(192, 132, 252, .4);
   box-shadow:
-    0 12px 28px rgba(91, 33, 182, .45),
+    0 12px 28px rgba(124, 45, 146, .45),
     0 0 0 1px rgba(255,255,255,.05) inset;
   cursor: pointer;
   z-index: 90;
@@ -23,12 +26,12 @@
 }
 .lj-djow-fab:hover {
   transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 18px 38px rgba(91, 33, 182, .55);
+  box-shadow: 0 18px 38px rgba(124, 45, 146, .55);
 }
 .lj-djow-fab:active { transform: scale(.96); }
 @keyframes lj-djow-fab-pulse {
-  0%, 100% { box-shadow: 0 12px 28px rgba(91, 33, 182, .45), 0 0 0 1px rgba(255,255,255,.05) inset, 0 0 0 0 rgba(167,139,250,0); }
-  50%      { box-shadow: 0 12px 28px rgba(91, 33, 182, .45), 0 0 0 1px rgba(255,255,255,.05) inset, 0 0 0 10px rgba(167,139,250,.0); }
+  0%, 100% { box-shadow: 0 12px 28px rgba(124, 45, 146, .45), 0 0 0 1px rgba(255,255,255,.05) inset, 0 0 0 0 rgba(167,139,250,0); }
+  50%      { box-shadow: 0 12px 28px rgba(124, 45, 146, .45), 0 0 0 1px rgba(255,255,255,.05) inset, 0 0 0 10px rgba(167,139,250,.0); }
 }
 
 /* V26.0.3 — Input row no home box: input + botão send lado a lado. */
@@ -44,7 +47,7 @@
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: linear-gradient(135deg, #8B5CF6, #5B21B6);
+  background: linear-gradient(135deg, #AB3ED8, #7C2D92);
   color: #fff;
   border: 0;
   cursor: pointer;
@@ -69,14 +72,14 @@
   display: grid;
   place-items: center;
   border-radius: 8px;
-  background: rgba(139, 92, 246, .10);
-  border: 1px solid rgba(139, 92, 246, .20);
+  background: rgba(171, 62, 216, .10);
+  border: 1px solid rgba(171, 62, 216, .20);
   color: #C4B5FD;
   cursor: pointer;
   transition: all .15s;
 }
 .lj-djow-expand:hover {
-  background: rgba(139, 92, 246, .20);
+  background: rgba(171, 62, 216, .20);
   color: #fff;
 }
 
@@ -88,8 +91,8 @@
   line-height: 1.5;
 }
 .lj-djow-msg-user {
-  background: rgba(139, 92, 246, .12);
-  border: 1px solid rgba(139, 92, 246, .25);
+  background: rgba(171, 62, 216, .12);
+  border: 1px solid rgba(171, 62, 216, .25);
   align-self: flex-end;
   max-width: 85%;
 }
@@ -153,10 +156,10 @@
   width: 100%;
   max-width: 720px;
   background: linear-gradient(160deg, #1E1B2E 0%, #0F0B1E 60%);
-  border: 1px solid rgba(139, 92, 246, .25);
+  border: 1px solid rgba(171, 62, 216, .25);
   border-radius: 24px;
   box-shadow:
-    0 30px 80px rgba(91, 33, 182, .35),
+    0 30px 80px rgba(124, 45, 146, .35),
     0 0 0 1px rgba(255,255,255,.05) inset;
   overflow: hidden;
   animation: lj-djow-slide-in .22s ease-out;
@@ -176,7 +179,7 @@
   justify-content: space-between;
   gap: 12px;
   border-bottom: 1px solid rgba(255,255,255,.06);
-  background: linear-gradient(180deg, rgba(139, 92, 246, .08) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(171, 62, 216, .08) 0%, transparent 100%);
 }
 .lj-djow-modal-title {
   display: flex;
@@ -260,8 +263,8 @@
 .lj-djow-suggest {
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(139, 92, 246, .08);
-  border: 1px solid rgba(139, 92, 246, .20);
+  background: rgba(171, 62, 216, .08);
+  border: 1px solid rgba(171, 62, 216, .20);
   color: #C4B5FD;
   font-size: 12px;
   font-weight: 700;
@@ -270,7 +273,7 @@
   transition: all .15s;
 }
 .lj-djow-suggest:hover {
-  background: rgba(139, 92, 246, .18);
+  background: rgba(171, 62, 216, .18);
   color: #fff;
   transform: translateY(-1px);
 }
@@ -296,7 +299,7 @@
   transition: border-color .15s;
 }
 .lj-djow-modal-input:focus {
-  border-color: rgba(139, 92, 246, .50);
+  border-color: rgba(171, 62, 216, .50);
 }
 .lj-djow-modal-input::placeholder {
   color: #64748B;
@@ -310,7 +313,7 @@
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: linear-gradient(135deg, #8B5CF6, #5B21B6);
+  background: linear-gradient(135deg, #AB3ED8, #7C2D92);
   color: #fff;
   border: 0;
   cursor: pointer;
@@ -319,7 +322,7 @@
 }
 .lj-djow-modal-send:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(139, 92, 246, .4);
+  box-shadow: 0 8px 18px rgba(171, 62, 216, .4);
 }
 .lj-djow-modal-send:disabled {
   opacity: .4;

@@ -23,6 +23,17 @@
   --lj-revenue-soft: #FDE68A;
   --lj-revops: #AB3ED8;
   --lj-revops-soft: #C084FC;
+  --lj-revops-deep: #7C2D92;
+
+  /* V32.3.3 — Eixo Leste-Oeste Leonardo. Vide design-director.css. */
+  --lj-product:       #FCD9B6;
+  --lj-product-soft:  #FED7AA;
+  --lj-campaign:      #D4A574;
+  --lj-campaign-soft: #E1B584;
+  --lj-action:        #A77B5B;
+  --lj-action-soft:   #BE9275;
+  --lj-task:          #5C4033;
+  --lj-task-soft:     #7A5A47;
   --lj-cx: var(--lj-revenue);
   --lj-cx-soft: var(--lj-revenue-soft);
 
@@ -158,6 +169,32 @@
   color: var(--lj-revenue-soft);
   background: rgba(246,219,92,.14);
   border-color: rgba(253,230,138,.28);
+}
+
+/* V32.3.3 — Badges do eixo Leste-Oeste (hierarquia). Escala de terra
+   dessaturada — convive com badges de área (vibrantes) sem competir. */
+.lj-badge-product {
+  color: var(--lj-product);
+  background: rgba(252,217,182,.14);
+  border-color: rgba(254,215,170,.28);
+}
+
+.lj-badge-campaign {
+  color: var(--lj-campaign-soft);
+  background: rgba(212,165,116,.14);
+  border-color: rgba(225,181,132,.28);
+}
+
+.lj-badge-action {
+  color: var(--lj-action-soft);
+  background: rgba(167,123,91,.16);
+  border-color: rgba(190,146,117,.30);
+}
+
+.lj-badge-task {
+  color: var(--lj-task-soft);
+  background: rgba(92,64,51,.20);
+  border-color: rgba(122,90,71,.34);
 }
 
 .lj-modal-shell {
