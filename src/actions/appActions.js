@@ -5666,6 +5666,62 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.1.5 — Status mapping LJ → ClickUp.
+  updateClickupStatusMapDraft(ljStatus, remoteStatus) {
+    App.state.clickupStatusMapDraft = {
+      ...(App.state.clickupStatusMapDraft || { pending: '', in_progress: '', completed: '' }),
+      [ljStatus]: String(remoteStatus || '')
+    };
+    App.render();
+  },
+
+  async saveClickupStatusMap() {
+    const token = localStorage.getItem('lj_jwt');
+    const drafts = App.state.clickupStatusMapDraft || {};
+    const current = App.state.clickupStatus?.statusMap || {};
+    // Merge atual com drafts (só campos que mudaram). Mantém o que user não tocou.
+    const merged = {
+      pending: drafts.pending || current.pending || null,
+      in_progress: drafts.in_progress || current.in_progress || null,
+      completed: drafts.completed || current.completed || null
+    };
+    if (!merged.pending && !merged.in_progress && !merged.completed) {
+      return Utils.toast('Mapeia pelo menos um status antes de salvar.');
+    }
+    try {
+      const r = await fetch('/api/clickup-update-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status_map_json: merged })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ Mapping de status atualizado.');
+      App.state.clickupStatusMapDraft = { pending: '', in_progress: '', completed: '' };
+      await this.loadClickupStatus();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async clearClickupStatusMap() {
+    if (!confirm('Remover mapping de status? Tasks novas vão usar o status default da list (ClickUp escolhe).')) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch('/api/clickup-update-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status_map_json: null })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ Mapping removido.');
+      await this.loadClickupStatus();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   async clearClickupMarker(field) {
     // field: 'lj_tag_name' ou 'task_prefix' — manda null pra LIMPAR no DB.
     if (!confirm(field === 'lj_tag_name'

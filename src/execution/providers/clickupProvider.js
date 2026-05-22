@@ -72,7 +72,31 @@ window.ExecutionProviders.clickup = {
   },
 
   async updateTask(providerTaskId, patch, cfg) {
-    if (!cfg?.apiToken || !providerTaskId) return { ok: true };
+    if (!providerTaskId) return { ok: true };
+    // V32.1.5 — Path novo (PAT via DB): usa statusMap do user setado em
+    // Configurações → Integrações → ClickUp → Mapping de status. Backend
+    // /api/clickup-proxy é quem faz a chamada (token criptografado no DB).
+    if (this._isNewPathConnected()) {
+      try {
+        const statusMap = window.App?.state?.clickupStatus?.statusMap || {};
+        const ljStatus = patch.status === 'completed' ? 'completed' : 'in_progress';
+        const remoteStatus = statusMap[ljStatus];
+        if (!remoteStatus) return { ok: true }; // sem mapping → não tenta update (silent no-op)
+        const jwt = localStorage.getItem('lj_jwt');
+        await fetch('/api/clickup-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+          body: JSON.stringify({
+            method: 'PUT',
+            path: `/task/${providerTaskId}`,
+            body: { status: remoteStatus }
+          })
+        });
+        return { ok: true };
+      } catch (_) { return { ok: false }; }
+    }
+    // Legacy V16.3: cfg.apiToken inline + cfg.statusDone/statusInProgress.
+    if (!cfg?.apiToken) return { ok: true };
     try {
       const status = patch.status === 'completed' ? (cfg.statusDone || 'complete') : (cfg.statusInProgress || 'in progress');
       await fetch(`${this._baseUrl}/task/${providerTaskId}`, {

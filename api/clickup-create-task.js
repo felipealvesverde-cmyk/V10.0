@@ -88,8 +88,9 @@ module.exports = async function handler(req, res) {
 
   try {
     // V32.1.4 — carrega settings de marcação (tag + prefix) junto com list.
+    // V32.1.5 — também status_map_json (pra status inicial automático).
     const credRow = await req.tenantDb.query(
-      'SELECT default_list_id, default_space_id, lj_tag_name, task_prefix FROM clickup_credentials WHERE user_id = $1',
+      'SELECT default_list_id, default_space_id, lj_tag_name, task_prefix, status_map_json FROM clickup_credentials WHERE user_id = $1',
       [userId]
     );
     const cred = credRow.rows[0] || {};
@@ -123,6 +124,16 @@ module.exports = async function handler(req, res) {
       ? `${cred.task_prefix}${String(name)}`.slice(0, 255)
       : String(name).slice(0, 255);
 
+    // V32.1.5 — Status inicial: se user passou um status explícito, respeita.
+    // Senão usa mapping["pending"] (status que cliente configurou pra "task nova").
+    let initialStatus = status ? String(status) : undefined;
+    if (!initialStatus && cred.status_map_json) {
+      try {
+        const map = JSON.parse(cred.status_map_json);
+        if (map && map.pending) initialStatus = String(map.pending);
+      } catch (_) { /* mapping inválido — ignora, deixa ClickUp usar default da list */ }
+    }
+
     // V32.1.4 — Merge da tag automática (lj_tag_name) com tags do request.
     // Tag fica criada no space (ensureLjTagExists). Idempotente, não bloqueia
     // se falhar (usuário sem permissão de criar tag, etc.) — só não aplica.
@@ -144,7 +155,7 @@ module.exports = async function handler(req, res) {
       start_date: start_date ? new Date(start_date).getTime() : undefined,
       start_date_time: typeof start_date_time === 'boolean' ? start_date_time : undefined,
       priority: priorityInt,
-      status: status ? String(status) : undefined,
+      status: initialStatus,
       tags: finalTags.length ? finalTags : undefined,
       time_estimate: Number.isFinite(Number(time_estimate)) && Number(time_estimate) > 0 ? Number(time_estimate) : undefined,
       points: Number.isFinite(Number(points)) ? Number(points) : undefined,

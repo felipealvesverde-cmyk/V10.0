@@ -95,6 +95,9 @@ var State = {
       clickupTreeLoading: false,
       // V32.1.4 — drafts do card "Marcação automática" (tag + prefix).
       clickupMarkerDrafts: { ljTagName: '', taskPrefix: '' },
+      // V32.1.5 — drafts do card "Mapping de status" (LJ → ClickUp).
+      // 3 dropdowns: pending, in_progress, completed → status real da list.
+      clickupStatusMapDraft: { pending: '', in_progress: '', completed: '' },
       selectedProductId: null,
       selectedCampaignId: null,
       selectedActionId: null,
@@ -738,7 +741,15 @@ var State = {
             ljTagName: String(raw.clickupMarkerDrafts.ljTagName || ''),
             taskPrefix: String(raw.clickupMarkerDrafts.taskPrefix || '')
           }
-        : { ljTagName: '', taskPrefix: '' }
+        : { ljTagName: '', taskPrefix: '' },
+      // V32.1.5 — drafts do status_map (pending/in_progress/completed → status real).
+      clickupStatusMapDraft: (raw.clickupStatusMapDraft && typeof raw.clickupStatusMapDraft === 'object')
+        ? {
+            pending: String(raw.clickupStatusMapDraft.pending || ''),
+            in_progress: String(raw.clickupStatusMapDraft.in_progress || ''),
+            completed: String(raw.clickupStatusMapDraft.completed || '')
+          }
+        : { pending: '', in_progress: '', completed: '' }
     };
   },
   load() {

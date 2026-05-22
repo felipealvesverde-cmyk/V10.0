@@ -2994,6 +2994,7 @@ var SettingsModal = {
 
         ${this._clickupListConfigCard(status)}
         ${this._clickupMarkerCard(status)}
+        ${this._clickupStatusMapCard(status)}
         `}
       </div>
 
@@ -3089,6 +3090,75 @@ var SettingsModal = {
       <div class="flex justify-end pt-1">
         <button onclick="Actions.saveClickupMarkers()" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs flex items-center gap-1.5" style="color:#fff!important;">
           <i data-lucide="check" class="w-3.5 h-3.5"></i>Salvar marcação
+        </button>
+      </div>
+    </div>`;
+  },
+
+  // V32.1.5 — Card "Mapping de status" (LJ → ClickUp).
+  // Geraldo safe-integration #C: cliente escolhe como mapear statuses LJ
+  // (pending/in_progress/completed) pros statuses da list dele. Sem
+  // mapping, ClickUp usa status default da list (que pode ser qualquer).
+  _clickupStatusMapCard(status) {
+    if (!status.defaultListId) {
+      // Sem list configurada → não dá pra mapear statuses ainda
+      return '';
+    }
+    const meta = App.state.clickupMeta || {};
+    const statuses = Array.isArray(meta.statuses) ? meta.statuses : [];
+    const drafts = App.state.clickupStatusMapDraft || { pending: '', in_progress: '', completed: '' };
+    const current = status.statusMap || {};
+    const hasMap = Boolean(current.pending || current.in_progress || current.completed);
+
+    // Auto-load metadata se vazio (a UI precisa dos statuses pra montar os dropdowns)
+    if (!meta.loaded && !App._clickupMetaHydrated) {
+      App._clickupMetaHydrated = true;
+      setTimeout(() => Actions.loadClickupMetadata?.(), 50);
+    }
+
+    if (!statuses.length) {
+      return `<div class="rounded-2xl bg-white border border-slate-200 p-4">
+        <p class="text-xs text-slate-500 italic">Carregando statuses da list ClickUp...</p>
+      </div>`;
+    }
+
+    const dropdown = (ljStatus, label) => {
+      const currentValue = drafts[ljStatus] || current[ljStatus] || '';
+      const opts = ['<option value="">— escolha —</option>',
+        ...statuses.map(s => `<option value="${Utils.escape(s.status)}" ${currentValue === s.status ? 'selected' : ''}>${Utils.escape(s.status)}</option>`)
+      ].join('');
+      return `<div>
+        <label class="text-xs font-black text-slate-700 uppercase">${label}</label>
+        <select onchange="Actions.updateClickupStatusMapDraft('${ljStatus}', this.value)" class="mt-1 w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-sm">
+          ${opts}
+        </select>
+        ${current[ljStatus] ? `<p class="text-[10px] text-slate-500 mt-0.5">Atual: <code class="bg-slate-100 px-1 rounded">${Utils.escape(current[ljStatus])}</code></p>` : ''}
+      </div>`;
+    };
+
+    return `<div class="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="font-black text-slate-900 text-sm flex items-center gap-2">
+            <i data-lucide="arrow-right-left" class="w-4 h-4 text-indigo-700"></i>
+            Mapping de status (LJ → ClickUp)
+          </p>
+          <p class="text-[11px] text-slate-500 mt-0.5">Como os 3 statuses internos do LJ traduzem pros statuses da list <b>${Utils.escape(status.defaultListName || status.defaultListId)}</b>.</p>
+        </div>
+        ${hasMap ? `<button onclick="Actions.clearClickupStatusMap()" title="Remover mapping" class="p-2 rounded-xl bg-red-50 border border-red-200 text-red-700"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>` : ''}
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-3">
+        ${dropdown('pending', 'LJ "pending" →')}
+        ${dropdown('in_progress', 'LJ "in_progress" →')}
+        ${dropdown('completed', 'LJ "completed" →')}
+      </div>
+
+      <p class="text-[11px] text-slate-500 italic">Sem mapping: tasks novas usam o status DEFAULT da list (ClickUp escolhe).</p>
+
+      <div class="flex justify-end pt-1">
+        <button onclick="Actions.saveClickupStatusMap()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-1.5" style="color:#fff!important;">
+          <i data-lucide="check" class="w-3.5 h-3.5"></i>Salvar mapping
         </button>
       </div>
     </div>`;
