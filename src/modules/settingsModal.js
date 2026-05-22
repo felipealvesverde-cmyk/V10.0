@@ -3018,7 +3018,10 @@ var SettingsModal = {
   // V32.1.3 — Card "List de destino" no painel Integrações (visível quando ClickUp conectado).
   // Geraldo safe-integration: força user escolher explicitamente onde tasks nascem,
   // em vez de chutar a primeira list do ClickUp do cliente.
+  // V32.2.2 (Geraldo A2) — Em modo mirror, default_list_id é morto (mirror resolve
+  // via cascada). Esconde card pra evitar duplicação cognitiva.
   _clickupListConfigCard(status) {
+    if (status.mirrorEnabled !== false && status.ljSpaceId) return '';
     const hasList = Boolean(status.defaultListId);
     return `<div class="rounded-2xl ${hasList ? 'bg-white border border-slate-200' : 'bg-amber-50 border-2 border-amber-300'} p-4 space-y-3">
       <div class="flex items-start justify-between gap-3">

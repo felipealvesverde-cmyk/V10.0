@@ -616,15 +616,17 @@ async function execTool(name, input, state, ctx) {
           } catch (_) { /* ignora */ }
         }
 
-        // Tag auto (best-effort — não bloqueia se falhar criar tag)
+        // Tag auto (best-effort — não bloqueia se falhar criar tag).
+        // V32.2.2 (Geraldo A1) — usa lj_space_id como fallback em modo mirror.
         let finalTags = Array.isArray(input.tags) ? input.tags.map(String) : [];
-        if (cred.lj_tag_name && cred.default_space_id) {
+        const tagSpaceId = cred.default_space_id || cred.lj_space_id;
+        if (cred.lj_tag_name && tagSpaceId) {
           try {
-            const tagListRes = await clickupFetch(ctx.db, ctx.userId, 'GET', `/space/${cred.default_space_id}/tag`);
+            const tagListRes = await clickupFetch(ctx.db, ctx.userId, 'GET', `/space/${tagSpaceId}/tag`);
             const has = tagListRes.ok && Array.isArray(tagListRes.data?.tags)
               && tagListRes.data.tags.some(t => String(t.name || '').toLowerCase() === String(cred.lj_tag_name).toLowerCase());
             if (!has) {
-              await clickupFetch(ctx.db, ctx.userId, 'POST', `/space/${cred.default_space_id}/tag`, {
+              await clickupFetch(ctx.db, ctx.userId, 'POST', `/space/${tagSpaceId}/tag`, {
                 tag: { name: cred.lj_tag_name, tag_fg: '#FFFFFF', tag_bg: '#7C3AED' }
               }).catch(() => {});
             }

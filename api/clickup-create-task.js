@@ -188,11 +188,13 @@ module.exports = async function handler(req, res) {
     }
 
     // V32.1.4 — Merge da tag automática (lj_tag_name) com tags do request.
-    // Tag fica criada no space (ensureLjTagExists). Idempotente, não bloqueia
-    // se falhar (usuário sem permissão de criar tag, etc.) — só não aplica.
+    // V32.2.2 (Geraldo A1) — usa lj_space_id como fallback em modo mirror.
+    // Antes só usava default_space_id; cliente mirror sem list-picker tinha
+    // default_space_id=NULL → tag silenciosamente NÃO era aplicada.
     let finalTags = Array.isArray(tags) && tags.length ? tags.map(String) : [];
-    if (cred.lj_tag_name && cred.default_space_id) {
-      const tagReady = await ensureLjTagExists(req, userId, cred.default_space_id, cred.lj_tag_name);
+    const tagSpaceId = cred.default_space_id || cred.lj_space_id;
+    if (cred.lj_tag_name && tagSpaceId) {
+      const tagReady = await ensureLjTagExists(req, userId, tagSpaceId, cred.lj_tag_name);
       if (tagReady && !finalTags.includes(cred.lj_tag_name)) {
         finalTags.push(cred.lj_tag_name);
       }
