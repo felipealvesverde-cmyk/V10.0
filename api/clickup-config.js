@@ -19,19 +19,28 @@ module.exports = async function handler(req, res) {
       // V32.1.3 — Retorna também list info salva pra UI mostrar status sem
       // novo fetch (defaultListId/Name/SpaceId, definidos pelo /api/clickup-set-list).
       const cfg = await req.tenantDb.query('SELECT 1 FROM clickup_config WHERE user_id = $1', [userId]);
+      // V32.1.4-1.6 — retorna também settings de marcação + status_map + write_enabled.
       const cred = await req.tenantDb.query(
-        `SELECT workspace_name, default_list_id, default_list_name, default_space_id
+        `SELECT workspace_name, default_list_id, default_list_name, default_space_id,
+                lj_tag_name, task_prefix, status_map_json, write_enabled
          FROM clickup_credentials WHERE user_id = $1`,
         [userId]
       );
+      const row = cred.rows[0] || {};
+      let statusMap = null;
+      try { statusMap = row.status_map_json ? JSON.parse(row.status_map_json) : null; } catch (_) { statusMap = null; }
       return res.status(200).json({
         ok: true,
         configured: cfg.rows.length > 0,
         connected: cred.rows.length > 0,
-        workspaceName: cred.rows[0]?.workspace_name || null,
-        defaultListId: cred.rows[0]?.default_list_id || null,
-        defaultListName: cred.rows[0]?.default_list_name || null,
-        defaultSpaceId: cred.rows[0]?.default_space_id || null,
+        workspaceName: row.workspace_name || null,
+        defaultListId: row.default_list_id || null,
+        defaultListName: row.default_list_name || null,
+        defaultSpaceId: row.default_space_id || null,
+        ljTagName: row.lj_tag_name || null,
+        taskPrefix: row.task_prefix || null,
+        statusMap,
+        writeEnabled: row.write_enabled !== false,
         encryptionReady: isEncryptionReady()
       });
     } catch (err) {

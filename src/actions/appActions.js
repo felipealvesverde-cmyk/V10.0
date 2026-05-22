@@ -5574,7 +5574,12 @@ Object.assign(Actions, {
           encryptionReady: data.encryptionReady,
           defaultListId: data.defaultListId || null,
           defaultListName: data.defaultListName || null,
-          defaultSpaceId: data.defaultSpaceId || null
+          defaultSpaceId: data.defaultSpaceId || null,
+          // V32.1.4-1.6 — settings expandidas
+          ljTagName: data.ljTagName || null,
+          taskPrefix: data.taskPrefix || null,
+          statusMap: data.statusMap || null,
+          writeEnabled: data.writeEnabled !== false
         };
         App.save(); App.render();
         // V31.2.33 — Quando conecta, pre-fetch metadata pra modal de criar task abrir instantâneo.
@@ -5617,6 +5622,69 @@ Object.assign(Actions, {
     } finally {
       App.state.clickupTreeLoading = false;
       App.render();
+    }
+  },
+
+  // V32.1.4 — Drafts e save de marcação automática (tag + prefix).
+  updateClickupMarkerDraft(field, value) {
+    App.state.clickupMarkerDrafts = {
+      ...(App.state.clickupMarkerDrafts || { ljTagName: '', taskPrefix: '' }),
+      [field]: String(value || '')
+    };
+  },
+
+  async saveClickupMarkers() {
+    const token = localStorage.getItem('lj_jwt');
+    const drafts = App.state.clickupMarkerDrafts || {};
+    const status = App.state.clickupStatus || {};
+    // Só envia campos que mudaram — UI usa current value como placeholder,
+    // então draft vazio significa "manter atual". Pra LIMPAR o user manda 'null'
+    // via botão dedicado (não implementado nesta UI inicial).
+    const body = {};
+    if (drafts.ljTagName && drafts.ljTagName !== status.ljTagName) {
+      body.lj_tag_name = drafts.ljTagName;
+    }
+    if (drafts.taskPrefix !== '' && drafts.taskPrefix !== status.taskPrefix) {
+      body.task_prefix = drafts.taskPrefix;
+    }
+    if (!Object.keys(body).length) {
+      return Utils.toast('Nenhuma mudança pra salvar.');
+    }
+    try {
+      const r = await fetch('/api/clickup-update-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ Marcação ClickUp atualizada.');
+      App.state.clickupMarkerDrafts = { ljTagName: '', taskPrefix: '' };
+      await this.loadClickupStatus();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async clearClickupMarker(field) {
+    // field: 'lj_tag_name' ou 'task_prefix' — manda null pra LIMPAR no DB.
+    if (!confirm(field === 'lj_tag_name'
+      ? 'Remover tag automática? Tasks novas não vão mais ser marcadas (mais difícil de identificar o que veio do LJ).'
+      : 'Remover prefixo do nome? Tasks novas não vão mais ter o prefixo.'
+    )) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch('/api/clickup-update-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ [field]: null })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ Removido.');
+      await this.loadClickupStatus();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
     }
   },
 

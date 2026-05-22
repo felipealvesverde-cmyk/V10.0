@@ -48,7 +48,8 @@ var State = {
       // preservar no normalize() abaixo.
       // V32.1.3 — clickupStatus expandido com info da list selecionada explicitamente
       // (defaultListId/Name/SpaceId). Substitui auto-discovery do V31.2.32.
-      clickupStatus: { connected: false, configured: false, encryptionReady: true, workspaceName: null, defaultListId: null, defaultListName: null, defaultSpaceId: null },
+      // V32.1.4-1.6 — também ljTagName + taskPrefix + statusMap + writeEnabled.
+      clickupStatus: { connected: false, configured: false, encryptionReady: true, workspaceName: null, defaultListId: null, defaultListName: null, defaultSpaceId: null, ljTagName: null, taskPrefix: null, statusMap: null, writeEnabled: true },
       clickupMeta: { loaded: false, loadedAt: null, workspaceId: null, listId: null, spaceId: null, members: [], statuses: [], tags: [], customFields: [] },
       clickupConfigDraft: { client_id: '', client_secret: '' },
       clickupPatDraft: '',
@@ -92,6 +93,8 @@ var State = {
       showClickupListPicker: false,
       _clickupTreeCache: null,
       clickupTreeLoading: false,
+      // V32.1.4 — drafts do card "Marcação automática" (tag + prefix).
+      clickupMarkerDrafts: { ljTagName: '', taskPrefix: '' },
       selectedProductId: null,
       selectedCampaignId: null,
       selectedActionId: null,
@@ -650,7 +653,12 @@ var State = {
             // V32.1.3 — preserva list info do raw em F5
             defaultListId: raw.clickupStatus.defaultListId || null,
             defaultListName: raw.clickupStatus.defaultListName || null,
-            defaultSpaceId: raw.clickupStatus.defaultSpaceId || null
+            defaultSpaceId: raw.clickupStatus.defaultSpaceId || null,
+            // V32.1.4-1.6 — preserva settings de marcação + status_map + write
+            ljTagName: raw.clickupStatus.ljTagName || null,
+            taskPrefix: raw.clickupStatus.taskPrefix || null,
+            statusMap: raw.clickupStatus.statusMap || null,
+            writeEnabled: raw.clickupStatus.writeEnabled !== false
           }
         : base.clickupStatus,
       clickupMeta: (raw.clickupMeta && typeof raw.clickupMeta === 'object')
@@ -722,7 +730,15 @@ var State = {
       // cache nunca persiste (re-fetch sob demanda).
       showClickupListPicker: false,
       _clickupTreeCache: null,
-      clickupTreeLoading: false
+      clickupTreeLoading: false,
+      // V32.1.4 — drafts dos campos de marcação (tag + prefix). Inicializa vazio
+      // e UI usa current value como placeholder. Limpa após save.
+      clickupMarkerDrafts: (raw.clickupMarkerDrafts && typeof raw.clickupMarkerDrafts === 'object')
+        ? {
+            ljTagName: String(raw.clickupMarkerDrafts.ljTagName || ''),
+            taskPrefix: String(raw.clickupMarkerDrafts.taskPrefix || '')
+          }
+        : { ljTagName: '', taskPrefix: '' }
     };
   },
   load() {

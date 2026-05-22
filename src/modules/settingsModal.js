@@ -2993,6 +2993,7 @@ var SettingsModal = {
         </div>
 
         ${this._clickupListConfigCard(status)}
+        ${this._clickupMarkerCard(status)}
         `}
       </div>
 
@@ -3019,6 +3020,75 @@ var SettingsModal = {
         </div>
         <button onclick="Actions.openClickupListPicker()" class="px-3 py-2 rounded-xl ${hasList ? 'bg-slate-900 text-white' : 'bg-amber-600 text-white animate-pulse'} font-black text-xs flex items-center gap-1.5 shrink-0" style="color:#fff!important;">
           <i data-lucide="list-tree" class="w-3.5 h-3.5"></i>${hasList ? 'Trocar' : 'Configurar list'}
+        </button>
+      </div>
+    </div>`;
+  },
+
+  // V32.1.4 — Card "Marcação automática" (tag + prefixo).
+  // Geraldo safe-integration #B: toda task criada pelo LJ ganha tag identificável
+  // no ClickUp do cliente. Cliente vê de um lance o que é dele × o que é LJ.
+  _clickupMarkerCard(status) {
+    const drafts = App.state.clickupMarkerDrafts || { ljTagName: '', taskPrefix: '' };
+    const currentTag = status.ljTagName;
+    const currentPrefix = status.taskPrefix;
+
+    return `<div class="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="font-black text-slate-900 text-sm flex items-center gap-2">
+            <i data-lucide="tag" class="w-4 h-4 text-purple-700"></i>
+            Marcação automática
+          </p>
+          <p class="text-[11px] text-slate-500 mt-0.5">Pra distinguir tasks do LJ × tasks do time do cliente no ClickUp.</p>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-black text-slate-700 uppercase">Tag automática</label>
+          <div class="flex items-center gap-2 mt-1">
+            <input
+              type="text"
+              value="${Utils.escape(drafts.ljTagName || currentTag || '')}"
+              oninput="Actions.updateClickupMarkerDraft('ljTagName', this.value)"
+              placeholder="${Utils.escape(currentTag || 'lj-auto')}"
+              maxlength="64"
+              class="flex-1 px-3 py-2 rounded-xl bg-white border border-slate-300 text-sm font-mono"
+            />
+            ${currentTag ? `<button onclick="Actions.clearClickupMarker('lj_tag_name')" title="Remover tag automática" class="p-2 rounded-xl bg-red-50 border border-red-200 text-red-700"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>` : ''}
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1">
+            ${currentTag
+              ? `Atual: <code class="bg-slate-100 px-1 rounded">${Utils.escape(currentTag)}</code>. Tag será criada no space se não existir.`
+              : 'Sugestão: <code class="bg-slate-100 px-1 rounded">lj-auto</code>. Identifica tasks criadas pelo LJ.'}
+          </p>
+        </div>
+
+        <div>
+          <label class="text-xs font-black text-slate-700 uppercase">Prefixo do nome</label>
+          <div class="flex items-center gap-2 mt-1">
+            <input
+              type="text"
+              value="${Utils.escape(drafts.taskPrefix || currentPrefix || '')}"
+              oninput="Actions.updateClickupMarkerDraft('taskPrefix', this.value)"
+              placeholder="${Utils.escape(currentPrefix || 'ex: [LJ] ')}"
+              maxlength="32"
+              class="flex-1 px-3 py-2 rounded-xl bg-white border border-slate-300 text-sm font-mono"
+            />
+            ${currentPrefix ? `<button onclick="Actions.clearClickupMarker('task_prefix')" title="Remover prefixo" class="p-2 rounded-xl bg-red-50 border border-red-200 text-red-700"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>` : ''}
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1">
+            ${currentPrefix
+              ? `Atual: <code class="bg-slate-100 px-1 rounded">${Utils.escape(currentPrefix)}</code> antes do nome da task.`
+              : 'Opcional. Ex: <code class="bg-slate-100 px-1 rounded">[LJ] </code> vira "[LJ] Nome da task".'}
+          </p>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-1">
+        <button onclick="Actions.saveClickupMarkers()" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-black text-xs flex items-center gap-1.5" style="color:#fff!important;">
+          <i data-lucide="check" class="w-3.5 h-3.5"></i>Salvar marcação
         </button>
       </div>
     </div>`;

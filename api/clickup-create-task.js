@@ -7,6 +7,27 @@
 // Retorna: { ok, providerTaskId, externalUrl, listId }
 const { clickupFetch } = require('../lib/clickup-client');
 
+// V32.1.4 — Garante que a tag automática (lj-auto por padrão) existe no
+// space da list de destino. ClickUp organiza tags por space, não por list.
+// Idempotente: chama GET /space/{id}/tag, cria se não existir.
+// Falha silenciosamente (return false) — não bloqueia criação da task.
+async function ensureLjTagExists(req, userId, spaceId, tagName) {
+  if (!spaceId || !tagName) return false;
+  try {
+    const list = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${spaceId}/tag`);
+    if (!list.ok) return false;
+    const existing = Array.isArray(list.data?.tags) ? list.data.tags : [];
+    const has = existing.some(t => String(t.name || '').toLowerCase() === String(tagName).toLowerCase());
+    if (has) return true;
+    const create = await clickupFetch(req.tenantDb, userId, 'POST', `/space/${spaceId}/tag`, {
+      tag: { name: tagName, tag_fg: '#FFFFFF', tag_bg: '#7C3AED' }
+    });
+    return create.ok;
+  } catch (_) {
+    return false;
+  }
+}
+
 // V32.0.9 — clickup_credentials vivem no tenant plane. Tudo aqui usa req.tenantDb.
 async function discoverFirstList(req, userId) {
   // Pega workspace_id armazenado
@@ -66,11 +87,13 @@ module.exports = async function handler(req, res) {
   if (!name) return res.status(400).json({ ok: false, message: 'name é obrigatório.' });
 
   try {
-    let targetListId = list_id;
-    if (!targetListId) {
-      const cached = await req.tenantDb.query('SELECT default_list_id FROM clickup_credentials WHERE user_id = $1', [userId]);
-      targetListId = cached.rows[0]?.default_list_id;
-    }
+    // V32.1.4 — carrega settings de marcação (tag + prefix) junto com list.
+    const credRow = await req.tenantDb.query(
+      'SELECT default_list_id, default_space_id, lj_tag_name, task_prefix FROM clickup_credentials WHERE user_id = $1',
+      [userId]
+    );
+    const cred = credRow.rows[0] || {};
+    let targetListId = list_id || cred.default_list_id;
     // V32.1.3 — Auto-discovery DEPRECATED (Geraldo audit). Chutar a primeira
     // list bagunçava o ClickUp do cliente externo. User precisa escolher
     // explicitamente em Configurações → ClickUp → Configurar list de destino.
@@ -95,8 +118,24 @@ module.exports = async function handler(req, res) {
     else if (priority === 'normal') priorityInt = 3;
     else if (priority === 'low') priorityInt = 4;
 
+    // V32.1.4 — Aplica prefixo opcional no nome (configurável pelo user).
+    const finalName = cred.task_prefix
+      ? `${cred.task_prefix}${String(name)}`.slice(0, 255)
+      : String(name).slice(0, 255);
+
+    // V32.1.4 — Merge da tag automática (lj_tag_name) com tags do request.
+    // Tag fica criada no space (ensureLjTagExists). Idempotente, não bloqueia
+    // se falhar (usuário sem permissão de criar tag, etc.) — só não aplica.
+    let finalTags = Array.isArray(tags) && tags.length ? tags.map(String) : [];
+    if (cred.lj_tag_name && cred.default_space_id) {
+      const tagReady = await ensureLjTagExists(req, userId, cred.default_space_id, cred.lj_tag_name);
+      if (tagReady && !finalTags.includes(cred.lj_tag_name)) {
+        finalTags.push(cred.lj_tag_name);
+      }
+    }
+
     const taskBody = {
-      name: String(name).slice(0, 255),
+      name: finalName,
       description: description ? String(description) : undefined,
       markdown_content: markdown_content ? String(markdown_content) : undefined,
       assignees: assigneesArr || undefined,
@@ -106,7 +145,7 @@ module.exports = async function handler(req, res) {
       start_date_time: typeof start_date_time === 'boolean' ? start_date_time : undefined,
       priority: priorityInt,
       status: status ? String(status) : undefined,
-      tags: Array.isArray(tags) && tags.length ? tags.map(String) : undefined,
+      tags: finalTags.length ? finalTags : undefined,
       time_estimate: Number.isFinite(Number(time_estimate)) && Number(time_estimate) > 0 ? Number(time_estimate) : undefined,
       points: Number.isFinite(Number(points)) ? Number(points) : undefined,
       parent: parent ? String(parent) : undefined,
