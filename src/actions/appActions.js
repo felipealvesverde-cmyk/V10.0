@@ -6162,6 +6162,33 @@ Object.assign(Actions, {
     } catch (err) { Utils.toast(`Erro: ${err.message}`); }
   },
 
+  // V32.4.3 — Revela o PAT do ClickUp salvo (descriptografa do DB).
+  // Use case: cliente já colou PAT antes + ClickUp mascarou (não dá pra copiar
+  // de novo) + ele quer plugar mesmo PAT em outra integração sem regenerar.
+  async revealClickupPat() {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-reveal-pat', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Erro: ${data.message || 'falha'}`);
+
+      // Mostra o token em prompt nativo — user dá Ctrl+A, Ctrl+C, fecha.
+      // Prompt seleciona o conteúdo todo automaticamente em chrome/firefox.
+      window.prompt(
+        `Personal API Token do ClickUp (workspace: ${data.workspaceName || '—'})\n\n` +
+        `Selecione (Ctrl+A) e copie (Ctrl+C). Trate como senha — não compartilhe em telas/repos.`,
+        data.token
+      );
+      // Audit hint no console pro user saber que a action rolou
+      console.log('[clickup-reveal-pat] PAT revelado em prompt. Token NÃO persiste em log.');
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V30.0.0 — Proxy genérico pra chamar ClickUp API do frontend (sem expor token).
   async clickupApi(method, path, body) {
     const token = localStorage.getItem('lj_jwt');

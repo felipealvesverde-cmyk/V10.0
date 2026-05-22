@@ -2546,8 +2546,19 @@ var SettingsModal = {
         </div>
         ` : `
         <div class="rounded-2xl bg-emerald-50 border-2 border-emerald-300 p-4">
-          <p class="font-black text-emerald-900 mb-1">✓ ClickUp conectado em <b>${Utils.escape(status.workspaceName || '')}</b></p>
-          <p class="text-sm text-emerald-800">Agora você pode criar tarefas no ClickUp diretamente do Mapa da Receita (botão "Criar tarefa via Djow") ou pedindo pro Djow no chat: <i>"cria uma task pra revisar a campanha"</i>.</p>
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1">
+              <p class="font-black text-emerald-900 mb-1">✓ ClickUp conectado em <b>${Utils.escape(status.workspaceName || '')}</b></p>
+              <p class="text-sm text-emerald-800">Agora você pode criar tarefas no ClickUp diretamente do Mapa da Receita (botão "Criar tarefa via Djow") ou pedindo pro Djow no chat: <i>"cria uma task pra revisar a campanha"</i>.</p>
+            </div>
+            ${/* V32.4.3 — Botão revelar PAT salvo. Use case: cliente quer plugar
+                 mesmo PAT em outra integração (Zapier/n8n/etc) sem regenerar
+                 (que invalidaria todas as conexões existentes). */ ''}
+            <button onclick="Actions.revealClickupPat()" title="Mostra o token PAT salvo (mesmo que o ClickUp já mascarou)" class="px-3 py-2 rounded-xl bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs font-black flex items-center gap-1.5 shrink-0">
+              <i data-lucide="key" class="w-3.5 h-3.5"></i>
+              Revelar PAT
+            </button>
+          </div>
         </div>
 
         ${this._clickupMirrorCard(status)}
