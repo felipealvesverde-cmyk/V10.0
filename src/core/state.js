@@ -45,10 +45,18 @@ var State = {
       // (defaultListId/Name/SpaceId). Substitui auto-discovery do V31.2.32.
       // V32.1.4-1.6 — também ljTagName + taskPrefix + statusMap + writeEnabled.
       // V32.2.0 — também ljSpaceId + mirrorEnabled (hierarquia espelhada).
-      clickupStatus: { connected: false, configured: false, encryptionReady: true, workspaceName: null, defaultListId: null, defaultListName: null, defaultSpaceId: null, ljTagName: null, taskPrefix: null, statusMap: null, writeEnabled: true, ljSpaceId: null, mirrorEnabled: true },
+      // V32.5.6 — tokenType ('oauth' | 'pat' | null) propaga do backend pra UI
+      // diferenciar visualmente o método de conexão e habilitar/desabilitar
+      // "Revelar PAT" (só faz sentido em token_type='pat').
+      clickupStatus: { connected: false, configured: false, encryptionReady: true, workspaceName: null, tokenType: null, defaultListId: null, defaultListName: null, defaultSpaceId: null, ljTagName: null, taskPrefix: null, statusMap: null, writeEnabled: true, ljSpaceId: null, mirrorEnabled: true },
       clickupMeta: { loaded: false, loadedAt: null, workspaceId: null, listId: null, spaceId: null, members: [], statuses: [], tags: [], customFields: [] },
       clickupConfigDraft: { client_id: '', client_secret: '' },
       clickupPatDraft: '',
+      // V32.5.6 — Reabilita OAuth no frontend (lado a lado com PAT em tabs).
+      // clickupConnectTab: 'oauth' | 'pat' — aba ativa no card ClickUp em Configurações.
+      // clickupOAuthDraft: form de Client ID + Client Secret do OAuth App do user.
+      clickupConnectTab: 'oauth',
+      clickupOAuthDraft: { clientId: '', clientSecret: '' },
       taskCreationModal: null,
       djowTaskChat: null,
       // V31.2.41 — Status das 3 conexões RD (atualizado por testAllRdConnections).
@@ -650,6 +658,8 @@ var State = {
             configured: !!raw.clickupStatus.configured,
             encryptionReady: raw.clickupStatus.encryptionReady !== false,
             workspaceName: raw.clickupStatus.workspaceName || null,
+            // V32.5.6 — tokenType diferencia método de conexão na UI
+            tokenType: raw.clickupStatus.tokenType || null,
             // V32.1.3 — preserva list info do raw em F5
             defaultListId: raw.clickupStatus.defaultListId || null,
             defaultListName: raw.clickupStatus.defaultListName || null,
@@ -681,6 +691,11 @@ var State = {
         ? { client_id: String(raw.clickupConfigDraft.client_id || ''), client_secret: String(raw.clickupConfigDraft.client_secret || '') }
         : base.clickupConfigDraft,
       clickupPatDraft: typeof raw.clickupPatDraft === 'string' ? raw.clickupPatDraft : '',
+      // V32.5.6 — tab ativo no card ClickUp + draft do form OAuth.
+      clickupConnectTab: (raw.clickupConnectTab === 'pat') ? 'pat' : 'oauth',
+      clickupOAuthDraft: (raw.clickupOAuthDraft && typeof raw.clickupOAuthDraft === 'object')
+        ? { clientId: String(raw.clickupOAuthDraft.clientId || ''), clientSecret: String(raw.clickupOAuthDraft.clientSecret || '') }
+        : { clientId: '', clientSecret: '' },
       // Modais ficam SEMPRE fechados no boot (UI state, não persiste aberto)
       taskCreationModal: null,
       djowTaskChat: null,

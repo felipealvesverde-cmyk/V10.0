@@ -5439,6 +5439,8 @@ Object.assign(Actions, {
           connected: data.connected,
           workspaceName: data.workspaceName,
           encryptionReady: data.encryptionReady,
+          // V32.5.6 — tokenType ('oauth' | 'pat' | null) diferencia método na UI
+          tokenType: data.tokenType || null,
           defaultListId: data.defaultListId || null,
           defaultListName: data.defaultListName || null,
           defaultSpaceId: data.defaultSpaceId || null,
@@ -6214,6 +6216,48 @@ Object.assign(Actions, {
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     }
+  },
+
+  // V32.5.6 — Tabs OAuth | PAT no card ClickUp em Configurações → Integrações.
+  // Cliente escolhe método de conexão. Backend já suporta os 2 via token_type.
+  setClickupConnectTab(tab) {
+    App.state.clickupConnectTab = (tab === 'pat') ? 'pat' : 'oauth';
+    App.save(); App.render();
+  },
+
+  // V32.5.6 — Draft do form OAuth (Client ID + Client Secret). Não chama render
+  // pra não perder foco do input enquanto digita (padrão dos outros drafts).
+  updateClickupOAuthDraftField(field, value) {
+    App.state.clickupOAuthDraft = App.state.clickupOAuthDraft || { clientId: '', clientSecret: '' };
+    App.state.clickupOAuthDraft[field] = String(value || '');
+    App.save();
+  },
+
+  // V32.5.6 — Salva Client ID/Secret do OAuth App em clickup_config (criptografado
+  // no backend via lib/clickup-crypto). Depois disso o user pode clicar
+  // "Autorizar no ClickUp" pra abrir a janela OAuth — fluxo handled em
+  // Actions.connectClickup() (linha 6152, já existente desde V30).
+  async saveClickupOAuthConfig() {
+    const draft = App.state.clickupOAuthDraft || {};
+    const clientId = String(draft.clientId || '').trim();
+    const clientSecret = String(draft.clientSecret || '').trim();
+    if (!clientId || !clientSecret) return Utils.toast('Client ID e Client Secret obrigatórios.');
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ client_id: clientId, client_secret: clientSecret })
+      });
+      const data = await r.json();
+      if (data.ok) {
+        Utils.toast('✓ Credenciais salvas. Clique em "Autorizar no ClickUp" pra prosseguir.');
+        App.state.clickupOAuthDraft = { clientId: '', clientSecret: '' };
+        await Actions.loadClickupStatus();
+      } else {
+        Utils.toast(`Erro: ${data.message}`);
+      }
+    } catch (err) { Utils.toast(`Erro: ${err.message}`); }
   },
 
   // V30.0.0 — Proxy genérico pra chamar ClickUp API do frontend (sem expor token).

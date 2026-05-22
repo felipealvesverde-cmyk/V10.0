@@ -2532,32 +2532,20 @@ var SettingsModal = {
           ${status.connected ? `<button onclick="Actions.disconnectClickup()" class="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-black">Desconectar</button>` : ''}
         </div>
 
-        ${!status.connected ? `
-        <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-3">
-          <div class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-black">1</span><p class="font-black text-slate-900">Gere seu Personal API Token no ClickUp</p></div>
-          <p class="text-sm text-slate-600">No ClickUp: clique na sua foto (canto superior direito) → <b>Settings</b> → menu <b>Apps</b> (ou <b>API da ClickUp</b>) → seção <b>API Token</b> → <b>Generate</b> (ou <b>Copy</b> se já existir). Atalho: <a href="https://app.clickup.com/settings/apps" target="_blank" class="text-purple-700 font-bold underline">app.clickup.com/settings/apps</a></p>
-          <p class="text-xs text-slate-500 italic">O token começa com <code class="bg-white px-1.5 py-0.5 rounded text-purple-700 font-mono">pk_</code> e não expira.</p>
-        </div>
-
-        <div class="rounded-2xl bg-purple-50 border-2 border-purple-300 p-4 space-y-3">
-          <div class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-purple-700 text-white grid place-items-center text-xs font-black">2</span><p class="font-black text-purple-900">Cole o token e conecte</p></div>
-          <input type="password" value="${Utils.escape(draft)}" oninput="Actions.updateClickupPatDraft(this.value)" placeholder="pk_xxxxxxxxxxxxxxxxxxxxxxxxxx" class="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
-          <button onclick="Actions.connectClickupWithPAT()" ${!status.encryptionReady ? 'disabled' : ''} class="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black disabled:opacity-50" style="color:#fff!important;">🔗 Conectar ao ClickUp</button>
-        </div>
-        ` : `
+        ${!status.connected ? this._clickupConnectTabs(status, draft) : `
         <div class="rounded-2xl bg-emerald-50 border-2 border-emerald-300 p-4">
           <div class="flex items-start justify-between gap-3">
             <div class="flex-1">
-              <p class="font-black text-emerald-900 mb-1">✓ ClickUp conectado em <b>${Utils.escape(status.workspaceName || '')}</b></p>
+              <p class="font-black text-emerald-900 mb-1">✓ ClickUp conectado em <b>${Utils.escape(status.workspaceName || '')}</b>${status.tokenType ? ` <span class="text-[11px] font-bold text-emerald-700 ml-1">· via ${status.tokenType === 'oauth' ? 'OAuth' : 'Personal API Token'}</span>` : ''}</p>
               <p class="text-sm text-emerald-800">Agora você pode criar tarefas no ClickUp diretamente do Mapa da Receita (botão "Criar tarefa via Djow") ou pedindo pro Djow no chat: <i>"cria uma task pra revisar a campanha"</i>.</p>
             </div>
             ${/* V32.4.3 — Botão revelar PAT salvo. Use case: cliente quer plugar
-                 mesmo PAT em outra integração (Zapier/n8n/etc) sem regenerar
-                 (que invalidaria todas as conexões existentes). */ ''}
-            <button onclick="Actions.revealClickupPat()" title="Mostra o token PAT salvo (mesmo que o ClickUp já mascarou)" class="px-3 py-2 rounded-xl bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs font-black flex items-center gap-1.5 shrink-0">
+                 mesmo PAT em outra integração (Zapier/n8n/etc) sem regenerar.
+                 V32.5.6 — Só aparece quando tokenType === 'pat' (OAuth não expõe). */ ''}
+            ${status.tokenType === 'pat' ? `<button onclick="Actions.revealClickupPat()" title="Mostra o token PAT salvo (mesmo que o ClickUp já mascarou)" class="px-3 py-2 rounded-xl bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 text-xs font-black flex items-center gap-1.5 shrink-0">
               <i data-lucide="key" class="w-3.5 h-3.5"></i>
               Revelar PAT
-            </button>
+            </button>` : ''}
           </div>
         </div>
 
@@ -2583,6 +2571,113 @@ var SettingsModal = {
       </div>
 
       ${App.state.showClickupListPicker ? this._clickupListPickerModal() : ''}
+    </div>`;
+  },
+
+  // V32.5.6 — Tabs OAuth | PAT no card ClickUp em Configurações → Integrações.
+  // OAuth volta pra UI (estava dormindo desde V31.2.29 quando PAT virou exclusivo).
+  // Cliente escolhe método. Backend já distingue via token_type — sem regressão.
+  // Modelo OAuth: cliente cadastra próprio OAuth App no ClickUp dele
+  // (decisão Felipe sessão 2026-05-22 — não app único do LJ).
+  _clickupConnectTabs(status, patDraft) {
+    const tab = App.state.clickupConnectTab || 'oauth';
+    const oauthDraft = App.state.clickupOAuthDraft || { clientId: '', clientSecret: '' };
+    const redirectUri = `${window.location.origin}/api/clickup-oauth-callback`;
+    const tabBtn = (id, label, sublabel) => {
+      const active = tab === id;
+      return `<button onclick="Actions.setClickupConnectTab('${id}')" class="flex-1 px-4 py-3 rounded-xl border-2 transition text-left ${active ? 'bg-purple-600 border-purple-600 text-white shadow' : 'bg-white border-slate-200 text-slate-700 hover:border-purple-300 hover:bg-purple-50'}" ${active ? 'style="color:#fff!important;"' : ''}>
+        <p class="text-sm font-black">${label}</p>
+        <p class="text-[11px] ${active ? 'text-purple-100' : 'text-slate-500'} mt-0.5">${sublabel}</p>
+      </button>`;
+    };
+    const tabsHeader = `<div class="flex gap-2">
+      ${tabBtn('oauth', 'OAuth', 'Recomendado · 1 clique')}
+      ${tabBtn('pat', 'Personal API Token', 'Avançado · cole o token')}
+    </div>`;
+    const tabContent = tab === 'oauth'
+      ? this._clickupTabOAuth(status, oauthDraft, redirectUri)
+      : this._clickupTabPAT(status, patDraft);
+    return `<div class="space-y-3">${tabsHeader}${tabContent}</div>`;
+  },
+
+  // V32.5.6 — Tab OAuth: 3 passos guiados.
+  // Cliente cadastra próprio OAuth App no ClickUp, cola Client ID + Secret,
+  // depois autoriza. Endpoint /api/clickup-oauth-init gera URL e abre janela.
+  _clickupTabOAuth(status, draft, redirectUri) {
+    const configured = Boolean(status.configured);
+    return `<div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-4">
+      <div class="rounded-xl bg-purple-50 border border-purple-200 p-3 text-[12px] text-purple-900 flex items-start gap-2">
+        <i data-lucide="info" class="w-4 h-4 text-purple-600 shrink-0 mt-0.5"></i>
+        <div>
+          <p class="font-black mb-1">OAuth é o caminho recomendado</p>
+          <p class="leading-relaxed">Mais seguro que PAT (token expira e revoga sem afetar outras integrações). Você cadastra um OAuth App no ClickUp uma vez e autoriza o LeadJourney a acessá-lo.</p>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <div class="flex items-start gap-3">
+          <span class="w-6 h-6 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-black shrink-0 mt-0.5">1</span>
+          <div class="flex-1 min-w-0">
+            <p class="font-black text-slate-900 text-sm">Crie um OAuth App no ClickUp</p>
+            <p class="text-xs text-slate-600 mt-1 leading-relaxed">Em <a href="https://app.clickup.com/settings/apps" target="_blank" class="text-purple-700 font-bold underline">app.clickup.com/settings/apps</a>: clique em <b>"Create new app"</b>. Nome: <code class="bg-white px-1.5 py-0.5 rounded text-purple-700 font-mono text-[11px]">LeadJourney</code>.</p>
+            <p class="text-xs text-slate-700 mt-2"><b>Redirect URL</b> (cole essa URL exata no campo do app):</p>
+            <div class="mt-1 flex items-center gap-2 rounded-lg bg-white border border-slate-300 px-3 py-2">
+              <code class="flex-1 text-[11px] text-purple-700 font-mono truncate">${Utils.escape(redirectUri)}</code>
+              <button onclick="navigator.clipboard.writeText('${Utils.escape(redirectUri)}'); Utils.toast('Copiado!')" class="px-2 py-1 rounded bg-purple-100 hover:bg-purple-200 text-purple-700 text-[10px] font-black shrink-0"><i data-lucide="copy" class="w-3 h-3 inline mr-1"></i>Copiar</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <span class="w-6 h-6 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-black shrink-0 mt-0.5">2</span>
+          <div class="flex-1 min-w-0">
+            <p class="font-black text-slate-900 text-sm">Cole Client ID e Client Secret do app</p>
+            <p class="text-xs text-slate-500 italic mt-1">Atenção: estes <b>NÃO</b> são o Personal API Token. São credenciais do OAuth App que você criou no passo 1.</p>
+            ${configured ? `<div class="mt-2 rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-[11px] text-emerald-800 flex items-center gap-2">
+              <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+              <span>Credenciais já salvas. Pode prosseguir pro passo 3 ou atualizar abaixo.</span>
+            </div>` : ''}
+            <div class="mt-2 space-y-2">
+              <input type="text" value="${Utils.escape(draft.clientId)}" oninput="Actions.updateClickupOAuthDraftField('clientId', this.value)" placeholder="Client ID" class="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
+              <input type="password" value="${Utils.escape(draft.clientSecret)}" oninput="Actions.updateClickupOAuthDraftField('clientSecret', this.value)" placeholder="Client Secret" class="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
+              <button onclick="Actions.saveClickupOAuthConfig()" ${!status.encryptionReady ? 'disabled' : ''} class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs disabled:opacity-50 flex items-center gap-1.5" style="color:#fff!important;">
+                <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                ${configured ? 'Atualizar credenciais' : 'Salvar credenciais'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3 ${!configured ? 'opacity-50 pointer-events-none' : ''}">
+          <span class="w-6 h-6 rounded-full ${configured ? 'bg-purple-700' : 'bg-slate-400'} text-white grid place-items-center text-xs font-black shrink-0 mt-0.5">3</span>
+          <div class="flex-1 min-w-0">
+            <p class="font-black text-slate-900 text-sm">Autorizar o LeadJourney no ClickUp</p>
+            <p class="text-xs text-slate-600 mt-1">Vai abrir uma janela do ClickUp pedindo autorização. Aceite — voltará automático.</p>
+            <button onclick="Actions.connectClickup()" ${!configured || !status.encryptionReady ? 'disabled' : ''} class="mt-2 px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black disabled:opacity-50 flex items-center gap-2" style="color:#fff!important;">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+              Autorizar no ClickUp
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V32.5.6 — Tab PAT: form atual (campo + botão Conectar). Caminho mantido
+  // pra backward compat e pra clientes que preferem usar PAT já existente.
+  _clickupTabPAT(status, draft) {
+    return `<div class="space-y-3">
+      <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-3">
+        <div class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-slate-900 text-white grid place-items-center text-xs font-black">1</span><p class="font-black text-slate-900">Gere seu Personal API Token no ClickUp</p></div>
+        <p class="text-sm text-slate-600">No ClickUp: clique na sua foto (canto superior direito) → <b>Settings</b> → menu <b>Apps</b> (ou <b>API da ClickUp</b>) → seção <b>API Token</b> → <b>Generate</b> (ou <b>Copy</b> se já existir). Atalho: <a href="https://app.clickup.com/settings/apps" target="_blank" class="text-purple-700 font-bold underline">app.clickup.com/settings/apps</a></p>
+        <p class="text-xs text-slate-500 italic">O token começa com <code class="bg-white px-1.5 py-0.5 rounded text-purple-700 font-mono">pk_</code> e não expira.</p>
+      </div>
+
+      <div class="rounded-2xl bg-purple-50 border-2 border-purple-300 p-4 space-y-3">
+        <div class="flex items-center gap-2"><span class="w-6 h-6 rounded-full bg-purple-700 text-white grid place-items-center text-xs font-black">2</span><p class="font-black text-purple-900">Cole o token e conecte</p></div>
+        <input type="password" value="${Utils.escape(draft)}" oninput="Actions.updateClickupPatDraft(this.value)" placeholder="pk_xxxxxxxxxxxxxxxxxxxxxxxxxx" class="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
+        <button onclick="Actions.connectClickupWithPAT()" ${!status.encryptionReady ? 'disabled' : ''} class="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white font-black disabled:opacity-50" style="color:#fff!important;">🔗 Conectar ao ClickUp</button>
+      </div>
     </div>`;
   },
 

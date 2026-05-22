@@ -24,7 +24,8 @@ module.exports = async function handler(req, res) {
       const cred = await req.tenantDb.query(
         `SELECT workspace_name, default_list_id, default_list_name, default_space_id,
                 lj_tag_name, task_prefix, status_map_json, write_enabled,
-                lj_space_id, mirror_enabled
+                lj_space_id, mirror_enabled,
+                token_type
          FROM clickup_credentials WHERE user_id = $1`,
         [userId]
       );
@@ -36,6 +37,9 @@ module.exports = async function handler(req, res) {
         configured: cfg.rows.length > 0,
         connected: cred.rows.length > 0,
         workspaceName: row.workspace_name || null,
+        // V32.5.6 — tokenType ('oauth' | 'pat') diferencia método de conexão
+        // pra UI mostrar badge correto e habilitar/desabilitar "Revelar PAT".
+        tokenType: row.token_type || null,
         defaultListId: row.default_list_id || null,
         defaultListName: row.default_list_name || null,
         defaultSpaceId: row.default_space_id || null,
