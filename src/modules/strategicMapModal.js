@@ -2394,12 +2394,17 @@ window.StrategicMapModal = {
     const advKey = `kr-${childKr.id}-adv`;
     const engineOpen = App.state.customActionEngine && App.state.customActionEngine.parentProductKrId === pkr.id;
 
-    // V32.6.7 (Leonardo full pass) — Card plugado herda paleta da frente
-    // (Marketing rosa, Vendas turquesa, CS azul-céu) na borda. Verde fica
-    // apenas no chip "PLUGADO" (estado, não identidade).
-    // Split 60/40 quando engine aberta (action ganha peso sobre contexto).
-    // Split 50/50 quando engine fechada (só botão + side cards).
-    return `<div class="rounded-2xl bg-slate-900/40 border border-${tone}-400/40 p-3 space-y-3">
+    // V32.6.7 → V32.6.8 — Card herda paleta da frente. Verde só no chip estado.
+    // V32.6.8 (Geraldo+Leonardo): SPOTLIGHT MODE. Quando o form de criar ação
+    // está aberto, o card inteiro sai do fluxo e vira modal-light — overlay
+    // escurecido + card centrado + click-fora-fecha. Cliente foca 100% na
+    // criação. Catálogo de ações + ações conectadas continuam dentro do card
+    // (são contexto da decisão), mas tudo o que está ALÉM (tabs, outros KRs,
+    // rodapé, header da frente) some atrás do overlay. Geraldo: uma decisão
+    // por vez visualmente.
+
+    // Conteúdo do card (idêntico nos 2 modos — muda apenas o wrapper).
+    const cardContent = `
       <!-- Header: nome do KR + chip de estado + meta inline + ações -->
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0 flex-1">
@@ -2412,14 +2417,14 @@ window.StrategicMapModal = {
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
           <button onclick="Actions.openPluggedActionsModal('${pkr.id}')" title="Ver ações plugadas a esse KR" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[10px] font-black flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> Ver ações</button>
-          <button onclick="Actions.collapsePluggedKrCard('${pkr.id}')" title="Recolher" class="px-1.5 py-0.5 rounded text-[10px] text-slate-300 hover:bg-white/10 border border-white/15"><i data-lucide="chevron-up" class="w-3 h-3"></i></button>
-          <button onclick="Actions.removeStrategicOkr('${branchObj.id}','${childKr.id}')" title="Desplugar KR da branch" class="px-1.5 py-0.5 rounded text-[10px] text-red-300 hover:bg-red-500/20 border border-red-400/30">×</button>
+          ${engineOpen
+            ? `<button onclick="Actions.closeCustomActionEngine()" title="Fechar criação" class="px-1.5 py-0.5 rounded text-[10px] text-slate-300 hover:bg-white/10 border border-white/15"><i data-lucide="x" class="w-3 h-3"></i></button>`
+            : `<button onclick="Actions.collapsePluggedKrCard('${pkr.id}')" title="Recolher" class="px-1.5 py-0.5 rounded text-[10px] text-slate-300 hover:bg-white/10 border border-white/15"><i data-lucide="chevron-up" class="w-3 h-3"></i></button>
+               <button onclick="Actions.removeStrategicOkr('${branchObj.id}','${childKr.id}')" title="Desplugar KR da branch" class="px-1.5 py-0.5 rounded text-[10px] text-red-300 hover:bg-red-500/20 border border-red-400/30">×</button>`}
         </div>
       </div>
 
-      <!-- V32.6.7 — Split 60/40 quando engine aberta (input domina contexto).
-           Split 50/50 quando fechada (só CTA + side). lg:grid-cols-5 = 12-col
-           Tailwind dividido em 5 partes; 3+2 = 60/40. -->
+      <!-- Split 60/40 quando engine aberta · 50/50 quando só CTA + side -->
       ${engineOpen ? `<div class="grid grid-cols-1 lg:grid-cols-5 gap-3 items-start">
         <div class="lg:col-span-3">${this._customActionEngineForm(area, pkr)}</div>
         <div class="lg:col-span-2">${this._unifiedKrPluggedSideKrs(pkr, area)}</div>
@@ -2428,14 +2433,14 @@ window.StrategicMapModal = {
         ${this._unifiedKrPluggedSideKrs(pkr, area)}
       </div>`}
 
-      <!-- V31.1.0 — Ações conectadas (operacional): listadas ANTES do catálogo -->
-      ${this._connectedActionsList(childKr, area)}
+      <!-- V31.1.0 — Ações conectadas (operacional): listadas ANTES do catálogo.
+           Quando engine aberta, escondemos (foco no form), volta quando fecha. -->
+      ${engineOpen ? '' : this._connectedActionsList(childKr, area)}
 
-      <!-- V32.5.0 (Leonardo L5) — Catálogo agora dentro de <details> colapsável
-           pra reduzir density anxiety. Aberto por default (cliente que expandiu
-           o card quer ver o catálogo), mas colapsável se quiser respirar. -->
-      <details open class="pt-2 border-t border-emerald-400/20 group">
-        <summary class="cursor-pointer text-[10px] font-black text-emerald-300 uppercase tracking-wider mb-1.5 hover:text-emerald-200 transition flex items-center gap-1.5 select-none">
+      <!-- V32.5.0 (Leonardo L5) — Catálogo dentro de <details>. Quando engine
+           aberta, escondemos pra não competir com o form. -->
+      ${engineOpen ? '' : `<details open class="pt-2 border-t border-${tone}-400/20 group">
+        <summary class="cursor-pointer text-[10px] font-black text-${tone}-200 uppercase tracking-wider mb-1.5 hover:text-${tone}-100 transition flex items-center gap-1.5 select-none">
           <i data-lucide="chevron-down" class="w-3 h-3 group-open:rotate-0 -rotate-90 transition-transform"></i>
           Como cobrir esse número? (catálogo de ações)
         </summary>
@@ -2447,8 +2452,6 @@ window.StrategicMapModal = {
           ${customs.map(c => {
             const isAct = activatedCustomIds.has(c.id);
             const isSel = App.state.coverageChipSelected === c.id;
-            // V31.2.24 — Estilo botão limpo: pressionado verde-escuro quando selecionada,
-            // botão neutro quando não. Sem tracejado, sem ring. ✓ prefix só se plugada.
             const cls = isSel
               ? 'bg-emerald-700 border border-emerald-600 text-white shadow-inner'
               : (isAct
@@ -2458,8 +2461,6 @@ window.StrategicMapModal = {
           }).join('')}
         </div>`}
         ${(() => {
-          // V31.2.22 — Quando user seleciona uma chip custom, mostra barra
-          // de ação com Plugar/Desplugar. Antes a chip ativava direto.
           const selId = App.state.coverageChipSelected;
           if (!selId) return '';
           const sel = customs.find(c => c.id === selId);
@@ -2472,8 +2473,21 @@ window.StrategicMapModal = {
             <button onclick="Actions.toggleCoverageChip('${sel.id}')" title="Cancelar seleção" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-[10px] font-black">✕</button>
           </div>`;
         })()}
-      </details>
-    </div>`;
+      </details>`}
+    `;
+
+    // Wrapper: modal-light quando engine aberta, card inline quando fechada.
+    if (engineOpen) {
+      return `<div class="fixed inset-0 z-[90] bg-black/85 backdrop-blur-sm overflow-auto"
+        onclick="if(event.target===this)Actions.closeCustomActionEngine()">
+        <div class="min-h-full grid place-items-center p-4">
+          <div class="rounded-2xl bg-slate-900/95 border border-${tone}-400/50 p-4 space-y-3 shadow-2xl shadow-${tone}-500/20 w-full max-w-5xl">
+            ${cardContent}
+          </div>
+        </div>
+      </div>`;
+    }
+    return `<div class="rounded-2xl bg-slate-900/40 border border-${tone}-400/40 p-3 space-y-3">${cardContent}</div>`;
   },
 
   // V31.2.19 → V32.6.7 (Leonardo full pass) — Lado direito do card plugado.
