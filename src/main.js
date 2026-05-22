@@ -456,16 +456,24 @@ var App = {
 
         const mainNav = document.getElementById('mainNav');
         if (mainNav) {
-          mainNav.innerHTML = Config.tabs.map(tab => `
-            <button
-              onclick="App.setTab('${tab.id}')"
-              class="lj-master-nav-item ${this.state.activeTab === tab.id ? 'active' : ''}"
-              aria-current="${this.state.activeTab === tab.id ? 'page' : 'false'}"
-            >
-              <i data-lucide="${tab.icon}" class="lj-master-nav-icon"></i>
-              <span>${tab.label}</span>
-            </button>
-          `).join('');
+          // V32.3.0 — Onda 1 Leonardo. Separadores sutis antes de Produtos
+          // (cockpit → operação), Score (operação → inteligência) e RevOps
+          // (inteligência → governança). Gestalt cura sem títulos de seção.
+          const dividerBefore = new Set(['products', 'scores', 'revops']);
+          mainNav.innerHTML = Config.tabs.map(tab => {
+            const sep = dividerBefore.has(tab.id) ? '<div class="lj-nav-divider" aria-hidden="true"></div>' : '';
+            return sep + `
+              <button
+                onclick="App.setTab('${tab.id}')"
+                data-tab="${tab.id}"
+                class="lj-master-nav-item ${this.state.activeTab === tab.id ? 'active' : ''}"
+                aria-current="${this.state.activeTab === tab.id ? 'page' : 'false'}"
+              >
+                <i data-lucide="${tab.icon}" class="lj-master-nav-icon"></i>
+                <span>${tab.label}</span>
+              </button>
+            `;
+          }).join('');
         }
 
         // V25.0.2 — Configurações + Logout + Versão movidos pra sidebar

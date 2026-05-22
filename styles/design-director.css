@@ -184,7 +184,7 @@ body.lj-app-body {
   position: sticky;
   top: 0;
   height: 100vh;
-  padding: 24px 18px;
+  padding: 24px 21px;
   background: rgba(2,6,23,.68);
   border-right: 1px solid rgba(255,255,255,.10);
   backdrop-filter: blur(22px);
@@ -197,9 +197,9 @@ body.lj-app-body {
   min-height: 58px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 10px 22px;
-  margin-bottom: 14px;
+  gap: 13px;
+  padding: 0 13px 21px;
+  margin-bottom: 13px;
   border-bottom: 1px solid rgba(255,255,255,.10);
 }
 
@@ -249,19 +249,28 @@ body.lj-app-body {
 .lj-master-nav-item {
   width: 100%;
   min-height: 48px;
-  border-radius: 18px;
-  padding: 0 14px;
+  border-radius: 16px;
+  padding: 0 13px;
   display: flex !important;
   align-items: center;
   justify-content: flex-start !important;
-  gap: 12px;
+  gap: 13px;
   color: #CBD5E1;
   background: transparent;
   border: 1px solid transparent;
   font-size: 14px;
   font-weight: 850;
   text-align: left;
-  transition: background .22s ease, border-color .22s ease, color .22s ease, transform .22s ease;
+  transition: background .22s ease, border-color .22s ease, color .22s ease, transform .22s ease, padding-left .35s ease;
+}
+
+/* V32.3.0 — Onda 1 Leonardo. Separador sutil entre territórios cognitivos
+   do sidebar (Início → Operação → Inteligência → Governança). Sem título,
+   sem ruído — apenas pausa estrutural. Gestalt cura. */
+.lj-nav-divider {
+  height: 1px;
+  margin: 13px 8px;
+  background: rgba(255,255,255,.06);
 }
 
 .lj-master-nav-item:hover {
@@ -287,12 +296,12 @@ body.lj-app-body {
 /* V25.0.2 — Conta (Configurações + Logout + Versão) abaixo dos tabs.
    Separado por uma linha sutil pra distinguir de tabs de conteúdo. */
 .lj-master-nav-account {
-  margin-top: 18px;
-  padding-top: 14px;
+  margin-top: 21px;
+  padding-top: 13px;
   border-top: 1px solid rgba(255,255,255,.08);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .lj-master-nav-account .lj-master-nav-item {
   min-height: 42px;
