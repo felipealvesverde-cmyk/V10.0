@@ -6212,6 +6212,9 @@ Object.assign(Actions, {
 
   // V30.0.0 — Abre o modal de criar task. Recebe contexto (KR/ação) e pré-preenche.
   openCreateClickupTaskModal(seedContext) {
+    // V32.1.7 — Pré-seleciona a default_list_id configurada (Geraldo safe).
+    // User pode trocar via dropdown se quiser override.
+    const defaultListId = App.state.clickupStatus?.defaultListId || '';
     App.state.createClickupTaskModal = {
       open: true,
       loading: true,
@@ -6221,7 +6224,7 @@ Object.assign(Actions, {
       users: [],
       seedContext: seedContext || null,
       draft: {
-        list_id: '',
+        list_id: defaultListId,
         name: seedContext?.suggestedName || '',
         description: seedContext?.suggestedDescription || '',
         priority: 3,
@@ -6327,28 +6330,49 @@ Object.assign(Actions, {
     m.draft.tags = String(rawValue || '').split(',').map(t => t.trim()).filter(Boolean);
   },
 
+  // V32.1.7 — Modal manual agora passa por /api/clickup-create-task (igual Djow).
+  // Antes ia direto /api/clickup-proxy (bypassava guards V32.1.4-1.6: tag, prefix,
+  // status_map, write_enabled). Inconsistência apontada por Geraldo audit.
+  // Agora ambos caminhos (modal + Djow) aplicam EXATAMENTE os mesmos guards.
   async submitClickupTask() {
     const m = App.state.createClickupTaskModal;
     if (!m) return;
     const d = m.draft;
     if (!d.name) return Utils.toast('Título obrigatório.');
     if (!d.list_id) return Utils.toast('Escolha a Lista no ClickUp.');
+
+    const token = localStorage.getItem('lj_jwt');
     const body = {
       name: d.name,
       description: d.description,
       priority: Number(d.priority) || 3,
       due_date: d.due_date ? new Date(d.due_date).getTime() : undefined,
       assignees: d.assignees,
-      tags: d.tags
+      tags: d.tags,
+      list_id: d.list_id  // V32.1.7 — list_id agora vai no body do endpoint safe
     };
-    const r = await Actions.clickupApi('POST', `/list/${d.list_id}/task`, body);
-    if (r.ok) {
-      Utils.toast(`✓ Tarefa criada no ClickUp${r.data?.url ? ` · clique pra abrir` : ''}`);
-      App.state.createClickupTaskModal = null;
-      App.save(); App.render();
-      if (r.data?.url) window.open(r.data.url, '_blank', 'noopener,noreferrer');
-    } else {
-      Utils.toast(`Erro: ${r.data?.err || r.message || 'falha'}`);
+
+    try {
+      const res = await fetch('/api/clickup-create-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data.ok) {
+        Utils.toast(`✓ Tarefa criada no ClickUp${data.externalUrl ? ' · clique pra abrir' : ''}`);
+        App.state.createClickupTaskModal = null;
+        App.save(); App.render();
+        if (data.externalUrl) window.open(data.externalUrl, '_blank', 'noopener,noreferrer');
+      } else if (data.code === 'clickup_read_only') {
+        Utils.toast('ClickUp em modo somente-leitura — task NÃO criada. Reative em Configurações → ClickUp.');
+      } else if (data.code === 'no_default_list') {
+        Utils.toast('Configure a list de destino padrão em Configurações → ClickUp antes de criar tasks.');
+      } else {
+        Utils.toast(`Erro: ${data.message || 'falha desconhecida'}`);
+      }
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
     }
   },
 

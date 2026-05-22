@@ -45,6 +45,14 @@ window.CreateClickupTaskModal = {
               <option value="">${m.loading ? 'Carregando…' : 'Selecione uma lista'}</option>
               ${(m.lists || []).map(l => `<option value="${Utils.escape(String(l.id))}" ${String(d.list_id) === String(l.id) ? 'selected' : ''}>${Utils.escape(l.label)}</option>`).join('')}
             </select>
+            ${(() => {
+              // V32.1.7 — Avisa se user escolheu list diferente da default Geraldo.
+              const def = App.state.clickupStatus?.defaultListId;
+              if (!def) return '';
+              if (!d.list_id) return `<p class="text-[11px] text-emerald-600 mt-1">✓ List padrão (Configurações → ClickUp) será usada se você não trocar.</p>`;
+              if (String(d.list_id) === String(def)) return `<p class="text-[11px] text-emerald-600 mt-1">✓ Usando list padrão configurada.</p>`;
+              return `<p class="text-[11px] text-amber-700 mt-1">⚠ Override: você escolheu list diferente da padrão (Configurações → ClickUp).</p>`;
+            })()}
           </div>
 
           <div>
