@@ -1117,7 +1117,7 @@ window.StrategicMapModal = {
             Hoje <b class="text-white">${Number(kr.current ?? 0)}</b>
             · Segura <b class="text-emerald-300">${Number(kr.targetCommitted ?? 0)}</b>
             · Avançada <b class="text-violet-300">${Number(kr.targetStretch ?? 0)}</b>
-            · em <b class="text-white">${kr.period || 90} dias</b>
+            ${/* V32.4.4 — Felipe pediu remover "em X dias" — por hora sem prazo setado. */ ''}
           </p>
           <p class="text-[10px] text-slate-400 mt-1">Rollup: <b class="text-${tone}-200">${rollup.current}</b> de ${rollup.contributors} branch(es) contribuindo · ${progress}%</p>
         </div>
@@ -1322,13 +1322,15 @@ window.StrategicMapModal = {
       )}
 
       ${!hasVision ? `
+        ${/* V32.4.4 — Felipe: removido botão "Usar como ponto de partida" + separador
+            "ou escreva o seu". Card de exemplo continua (didático), só a porta de
+            entrada vira o texto de transição abaixo. */ ''}
         <div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
           <div class="flex items-center gap-2 mb-3">
             <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">Exemplo de produto</span>
             <span class="text-[11px] text-slate-400">Pra inspirar — pode adaptar pro seu</span>
           </div>
           <p class="text-base text-white font-semibold leading-relaxed italic mb-3">"${Utils.escape(exampleCacau)}"</p>
-          <button onclick="Actions.updateStrategicVision(${JSON.stringify(exampleCacau).replace(/"/g, '&quot;')}); App.render();" class="px-3 py-1.5 rounded-xl bg-violet-500 hover:bg-violet-600 text-white text-xs font-black" style="color:#fff!important;">Usar como ponto de partida →</button>
 
           <div class="mt-4 pt-3 border-t border-white/10">
             <p class="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Outros exemplos pra te inspirar:</p>
@@ -1338,7 +1340,7 @@ window.StrategicMapModal = {
           </div>
         </div>
 
-        <div class="text-center text-[11px] text-slate-500 font-bold">────────── ou escreva o seu ──────────</div>
+        <p class="text-center text-[12px] text-slate-300 italic px-4">Agora, depois que você entendeu o conceito, coloque o seu aqui ↓</p>
       ` : ''}
 
       <div class="rounded-3xl bg-white/[0.05] border border-white/10 p-5">

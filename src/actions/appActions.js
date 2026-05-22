@@ -4742,8 +4742,13 @@ Object.assign(Actions, {
   updateStrategicVision(value) {
     const productId = App.state.strategicMapProductId;
     if (!productId || !window.StrategicMapEngine) return;
+    // V32.4.4 — Re-render só na transição vazio↔preenchido pra habilitar o
+    // botão "Próximo passo" sem perder foco do textarea durante typing normal.
+    const wasFilled = Boolean(String(StrategicMapEngine.getForProduct(productId).vision || '').trim());
     StrategicMapEngine.setVision(productId, value);
     App.save();
+    const isFilled = Boolean(String(value || '').trim());
+    if (wasFilled !== isFilled) App.render();
   },
 
   startStrategicObjectiveDraft() {
@@ -7431,8 +7436,14 @@ Prioridade: ${d.priority}
   // V29.0.1 — Dono compartilhado da área (Marketing/Vendas/CS) — mesmo across branches.
   setStrategicAreaOwner(productId, areaId, owner) {
     if (!productId || !window.StrategicMapEngine) return;
+    // V32.4.4 — Re-render só na transição "todos preenchidos ↔ algum vazio"
+    // pra habilitar/desabilitar o botão "Próximo passo" sem perder foco do input.
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    const wasAllSet = areas.every(a => String(StrategicMapEngine.getAreaOwner(productId, a.id) || '').trim());
     StrategicMapEngine.setAreaOwner(productId, areaId, owner);
     App.save();
+    const isAllSet = areas.every(a => String(StrategicMapEngine.getAreaOwner(productId, a.id) || '').trim());
+    if (wasAllSet !== isAllSet) App.render();
   },
 
   // V29.0.1 — L (top-down): gestor confirma plugar um KR-mãe que o CEO criou,
