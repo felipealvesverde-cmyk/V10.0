@@ -2665,9 +2665,14 @@ var SettingsModal = {
              Antes: 5 cards em scroll vertical longo. Mobile virava inferno.
              Agora: cards principais (Mirror + List config) sempre abertos;
              "Avançado" colapsa Marker + Status map + Write mode. -->
-        <details class="rounded-2xl bg-white border border-slate-200 overflow-hidden">
-          <summary class="px-4 py-3 cursor-pointer font-black text-sm text-slate-700 flex items-center gap-2 select-none hover:bg-slate-50">
-            <i data-lucide="chevron-right" class="w-4 h-4 transition-transform"></i>
+        ${/* V32.5.8 — Persiste estado aberto/fechado em App.state.clickupAdvancedOpen.
+            <details> HTML nativo perde o atributo `open` toda vez que innerHTML
+            re-renderiza (qualquer App.render dispara isso). Cliente percebia como
+            "fecha sozinho". Agora click no summary chama Actions.toggleClickupAdvanced()
+            que persiste em state — sobrevive re-renders. */ ''}
+        <details ${App.state.clickupAdvancedOpen ? 'open' : ''} class="rounded-2xl bg-white border border-slate-200 overflow-hidden">
+          <summary onclick="event.preventDefault(); Actions.toggleClickupAdvanced();" class="px-4 py-3 cursor-pointer font-black text-sm text-slate-700 flex items-center gap-2 select-none hover:bg-slate-50">
+            <i data-lucide="${App.state.clickupAdvancedOpen ? 'chevron-down' : 'chevron-right'}" class="w-4 h-4 transition-transform"></i>
             Configurações avançadas (marcação, status, modo de escrita)
           </summary>
           <div class="p-4 space-y-3 border-t border-slate-200 bg-slate-50">

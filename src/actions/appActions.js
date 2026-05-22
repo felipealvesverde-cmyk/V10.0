@@ -6288,6 +6288,15 @@ Object.assign(Actions, {
     App.save();
   },
 
+  // V32.5.8 — Toggle do <details> "Configurações avançadas" no card ClickUp.
+  // <details> HTML nativo perde o atributo `open` em todo innerHTML re-render
+  // (App.render dispara isso). Cliente percebia como "fecha sozinho". Persistir
+  // em state sobrevive re-renders.
+  toggleClickupAdvanced() {
+    App.state.clickupAdvancedOpen = !App.state.clickupAdvancedOpen;
+    App.save(); App.render();
+  },
+
   // V32.5.6 — Salva Client ID/Secret do OAuth App em clickup_config (criptografado
   // no backend via lib/clickup-crypto). Depois disso o user pode clicar
   // "Autorizar no ClickUp" pra abrir a janela OAuth — fluxo handled em

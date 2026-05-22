@@ -57,6 +57,9 @@ var State = {
       // clickupOAuthDraft: form de Client ID + Client Secret do OAuth App do user.
       clickupConnectTab: 'oauth',
       clickupOAuthDraft: { clientId: '', clientSecret: '' },
+      // V32.5.8 — Persiste estado aberto/fechado do <details> "Configurações avançadas"
+      // no card ClickUp. <details> nativo perde `open` em todo innerHTML re-render.
+      clickupAdvancedOpen: false,
       taskCreationModal: null,
       djowTaskChat: null,
       // V31.2.41 — Status das 3 conexões RD (atualizado por testAllRdConnections).
@@ -700,6 +703,8 @@ var State = {
       clickupOAuthDraft: (raw.clickupOAuthDraft && typeof raw.clickupOAuthDraft === 'object')
         ? { clientId: String(raw.clickupOAuthDraft.clientId || ''), clientSecret: String(raw.clickupOAuthDraft.clientSecret || '') }
         : { clientId: '', clientSecret: '' },
+      // V32.5.8 — estado persistente do <details> "Configurações avançadas".
+      clickupAdvancedOpen: !!raw.clickupAdvancedOpen,
       // Modais ficam SEMPRE fechados no boot (UI state, não persiste aberto)
       taskCreationModal: null,
       djowTaskChat: null,
