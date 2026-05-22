@@ -11,16 +11,20 @@
   --lj-text-secondary: #CBD5E1;
   --lj-text-muted: #94A3B8;
 
-  --lj-marketing: #8B5CF6;
-  --lj-marketing-soft: #A78BFA;
-  --lj-sales: #0EA5E9;
-  --lj-sales-soft: #38BDF8;
-  --lj-cs: #10B981;
-  --lj-cs-soft: #34D399;
-  --lj-cx: #F59E0B;
-  --lj-cx-soft: #FBBF24;
-  --lj-revops: #6366F1;
-  --lj-revops-soft: #818CF8;
+  /* V32.3.2 — Paleta semântica Leonardo (sincronizado com design-director.css).
+     Vide design-director.css :root pra explicação completa da paleta. */
+  --lj-marketing: #F472B6;
+  --lj-marketing-soft: #F9A8D4;
+  --lj-sales: #00CBCC;
+  --lj-sales-soft: #5EEAD4;
+  --lj-cs: #6BBEF9;
+  --lj-cs-soft: #93C5FD;
+  --lj-revenue: #F6DB5C;
+  --lj-revenue-soft: #FDE68A;
+  --lj-revops: #AB3ED8;
+  --lj-revops-soft: #C084FC;
+  --lj-cx: var(--lj-revenue);
+  --lj-cx-soft: var(--lj-revenue-soft);
 
   --lj-success: #10B981;
   --lj-warning: #F59E0B;
@@ -116,28 +120,44 @@
   border: 1px solid var(--lj-border);
 }
 
+/* V32.3.2 — Badges semânticos Leonardo. rgba dos backgrounds/borders
+   refletem cada hex novo da paleta. */
 .lj-badge-marketing {
   color: var(--lj-marketing-soft);
-  background: rgba(139,92,246,.14);
-  border-color: rgba(167,139,250,.28);
+  background: rgba(244,114,182,.14);
+  border-color: rgba(249,168,212,.28);
 }
 
 .lj-badge-sales {
   color: var(--lj-sales-soft);
-  background: rgba(14,165,233,.14);
-  border-color: rgba(56,189,248,.28);
+  background: rgba(0,203,204,.14);
+  border-color: rgba(94,234,212,.28);
 }
 
 .lj-badge-cs {
   color: var(--lj-cs-soft);
-  background: rgba(16,185,129,.14);
-  border-color: rgba(52,211,153,.28);
+  background: rgba(107,190,249,.14);
+  border-color: rgba(147,197,253,.28);
 }
 
+.lj-badge-revenue {
+  color: var(--lj-revenue-soft);
+  background: rgba(246,219,92,.14);
+  border-color: rgba(253,230,138,.28);
+}
+
+.lj-badge-revops {
+  color: var(--lj-revops-soft);
+  background: rgba(171,62,216,.14);
+  border-color: rgba(192,132,252,.28);
+}
+
+/* Alias legacy — .lj-badge-cx mantém compatibilidade com callers antigos.
+   Visualmente igual a .lj-badge-revenue. Remover quando refator varrer. */
 .lj-badge-cx {
-  color: var(--lj-cx-soft);
-  background: rgba(245,158,11,.14);
-  border-color: rgba(251,191,36,.28);
+  color: var(--lj-revenue-soft);
+  background: rgba(246,219,92,.14);
+  border-color: rgba(253,230,138,.28);
 }
 
 .lj-modal-shell {

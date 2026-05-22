@@ -11,16 +11,29 @@
   --lj-text-secondary: #CBD5E1;
   --lj-text-muted: #94A3B8;
 
-  --lj-marketing: #8B5CF6;
-  --lj-marketing-soft: #A78BFA;
-  --lj-sales: #0EA5E9;
-  --lj-sales-soft: #38BDF8;
-  --lj-cs: #10B981;
-  --lj-cs-soft: #34D399;
-  --lj-cx: #F59E0B;
-  --lj-cx-soft: #FBBF24;
-  --lj-revops: #6366F1;
-  --lj-revops-soft: #818CF8;
+  /* V32.3.2 — Paleta semântica Leonardo (decisão Felipe 2026-05-22).
+     Cada área operacional ocupa um setor distinto do círculo cromático:
+       Marketing  rosa-magenta  330° — atração, comunicação
+       Vendas     turquesa      181° — consultivo, transparência
+       CS         azul-céu      205° — cuidado, confiança
+       Receita    amarelo-ouro   50° — valor, conquista
+       RevOps     roxo          282° — governança (Marketing+Vendas+CS metabolizado)
+     RevOps = ponte cromática literal entre magenta(330°) e azul(205°). */
+  --lj-marketing: #F472B6;
+  --lj-marketing-soft: #F9A8D4;
+  --lj-sales: #00CBCC;
+  --lj-sales-soft: #5EEAD4;
+  --lj-cs: #6BBEF9;
+  --lj-cs-soft: #93C5FD;
+  --lj-revenue: #F6DB5C;
+  --lj-revenue-soft: #FDE68A;
+  --lj-revops: #AB3ED8;
+  --lj-revops-soft: #C084FC;
+  /* Alias legacy — --lj-cx era "Customer Experience" laranja. Hoje mapeia
+     pra Receita pra não quebrar callers antigos. Aposentar quando refator
+     dos badges (.lj-badge-cx) varrer o codebase. */
+  --lj-cx: var(--lj-revenue);
+  --lj-cx-soft: var(--lj-revenue-soft);
 
   --lj-success: #10B981;
   --lj-warning: #F59E0B;
@@ -279,6 +292,26 @@ body.lj-app-body {
    não passagem diária. Cor base mais distante pra hierarquia cognitiva. */
 .lj-master-nav-item[data-tab="revops"]:not(.active):not(:hover) {
   color: #94A3B8;
+}
+
+/* V32.3.2 — Cor semântica do RevOps (roxo, junção de Marketing+Vendas+CS).
+   Hover: barra lateral vira roxa (sobrepõe o índigo genérico do ::before).
+   Active: bg, cor e borda inteiros migram pra família roxa.
+   Decisão Felipe 2026-05-22: cada área operacional tem identidade cromática
+   única — RevOps é a coroa governando as três frentes. */
+.lj-master-nav-item[data-tab="revops"]:hover::before {
+  background: rgba(171,62,216,.55);
+}
+.lj-master-nav-item[data-tab="revops"].active,
+.lj-master-nav-item[data-tab="revops"][aria-current="page"] {
+  background: rgba(171,62,216,.20) !important;
+  color: #E9D5FF !important;
+  border-color: rgba(192,132,252,.40) !important;
+  box-shadow: 0 14px 30px rgba(171,62,216,.14) !important;
+}
+.lj-master-nav-item[data-tab="revops"].active::before,
+.lj-master-nav-item[data-tab="revops"][aria-current="page"]::before {
+  background: rgba(192,132,252,.95);
 }
 
 /* V32.2.8 — Onda 3 Leonardo. Hover contemplativo: a barra de cor nasce do
