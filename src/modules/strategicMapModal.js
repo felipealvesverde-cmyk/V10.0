@@ -1325,7 +1325,18 @@ window.StrategicMapModal = {
       ? `bg-${nextThermal}-500 hover:bg-${nextThermal}-600 text-white cursor-pointer`
       : 'bg-white/5 text-slate-500 cursor-not-allowed';
     const icon = enabled ? 'arrow-right' : 'lock';
-    const title = enabled ? '' : 'title="Preencha o campo desta etapa pra avançar"';
+    // V32.5.5 — Tooltip dinâmico por step quando disabled. Antes era genérico
+    // "Preencha o campo desta etapa" — pouco informativo. Agora cada etapa
+    // explica o que falta.
+    const disabledHints = {
+      vision:     'Escreva o objetivo do produto em uma frase pra avançar',
+      objectives: 'Defina o dono de cada uma das 3 frentes (Marketing, Vendas, CS)',
+      okrs:       'Defina pelo menos 1 número em cada uma das 3 frentes (Marketing, Vendas e CS)',
+      campaign:   'Selecione uma campanha acima clicando em "Seguir →"',
+      operations: 'Conecte pelo menos 1 ação a um número pra colocar em campo',
+      execution:  ''
+    };
+    const title = enabled ? '' : `title="${Utils.escape(disabledHints[currentStepId] || 'Complete esta etapa pra avançar')}"`;
 
     const reverBtn = prevLevel
       ? `<button onclick="Actions.setStrategicZoom('${prevLevel.id}')" title="Voltar pra ${Utils.escape(prevLevel.short)}" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-slate-200 text-[11px] font-bold flex items-center gap-1 transition"><i data-lucide="arrow-left" class="w-3 h-3"></i> Rever ${Utils.escape(prevLevel.short)}</button>`
@@ -1489,20 +1500,33 @@ window.StrategicMapModal = {
   // Em mode='campaign': Gestor vê os KRs-mãe read-only + banner pra ir pra etapa Campanha.
   _stepOkrs(product) {
     // V31.2.0 — Sempre versão editável (não há mais distinção CEO/Gestor).
-    // Antes mode='campaign' mostrava read-only; agora qualquer um pode criar
-    // productKrs daqui — facilita coverage dos números pela campanha.
+    // V32.5.5 (Geraldo Opção A) — Agora exige PELO MENOS 1 KR em CADA uma
+    // das 3 frentes (Marketing + Vendas + CS). Antes habilitava com qualquer
+    // KR — cliente setava só Marketing, avançava, e ia descobrir na etapa 5
+    // que não havia o que plugar em Vendas/CS. Funil RevOps por filosofia
+    // exige cobertura completa. Falta de área é confrontada AGORA, não depois.
     const productKrs = StrategicMapEngine.getProductKrs(product.id);
     const orphans = StrategicMapEngine.getOrphanChildKrs ? StrategicMapEngine.getOrphanChildKrs(product.id) : [];
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    const missingAreas = areas.filter(a => !productKrs.some(k => k.area === a.id));
+    const allAreasCovered = missingAreas.length === 0;
     return `<section class="space-y-4">
-      ${this._stepIntro('Quais são os números deste produto?', 'Defina quais números o produto inteiro precisa entregar. Cada campanha plugada vai contribuir.', 'target', null, 'okrs-kr-mae', 'KR-mãe é a meta consolidada do produto. As campanhas (branches) "plugam" filhos que somam pra ela via rollup automático.')}
+      ${this._stepIntro('Quais são os números deste produto?', 'Defina pelo menos 1 número em cada uma das 3 frentes: Marketing, Vendas e CS. Sem cobrir as 3, o funil fica manco.', 'target', null, 'okrs-kr-mae', 'O funil RevOps clássico é Marketing → Vendas → CS. Se você só seta números em Marketing, gera leads que ninguém recebe. Setar 1+ número em cada frente garante que a campanha tenha cobertura completa pra trabalhar.')}
       ${this._productKrsBlock(product, productKrs, orphans)}
-      ${this._stepCta('Próximo passo: escolher a campanha', productKrs.length > 0, 'okrs')}
+      ${!allAreasCovered && productKrs.length > 0 ? `<div class="rounded-2xl bg-amber-500/10 border border-amber-400/30 p-3 text-[12px] text-amber-100 flex items-start gap-2">
+        <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mt-0.5 text-amber-300 shrink-0"></i>
+        <span>Falta setar pelo menos 1 número em <b>${missingAreas.map(a => Utils.escape(a.label)).join('</b> e <b>')}</b> pra cobrir o funil completo.</span>
+      </div>` : ''}
+      ${this._stepCta('Próximo passo: escolher a campanha', allAreasCovered, 'okrs')}
     </section>`;
   },
 
   _stepOkrsReadOnly(product) {
     const productKrs = StrategicMapEngine.getProductKrs(product.id);
     const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    // V32.5.5 (Geraldo Opção A) — Mesma regra das 3 áreas obrigatórias.
+    const missingAreas = areas.filter(a => !productKrs.some(k => k.area === a.id));
+    const allAreasCovered = missingAreas.length === 0;
     return `<section class="space-y-4">
       ${this._stepIntro('Quais são os números deste produto?', 'Estes são os números que o CEO definiu. Para plugar à esta campanha, vá pra etapa Campanha (próxima).', 'target')}
       <div class="rounded-2xl bg-indigo-500/10 border border-indigo-400/30 p-3 text-[12px] text-indigo-100 flex items-start gap-2">
@@ -1521,7 +1545,11 @@ window.StrategicMapModal = {
           </div>`).join('')}
         </div>`;
       }).join('')}
-      ${this._stepCta('Próximo passo: escolher a campanha', productKrs.length > 0, 'okrs')}
+      ${!allAreasCovered && productKrs.length > 0 ? `<div class="rounded-2xl bg-amber-500/10 border border-amber-400/30 p-3 text-[12px] text-amber-100 flex items-start gap-2">
+        <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mt-0.5 text-amber-300 shrink-0"></i>
+        <span>CEO precisa setar pelo menos 1 número em <b>${missingAreas.map(a => Utils.escape(a.label)).join('</b> e <b>')}</b> pra cobrir o funil completo.</span>
+      </div>` : ''}
+      ${this._stepCta('Próximo passo: escolher a campanha', allAreasCovered, 'okrs')}
     </section>`;
   },
 

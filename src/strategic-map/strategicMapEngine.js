@@ -122,7 +122,10 @@ window.StrategicMapEngine = {
       vision: Boolean(productVision),
       objectives: hasAnyOwner,                  // donos definidos pelo CEO
       okrs: productKrs.length > 0,              // KRs-mãe definidos pelo CEO
-      campaign: pluggedKrs.length > 0,          // V29.1: gestor plugou pelo menos 1 KR
+      // V32.5.5 — Após rename V32.5.0 G4 (etapa 4 virou "Selecionar Campanha"),
+      // o critério "concluído" passa a ser SELEÇÃO da campanha (campaignId
+      // existe), não plug de KR. Plug mora na etapa 5 (operations).
+      campaign: Boolean(campaignId),
       operations: connectedOkrs.length > 0,
       execution: hasExecutionTask
     };
