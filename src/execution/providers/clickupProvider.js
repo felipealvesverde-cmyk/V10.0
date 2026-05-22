@@ -27,6 +27,13 @@ window.ExecutionProviders.clickup = {
   },
 
   async createTask(payload, cfg) {
+    // V32.1.6 — Read-only mode: bloqueia criação no frontend antes mesmo de
+    // chamar backend (UI mais clara). Backend tem o mesmo guard (defesa em
+    // profundidade) — qualquer um dos dois evita criação indevida.
+    if (window.App?.state?.clickupStatus?.writeEnabled === false) {
+      if (window.Utils?.toast) Utils.toast('ClickUp em modo somente-leitura — task NÃO criada. Ative em Configurações → ClickUp.');
+      return { providerTaskId: null, externalUrl: null, error: 'ClickUp em modo somente-leitura.' };
+    }
     // Caminho novo via backend proxy (PAT no DB).
     if (this._isNewPathConnected()) {
       try {
@@ -73,6 +80,10 @@ window.ExecutionProviders.clickup = {
 
   async updateTask(providerTaskId, patch, cfg) {
     if (!providerTaskId) return { ok: true };
+    // V32.1.6 — Read-only: bloqueia update se user desativou write.
+    if (window.App?.state?.clickupStatus?.writeEnabled === false) {
+      return { ok: true, skipped: 'read_only' };
+    }
     // V32.1.5 — Path novo (PAT via DB): usa statusMap do user setado em
     // Configurações → Integrações → ClickUp → Mapping de status. Backend
     // /api/clickup-proxy é quem faz a chamada (token criptografado no DB).

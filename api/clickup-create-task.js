@@ -89,11 +89,24 @@ module.exports = async function handler(req, res) {
   try {
     // V32.1.4 — carrega settings de marcação (tag + prefix) junto com list.
     // V32.1.5 — também status_map_json (pra status inicial automático).
+    // V32.1.6 — também write_enabled (toggle read-only).
     const credRow = await req.tenantDb.query(
-      'SELECT default_list_id, default_space_id, lj_tag_name, task_prefix, status_map_json FROM clickup_credentials WHERE user_id = $1',
+      'SELECT default_list_id, default_space_id, lj_tag_name, task_prefix, status_map_json, write_enabled FROM clickup_credentials WHERE user_id = $1',
       [userId]
     );
     const cred = credRow.rows[0] || {};
+
+    // V32.1.6 — Read-only mode: bloqueia escrita se write_enabled = false.
+    // User pode habilitar/desabilitar em Configurações → ClickUp. Útil pra
+    // testar conexão sem risco de criar tasks indesejadas no ClickUp do cliente.
+    if (cred.write_enabled === false) {
+      return res.status(403).json({
+        ok: false,
+        code: 'clickup_read_only',
+        message: 'Modo somente-leitura ativado pra ClickUp. Tasks NÃO serão criadas. Pra reativar, vá em Configurações → Integrações → ClickUp → Modo de escrita.'
+      });
+    }
+
     let targetListId = list_id || cred.default_list_id;
     // V32.1.3 — Auto-discovery DEPRECATED (Geraldo audit). Chutar a primeira
     // list bagunçava o ClickUp do cliente externo. User precisa escolher

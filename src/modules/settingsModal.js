@@ -2958,8 +2958,19 @@ var SettingsModal = {
     const draft = App.state.clickupPatDraft || '';
     const encWarn = !status.encryptionReady ? `<div class="rounded-2xl bg-red-50 border-2 border-red-300 p-4 mb-4 text-red-800"><p class="font-black mb-1">⚠️ ENCRYPTION_KEY não configurada no servidor.</p><p class="text-sm">O admin precisa adicionar no Railway → Variables antes de você conectar. Veja README.</p></div>` : '';
 
+    const readOnlyBanner = status.connected && status.writeEnabled === false
+      ? `<div class="rounded-2xl bg-amber-100 border-2 border-amber-400 p-4 mb-4 text-amber-900 flex items-center gap-3">
+          <i data-lucide="pause-circle" class="w-5 h-5 shrink-0"></i>
+          <div class="flex-1">
+            <p class="font-black text-sm">⚠ ClickUp em modo SOMENTE-LEITURA</p>
+            <p class="text-xs">Nenhuma task será criada/atualizada no ClickUp do cliente até reativar abaixo.</p>
+          </div>
+        </div>`
+      : '';
+
     return `<div class="space-y-5">
       ${encWarn}
+      ${readOnlyBanner}
 
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 space-y-4">
         <div class="flex items-start justify-between gap-3">
@@ -2995,6 +3006,7 @@ var SettingsModal = {
         ${this._clickupListConfigCard(status)}
         ${this._clickupMarkerCard(status)}
         ${this._clickupStatusMapCard(status)}
+        ${this._clickupWriteModeCard(status)}
         `}
       </div>
 
@@ -3159,6 +3171,34 @@ var SettingsModal = {
       <div class="flex justify-end pt-1">
         <button onclick="Actions.saveClickupStatusMap()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-1.5" style="color:#fff!important;">
           <i data-lucide="check" class="w-3.5 h-3.5"></i>Salvar mapping
+        </button>
+      </div>
+    </div>`;
+  },
+
+  // V32.1.6 — Card "Modo de escrita" (read-only toggle).
+  // Geraldo safe-integration #D: cliente pode pausar a escrita do LJ no
+  // ClickUp dele temporariamente (durante teste, mudança de pipeline, etc.)
+  // sem precisar desconectar credenciais inteiras.
+  _clickupWriteModeCard(status) {
+    const writeOn = status.writeEnabled !== false;
+    return `<div class="rounded-2xl ${writeOn ? 'bg-white border border-slate-200' : 'bg-amber-50 border-2 border-amber-300'} p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <p class="font-black ${writeOn ? 'text-slate-900' : 'text-amber-900'} text-sm flex items-center gap-2">
+            <i data-lucide="${writeOn ? 'pencil' : 'pause-circle'}" class="w-4 h-4 ${writeOn ? 'text-emerald-600' : 'text-amber-700'}"></i>
+            Modo de escrita: ${writeOn ? 'ATIVO' : 'SOMENTE-LEITURA'}
+          </p>
+          <p class="text-[11px] ${writeOn ? 'text-slate-500' : 'text-amber-800'} mt-1 leading-relaxed">
+            ${writeOn
+              ? 'LJ pode criar e atualizar tasks no ClickUp normalmente. Pra pausar temporariamente (sem desconectar), ative somente-leitura.'
+              : '⚠ LJ NÃO está criando nem atualizando tasks. Conexão segue ativa pra leitura (modal, etc.), mas escrita está bloqueada.'
+            }
+          </p>
+        </div>
+        <button onclick="Actions.toggleClickupWriteMode()" class="px-3 py-2 rounded-xl ${writeOn ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'} font-black text-xs flex items-center gap-1.5 shrink-0" style="color:#fff!important;">
+          <i data-lucide="${writeOn ? 'pause' : 'play'}" class="w-3.5 h-3.5"></i>
+          ${writeOn ? 'Pausar escrita' : 'Reativar escrita'}
         </button>
       </div>
     </div>`;

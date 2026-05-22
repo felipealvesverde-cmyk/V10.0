@@ -5666,6 +5666,30 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.1.6 — Toggle modo escrita do ClickUp (read-only safety switch).
+  async toggleClickupWriteMode() {
+    const token = localStorage.getItem('lj_jwt');
+    const status = App.state.clickupStatus || {};
+    const next = !(status.writeEnabled !== false); // se atual=true, vira false; se false, vira true
+    const confirmMsg = next
+      ? 'Reativar modo de escrita do ClickUp?\n\nLJ voltará a criar/atualizar tasks no ClickUp do cliente.'
+      : 'Ativar modo somente-leitura do ClickUp?\n\nLJ NÃO criará nem atualizará tasks até reativar. Útil pra teste/pausa.';
+    if (!confirm(confirmMsg)) return;
+    try {
+      const r = await fetch('/api/clickup-update-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ write_enabled: next })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(next ? '✓ Modo escrita REATIVADO.' : '✓ Modo somente-leitura ATIVADO.');
+      await this.loadClickupStatus();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V32.1.5 — Status mapping LJ → ClickUp.
   updateClickupStatusMapDraft(ljStatus, remoteStatus) {
     App.state.clickupStatusMapDraft = {
