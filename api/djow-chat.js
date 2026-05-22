@@ -596,10 +596,13 @@ async function execTool(name, input, state, ctx) {
         // Fallback: list_id explícito → default_list_id → erro
         if (!targetListId) targetListId = input.list_id || cred.default_list_id;
         if (!targetListId) {
+          // V32.2.4 (Geraldo A19) — Mensagem mais inteligente que dá próximo passo
+          // concreto pro Djow. Antes "use query_state" — agora "antes de re-tentar,
+          // pergunte ao user qual ação OU chame query_state com path actions".
           return {
             error: cred.lj_space_id
-              ? 'Modo espelhado ativado mas action_id não foi passado. Diga qual ação esta task pertence (ex: usa query_state pra achar o ID da ação relevante).'
-              : 'List de destino do ClickUp não configurada. User precisa configurar em Configurações → Integrações → ClickUp.'
+              ? 'Modo espelhado ativo — task precisa pertencer a uma ação LJ. Antes de re-chamar essa tool, faça UMA destas: (a) pergunte ao user qual ação contextualmente faz sentido pra essa task; OU (b) chame query_state com path="actions" pra listar as ações disponíveis. Depois passe action_id (não list_id).'
+              : 'List de destino do ClickUp não configurada. Diga ao user pra configurar em Configurações → Integrações → ClickUp antes de tentar de novo.'
           };
         }
 
@@ -658,8 +661,36 @@ async function execTool(name, input, state, ctx) {
         if (!ctx?.db || !ctx?.userId) return { error: 'Contexto ausente.' };
         if (!input.task_id) return { error: 'task_id obrigatório.' };
         const { clickupFetch } = require('../lib/clickup-client');
+
+        // V32.2.4 (Geraldo A11) — Aplica statusMap quando user passa LJ status
+        // (pending/in_progress/completed). Antes PUT direto bypassava mapping,
+        // resultando em status que não existia na list do cliente.
+        const credRow = await ctx.db.query(
+          'SELECT status_map_json, write_enabled FROM clickup_credentials WHERE user_id = $1',
+          [ctx.userId]
+        );
+        const cred = credRow.rows[0] || {};
+        if (cred.write_enabled === false) {
+          return { error: 'ClickUp em modo somente-leitura.' };
+        }
+
         const body = {};
-        ['name', 'description', 'status'].forEach(k => { if (input[k] != null) body[k] = input[k]; });
+        ['name', 'description'].forEach(k => { if (input[k] != null) body[k] = input[k]; });
+
+        // Status: se for LJ-status, traduz via map; senão passa direto
+        if (input.status != null) {
+          const ljStatuses = ['pending', 'in_progress', 'completed'];
+          if (ljStatuses.includes(String(input.status))) {
+            try {
+              const map = JSON.parse(cred.status_map_json || '{}');
+              if (map[input.status]) body.status = String(map[input.status]);
+              else body.status = String(input.status); // sem map, passa direto
+            } catch (_) { body.status = String(input.status); }
+          } else {
+            body.status = String(input.status);
+          }
+        }
+
         if (input.priority != null) body.priority = Number(input.priority);
         if (input.due_date != null) body.due_date = Number(input.due_date);
         if (Array.isArray(input.assignees_add) || Array.isArray(input.assignees_rem)) {

@@ -29,40 +29,8 @@ async function ensureLjTagExists(req, userId, spaceId, tagName) {
   }
 }
 
-// V32.0.9 — clickup_credentials vivem no tenant plane. Tudo aqui usa req.tenantDb.
-async function discoverFirstList(req, userId) {
-  // Pega workspace_id armazenado
-  const cred = await req.tenantDb.query('SELECT workspace_id FROM clickup_credentials WHERE user_id = $1', [userId]);
-  const workspaceId = cred.rows[0]?.workspace_id;
-  if (!workspaceId) throw new Error('Workspace não encontrado nas credenciais.');
-
-  // 1. Lista spaces do workspace
-  const spacesRes = await clickupFetch(req.tenantDb, userId, 'GET', `/team/${workspaceId}/space`);
-  if (!spacesRes.ok) throw new Error(`ClickUp /space falhou (${spacesRes.status}).`);
-  const spaces = Array.isArray(spacesRes.data?.spaces) ? spacesRes.data.spaces : [];
-  if (!spaces.length) throw new Error('Workspace sem spaces.');
-  const space = spaces[0];
-
-  // 2. Tenta folderless list primeiro (mais simples)
-  const folderlessRes = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${space.id}/list`);
-  if (folderlessRes.ok && Array.isArray(folderlessRes.data?.lists) && folderlessRes.data.lists.length) {
-    return folderlessRes.data.lists[0].id;
-  }
-
-  // 3. Se não tem folderless, busca em folders
-  const foldersRes = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${space.id}/folder`);
-  if (foldersRes.ok && Array.isArray(foldersRes.data?.folders) && foldersRes.data.folders.length) {
-    const folder = foldersRes.data.folders[0];
-    const listsRes = await clickupFetch(req.tenantDb, userId, 'GET', `/folder/${folder.id}/list`);
-    if (listsRes.ok && Array.isArray(listsRes.data?.lists) && listsRes.data.lists.length) {
-      return listsRes.data.lists[0].id;
-    }
-  }
-
-  // V31.2.35 — Mensagem específica pro user resolver. Ainda joga error mas
-  // o handler abaixo captura e retorna 400 com texto acionável.
-  throw new Error('NO_LIST_FOUND: nenhuma list encontrada em "' + (space?.name || 'primeiro space') + '". Crie uma list folderless ou dentro de um folder no ClickUp pra poder criar tasks.');
-}
+// V32.2.4 (Geraldo A8) — discoverFirstList() REMOVIDA. Dead code desde V32.1.3
+// (auto-discovery foi substituída pelo list-picker explícito). 33 linhas.
 
 module.exports = async function handler(req, res) {
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
@@ -179,11 +147,23 @@ module.exports = async function handler(req, res) {
 
     // V32.1.5 — Status inicial: se user passou um status explícito, respeita.
     // Senão usa mapping["pending"] (status que cliente configurou pra "task nova").
+    // V32.2.4 (Geraldo A10) — Normaliza case: ClickUp compara case-sensitive.
+    // Antes "to do" vs "To Do" causava mismatch silencioso. Agora valida contra
+    // statuses reais da list e usa o casing exato do ClickUp.
     let initialStatus = status ? String(status) : undefined;
     if (!initialStatus && cred.status_map_json) {
       try {
         const map = JSON.parse(cred.status_map_json);
-        if (map && map.pending) initialStatus = String(map.pending);
+        if (map && map.pending) {
+          initialStatus = String(map.pending);
+          // Tenta resolver o casing correto via /list/{id} statuses
+          try {
+            const listMeta = await clickupFetch(req.tenantDb, userId, 'GET', `/list/${targetListId}`);
+            const realStatuses = Array.isArray(listMeta.data?.statuses) ? listMeta.data.statuses : [];
+            const match = realStatuses.find(s => String(s.status || '').toLowerCase() === initialStatus.toLowerCase());
+            if (match) initialStatus = match.status;  // usa casing exato do ClickUp
+          } catch (_) { /* mantém valor original do map */ }
+        }
       } catch (_) { /* mapping inválido — ignora, deixa ClickUp usar default da list */ }
     }
 
@@ -223,7 +203,17 @@ module.exports = async function handler(req, res) {
 
     const createRes = await clickupFetch(req.tenantDb, userId, 'POST', `/list/${targetListId}/task`, taskBody);
     if (!createRes.ok) {
-      return res.status(502).json({ ok: false, message: `ClickUp recusou (${createRes.status}).`, details: createRes.data, listId: targetListId });
+      // V32.2.4 (Geraldo A16) — Mensagem específica pra custom field obrigatório.
+      // ClickUp retorna 422 quando required field falta, com err code 'CUFC_004'.
+      // Tentamos detectar e dar mensagem acionável.
+      let actionableMsg = `ClickUp recusou (${createRes.status}).`;
+      const errStr = String(createRes.data?.err || createRes.data?.ECODE || JSON.stringify(createRes.data || {})).slice(0, 300);
+      if (createRes.status === 422 || /required|CUFC/i.test(errStr)) {
+        actionableMsg = `ClickUp recusou: a list "${cred.default_list_name || targetListId}" tem custom field obrigatório que não foi preenchido. Resposta: ${errStr}`;
+      } else if (createRes.status === 401 || createRes.status === 403) {
+        actionableMsg = `ClickUp recusou: PAT sem permissão pra criar task nessa list (${errStr}).`;
+      }
+      return res.status(502).json({ ok: false, message: actionableMsg, details: createRes.data, listId: targetListId });
     }
     return res.status(200).json({
       ok: true,
@@ -235,9 +225,7 @@ module.exports = async function handler(req, res) {
     });
   } catch (err) {
     // V31.2.35 — Mensagens específicas pro user agir
-    if (err.message?.startsWith('NO_LIST_FOUND:')) {
-      return res.status(400).json({ ok: false, message: err.message.replace('NO_LIST_FOUND: ', '') });
-    }
+    // V32.2.4 (Geraldo A8) — Bloco NO_LIST_FOUND removido (era da discoverFirstList).
     if (err.message?.includes('ENCRYPTION_KEY')) {
       return res.status(503).json({ ok: false, message: 'ENCRYPTION_KEY ausente ou inválida no servidor.' });
     }

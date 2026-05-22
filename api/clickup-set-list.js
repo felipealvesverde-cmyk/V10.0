@@ -1,5 +1,7 @@
 // V32.1.3 — POST /api/clickup-set-list
-// User escolheu uma list explicitamente no picker. Salva no clickup_credentials.
+// V32.2.4 (Geraldo A9) — DEPRECATED em modo mirror. Continua existindo só pra
+// clientes no modo legado (mirror_enabled=false ou lj_space_id=NULL). Em mirror,
+// default_list_id é morto — list é resolvida pela cascada do mirror.
 //
 // Body: { list_id, space_id, list_name? }
 //
