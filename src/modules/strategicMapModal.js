@@ -1326,24 +1326,27 @@ window.StrategicMapModal = {
       )}
 
       ${!hasVision ? `
-        ${/* V32.5.0 (Leonardo L3) — Outros exemplos viram pills clicáveis (não
-            bullet passivo). Clicar adapta o textarea com aquele exemplo. */ ''}
+        ${/* V32.5.1 — REVERTIDA L3 V32.5.0. Felipe corrigiu: exemplos são
+            REFERÊNCIA DIDÁTICA, não cardápio. Cliente NÃO deve clicar e
+            ter objetivo do produto dele setado pra "café da manhã favorito".
+            Lista passiva (bullet) pra leitura — sinal visual claro de
+            "isso é só pra você ENTENDER, não pra usar literalmente". */ ''}
         <div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
           <div class="flex items-center gap-2 mb-3">
             <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">Exemplo de produto</span>
-            <span class="text-[11px] text-slate-400">Pra inspirar — pode adaptar pro seu</span>
+            <span class="text-[11px] text-slate-400">Pra você entender o formato — escreva o seu abaixo</span>
           </div>
           <p class="text-base text-white font-semibold leading-relaxed italic mb-3">"${Utils.escape(exampleCacau)}"</p>
 
           <div class="mt-4 pt-3 border-t border-white/10">
-            <p class="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Outros exemplos pra te inspirar:</p>
-            <div class="flex flex-wrap gap-1.5">
-              ${otherExamples.map(e => `<button onclick="Actions.updateStrategicVision(${JSON.stringify(e).replace(/"/g, '&quot;')})" class="px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/30 text-violet-100 text-[11px] font-medium text-left transition" title="Clique pra adaptar pro seu produto">${Utils.escape(e)}</button>`).join('')}
-            </div>
+            <p class="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Outros exemplos pra leitura (não clicáveis):</p>
+            <ul class="space-y-1">
+              ${otherExamples.map(e => `<li class="text-[12px] text-slate-300">• ${Utils.escape(e)}</li>`).join('')}
+            </ul>
           </div>
         </div>
 
-        <p class="text-center text-[12px] text-slate-300 italic px-4">Agora, depois que você entendeu o conceito, coloque o seu aqui ↓</p>
+        <p class="text-center text-[12px] text-slate-300 italic px-4">Agora, depois que você entendeu o conceito, escreva o objetivo do seu produto aqui ↓</p>
       ` : ''}
 
       <div class="rounded-3xl bg-white/[0.05] border border-white/10 p-5">
