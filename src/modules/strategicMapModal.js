@@ -2394,12 +2394,20 @@ window.StrategicMapModal = {
     const advKey = `kr-${childKr.id}-adv`;
     const engineOpen = App.state.customActionEngine && App.state.customActionEngine.parentProductKrId === pkr.id;
 
-    return `<div class="rounded-2xl bg-emerald-500/[0.06] border border-emerald-400/30 p-3 space-y-3">
-      <!-- Header -->
+    // V32.6.7 (Leonardo full pass) — Card plugado herda paleta da frente
+    // (Marketing rosa, Vendas turquesa, CS azul-céu) na borda. Verde fica
+    // apenas no chip "PLUGADO" (estado, não identidade).
+    // Split 60/40 quando engine aberta (action ganha peso sobre contexto).
+    // Split 50/50 quando engine fechada (só botão + side cards).
+    return `<div class="rounded-2xl bg-slate-900/40 border border-${tone}-400/40 p-3 space-y-3">
+      <!-- Header: nome do KR + chip de estado + meta inline + ações -->
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0 flex-1">
-          <p class="font-black text-white text-[13px]"><span class="text-emerald-300">✓ Plugado</span> · ${Utils.escape(childKr.name)}</p>
-          <p class="text-[10px] text-slate-400 mt-0.5">Meta produto: <b>${pkr.targetCommitted || '—'}</b> ${childKr.metric || ''}</p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/20 text-emerald-200 border border-emerald-400/40 uppercase tracking-wider">✓ Plugado</span>
+            <p class="font-black text-white text-[13px]">${Utils.escape(childKr.name)}</p>
+            <span class="text-[10px] text-slate-400">· Meta <b class="text-slate-200">${pkr.targetCommitted || '—'}</b> ${childKr.metric || ''}</span>
+          </div>
           ${this._actionPillsForKr(pkr, tone)}
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
@@ -2409,19 +2417,16 @@ window.StrategicMapModal = {
         </div>
       </div>
 
-      <!-- V29.3.2 — Split 50/50: engine na esquerda + metas na direita, ambos centralizados nas suas metades -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
-        <!-- ESQUERDA (1/2): engine — botão com metade da largura da coluna, centralizado -->
-        <div class="flex justify-center">
-          ${engineOpen ? `<div class="w-full">${this._customActionEngineForm(area, pkr)}</div>` : `<button onclick="Actions.openCustomActionEngine('${area.id}', '${pkr.id}')" class="w-1/2 px-3 py-2.5 rounded-xl bg-${tone}-500/10 hover:bg-${tone}-500/20 border border-dashed border-${tone}-400/40 text-${tone}-100 text-[12px] font-black flex items-center justify-center gap-1.5 transition"><i data-lucide="zap" class="w-3.5 h-3.5"></i> Criar ação</button>`}
-        </div>
-
-        <!-- DIREITA (1/2): TODOS os KRs da área. Destaca o do card atual e
-             pinta verde aqueles selecionados na engine em criação (se aberta).
-             V31.2.19 — Antes mostrava só os números do pkr atual; agora mostra
-             o pkr atual em destaque + outros pkrs da área como contexto. -->
+      <!-- V32.6.7 — Split 60/40 quando engine aberta (input domina contexto).
+           Split 50/50 quando fechada (só CTA + side). lg:grid-cols-5 = 12-col
+           Tailwind dividido em 5 partes; 3+2 = 60/40. -->
+      ${engineOpen ? `<div class="grid grid-cols-1 lg:grid-cols-5 gap-3 items-start">
+        <div class="lg:col-span-3">${this._customActionEngineForm(area, pkr)}</div>
+        <div class="lg:col-span-2">${this._unifiedKrPluggedSideKrs(pkr, area)}</div>
+      </div>` : `<div class="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+        <div class="flex justify-center"><button onclick="Actions.openCustomActionEngine('${area.id}', '${pkr.id}')" class="w-1/2 px-3 py-2.5 rounded-xl bg-${tone}-500/10 hover:bg-${tone}-500/20 border border-dashed border-${tone}-400/40 text-${tone}-100 text-[12px] font-black flex items-center justify-center gap-1.5 transition"><i data-lucide="zap" class="w-3.5 h-3.5"></i> Criar ação</button></div>
         ${this._unifiedKrPluggedSideKrs(pkr, area)}
-      </div>
+      </div>`}
 
       <!-- V31.1.0 — Ações conectadas (operacional): listadas ANTES do catálogo -->
       ${this._connectedActionsList(childKr, area)}
@@ -2471,9 +2476,9 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // V31.2.19 — Lado direito do _unifiedKrPluggedCard: lista TODOS os KRs da
-  // área, com destaque pro KR do card e pintura verde nos KRs que a engine
-  // (se aberta) está marcando como "esta ação vai mover".
+  // V31.2.19 → V32.6.7 (Leonardo full pass) — Lado direito do card plugado.
+  // Headers humanizados: "KR-mãe" / "Outros KRs" agora dizem o que o cliente
+  // precisa decidir, não o jargão técnico. Move este número / Outros números.
   _unifiedKrPluggedSideKrs(currentPkr, area) {
     const tone = area.color;
     const productId = App.state.strategicMapProductId;
@@ -2482,34 +2487,52 @@ window.StrategicMapModal = {
     const engineSelected = (eng && eng.parentProductKrId === currentPkr.id && Array.isArray(eng.selectedKrIds))
       ? eng.selectedKrIds
       : null; // só pinta verde se a engine está aberta DESTE card
-    return `<div class="space-y-2 mx-auto w-full">
-      <p class="text-[9px] font-black text-${tone}-300 uppercase tracking-wider">KR-mãe deste card</p>
-      ${this._sideKrItem(currentPkr, area, true, engineSelected && engineSelected.includes(currentPkr.id))}
-      ${allAreaKrs.filter(k => k.id !== currentPkr.id).length > 0 ? `
-        <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider pt-1">Outros KRs de ${Utils.escape(area.label)}</p>
-        ${allAreaKrs.filter(k => k.id !== currentPkr.id).map(k =>
+    const others = allAreaKrs.filter(k => k.id !== currentPkr.id);
+    return `<div class="space-y-3 w-full">
+      <div>
+        <p class="text-[10px] font-bold text-${tone}-200/80 mb-1.5">Esta ação move</p>
+        ${this._sideKrItem(currentPkr, area, true, engineSelected && engineSelected.includes(currentPkr.id))}
+      </div>
+      ${others.length > 0 ? `<div>
+        <p class="text-[10px] font-bold text-slate-400 mb-1.5">${others.length === 1 ? 'Outro número' : 'Outros números'} desta frente</p>
+        <div class="space-y-1.5">${others.map(k =>
           this._sideKrItem(k, area, false, engineSelected && engineSelected.includes(k.id))
-        ).join('')}
-      ` : ''}
+        ).join('')}</div>
+      </div>` : ''}
     </div>`;
   },
 
+  // V32.6.7 — Card de número (KR) na sidebar.
+  // Refator Leonardo: "Segura" / "Avançada" como CHIPS TEXTUAIS antes do número,
+  // não mais 🔒/🚀 sozinhos (emoji não é label legível). Ritmo Fibonacci
+  // (p-3, gap-2). Card current herda paleta Marketing/Vendas/CS da frente —
+  // identidade cromática preservada mesmo quando "plugado" semanticamente.
   _sideKrItem(kr, area, isCurrent, isEngineSelected) {
     const tone = area.color;
     const safe = kr.targetCommitted != null ? kr.targetCommitted : '—';
     const stretch = kr.targetStretch != null ? kr.targetStretch : '—';
-    // Cor do frame: verde se selecionado na engine; senão tom da área (current) ou cinza (others)
+    const metric = Utils.escape(kr.metric || '');
+    // 3 estados visuais (não 5): default neutral, current tone, engine-selected emerald.
+    // Reduz "muitas paletas" — Leonardo: 3 fundos no card todo, não 5.
     const borderCls = isEngineSelected
-      ? 'border-emerald-400/60 bg-emerald-500/15 ring-1 ring-emerald-400/40'
-      : (isCurrent ? `border-${tone}-400/40 bg-${tone}-500/10` : 'border-white/10 bg-slate-900/40');
+      ? 'border-emerald-400/60 bg-emerald-500/[0.08] ring-1 ring-emerald-400/30'
+      : (isCurrent ? `border-${tone}-400/40 bg-${tone}-500/[0.06]` : 'border-white/10 bg-slate-900/30');
     const checkBadge = isEngineSelected
-      ? '<span class="text-[9px] font-black text-emerald-300 ml-1">✓ esta ação move</span>'
+      ? '<span class="text-[10px] font-bold text-emerald-300 ml-1">· move</span>'
       : '';
-    return `<div class="rounded-lg ${borderCls} border p-2">
-      <p class="font-black text-white text-[11px] leading-tight mb-0.5">${Utils.escape(kr.name)}${checkBadge}</p>
-      <div class="grid grid-cols-2 gap-1.5 text-[10px]">
-        <div><span class="text-emerald-300 font-black">🔒</span> <b>${safe}</b> <span class="text-slate-400">${Utils.escape(kr.metric || '')}</span></div>
-        <div><span class="text-violet-300 font-black">🚀</span> <b>${stretch}</b> <span class="text-slate-400">${Utils.escape(kr.metric || '')}</span></div>
+    return `<div class="rounded-xl ${borderCls} border p-3">
+      <p class="font-black text-white text-[12px] leading-tight mb-2">${Utils.escape(kr.name)}${checkBadge}</p>
+      <div class="space-y-1.5">
+        <div class="flex items-baseline gap-2">
+          <span class="text-[9px] font-black text-emerald-300/80 uppercase tracking-wider w-[52px] shrink-0">Segura</span>
+          <span class="font-black text-white text-[13px]">${safe}</span>
+          <span class="text-[10px] text-slate-400">${metric}</span>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="text-[9px] font-black text-violet-300/80 uppercase tracking-wider w-[52px] shrink-0">Avançada</span>
+          <span class="font-black text-white text-[13px]">${stretch}</span>
+          <span class="text-[10px] text-slate-400">${metric}</span>
+        </div>
       </div>
     </div>`;
   },
@@ -2568,13 +2591,16 @@ window.StrategicMapModal = {
     const originUnmarked = !selectedKrIds.includes(pkr.id);
     const frameBorder = originUnmarked ? 'border-red-500/60' : `border-${tone}-400/40`;
     const frameBg = originUnmarked ? 'bg-red-950/20' : 'bg-slate-900/60';
-    return `<div class="rounded-xl ${frameBg} border-2 ${frameBorder} p-3 space-y-2.5">
-      <div class="flex items-center justify-between gap-2">
-        <p class="text-[11px] font-black text-${tone}-200 uppercase tracking-wider"><i data-lucide="${eng.editingCustomId ? 'edit-2' : 'zap'}" class="w-3 h-3 inline-block"></i> ${eng.editingCustomId ? 'Editar ação custom' : 'Nova ação custom'} · ${Utils.escape(area.label)}</p>
-        <button onclick="Actions.closeCustomActionEngine()" class="text-slate-400 hover:text-white text-[12px] font-black">✕</button>
-      </div>
+    // V32.6.7 (Leonardo) — Header "Nova ação custom · Marketing" REMOVIDO.
+    // A área já está chumbada no contexto da frente (card pai já é Marketing).
+    // Header repetia identidade — virou ruído. Sobra apenas ✕ no canto superior
+    // pra fechar o form. Form É a ação de criar; não precisa anunciar isso.
+    return `<div class="rounded-xl ${frameBg} border-2 ${frameBorder} p-3 space-y-3 relative">
+      <button onclick="Actions.closeCustomActionEngine()" title="Fechar (sem perder o que digitou)" class="absolute top-2 right-2 w-6 h-6 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-slate-400 hover:text-white grid place-items-center">
+        <i data-lucide="x" class="w-3 h-3"></i>
+      </button>
 
-      ${originUnmarked ? `<div class="rounded-lg bg-red-500/15 border border-red-400/40 p-2.5 flex items-start gap-2">
+      ${originUnmarked ? `<div class="rounded-lg bg-red-500/15 border border-red-400/40 p-3 flex items-start gap-2">
         <i data-lucide="alert-triangle" class="w-4 h-4 text-red-300 shrink-0 mt-0.5"></i>
         <div>
           <p class="font-black text-red-100 text-[11px]">⚠️ KR de origem desmarcado</p>
@@ -2582,26 +2608,28 @@ window.StrategicMapModal = {
         </div>
       </div>` : ''}
 
-      <div class="rounded-lg bg-${tone}-500/10 border border-${tone}-400/30 p-2.5">
-        <p class="text-[9px] font-black text-${tone}-200 uppercase tracking-wider mb-1.5">Esta ação vai mover quais OKR(s) de ${Utils.escape(area.label)}?</p>
+      <div class="rounded-lg bg-${tone}-500/[0.06] border border-${tone}-400/20 p-3">
+        <p class="text-[10px] font-bold text-${tone}-200/90 mb-2">Esta ação move quais números?</p>
         <div class="space-y-1">
           ${areaKrs.length === 0
-            ? '<p class="text-[10px] text-slate-400 italic">Nenhum KR-mãe nesta área ainda. Defina na etapa "Os Números".</p>'
+            ? '<p class="text-[10px] text-slate-400 italic">Nenhum número definido nesta frente ainda. Volte pra "Os Números".</p>'
             : areaKrs.map(k => {
                 const checked = selectedKrIds.includes(k.id);
                 const isOrigin = k.id === pkr.id;
                 const safe = k.targetCommitted != null ? k.targetCommitted : '—';
                 const stretch = k.targetStretch != null ? k.targetStretch : '—';
-                return `<label class="flex items-start gap-2 p-1.5 rounded hover:bg-white/5 cursor-pointer ${isOrigin ? 'bg-' + tone + '-500/5' : ''}">
+                return `<label class="flex items-start gap-2 p-2 rounded hover:bg-white/5 cursor-pointer ${isOrigin ? 'bg-' + tone + '-500/5' : ''}">
                   <input type="checkbox" ${checked ? 'checked' : ''} onchange="Actions.toggleCustomActionEngineKr('${k.id}')" class="mt-1 shrink-0" />
                   <div class="min-w-0 flex-1">
-                    <p class="font-black text-white text-[11px]">${Utils.escape(k.name)} <span class="text-[10px] text-slate-400 font-normal">(${Utils.escape(k.metric || 'quantidade')})</span>${isOrigin ? ` <span class="text-[9px] text-${tone}-300 font-bold ml-1">· DESTE CARD</span>` : ''}</p>
-                    <p class="text-[10px] text-slate-300">🔒 Segura <b class="text-emerald-300">${safe}</b> · 🚀 Avançada <b class="text-violet-300">${stretch}</b></p>
+                    <p class="font-black text-white text-[12px]">${Utils.escape(k.name)} <span class="text-[10px] text-slate-400 font-normal">(${Utils.escape(k.metric || 'quantidade')})</span>${isOrigin ? ` <span class="text-[9px] text-${tone}-300 font-bold ml-1">· deste card</span>` : ''}</p>
+                    <div class="flex items-baseline gap-3 mt-1 text-[10px]">
+                      <span><span class="font-black text-emerald-300/80 uppercase tracking-wider">Segura</span> <b class="text-white">${safe}</b></span>
+                      <span><span class="font-black text-violet-300/80 uppercase tracking-wider">Avançada</span> <b class="text-white">${stretch}</b></span>
+                    </div>
                   </div>
                 </label>`;
               }).join('')}
         </div>
-        <p class="text-[10px] text-slate-400 italic mt-1.5">Os números desta ação alimentam o rollup do(s) KR(s) marcado(s).</p>
       </div>
 
       <div>
