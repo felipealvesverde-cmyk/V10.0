@@ -47,7 +47,19 @@ window.ExecutionTaskEngine = {
     return { ok: true, task: updated };
   },
 
-  removeTask(taskId) {
+  // V32.3.0 (Geraldo Novo-1) — Antes de remover do store local, dispara
+  // provider.deleteTask pra evitar subtask órfã no ClickUp (ou em qualquer
+  // provider que implemente deleteTask). Falha silenciosa não bloqueia o
+  // delete local — task some do LJ mesmo se ClickUp recusar.
+  async removeTask(taskId) {
+    const task = ExecutionTaskStore.byId(taskId);
+    if (task) {
+      const provider = window.ExecutionProviders?.[task.provider];
+      if (provider?.deleteTask) {
+        try { await provider.deleteTask(task.provider_task_id, ExecutionProviderRegistry.getProviderConfig(task.provider)); }
+        catch (_) { /* não bloqueia delete local */ }
+      }
+    }
     ExecutionTaskStore.remove(taskId);
     return { ok: true };
   }

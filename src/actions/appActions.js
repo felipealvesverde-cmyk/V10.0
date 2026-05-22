@@ -4088,9 +4088,12 @@ Object.assign(Actions, {
     Utils.toast('Tarefa concluída.');
   },
 
-  removeExecutionTask(taskId) {
+  // V32.3.0 (Geraldo Novo-1) — Async pra await provider.deleteTask antes do
+  // render (evita race do user clicar de novo). ClickUp subtask delete vai
+  // junto — não fica órfã no ClickUp do cliente.
+  async removeExecutionTask(taskId) {
     if (!window.ExecutionTaskEngine) return;
-    ExecutionTaskEngine.removeTask(taskId);
+    await ExecutionTaskEngine.removeTask(taskId);
     App.save(); App.render();
     Utils.toast('Tarefa removida.');
   },

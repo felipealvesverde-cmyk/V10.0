@@ -119,6 +119,40 @@ window.ExecutionProviders.clickup = {
     } catch (_) { return { ok: false }; }
   },
 
+  // V32.3.0 (Geraldo Novo-1) — Delete da task no ClickUp. Chamado quando user
+  // deleta task operacional no LJ pra evitar subtask órfã (filha da Task Pai
+  // da Ação) no ClickUp do cliente.
+  async deleteTask(providerTaskId, cfg) {
+    if (!providerTaskId) return { ok: true, skipped: 'no_provider_id' };
+    // Read-only: nunca tenta delete remoto.
+    if (window.App?.state?.clickupStatus?.writeEnabled === false) {
+      return { ok: true, skipped: 'read_only' };
+    }
+    if (this._isNewPathConnected()) {
+      try {
+        const jwt = localStorage.getItem('lj_jwt');
+        await fetch('/api/clickup-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
+          body: JSON.stringify({
+            method: 'DELETE',
+            path: `/task/${providerTaskId}`
+          })
+        });
+        return { ok: true };
+      } catch (_) { return { ok: false }; }
+    }
+    // Legacy V16.3: cfg.apiToken inline.
+    if (!cfg?.apiToken) return { ok: true, skipped: 'no_legacy_token' };
+    try {
+      await fetch(`${this._baseUrl}/task/${providerTaskId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': cfg.apiToken }
+      });
+      return { ok: true };
+    } catch (_) { return { ok: false }; }
+  },
+
   async fetchTask(providerTaskId, cfg) {
     if (!cfg?.apiToken || !providerTaskId) return null;
     try {
