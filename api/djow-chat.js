@@ -300,10 +300,15 @@ function redactSecrets(obj, path = '') {
 }
 
 // V26.0.0 — Pega state mais recente do user (do Postgres journey_state).
-async function getUserState(db) {
-  if (!db) return {};
+// V32.4.2 (Geraldo) — Fix: query era WHERE id = 1 (bug legado pre-V31).
+// Tabela journey_state tem PK user_id, não id. No DB do master (felipe)
+// funcionava por coincidência (id default 1). Em tenants novos schema
+// strict explode com "column id does not exist". Erro vinha sendo
+// engolido pelo catch — Sansone exposed.
+async function getUserState(db, userId) {
+  if (!db || !userId) return {};
   try {
-    const result = await db.query('SELECT state_json FROM journey_state WHERE id = 1 LIMIT 1');
+    const result = await db.query('SELECT state_json FROM journey_state WHERE user_id = $1 LIMIT 1', [userId]);
     return result.rows[0]?.state_json || {};
   } catch (_) {
     return {};
@@ -712,7 +717,8 @@ async function applyStateWrite(db, userId, pendingWrite) {
   if (!db || !pendingWrite) return { ok: false };
   const { kind, payload } = pendingWrite;
   try {
-    const r = await db.query('SELECT state_json FROM journey_state WHERE id = 1 LIMIT 1');
+    // V32.4.2 — Fix: era WHERE id = 1 (bug legado). PK real é user_id.
+    const r = await db.query('SELECT state_json FROM journey_state WHERE user_id = $1 LIMIT 1', [userId]);
     const state = r.rows[0]?.state_json || {};
     if (kind === 'create_product') {
       state.products = Array.isArray(state.products) ? state.products : [];
@@ -884,7 +890,7 @@ module.exports = async function handler(req, res) {
 
   // Carrega state do user (pra contexto + tools)
   // V32.0.11 — Dados Djow (journey_state, djow_*) vivem no tenant plane.
-  const state = await getUserState(req.tenantDb);
+  const state = await getUserState(req.tenantDb, req.user.sub);
   const djowCfg = state.djowConfig || {};
   const model = djowCfg.model || 'claude-sonnet-4-6';
 

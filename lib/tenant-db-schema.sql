@@ -96,8 +96,51 @@ CREATE TABLE IF NOT EXISTS clickup_credentials (
   workspace_name VARCHAR(255),
   token_type VARCHAR(16) DEFAULT 'oauth',
   default_list_id VARCHAR(64),
+  -- V32.1.3-V32.2.0 — Geraldo safe-integration columns (incluídas no
+  -- schema base em V32.4.2 — antes só via ALTER TABLE no master).
+  default_space_id VARCHAR(64),
+  default_list_name VARCHAR(255),
+  task_prefix VARCHAR(32),
+  lj_tag_name VARCHAR(64) DEFAULT 'lj-auto',
+  status_map_json TEXT,
+  write_enabled BOOLEAN DEFAULT TRUE,
+  lj_space_id VARCHAR(64),
+  mirror_enabled BOOLEAN DEFAULT TRUE,
   connected_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- V32.2.0 — Mapeamento LJ ↔ ClickUp (hierarquia espelhada).
+-- Movido pro schema base em V32.4.2 — antes só criado via server.js no master.
+CREATE TABLE IF NOT EXISTS clickup_lj_mappings (
+  user_id INT NOT NULL,
+  lj_kind VARCHAR(16) NOT NULL,
+  lj_id INT NOT NULL,
+  clickup_id VARCHAR(64) NOT NULL,
+  clickup_kind VARCHAR(16) NOT NULL,
+  clickup_name VARCHAR(255),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, lj_kind, lj_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_clickup_mappings_user
+  ON clickup_lj_mappings(user_id);
+
+-- ============================================================================
+-- MIGRATIONS IDEMPOTENTES (V32.4.2)
+-- ============================================================================
+-- Garante que tenants ANTIGOS (schema pré-V32.4.2) ganhem colunas novas.
+-- Cada ADD COLUMN IF NOT EXISTS é no-op em tabelas que já têm a coluna.
+-- Pra tenants novos (criados via tenant-plug-own-db.js após V32.4.2), as
+-- colunas já vêm no CREATE TABLE acima — ALTER vira no-op.
+ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS default_space_id VARCHAR(64);
+ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS default_list_name VARCHAR(255);
+ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS task_prefix VARCHAR(32);
+ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS lj_tag_name VARCHAR(64) DEFAULT 'lj-auto';
+ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS status_map_json TEXT;
+ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS write_enabled BOOLEAN DEFAULT TRUE;
+ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS lj_space_id VARCHAR(64);
+ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS mirror_enabled BOOLEAN DEFAULT TRUE;
 
 -- ============================================================================
 -- RD STATION (3 token types por user)
@@ -157,5 +200,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v32.0.14')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v32.4.2')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();

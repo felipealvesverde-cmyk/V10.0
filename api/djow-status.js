@@ -32,9 +32,9 @@ module.exports = async function handler(req, res) {
   let allowedRoles = ['master'];
   try {
     // V32.0.11 — Dados Djow (journey_state, djow_*) vivem no tenant plane.
-    // Nota: query WHERE id = 1 é bug legado (id column foi removida em V31).
-    // Mantida intocada — fix fica pra outro momento.
-    const r = await req.tenantDb.query('SELECT state_json FROM journey_state WHERE id = 1 LIMIT 1');
+    // V32.4.2 — Fix: era WHERE id = 1 (bug legado). PK real é user_id.
+    // Em DBs com schema strict (Sansone) explodia com "column id does not exist".
+    const r = await req.tenantDb.query('SELECT state_json FROM journey_state WHERE user_id = $1 LIMIT 1', [req.user.sub]);
     const state = r.rows[0]?.state_json || {};
     const cfg = state.djowConfig || {};
     model = cfg.model || model;
