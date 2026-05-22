@@ -235,9 +235,11 @@ body.lj-app-body {
 
 .lj-master-brand-subtitle {
   margin-top: 5px;
-  color: #94A3B8;
-  font-size: 11px;
-  font-weight: 800;
+  color: #64748B;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
 }
 
 .lj-master-nav-group {
@@ -271,6 +273,12 @@ body.lj-app-body {
   height: 1px;
   margin: 13px 8px;
   background: rgba(255,255,255,.06);
+}
+
+/* V32.2.7 — Onda 2 Leonardo. RevOps & Governança é destino (visão macro),
+   não passagem diária. Cor base mais distante pra hierarquia cognitiva. */
+.lj-master-nav-item[data-tab="revops"]:not(.active):not(:hover) {
+  color: #94A3B8;
 }
 
 .lj-master-nav-item:hover {
@@ -312,13 +320,13 @@ body.lj-app-body {
   color: #fff;
 }
 .lj-sidebar-version {
-  margin-top: 10px;
-  padding: 6px 14px;
+  margin-top: 13px;
+  padding: 6px 13px;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 600;
   color: #475569;
   letter-spacing: .04em;
 }
