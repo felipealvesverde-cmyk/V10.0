@@ -539,103 +539,45 @@ async function execTool(name, input, state, ctx) {
       }
       // V30.0.0 — TOOLS CLICKUP. Usam ctx.db + ctx.userId pra chamar ClickUp API com OAuth.
       case 'create_clickup_task': {
-        // V32.2.1 — Resolve hierarquia P>C>A>T quando action_id passado.
-        // Espelha /api/clickup-create-task (cliente ctx.db == req.tenantDb).
+        // V32.2.9 (Geraldo A7 follow-up) — Refatorado pra usar lib/clickup-task-creator.
+        // Antes ~120 linhas duplicadas com api/clickup-create-task.js. Helper
+        // prepareTaskBody centraliza cred read + write guard + mirror resolve +
+        // prefix + status normalize + tag ensure.
         if (!ctx?.db || !ctx?.userId) return { error: 'Contexto ausente.' };
         if (!input.name) return { error: 'name obrigatório.' };
 
         const { clickupFetch } = require('../lib/clickup-client');
-        const credRow = await ctx.db.query(
-          `SELECT default_list_id, default_space_id, lj_tag_name, task_prefix,
-                  status_map_json, write_enabled, lj_space_id, mirror_enabled
-           FROM clickup_credentials WHERE user_id = $1`,
-          [ctx.userId]
-        );
-        const cred = credRow.rows[0] || {};
+        const { prepareTaskBody } = require('../lib/clickup-task-creator');
 
-        if (cred.write_enabled === false) {
-          return { error: 'ClickUp em modo somente-leitura. User pode reativar em Configurações → Integrações → ClickUp → Modo de escrita.' };
-        }
+        const prepared = await prepareTaskBody({
+          db: ctx.db,
+          userId: ctx.userId,
+          input: {
+            name: input.name,
+            list_id: input.list_id,
+            action_id: input.action_id,  // helper resolve mirror_context se action_id presente
+            tags: input.tags,
+            status: input.status
+          },
+          state  // helper precisa do state pra resolver action → campaign → product
+        });
 
-        let targetListId = null;
-        let parentTaskId = null;
-        let mirrorInfo = null;
-
-        // Path mirror — preferido se action_id passado + mirror enabled + space configurado
-        const useMirror = cred.mirror_enabled !== false && cred.lj_space_id && input.action_id;
-        if (useMirror) {
-          const actionId = Number(input.action_id);
-          const action = (state?.actions || []).find(a => Number(a.id) === actionId);
-          if (!action) return { error: `Ação ${actionId} não achada no state do user.` };
-          const campaign = (state?.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
-          if (!campaign) return { error: `Campanha da ação ${actionId} não achada (campaignId=${action.campaignId}).` };
-          const product = (state?.products || []).find(p => Number(p.id) === Number(campaign.productId));
-          if (!product) return { error: `Produto da campanha ${campaign.id} não achado (productId=${campaign.productId}).` };
-
-          try {
-            const mirrorLib = require('../lib/clickup-mirror');
-            const chain = await mirrorLib.resolveActionChain(
-              ctx.db, ctx.userId, cred.lj_space_id,
-              { id: product.id, name: product.name },
-              { id: campaign.id, name: campaign.name },
-              { id: action.id, name: action.name }
-            );
-            targetListId = chain.listId;
-            parentTaskId = chain.actionParentTaskId;
-            mirrorInfo = {
-              productFolderId: chain.folderId,
-              campaignListId: chain.listId,
-              actionParentTaskId: chain.actionParentTaskId,
-              createdAny: chain.createdAny
+        if (!prepared.ok) {
+          // V32.2.4 (Geraldo A19) — Mensagem inteligente quando faltar action_id.
+          if (prepared.code === 'no_default_list') {
+            return {
+              error: prepared.message || (
+                'Modo espelhado ativo — task precisa pertencer a uma ação LJ. Antes de re-chamar essa tool, faça UMA destas: (a) pergunte ao user qual ação contextualmente faz sentido pra essa task; OU (b) chame query_state com path="actions" pra listar as ações disponíveis. Depois passe action_id (não list_id).'
+              )
             };
-          } catch (err) {
-            return { error: `Mirror resolution falhou: ${err.message}` };
           }
+          if (prepared.code === 'clickup_read_only') {
+            return { error: 'ClickUp em modo somente-leitura. User pode reativar em Configurações → Integrações → ClickUp → Modo de escrita.' };
+          }
+          return { error: prepared.message || 'Falha ao preparar task body.' };
         }
 
-        // Fallback: list_id explícito → default_list_id → erro
-        if (!targetListId) targetListId = input.list_id || cred.default_list_id;
-        if (!targetListId) {
-          // V32.2.4 (Geraldo A19) — Mensagem mais inteligente que dá próximo passo
-          // concreto pro Djow. Antes "use query_state" — agora "antes de re-tentar,
-          // pergunte ao user qual ação OU chame query_state com path actions".
-          return {
-            error: cred.lj_space_id
-              ? 'Modo espelhado ativo — task precisa pertencer a uma ação LJ. Antes de re-chamar essa tool, faça UMA destas: (a) pergunte ao user qual ação contextualmente faz sentido pra essa task; OU (b) chame query_state com path="actions" pra listar as ações disponíveis. Depois passe action_id (não list_id).'
-              : 'List de destino do ClickUp não configurada. Diga ao user pra configurar em Configurações → Integrações → ClickUp antes de tentar de novo.'
-          };
-        }
-
-        // Aplica prefix + tag automática + status mapping (espelha lógica V32.1.4-1.6)
-        const finalName = cred.task_prefix
-          ? `${cred.task_prefix}${input.name}`.slice(0, 255)
-          : String(input.name).slice(0, 255);
-
-        let initialStatus = undefined;
-        if (cred.status_map_json) {
-          try {
-            const map = JSON.parse(cred.status_map_json);
-            if (map?.pending) initialStatus = String(map.pending);
-          } catch (_) { /* ignora */ }
-        }
-
-        // Tag auto (best-effort — não bloqueia se falhar criar tag).
-        // V32.2.2 (Geraldo A1) — usa lj_space_id como fallback em modo mirror.
-        let finalTags = Array.isArray(input.tags) ? input.tags.map(String) : [];
-        const tagSpaceId = cred.default_space_id || cred.lj_space_id;
-        if (cred.lj_tag_name && tagSpaceId) {
-          try {
-            const tagListRes = await clickupFetch(ctx.db, ctx.userId, 'GET', `/space/${tagSpaceId}/tag`);
-            const has = tagListRes.ok && Array.isArray(tagListRes.data?.tags)
-              && tagListRes.data.tags.some(t => String(t.name || '').toLowerCase() === String(cred.lj_tag_name).toLowerCase());
-            if (!has) {
-              await clickupFetch(ctx.db, ctx.userId, 'POST', `/space/${tagSpaceId}/tag`, {
-                tag: { name: cred.lj_tag_name, tag_fg: '#FFFFFF', tag_bg: '#7C3AED' }
-              }).catch(() => {});
-            }
-            if (!finalTags.includes(cred.lj_tag_name)) finalTags.push(cred.lj_tag_name);
-          } catch (_) { /* silent */ }
-        }
+        const { targetListId, parentTaskId, finalName, finalTags, initialStatus, mirrorInfo } = prepared;
 
         const body = {
           name: finalName,
