@@ -104,6 +104,14 @@ var Actions = {
         App.state.adminDeleteProductPending = null;
         App.save(); App.render();
         Utils.toast(`Produto "${product.name}" apagado: ${campaigns.length} campanha(s), ${actions.length} ação(ões), ${leadIds.size} lead(s).`);
+        // V32.2.5 (Geraldo A15) — Sync delete cascado pro ClickUp.
+        // Ordem: actions primeiro (subtasks), campanhas (lists), produto (folder).
+        // Best-effort, sem bloquear UI.
+        if (window.Actions?._syncDeleteToClickup) {
+          actionIds.forEach(aid => Actions._syncDeleteToClickup('action', aid));
+          campaignIds.forEach(cid => Actions._syncDeleteToClickup('campaign', cid));
+          Actions._syncDeleteToClickup('product', pid);
+        }
       },
 
       // V31.0.0 — Helpers demo mode. Backend bloqueia mutations (403) via middleware;
@@ -582,12 +590,17 @@ Object.assign(Actions, {
   deleteActionFromEdit() {
     const draft = App.state.actionEditDraft;
     if (!draft) return;
+    const deletedId = draft.id;
     App.state.actions = (App.state.actions || []).filter(a => Number(a.id) !== Number(draft.id));
     if (Number(App.state.selectedActionId) === Number(draft.id)) App.state.selectedActionId = null;
     App.state.showActionEditModal = false;
     App.state.actionEditDraft = null;
     App.save(); App.render();
     Utils.toast('Ação excluída.');
+    // V32.2.5 (Geraldo A15) — Sync delete pro ClickUp.
+    if (deletedId && this._syncDeleteToClickup) {
+      this._syncDeleteToClickup('action', deletedId);
+    }
   },
 
   openActionFlowModal(id) { App.state.actionFlowModalId = id; App.state.showActionFlowModal = true; App.state.actionFlowEditMode = false; App.save(); App.render(); },
@@ -875,6 +888,32 @@ Object.assign(Actions, {
       }
     } catch (err) {
       console.warn('[clickup-mirror-rename] erro:', err.message);
+    }
+  },
+
+  // V32.2.5 (Geraldo A15) — Helper interno: dispara DELETE mirror pro ClickUp.
+  // Chamado quando user deleta produto/campanha/ação no LJ. Remove o
+  // folder/list/task pai correspondente no ClickUp + mapping no DB.
+  async _syncDeleteToClickup(ljKind, ljId) {
+    if (!ljId) return;
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return;
+    try {
+      const r = await fetch('/api/clickup-delete-mirror', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ lj_kind: ljKind, lj_id: Number(ljId) })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        console.warn(`[clickup-mirror-delete] ${ljKind}#${ljId}: ${data.message}`);
+      } else if (data.skipped) {
+        // silent — ClickUp não conectado / mirror off / sem mapping
+      } else if (data.kind) {
+        if (window.Utils?.toast) Utils.toast(`✓ Removido do ClickUp: ${data.kind} ${data.clickupId}`);
+      }
+    } catch (err) {
+      console.warn('[clickup-mirror-delete] erro:', err.message);
     }
   }
 });
@@ -5724,6 +5763,51 @@ Object.assign(Actions, {
       if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
       Utils.toast(`✓ ${data.message}`);
       await this.loadClickupStatus();
+      await this.loadClickupMappings();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V32.2.5 (Geraldo A12) — Migra estrutura LJ pro ClickUp em lote.
+  // Útil pra cliente que já tem produtos/campanhas/ações no LJ e quer pré-criar
+  // toda a hierarquia no ClickUp dele de uma vez (sem esperar primeira task).
+  async migrateClickupToMirror() {
+    const products = App.state.products || [];
+    if (!products.length) return Utils.toast('Sem produtos pra migrar.');
+    if (!confirm(`Migrar ${products.length} produto(s) e toda hierarquia (campanhas + ações) pro Space LeadJourney no ClickUp?\n\nIsso cria folder/list/task pai pra cada entity. Operação demora 1-5min em árvores grandes.\n\nConfirma?`)) return;
+
+    // Monta árvore enxuta (id + name) pro POST
+    const campaigns = App.state.campaigns || [];
+    const actions = App.state.actions || [];
+    const tree = products.map(p => ({
+      id: Number(p.id),
+      name: String(p.name || `Produto ${p.id}`),
+      campaigns: campaigns
+        .filter(c => Number(c.productId) === Number(p.id))
+        .map(c => ({
+          id: Number(c.id),
+          name: String(c.name || `Campanha ${c.id}`),
+          actions: actions
+            .filter(a => Number(a.campaignId) === Number(c.id))
+            .map(a => ({ id: Number(a.id), name: String(a.name || `Ação ${a.id}`) }))
+        }))
+    }));
+
+    const token = localStorage.getItem('lj_jwt');
+    Utils.toast('Migrando... pode demorar.');
+    try {
+      const r = await fetch('/api/clickup-migrate-to-mirror', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ products: tree })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ ${data.message}`);
+      if (data.errors?.length) {
+        console.warn('[migrate-to-mirror] erros parciais:', data.errors);
+      }
       await this.loadClickupMappings();
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);

@@ -3237,6 +3237,43 @@ var SettingsModal = {
                     : `Já criou ${cache.counts.products} produto(s), ${cache.counts.campaigns} campanha(s), ${cache.counts.actions} ação(ões).`)
                 : ''}
             </p>
+            ${(() => {
+              // V32.2.5 (Geraldo A13) — Lista detalhada dos mappings em <details>.
+              // Cliente pode expandir e ver exatamente quais folders/lists/tasks
+              // LJ criou no ClickUp dele.
+              if (!cache?.mappings) return '';
+              const groups = cache.mappings;
+              const total = (groups.products?.length || 0) + (groups.campaigns?.length || 0) + (groups.actions?.length || 0);
+              if (total === 0) return '';
+              const row = (m, kind) => `<div class="flex items-center justify-between gap-2 py-1 text-[11px]">
+                <span class="flex items-center gap-1.5 min-w-0">
+                  <i data-lucide="${kind === 'product' ? 'folder' : kind === 'campaign' ? 'list' : 'check-square'}" class="w-3 h-3 text-slate-500 shrink-0"></i>
+                  <span class="truncate font-semibold text-slate-700">${Utils.escape(m.clickup_name || `#${m.lj_id}`)}</span>
+                  <code class="text-[9px] text-slate-400">LJ #${m.lj_id}</code>
+                </span>
+                <code class="text-[9px] text-slate-400 shrink-0">${Utils.escape(String(m.clickup_id))}</code>
+              </div>`;
+              return `<details class="mt-3 rounded-lg bg-white border border-violet-200 overflow-hidden">
+                <summary class="px-3 py-2 cursor-pointer text-[11px] font-black text-violet-700 select-none hover:bg-violet-50 flex items-center gap-1.5">
+                  <i data-lucide="chevron-right" class="w-3 h-3"></i>
+                  Ver mappings detalhados (${total})
+                </summary>
+                <div class="px-3 py-2 space-y-2 border-t border-violet-100 bg-violet-50/30">
+                  ${groups.products?.length ? `<div>
+                    <p class="text-[10px] font-black uppercase text-slate-500 mb-1">📁 Folders (Produtos)</p>
+                    ${groups.products.map(m => row(m, 'product')).join('')}
+                  </div>` : ''}
+                  ${groups.campaigns?.length ? `<div>
+                    <p class="text-[10px] font-black uppercase text-slate-500 mb-1">📋 Lists (Campanhas)</p>
+                    ${groups.campaigns.map(m => row(m, 'campaign')).join('')}
+                  </div>` : ''}
+                  ${groups.actions?.length ? `<div>
+                    <p class="text-[10px] font-black uppercase text-slate-500 mb-1">📝 Tasks pai (Ações)</p>
+                    ${groups.actions.map(m => row(m, 'action')).join('')}
+                  </div>` : ''}
+                </div>
+              </details>`;
+            })()}
           ` : `
             <p class="text-xs text-amber-800 mt-1 leading-relaxed">
               <b>Setup obrigatório:</b> LJ precisa criar um Space dedicado no seu ClickUp pra ser raiz da hierarquia.
@@ -3248,6 +3285,9 @@ var SettingsModal = {
           ${hasSpace
             ? `<button onclick="Actions.testClickupSpace()" title="Verifica se PAT consegue acessar o Space" class="px-3 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-black text-xs flex items-center gap-1.5">
                 <i data-lucide="zap" class="w-3.5 h-3.5"></i>Testar
+              </button>
+              <button onclick="Actions.migrateClickupToMirror()" title="Cria toda a estrutura LJ atual no ClickUp em lote" class="px-3 py-2 rounded-xl bg-violet-100 hover:bg-violet-200 text-violet-800 font-black text-xs flex items-center gap-1.5">
+                <i data-lucide="git-merge" class="w-3.5 h-3.5"></i>Migrar tudo
               </button>
               <button onclick="Actions.toggleClickupMirror()" class="px-3 py-2 rounded-xl ${mirrorOn ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-violet-600 hover:bg-violet-700 text-white'} font-black text-xs flex items-center gap-1.5" ${!mirrorOn ? 'style="color:#fff!important;"' : ''}>
                 <i data-lucide="${mirrorOn ? 'pause' : 'play'}" class="w-3.5 h-3.5"></i>
