@@ -1,6 +1,6 @@
 var SettingsModal = {
   activeSection() {
-    return App.state.settingsActiveSection || 'database';
+    return App.state.settingsActiveSection || 'myAccount';
   },
 
   _input(field, label, placeholder = '', type = 'text', value = '') {
@@ -10,43 +10,9 @@ var SettingsModal = {
     </div>`;
   },
 
-  _dbInput(path, label, placeholder, type, value, hint = '') {
-    const safeValue = value === undefined || value === null ? '' : String(value);
-    const onInput = type === 'number'
-      ? `Actions.updateDatabaseConfig('${path}', Number(this.value || 0), false)`
-      : `Actions.updateDatabaseConfig('${path}', this.value, false)`;
-    return `<div>
-      <label class="text-xs font-black text-slate-500 uppercase tracking-wide">${label}</label>
-      <input type="${type}" value="${Utils.escape(safeValue)}" oninput="${onInput}" placeholder="${Utils.escape(placeholder || '')}" class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-slate-900 placeholder:text-slate-400" />
-      ${hint ? `<p class="text-[11px] text-slate-400 mt-1">${Utils.escape(hint)}</p>` : ''}
-    </div>`;
-  },
-
-  _dbToggle(path, label, value, hint = '') {
-    const on = Boolean(value);
-    return `<label class="flex items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-slate-200">
-      <span>
-        <span class="block text-sm font-black text-slate-900">${Utils.escape(label)}</span>
-        ${hint ? `<span class="block text-[11px] text-slate-500">${Utils.escape(hint)}</span>` : ''}
-      </span>
-      <button onclick="Actions.updateDatabaseConfig('${path}', ${!on})" class="relative w-12 h-7 rounded-full transition ${on ? 'bg-emerald-500' : 'bg-slate-300'}" aria-pressed="${on}">
-        <span class="absolute top-1 ${on ? 'right-1' : 'left-1'} w-5 h-5 rounded-full bg-white shadow"></span>
-      </button>
-    </label>`;
-  },
-
-  _dbSelect(path, label, options, value) {
-    return `<div>
-      <label class="text-xs font-black text-slate-500 uppercase tracking-wide">${label}</label>
-      <select onchange="Actions.updateDatabaseConfig('${path}', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-slate-900">
-        ${options.map(opt => {
-          const optValue = typeof opt === 'string' ? opt : opt.value;
-          const optLabel = typeof opt === 'string' ? opt : opt.label;
-          return `<option value="${Utils.escape(optValue)}" ${String(value || '') === String(optValue) ? 'selected' : ''}>${Utils.escape(optLabel)}</option>`;
-        }).join('')}
-      </select>
-    </div>`;
-  },
+  // V32.4.0 — _dbInput/_dbToggle/_dbSelect helpers removidos (eram usados só
+  // pelos panels V11). Se alguma section futura precisar de form helpers,
+  // re-introduz sem depender de Actions.updateDatabaseConfig.
 
   sectionButton(section, label, icon) {
     const active = this.activeSection() === section;
@@ -1541,451 +1507,18 @@ var SettingsModal = {
     </div>`;
   },
 
-  _statusBadge() {
-    const result = App.state.databaseTestResult;
-    const testing = App.state.databaseTesting;
-    if (testing) return `<span class="inline-flex items-center gap-2 px-3 py-2 rounded-2xl border bg-sky-50 border-sky-200 text-sky-700 text-xs font-black"><span class="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span> Testando conexão...</span>`;
-    if (!result) return `<span class="inline-flex items-center gap-2 px-3 py-2 rounded-2xl border bg-slate-50 border-slate-200 text-slate-600 text-xs font-black"><span class="w-2 h-2 rounded-full bg-slate-400"></span> Não testado ainda</span>`;
-    return result.ok
-      ? `<span class="inline-flex items-center gap-2 px-3 py-2 rounded-2xl border bg-emerald-50 border-emerald-200 text-emerald-700 text-xs font-black"><i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Conectado</span>`
-      : `<span class="inline-flex items-center gap-2 px-3 py-2 rounded-2xl border bg-red-50 border-red-200 text-red-700 text-xs font-black"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Precisa de ajustes</span>`;
-  },
+  // V32.4.0 (Geraldo Item 6) — Bloco V11 "Banco de Dados" removido inteiro:
+  // _statusBadge, _environmentBanner, _resultCard, _folderStatusCard,
+  // _localPanel, _stepCard, _supabasePanel, _amazonPanel, _providerCard,
+  // _tutorialPanel, _railwayPanel, _railwayStatusBadge, _railwayGuide,
+  // _railwayUrlBlock, _railwayFieldsBlock, _railwayTestResults,
+  // _railwaySnapshotPrompt, databasePanel (~440 linhas).
+  // Razão: feature legacy de "escolher provider externo pra salvar state"
+  // (Local/Supabase/Amazon/Railway) ficou obsoleta após V31+ (multi-tenant
+  // SaaS) e V32.1.1 (Self-service tenant DB). Snapshots agora vivem em
+  // journey_snapshots. Backup remoto = DB próprio do cliente.
 
-  _environmentBanner() {
-    const isDesktop = DatabaseService.isDesktop();
-    const supportsPicker = DatabaseService.supportsDirectoryPicker();
-    if (isDesktop) {
-      return `<div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 flex items-start gap-3">
-        <div class="w-9 h-9 rounded-xl bg-white grid place-items-center"><i data-lucide="laptop" class="w-4 h-4 text-emerald-700"></i></div>
-        <div>
-          <p class="text-sm font-black text-emerald-900">App Desktop ativo</p>
-          <p class="text-xs text-emerald-800">Você pode digitar o caminho exato da pasta (ex.: <code>D:/LeadJourneyData</code>) ou clicar em "Escolher pasta" para usar o seletor do sistema. O Electron grava direto no disco.</p>
-        </div>
-      </div>`;
-    }
-    if (supportsPicker) {
-      return `<div class="rounded-2xl border border-sky-200 bg-sky-50 p-4 flex items-start gap-3">
-        <div class="w-9 h-9 rounded-xl bg-white grid place-items-center"><i data-lucide="globe" class="w-4 h-4 text-sky-700"></i></div>
-        <div>
-          <p class="text-sm font-black text-sky-900">Modo Navegador (Chrome/Edge)</p>
-          <p class="text-xs text-sky-800">No browser, você precisa clicar em "Escolher pasta no computador" para autorizar gravação. Digitar o caminho não basta — é uma regra de segurança do navegador.</p>
-        </div>
-      </div>`;
-    }
-    return `<div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex items-start gap-3">
-      <div class="w-9 h-9 rounded-xl bg-white grid place-items-center"><i data-lucide="alert-triangle" class="w-4 h-4 text-amber-700"></i></div>
-      <div>
-        <p class="text-sm font-black text-amber-900">Navegador sem suporte a pasta local</p>
-        <p class="text-xs text-amber-800">Use Chrome ou Edge atualizado, ou rode o app desktop (Electron). O fallback no localStorage continua funcionando.</p>
-      </div>
-    </div>`;
-  },
 
-  _resultCard() {
-    const result = App.state.databaseTestResult;
-    if (!result) return '';
-    const palette = result.ok
-      ? { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-900', icon: 'check-circle-2', iconColor: 'text-emerald-700' }
-      : { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-900', icon: 'alert-octagon', iconColor: 'text-red-700' };
-    const when = result.testedAt ? new Date(result.testedAt).toLocaleString('pt-BR') : '—';
-    return `<div class="rounded-2xl border ${palette.bg} ${palette.border} p-4">
-      <div class="flex items-start gap-3">
-        <div class="w-9 h-9 rounded-xl bg-white grid place-items-center"><i data-lucide="${palette.icon}" class="w-4 h-4 ${palette.iconColor}"></i></div>
-        <div class="flex-1">
-          <p class="text-sm font-black ${palette.text}">${result.ok ? 'Tudo certo!' : 'Conexão não validada'}</p>
-          <p class="text-xs ${palette.text} opacity-90 mt-0.5">${Utils.escape(result.message || '')}</p>
-          <p class="text-[11px] ${palette.text} opacity-70 mt-1">Testado em ${Utils.escape(when)}</p>
-        </div>
-      </div>
-    </div>`;
-  },
-
-  _folderStatusCard(local) {
-    const path = local?.folderPath || '';
-    const label = local?.folderLabel || '';
-    const writeAt = local?.lastFolderWriteAt ? new Date(local.lastFolderWriteAt).toLocaleString('pt-BR') : '—';
-    const readAt = local?.lastFolderReadAt ? new Date(local.lastFolderReadAt).toLocaleString('pt-BR') : '—';
-    const hasFolder = Boolean(path || label);
-    if (!hasFolder) {
-      return `<div class="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-center">
-        <div class="w-10 h-10 rounded-xl bg-slate-100 grid place-items-center mx-auto mb-2"><i data-lucide="folder-x" class="w-5 h-5 text-slate-400"></i></div>
-        <p class="text-sm font-black text-slate-700">Nenhuma pasta vinculada ainda</p>
-        <p class="text-xs text-slate-500 mt-1">Clique em "Escolher pasta no computador" abaixo para começar.</p>
-      </div>`;
-    }
-    return `<div class="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
-      <div class="flex items-start gap-3">
-        <div class="w-10 h-10 rounded-xl bg-white grid place-items-center"><i data-lucide="folder-check" class="w-5 h-5 text-emerald-700"></i></div>
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-black text-emerald-900">Pasta vinculada</p>
-          <p class="text-xs text-emerald-800 truncate">${Utils.escape(label || path)}</p>
-          ${path && label && path !== label ? `<p class="text-[11px] text-emerald-700/80 truncate">${Utils.escape(path)}</p>` : ''}
-          <p class="text-[11px] text-emerald-700 mt-1">Última gravação: ${Utils.escape(writeAt)} • Última leitura: ${Utils.escape(readAt)}</p>
-        </div>
-      </div>
-    </div>`;
-  },
-
-  _localPanel(cfg) {
-    const local = cfg.local || {};
-    const testing = App.state.databaseTesting;
-    const isDesktop = DatabaseService.isDesktop();
-    const supportsPicker = DatabaseService.supportsDirectoryPicker();
-    const canPickFolder = isDesktop || supportsPicker;
-    const choosePathDisabled = !canPickFolder;
-    const fileNameValue = local.fileName || DatabaseService.localFileName;
-
-    return `<div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm space-y-5">
-      <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
-        <div>
-          <div class="flex items-center gap-2 mb-1"><i data-lucide="hard-drive" class="w-5 h-5 text-slate-700"></i><h3 class="text-xl font-black text-slate-950">Banco Local</h3></div>
-          <p class="text-sm text-slate-500 max-w-xl">3 passos para deixar o app gravando direto no seu computador. Os dados ficam offline e ao seu controle.</p>
-        </div>
-        ${this._statusBadge()}
-      </div>
-
-      ${this._environmentBanner()}
-
-      <div class="grid lg:grid-cols-3 gap-3">
-        ${this._stepCard(1, 'Escolha a pasta', 'Selecione onde os dados serão gravados no computador.', !!(local.folderPath || local.folderLabel))}
-        ${this._stepCard(2, 'Configure (opcional)', 'Ajuste nome do arquivo, namespace e sincronização automática.', Boolean(local.fileName))}
-        ${this._stepCard(3, 'Teste e salve', 'Rode o teste e clique em salvar para fixar a configuração.', Boolean(App.state.databaseTestResult?.ok))}
-      </div>
-
-      ${this._folderStatusCard(local)}
-
-      <div class="flex flex-wrap gap-3">
-        <button onclick="Actions.chooseLocalDatabaseFolder()" ${choosePathDisabled ? 'disabled' : ''} class="px-5 py-3 rounded-2xl ${choosePathDisabled ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'} font-black flex items-center gap-2 lj-dark-button" style="${choosePathDisabled ? '' : 'color:#fff!important;'}"><i data-lucide="folder-open" class="w-4 h-4"></i> Escolher pasta no computador</button>
-        <button onclick="Actions.writeLocalFolderSnapshot()" class="px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-black hover:bg-slate-50 flex items-center gap-2"><i data-lucide="download" class="w-4 h-4"></i> Salvar snapshot agora</button>
-        <button onclick="Actions.readLocalFolderSnapshot()" class="px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-black hover:bg-slate-50 flex items-center gap-2"><i data-lucide="upload" class="w-4 h-4"></i> Ler snapshot da pasta</button>
-      </div>
-
-      <details class="rounded-2xl border border-slate-200 bg-slate-50 p-4" ${App.state.showDatabaseTutorial ? 'open' : ''}>
-        <summary class="cursor-pointer text-sm font-black text-slate-700 flex items-center gap-2" onclick="event.preventDefault(); Actions.toggleDatabaseTutorial();"><i data-lucide="sliders" class="w-4 h-4"></i> Opções avançadas (caminho, namespace, sync)</summary>
-        <div class="mt-4 grid md:grid-cols-2 gap-4">
-          ${this._dbInput('local.folderPath', 'Caminho da pasta (texto)', 'Ex.: D:/LeadJourneyData', 'text', local.folderPath, isDesktop ? 'Em Desktop, este valor é usado direto. No browser, serve apenas como referência — a autorização vem do botão.' : 'Em browser puro, este campo é só referência. Use o botão "Escolher pasta".')}
-          ${this._dbInput('local.fileName', 'Nome do arquivo do banco', DatabaseService.localFileName, 'text', fileNameValue, 'Nome do JSON que o app criará dentro da pasta.')}
-          ${this._dbInput('local.namespace', 'Namespace (fallback no navegador)', 'leadscore_local_db', 'text', local.namespace, 'Chave usada se o navegador cair no fallback de localStorage.')}
-          ${this._dbToggle('local.autosync', 'Sincronização automática', local.autosync, 'Salva snapshot ao detectar alterações.')}
-          ${this._dbToggle('local.browserStorageFallback', 'Fallback no navegador', local.browserStorageFallback, 'Mantém cópia no localStorage se a pasta não estiver acessível.')}
-          ${this._dbSelect('local.mode', 'Modo de gravação', [{ value: 'folder', label: 'Pasta (recomendado)' }, { value: 'browser', label: 'Somente navegador' }], local.mode || 'folder')}
-        </div>
-      </details>
-
-      ${this._resultCard()}
-
-      <div class="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
-        <button onclick="Actions.testDatabaseConnection()" ${testing ? 'disabled' : ''} class="px-5 py-3 rounded-2xl ${testing ? 'bg-slate-300 text-slate-600 cursor-wait' : 'bg-slate-900 hover:bg-slate-800 text-white'} font-black flex items-center gap-2 lj-dark-button" style="${testing ? '' : 'color:#fff!important;'}">
-          ${testing ? '<span class="w-4 h-4 rounded-full border-2 border-current border-r-transparent animate-spin"></span> Testando...' : '<i data-lucide="activity" class="w-4 h-4"></i> Testar conexão'}
-        </button>
-        <button onclick="Actions.saveDatabaseConfig()" class="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Salvar configuração</button>
-        <button onclick="Actions.syncDatabaseNow()" class="px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-black hover:bg-slate-50 flex items-center gap-2"><i data-lucide="refresh-cw" class="w-4 h-4"></i> Sincronizar agora</button>
-      </div>
-    </div>`;
-  },
-
-  _stepCard(number, title, hint, done) {
-    const stateClass = done ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-200';
-    const circleClass = done ? 'bg-emerald-500 text-white' : 'bg-white border border-slate-300 text-slate-500';
-    return `<div class="rounded-2xl border ${stateClass} p-3 flex items-start gap-3">
-      <div class="w-8 h-8 rounded-full grid place-items-center font-black text-sm ${circleClass}">${done ? '✓' : number}</div>
-      <div>
-        <p class="text-sm font-black text-slate-900">${Utils.escape(title)}</p>
-        <p class="text-[11px] text-slate-500">${Utils.escape(hint)}</p>
-      </div>
-    </div>`;
-  },
-
-  _supabasePanel(cfg) {
-    const supabase = cfg.supabase || {};
-    const testing = App.state.databaseTesting;
-    return `<div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm space-y-5">
-      <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
-        <div>
-          <div class="flex items-center gap-2 mb-1"><i data-lucide="database" class="w-5 h-5 text-emerald-700"></i><h3 class="text-xl font-black text-slate-950">Supabase</h3></div>
-          <p class="text-sm text-slate-500 max-w-xl">Postgres gerenciado com API REST pronta. Cole a URL do projeto e a chave anônima.</p>
-        </div>
-        ${this._statusBadge()}
-      </div>
-
-      <div class="grid md:grid-cols-2 gap-4">
-        ${this._dbInput('supabase.url', 'Project URL', 'https://xxxxx.supabase.co', 'text', supabase.url)}
-        ${this._dbInput('supabase.anonKey', 'Anon Public Key', 'eyJ...', 'password', supabase.anonKey)}
-        ${this._dbInput('supabase.schema', 'Schema', 'public', 'text', supabase.schema || 'public')}
-      </div>
-
-      ${this._resultCard()}
-
-      <div class="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
-        <button onclick="Actions.testDatabaseConnection()" ${testing ? 'disabled' : ''} class="px-5 py-3 rounded-2xl ${testing ? 'bg-slate-300 text-slate-600 cursor-wait' : 'bg-slate-900 hover:bg-slate-800 text-white'} font-black flex items-center gap-2 lj-dark-button" style="${testing ? '' : 'color:#fff!important;'}">
-          ${testing ? '<span class="w-4 h-4 rounded-full border-2 border-current border-r-transparent animate-spin"></span> Testando...' : '<i data-lucide="activity" class="w-4 h-4"></i> Testar conexão'}
-        </button>
-        <button onclick="Actions.saveDatabaseConfig()" class="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Salvar configuração</button>
-      </div>
-    </div>`;
-  },
-
-  _amazonPanel(cfg) {
-    const amazon = cfg.amazon || {};
-    const testing = App.state.databaseTesting;
-    const showSqlFields = amazon.type !== 'dynamodb';
-    return `<div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm space-y-5">
-      <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
-        <div>
-          <div class="flex items-center gap-2 mb-1"><i data-lucide="cloud" class="w-5 h-5 text-amber-700"></i><h3 class="text-xl font-black text-slate-950">Amazon (RDS / Aurora / DynamoDB)</h3></div>
-          <p class="text-sm text-slate-500 max-w-xl">Front não conecta direto em RDS por segurança. Configure aqui os dados e use uma API Gateway ou Lambda como proxy.</p>
-        </div>
-        ${this._statusBadge()}
-      </div>
-
-      <div class="grid md:grid-cols-2 gap-4">
-        <div>
-          <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Tipo Amazon</label>
-          <select onchange="Actions.selectAmazonDatabaseType(this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold text-slate-900">
-            ${DatabaseService.amazonTypes.map(type => `<option value="${type.id}" ${amazon.type === type.id ? 'selected' : ''}>${Utils.escape(type.label)}</option>`).join('')}
-          </select>
-        </div>
-        ${this._dbInput('amazon.region', 'Região', 'sa-east-1', 'text', amazon.region)}
-        ${this._dbInput('amazon.endpoint', 'Endpoint', amazon.type === 'dynamodb' ? 'opcional para DynamoDB' : 'leadscore.xxxxx.sa-east-1.rds.amazonaws.com', 'text', amazon.endpoint)}
-        ${amazon.type === 'dynamodb' ? this._dbInput('amazon.tablePrefix', 'Prefixo de tabelas', 'leadscore_', 'text', amazon.tablePrefix) : ''}
-        ${showSqlFields ? this._dbInput('amazon.port', 'Porta', amazon.type === 'rds-mysql' ? '3306' : '5432', 'text', amazon.port) : ''}
-        ${showSqlFields ? this._dbInput('amazon.database', 'Database', 'leadscore', 'text', amazon.database) : ''}
-        ${showSqlFields ? this._dbInput('amazon.username', 'Usuário', 'admin', 'text', amazon.username) : ''}
-        ${showSqlFields ? this._dbInput('amazon.password', 'Senha', '', 'password', amazon.password) : ''}
-        <div class="md:col-span-2">
-          ${this._dbInput('amazon.apiGatewayUrl', 'API Gateway / proxy (opcional)', 'https://api.seudominio.com/db/health', 'text', amazon.apiGatewayUrl, 'Se preenchido, o teste vai bater nessa URL para validar conectividade real.')}
-        </div>
-      </div>
-
-      ${this._resultCard()}
-
-      <div class="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
-        <button onclick="Actions.testDatabaseConnection()" ${testing ? 'disabled' : ''} class="px-5 py-3 rounded-2xl ${testing ? 'bg-slate-300 text-slate-600 cursor-wait' : 'bg-slate-900 hover:bg-slate-800 text-white'} font-black flex items-center gap-2 lj-dark-button" style="${testing ? '' : 'color:#fff!important;'}">
-          ${testing ? '<span class="w-4 h-4 rounded-full border-2 border-current border-r-transparent animate-spin"></span> Testando...' : '<i data-lucide="activity" class="w-4 h-4"></i> Testar conexão'}
-        </button>
-        <button onclick="Actions.saveDatabaseConfig()" class="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black flex items-center gap-2"><i data-lucide="save" class="w-4 h-4"></i> Salvar configuração</button>
-      </div>
-    </div>`;
-  },
-
-  _providerCard(id, title, desc, icon, provider) {
-    const active = provider === id;
-    return `<button onclick="Actions.selectDatabaseProvider('${id}')" class="text-left rounded-3xl border p-5 transition ${active ? 'bg-slate-900 text-white border-slate-900 shadow-xl' : 'bg-white text-slate-900 border-slate-200 hover:bg-slate-50'}">
-      <div class="flex items-center gap-3 mb-3">
-        <i data-lucide="${icon}" class="w-5 h-5"></i>
-        <h3 class="font-black">${Utils.escape(title)}</h3>
-      </div>
-      <p class="text-xs ${active ? 'text-slate-200' : 'text-slate-500'}">${Utils.escape(desc)}</p>
-    </button>`;
-  },
-
-  _tutorialPanel(cfg) {
-    const items = (window.DatabaseService && typeof DatabaseService.tutorial === 'function')
-      ? DatabaseService.tutorial(cfg.provider, cfg.amazon?.type)
-      : [];
-    if (!items.length) return '';
-    return `<details class="rounded-3xl bg-slate-900 text-white p-5" ${App.state.showDatabaseTutorial ? 'open' : ''}>
-      <summary class="cursor-pointer flex items-center gap-2 font-black" onclick="event.preventDefault(); Actions.toggleDatabaseTutorial();">
-        <i data-lucide="book-open" class="w-4 h-4"></i> Tutorial passo a passo para ${Utils.escape(DatabaseService.providerLabel(cfg.provider))}
-      </summary>
-      <ol class="mt-3 space-y-2 text-sm text-slate-200 list-decimal pl-5">${items.map(item => `<li>${Utils.escape(item)}</li>`).join('')}</ol>
-    </details>`;
-  },
-
-  _railwayPanel(cfg) {
-    const r = cfg.railway || {};
-    const mode = r.mode === 'fields' ? 'fields' : 'url';
-    const showPwd = Boolean(App.state.railwayShowPassword);
-    const testing = Boolean(App.state.railwayTesting);
-    const results = App.state.railwayTestResults || null;
-    return `<div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm space-y-5">
-      <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-3">
-        <div>
-          <div class="flex items-center gap-2 mb-1"><i data-lucide="train" class="w-5 h-5 text-violet-700"></i><h3 class="text-xl font-black text-slate-950">Railway Database</h3></div>
-          <p class="text-sm text-slate-500 max-w-xl">Cole sua DATABASE_URL ou preencha os campos. O LeadJourney mantém fallback local — seus dados não somem.</p>
-        </div>
-        ${this._railwayStatusBadge(r)}
-      </div>
-
-      ${this._railwayGuide()}
-
-      <div class="grid md:grid-cols-2 gap-3">
-        ${this._dbSelect('railway.engine', 'Tipo de banco', [{value:'postgres',label:'PostgreSQL'},{value:'mysql',label:'MySQL'}], r.engine || 'postgres')}
-        ${this._dbSelect('railway.environment', 'Ambiente', [{value:'production',label:'Produção'},{value:'staging',label:'Teste'},{value:'local',label:'Local'}], r.environment || 'production')}
-        ${this._dbInput('railway.projectName', 'Nome do projeto Railway', 'meu-projeto', 'text', r.projectName)}
-        ${this._dbInput('railway.serviceName', 'Nome do serviço Railway', 'postgres-prod', 'text', r.serviceName)}
-      </div>
-
-      <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex flex-wrap gap-2">
-        <button onclick="Actions.setRailwayMode('url')" class="px-3 py-2 rounded-xl text-xs font-black ${mode === 'url' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700'}" ${mode === 'url' ? 'style="color:#fff!important;"' : ''}>Usar DATABASE_URL</button>
-        <button onclick="Actions.setRailwayMode('fields')" class="px-3 py-2 rounded-xl text-xs font-black ${mode === 'fields' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700'}" ${mode === 'fields' ? 'style="color:#fff!important;"' : ''}>Usar campos separados</button>
-      </div>
-
-      ${mode === 'url' ? this._railwayUrlBlock(r, showPwd) : this._railwayFieldsBlock(r, showPwd)}
-
-      <div class="grid md:grid-cols-3 gap-3">
-        ${this._dbInput('railway.schema', 'Schema', 'public', 'text', r.schema || 'public')}
-        ${this._dbInput('railway.tablePrefix', 'Prefixo de tabelas', 'leadjourney_', 'text', r.tablePrefix || 'leadjourney_')}
-        ${this._dbInput('railway.proxyUrl', 'Proxy HTTPS (opcional)', 'https://seu-proxy.railway.app/health', 'text', r.proxyUrl, 'Sem proxy, o teste valida só o formato. Com proxy, a sondagem é real.')}
-      </div>
-
-      <label class="flex items-center justify-between gap-3 p-3 rounded-2xl bg-white border border-slate-200">
-        <span><span class="block text-sm font-black text-slate-900">SSL obrigatório</span><span class="block text-[11px] text-slate-500">Railway exige SSL em produção. Mantenha ligado salvo orientação contrária.</span></span>
-        <button onclick="Actions.updateDatabaseConfig('railway.ssl', ${!r.ssl})" class="relative w-12 h-7 rounded-full transition ${r.ssl ? 'bg-emerald-500' : 'bg-slate-300'}" aria-pressed="${Boolean(r.ssl)}">
-          <span class="absolute top-1 ${r.ssl ? 'right-1' : 'left-1'} w-5 h-5 rounded-full bg-white shadow"></span>
-        </button>
-      </label>
-
-      ${this._railwayTestResults(results, testing)}
-
-      <div class="flex flex-wrap gap-3 pt-2 border-t border-slate-100">
-        <button onclick="Actions.testRailwayConnection()" ${testing ? 'disabled' : ''} class="px-5 py-3 rounded-2xl ${testing ? 'bg-slate-300 text-slate-600 cursor-wait' : 'bg-slate-900 hover:bg-slate-800 text-white'} font-black flex items-center gap-2 lj-dark-button" style="${testing ? '' : 'color:#fff!important;'}">${testing ? '<span class="w-4 h-4 rounded-full border-2 border-current border-r-transparent animate-spin"></span> Testando 5 vezes…' : '<i data-lucide="activity" class="w-4 h-4"></i> Testar conexão Railway'}</button>
-        <button onclick="Actions.openRailwaySnapshotPrompt()" class="px-5 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black flex items-center gap-2" style="color:#fff!important;"><i data-lucide="save" class="w-4 h-4"></i> Salvar Railway como banco principal</button>
-        <button onclick="Actions.generateDatabaseSnapshot('railway-manual')" class="px-5 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-black hover:bg-slate-50 flex items-center gap-2"><i data-lucide="download" class="w-4 h-4"></i> Gerar snapshot agora</button>
-      </div>
-    </div>`;
-  },
-
-  _railwayStatusBadge(r) {
-    const status = r.lastTest?.status || (r.markedAsPrimary ? 'primary' : (r.databaseUrl || r.host) ? 'configured' : 'not_configured');
-    const map = {
-      stable: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', dot: 'bg-emerald-500', label: 'Estável' },
-      unstable: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700', dot: 'bg-amber-500', label: 'Instável' },
-      critical: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', dot: 'bg-orange-500', label: 'Crítico' },
-      failed: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', dot: 'bg-red-500', label: 'Erro de conexão' },
-      testing: { bg: 'bg-sky-50', border: 'border-sky-200', text: 'text-sky-700', dot: 'bg-sky-500', label: 'Testando' },
-      primary: { bg: 'bg-violet-50', border: 'border-violet-200', text: 'text-violet-700', dot: 'bg-violet-500', label: 'Banco principal' },
-      configured: { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700', dot: 'bg-slate-400', label: 'Configurado' },
-      not_configured: { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-500', dot: 'bg-slate-300', label: 'Não configurado' }
-    };
-    const t = map[status] || map.not_configured;
-    return `<span class="inline-flex items-center gap-2 px-3 py-2 rounded-2xl border ${t.bg} ${t.border} ${t.text} text-xs font-black"><span class="w-2 h-2 rounded-full ${t.dot}"></span>${t.label}</span>`;
-  },
-
-  _railwayGuide() {
-    return `<details class="rounded-2xl bg-violet-50 border border-violet-200 p-4" open>
-      <summary class="cursor-pointer text-sm font-black text-violet-900 flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4"></i> Passo a passo para conectar o Railway</summary>
-      <ol class="mt-3 space-y-1.5 text-sm text-violet-900 list-decimal pl-5">
-        <li>Acesse sua conta no Railway.</li>
-        <li>Abra o projeto onde está seu banco.</li>
-        <li>Clique no serviço de banco — PostgreSQL ou MySQL.</li>
-        <li>Abra a aba <b>Variables</b> ou <b>Connect</b>.</li>
-        <li>Copie a variável <code class="px-1 rounded bg-white border border-violet-200">DATABASE_URL</code>.</li>
-        <li>Cole no campo DATABASE_URL aqui.</li>
-        <li>Clique em <b>Testar conexão Railway</b>.</li>
-        <li>O LeadJourney roda 5 testes seguidos e mostra a estabilidade.</li>
-        <li>Se passou, clique em <b>Salvar Railway como banco principal</b>.</li>
-        <li>O LeadJourney mantém um fallback local — seus dados não se perdem.</li>
-      </ol>
-    </details>`;
-  },
-
-  _railwayUrlBlock(r, showPwd) {
-    const url = r.databaseUrl || '';
-    const masked = showPwd ? url : (window.RailwayConnectionParser ? RailwayConnectionParser.mask(url) : url);
-    return `<div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-2">
-      <div class="flex items-center justify-between gap-2">
-        <label class="text-xs font-black text-slate-500 uppercase tracking-wide">DATABASE_URL</label>
-        <button onclick="Actions.toggleRailwayPassword()" class="text-[11px] font-black text-slate-600 hover:text-slate-900 flex items-center gap-1"><i data-lucide="${showPwd ? 'eye-off' : 'eye'}" class="w-3 h-3"></i> ${showPwd ? 'Ocultar' : 'Mostrar'}</button>
-      </div>
-      <input type="${showPwd ? 'text' : 'password'}" value="${Utils.escape(url)}" oninput="Actions.updateDatabaseConfig('railway.databaseUrl', this.value, false)" placeholder="postgresql://user:password@host:port/database" class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-mono text-sm text-slate-900" />
-      ${url && !showPwd ? `<p class="text-[11px] text-slate-500 font-mono">${Utils.escape(masked)}</p>` : ''}
-      <button onclick="Actions.parseRailwayDatabaseUrl()" class="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-xs"><i data-lucide="split" class="w-3 h-3 inline mr-1"></i> Extrair para campos separados</button>
-    </div>`;
-  },
-
-  _railwayFieldsBlock(r, showPwd) {
-    return `<div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-3">
-      <div class="grid md:grid-cols-2 gap-3">
-        ${this._dbInput('railway.host', 'Host', 'containers-us-west-X.railway.app', 'text', r.host)}
-        ${this._dbInput('railway.port', 'Porta', r.engine === 'mysql' ? '3306' : '5432', 'text', r.port)}
-        ${this._dbInput('railway.database', 'Database name', 'railway', 'text', r.database)}
-        ${this._dbInput('railway.username', 'Usuário', 'postgres', 'text', r.username)}
-      </div>
-      <div class="flex items-end gap-2">
-        <div class="flex-1">${this._dbInput('railway.password', 'Senha', '', showPwd ? 'text' : 'password', r.password)}</div>
-        <button onclick="Actions.toggleRailwayPassword()" class="px-3 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-black text-xs whitespace-nowrap"><i data-lucide="${showPwd ? 'eye-off' : 'eye'}" class="w-3 h-3 inline mr-1"></i> ${showPwd ? 'Ocultar' : 'Mostrar'}</button>
-      </div>
-      <button onclick="Actions.composeRailwayDatabaseUrl()" class="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-xs"><i data-lucide="link-2" class="w-3 h-3 inline mr-1"></i> Montar DATABASE_URL a partir destes campos</button>
-    </div>`;
-  },
-
-  _railwayTestResults(results, testing) {
-    if (testing && !results) {
-      return `<div class="rounded-2xl bg-sky-50 border border-sky-200 p-4 text-sky-800 text-sm font-black flex items-center gap-2"><span class="w-3 h-3 rounded-full border-2 border-current border-r-transparent animate-spin"></span> Rodando teste 1 de 5…</div>`;
-    }
-    if (!results) return '';
-    const rounds = results.rounds || [];
-    const summary = results.summary || {};
-    const summaryMap = {
-      stable: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-900', icon: 'check-circle-2' },
-      unstable: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-900', icon: 'alert-triangle' },
-      critical: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-900', icon: 'alert-octagon' },
-      failed: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-900', icon: 'x-octagon' }
-    };
-    const s = summaryMap[summary.status] || summaryMap.failed;
-    return `<div class="space-y-2">
-      <div class="rounded-2xl ${s.bg} border ${s.border} p-4">
-        <div class="flex items-start gap-3">
-          <i data-lucide="${s.icon}" class="w-5 h-5 ${s.text}"></i>
-          <div class="flex-1">
-            <p class="text-sm font-black ${s.text}">Estabilidade: ${summary.stability ?? 0}% · Latência média: ${summary.avgLatencyMs ?? 0}ms</p>
-            <p class="text-xs ${s.text} opacity-90 mt-1">${Utils.escape(summary.message || '')}</p>
-          </div>
-        </div>
-      </div>
-      <div class="rounded-2xl bg-white border border-slate-200 divide-y divide-slate-100">
-        ${rounds.map(r => `<div class="px-4 py-2.5 flex items-center justify-between text-sm">
-          <span class="font-black text-slate-700">Teste ${r.round}</span>
-          <span class="flex items-center gap-3">
-            <span class="text-xs text-slate-500">${r.latencyMs}ms</span>
-            ${r.ok ? '<span class="px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-black">sucesso</span>' : `<span class="px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-700 text-[11px] font-black" title="${Utils.escape(r.message || '')}">falha</span>`}
-          </span>
-        </div>`).join('')}
-      </div>
-    </div>`;
-  },
-
-  _railwaySnapshotPrompt(cfg) {
-    if (!App.state.showRailwaySnapshotPrompt) return '';
-    return `<div class="fixed inset-0 z-[90] bg-slate-950/75 backdrop-blur-sm grid place-items-center p-4">
-      <div class="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-md p-5">
-        <div class="flex items-start gap-3 mb-3">
-          <div class="w-10 h-10 rounded-2xl bg-violet-100 grid place-items-center"><i data-lucide="shield-check" class="w-5 h-5 text-violet-700"></i></div>
-          <div>
-            <h3 class="text-lg font-black text-slate-900">Trocar banco principal</h3>
-            <p class="text-sm text-slate-500 mt-1">Antes de trocar o banco principal, recomendamos gerar um snapshot dos dados atuais. O LeadJourney não apagará seus dados locais.</p>
-          </div>
-        </div>
-        <div class="flex flex-col gap-2 mt-4">
-          <button onclick="Actions.generateDatabaseSnapshot('pre-railway-switch'); Actions.confirmRailwayAsPrimary();" class="px-4 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm" style="color:#fff!important;">Gerar snapshot e salvar Railway</button>
-          <button onclick="Actions.confirmRailwayAsPrimary()" class="px-4 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black text-sm" style="color:#fff!important;">Continuar sem snapshot</button>
-          <button onclick="Actions.cancelRailwaySnapshotPrompt()" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-black text-sm">Cancelar</button>
-        </div>
-      </div>
-    </div>`;
-  },
-
-  databasePanel() {
-    const cfg = DatabaseService.normalize(App.state.databaseConfig);
-    const provider = cfg.provider || 'local';
-    const panel = provider === 'supabase' ? this._supabasePanel(cfg)
-      : provider === 'amazon' ? this._amazonPanel(cfg)
-      : provider === 'railway' ? this._railwayPanel(cfg)
-      : this._localPanel(cfg);
-
-    return `<div class="space-y-5">
-      <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
-        ${this._providerCard('local','Local','Banco local no seu computador. Começa imediato e fica offline.','hard-drive', provider)}
-        ${this._providerCard('supabase','Supabase','Postgres gerenciado com API REST pronta para produção inicial.','database', provider)}
-        ${this._providerCard('amazon','Amazon','RDS, Aurora ou DynamoDB. Preparado para escalar via backend/proxy.','cloud', provider)}
-        ${this._providerCard('railway','Railway','Postgres ou MySQL no Railway. Conexão guiada por DATABASE_URL ou campos separados.','train', provider)}
-      </div>
-      ${panel}
-      ${this._tutorialPanel(cfg)}
-      ${this._railwaySnapshotPrompt(cfg)}
-    </div>`;
-  },
 
   backupPanel() {
     return `<div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
@@ -3445,11 +2978,11 @@ var SettingsModal = {
     // V22.2 — Consolidação: 'rd' e 'rdCrm' viraram uma seção só "Conexão RD Station".
     // Mantemos o alias 'rdCrm' redirecionando p/ 'rd' por compat de bookmarks/links.
     const resolvedActive = active === 'rdCrm' ? 'rd' : active;
-    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', database: 'Banco de Dados', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários', admin: 'Administrar Lead Journey', tenants: 'Tenants (Global Mode)', myDb: 'Meu Banco', myAccount: 'Minha Conta' };
+    // V32.4.0 (Geraldo Item 6) — 'database' (legacy V11) removida. Default agora 'myAccount'.
+    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários', admin: 'Administrar Lead Journey', tenants: 'Tenants (Global Mode)', myDb: 'Meu Banco', myAccount: 'Minha Conta' };
     const subtitleMap = {
       rd: 'Token CRM, pipelines por campanha, sincronização de leads e (opcional) RD Marketing — tudo em um lugar.',
       backup: 'Prepare snapshots, restauração e segurança dos dados.',
-      database: 'Escolha Local, Supabase ou Amazon e deixe o LeadScore pronto para sincronizar.',
       execution: 'Configure ClickUp, Trello, Monday, Jira, Notion ou modo Manual para onde as tarefas devem ser criadas.',
       integrations: 'Conecte serviços externos (ClickUp, etc.) pra criar tarefas automaticamente via Djow ou modal.',
       agents: 'Configure o Djow (Railway) e outros agentes que interpretam comandos em linguagem natural.',
@@ -3459,8 +2992,8 @@ var SettingsModal = {
       myDb: 'V32.1.1 — Plug seu próprio Postgres pra isolar 100% seus dados. Connection string fica criptografada no servidor.',
       myAccount: 'V32.1.2 — Personalize seu nome de exibição. Login (e-mail) e tenant são imutáveis aqui.'
     };
-    const title = titleMap[resolvedActive] || titleMap.database;
-    const subtitle = subtitleMap[resolvedActive] || subtitleMap.database;
+    const title = titleMap[resolvedActive] || titleMap.myAccount;
+    const subtitle = subtitleMap[resolvedActive] || subtitleMap.myAccount;
 
     const content = resolvedActive === 'rd' ? this.rdConnectionPanel()
       : resolvedActive === 'execution' ? this.executionPanel()
@@ -3471,8 +3004,7 @@ var SettingsModal = {
       : resolvedActive === 'admin' ? this.adminPanel()
       : resolvedActive === 'tenants' ? this.tenantsPanel()
       : resolvedActive === 'myDb' ? this.myDbPanel()
-      : resolvedActive === 'myAccount' ? this.myAccountPanel()
-      : this.databasePanel();
+      : this.myAccountPanel();
 
     return `<div id="settingsModalBackdrop" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm p-4 overflow-auto">
       <section id="settingsModal" class="max-w-6xl mx-auto rounded-[2rem] bg-slate-50 shadow-2xl overflow-hidden border border-white/20">
@@ -3494,7 +3026,6 @@ var SettingsModal = {
         <main class="grid lg:grid-cols-[260px_1fr] min-h-[620px]">
           <aside class="bg-white border-r border-slate-200 p-5 space-y-3">
             ${this.sectionButton('myAccount','Minha Conta','user')}
-            ${this.sectionButton('database','Banco de Dados','database')}
             ${App.currentUser?.tenantId ? this.sectionButton('myDb','Meu Banco','hard-drive-download') : ''}
             ${this.sectionButton('rd','Conexão RD Station','plug-zap')}
             ${App.currentUser?.isMaster ? this.sectionButton('users','Usuários','users') : ''}

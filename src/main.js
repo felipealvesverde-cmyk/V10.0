@@ -78,7 +78,7 @@ var App = {
         this.state.activeTab = 'home';
         this.runTests();
         this.render();
-        this.hydrateFromConfiguredDatabase();
+        // V32.4.0 (Geraldo Item 6) — hydrateFromConfiguredDatabase removida (V11 folder).
         // V26.0.0 — Atalho global Ctrl+K (Cmd+K) abre modal Djow AI.
         // Funciona em qualquer aba. ESC fecha (tratado dentro do modal).
         if (!this._djowShortcutBound) {
@@ -270,50 +270,13 @@ var App = {
           try { RdCrmSyncEngine.bootstrap(); } catch (error) { console.warn('RD CRM bootstrap falhou:', error); }
         }
       },
-      async hydrateFromConfiguredDatabase() {
-        try {
-          if (!window.DatabaseService?.shouldHydrateFromLocalFolder?.(this.state)) return;
-          const result = await DatabaseService.readSnapshotFromFolder(this.state.databaseConfig);
-          if (!result.ok || !result.snapshot?.data) return;
-          // V22.1.1 — Salvaguarda contra hidratação destrutiva:
-          // se o snapshot lido for vazio E o state atual tem dados, NÃO sobrescreve.
-          // Isso evita que um snapshot vazio/corrompido do folder zere o localStorage.
-          const data = result.snapshot.data;
-          const snapHasData = (
-            (Array.isArray(data.products) && data.products.length > 0) ||
-            (Array.isArray(data.campaigns) && data.campaigns.length > 0) ||
-            (Array.isArray(data.actions) && data.actions.length > 0) ||
-            (Array.isArray(data.manualLeads) && data.manualLeads.length > 0)
-          );
-          const stateHasData = (
-            (this.state.products?.length || 0) +
-            (this.state.campaigns?.length || 0) +
-            (this.state.actions?.length || 0) +
-            (this.state.manualLeads?.length || 0)
-          ) > 0;
-          if (!snapHasData && stateHasData) {
-            console.warn('Hidratação ignorada: snapshot vazio mas state atual tem dados. Folder pode estar desatualizado.');
-            return;
-          }
-          const cfg = DatabaseService.normalize(this.state.databaseConfig);
-          const hydrated = State.normalize(data);
-          this.state = DatabaseService.applyMigrations({
-            ...hydrated,
-            databaseConfig: cfg,
-            databaseTestResult: { ok: true, provider: 'local', message: 'Banco local carregado da pasta configurada.', testedAt: new Date().toISOString() }
-          });
-          State.save();
-          this.render();
-          Utils.toast('Banco local carregado da pasta configurada.');
-        } catch (error) {
-          console.warn('Hidratação do banco local falhou:', error);
-        }
-      },
+      // V32.4.0 (Geraldo Item 6) — hydrateFromConfiguredDatabase removida.
+      // Era hidratação do folder local V11 (Local provider). Obsoleta após
+      // V31+ multi-tenant — snapshots agora vivem em journey_snapshots no DB tenant.
       save() {
         // V23.0.0 — Marca timestamp pro conflict resolution remoto.
         if (this.state) this.state.lastSavedAt = new Date().toISOString();
         State.save();
-        if (window.DatabaseService?.queueAutoSave) DatabaseService.queueAutoSave(this.state);
         // V23.0.0 — Agenda push pro banco remoto (debounce 2s no Adapter).
         if (window.RemoteSyncAdapter) {
           try { RemoteSyncAdapter.schedulePush(); } catch (e) { /* swallow */ }
@@ -560,7 +523,6 @@ var App = {
         console.assert(State.normalizeTagRules([{ tag: '#x', score: '7' }])[0].score === 7, 'normaliza regra de tag');
         console.assert(State.normalizeOkrs([{ name: 'A', target: '10%', current: '2%' }])[0].current === '2%', 'normaliza OKR atual');
         console.assert(Boolean(ProductsModule.render), 'ProductsModule render existe');
-        console.assert(Boolean(DatabaseService.defaultConfig), 'DatabaseService configurado');
         console.assert(Boolean(SettingsModal.render), 'SettingsModal render existe');
         console.assert(Boolean(DashboardModule.render), 'DashboardModule render existe');
         console.assert(Boolean(LeadsModule.render), 'LeadsModule render existe');

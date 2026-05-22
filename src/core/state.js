@@ -28,15 +28,10 @@ var State = {
     return {
       activeTab: 'home', // V25.0.0 — aba Início como default
       showSettingsModal: false,
-      settingsActiveSection: 'database',
-      databaseConfig: DatabaseService.defaultConfig(),
-      databaseTestResult: null,
-      databaseTesting: false,
-      showDatabaseTutorial: false,
-      railwayTesting: false,
-      railwayTestResults: null,
-      railwayShowPassword: false,
-      showRailwaySnapshotPrompt: false,
+      // V32.4.0 (Geraldo Item 6) — default 'myAccount' (V11 'database' removida)
+      settingsActiveSection: 'myAccount',
+      // V32.4.0 — databaseConfig vira {} vazio (compat). Campos railwayX*,
+      // databaseTesting, showDatabaseTutorial removidos junto com feature V11.
       integrations: {
         rd: window.RDConfig ? RDConfig.defaultConfig() : {},
         rdCrm: window.RdCrmConfig ? RdCrmConfig.defaultConfig() : {}
@@ -417,10 +412,10 @@ var State = {
       activeTab: raw.activeTab || base.activeTab,
       showSettingsModal: Boolean(raw.showSettingsModal),
       settingsActiveSection: raw.settingsActiveSection || base.settingsActiveSection,
-      databaseConfig: DatabaseService.normalize(raw.databaseConfig || base.databaseConfig),
-      databaseTestResult: raw.databaseTestResult || null,
-      databaseTesting: false,
-      showDatabaseTutorial: false,
+      // V32.4.0 (Geraldo Item 6) — databaseConfig vira {} vazio. Demais flags
+      // (databaseTestResult, databaseTesting, showDatabaseTutorial, railway*)
+      // removidas junto com a feature V11. Backwards compat: state antigos com
+      // databaseConfig populado simplesmente perdem o conteúdo (sem uso na V32+).
       // V21.4 BUGFIX — campos persistidos que somem se não forem preservados aqui:
       // V21.6 ADD — pipelinesByCampaign preservado explicitamente (objeto aninhado).
       // V22.0 ADD — dealsByLead preservado (mapa de leadKey→campaign→dealId).

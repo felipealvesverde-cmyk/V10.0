@@ -202,7 +202,9 @@ var Actions = {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
       },
-      resetDemo() { StorageAdapter.clear(); App.state = DatabaseService.emptyDataState(); App.render(); Utils.toast('Dados locais limpos. A pasta configurada não foi apagada automaticamente.'); },
+      // V32.4.0 (Geraldo Item 6) — trocou DatabaseService.emptyDataState() por State.initial()
+      // pois databaseService refatorado pra manter só helpers de state migration.
+      resetDemo() { StorageAdapter.clear(); App.state = State.initial(); App.render(); Utils.toast('Dados locais limpos.'); },
       async applyProfileSearch() {
         const q = App.state.profileQuery || '';
         if (!String(q).trim()) {
@@ -923,63 +925,19 @@ window.Actions = Actions;
 Object.assign(Actions, {
   openSettingsModal() {
     App.state.showSettingsModal = true;
-    App.state.settingsActiveSection = 'database';
-    App.state.databaseConfig = DatabaseService.normalize(App.state.databaseConfig);
+    // V32.4.0 (Geraldo Item 6) — default agora 'myAccount' (V11 'database' removida)
+    App.state.settingsActiveSection = 'myAccount';
     App.save(); App.render();
   },
   closeSettingsModal() {
     App.state.showSettingsModal = false;
     App.save(); App.render();
   },
-  selectDatabaseProvider(provider) {
-    App.state.databaseConfig = DatabaseService.normalize({ ...(App.state.databaseConfig || {}), provider });
-    App.state.databaseTestResult = null;
-    App.save(); App.render();
-  },
-  selectAmazonDatabaseType(type) {
-    const cfg = DatabaseService.normalize(App.state.databaseConfig);
-    const selected = DatabaseService.amazonTypes.find(item => item.id === type) || DatabaseService.amazonTypes[0];
-    cfg.amazon.type = selected.id;
-    if (selected.port) cfg.amazon.port = selected.port;
-    App.state.databaseConfig = cfg;
-    App.state.databaseTestResult = null;
-    App.save(); App.render();
-  },
-  updateDatabaseConfig(path, value, shouldRender = true) {
-    const cfg = DatabaseService.normalize(App.state.databaseConfig);
-    const keys = String(path || '').split('.').filter(Boolean);
-    let target = cfg;
-    while (keys.length > 1) {
-      const key = keys.shift();
-      target[key] = target[key] || {};
-      target = target[key];
-    }
-    target[keys[0]] = value;
-    App.state.databaseConfig = cfg;
-    App.save();
-    if (shouldRender) App.render();
-  },
-  async testDatabaseConnection() {
-    if (App.state.databaseTesting) return;
-    App.state.databaseTesting = true;
-    App.save(); App.render();
-    try {
-      const result = await DatabaseService.testConnection(App.state.databaseConfig);
-      App.state.databaseTestResult = result;
-      App.state.databaseConfig = DatabaseService.normalize({ ...(App.state.databaseConfig || {}), lastTest: result });
-      Utils.toast(result.ok ? '✓ Conexão validada.' : '⚠ A conexão precisa de ajustes.');
-    } catch (error) {
-      App.state.databaseTestResult = { ok: false, provider: App.state.databaseConfig?.provider || 'local', message: `Erro inesperado: ${error?.message || error}`, testedAt: new Date().toISOString() };
-      Utils.toast('Falha no teste. Veja detalhes no card de status.');
-    } finally {
-      App.state.databaseTesting = false;
-      App.save(); App.render();
-    }
-  },
-  toggleDatabaseTutorial() {
-    App.state.showDatabaseTutorial = !App.state.showDatabaseTutorial;
-    App.save(); App.render();
-  },
+  // V32.4.0 (Geraldo Item 6) — Actions V11 database removidas:
+  // selectDatabaseProvider, selectAmazonDatabaseType, updateDatabaseConfig,
+  // testDatabaseConnection, toggleDatabaseTutorial.
+  // Feature legacy de "escolher provider externo pra state" obsoleta após
+  // V31+ multi-tenant. Snapshots agora vivem em journey_snapshots (DB tenant).
 
   // Canais e tipos customizados
   addCustomChannel() {
@@ -1545,85 +1503,9 @@ Object.assign(Actions, {
     App.save(); App.render();
     Utils.toast('Vínculo com RD CRM removido.');
   },
-  saveDatabaseConfig() {
-    const cfg = DatabaseService.normalize(App.state.databaseConfig);
-    cfg.savedAt = new Date().toISOString();
-    App.state.databaseConfig = cfg;
-    App.save(); App.render();
-    Utils.toast(`Configuração ${DatabaseService.providerLabel(cfg.provider)} salva.`);
-  },
-  async chooseLocalDatabaseFolder() {
-    Utils.toast('Abrindo seleção de pasta local...');
-    const result = await DatabaseService.chooseLocalDirectory(App.state.databaseConfig);
-    const cfg = DatabaseService.normalize(App.state.databaseConfig);
-    if (result.ok) {
-      cfg.provider = 'local';
-      cfg.local.folderLabel = result.label || result.handle?.name || cfg.local.folderLabel || 'Pasta autorizada';
-      cfg.local.folderPath = result.path || cfg.local.folderPath || cfg.local.folderLabel;
-      cfg.local.lastFolderPermission = new Date().toISOString();
-      App.state.databaseConfig = cfg;
-      App.save(); App.render();
-    }
-    Utils.toast(result.message);
-  },
-  async writeLocalFolderSnapshot() {
-    Utils.toast('Salvando snapshot na pasta local...');
-    const result = await DatabaseService.writeSnapshotToFolder(App.state, App.state.databaseConfig);
-    const cfg = DatabaseService.normalize(App.state.databaseConfig);
-    if (result.ok) {
-      cfg.provider = 'local';
-      cfg.local.folderLabel = result.folderLabel || cfg.local.folderLabel;
-      cfg.local.folderPath = result.folderPath || cfg.local.folderPath;
-      cfg.local.lastFolderWriteAt = result.savedAt || new Date().toISOString();
-      cfg.lastTest = { ok: true, provider: 'local', message: result.message, testedAt: cfg.local.lastFolderWriteAt };
-      App.state.databaseConfig = cfg;
-      App.state.databaseTestResult = cfg.lastTest;
-      App.save(); App.render();
-    }
-    Utils.toast(result.message);
-  },
-  async readLocalFolderSnapshot() {
-    Utils.toast('Lendo snapshot da pasta local...');
-    const result = await DatabaseService.readSnapshotFromFolder(App.state.databaseConfig);
-    if (!result.ok) return Utils.toast(result.message);
-    const cfg = DatabaseService.normalize(App.state.databaseConfig);
-    cfg.local.folderLabel = result.folderLabel || cfg.local.folderLabel;
-    cfg.local.folderPath = result.folderPath || cfg.local.folderPath;
-    cfg.local.lastFolderReadAt = result.loadedAt || new Date().toISOString();
-    cfg.lastTest = { ok: true, provider: 'local', message: result.message, testedAt: cfg.local.lastFolderReadAt };
-    const importedState = result.snapshot?.data ? State.normalize(result.snapshot.data) : App.state;
-    App.state = { ...importedState, databaseConfig: cfg, databaseTestResult: cfg.lastTest, showSettingsModal: true, settingsActiveSection: 'database' };
-    App.save(); App.render();
-    Utils.toast('Snapshot local importado e aplicado ao app.');
-  },
-  async syncDatabaseNow() {
-    const cfg = DatabaseService.normalize(App.state.databaseConfig);
-    const summary = {
-      products: (App.state.products || []).length,
-      campaigns: (App.state.campaigns || []).length,
-      actions: (App.state.actions || []).length,
-      leads: (App.state.manualLeads || []).length,
-      syncedAt: new Date().toISOString()
-    };
-    if (cfg.provider === 'local' && cfg.local.mode === 'folder') {
-      const result = await DatabaseService.writeSnapshotToFolder(App.state, cfg);
-      if (result.ok) {
-        cfg.local.folderLabel = result.folderLabel || cfg.local.folderLabel;
-        cfg.local.folderPath = result.folderPath || cfg.local.folderPath;
-        cfg.local.lastFolderWriteAt = result.savedAt || new Date().toISOString();
-        App.state.databaseConfig = cfg;
-        App.save(); App.render();
-      }
-      return Utils.toast(result.message);
-    }
-    try {
-      const key = `${cfg.local?.namespace || 'leadscore_local_db'}__last_sync_snapshot`;
-      localStorage.setItem(key, JSON.stringify(summary));
-    } catch (error) {
-      console.warn('Falha ao registrar snapshot local:', error);
-    }
-    Utils.toast(`Sincronização preparada: ${summary.products} produto(s), ${summary.campaigns} campanha(s), ${summary.actions} ação(ões).`);
-  }
+  // V32.4.0 (Geraldo Item 6) — saveDatabaseConfig, chooseLocalDatabaseFolder,
+  // writeLocalFolderSnapshot removidas (eram do _localPanel V11).
+  // V32.4.0 (Geraldo Item 6) — readLocalFolderSnapshot + syncDatabaseNow removidas (eram do _localPanel V11).
 });
 window.Actions = Actions;
 
@@ -3170,16 +3052,8 @@ Object.assign(Actions, {
 window.Actions = Actions;
 
 
-// V13.0.4 stub kept intentionally lean: bugs from the previous override
-// (flat-only updateDatabaseConfig + fake testDatabaseConnection that bypassed
-// DatabaseService) were removed in V14.4. Use the canonical actions above:
-//   - Actions.selectDatabaseProvider(provider)
-//   - Actions.updateDatabaseConfig(dotPath, value)   // ex.: 'local.folderPath'
-//   - Actions.testDatabaseConnection()               // async, calls DatabaseService
-//   - Actions.saveDatabaseConfig()                   // normalizes + stamps savedAt
-//   - Actions.chooseLocalDatabaseFolder()
-//   - Actions.writeLocalFolderSnapshot()
-//   - Actions.readLocalFolderSnapshot()
+// V32.4.0 (Geraldo Item 6) — Comentário antigo do stub V13.0.4 removido —
+// referenciava actions database que foram aposentadas inteiras.
 
 
 // V13.1.1 — OAuth Runtime Fix
@@ -4108,102 +3982,11 @@ Object.assign(Actions, {
 });
 window.Actions = Actions;
 
-// V16.4 — Railway Database
-Object.assign(Actions, {
-  setRailwayMode(mode) {
-    const next = mode === 'fields' ? 'fields' : 'url';
-    return Actions.updateDatabaseConfig('railway.mode', next);
-  },
-
-  toggleRailwayPassword() {
-    App.state.railwayShowPassword = !App.state.railwayShowPassword;
-    App.render();
-  },
-
-  parseRailwayDatabaseUrl() {
-    const cfg = App.state.databaseConfig?.railway || {};
-    const url = String(cfg.databaseUrl || '').trim();
-    if (!url) return Utils.toast('Cole a DATABASE_URL primeiro.');
-    const parsed = window.RailwayConnectionParser ? RailwayConnectionParser.parseUrl(url) : null;
-    if (!parsed?.ok) return Utils.toast(parsed?.message || 'Formato inválido.');
-    Actions.updateDatabaseConfig('railway.engine', parsed.engine, false);
-    Actions.updateDatabaseConfig('railway.host', parsed.host, false);
-    Actions.updateDatabaseConfig('railway.port', parsed.port, false);
-    Actions.updateDatabaseConfig('railway.database', parsed.database, false);
-    Actions.updateDatabaseConfig('railway.username', parsed.username, false);
-    Actions.updateDatabaseConfig('railway.password', parsed.password, false);
-    Actions.updateDatabaseConfig('railway.ssl', parsed.ssl, false);
-    Actions.updateDatabaseConfig('railway.mode', 'fields');
-    Utils.toast('Campos preenchidos a partir da DATABASE_URL.');
-  },
-
-  composeRailwayDatabaseUrl() {
-    const cfg = App.state.databaseConfig?.railway || {};
-    if (!window.RailwayConnectionParser) return;
-    const errors = RailwayConnectionParser.validate({ ...cfg, mode: 'fields' });
-    if (errors.length) return Utils.toast(errors[0]);
-    const url = RailwayConnectionParser.buildUrl(cfg);
-    Actions.updateDatabaseConfig('railway.databaseUrl', url, false);
-    Actions.updateDatabaseConfig('railway.mode', 'url');
-    Utils.toast('DATABASE_URL montada a partir dos campos.');
-  },
-
-  async testRailwayConnection() {
-    if (!window.RailwayConnectionTester) return Utils.toast('Tester indisponível.');
-    const cfg = App.state.databaseConfig || {};
-    if (!cfg.railway) return Utils.toast('Configure o Railway antes.');
-    const errors = window.RailwayConnectionParser ? RailwayConnectionParser.validate(cfg.railway) : [];
-    if (errors.length) {
-      App.state.railwayTestResults = { rounds: [], summary: { stability: 0, status: 'failed', avgLatencyMs: 0, message: errors.join(' · ') } };
-      App.render();
-      return Utils.toast(errors[0]);
-    }
-    App.state.railwayTesting = true;
-    App.state.railwayTestResults = { rounds: [], summary: null };
-    App.render();
-    const finalResult = await RailwayConnectionTester.run(cfg, (round, partialList) => {
-      App.state.railwayTestResults = { rounds: partialList, summary: RailwayConnectionTester.summarize(partialList) };
-      App.render();
-    });
-    App.state.railwayTesting = false;
-    App.state.railwayTestResults = { rounds: finalResult.results, summary: { stability: finalResult.stability, status: finalResult.status, avgLatencyMs: finalResult.avgLatencyMs, message: finalResult.message } };
-    const next = { ...(App.state.databaseConfig?.railway || {}), lastTest: { at: new Date().toISOString(), status: finalResult.status, stability: finalResult.stability, avgLatencyMs: finalResult.avgLatencyMs }, lastTestResults: finalResult.results, stability: finalResult.stability };
-    App.state.databaseConfig = { ...(App.state.databaseConfig || {}), railway: next };
-    App.save(); App.render();
-    Utils.toast(finalResult.message);
-  },
-
-  generateDatabaseSnapshot(label) {
-    if (!window.DatabaseSnapshotService) return Utils.toast('Snapshot service indisponível.');
-    DatabaseSnapshotService.generate(label || 'manual')
-      .then(res => Utils.toast(`Snapshot gerado: ${res.filename} (${res.sizeKb}KB).`))
-      .catch(err => Utils.toast(`Falha ao gerar snapshot: ${err?.message || err}`));
-  },
-
-  openRailwaySnapshotPrompt() {
-    const cfg = App.state.databaseConfig?.railway || {};
-    const errors = window.RailwayConnectionParser ? RailwayConnectionParser.validate(cfg) : [];
-    if (errors.length) return Utils.toast(errors[0]);
-    App.state.showRailwaySnapshotPrompt = true;
-    App.render();
-  },
-
-  cancelRailwaySnapshotPrompt() {
-    App.state.showRailwaySnapshotPrompt = false;
-    App.render();
-  },
-
-  confirmRailwayAsPrimary() {
-    App.state.showRailwaySnapshotPrompt = false;
-    if (window.DatabaseFallbackService) DatabaseFallbackService.ensureLocalFallback();
-    const cfg = App.state.databaseConfig || DatabaseService.defaultConfig();
-    const railway = { ...(cfg.railway || {}), markedAsPrimary: true, savedAt: new Date().toISOString() };
-    App.state.databaseConfig = { ...cfg, provider: 'railway', railway, savedAt: new Date().toISOString() };
-    App.save(); App.render();
-    Utils.toast('Railway definido como banco principal. Fallback local preservado.');
-  }
-});
-window.Actions = Actions;
+// V32.4.0 (Geraldo Item 6) — Bloco V16.4 Railway Database removido inteiro:
+// setRailwayMode, toggleRailwayPassword, parseRailwayDatabaseUrl,
+// composeRailwayDatabaseUrl, testRailwayConnection, generateDatabaseSnapshot,
+// openRailwaySnapshotPrompt, cancelRailwaySnapshotPrompt, confirmRailwayAsPrimary.
+// Eram callers dos panels _railwayPanel + _railwaySnapshotPrompt (também removidos).
 
 // V17 — Revenue Strategic Map
 Object.assign(Actions, {

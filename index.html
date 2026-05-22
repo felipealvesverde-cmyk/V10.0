@@ -63,12 +63,11 @@
   <script src="src/services/leadService.js"></script>
   <script src="src/services/databaseService.js"></script>
   <script src="src/services/leadBaseService.js"></script>
-  <script src="src/database/databaseProviderRegistry.js"></script>
-  <script src="src/database/railwayConnectionParser.js"></script>
-  <script src="src/database/railwayDatabaseProvider.js"></script>
-  <script src="src/database/railwayConnectionTester.js"></script>
+  <!-- V32.4.0 (Geraldo Item 6) — 5 services V11 deletados:
+       databaseProviderRegistry, railwayConnectionParser, railwayDatabaseProvider,
+       railwayConnectionTester, databaseFallbackService. Mantido apenas o
+       snapshot service (utility de backup pré-update). -->
   <script src="src/database/databaseSnapshotService.js"></script>
-  <script src="src/database/databaseFallbackService.js"></script>
   <script src="src/utils/utils.js"></script>
   <script src="src/execution/executionProviderRegistry.js"></script>
   <script src="src/execution/executionTaskStore.js"></script>
