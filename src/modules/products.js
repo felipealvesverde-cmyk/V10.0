@@ -139,9 +139,12 @@ var ProductsModule = {
   },
 
   productsPanel() {
+    // V32.5.7 — Produtos arquivados não aparecem nas listas principais.
+    // Gerenciamento (reativar/deletar) em Configurações → Minha Conta → Produtos.
+    const visible = (App.state.products || []).filter(p => !p.archived);
     return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-      <div class="flex items-start justify-between gap-3 mb-5"><div><h2 class="text-xl font-black mb-1">Produtos Criados</h2><p class="text-sm text-slate-500">Clique em um produto para selecionar.</p></div><div class="text-3xl font-black">${App.state.products.length}</div></div>
-      <div class="space-y-3 max-h-[520px] overflow-auto">${App.state.products.map(product => this.productCard(product)).join('')}</div>
+      <div class="flex items-start justify-between gap-3 mb-5"><div><h2 class="text-xl font-black mb-1">Produtos Criados</h2><p class="text-sm text-slate-500">Clique em um produto para selecionar.</p></div><div class="text-3xl font-black">${visible.length}</div></div>
+      <div class="space-y-3 max-h-[520px] overflow-auto">${visible.map(product => this.productCard(product)).join('')}</div>
     </div>`;
   },
 
@@ -317,7 +320,13 @@ var ProductsModule = {
           <div><label class="text-xs font-black text-slate-500">Preço</label><input value="${Utils.escape(product.price || '')}" oninput="Actions.updateEditingProductField('price', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
           <div><label class="text-xs font-black text-slate-500">Recorrência ou venda única</label><select onchange="Actions.updateEditingProductField('revenueModel', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold"><option value="Venda única" ${model === 'Venda única' ? 'selected' : ''}>Venda única</option><option value="Recorrente" ${model === 'Recorrente' ? 'selected' : ''}>Recorrente</option></select></div>
           <div><label class="text-xs font-black text-slate-500">Custo operacional</label><input value="${Utils.escape(product.operationalCost || '')}" oninput="Actions.updateEditingProductField('operationalCost', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-          <div class="md:col-span-2 flex flex-col md:flex-row gap-2 justify-end pt-2">
+          <div class="md:col-span-2 flex flex-col md:flex-row gap-2 justify-end pt-2 border-t border-slate-100">
+            ${/* V32.5.7 — Deletar redireciona pra Configurações → Minha Conta →
+                 Produtos (não deleta inline). Caminho centralizado de gerenciamento
+                 destrutivo no Minha Conta. */ ''}
+            <button onclick="Actions.archiveProduct(${product.id})" class="px-4 py-3 rounded-2xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 font-black text-sm flex items-center gap-1.5"><i data-lucide="archive" class="w-4 h-4"></i>Arquivar</button>
+            <button onclick="Actions.goToMyAccountProductsForDelete(${product.id})" class="px-4 py-3 rounded-2xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-black text-sm flex items-center gap-1.5" title="Abre Minha Conta → Produtos com flow de delete pré-aberto"><i data-lucide="trash-2" class="w-4 h-4"></i>Deletar…</button>
+            <div class="flex-1"></div>
             <button onclick="Actions.closeProductEditModal()" class="px-5 py-3 rounded-2xl bg-slate-100 text-slate-700 font-black">Cancelar</button>
             <button onclick="Actions.saveProductEdit()" style="color:#fff!important;" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black lj-dark-button">Salvar Produto</button>
           </div>

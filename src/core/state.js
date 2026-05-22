@@ -91,6 +91,10 @@ var State = {
       tenantDbPlugError: '',
       // V32.1.2 — Section "Minha Conta": draft do display_name editável.
       profileDisplayNameDraft: '',
+      // V32.5.7 — Sub-aba ativa em Configurações → Minha Conta.
+      // 'identity' = perfil (display name, email, tenant)
+      // 'products' = gerenciamento de produtos (arquivar/reativar/deletar)
+      myAccountTab: 'identity',
       // V32.1.3 — Modal de list-picker do ClickUp (Geraldo safe integration).
       // _clickupTreeCache: árvore completa (spaces > folders > lists) hidratada
       // sob demanda quando user abre o picker. Não persiste no localStorage.
@@ -744,6 +748,8 @@ var State = {
       tenantDbPlugError: '',
       // V32.1.2 — draft do nome em "Minha Conta".
       profileDisplayNameDraft: typeof raw.profileDisplayNameDraft === 'string' ? raw.profileDisplayNameDraft : '',
+      // V32.5.7 — sub-aba ativa em Minha Conta
+      myAccountTab: (raw.myAccountTab === 'products') ? 'products' : 'identity',
       // V32.1.3 — Modal de list-picker do ClickUp. Modal sempre fechado no boot;
       // cache nunca persiste (re-fetch sob demanda).
       showClickupListPicker: false,

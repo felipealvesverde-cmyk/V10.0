@@ -2223,7 +2223,29 @@ var SettingsModal = {
 
   // V32.1.2 — "Minha Conta" — qualquer user edita o próprio perfil.
   // Hoje só display_name. Futuro: avatar, timezone, language, trocar senha.
+  // V32.5.7 — Minha Conta ganha 2 sub-abas: Identidade e Produtos.
+  // Identidade = perfil (display name, email, tenant)
+  // Produtos = gerenciamento (arquivar / reativar / deletar com cascata)
   myAccountPanel() {
+    const tab = App.state.myAccountTab || 'identity';
+    const tabBtn = (id, label, icon) => {
+      const active = tab === id;
+      return `<button onclick="Actions.setMyAccountTab('${id}')" class="px-4 py-2.5 rounded-xl border-2 transition flex items-center gap-2 ${active ? 'bg-violet-600 border-violet-600 text-white' : 'bg-white border-slate-200 text-slate-700 hover:border-violet-300 hover:bg-violet-50'}" ${active ? 'style="color:#fff!important;"' : ''}>
+        <i data-lucide="${icon}" class="w-4 h-4"></i>
+        <span class="font-black text-sm">${label}</span>
+      </button>`;
+    };
+    return `<div class="space-y-4">
+      <div class="flex gap-2 flex-wrap">
+        ${tabBtn('identity', 'Identidade', 'user')}
+        ${tabBtn('products', 'Produtos', 'package')}
+      </div>
+      ${tab === 'products' ? this._myAccountTabProducts() : this._myAccountTabIdentity()}
+    </div>`;
+  },
+
+  // V32.5.7 — Sub-aba "Identidade" (era o myAccountPanel inteiro até V32.5.6).
+  _myAccountTabIdentity() {
     const user = App.currentUser || {};
     const draft = App.state.profileDisplayNameDraft;
     const currentName = user.displayName || '';
@@ -2282,6 +2304,93 @@ var SettingsModal = {
           </button>
         </div>
       </div>
+    </div>`;
+  },
+
+  // V32.5.7 — Sub-aba "Produtos": gerenciamento. Lista ativos + arquivados.
+  // Ações: Arquivar (soft remove — fica reativável), Reativar, Deletar (cascade).
+  // Delete reusa adminConfirmDeleteProduct (sem gate isMaster desde V32.5.7).
+  _myAccountTabProducts() {
+    const allProducts = App.state.products || [];
+    const actives = allProducts.filter(p => !p.archived);
+    const archived = allProducts.filter(p => p.archived);
+    const pending = App.state.adminDeleteProductPending || null;
+    return `<div class="space-y-5">
+      <div class="rounded-2xl bg-violet-50 border border-violet-300 p-4 text-violet-900 flex items-start gap-3">
+        <i data-lucide="package" class="w-5 h-5 mt-0.5 shrink-0 text-violet-700"></i>
+        <div>
+          <p class="font-black text-sm mb-1">Gerenciamento de produtos</p>
+          <p class="text-xs leading-relaxed">Arquive produtos que saíram da operação (some das listas, mas pode reativar quando quiser). Delete apaga em cascata: campanhas, ações, leads, tasks. Confirmação dupla obrigatória.</p>
+        </div>
+      </div>
+
+      <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm space-y-3">
+        <div>
+          <h3 class="text-xl font-black text-slate-950 mb-1">Produtos ativos <span class="text-sm text-slate-500 font-bold">(${actives.length})</span></h3>
+          <p class="text-xs text-slate-500">Estes produtos aparecem nas listas principais do LJ.</p>
+        </div>
+        ${actives.length === 0
+          ? `<div class="rounded-2xl bg-slate-50 border border-slate-200 p-6 text-center text-slate-500 italic text-sm">Nenhum produto ativo. Crie um na aba <b>Produtos</b> do menu lateral.</div>`
+          : `<div class="space-y-2">${actives.map(p => this._myAccountProductRow(p, pending, false)).join('')}</div>`}
+      </div>
+
+      ${archived.length > 0 ? `<div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm space-y-3">
+        <div>
+          <h3 class="text-xl font-black text-slate-950 mb-1">Produtos arquivados <span class="text-sm text-slate-500 font-bold">(${archived.length})</span></h3>
+          <p class="text-xs text-slate-500">Estes produtos estão fora das listas principais. Reativar restaura visibilidade total.</p>
+        </div>
+        <div class="space-y-2">${archived.map(p => this._myAccountProductRow(p, pending, true)).join('')}</div>
+      </div>` : ''}
+    </div>`;
+  },
+
+  // V32.5.7 — Linha de produto na lista de Minha Conta → Produtos.
+  // Reusa o flow de confirmação dupla do adminPanel (state adminDeleteProductPending).
+  _myAccountProductRow(product, pending, isArchived) {
+    const campaigns = (App.state.campaigns || []).filter(c => Number(c.productId) === Number(product.id));
+    const campaignIds = new Set(campaigns.map(c => Number(c.id)));
+    const actions = (App.state.actions || []).filter(a => campaignIds.has(Number(a.campaignId)));
+    const actionIds = new Set(actions.map(a => Number(a.id)));
+    const leadsCount = actions.reduce((sum, a) => sum + (a.leads || []).length, 0);
+    const tasks = (App.state.executionTasks || []).filter(t =>
+      campaignIds.has(Number(t.linked_campaign_id)) || actionIds.has(Number(t.linked_action_id))
+    );
+    const isPending = pending && Number(pending.productId) === Number(product.id);
+    const baseBg = isArchived ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-200';
+    return `<div class="rounded-2xl border ${baseBg} p-4 ${isPending ? 'ring-2 ring-red-400' : ''}">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="font-black ${isArchived ? 'text-slate-600' : 'text-slate-900'} text-base">${Utils.escape(product.name)}</p>
+            ${isArchived ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-slate-200 text-slate-600">arquivado</span>' : ''}
+          </div>
+          <p class="text-[11px] text-slate-500 mt-0.5">${campaigns.length} campanha(s) · ${actions.length} ação(ões) · ${leadsCount} lead(s) · ${tasks.length} task(s)</p>
+        </div>
+        ${!isPending ? `<div class="flex items-center gap-2 shrink-0">
+          ${isArchived
+            ? `<button onclick="Actions.unarchiveProduct(${product.id})" class="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-black flex items-center gap-1.5"><i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>Reativar</button>`
+            : `<button onclick="Actions.archiveProduct(${product.id})" class="px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 text-xs font-black flex items-center gap-1.5"><i data-lucide="archive" class="w-3.5 h-3.5"></i>Arquivar</button>`
+          }
+          <button onclick="Actions.adminRequestDeleteProduct(${product.id})" class="px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-black flex items-center gap-1.5"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i>Deletar</button>
+        </div>` : ''}
+      </div>
+
+      ${isPending ? `<div class="mt-3 rounded-xl bg-red-50 border border-red-200 p-3 space-y-2">
+        <p class="text-[12px] font-black text-red-800">Confirma deletar <b>${Utils.escape(product.name)}</b> e tudo abaixo?</p>
+        <ul class="text-[11px] text-red-700 list-disc pl-4 space-y-0.5">
+          <li>${campaigns.length} campanha(s) e seus mapas/branches</li>
+          <li>${actions.length} ação(ões) operacional(is)</li>
+          <li>${leadsCount} lead(s) das ações</li>
+          <li>${tasks.length} task(s) no provider</li>
+          <li>RevOps Finance, productKrs, integrations pipelines, blueprints — tudo do produto</li>
+        </ul>
+        <p class="text-[11px] text-red-700">Digite o nome do produto pra confirmar: <b>${Utils.escape(product.name)}</b></p>
+        <input value="${Utils.escape(pending.typed || '')}" oninput="Actions.adminDeleteProductTyped(this.value)" placeholder="Nome do produto…" class="w-full px-3 py-2 rounded-lg bg-white border border-red-300 text-slate-900 font-bold text-sm" />
+        <div class="flex justify-end gap-2 pt-1">
+          <button onclick="Actions.adminCancelDeleteProduct()" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-black">Cancelar</button>
+          <button ${pending.typed === product.name ? '' : 'disabled'} onclick="Actions.adminConfirmDeleteProduct(${product.id})" class="px-3 py-1.5 rounded-lg ${pending.typed === product.name ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'} text-xs font-black" ${pending.typed === product.name ? 'style="color:#fff!important;"' : ''}>Deletar definitivamente</button>
+        </div>
+      </div>` : ''}
     </div>`;
   },
 
@@ -3101,6 +3210,9 @@ var SettingsModal = {
     const title = titleMap[resolvedActive] || titleMap.myAccount;
     const subtitle = subtitleMap[resolvedActive] || subtitleMap.myAccount;
 
+    // V32.5.7 (Felipe) — Section 'execution' removida do sidebar.
+    // executionPanel() ainda existe pra quem chama via deep-link interno
+    // (cards "Configurar" em integrations etc), mas não tem mais botão no sidebar.
     const content = resolvedActive === 'rd' ? this.rdConnectionPanel()
       : resolvedActive === 'execution' ? this.executionPanel()
       : resolvedActive === 'integrations' ? this.integrationsPanel()
@@ -3135,7 +3247,9 @@ var SettingsModal = {
             ${App.currentUser?.tenantId ? this.sectionButton('myDb','Meu Banco','hard-drive-download') : ''}
             ${this.sectionButton('rd','Conexão RD Station','plug-zap')}
             ${App.currentUser?.isMaster ? this.sectionButton('users','Usuários','users') : ''}
-            ${this.sectionButton('execution','Execução Operacional','kanban')}
+            ${/* V32.5.7 — Section 'Execução Operacional' removida do sidebar (Felipe).
+                executionPanel() preservado pra callers indiretos (e.g. botão
+                "Configurar" no banner do provider). */ ''}
             ${this.sectionButton('integrations','Integrações','link')}
             ${this.sectionButton('agents','Agentes Externos','cpu')}
             ${this.sectionButton('backup','Backup em breve','archive')}

@@ -2,7 +2,8 @@ var Actions = {
       // V31.2.1 — Administrar Lead Journey: deletar produto em cascata.
       // Master-only (Settings já gate por isMaster). Confirmação dupla via typed.
       adminRequestDeleteProduct(productId) {
-        if (!App.currentUser?.isMaster) return Utils.toast('Apenas master pode apagar produtos.');
+        // V32.5.7 — Removida checagem isMaster. Qualquer user gerencia próprios
+        // produtos via Minha Conta. Demo guard mantém — user demo é read-only.
         if (this._demoGuard && this._demoGuard('Apagar produto')) return;
         App.state.adminDeleteProductPending = { productId: Number(productId), typed: '' };
         App.render();
@@ -18,7 +19,9 @@ var Actions = {
         App.render();
       },
       adminConfirmDeleteProduct(productId) {
-        if (!App.currentUser?.isMaster) return Utils.toast('Apenas master pode apagar produtos.');
+        // V32.5.7 — Removida checagem isMaster. Cliente do tenant gerencia
+        // próprios produtos via Configurações → Minha Conta → Produtos.
+        // Tenant DB já isola dados — não há risco de apagar produto alheio.
         const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
         if (!product) return Utils.toast('Produto não encontrado.');
         const pending = App.state.adminDeleteProductPending;
@@ -1902,6 +1905,58 @@ Object.assign(Actions, {
   // V32.1.2 — "Minha Conta": user edita o próprio display_name.
   updateProfileDisplayNameDraft(value) {
     App.state.profileDisplayNameDraft = String(value || '');
+  },
+
+  // V32.5.7 — Sub-abas em Configurações → Minha Conta:
+  // 'identity' (perfil) e 'products' (gerenciamento de produtos).
+  setMyAccountTab(tab) {
+    App.state.myAccountTab = (tab === 'products') ? 'products' : 'identity';
+    App.save(); App.render();
+  },
+
+  // V32.5.7 — Arquivar produto. Marca archived=true sem deletar nada.
+  // Produto some das listas principais mas pode ser reativado em
+  // Configurações → Minha Conta → Produtos.
+  archiveProduct(productId) {
+    if (this._demoGuard && this._demoGuard('Arquivar produto')) return;
+    const pid = Number(productId);
+    const product = (App.state.products || []).find(p => Number(p.id) === pid);
+    if (!product) return Utils.toast('Produto não encontrado.');
+    App.state.products = (App.state.products || []).map(p =>
+      Number(p.id) === pid ? { ...p, archived: true, archivedAt: new Date().toISOString() } : p
+    );
+    // V32.5.7 — Se o produto selecionado virou arquivado, seleciona próximo ativo.
+    if (Number(App.state.selectedProductId) === pid) {
+      const nextActive = (App.state.products || []).find(p => !p.archived);
+      App.state.selectedProductId = nextActive?.id || null;
+    }
+    App.save(); App.render();
+    Utils.toast(`Produto "${product.name}" arquivado. Pode reativar em Minha Conta → Produtos.`);
+  },
+
+  // V32.5.7 — Reativa produto arquivado.
+  unarchiveProduct(productId) {
+    const pid = Number(productId);
+    const product = (App.state.products || []).find(p => Number(p.id) === pid);
+    if (!product) return Utils.toast('Produto não encontrado.');
+    App.state.products = (App.state.products || []).map(p =>
+      Number(p.id) === pid ? { ...p, archived: false, archivedAt: null } : p
+    );
+    App.save(); App.render();
+    Utils.toast(`Produto "${product.name}" reativado.`);
+  },
+
+  // V32.5.7 — Helper invocado por botões "Deletar" em outras telas (e.g. modal
+  // de edição do produto, engrenagem do card). Em vez de abrir flow inline,
+  // navega o user pra Configurações → Minha Conta → Produtos com o flow de
+  // delete pré-aberto pro produto solicitado.
+  goToMyAccountProductsForDelete(productId) {
+    App.state.showProductEditModal = false;
+    App.state.showSettingsModal = true;
+    App.state.settingsActiveSection = 'myAccount';
+    App.state.myAccountTab = 'products';
+    App.state.adminDeleteProductPending = { productId: Number(productId), typed: '' };
+    App.save(); App.render();
   },
 
   async saveUserProfile() {

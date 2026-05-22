@@ -75,8 +75,14 @@ window.HomeModule = {
     };
   },
 
+  // V32.5.7 — Helper: produtos VISÍVEIS (filtra arquivados).
+  // Produtos arquivados ficam fora do carrossel home e da rotação.
+  _activeProducts() {
+    return (App.state.products || []).filter(p => !p.archived);
+  },
+
   _currentProduct() {
-    const products = App.state.products || [];
+    const products = this._activeProducts();
     if (!products.length) return null;
     const idx = Math.min(Math.max(0, Number(App.state.homeProductIndex || 0)), products.length - 1);
     return products[idx] || products[0];
@@ -84,9 +90,10 @@ window.HomeModule = {
 
   // V25.0.0 — Rotação de produto (7s). Random se >1 produto.
   // Inicia ao montar Home; para ao desmontar. Pausa em hover.
+  // V32.5.7 — Usa _activeProducts() (filtra arquivados).
   startRotation() {
     this.stopRotation();
-    const products = App.state.products || [];
+    const products = this._activeProducts();
     if (!products.length) return;
     this._rotationTimer = setInterval(() => {
       if (this._paused || this._hoverPause) return;
@@ -102,7 +109,7 @@ window.HomeModule = {
         // Próximo tick (em 7s) tenta de novo.
         return;
       }
-      const all = App.state.products || [];
+      const all = this._activeProducts();
       if (!all.length) return;
       let next = all.length === 1 ? 0 : Math.floor(Math.random() * all.length);
       // Evita repetir o mesmo (a não ser que só haja 1)
@@ -126,7 +133,7 @@ window.HomeModule = {
   resumeRotation() { this._paused = false; },
 
   nextProduct() {
-    const all = App.state.products || [];
+    const all = this._activeProducts();
     if (!all.length) return;
     const cur = Number(App.state.homeProductIndex || 0);
     App.state.homeProductIndex = (cur + 1) % all.length;
@@ -135,7 +142,7 @@ window.HomeModule = {
   },
 
   prevProduct() {
-    const all = App.state.products || [];
+    const all = this._activeProducts();
     if (!all.length) return;
     const cur = Number(App.state.homeProductIndex || 0);
     App.state.homeProductIndex = (cur - 1 + all.length) % all.length;
@@ -195,7 +202,8 @@ window.HomeModule = {
   _pulsoBlock() {
     const product = this._currentProduct();
     const m = this._productMetrics(product);
-    const allProducts = App.state.products || [];
+    // V32.5.7 — Contador "1/N" reflete só produtos ativos.
+    const allProducts = this._activeProducts();
     const idx = Number(App.state.homeProductIndex || 0);
 
     const stages = [
