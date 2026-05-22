@@ -6,6 +6,7 @@
 //   list_id é opcional — se omitido, usa default_list_id (ou descobre).
 // Retorna: { ok, providerTaskId, externalUrl, listId }
 const { clickupFetch } = require('../lib/clickup-client');
+const mirror = require('../lib/clickup-mirror');
 
 // V32.1.4 — Garante que a tag automática (lj-auto por padrão) existe no
 // space da list de destino. ClickUp organiza tags por space, não por list.
@@ -82,16 +83,19 @@ module.exports = async function handler(req, res) {
     priority, status, tags,
     time_estimate, points,
     parent, links_to,
-    custom_fields
+    custom_fields,
+    // V32.2.0 — Mirror context: caller passa estes 3 pra LJ resolver a hierarquia
+    // (Produto > Campanha > Ação > Subtask). Se não passar, cai no modo legado.
+    mirror_context  // { product: {id, name}, campaign: {id, name}, action: {id, name} }
   } = req.body || {};
   if (!name) return res.status(400).json({ ok: false, message: 'name é obrigatório.' });
 
   try {
-    // V32.1.4 — carrega settings de marcação (tag + prefix) junto com list.
-    // V32.1.5 — também status_map_json (pra status inicial automático).
-    // V32.1.6 — também write_enabled (toggle read-only).
+    // V32.1.4-V32.2.0 — carrega TODAS settings ClickUp do user.
     const credRow = await req.tenantDb.query(
-      'SELECT default_list_id, default_space_id, lj_tag_name, task_prefix, status_map_json, write_enabled FROM clickup_credentials WHERE user_id = $1',
+      `SELECT default_list_id, default_space_id, lj_tag_name, task_prefix,
+              status_map_json, write_enabled, lj_space_id, mirror_enabled
+       FROM clickup_credentials WHERE user_id = $1`,
       [userId]
     );
     const cred = credRow.rows[0] || {};
@@ -108,14 +112,50 @@ module.exports = async function handler(req, res) {
     }
 
     let targetListId = list_id || cred.default_list_id;
-    // V32.1.3 — Auto-discovery DEPRECATED (Geraldo audit). Chutar a primeira
-    // list bagunçava o ClickUp do cliente externo. User precisa escolher
-    // explicitamente em Configurações → ClickUp → Configurar list de destino.
+    let parentTaskId = parent;  // V32.2.0: pode ser sobrescrito por mirror
+    let mirrorInfo = null;       // pra retornar pro caller saber a hierarquia criada
+
+    // V32.2.0 — Mirror mode: se mirror_enabled + mirror_context + lj_space_id,
+    // resolve cascata Produto > Campanha > Ação. Subtask vira filha da task pai
+    // da ação. Mata uso de default_list_id no fluxo normal.
+    const useMirror = cred.mirror_enabled !== false
+      && cred.lj_space_id
+      && mirror_context
+      && mirror_context.product?.id
+      && mirror_context.campaign?.id
+      && mirror_context.action?.id;
+
+    if (useMirror) {
+      try {
+        const chain = await mirror.resolveActionChain(
+          req.tenantDb, userId, cred.lj_space_id,
+          mirror_context.product, mirror_context.campaign, mirror_context.action
+        );
+        targetListId = chain.listId;        // list da campanha (parent da task pai)
+        parentTaskId = chain.actionParentTaskId;  // task pai = ação → subtask
+        mirrorInfo = {
+          folderId: chain.folderId,
+          listId: chain.listId,
+          actionParentTaskId: chain.actionParentTaskId,
+          createdAny: chain.createdAny
+        };
+      } catch (err) {
+        return res.status(500).json({
+          ok: false,
+          step: 'mirror_resolve',
+          message: `Falha ao resolver hierarquia espelhada: ${err.message}. Verifique se o Space LeadJourney existe + permissões do PAT.`
+        });
+      }
+    }
+
+    // V32.1.3 — Sem mirror e sem default_list → bloqueia (auto-discovery removida).
     if (!targetListId) {
       return res.status(400).json({
         ok: false,
         code: 'no_default_list',
-        message: 'List de destino do ClickUp não foi configurada. Vá em Configurações → Integrações → ClickUp → Configurar list e escolha onde tasks devem nascer. Por segurança, o LJ NÃO escolhe automaticamente.'
+        message: cred.lj_space_id
+          ? 'Modo espelhado ativado mas o request não veio com mirror_context. Caller precisa passar { product, campaign, action } pra resolver a hierarquia.'
+          : 'List de destino do ClickUp não configurada e modo espelhado não inicializado. Vá em Configurações → Integrações → ClickUp pra configurar.'
       });
     }
 
@@ -172,7 +212,7 @@ module.exports = async function handler(req, res) {
       tags: finalTags.length ? finalTags : undefined,
       time_estimate: Number.isFinite(Number(time_estimate)) && Number(time_estimate) > 0 ? Number(time_estimate) : undefined,
       points: Number.isFinite(Number(points)) ? Number(points) : undefined,
-      parent: parent ? String(parent) : undefined,
+      parent: parentTaskId ? String(parentTaskId) : undefined,  // V32.2.0: mirror seta isso pra task virar subtask da ação
       links_to: links_to ? String(links_to) : undefined,
       custom_fields: Array.isArray(custom_fields) && custom_fields.length ? custom_fields : undefined
     };
@@ -187,7 +227,9 @@ module.exports = async function handler(req, res) {
       ok: true,
       providerTaskId: createRes.data?.id || null,
       externalUrl: createRes.data?.url || null,
-      listId: targetListId
+      listId: targetListId,
+      // V32.2.0 — Devolve mirror chain criada (caller pode mostrar links na UI)
+      mirror: mirrorInfo
     });
   } catch (err) {
     // V31.2.35 — Mensagens específicas pro user agir

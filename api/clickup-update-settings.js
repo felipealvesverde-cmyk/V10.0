@@ -50,6 +50,11 @@ module.exports = async function handler(req, res) {
     sets.push(`write_enabled = $${paramIdx++}`);
     params.push(Boolean(body.write_enabled));
   }
+  // V32.2.0 — Toggle opt-out do modo espelhado (default TRUE — modelo padrão).
+  if (body.mirror_enabled !== undefined) {
+    sets.push(`mirror_enabled = $${paramIdx++}`);
+    params.push(Boolean(body.mirror_enabled));
+  }
 
   if (!sets.length) {
     return res.status(400).json({ ok: false, message: 'Nenhum campo enviado pra atualizar.' });

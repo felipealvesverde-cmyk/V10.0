@@ -19,10 +19,12 @@ module.exports = async function handler(req, res) {
       // V32.1.3 — Retorna também list info salva pra UI mostrar status sem
       // novo fetch (defaultListId/Name/SpaceId, definidos pelo /api/clickup-set-list).
       const cfg = await req.tenantDb.query('SELECT 1 FROM clickup_config WHERE user_id = $1', [userId]);
-      // V32.1.4-1.6 — retorna também settings de marcação + status_map + write_enabled.
+      // V32.1.4-1.6 — settings de marcação + status_map + write_enabled.
+      // V32.2.0 — também lj_space_id + mirror_enabled (hierarquia espelhada).
       const cred = await req.tenantDb.query(
         `SELECT workspace_name, default_list_id, default_list_name, default_space_id,
-                lj_tag_name, task_prefix, status_map_json, write_enabled
+                lj_tag_name, task_prefix, status_map_json, write_enabled,
+                lj_space_id, mirror_enabled
          FROM clickup_credentials WHERE user_id = $1`,
         [userId]
       );
@@ -41,6 +43,9 @@ module.exports = async function handler(req, res) {
         taskPrefix: row.task_prefix || null,
         statusMap,
         writeEnabled: row.write_enabled !== false,
+        // V32.2.0 — hierarquia espelhada
+        ljSpaceId: row.lj_space_id || null,
+        mirrorEnabled: row.mirror_enabled !== false,
         encryptionReady: isEncryptionReady()
       });
     } catch (err) {

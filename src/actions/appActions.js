@@ -572,6 +572,11 @@ Object.assign(Actions, {
     App.save();
     App.render();
     Utils.toast('Ação atualizada.');
+    // V32.2.0 — Sync rename pro ClickUp (mirror) se o nome mudou.
+    const oldName = previous ? String(previous.name || '').trim() : '';
+    if (oldName !== next.name && window.Actions?._syncRenameToClickup) {
+      Actions._syncRenameToClickup('action', next.id, next.name);
+    }
   },
 
   deleteActionFromEdit() {
@@ -798,11 +803,16 @@ Object.assign(Actions, {
     if (index < 0) return Utils.toast('Produto não encontrado.');
     const current = App.state.products[index];
     if (!String(current.name || '').trim()) return Utils.toast('Digite o nome do produto.');
-    App.state.products[index] = ProductRevenueEngine.normalize({ ...current, name: String(current.name).trim() }, index);
+    const oldName = String(current.name).trim();
+    const newName = oldName; // current.name já foi atualizado por updateEditingProductField; este é o nome final salvo
+    App.state.products[index] = ProductRevenueEngine.normalize({ ...current, name: newName }, index);
     App.state.selectedProductId = App.state.products[index].id;
+    const productId = App.state.products[index].id;
     App.state.showProductEditModal = false;
     App.state.editProductId = null;
     App.save(); App.render(); Utils.toast('Produto atualizado.');
+    // V32.2.0 — Sync rename pro ClickUp (mirror). Async, não-bloqueante.
+    this._syncRenameToClickup('product', productId, newName);
   },
   openCampaignEditModal(id) {
     const campaign = (App.state.campaigns || []).find(item => Number(item.id) === Number(id));
@@ -829,12 +839,43 @@ Object.assign(Actions, {
     const campaign = App.state.campaigns[index];
     if (!String(campaign.name || '').trim()) return Utils.toast('Digite o nome da campanha.');
     if (!campaign.productId) return Utils.toast('Selecione o produto vinculado.');
-    App.state.campaigns[index] = { ...campaign, name: String(campaign.name).trim(), objective: String(campaign.objective || '').trim(), owner: String(campaign.owner || '').trim(), sector: campaign.sector || 'Marketing', status: campaign.status || 'Ativa' };
+    const newName = String(campaign.name).trim();
+    App.state.campaigns[index] = { ...campaign, name: newName, objective: String(campaign.objective || '').trim(), owner: String(campaign.owner || '').trim(), sector: campaign.sector || 'Marketing', status: campaign.status || 'Ativa' };
     App.state.selectedCampaignId = App.state.campaigns[index].id;
     App.state.selectedProductId = Number(App.state.campaigns[index].productId);
+    const campaignId = App.state.campaigns[index].id;
     App.state.showCampaignEditModal = false;
     App.state.editCampaignId = null;
     App.save(); App.render(); Utils.toast('Campanha atualizada.');
+    // V32.2.0 — Sync rename pro ClickUp (mirror). Async, não-bloqueante.
+    this._syncRenameToClickup('campaign', campaignId, newName);
+  },
+
+  // V32.2.0 — Helper interno: dispara rename mirror pro ClickUp.
+  // Silent failure (sem toast erro) — sync best-effort. Loga warn no console.
+  // Se ClickUp não conectado ou mirror desabilitado, backend retorna ok+skipped.
+  async _syncRenameToClickup(ljKind, ljId, newName) {
+    if (!ljId || !newName) return;
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return;
+    try {
+      const r = await fetch('/api/clickup-rename-mirror', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ lj_kind: ljKind, lj_id: Number(ljId), new_name: newName })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        console.warn(`[clickup-mirror-rename] ${ljKind}#${ljId}: ${data.message}`);
+      } else if (data.skipped) {
+        // OK silencioso (ex: ClickUp não conectado)
+      } else if (data.kind) {
+        // Sucesso: ClickUp sincronizado
+        if (window.Utils?.toast) Utils.toast(`✓ Sincronizado no ClickUp: ${data.name}`);
+      }
+    } catch (err) {
+      console.warn('[clickup-mirror-rename] erro:', err.message);
+    }
   }
 });
 window.Actions = Actions;
@@ -5579,7 +5620,10 @@ Object.assign(Actions, {
           ljTagName: data.ljTagName || null,
           taskPrefix: data.taskPrefix || null,
           statusMap: data.statusMap || null,
-          writeEnabled: data.writeEnabled !== false
+          writeEnabled: data.writeEnabled !== false,
+          // V32.2.0 — hierarquia espelhada
+          ljSpaceId: data.ljSpaceId || null,
+          mirrorEnabled: data.mirrorEnabled !== false
         };
         App.save(); App.render();
         // V31.2.33 — Quando conecta, pre-fetch metadata pra modal de criar task abrir instantâneo.
@@ -5660,6 +5704,63 @@ Object.assign(Actions, {
       if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
       Utils.toast('✓ Marcação ClickUp atualizada.');
       App.state.clickupMarkerDrafts = { ljTagName: '', taskPrefix: '' };
+      await this.loadClickupStatus();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V32.2.0 — Mirror: setup do Space LeadJourney + load mappings + toggle.
+  async setupClickupSpace() {
+    if (!confirm('Criar o Space "LeadJourney" no seu ClickUp?\n\nIsso é o root da hierarquia espelhada Produto>Campanha>Ação>Tarefa. Idempotente: se já existir, reusa.\n\n⚠ O PAT do user precisa de permissão pra criar Space no workspace. Confirma?')) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch('/api/clickup-setup-space', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ space_name: 'LeadJourney' })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ ${data.message}`);
+      await this.loadClickupStatus();
+      await this.loadClickupMappings();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async loadClickupMappings() {
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return;
+    try {
+      const r = await fetch('/api/clickup-mappings-list', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (data.ok) {
+        App.state._clickupMappingsCache = data;
+        App.save(); App.render();
+      }
+    } catch (err) { console.warn('[clickup-mappings] load erro:', err); }
+  },
+
+  async toggleClickupMirror() {
+    const status = App.state.clickupStatus || {};
+    const next = !(status.mirrorEnabled !== false);
+    const confirmMsg = next
+      ? 'Reativar modo espelhado?\n\nLJ vai voltar a criar folder/list/task na hierarquia Produto>Campanha>Ação no ClickUp.'
+      : '⚠ Desativar modo espelhado?\n\nNovas tasks vão pra default_list_id (modelo simples). Tasks já criadas na hierarquia ficam como estão.\n\nNão recomendado pra cliente em produção.';
+    if (!confirm(confirmMsg)) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch('/api/clickup-update-settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ mirror_enabled: next })
+      });
+      // V32.2.0 — endpoint precisa aceitar mirror_enabled (vou adicionar)
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(next ? '✓ Modo espelhado REATIVADO.' : '✓ Modo espelhado DESATIVADO.');
       await this.loadClickupStatus();
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);

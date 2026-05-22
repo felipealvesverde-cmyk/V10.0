@@ -49,7 +49,8 @@ var State = {
       // V32.1.3 — clickupStatus expandido com info da list selecionada explicitamente
       // (defaultListId/Name/SpaceId). Substitui auto-discovery do V31.2.32.
       // V32.1.4-1.6 — também ljTagName + taskPrefix + statusMap + writeEnabled.
-      clickupStatus: { connected: false, configured: false, encryptionReady: true, workspaceName: null, defaultListId: null, defaultListName: null, defaultSpaceId: null, ljTagName: null, taskPrefix: null, statusMap: null, writeEnabled: true },
+      // V32.2.0 — também ljSpaceId + mirrorEnabled (hierarquia espelhada).
+      clickupStatus: { connected: false, configured: false, encryptionReady: true, workspaceName: null, defaultListId: null, defaultListName: null, defaultSpaceId: null, ljTagName: null, taskPrefix: null, statusMap: null, writeEnabled: true, ljSpaceId: null, mirrorEnabled: true },
       clickupMeta: { loaded: false, loadedAt: null, workspaceId: null, listId: null, spaceId: null, members: [], statuses: [], tags: [], customFields: [] },
       clickupConfigDraft: { client_id: '', client_secret: '' },
       clickupPatDraft: '',
@@ -98,6 +99,9 @@ var State = {
       // V32.1.5 — drafts do card "Mapping de status" (LJ → ClickUp).
       // 3 dropdowns: pending, in_progress, completed → status real da list.
       clickupStatusMapDraft: { pending: '', in_progress: '', completed: '' },
+      // V32.2.0 — Cache do GET /api/clickup-mappings-list (hierarquia criada).
+      // Hidratado pela Actions.loadClickupMappings ao abrir Integrações.
+      _clickupMappingsCache: null,
       selectedProductId: null,
       selectedCampaignId: null,
       selectedActionId: null,
@@ -661,7 +665,10 @@ var State = {
             ljTagName: raw.clickupStatus.ljTagName || null,
             taskPrefix: raw.clickupStatus.taskPrefix || null,
             statusMap: raw.clickupStatus.statusMap || null,
-            writeEnabled: raw.clickupStatus.writeEnabled !== false
+            writeEnabled: raw.clickupStatus.writeEnabled !== false,
+            // V32.2.0 — preserva mirror config
+            ljSpaceId: raw.clickupStatus.ljSpaceId || null,
+            mirrorEnabled: raw.clickupStatus.mirrorEnabled !== false
           }
         : base.clickupStatus,
       clickupMeta: (raw.clickupMeta && typeof raw.clickupMeta === 'object')
@@ -749,7 +756,9 @@ var State = {
             in_progress: String(raw.clickupStatusMapDraft.in_progress || ''),
             completed: String(raw.clickupStatusMapDraft.completed || '')
           }
-        : { pending: '', in_progress: '', completed: '' }
+        : { pending: '', in_progress: '', completed: '' },
+      // V32.2.0 — Mappings cache nunca persiste (refresh sob demanda).
+      _clickupMappingsCache: null
     };
   },
   load() {

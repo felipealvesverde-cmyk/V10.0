@@ -3003,6 +3003,7 @@ var SettingsModal = {
           <p class="text-sm text-emerald-800">Agora você pode criar tarefas no ClickUp diretamente do Mapa da Receita (botão "Criar tarefa via Djow") ou pedindo pro Djow no chat: <i>"cria uma task pra revisar a campanha"</i>.</p>
         </div>
 
+        ${this._clickupMirrorCard(status)}
         ${this._clickupListConfigCard(status)}
         ${this._clickupMarkerCard(status)}
         ${this._clickupStatusMapCard(status)}
@@ -3172,6 +3173,58 @@ var SettingsModal = {
         <button onclick="Actions.saveClickupStatusMap()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-1.5" style="color:#fff!important;">
           <i data-lucide="check" class="w-3.5 h-3.5"></i>Salvar mapping
         </button>
+      </div>
+    </div>`;
+  },
+
+  // V32.2.0 — Card "Hierarquia espelhada" (Produto>Campanha>Ação>Tarefa).
+  // Geraldo decision (Felipe aprovado): LJ é opinionated. Estrutura idêntica
+  // entre LJ e ClickUp do cliente. Mata cognitive load de traduzir.
+  _clickupMirrorCard(status) {
+    const mirrorOn = status.mirrorEnabled !== false;
+    const hasSpace = Boolean(status.ljSpaceId);
+    const cache = App.state._clickupMappingsCache;
+
+    // Auto-load mappings se cache vazio
+    if (hasSpace && !cache && !App._clickupMappingsHydrated) {
+      App._clickupMappingsHydrated = true;
+      setTimeout(() => Actions.loadClickupMappings?.(), 50);
+    }
+
+    return `<div class="rounded-2xl ${hasSpace ? 'bg-violet-50 border border-violet-300' : 'bg-amber-50 border-2 border-amber-300'} p-4 space-y-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <p class="font-black ${hasSpace ? 'text-violet-900' : 'text-amber-900'} text-sm flex items-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4"></i>
+            Hierarquia espelhada (Produto > Campanha > Ação > Tarefa)
+          </p>
+          ${hasSpace ? `
+            <p class="text-xs text-violet-800 mt-1 leading-relaxed">
+              LJ está espelhando sua estrutura no Space <b>${Utils.escape(cache?.ljSpaceName || 'LeadJourney')}</b> do ClickUp.
+              ${cache?.counts ? `Já criou ${cache.counts.products} produto(s), ${cache.counts.campaigns} campanha(s), ${cache.counts.actions} ação(ões).` : ''}
+            </p>
+            <p class="text-[11px] text-amber-700 mt-2">
+              ⚠ <b>Não delete esse Space no ClickUp</b> — todo o mapeamento de tasks é perdido.
+              Renomear OK (LJ acha pelo ID).
+            </p>
+          ` : `
+            <p class="text-xs text-amber-800 mt-1 leading-relaxed">
+              <b>Setup obrigatório:</b> LJ precisa criar um Space dedicado no seu ClickUp pra ser raiz da hierarquia.
+              Sem isso, modo espelhado fica inativo. Botão abaixo cria 1 Space chamado "LeadJourney".
+            </p>
+          `}
+        </div>
+        <div class="flex flex-col gap-2 shrink-0">
+          ${hasSpace
+            ? `<button onclick="Actions.toggleClickupMirror()" class="px-3 py-2 rounded-xl ${mirrorOn ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-violet-600 hover:bg-violet-700 text-white'} font-black text-xs flex items-center gap-1.5" ${!mirrorOn ? 'style="color:#fff!important;"' : ''}>
+                <i data-lucide="${mirrorOn ? 'pause' : 'play'}" class="w-3.5 h-3.5"></i>
+                ${mirrorOn ? 'Desativar' : 'Reativar'} espelhamento
+              </button>`
+            : `<button onclick="Actions.setupClickupSpace()" class="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs flex items-center gap-1.5 animate-pulse" style="color:#fff!important;">
+                <i data-lucide="zap" class="w-3.5 h-3.5"></i>Inicializar Space
+              </button>`
+          }
+        </div>
       </div>
     </div>`;
   },

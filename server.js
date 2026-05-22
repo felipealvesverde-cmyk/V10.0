@@ -175,6 +175,37 @@ async function runMigrations() {
     await client.query(`
       ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS write_enabled BOOLEAN DEFAULT TRUE;
     `);
+    // V32.2.0 — Hierarquia espelhada Produto>Campanha>Ação>Tarefa no ClickUp.
+    // lj_space_id: Space "LeadJourney" criado no setup wizard (root da hierarquia).
+    // mirror_enabled: toggle opt-out (default TRUE — modelo padrão é espelhamento).
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS lj_space_id VARCHAR(64);
+    `);
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS mirror_enabled BOOLEAN DEFAULT TRUE;
+    `);
+    // V32.2.0 — Mapeamento LJ ↔ ClickUp: cada entity LJ (product/campaign/action)
+    // tem 1 row mapeando pro folder/list/task pai correspondente no ClickUp.
+    // Find-or-create cascado em /api/clickup-create-task usa esta tabela.
+    // Regra: cliente renomeia no ClickUp → LJ acha pelo clickup_id (não pelo nome).
+    // Regra: cliente deleta no ClickUp → próximo find vê mapping órfão e re-cria.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS clickup_lj_mappings (
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        lj_kind VARCHAR(16) NOT NULL,
+        lj_id INT NOT NULL,
+        clickup_id VARCHAR(64) NOT NULL,
+        clickup_kind VARCHAR(16) NOT NULL,
+        clickup_name VARCHAR(255),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        PRIMARY KEY (user_id, lj_kind, lj_id)
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_clickup_lj_mappings_user
+        ON clickup_lj_mappings(user_id);
+    `);
     // V31.2.36 — RD Station/CRM credentials encriptados em tabela própria.
     // 3 token types possíveis (PK composta user_id + token_type):
     //   - 'crm_pat': RD CRM Personal Access Token (estático, sem refresh)
