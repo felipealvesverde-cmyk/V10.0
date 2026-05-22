@@ -61,10 +61,13 @@ module.exports = async function handler(req, res) {
 
       // Persiste. lj_space_id mantido em sincronia quando kind='space' (compat
       // c/ código V32.2.x-V32.5.x que ainda lê lj_space_id direto).
+      // V32.6.4 — cast explícito $2::text pra evitar "inconsistent types
+      // deduced for parameter $2" do Postgres quando o mesmo placeholder é
+      // usado em UPDATE col=$2 E em comparação string WHEN $2 = 'space'.
       await req.tenantDb.query(
         `UPDATE clickup_credentials
-            SET lj_root_id = $1, lj_root_kind = $2, lj_root_name = $3,
-                lj_space_id = CASE WHEN $2 = 'space' THEN $1 ELSE lj_space_id END
+            SET lj_root_id = $1, lj_root_kind = $2::text, lj_root_name = $3,
+                lj_space_id = CASE WHEN $2::text = 'space' THEN $1::text ELSE lj_space_id END
           WHERE user_id = $4`,
         [adoptRootId, adoptRootKind, verifiedName, userId]
       );
