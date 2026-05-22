@@ -2782,10 +2782,43 @@ var SettingsModal = {
               <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
               <span>Credenciais já salvas. Pode prosseguir pro passo 3 ou atualizar abaixo.</span>
             </div>` : ''}
-            <div class="mt-2 space-y-2">
-              <input type="text" value="${Utils.escape(draft.clientId)}" oninput="Actions.updateClickupOAuthDraftField('clientId', this.value)" placeholder="Client ID" class="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
-              <input type="password" value="${Utils.escape(draft.clientSecret)}" oninput="Actions.updateClickupOAuthDraftField('clientSecret', this.value)" placeholder="Client Secret" class="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
-              <button onclick="Actions.saveClickupOAuthConfig()" ${!status.encryptionReady ? 'disabled' : ''} class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs disabled:opacity-50 flex items-center gap-1.5" style="color:#fff!important;">
+            ${/* V32.6.3 — Anti-autofill agressivo: browsers (especialmente Chrome
+                no Mac/Win) ignoram autocomplete="off" e enchem campos type=text/
+                password com email/senha salvos. Felipe quase sobrescreveu o
+                Client ID válido com "felipe@w2c.pro.br". Truques aplicados:
+                - name aleatório por render (quebra heurística do browser)
+                - readonly + onfocus removeAttribute (Chrome só autopreenche
+                  campos NÃO readonly no momento do load)
+                - dummy inputs hidden antes pra "absorver" autofill
+                - aviso visual se cliente digitar coisa que parece email no Client ID */ ''}
+            <div class="mt-2 space-y-2" autocomplete="off">
+              <input type="text" name="lj-dummy-email-${Date.now()}" style="display:none" tabindex="-1" autocomplete="username">
+              <input type="password" name="lj-dummy-pass-${Date.now()}" style="display:none" tabindex="-1" autocomplete="current-password">
+              <input type="text"
+                value="${Utils.escape(draft.clientId)}"
+                oninput="Actions.updateClickupOAuthDraftField('clientId', this.value)"
+                placeholder="Client ID (ex: 2HRIBE2U3...)"
+                name="lj-cid-${Date.now()}-${Math.floor(Math.random()*1000)}"
+                autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                data-lpignore="true" data-form-type="other"
+                readonly onfocus="this.removeAttribute('readonly')"
+                class="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
+              <input type="password"
+                value="${Utils.escape(draft.clientSecret)}"
+                oninput="Actions.updateClickupOAuthDraftField('clientSecret', this.value)"
+                placeholder="Client Secret"
+                name="lj-csec-${Date.now()}-${Math.floor(Math.random()*1000)}"
+                autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false"
+                data-lpignore="true" data-form-type="other"
+                readonly onfocus="this.removeAttribute('readonly')"
+                class="w-full px-3 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono" />
+              ${draft.clientId && /@/.test(draft.clientId) ? `
+                <div class="rounded-lg bg-rose-50 border border-rose-300 px-3 py-2 text-[11px] text-rose-800 flex items-start gap-2">
+                  <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mt-0.5 shrink-0"></i>
+                  <span>O Client ID parece um email. Provavelmente o browser autopreencheu — apague e cole o Client ID real do OAuth App (sem @).</span>
+                </div>
+              ` : ''}
+              <button onclick="Actions.saveClickupOAuthConfig()" ${!status.encryptionReady || (draft.clientId && /@/.test(draft.clientId)) ? 'disabled' : ''} class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs disabled:opacity-50 flex items-center gap-1.5" style="color:#fff!important;">
                 <i data-lucide="save" class="w-3.5 h-3.5"></i>
                 ${configured ? 'Atualizar credenciais' : 'Salvar credenciais'}
               </button>

@@ -6499,6 +6499,14 @@ Object.assign(Actions, {
     const clientId = String(draft.clientId || '').trim();
     const clientSecret = String(draft.clientSecret || '').trim();
     if (!clientId || !clientSecret) return Utils.toast('Client ID e Client Secret obrigatórios.');
+    // V32.6.3 — Guard: browser autofill costuma colocar email no Client ID.
+    // Client ID do ClickUp OAuth App tem ~32 chars hexadecimais. Bloqueia.
+    if (/@/.test(clientId)) {
+      return Utils.toast('Client ID parece um email (autopreenchido pelo browser). Apague e cole o Client ID real do OAuth App.');
+    }
+    if (clientId.length < 10) {
+      return Utils.toast('Client ID muito curto. Confere se você copiou o valor inteiro do OAuth App no ClickUp.');
+    }
     try {
       const token = localStorage.getItem('lj_jwt');
       const r = await fetch('/api/clickup-config', {
