@@ -2968,9 +2968,23 @@ var SettingsModal = {
         </div>`
       : '';
 
+    // V32.2.3 (Geraldo A5) — Aviso proeminente sobre delete do Space LeadJourney.
+    // Antes era texto pequeno dentro do card. Agora banner visível no topo —
+    // cliente vê ANTES de fazer qualquer coisa no ClickUp.
+    const spaceDeleteBanner = status.connected && status.ljSpaceId
+      ? `<div class="rounded-2xl bg-red-50 border border-red-200 p-3 mb-4 text-red-900 flex items-start gap-3">
+          <i data-lucide="alert-octagon" class="w-4 h-4 mt-0.5 shrink-0"></i>
+          <div class="flex-1 text-xs">
+            <p class="font-black">⚠ NUNCA delete o Space "LeadJourney" no ClickUp</p>
+            <p>Se deletar, todo o mapeamento Produto/Campanha/Ação se perde. Tasks novas viram duplicatas das anteriores. Renomear o Space é OK (LJ acha pelo ID).</p>
+          </div>
+        </div>`
+      : '';
+
     return `<div class="space-y-5">
       ${encWarn}
       ${readOnlyBanner}
+      ${spaceDeleteBanner}
 
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 space-y-4">
         <div class="flex items-start justify-between gap-3">
@@ -3005,9 +3019,22 @@ var SettingsModal = {
 
         ${this._clickupMirrorCard(status)}
         ${this._clickupListConfigCard(status)}
-        ${this._clickupMarkerCard(status)}
-        ${this._clickupStatusMapCard(status)}
-        ${this._clickupWriteModeCard(status)}
+
+        <!-- V32.2.3 (Geraldo A18) — Settings detalhadas em <details> colapsável.
+             Antes: 5 cards em scroll vertical longo. Mobile virava inferno.
+             Agora: cards principais (Mirror + List config) sempre abertos;
+             "Avançado" colapsa Marker + Status map + Write mode. -->
+        <details class="rounded-2xl bg-white border border-slate-200 overflow-hidden">
+          <summary class="px-4 py-3 cursor-pointer font-black text-sm text-slate-700 flex items-center gap-2 select-none hover:bg-slate-50">
+            <i data-lucide="chevron-right" class="w-4 h-4 transition-transform"></i>
+            Configurações avançadas (marcação, status, modo de escrita)
+          </summary>
+          <div class="p-4 space-y-3 border-t border-slate-200 bg-slate-50">
+            ${this._clickupMarkerCard(status)}
+            ${this._clickupStatusMapCard(status)}
+            ${this._clickupWriteModeCard(status)}
+          </div>
+        </details>
         `}
       </div>
 
@@ -3204,11 +3231,11 @@ var SettingsModal = {
           ${hasSpace ? `
             <p class="text-xs text-violet-800 mt-1 leading-relaxed">
               LJ está espelhando sua estrutura no Space <b>${Utils.escape(cache?.ljSpaceName || 'LeadJourney')}</b> do ClickUp.
-              ${cache?.counts ? `Já criou ${cache.counts.products} produto(s), ${cache.counts.campaigns} campanha(s), ${cache.counts.actions} ação(ões).` : ''}
-            </p>
-            <p class="text-[11px] text-amber-700 mt-2">
-              ⚠ <b>Não delete esse Space no ClickUp</b> — todo o mapeamento de tasks é perdido.
-              Renomear OK (LJ acha pelo ID).
+              ${cache?.counts
+                ? (cache.counts.products === 0 && cache.counts.campaigns === 0 && cache.counts.actions === 0
+                    ? '<i class="text-violet-600">Nenhum produto espelhado ainda — a hierarquia vai sendo criada conforme você criar tasks.</i>'
+                    : `Já criou ${cache.counts.products} produto(s), ${cache.counts.campaigns} campanha(s), ${cache.counts.actions} ação(ões).`)
+                : ''}
             </p>
           ` : `
             <p class="text-xs text-amber-800 mt-1 leading-relaxed">
@@ -3219,9 +3246,12 @@ var SettingsModal = {
         </div>
         <div class="flex flex-col gap-2 shrink-0">
           ${hasSpace
-            ? `<button onclick="Actions.toggleClickupMirror()" class="px-3 py-2 rounded-xl ${mirrorOn ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-violet-600 hover:bg-violet-700 text-white'} font-black text-xs flex items-center gap-1.5" ${!mirrorOn ? 'style="color:#fff!important;"' : ''}>
+            ? `<button onclick="Actions.testClickupSpace()" title="Verifica se PAT consegue acessar o Space" class="px-3 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-black text-xs flex items-center gap-1.5">
+                <i data-lucide="zap" class="w-3.5 h-3.5"></i>Testar
+              </button>
+              <button onclick="Actions.toggleClickupMirror()" class="px-3 py-2 rounded-xl ${mirrorOn ? 'bg-slate-100 hover:bg-slate-200 text-slate-700' : 'bg-violet-600 hover:bg-violet-700 text-white'} font-black text-xs flex items-center gap-1.5" ${!mirrorOn ? 'style="color:#fff!important;"' : ''}>
                 <i data-lucide="${mirrorOn ? 'pause' : 'play'}" class="w-3.5 h-3.5"></i>
-                ${mirrorOn ? 'Desativar' : 'Reativar'} espelhamento
+                ${mirrorOn ? 'Desativar' : 'Reativar'}
               </button>`
             : `<button onclick="Actions.setupClickupSpace()" class="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs flex items-center gap-1.5 animate-pulse" style="color:#fff!important;">
                 <i data-lucide="zap" class="w-3.5 h-3.5"></i>Inicializar Space

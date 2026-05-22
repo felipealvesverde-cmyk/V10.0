@@ -56,21 +56,34 @@ window.CreateClickupTaskModal = {
             </div>`;
           })()}
 
-          <div>
-            <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Lista de destino</label>
-            <select onchange="Actions.updateClickupTaskField('list_id', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900">
-              <option value="">${m.loading ? 'Carregando…' : 'Selecione uma lista'}</option>
-              ${(m.lists || []).map(l => `<option value="${Utils.escape(String(l.id))}" ${String(d.list_id) === String(l.id) ? 'selected' : ''}>${Utils.escape(l.label)}</option>`).join('')}
-            </select>
-            ${(() => {
-              // V32.1.7 — Avisa se user escolheu list diferente da default Geraldo.
-              const def = App.state.clickupStatus?.defaultListId;
-              if (!def) return '';
-              if (!d.list_id) return `<p class="text-[11px] text-emerald-600 mt-1">✓ List padrão (Configurações → ClickUp) será usada se você não trocar.</p>`;
-              if (String(d.list_id) === String(def)) return `<p class="text-[11px] text-emerald-600 mt-1">✓ Usando list padrão configurada.</p>`;
-              return `<p class="text-[11px] text-amber-700 mt-1">⚠ Override: você escolheu list diferente da padrão (Configurações → ClickUp).</p>`;
-            })()}
-          </div>
+          ${(() => {
+            // V32.2.3 (Geraldo A3) — Em modo mirror + seedContext.actionId, LJ resolve
+            // a list sozinho via hierarquia. Dropdown não tem sentido. Esconde.
+            const status = App.state.clickupStatus || {};
+            const mirrorOn = Boolean(status.ljSpaceId) && status.mirrorEnabled !== false;
+            const hasActionContext = Boolean(m.seedContext?.actionId);
+            // Em modo mirror SEM action context: dropdown precisa aparecer pra fallback explícito
+            // Em modo mirror COM action context: dropdown some
+            // Sem mirror: dropdown normal V32.1.7
+            if (mirrorOn && hasActionContext) {
+              return ''; // banner violet acima já explica que list é ignorada
+            }
+            return `<div>
+              <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Lista de destino</label>
+              <select onchange="Actions.updateClickupTaskField('list_id', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900">
+                <option value="">${m.loading ? 'Carregando…' : 'Selecione uma lista'}</option>
+                ${(m.lists || []).map(l => `<option value="${Utils.escape(String(l.id))}" ${String(d.list_id) === String(l.id) ? 'selected' : ''}>${Utils.escape(l.label)}</option>`).join('')}
+              </select>
+              ${(() => {
+                // V32.1.7 — Avisa se user escolheu list diferente da default Geraldo.
+                const def = App.state.clickupStatus?.defaultListId;
+                if (!def) return '';
+                if (!d.list_id) return `<p class="text-[11px] text-emerald-600 mt-1">✓ List padrão (Configurações → ClickUp) será usada se você não trocar.</p>`;
+                if (String(d.list_id) === String(def)) return `<p class="text-[11px] text-emerald-600 mt-1">✓ Usando list padrão configurada.</p>`;
+                return `<p class="text-[11px] text-amber-700 mt-1">⚠ Override: você escolheu list diferente da padrão (Configurações → ClickUp).</p>`;
+              })()}
+            </div>`;
+          })()}
 
           <div>
             <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Título</label>

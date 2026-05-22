@@ -5730,6 +5730,24 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.2.3 (Geraldo A6) — Testa acessibilidade do Space LeadJourney sob demanda.
+  async testClickupSpace() {
+    const token = localStorage.getItem('lj_jwt');
+    Utils.toast('Testando conexão com Space...');
+    try {
+      const r = await fetch('/api/clickup-test-space', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      if (data.accessible) {
+        Utils.toast(`✓ ${data.message}`);
+      } else {
+        Utils.toast(`⚠ ${data.message}`);
+      }
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   async loadClickupMappings() {
     const token = localStorage.getItem('lj_jwt');
     if (!token) return;
@@ -6486,6 +6504,12 @@ Object.assign(Actions, {
     };
     // Só manda list_id se NÃO tem mirror (mirror resolve list sozinho)
     if (!mirror_context && d.list_id) body.list_id = d.list_id;
+
+    // V32.2.3 (Geraldo A4) — Feedback durante create. Em mirror em workspace
+    // virgem pode demorar 2-4s criando folder+list+task pai. Antes era silêncio.
+    if (mirror_context) {
+      Utils.toast('Espelhando hierarquia no ClickUp...');
+    }
 
     try {
       const res = await fetch('/api/clickup-create-task', {
