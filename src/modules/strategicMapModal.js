@@ -2999,20 +2999,54 @@ window.StrategicMapModal = {
     const pending = tasks.length - executed;
     const progress = StrategicOkrEngine.progress(kr);
     const status = StrategicMapRenderer.okrStatus(progress);
+
+    // V32.6.9 — Auto-sync status com ClickUp na primeira render do step execution.
+    // Cliente abre step 6 e vê status FRESCO sem precisar clicar nada. Hydratação
+    // controlada via App._clickupTaskStatusSynced (Set por sessão).
+    if (tasks.some(t => t.provider === 'clickup' && t.provider_task_id) && !App._clickupTaskStatusSynced) {
+      App._clickupTaskStatusSynced = true;
+      setTimeout(() => Actions.syncClickupTaskStatuses?.(true), 100);
+    }
+
+    // V32.6.9 — Render inline das tasks. Antes só tinha botão "Ver X tarefas"
+    // que abria modal. Felipe: "as ações estão lá e a gente não está vendo aqui,
+    // status pendente/concluída tem que aparecer". Resolvido.
+    const tasksList = tasks.length ? `<div class="mt-3 pt-3 border-t border-white/10 space-y-1.5">
+      <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Tarefas no provider</p>
+      ${tasks.map(t => {
+        const isDone = t.status === 'completed';
+        const isProgress = t.status === 'in_progress';
+        const statusBadge = isDone
+          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/25 text-emerald-200 border border-emerald-400/40">✓ CONCLUÍDA</span>'
+          : isProgress
+          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500/25 text-amber-200 border border-amber-400/40">○ EM PROGRESSO</span>'
+          : '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-slate-500/25 text-slate-200 border border-slate-400/40">◌ PENDENTE</span>';
+        const externalLink = t.external_url
+          ? `<a href="${Utils.escape(t.external_url)}" target="_blank" rel="noopener" title="Abrir no ClickUp" class="text-slate-400 hover:text-white shrink-0"><i data-lucide="external-link" class="w-3 h-3"></i></a>`
+          : '';
+        return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg ${isDone ? 'bg-emerald-500/[0.04] border border-emerald-500/15' : 'bg-slate-900/40 border border-white/5'}">
+          ${statusBadge}
+          <span class="text-[12px] font-bold text-white flex-1 min-w-0 truncate ${isDone ? 'line-through text-slate-400' : ''}">${Utils.escape(t.title)}</span>
+          ${externalLink}
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
     return `<div class="rounded-3xl bg-white/[0.05] border border-white/10 p-4">
       <div class="flex items-start justify-between gap-3 mb-3">
         <div class="min-w-0">
           <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">${Utils.escape(obj.label)}</p>
           <p class="font-black text-white">${Utils.escape(kr.name)}</p>
-          <p class="text-[11px] text-slate-400 mt-0.5">${Number(kr.current || 0)}/${Number(kr.target || 0)} ${Utils.escape(kr.metric)} · ${actions.length} ação(ões) conectada(s) · ${tasks.length} tarefa(s) (${executed} concluída(s))</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">${Number(kr.current || 0)}/${Number(kr.target || 0)} ${Utils.escape(kr.metric)} · ${actions.length} ação(ões) · ${tasks.length} tarefa(s) (${executed} concluída · ${pending} pendente)</p>
         </div>
         <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-${status.color}-500/20 text-${status.color}-200 border border-${status.color}-400/30 whitespace-nowrap">${progress}%</span>
       </div>
       ${StrategicMapRenderer.progressBar(progress, status.color)}
+      ${tasksList}
       <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/10">
         ${actions.map(a => `<button onclick="Actions.openTaskCreationModal(${a.id})" class="px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-[11px] font-black flex items-center gap-1.5" style="color:#fff!important;" title="Abrir modal de transição ação → ClickUp"><i data-lucide="send" class="w-3 h-3"></i> Criar task · ${Utils.escape(a.name)}</button>`).join('')}
+        ${tasks.length ? `<button onclick="Actions.syncClickupTaskStatuses(false)" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[11px] font-black flex items-center gap-1.5" title="Pegar status atual do ClickUp"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Sync ClickUp</button>` : ''}
         <button onclick="Actions.syncStrategicOkrSingle('${obj.id}','${kr.id}')" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[11px] font-black flex items-center gap-1.5"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Atualizar leitura</button>
-        ${tasks.length ? `<button onclick="Actions.closeStrategicMap(); Actions.openTasksModal(${actions[0]?.id || 0});" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[11px] font-black">Ver ${tasks.length} tarefa(s)</button>` : ''}
       </div>
     </div>`;
   },

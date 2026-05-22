@@ -6372,6 +6372,70 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.6.9 — Sync status das tasks do ClickUp. Itera ExecutionTaskStore,
+  // pega provider_task_ids da provider='clickup', POST pro endpoint que
+  // retorna status atual de cada uma. Atualiza store local in-place.
+  //
+  // Mapping ClickUp → LJ:
+  //   statusType='closed' → status LJ 'completed'
+  //   statusType='open' + status contém 'progress'/'doing' → 'in_progress'
+  //   resto → 'pending'
+  //
+  // silent=true pula toast (uso em auto-sync). Default false (uso manual).
+  async syncClickupTaskStatuses(silent = false) {
+    if (!window.ExecutionTaskStore) return;
+    if (!App.state.clickupStatus?.connected) {
+      if (!silent) Utils.toast('ClickUp não conectado.');
+      return;
+    }
+    const tasks = ExecutionTaskStore.all().filter(t => t.provider === 'clickup' && t.provider_task_id);
+    if (!tasks.length) return;
+    const taskIds = tasks.map(t => t.provider_task_id);
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-pull-task-statuses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ task_ids: taskIds })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        if (!silent) Utils.toast(`Falha sync: ${data.message}`);
+        return;
+      }
+      // Aplica updates no store local
+      let updatedCount = 0;
+      for (const task of tasks) {
+        const remote = data.statuses?.[task.provider_task_id];
+        if (!remote || remote.error) continue;
+        const newStatus = this._mapClickupStatusToLj(remote);
+        if (newStatus && newStatus !== task.status) {
+          ExecutionTaskStore.setStatus(task.task_id, newStatus);
+          updatedCount++;
+        }
+      }
+      if (updatedCount > 0) {
+        App.save(); App.render();
+        if (!silent) Utils.toast(`✓ ${updatedCount} task(s) atualizada(s) do ClickUp.`);
+      } else if (!silent) {
+        Utils.toast('Tudo sincronizado — nenhuma task mudou status.');
+      }
+    } catch (err) {
+      if (!silent) Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V32.6.9 — Helper interno: mapping ClickUp status → LJ status.
+  _mapClickupStatusToLj(remote) {
+    if (!remote) return null;
+    if (remote.statusType === 'closed') return 'completed';
+    const s = String(remote.status || '').toLowerCase();
+    if (remote.statusType === 'open' && (s.includes('progress') || s.includes('doing') || s.includes('andamento'))) {
+      return 'in_progress';
+    }
+    return 'pending';
+  },
+
   // V31.2.29 — Conexão via Personal API Token. Substitui o flow OAuth na UI.
   updateClickupPatDraft(value) {
     App.state.clickupPatDraft = String(value || '');
