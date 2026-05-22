@@ -21,6 +21,16 @@ window.DjowAIModal = {
     const isConfigured = status.configured;
     const canUse = status.canUse !== false;
 
+    // V32.4.1 (Geraldo Item 1) — Contexto de ação opcional (substitui DjowModal V16.3).
+    // Quando setado, header mostra "Ação: X" e backend recebe action_id no payload.
+    const ctx = App.state.djowContext || null;
+    const ctxAction = ctx?.actionId
+      ? (App.state.actions || []).find(a => Number(a.id) === Number(ctx.actionId))
+      : null;
+    const ctxCampaign = ctxAction
+      ? (App.state.campaigns || []).find(c => Number(c.id) === Number(ctxAction.campaignId))
+      : null;
+
     // V32.3.3 — Robotinho Djow migrou pra paleta do RevOps (Djow é o
     // especialista de RevOps materializado). Família roxa #AB3ED8 +
     // #7C2D92 deep + #C084FC soft + #E9D5FF luz.
@@ -42,7 +52,11 @@ window.DjowAIModal = {
             ${robotSvg}
             <div>
               <div class="lj-djow-modal-name">Djow <span class="lj-home-side-pill">AI</span></div>
-              <div class="lj-djow-modal-sub">${isConfigured ? (canUse ? 'Pergunte qualquer coisa sobre sua operação' : 'Sem permissão de uso') : 'Configure ANTHROPIC_API_KEY no Railway'}</div>
+              <div class="lj-djow-modal-sub">${
+                ctxAction
+                  ? `Contexto: ${Utils.escape(ctxAction.name || 'Ação')} ${ctxCampaign ? `· <span style="opacity:.7">${Utils.escape(ctxCampaign.name)}</span>` : ''}`
+                  : (isConfigured ? (canUse ? 'Pergunte qualquer coisa sobre sua operação' : 'Sem permissão de uso') : 'Configure ANTHROPIC_API_KEY no Railway')
+              }</div>
             </div>
           </div>
           <div class="lj-djow-modal-actions">

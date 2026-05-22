@@ -17,7 +17,7 @@ window.TasksModal = {
             <p class="text-xs text-slate-300 mt-1">${tasks.length} tarefa(s) vinculada(s)</p>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="Actions.openDjowModal(${action.id})" class="px-4 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-black text-sm flex items-center gap-2" style="color:#fff!important;"><i data-lucide="plus" class="w-4 h-4"></i> Nova com Djow</button>
+            <button onclick="Actions.openDjowAIModal({ actionId: ${action.id}, seedPrompt: 'Crie uma tarefa para a ação atual: ' })" class="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-black text-sm flex items-center gap-2" style="color:#fff!important;"><i data-lucide="sparkles" class="w-4 h-4"></i> Nova com Djow</button>
             <button onclick="Actions.closeTasksModal()" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 font-black flex items-center gap-2"><i data-lucide="x" class="w-4 h-4"></i> Fechar</button>
           </div>
         </header>

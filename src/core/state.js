@@ -138,12 +138,12 @@ var State = {
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
       agentConfig: window.AgentRegistry?.defaultConfig?.() || { djow: { name: 'Djow', url: '', endpoint: '/execute', method: 'POST', apiKey: '', timeoutMs: 30000, enabled: false, lastStatus: null, lastLatencyMs: null, lastCheckedAt: null } },
       executionTasks: [],
-      djowChats: {},
-      showDjowModal: false,
-      djowModalActionId: null,
-      djowDraftMessage: '',
+      // V32.4.1 (Geraldo Item 1) — djowChats/showDjowModal/djowModalActionId/
+      // djowDraftMessage/djowLastResponse removidos (V16.3 DjowModal aposentado).
+      // djowContext novo: { actionId } opcional quando DjowAIModal é aberto
+      // com contexto de ação. djowSending continua (usado pelo DjowAIModal).
       djowSending: false,
-      djowLastResponse: null,
+      djowContext: null,
       showTasksModal: false,
       tasksModalActionId: null,
       showStrategicMap: false,
@@ -480,12 +480,10 @@ var State = {
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,
       agentConfig: window.AgentRegistry?.normalize?.(raw.agentConfig) || raw.agentConfig || base.agentConfig,
       executionTasks: Array.isArray(raw.executionTasks) ? raw.executionTasks : [],
-      djowChats: raw.djowChats && typeof raw.djowChats === 'object' ? raw.djowChats : {},
-      showDjowModal: false,
-      djowModalActionId: null,
-      djowDraftMessage: '',
+      // V32.4.1 (Geraldo Item 1) — V16.3 DjowModal aposentado. djowChats não
+      // é mais persistido (history vivia ali). djowSending continua (DjowAIModal usa).
       djowSending: false,
-      djowLastResponse: null,
+      djowContext: null,
       showTasksModal: false,
       tasksModalActionId: null,
       showStrategicMap: false,
@@ -803,9 +801,10 @@ var State = {
     try {
       const transient = new Set([
         'showSettingsModal','databaseTesting','showDatabaseTutorial',
-        'railwayTesting','railwayShowPassword','showRailwaySnapshotPrompt',
+        // V32.4.0 — flags V11 railway/database removidas.
+        // V32.4.1 — flags V16.3 DjowModal removidas (showDjowModal, djowModalActionId, etc).
         'showActionEditModal','actionEditDraft','showFlowBuilderModal','flowBuilderCampaignId',
-        'showLpModal','lpDraft','showDjowModal','djowModalActionId','djowDraftMessage','djowSending','djowLastResponse',
+        'showLpModal','lpDraft','djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',
         'showQuickActionModal','quickActionContext','quickActionDraft','showStrategicOverview',

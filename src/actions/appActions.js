@@ -2594,18 +2594,31 @@ Object.assign(Actions, {
   // que sobrescreviam estas via ordem de declaração. Resultado: o toggle
   // do modal AI rodava a função legacy (que setava showDjowModal/djowDraftMessage,
   // não djowOpen), então o modal nunca aparecia.
-  openDjowAIModal() {
+  // V32.4.1 (Geraldo Item 1) — Aceita context opcional pra unificação:
+  //   openDjowAIModal()                     → modo global (Ctrl+K)
+  //   openDjowAIModal({ actionId: 42 })     → contexto de ação (substitui DjowModal V16.3)
+  //   openDjowAIModal({ seedPrompt: '...' }) → pré-preenche o input
+  openDjowAIModal(opts = {}) {
     App.state.djowOpen = true;
+    App.state.djowContext = (opts && opts.actionId) ? { actionId: Number(opts.actionId) } : null;
+    if (opts && opts.seedPrompt) {
+      App.state.djowInput = String(opts.seedPrompt);
+    }
     App.save();
     App.render();
     setTimeout(() => {
       const input = document.getElementById('djowInput');
-      if (input) input.focus();
+      if (input) {
+        input.focus();
+        // Se tem seedPrompt, posiciona cursor no fim pra user continuar digitando
+        if (opts.seedPrompt) input.setSelectionRange(input.value.length, input.value.length);
+      }
     }, 50);
   },
 
   closeDjowAIModal() {
     App.state.djowOpen = false;
+    App.state.djowContext = null;
     App.save();
     App.render();
   },
@@ -2669,6 +2682,12 @@ Object.assign(Actions, {
         message,
         conversationId: App.state.djowConversation.id
       };
+      // V32.4.1 (Geraldo Item 1) — Quando modal aberto via contexto de ação
+      // (substituindo DjowModal V16.3), anexa action_id no payload. Backend
+      // + tool create_clickup_task já aceitam (V32.2.1+).
+      if (App.state.djowContext?.actionId) {
+        reqBody.actionId = App.state.djowContext.actionId;
+      }
       if (App.state._djowInterviewStage) {
         reqBody.interviewStage = App.state._djowInterviewStage;
         reqBody.interviewProductName = App.state._djowInterviewProductName || '';
@@ -3886,56 +3905,11 @@ Object.assign(Actions, {
     Utils.toast('Agente reiniciado.');
   },
 
-  openDjowModal(actionId) {
-    App.state.djowModalActionId = Number(actionId);
-    App.state.showDjowModal = true;
-    App.state.djowDraftMessage = '';
-    App.state.djowSending = false;
-    App.save(); App.render();
-  },
-
-  closeDjowModal() {
-    App.state.showDjowModal = false;
-    App.state.djowDraftMessage = '';
-    App.state.djowSending = false;
-    App.save(); App.render();
-  },
-
-  updateDjowDraft(value) {
-    App.state.djowDraftMessage = String(value || '');
-  },
-
-  async sendDjowMessage() {
-    const actionId = App.state.djowModalActionId;
-    const message = String(App.state.djowDraftMessage || '').trim();
-    if (!actionId || !message) return;
-    const chats = App.state.djowChats || {};
-    const list = (chats[actionId]?.messages) || [];
-    const userMsg = { role: 'user', text: message, ts: new Date().toISOString() };
-    App.state.djowChats = { ...chats, [actionId]: { messages: [...list, userMsg] } };
-    App.state.djowDraftMessage = '';
-    App.state.djowSending = true;
-    App.save(); App.render();
-    try {
-      const result = await ExecutionAgentBridge.dispatch(actionId, message);
-      const updated = App.state.djowChats?.[actionId]?.messages || [];
-      if (result.ok && result.task) {
-        const taskMsg = { role: 'task', task: result.task, ts: new Date().toISOString() };
-        App.state.djowChats = { ...App.state.djowChats, [actionId]: { messages: [...updated, taskMsg] } };
-        App.state.djowLastResponse = { agentUsed: result.agentUsed, latencyMs: result.latencyMs };
-        Utils.toast('Tarefa criada.');
-      } else {
-        const errMsg = { role: 'agent', text: result.message || 'Falha ao criar tarefa.', ts: new Date().toISOString() };
-        App.state.djowChats = { ...App.state.djowChats, [actionId]: { messages: [...updated, errMsg] } };
-        Utils.toast(result.message || 'Falha.');
-      }
-    } catch (err) {
-      Utils.toast(`Erro: ${err?.message || err}`);
-    } finally {
-      App.state.djowSending = false;
-      App.save(); App.render();
-    }
-  },
+  // V32.4.1 (Geraldo Item 1) — Actions DjowModal V16.3 removidas:
+  //   openDjowModal, closeDjowModal, updateDjowDraft, sendDjowMessage
+  // Substituídas por openDjowAIModal({ actionId }) — DjowAIModal V26+ com
+  // Claude + tools (create_clickup_task com cache Redis V32.3.4) faz o
+  // mesmo, melhor. Botões em tasksModal.js + actions.js atualizados.
 
   openTasksModal(actionId) {
     App.state.tasksModalActionId = Number(actionId);

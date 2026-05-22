@@ -12,7 +12,7 @@ var ActionModule = {
       ${window.ActionEditModal ? ActionEditModal.render() : ''}
       ${window.ActionFlowBuilder ? ActionFlowBuilder.render(App.state.flowBuilderCampaignId) : ''}
       ${window.ActionLpModal ? ActionLpModal.render() : ''}
-      ${window.DjowModal ? DjowModal.render() : ''}
+      ${/* V32.4.1 (Geraldo Item 1) — DjowModal V16.3 aposentado. DjowAIModal global cobre. */ ''}
       ${window.TasksModal ? TasksModal.render() : ''}
       ${window.StrategicMapModal ? StrategicMapModal.render() : ''}
     </div>`;
@@ -160,7 +160,7 @@ var ActionModule = {
           <div class="flex flex-col items-end justify-end gap-2 min-w-[220px]">
             <button onclick="event.stopPropagation(); Actions.openActionFlowModal(${action.id})" style="color:#fff!important;" class="w-full px-4 py-2.5 rounded-2xl bg-slate-900 text-white font-bold text-xs lj-dark-button flex items-center justify-center gap-1.5"><i data-lucide="map" class="w-3.5 h-3.5"></i> Ver Fluxo da Ação</button>
             <div class="grid grid-cols-2 gap-2 w-full">
-              <button onclick="event.stopPropagation(); Actions.openDjowModal(${action.id})" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] flex items-center justify-center gap-1.5" style="color:#fff!important;"><i data-lucide="sparkles" class="w-3 h-3"></i> Criar Tarefas</button>
+              <button onclick="event.stopPropagation(); Actions.openDjowAIModal({ actionId: ${action.id}, seedPrompt: 'Crie uma tarefa para a ação atual: ' })" class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-[11px] flex items-center justify-center gap-1.5" style="color:#fff!important;"><i data-lucide="sparkles" class="w-3 h-3"></i> Criar Tarefas</button>
               <button onclick="event.stopPropagation(); Actions.openTasksModal(${action.id})" class="px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-[11px] flex items-center justify-center gap-1.5"><i data-lucide="list-checks" class="w-3 h-3"></i> Ver Tarefas</button>
             </div>
             ${this._executionStatusLine(action)}
