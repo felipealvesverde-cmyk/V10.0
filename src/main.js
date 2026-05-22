@@ -486,7 +486,7 @@ var App = {
               <i data-lucide="settings" class="lj-master-nav-icon"></i>
               <span>Configurações</span>
             </button>
-            <button onclick="Actions.logout()" class="lj-master-nav-item lj-nav-utility">
+            <button onclick="Actions.logout()" data-action="logout" class="lj-master-nav-item lj-nav-utility">
               <i data-lucide="log-out" class="lj-master-nav-icon"></i>
               <span>Sair</span>
             </button>

@@ -281,10 +281,38 @@ body.lj-app-body {
   color: #94A3B8;
 }
 
+/* V32.2.8 — Onda 3 Leonardo. Hover contemplativo: a barra de cor nasce do
+   nada na borda esquerda enquanto o padding cresce 2px. Sem pulo, sem
+   translação. O item não salta — o item aparece.
+   Usa ::before pra não conflitar com a border:1px do estado ativo. */
+.lj-master-nav-item {
+  position: relative;
+}
+.lj-master-nav-item::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 13px;
+  bottom: 13px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background .35s ease, top .35s ease, bottom .35s ease;
+  pointer-events: none;
+}
+.lj-master-nav-item:hover::before {
+  background: rgba(129,140,248,.55);
+}
+.lj-master-nav-item.active::before,
+.lj-master-nav-item[aria-current="page"]::before {
+  background: rgba(167,139,250,.85);
+  top: 8px;
+  bottom: 8px;
+}
 .lj-master-nav-item:hover {
-  background: rgba(255,255,255,.075);
+  background: rgba(255,255,255,.045);
   color: #fff;
-  transform: translateX(2px);
+  padding-left: 15px;
 }
 
 .lj-master-nav-item.active,
@@ -318,6 +346,26 @@ body.lj-app-body {
 }
 .lj-master-nav-account .lj-master-nav-item:hover {
   color: #fff;
+}
+
+/* V32.2.8 — Onda 3 Leonardo. "Sair" é irreversível, não é tab. Cor base
+   mais distante, ícone com opacidade reduzida, hover em rosado sutil
+   (rgba ~6% — distinção cognitiva sem grito). */
+.lj-master-nav-item[data-action="logout"] {
+  color: #64748B;
+}
+.lj-master-nav-item[data-action="logout"] .lj-master-nav-icon {
+  opacity: .7;
+}
+.lj-master-nav-item[data-action="logout"]:hover {
+  color: #FCA5A5;
+  background: rgba(248,113,113,.06);
+}
+.lj-master-nav-item[data-action="logout"]:hover .lj-master-nav-icon {
+  opacity: 1;
+}
+.lj-master-nav-item[data-action="logout"]:hover::before {
+  background: rgba(248,113,113,.55);
 }
 .lj-sidebar-version {
   margin-top: 13px;
