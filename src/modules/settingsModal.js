@@ -3274,6 +3274,22 @@ var SettingsModal = {
                 </div>
               </details>`;
             })()}
+            ${/* V32.3.1 (Geraldo Novo-2 + Novo-3) — Como funciona o espelhamento.
+                 Explica 4 comportamentos que o cliente não consegue inferir só
+                 olhando: (1) lazy creation, (2) DOWN-sync visual inexistente,
+                 (3) delete propaga, (4) nunca delete o Space. */ ''}
+            <details class="mt-2 rounded-lg bg-white border border-violet-200 overflow-hidden">
+              <summary class="px-3 py-2 cursor-pointer text-[11px] font-black text-violet-700 select-none hover:bg-violet-50 flex items-center gap-1.5">
+                <i data-lucide="info" class="w-3 h-3"></i>
+                Como funciona o espelhamento
+              </summary>
+              <div class="px-3 py-2 space-y-2 border-t border-violet-100 bg-violet-50/30 text-[11px] text-slate-700 leading-relaxed">
+                <p><b class="text-violet-800">Criação preguiçosa.</b> Folder do Produto + List da Campanha + Task Pai da Ação só nascem no ClickUp quando a <i>primeira tarefa operacional</i> daquela ação é criada. Se você cria Produto/Campanha/Ação no LJ mas não criou tarefa ainda, é normal não ver nada no ClickUp.</p>
+                <p><b class="text-violet-800">Renomeação só do LJ pro ClickUp.</b> Renomeie <i>no LJ</i> e o ClickUp atualiza sozinho. Se renomear <i>no ClickUp</i>, o LJ continua funcionando pelo ID interno — mas os nomes ficam diferentes. Não é bug.</p>
+                <p><b class="text-violet-800">Delete propaga.</b> Deletar Produto/Campanha/Ação/Tarefa no LJ remove a entity correspondente no ClickUp (irreversível). Confirme antes.</p>
+                <p><b class="text-rose-700">⚠ Nunca delete o Space "LeadJourney" no ClickUp.</b> Se deletar, o mapeamento inteiro é perdido. Tasks existentes ficam órfãs no histórico do ClickUp e LJ re-cria o Space do zero na próxima ação.</p>
+              </div>
+            </details>
           ` : `
             <p class="text-xs text-amber-800 mt-1 leading-relaxed">
               <b>Setup obrigatório:</b> LJ precisa criar um Space dedicado no seu ClickUp pra ser raiz da hierarquia.
