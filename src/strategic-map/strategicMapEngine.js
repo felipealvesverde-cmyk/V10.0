@@ -177,10 +177,16 @@ window.StrategicMapEngine = {
   },
 
   // V28.1 — As 3 frentes do funil (RevOps minimalista).
+  // V32.5.0 (Leonardo L1 + Geraldo G1) — Cores alinhadas à paleta semântica
+  // oficial V32.3.2 (Norte-Sul). Antes Marketing/Vendas/CS usavam sky/emerald/
+  // violet — colidindo com CS (sky) e RevOps (violet) no resto do sistema.
+  // Agora: Marketing=pink (rosa-magenta #F472B6), Sales=teal (turquesa #00CBCC),
+  // CS=sky (azul-céu #6BBEF9). Naming padronizado pra 'CS' (sigla principal +
+  // descrição). label antigo "Sucesso do Cliente" continua acessível via fullLabel.
   COMERCIAL_AREAS: [
-    { id: 'marketing', label: 'Marketing', icon: 'megaphone', color: 'sky',     description: 'Em definição minimalista, Marketing tem o objetivo de transformar um público suspeito em um potencial comprador (lead).', handoff: 'Entrega leads pra Vendas' },
-    { id: 'sales',     label: 'Vendas',    icon: 'handshake', color: 'emerald', description: 'Em definição minimalista, Vendas tem o objetivo de transformar um potencial comprador (lead) em um cliente.', handoff: 'Entrega clientes pra CS' },
-    { id: 'cs',        label: 'Sucesso do Cliente', icon: 'heart', color: 'violet', description: 'Em definição minimalista, Sucesso do Cliente tem o objetivo de transformar um cliente em um advogado da marca.', handoff: 'Devolve advogados pro topo do funil' }
+    { id: 'marketing', label: 'Marketing', fullLabel: 'Marketing', icon: 'megaphone', color: 'pink',  description: 'Em definição minimalista, Marketing tem o objetivo de transformar um público suspeito em um potencial comprador (lead).', handoff: 'Entrega leads pra Vendas' },
+    { id: 'sales',     label: 'Vendas',    fullLabel: 'Vendas',    icon: 'handshake', color: 'teal',  description: 'Em definição minimalista, Vendas tem o objetivo de transformar um potencial comprador (lead) em um cliente.', handoff: 'Entrega clientes pra CS' },
+    { id: 'cs',        label: 'CS',        fullLabel: 'CS · Sucesso do Cliente', icon: 'heart', color: 'sky', description: 'Em definição minimalista, CS (Sucesso do Cliente) tem o objetivo de transformar um cliente em um advogado da marca.', handoff: 'Devolve advogados pro topo do funil' }
   ],
 
   // V28.2 — Catálogo guiado de números por segmento. Usuário ATIVA do catálogo

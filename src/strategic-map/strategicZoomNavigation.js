@@ -16,7 +16,7 @@ window.StrategicZoomNavigation = {
     { id: 'vision',     label: 'Objetivo do Produto', short: 'Objetivo',   icon: 'star',       description: 'Aonde esse produto chega nos próximos 12 meses.' },
     { id: 'objectives', label: 'Comercial',           short: 'Comercial',  icon: 'flag',       description: 'As 3 frentes do funil: Marketing, Vendas e Sucesso do Cliente.' },
     { id: 'okrs',       label: 'Os números',          short: 'Números',    icon: 'target',     description: 'Como você vai saber que cada frente está performando.' },
-    { id: 'campaign',   label: 'Campanha',            short: 'Campanha',   icon: 'git-branch', description: 'Pluga os números do produto nesta campanha (define meta local).' },
+    { id: 'campaign',   label: 'Selecionar Campanha', short: 'Campanha',   icon: 'git-branch', description: 'Escolha em qual campanha vai trabalhar agora.' },
     { id: 'operations', label: 'As ações',            short: 'Ações',      icon: 'plug',       description: 'O que sua operação faz pra mover esses números.' },
     { id: 'execution',  label: 'Colocar em campo',    short: 'Campo',      icon: 'send',       description: 'Disparar tudo no seu provider de execução.' }
   ],

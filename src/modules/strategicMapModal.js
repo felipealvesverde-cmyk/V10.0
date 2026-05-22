@@ -1286,12 +1286,16 @@ window.StrategicMapModal = {
 
   _stepCta(label, enabled) {
     // V31.2.6 — Removida distinção CEO/Gestor + Executar Métricas + Continuar como Gestor.
-    // Todos os modos usam o mesmo CTA simples de avançar.
+    // V32.5.0 (Leonardo L4) — Disabled state ganha candeado + tooltip explicando
+    // que precisa preencher pra avançar. Antes o estado disabled era só
+    // contraste baixo — cliente novo achava que era apenas cor diferente.
     const cls = enabled
       ? 'bg-indigo-500 hover:bg-indigo-600 text-white cursor-pointer'
       : 'bg-white/5 text-slate-500 cursor-not-allowed';
+    const icon = enabled ? 'arrow-right' : 'lock';
+    const title = enabled ? '' : 'title="Preencha o campo desta etapa pra avançar"';
     return `<div class="flex justify-end items-center gap-2 pt-2 flex-wrap">
-      <button ${enabled ? '' : 'disabled'} onclick="Actions.advanceStrategicStep()" class="px-5 py-3 rounded-2xl ${cls} font-black flex items-center gap-2" ${enabled ? 'style="color:#fff!important;"' : ''}>${Utils.escape(label)} <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+      <button ${enabled ? '' : 'disabled'} ${title} onclick="Actions.advanceStrategicStep()" class="px-5 py-3 rounded-2xl ${cls} font-black flex items-center gap-2" ${enabled ? 'style="color:#fff!important;"' : ''}>${Utils.escape(label)} <i data-lucide="${icon}" class="w-4 h-4"></i></button>
     </div>`;
   },
 
@@ -1322,9 +1326,8 @@ window.StrategicMapModal = {
       )}
 
       ${!hasVision ? `
-        ${/* V32.4.4 — Felipe: removido botão "Usar como ponto de partida" + separador
-            "ou escreva o seu". Card de exemplo continua (didático), só a porta de
-            entrada vira o texto de transição abaixo. */ ''}
+        ${/* V32.5.0 (Leonardo L3) — Outros exemplos viram pills clicáveis (não
+            bullet passivo). Clicar adapta o textarea com aquele exemplo. */ ''}
         <div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
           <div class="flex items-center gap-2 mb-3">
             <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">Exemplo de produto</span>
@@ -1334,9 +1337,9 @@ window.StrategicMapModal = {
 
           <div class="mt-4 pt-3 border-t border-white/10">
             <p class="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Outros exemplos pra te inspirar:</p>
-            <ul class="space-y-1">
-              ${otherExamples.map(e => `<li class="text-[12px] text-slate-300">• ${Utils.escape(e)}</li>`).join('')}
-            </ul>
+            <div class="flex flex-wrap gap-1.5">
+              ${otherExamples.map(e => `<button onclick="Actions.updateStrategicVision(${JSON.stringify(e).replace(/"/g, '&quot;')})" class="px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/30 text-violet-100 text-[11px] font-medium text-left transition" title="Clique pra adaptar pro seu produto">${Utils.escape(e)}</button>`).join('')}
+            </div>
           </div>
         </div>
 
@@ -1556,7 +1559,7 @@ window.StrategicMapModal = {
     const activeId = this._activeAreaId(product.id);
     const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
     const handoffArrows = ['→', '→', '↩'];
-    return `<div class="rounded-2xl bg-gradient-to-r from-sky-500/10 via-emerald-500/10 to-violet-500/10 border border-white/10 p-2">
+    return `<div class="rounded-2xl bg-gradient-to-r from-pink-500/10 via-teal-500/10 to-sky-500/10 border border-white/10 p-2">
       <div class="grid grid-cols-3 gap-2">
         ${areas.map((area, i) => {
           const isActive = activeId === area.id;
@@ -1969,15 +1972,11 @@ window.StrategicMapModal = {
         'Cada campanha é uma APOSTA diferente pra entregar os números do produto. Várias campanhas podem rodar ao mesmo tempo, cada uma contribuindo um pedaço (rollup). Selecione uma aqui e siga pra etapa 5 onde você pluga os números e ativa as ações.'
       )}
       ${(() => {
-        // V31.2.0 — Bolinha+pill ganha tom avermelhado quando tem desplugadas.
-        const hasDesp = desplugadas.length > 0;
-        const bg = hasDesp ? 'bg-red-500/10' : 'bg-violet-500/10';
-        const border = hasDesp ? 'border-red-400/30' : 'border-violet-400/25';
-        const text = hasDesp ? 'text-red-100' : 'text-violet-100';
-        const dot = hasDesp ? 'bg-red-400' : 'bg-violet-400';
-        return `<div class="rounded-xl ${bg} border ${border} px-3 py-2 text-[12px] ${text} inline-flex items-center gap-2">
-          <span class="w-2 h-2 rounded-full ${dot}"></span>
-          <span><b>${totalCampanhas}</b> campanha(s) mapeada(s), sendo <b class="text-emerald-200">${branches.length}</b> plugada(s) e <b class="text-red-200">${desplugadas.length}</b> desplugada(s)</span>
+        // V32.5.0 (Geraldo G3) — Removido vermelho. Desplugada é escolha do
+        // gestor (não rastrear por mapa) — não é erro. Tom neutro slate.
+        return `<div class="rounded-xl bg-violet-500/10 border border-violet-400/25 px-3 py-2 text-[12px] text-violet-100 inline-flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-violet-400"></span>
+          <span><b>${totalCampanhas}</b> campanha(s) mapeada(s), sendo <b class="text-emerald-200">${branches.length}</b> plugada(s) e <b class="text-slate-300">${desplugadas.length}</b> não rastreada(s)</span>
         </div>`;
       })()}
 
@@ -2020,12 +2019,14 @@ window.StrategicMapModal = {
   },
 
   _campaignHubDesplugadaCard(product, campaign) {
-    return `<div class="rounded-2xl bg-red-500/5 border border-red-400/30 p-3 flex items-center justify-between gap-3">
+    // V32.5.0 (Geraldo G3) — Removido vermelho. Desplugada é estado neutro
+    // (gestor escolheu não rastrear via mapa). Tom slate informativo.
+    return `<div class="rounded-2xl bg-slate-500/5 border border-slate-400/25 p-3 flex items-center justify-between gap-3">
       <div class="min-w-0 flex-1">
         <p class="font-black text-white text-sm truncate">${Utils.escape(campaign.name)}</p>
-        <p class="text-[11px] text-red-300">Sem Mapa ativo — não contribui pros números do produto.</p>
+        <p class="text-[11px] text-slate-400">📋 Não rastreada por mapa — pode ativar quando quiser contribuir pros números.</p>
       </div>
-      <button onclick="Actions.activateStrategicMapForCampaign(${campaign.id})" class="px-3 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-400/40 text-red-100 text-[11px] font-black flex items-center gap-1 shrink-0">Ativar Mapa</button>
+      <button onclick="Actions.activateStrategicMapForCampaign(${campaign.id})" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/20 text-slate-200 text-[11px] font-black flex items-center gap-1 shrink-0">Ativar Mapa</button>
     </div>`;
   },
 
@@ -2351,9 +2352,14 @@ window.StrategicMapModal = {
       <!-- V31.1.0 — Ações conectadas (operacional): listadas ANTES do catálogo -->
       ${this._connectedActionsList(childKr, area)}
 
-      <!-- Catálogo embaixo: scroll horizontal com curadas + customs -->
-      <div class="pt-2 border-t border-emerald-400/20">
-        <p class="text-[10px] font-black text-emerald-300 uppercase tracking-wider mb-1.5">Como cobrir esse número?</p>
+      <!-- V32.5.0 (Leonardo L5) — Catálogo agora dentro de <details> colapsável
+           pra reduzir density anxiety. Aberto por default (cliente que expandiu
+           o card quer ver o catálogo), mas colapsável se quiser respirar. -->
+      <details open class="pt-2 border-t border-emerald-400/20 group">
+        <summary class="cursor-pointer text-[10px] font-black text-emerald-300 uppercase tracking-wider mb-1.5 hover:text-emerald-200 transition flex items-center gap-1.5 select-none">
+          <i data-lucide="chevron-down" class="w-3 h-3 group-open:rotate-0 -rotate-90 transition-transform"></i>
+          Como cobrir esse número? (catálogo de ações)
+        </summary>
         ${relevantTemplates.length === 0 && customs.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem ações do catálogo que movam este número. Use o "Criar ação" ao lado.</p>' : `<div class="flex gap-1.5 overflow-x-auto pb-2" style="scrollbar-width:thin;">
           ${relevantTemplates.map(t => {
             const isAct = activatedIds.has(t.id);
@@ -2387,7 +2393,7 @@ window.StrategicMapModal = {
             <button onclick="Actions.toggleCoverageChip('${sel.id}')" title="Cancelar seleção" class="px-2 py-1 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-[10px] font-black">✕</button>
           </div>`;
         })()}
-      </div>
+      </details>
     </div>`;
   },
 
@@ -2763,17 +2769,19 @@ window.StrategicMapModal = {
     const okrs = objectives.flatMap(o => (o.okrs || []).map(kr => ({ obj: o, kr })));
     const connectedOkrs = okrs.filter(({ kr }) => (kr.connectedActionIds || []).length > 0);
     if (!connectedOkrs.length) {
+      // V32.5.0 (Geraldo G2 + G5) — Vocab V27 ("OKR") trocado por "número".
+      // Botão de retorno alinhado ao nome real da etapa 5 ("As Ações").
       return `<section class="space-y-3">
-        ${this._stepIntro('Executar via Djow', 'Conecte OKRs a ações antes de executar.', 'send')}
+        ${this._stepIntro('Colocar em campo', 'Conecte números a ações antes de colocar em campo.', 'send')}
         <div class="rounded-3xl bg-amber-500/10 border border-amber-400/30 p-5 text-amber-200">
-          <p class="font-black mb-1">Nenhum OKR conectado.</p>
-          <p class="text-sm">Volte para Conectar Operação e plugue ao menos um OKR a uma ação.</p>
-          <button onclick="Actions.setStrategicZoom('operations')" class="mt-3 px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black">← Voltar para Conectar Operação</button>
+          <p class="font-black mb-1">Nenhum número conectado a ação ainda.</p>
+          <p class="text-sm">Volte pra <b>As Ações</b> e plugue ao menos um número a uma ação.</p>
+          <button onclick="Actions.setStrategicZoom('operations')" class="mt-3 px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black">← Voltar pra As Ações</button>
         </div>
       </section>`;
     }
     return `<section class="space-y-3">
-      ${this._stepIntro('Executar via Djow', 'Para cada OKR conectado, dispare uma tarefa real no provider operacional configurado.', 'send')}
+      ${this._stepIntro('Colocar em campo', 'Pra cada número conectado, dispare uma tarefa real no provider operacional configurado (ClickUp, Trello, etc.).', 'send')}
       ${this._executionProviderBanner()}
       <div class="space-y-3">
         ${connectedOkrs.map(({ obj, kr }) => this._executionOkrCard(product, obj, kr)).join('')}
@@ -2838,23 +2846,29 @@ window.StrategicMapModal = {
   // -------------------- COMMON --------------------
   _stepIntro(title, hint, icon, interviewKey, helpKey, helpText) {
     // V27.0.0 — interviewKey opcional ativava botão "Djow me entrevista".
-    // V31.1.1 — Botão removido globalmente (criando fricção). Mantém a API
-    // do _stepIntro (interviewKey segue sendo passado) mas não renderiza.
+    // V31.1.1 — Botão removido globalmente (criando fricção).
+    // V32.5.0 (Geraldo G6) — HelpText ganha distinção visual: pill "Entenda
+    // mais" com ícone info em vez de "?". Balloon expandido ganha cor
+    // distinta + ícone + padding maior pra separar "ajuda" do conteúdo principal.
     const interviewBtn = '';
     const helpOpen = helpKey && (App.state.strategicHelpOpen || {})[helpKey];
     const helpBtn = helpKey && helpText
-      ? `<button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="w-5 h-5 rounded-full bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-400/30 text-indigo-200 text-[11px] font-black grid place-items-center transition" title="O que é isso?">?</button>`
+      ? `<button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/15 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-200 text-[10px] font-black transition" title="O que é isso?">
+          <i data-lucide="info" class="w-3 h-3"></i>
+          ${helpOpen ? 'Fechar' : 'Entenda mais'}
+        </button>`
       : '';
     const helpBalloon = helpKey && helpText && helpOpen
-      ? `<div class="mt-2 rounded-xl bg-indigo-500/10 border border-indigo-400/30 p-3 text-[12px] text-indigo-50 leading-relaxed relative">
-          <button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="absolute top-1.5 right-2 text-indigo-300 hover:text-white text-xs font-black">×</button>
-          ${Utils.escape(helpText)}
+      ? `<div class="mt-3 rounded-2xl bg-indigo-500/[0.08] border-l-4 border-indigo-400/60 border-y border-r border-y-indigo-400/20 border-r-indigo-400/20 p-4 text-[12px] text-indigo-50 leading-relaxed relative flex gap-3">
+          <i data-lucide="lightbulb" class="w-4 h-4 text-indigo-300 shrink-0 mt-0.5"></i>
+          <div class="flex-1 pr-6">${Utils.escape(helpText)}</div>
+          <button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="absolute top-2 right-2 w-5 h-5 rounded-full text-indigo-300 hover:text-white hover:bg-indigo-500/30 text-xs font-black grid place-items-center" title="Fechar">×</button>
         </div>`
       : '';
     return `<div>
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <div class="flex items-center gap-2 mb-1">
+          <div class="flex items-center gap-2 mb-1 flex-wrap">
             <i data-lucide="${icon}" class="w-4 h-4 text-indigo-300"></i>
             <p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider">Etapa: ${title}</p>
             ${helpBtn}
