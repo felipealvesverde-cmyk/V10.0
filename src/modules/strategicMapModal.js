@@ -887,9 +887,12 @@ window.StrategicMapModal = {
     const campaign = campaignId ? (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId)) : null;
     const branches = window.StrategicMapEngine?.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(product.id) : [];
     const productKrs = window.StrategicMapEngine?.getProductKrs ? StrategicMapEngine.getProductKrs(product.id) : [];
+    // V32.5.4 (Leonardo) — "branch" / "KR(s)-mãe" eram vocab V27 escapado.
+    // Cliente leigo lê e congela. Substituido por "campanha plugada" /
+    // "número do produto" (zero-jargão, alinhado com memória V28.x).
     const subtitle = mode === 'campaign' && campaign
-      ? `Branch <b class="text-violet-300">${Utils.escape(campaign.name)}</b> · ${branches.length} campanha(s) plugada(s) no produto`
-      : `${branches.length} branch(es) ativa(s) · ${productKrs.length} KR(s)-mãe`;
+      ? `Editando <b class="text-violet-300">${Utils.escape(campaign.name)}</b> · ${branches.length} campanha(s) plugada(s) no produto`
+      : `${branches.length} campanha(s) plugada(s) · ${productKrs.length} número(s) do produto`;
     return `<header class="p-5 border-b border-white/10 flex flex-col lg:flex-row lg:items-start justify-between gap-4">
       <div>
         <div class="flex items-center gap-2 mb-1"><i data-lucide="compass" class="w-4 h-4 text-indigo-300"></i><p class="text-[11px] font-black text-slate-300 uppercase tracking-wider">Revenue Strategic Map</p></div>
@@ -2920,15 +2923,25 @@ window.StrategicMapModal = {
           : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-${thermal}-500/15 border border-${thermal}-400/30 text-${thermal}-100 text-[10px] font-black"><i data-lucide="map-pin" class="w-3 h-3"></i> ${stepsLeft} ${stepsLeft === 1 ? 'passo' : 'passos'} até a receita</span>`)
       : '';
 
+    // V32.5.4 (Leonardo) — Título da etapa ganha hierarquia: pill "ETAPA N"
+    // pequena lateral + título principal em text-lg branco. Antes era tudo
+    // upper-case 11px — competia em volume baixo com o stepper sticky enorme
+    // acima. Agora o título lidera o olho: cliente le a PERGUNTA primeiro,
+    // o tabbar vira coadjuvante de wayfinding.
+    const stepIdx = StrategicZoomNavigation.LEVELS.findIndex(l => l.id === currentStep);
+    const stepNum = stepIdx >= 0 ? stepIdx + 1 : 1;
     return `<div>
       <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <div class="flex items-center gap-2 mb-1 flex-wrap">
-            <i data-lucide="${icon}" class="w-4 h-4 text-${thermal}-300"></i>
-            <p class="text-[11px] font-black text-${thermal}-200 uppercase tracking-wider">Etapa: ${title}</p>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 mb-2 flex-wrap">
+            <span class="px-2 py-0.5 rounded-full bg-${thermal}-500/20 border border-${thermal}-400/30 text-${thermal}-100 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1">
+              <i data-lucide="${icon}" class="w-3 h-3"></i>
+              Etapa ${stepNum}
+            </span>
             ${revenueBadge}
             ${helpBtn}
           </div>
+          <h3 class="text-lg md:text-xl font-black text-white leading-tight mb-1">${title}</h3>
           <p class="text-xs text-slate-400">${Utils.escape(hint)}</p>
         </div>
         ${interviewBtn}

@@ -20,8 +20,13 @@ window.StrategicZoomNavigation = {
   // titleQ: versão como pergunta/convite pro título do _stepIntro (uniformiza
   // ritmo conversacional do mapa — antes era mix de pergunta/afirmação/comando).
   LEVELS: [
-    { id: 'vision',     label: 'Objetivo do Produto', short: 'Objetivo',  icon: 'star',       description: 'Aonde esse produto chega nos próximos 12 meses.', thermal: 'violet',  word: 'visão',     titleQ: 'Qual é o objetivo do seu produto?' },
-    { id: 'objectives', label: 'Comercial',           short: 'Comercial', icon: 'flag',       description: 'As 3 frentes do funil: Marketing, Vendas e CS.',           thermal: 'purple',  word: 'donos',     titleQ: 'Quem responde por cada frente comercial?' },
+    // V32.5.4 (Leonardo) — Etapa 1 vira 'slate' (cinza-azulado, frio puro)
+    // pra diferenciar do violet+purple+fuchsia da V32.5.2. Antes as 3
+    // primeiras viviam no mesmo eixo magenta — trilha "esquentava" mesmo só
+    // a partir da etapa 4. Agora começa estrategicamente frio, esquenta
+    // progressivamente sem ambiguidade.
+    { id: 'vision',     label: 'Objetivo do Produto', short: 'Objetivo',  icon: 'star',       description: 'Aonde esse produto chega nos próximos 12 meses.', thermal: 'slate',   word: 'visão',     titleQ: 'Qual é o objetivo do seu produto?' },
+    { id: 'objectives', label: 'Comercial',           short: 'Comercial', icon: 'flag',       description: 'As 3 frentes do funil: Marketing, Vendas e CS.',           thermal: 'violet',  word: 'donos',     titleQ: 'Quem responde por cada frente comercial?' },
     { id: 'okrs',       label: 'Os números',          short: 'Números',   icon: 'target',     description: 'Como saber que cada frente está performando.',             thermal: 'fuchsia', word: 'metas',     titleQ: 'Quais são os números deste produto?' },
     { id: 'campaign',   label: 'Selecionar Campanha', short: 'Campanha',  icon: 'git-branch', description: 'Escolha em qual campanha vai trabalhar agora.',            thermal: 'pink',    word: 'escolha',   titleQ: 'Em qual campanha você quer trabalhar?' },
     { id: 'operations', label: 'As ações',            short: 'Ações',     icon: 'plug',       description: 'O que a operação faz pra mover esses números.',            thermal: 'orange',  word: 'trabalho',  titleQ: 'Como você vai cobrir esses números?' },
