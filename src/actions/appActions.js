@@ -4610,7 +4610,29 @@ Object.assign(Actions, {
   advanceStrategicStep() {
     if (!window.StrategicZoomNavigation) return;
     if (StrategicZoomNavigation.isLast()) return;
+    // V32.5.2 (Leonardo) — Hand-off de transição: Djow lateral celebra a
+    // saída da etapa + anuncia a chegada na próxima. Reduz a "sala silenciosa"
+    // que cliente sentia antes (cada etapa abria sozinha, sem rastro).
+    const current = StrategicZoomNavigation.current();
     const next = StrategicZoomNavigation.next();
+    if (window.DjowStrategicAssistant && App.state.strategicMapProductId) {
+      const handoffMessages = {
+        vision:     '✓ Objetivo cravado. Agora vamos atribuir os donos das 3 frentes comerciais.',
+        objectives: '✓ Donos definidos. Hora de definir os números que cada frente precisa entregar.',
+        okrs:       '✓ Números prontos. Escolha em qual campanha vai trabalhar agora.',
+        campaign:   '✓ Campanha selecionada. Pluge os números aqui e ative as ações que vão cobrir.',
+        operations: '✓ Ações ativadas. Pronto pra colocar em campo — vamos disparar as tarefas.'
+      };
+      const text = handoffMessages[current];
+      if (text) {
+        DjowStrategicAssistant.append(App.state.strategicMapProductId, {
+          role: 'transition',
+          text,
+          thermal: next.thermal || 'indigo',
+          ts: new Date().toISOString()
+        });
+      }
+    }
     StrategicZoomNavigation.set(next.id);
     App.save(); App.render();
   },
@@ -7107,6 +7129,17 @@ Prioridade: ${d.priority}
     if (window.StrategicMapEngine) {
       StrategicMapEngine.ensureBranchMap(Number(campaignId), Number(campaign.productId));
       StrategicMapEngine.ensureComercialAreas(Number(campaign.productId), Number(campaignId));
+    }
+    // V32.5.2 (Leonardo) — Hand-off da etapa 4 (campaign) → 5 (operations).
+    // Esta action é a única forma de transição 4→5; advanceStrategicStep não
+    // passa por aqui, então injetamos hand-off direto.
+    if (window.DjowStrategicAssistant) {
+      DjowStrategicAssistant.append(Number(campaign.productId), {
+        role: 'transition',
+        text: `✓ Campanha "${campaign.name}" selecionada. Pluge os números aqui e ative as ações que vão cobrir.`,
+        thermal: 'orange',
+        ts: new Date().toISOString()
+      });
     }
     App.state.strategicMapZoom = 'operations';
     App.save(); App.render();

@@ -1210,11 +1210,15 @@ window.StrategicMapModal = {
 
   _campaignView(product) {
     const stepId = StrategicZoomNavigation.current();
+    // V32.5.2 (Leonardo) — Fade-in suave do step ao trocar (200ms). key= força
+    // o navegador a recriar o elemento (e disparar a animação) quando step muda.
     return `<div class="space-y-4">
       ${this._stepper(product)}
       <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4">
         <div class="space-y-4 min-w-0">
-          ${this._stepContent(product, stepId)}
+          <div class="lj-step-enter" data-step="${stepId}">
+            ${this._stepContent(product, stepId)}
+          </div>
         </div>
         ${this._djowSide(product, stepId)}
       </div>
@@ -1235,22 +1239,39 @@ window.StrategicMapModal = {
       : StrategicMapEngine.journeyProgressForProduct(product.id);
     const current = StrategicZoomNavigation.current();
     // V31.1.1 — Stepper sticky no topo do container scrollable.
+    // V32.5.2 (Leonardo) — Trilha que esquenta: cada step usa cor térmica
+    // própria (violet→purple→fuchsia→pink→orange→amber). Concluído mantém
+    // verde (sinal de feito), ativo intensifica a cor térmica (saturada + ring),
+    // pendente mostra cor térmica SUTIL (10% opacity) — cliente vê de longe
+    // a TRILHA esquentando até o dourado da Receita.
     return `<div class="rounded-3xl border border-white/10 p-3 sticky top-0 z-10" style="background: rgba(7, 19, 38, 0.92); backdrop-filter: blur(12px);">
       <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
         ${StrategicZoomNavigation.LEVELS.map((level, i) => {
           const done = progress[level.id];
           const active = current === level.id;
-          const tone = active
-            ? 'bg-indigo-500/25 border-indigo-400/50'
-            : (done ? 'bg-emerald-500/15 border-emerald-400/30' : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]');
-          const numTone = active
-            ? 'bg-indigo-500 text-white'
-            : (done ? 'bg-emerald-500 text-white' : 'bg-white/10 text-slate-300');
-          const subLabel = done ? 'Concluído' : active ? 'Em foco' : 'Pendente';
-          return `<button onclick="Actions.setStrategicZoom('${level.id}')" title="${Utils.escape(level.description)}" class="text-left p-3 rounded-2xl border ${tone} transition flex items-center gap-2.5">
-            <div class="w-7 h-7 rounded-xl ${numTone} grid place-items-center font-black text-xs shrink-0">${done ? '✓' : (i + 1)}</div>
+          const t = level.thermal || 'indigo';
+          let toneCls, numToneCls, labelColorCls;
+          if (active) {
+            // Ativo: cor térmica intensa + ring marcando posição.
+            toneCls = `bg-${t}-500/25 border-${t}-400/60 ring-2 ring-${t}-400/30`;
+            numToneCls = `bg-${t}-500 text-white`;
+            labelColorCls = 'text-white';
+          } else if (done) {
+            // Concluído: verde (sinal universal de feito).
+            toneCls = 'bg-emerald-500/15 border-emerald-400/30';
+            numToneCls = 'bg-emerald-500 text-white';
+            labelColorCls = 'text-emerald-100';
+          } else {
+            // Pendente: cor térmica SUTIL — vê de longe a trilha esquentando.
+            toneCls = `bg-${t}-500/8 border-${t}-400/20 hover:bg-${t}-500/15`;
+            numToneCls = `bg-${t}-500/30 text-${t}-100`;
+            labelColorCls = `text-${t}-100`;
+          }
+          const subLabel = done ? 'Concluído' : active ? 'Em foco' : `Pendente · ${level.word || ''}`;
+          return `<button onclick="Actions.setStrategicZoom('${level.id}')" title="${Utils.escape(level.description)}" class="text-left p-3 rounded-2xl border ${toneCls} transition flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-xl ${numToneCls} grid place-items-center font-black text-xs shrink-0">${done ? '✓' : (i + 1)}</div>
             <div class="min-w-0">
-              <p class="text-[11px] font-black text-white truncate">${Utils.escape(level.short)}</p>
+              <p class="text-[11px] font-black ${labelColorCls} truncate">${Utils.escape(level.short)}</p>
               <p class="text-[10px] text-slate-400 truncate">${subLabel}</p>
             </div>
           </button>`;
@@ -1284,17 +1305,31 @@ window.StrategicMapModal = {
     return `<button onclick="Actions.executeStrategicMetrics()" title="Publica as métricas pra os gestores começarem a plugar nas campanhas" class="px-${compact ? '3' : '5'} py-${compact ? '2.5' : '3'} rounded-${compact ? 'xl' : '2xl'} font-black flex items-center gap-${compact ? '1.5' : '2'} ${compact ? 'text-xs' : 'text-sm'} transition" style="background:linear-gradient(135deg, #fbbf24, #f59e0b); color:#1f2937!important; box-shadow: 0 4px 14px rgba(251,191,36,.35);"><i data-lucide="rocket" class="w-${compact ? '3.5' : '4'} h-${compact ? '3.5' : '4'}"></i> Executar Métricas</button>`;
   },
 
-  _stepCta(label, enabled) {
+  _stepCta(label, enabled, currentStepId) {
     // V31.2.6 — Removida distinção CEO/Gestor + Executar Métricas + Continuar como Gestor.
-    // V32.5.0 (Leonardo L4) — Disabled state ganha candeado + tooltip explicando
-    // que precisa preencher pra avançar. Antes o estado disabled era só
-    // contraste baixo — cliente novo achava que era apenas cor diferente.
+    // V32.5.0 (Leonardo L4) — Disabled state ganha candeado + tooltip.
+    // V32.5.2 (Leonardo) — CTA principal usa cor TÉRMICA da PRÓXIMA etapa
+    // (esquentando conforme caminha pra Receita). Botão fantasma "← Rever"
+    // ao lado do principal pra navegação simétrica (volta nunca foi
+    // gesto natural antes). currentStepId opcional pra calcular vizinhos.
+    const levels = StrategicZoomNavigation.LEVELS;
+    const idx = currentStepId ? levels.findIndex(l => l.id === currentStepId) : -1;
+    const nextLevel = idx >= 0 && idx < levels.length - 1 ? levels[idx + 1] : null;
+    const prevLevel = idx > 0 ? levels[idx - 1] : null;
+    const nextThermal = nextLevel?.thermal || 'indigo';
+
     const cls = enabled
-      ? 'bg-indigo-500 hover:bg-indigo-600 text-white cursor-pointer'
+      ? `bg-${nextThermal}-500 hover:bg-${nextThermal}-600 text-white cursor-pointer`
       : 'bg-white/5 text-slate-500 cursor-not-allowed';
     const icon = enabled ? 'arrow-right' : 'lock';
     const title = enabled ? '' : 'title="Preencha o campo desta etapa pra avançar"';
-    return `<div class="flex justify-end items-center gap-2 pt-2 flex-wrap">
+
+    const reverBtn = prevLevel
+      ? `<button onclick="Actions.setStrategicZoom('${prevLevel.id}')" title="Voltar pra ${Utils.escape(prevLevel.short)}" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-slate-200 text-[11px] font-bold flex items-center gap-1 transition"><i data-lucide="arrow-left" class="w-3 h-3"></i> Rever ${Utils.escape(prevLevel.short)}</button>`
+      : '';
+
+    return `<div class="flex justify-between items-center gap-2 pt-2 flex-wrap">
+      <div>${reverBtn}</div>
       <button ${enabled ? '' : 'disabled'} ${title} onclick="Actions.advanceStrategicStep()" class="px-5 py-3 rounded-2xl ${cls} font-black flex items-center gap-2" ${enabled ? 'style="color:#fff!important;"' : ''}>${Utils.escape(label)} <i data-lucide="${icon}" class="w-4 h-4"></i></button>
     </div>`;
   },
@@ -1355,7 +1390,7 @@ window.StrategicMapModal = {
         <p class="text-[11px] text-slate-400 mt-2">💡 Conecta o produto a quem ele serve. Esse objetivo norteia tudo: Marketing, Vendas e Sucesso do Cliente.</p>
       </div>
 
-      ${this._stepCta('Próximo passo: definir o Comercial', hasVision)}
+      ${this._stepCta('Próximo passo: definir o Comercial', hasVision, 'vision')}
     </section>`;
   },
 
@@ -1458,9 +1493,9 @@ window.StrategicMapModal = {
     const productKrs = StrategicMapEngine.getProductKrs(product.id);
     const orphans = StrategicMapEngine.getOrphanChildKrs ? StrategicMapEngine.getOrphanChildKrs(product.id) : [];
     return `<section class="space-y-4">
-      ${this._stepIntro('Os números do produto', 'Defina quais números (KRs-mãe) o produto inteiro precisa entregar. Cada campanha plugada vai contribuir.', 'target', null, 'okrs-kr-mae', 'KR-mãe é a meta consolidada do produto. As campanhas (branches) "plugam" filhos que somam pra ela via rollup automático.')}
+      ${this._stepIntro('Quais são os números deste produto?', 'Defina quais números o produto inteiro precisa entregar. Cada campanha plugada vai contribuir.', 'target', null, 'okrs-kr-mae', 'KR-mãe é a meta consolidada do produto. As campanhas (branches) "plugam" filhos que somam pra ela via rollup automático.')}
       ${this._productKrsBlock(product, productKrs, orphans)}
-      ${this._stepCta('Próximo passo: plugar números nesta campanha', productKrs.length > 0)}
+      ${this._stepCta('Próximo passo: escolher a campanha', productKrs.length > 0, 'okrs')}
     </section>`;
   },
 
@@ -1468,7 +1503,7 @@ window.StrategicMapModal = {
     const productKrs = StrategicMapEngine.getProductKrs(product.id);
     const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
     return `<section class="space-y-4">
-      ${this._stepIntro('Os números do produto', 'Estes são os números que o CEO definiu pro produto. Para plugar à esta campanha, vá pra etapa Campanha (próxima).', 'target')}
+      ${this._stepIntro('Quais são os números deste produto?', 'Estes são os números que o CEO definiu. Para plugar à esta campanha, vá pra etapa Campanha (próxima).', 'target')}
       <div class="rounded-2xl bg-indigo-500/10 border border-indigo-400/30 p-3 text-[12px] text-indigo-100 flex items-start gap-2">
         <i data-lucide="lock" class="w-3.5 h-3.5 mt-0.5 text-indigo-300 shrink-0"></i>
         <span>🔒 <b>Definido pelo CEO</b> · Você só edita esta lista na vista CEO. Aqui você vê o que existe e na próxima etapa decide quais plugar à sua campanha.</span>
@@ -1485,7 +1520,7 @@ window.StrategicMapModal = {
           </div>`).join('')}
         </div>`;
       }).join('')}
-      ${this._stepCta('Próximo passo: plugar números nesta campanha', productKrs.length > 0)}
+      ${this._stepCta('Próximo passo: escolher a campanha', productKrs.length > 0, 'okrs')}
     </section>`;
   },
 
@@ -1520,7 +1555,7 @@ window.StrategicMapModal = {
       <div class="space-y-3">
         ${this._activeAreaObjective(product, objectives) ? this._okrsObjectiveCard(product, this._activeAreaObjective(product, objectives)) : '<p class="text-[11px] text-slate-500 italic">Selecione uma frente acima.</p>'}
       </div>
-      ${this._stepCta('Próximo passo: conectar à operação', totalOkrs > 0)}
+      ${this._stepCta('Próximo passo: conectar à operação', totalOkrs > 0, 'okrs')}
     </section>`;
   },
 
@@ -1932,7 +1967,7 @@ window.StrategicMapModal = {
           </div>`;
         }).join('')}
       </div>
-      ${this._stepCta('Próximo passo: os números do produto', allHaveOwners)}
+      ${this._stepCta('Próximo passo: os números do produto', allHaveOwners, 'objectives')}
     </section>`;
   },
 
@@ -1994,6 +2029,13 @@ window.StrategicMapModal = {
       <div class="rounded-2xl border border-dashed border-emerald-400/30 bg-emerald-500/5 p-3 flex items-center justify-between gap-2">
         <p class="text-[12px] text-emerald-200"><b>+</b> Quer rodar uma campanha nova pra cobrir esses números?</p>
         <button onclick="Actions.unlockCeoAsGestor()" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black" style="color:#fff!important;">+ Criar nova campanha</button>
+      </div>
+
+      ${/* V32.5.2 (Leonardo) — Guia visual quando user procura "Próximo passo"
+          mas não acha (a etapa 4 só avança via "Seguir" nos cards de campanha). */ ''}
+      <div class="flex justify-between items-center gap-2 pt-2 flex-wrap">
+        <button onclick="Actions.setStrategicZoom('okrs')" title="Voltar pra Números" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-slate-200 text-[11px] font-bold flex items-center gap-1 transition"><i data-lucide="arrow-left" class="w-3 h-3"></i> Rever Números</button>
+        <p class="text-[11px] text-slate-400 italic flex items-center gap-1.5"><i data-lucide="arrow-up" class="w-3 h-3"></i> Clique <b class="text-pink-200">"Seguir →"</b> em uma campanha acima pra continuar</p>
       </div>
     </section>`;
   },
@@ -2148,7 +2190,7 @@ window.StrategicMapModal = {
     const activeArea = areas.find(a => a.id === activeAreaId) || areas[0];
     return `<section class="space-y-3">
       ${this._stepIntro(
-        `Plugue os números e ative as ações da ${Utils.escape(campaign?.name || 'campanha')}`,
+        `Como você vai cobrir os números em ${Utils.escape(campaign?.name || 'sua campanha')}?`,
         'Pra cada número que o CEO definiu, você decide se esta campanha contribui. Plugando, define meta local e ativa as ações que vão cobrir.',
         'plug',
         'operations',
@@ -2162,7 +2204,7 @@ window.StrategicMapModal = {
 
       ${this._unifiedAreaBlock(product, activeArea, productKrs.filter(k => k.area === activeArea.id), campaignId)}
 
-      ${this._stepCta('Próximo passo: colocar em campo', this._anyActionConnectedInBranch(campaignId))}
+      ${this._stepCta('Próximo passo: colocar em campo', this._anyActionConnectedInBranch(campaignId), 'operations')}
     </section>`;
   },
 
@@ -2775,7 +2817,7 @@ window.StrategicMapModal = {
       // V32.5.0 (Geraldo G2 + G5) — Vocab V27 ("OKR") trocado por "número".
       // Botão de retorno alinhado ao nome real da etapa 5 ("As Ações").
       return `<section class="space-y-3">
-        ${this._stepIntro('Colocar em campo', 'Conecte números a ações antes de colocar em campo.', 'send')}
+        ${this._stepIntro('Pronto pra colocar em campo?', 'Conecte números a ações antes de colocar em campo.', 'send')}
         <div class="rounded-3xl bg-amber-500/10 border border-amber-400/30 p-5 text-amber-200">
           <p class="font-black mb-1">Nenhum número conectado a ação ainda.</p>
           <p class="text-sm">Volte pra <b>As Ações</b> e plugue ao menos um número a uma ação.</p>
@@ -2784,7 +2826,7 @@ window.StrategicMapModal = {
       </section>`;
     }
     return `<section class="space-y-3">
-      ${this._stepIntro('Colocar em campo', 'Pra cada número conectado, dispare uma tarefa real no provider operacional configurado (ClickUp, Trello, etc.).', 'send')}
+      ${this._stepIntro('Pronto pra colocar em campo?', 'Pra cada número conectado, dispare uma tarefa real no provider operacional configurado (ClickUp, Trello, etc.).', 'send')}
       ${this._executionProviderBanner()}
       <div class="space-y-3">
         ${connectedOkrs.map(({ obj, kr }) => this._executionOkrCard(product, obj, kr)).join('')}
@@ -2850,9 +2892,9 @@ window.StrategicMapModal = {
   _stepIntro(title, hint, icon, interviewKey, helpKey, helpText) {
     // V27.0.0 — interviewKey opcional ativava botão "Djow me entrevista".
     // V31.1.1 — Botão removido globalmente (criando fricção).
-    // V32.5.0 (Geraldo G6) — HelpText ganha distinção visual: pill "Entenda
-    // mais" com ícone info em vez de "?". Balloon expandido ganha cor
-    // distinta + ícone + padding maior pra separar "ajuda" do conteúdo principal.
+    // V32.5.0 (Geraldo G6) — HelpText ganha distinção visual.
+    // V32.5.2 (Leonardo) — Selo "a X passos da receita" alinhado à trilha
+    // térmica. Cliente sabe exatamente onde está na jornada até a Receita.
     const interviewBtn = '';
     const helpOpen = helpKey && (App.state.strategicHelpOpen || {})[helpKey];
     const helpBtn = helpKey && helpText
@@ -2868,12 +2910,25 @@ window.StrategicMapModal = {
           <button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="absolute top-2 right-2 w-5 h-5 rounded-full text-indigo-300 hover:text-white hover:bg-indigo-500/30 text-xs font-black grid place-items-center" title="Fechar">×</button>
         </div>`
       : '';
+
+    // V32.5.2 — Selo "X passos até a receita" usa cor térmica do step atual.
+    const currentStep = StrategicZoomNavigation.current();
+    const currentLevel = StrategicZoomNavigation.LEVELS.find(l => l.id === currentStep);
+    const stepsLeft = StrategicZoomNavigation.stepsUntilRevenue(currentStep);
+    const thermal = currentLevel?.thermal || 'indigo';
+    const revenueBadge = stepsLeft !== null
+      ? (stepsLeft === 0
+          ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/20 border border-yellow-400/40 text-yellow-200 text-[10px] font-black"><i data-lucide="circle-dollar-sign" class="w-3 h-3"></i> Você chegou à receita</span>`
+          : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-${thermal}-500/15 border border-${thermal}-400/30 text-${thermal}-100 text-[10px] font-black"><i data-lucide="map-pin" class="w-3 h-3"></i> ${stepsLeft} ${stepsLeft === 1 ? 'passo' : 'passos'} até a receita</span>`)
+      : '';
+
     return `<div>
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <div class="flex items-center gap-2 mb-1 flex-wrap">
-            <i data-lucide="${icon}" class="w-4 h-4 text-indigo-300"></i>
-            <p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider">Etapa: ${title}</p>
+            <i data-lucide="${icon}" class="w-4 h-4 text-${thermal}-300"></i>
+            <p class="text-[11px] font-black text-${thermal}-200 uppercase tracking-wider">Etapa: ${title}</p>
+            ${revenueBadge}
             ${helpBtn}
           </div>
           <p class="text-xs text-slate-400">${Utils.escape(hint)}</p>
@@ -2932,6 +2987,15 @@ window.StrategicMapModal = {
   _chatBubble(m) {
     if (m.role === 'user') {
       return `<div class="flex justify-end"><div class="max-w-[85%] px-3 py-2 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 text-indigo-50 text-xs whitespace-pre-wrap">${Utils.escape(m.text)}</div></div>`;
+    }
+    if (m.role === 'transition') {
+      // V32.5.2 (Leonardo) — Hand-off entre etapas. Visual distinto: borda
+      // esquerda colorida na cor térmica da etapa de chegada + check verde.
+      const tone = m.thermal || 'indigo';
+      return `<div class="rounded-xl bg-${tone}-500/[0.08] border-l-4 border-${tone}-400/60 border-y border-r border-y-${tone}-400/15 border-r-${tone}-400/15 px-3 py-2.5 text-[12px] text-${tone}-50 leading-relaxed flex items-start gap-2">
+        <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-300 shrink-0 mt-0.5"></i>
+        <span class="whitespace-pre-wrap">${Utils.escape(m.text)}</span>
+      </div>`;
     }
     return `<div class="flex justify-start"><div class="max-w-[88%] px-3 py-2 rounded-2xl bg-white/10 border border-white/15 text-slate-100 text-xs whitespace-pre-wrap">${Utils.escape(m.text)}</div></div>`;
   }

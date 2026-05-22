@@ -427,6 +427,17 @@ body.lj-app-body {
   letter-spacing: .04em;
 }
 
+/* V32.5.2 (Leonardo) — Fade-in suave do conteúdo da etapa no Mapa da
+   Receita. Cliente clica "Próximo passo" → tela entra suave em vez de
+   engolir abrupta. Sensação de continuidade no caminho. */
+.lj-step-enter {
+  animation: lj-step-enter-anim .22s ease-out both;
+}
+@keyframes lj-step-enter-anim {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* V25.0.2 — Header colapsado pra Home (que tem greeting próprio).
    Pras demais abas mantém título + subtítulo. */
 .lj-page-header-collapsed {
