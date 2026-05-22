@@ -6431,16 +6431,48 @@ Object.assign(Actions, {
     m.draft.tags = String(rawValue || '').split(',').map(t => t.trim()).filter(Boolean);
   },
 
-  // V32.1.7 — Modal manual agora passa por /api/clickup-create-task (igual Djow).
-  // Antes ia direto /api/clickup-proxy (bypassava guards V32.1.4-1.6: tag, prefix,
-  // status_map, write_enabled). Inconsistência apontada por Geraldo audit.
-  // Agora ambos caminhos (modal + Djow) aplicam EXATAMENTE os mesmos guards.
+  // V32.1.7 + V32.2.1 — Modal manual passa pelo /api/clickup-create-task com
+  // mirror_context resolvido (igual Djow). Guards V32.1.4-1.6 + hierarquia
+  // V32.2.0 aplicados.
   async submitClickupTask() {
     const m = App.state.createClickupTaskModal;
     if (!m) return;
     const d = m.draft;
     if (!d.name) return Utils.toast('Título obrigatório.');
-    if (!d.list_id) return Utils.toast('Escolha a Lista no ClickUp.');
+
+    const status = App.state.clickupStatus || {};
+    const mirrorOn = Boolean(status.ljSpaceId) && status.mirrorEnabled !== false;
+
+    // V32.2.1 — Resolve mirror_context a partir de seedContext.actionId (vem do
+    // botão "Criar tarefa via Djow" no Mapa da Receita). Sem seedContext, modal
+    // tá em modo "standalone" — só funciona se mirror desativado OU se cliente
+    // selecionou list_id explícito + cair no fallback.
+    let mirror_context = null;
+    if (mirrorOn && m.seedContext?.actionId) {
+      const actionId = Number(m.seedContext.actionId);
+      const action = (App.state.actions || []).find(a => Number(a.id) === actionId);
+      if (action) {
+        const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
+        const product = campaign ? (App.state.products || []).find(p => Number(p.id) === Number(campaign.productId)) : null;
+        if (campaign && product) {
+          mirror_context = {
+            product: { id: product.id, name: product.name },
+            campaign: { id: campaign.id, name: campaign.name },
+            action: { id: action.id, name: action.name }
+          };
+        }
+      }
+    }
+
+    // V32.2.1 — Standalone sem mirror_context: bloqueia se mirror ON
+    // (sem actionId, LJ não sabe onde criar na hierarquia espelhada).
+    if (mirrorOn && !mirror_context && !d.list_id) {
+      return Utils.toast('Modo espelhado ativo: abra esta task pelo Mapa da Receita (botão "Criar tarefa" em uma ação específica) pra LJ resolver a hierarquia.');
+    }
+
+    if (!mirror_context && !d.list_id) {
+      return Utils.toast('Escolha a Lista no ClickUp.');
+    }
 
     const token = localStorage.getItem('lj_jwt');
     const body = {
@@ -6450,8 +6482,10 @@ Object.assign(Actions, {
       due_date: d.due_date ? new Date(d.due_date).getTime() : undefined,
       assignees: d.assignees,
       tags: d.tags,
-      list_id: d.list_id  // V32.1.7 — list_id agora vai no body do endpoint safe
+      mirror_context  // V32.2.1 — null se modo legado/standalone, populated se from Mapa
     };
+    // Só manda list_id se NÃO tem mirror (mirror resolve list sozinho)
+    if (!mirror_context && d.list_id) body.list_id = d.list_id;
 
     try {
       const res = await fetch('/api/clickup-create-task', {
@@ -6461,7 +6495,10 @@ Object.assign(Actions, {
       });
       const data = await res.json();
       if (data.ok) {
-        Utils.toast(`✓ Tarefa criada no ClickUp${data.externalUrl ? ' · clique pra abrir' : ''}`);
+        const mirrorMsg = data.mirror?.createdAny
+          ? ' · estrutura espelhada atualizada'
+          : '';
+        Utils.toast(`✓ Tarefa criada no ClickUp${mirrorMsg}${data.externalUrl ? ' · clique pra abrir' : ''}`);
         App.state.createClickupTaskModal = null;
         App.save(); App.render();
         if (data.externalUrl) window.open(data.externalUrl, '_blank', 'noopener,noreferrer');
@@ -6469,6 +6506,8 @@ Object.assign(Actions, {
         Utils.toast('ClickUp em modo somente-leitura — task NÃO criada. Reative em Configurações → ClickUp.');
       } else if (data.code === 'no_default_list') {
         Utils.toast('Configure a list de destino padrão em Configurações → ClickUp antes de criar tasks.');
+      } else if (data.step === 'mirror_resolve') {
+        Utils.toast(`Falha na hierarquia espelhada: ${data.message}`);
       } else {
         Utils.toast(`Erro: ${data.message || 'falha desconhecida'}`);
       }

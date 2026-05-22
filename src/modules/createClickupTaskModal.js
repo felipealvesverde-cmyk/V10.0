@@ -39,6 +39,23 @@ window.CreateClickupTaskModal = {
             <div><b>Contexto:</b> ${Utils.escape(m.seedContext.summary)}</div>
           </div>` : ''}
 
+          ${(() => {
+            // V32.2.1 — Banner sobre modo espelhado.
+            const status = App.state.clickupStatus || {};
+            const mirrorOn = Boolean(status.ljSpaceId) && status.mirrorEnabled !== false;
+            if (!mirrorOn) return '';
+            if (m.seedContext?.actionId) {
+              return `<div class="rounded-xl bg-violet-50 border border-violet-200 p-3 text-[11px] text-violet-900 flex items-start gap-2">
+                <i data-lucide="layers" class="w-3.5 h-3.5 mt-0.5 shrink-0"></i>
+                <div><b>Modo espelhado ativo:</b> task vai virar subtask da ação na hierarquia Produto>Campanha>Ação no ClickUp. List de destino abaixo será ignorada — LJ resolve sozinho.</div>
+              </div>`;
+            }
+            return `<div class="rounded-xl bg-amber-50 border-2 border-amber-300 p-3 text-[11px] text-amber-900 flex items-start gap-2">
+              <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mt-0.5 shrink-0"></i>
+              <div><b>Modo espelhado ativo, mas sem contexto de ação:</b> pra criar task na hierarquia, abra o modal pelo Mapa da Receita (botão "Criar tarefa" numa ação). Aqui standalone só funciona com list_id explícito (modo fallback).</div>
+            </div>`;
+          })()}
+
           <div>
             <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Lista de destino</label>
             <select onchange="Actions.updateClickupTaskField('list_id', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900">

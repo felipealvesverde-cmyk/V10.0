@@ -207,11 +207,12 @@ const TOOLS = [
   // Pré-condição: user precisa estar conectado em Settings → Integrations → ClickUp.
   {
     name: 'create_clickup_task',
-    description: 'Cria task no ClickUp dentro de uma list. Use quando user pedir "cria tarefa", "manda pro ClickUp", etc. Use list_clickup_lists antes pra pegar list_id se não souber.',
+    description: 'Cria task no ClickUp. PREFIRA passar action_id em vez de list_id — o LJ espelha hierarquia Produto>Campanha>Ação>Tarefa automaticamente. Use list_id apenas se não souber a action. Sem action_id, task vai pra list default (se configurada) e não cria estrutura hierárquica.',
     input_schema: {
       type: 'object',
       properties: {
-        list_id: { type: 'string', description: 'ID da list no ClickUp onde criar a task' },
+        action_id: { type: 'integer', description: 'ID da ação LJ que essa task pertence. PREFERIDO — LJ resolve produto/campanha/ação→folder/list/task pai automaticamente.' },
+        list_id: { type: 'string', description: 'Fallback: ID direto da list ClickUp (legacy). Ignorado se action_id passado.' },
         name: { type: 'string', description: 'Título da task' },
         description: { type: 'string', description: 'Descrição/contexto (markdown ok)' },
         priority: { type: 'integer', description: '1=Urgent, 2=High, 3=Normal, 4=Low' },
@@ -219,7 +220,7 @@ const TOOLS = [
         assignees: { type: 'array', items: { type: 'integer' }, description: 'IDs dos users do ClickUp' },
         tags: { type: 'array', items: { type: 'string' }, description: 'Tags' }
       },
-      required: ['list_id', 'name']
+      required: ['name']
     }
   },
   {
@@ -538,18 +539,118 @@ async function execTool(name, input, state, ctx) {
       }
       // V30.0.0 — TOOLS CLICKUP. Usam ctx.db + ctx.userId pra chamar ClickUp API com OAuth.
       case 'create_clickup_task': {
+        // V32.2.1 — Resolve hierarquia P>C>A>T quando action_id passado.
+        // Espelha /api/clickup-create-task (cliente ctx.db == req.tenantDb).
         if (!ctx?.db || !ctx?.userId) return { error: 'Contexto ausente.' };
-        if (!input.list_id || !input.name) return { error: 'list_id e name obrigatórios.' };
+        if (!input.name) return { error: 'name obrigatório.' };
+
         const { clickupFetch } = require('../lib/clickup-client');
-        const body = { name: input.name };
-        if (input.description) body.description = input.description;
-        if (input.priority != null) body.priority = Number(input.priority);
-        if (input.due_date != null) body.due_date = Number(input.due_date);
-        if (Array.isArray(input.assignees) && input.assignees.length) body.assignees = input.assignees.map(Number);
-        if (Array.isArray(input.tags) && input.tags.length) body.tags = input.tags;
-        const r = await clickupFetch(ctx.db, ctx.userId, 'POST', `/list/${input.list_id}/task`, body);
+        const credRow = await ctx.db.query(
+          `SELECT default_list_id, default_space_id, lj_tag_name, task_prefix,
+                  status_map_json, write_enabled, lj_space_id, mirror_enabled
+           FROM clickup_credentials WHERE user_id = $1`,
+          [ctx.userId]
+        );
+        const cred = credRow.rows[0] || {};
+
+        if (cred.write_enabled === false) {
+          return { error: 'ClickUp em modo somente-leitura. User pode reativar em Configurações → Integrações → ClickUp → Modo de escrita.' };
+        }
+
+        let targetListId = null;
+        let parentTaskId = null;
+        let mirrorInfo = null;
+
+        // Path mirror — preferido se action_id passado + mirror enabled + space configurado
+        const useMirror = cred.mirror_enabled !== false && cred.lj_space_id && input.action_id;
+        if (useMirror) {
+          const actionId = Number(input.action_id);
+          const action = (state?.actions || []).find(a => Number(a.id) === actionId);
+          if (!action) return { error: `Ação ${actionId} não achada no state do user.` };
+          const campaign = (state?.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
+          if (!campaign) return { error: `Campanha da ação ${actionId} não achada (campaignId=${action.campaignId}).` };
+          const product = (state?.products || []).find(p => Number(p.id) === Number(campaign.productId));
+          if (!product) return { error: `Produto da campanha ${campaign.id} não achado (productId=${campaign.productId}).` };
+
+          try {
+            const mirrorLib = require('../lib/clickup-mirror');
+            const chain = await mirrorLib.resolveActionChain(
+              ctx.db, ctx.userId, cred.lj_space_id,
+              { id: product.id, name: product.name },
+              { id: campaign.id, name: campaign.name },
+              { id: action.id, name: action.name }
+            );
+            targetListId = chain.listId;
+            parentTaskId = chain.actionParentTaskId;
+            mirrorInfo = {
+              productFolderId: chain.folderId,
+              campaignListId: chain.listId,
+              actionParentTaskId: chain.actionParentTaskId,
+              createdAny: chain.createdAny
+            };
+          } catch (err) {
+            return { error: `Mirror resolution falhou: ${err.message}` };
+          }
+        }
+
+        // Fallback: list_id explícito → default_list_id → erro
+        if (!targetListId) targetListId = input.list_id || cred.default_list_id;
+        if (!targetListId) {
+          return {
+            error: cred.lj_space_id
+              ? 'Modo espelhado ativado mas action_id não foi passado. Diga qual ação esta task pertence (ex: usa query_state pra achar o ID da ação relevante).'
+              : 'List de destino do ClickUp não configurada. User precisa configurar em Configurações → Integrações → ClickUp.'
+          };
+        }
+
+        // Aplica prefix + tag automática + status mapping (espelha lógica V32.1.4-1.6)
+        const finalName = cred.task_prefix
+          ? `${cred.task_prefix}${input.name}`.slice(0, 255)
+          : String(input.name).slice(0, 255);
+
+        let initialStatus = undefined;
+        if (cred.status_map_json) {
+          try {
+            const map = JSON.parse(cred.status_map_json);
+            if (map?.pending) initialStatus = String(map.pending);
+          } catch (_) { /* ignora */ }
+        }
+
+        // Tag auto (best-effort — não bloqueia se falhar criar tag)
+        let finalTags = Array.isArray(input.tags) ? input.tags.map(String) : [];
+        if (cred.lj_tag_name && cred.default_space_id) {
+          try {
+            const tagListRes = await clickupFetch(ctx.db, ctx.userId, 'GET', `/space/${cred.default_space_id}/tag`);
+            const has = tagListRes.ok && Array.isArray(tagListRes.data?.tags)
+              && tagListRes.data.tags.some(t => String(t.name || '').toLowerCase() === String(cred.lj_tag_name).toLowerCase());
+            if (!has) {
+              await clickupFetch(ctx.db, ctx.userId, 'POST', `/space/${cred.default_space_id}/tag`, {
+                tag: { name: cred.lj_tag_name, tag_fg: '#FFFFFF', tag_bg: '#7C3AED' }
+              }).catch(() => {});
+            }
+            if (!finalTags.includes(cred.lj_tag_name)) finalTags.push(cred.lj_tag_name);
+          } catch (_) { /* silent */ }
+        }
+
+        const body = {
+          name: finalName,
+          description: input.description || undefined,
+          priority: input.priority != null ? Number(input.priority) : undefined,
+          due_date: input.due_date != null ? Number(input.due_date) : undefined,
+          assignees: Array.isArray(input.assignees) && input.assignees.length ? input.assignees.map(Number) : undefined,
+          tags: finalTags.length ? finalTags : undefined,
+          parent: parentTaskId || undefined,
+          status: initialStatus
+        };
+        Object.keys(body).forEach(k => body[k] === undefined && delete body[k]);
+
+        const r = await clickupFetch(ctx.db, ctx.userId, 'POST', `/list/${targetListId}/task`, body);
         if (!r.ok) return { error: r.data?.err || `HTTP ${r.status}`, status: r.status };
-        return { ok: true, task: { id: r.data.id, name: r.data.name, url: r.data.url, status: r.data.status?.status } };
+        return {
+          ok: true,
+          task: { id: r.data.id, name: r.data.name, url: r.data.url, status: r.data.status?.status },
+          mirror: mirrorInfo
+        };
       }
       case 'update_clickup_task': {
         if (!ctx?.db || !ctx?.userId) return { error: 'Contexto ausente.' };
