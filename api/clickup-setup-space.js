@@ -1,14 +1,18 @@
-// V32.2.0 — POST /api/clickup-setup-space
-// Setup wizard: cria o Space "LeadJourney" no ClickUp do user pra ser
-// raiz da hierarquia espelhada Produto>Campanha>Ação>Tarefa.
+// V32.5.9 — POST /api/clickup-setup-space
+// Setup wizard: adopta um Space EXISTENTE do workspace OU cria um novo
+// pra ser raiz da hierarquia espelhada Produto>Campanha>Ação>Tarefa.
 //
-// Body: { space_name?: string }  (default 'LeadJourney')
+// Body (2 modos):
+//   - Adopt: { space_id: '12345' }  ← cliente escolheu Space existente
+//   - Create: { space_name: 'LeadJourney' }  ← cria novo no workspace
+//
+// Princípio (V32.5.9): LJ NÃO cria Space autonomamente. Cliente sempre
+// escolhe entre Spaces existentes do workspace dele ou pede pra criar
+// um novo com nome customizado — soberania do workspace.
 //
 // Idempotente: se lj_space_id já tá salvo + Space ainda existe no ClickUp,
-// retorna o existente sem criar duplicado. Se foi deletado pelo cliente,
-// re-cria silenciosamente.
+// retorna o existente sem mudar nada (modo legacy/refresh).
 const { clickupFetch } = require('../lib/clickup-client');
-const { verifyClickupEntity } = require('../lib/clickup-mirror');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
@@ -16,6 +20,7 @@ module.exports = async function handler(req, res) {
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
 
   const userId = req.user.sub;
+  const adoptSpaceId = String(req.body?.space_id || '').trim();
   const spaceName = String(req.body?.space_name || 'LeadJourney').trim().slice(0, 64);
 
   try {
@@ -25,17 +30,47 @@ module.exports = async function handler(req, res) {
       [userId]
     );
     if (!credRow.rows.length) {
-      return res.status(404).json({ ok: false, message: 'ClickUp não conectado. Conecte o PAT primeiro.' });
+      return res.status(404).json({ ok: false, message: 'ClickUp não conectado. Conecte primeiro.' });
     }
     const cred = credRow.rows[0];
     if (!cred.workspace_id) {
-      return res.status(400).json({ ok: false, message: 'workspace_id não definido nas credenciais — reconecte ClickUp.' });
+      return res.status(400).json({ ok: false, message: 'workspace_id não definido — reconecte ClickUp.' });
     }
 
-    // 2. Se já tem lj_space_id, verifica se ainda existe no ClickUp
-    if (cred.lj_space_id) {
-      // Space é tipo especial — não cabe em verifyClickupEntity (kind = folder/list/task).
-      // Faz check direto via /space/{id}.
+    // 2. MODO ADOPT — cliente escolheu Space existente.
+    if (adoptSpaceId) {
+      // Valida que o Space existe + token consegue lê-lo.
+      const checkRes = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${adoptSpaceId}`);
+      if (!checkRes.ok) {
+        return res.status(400).json({
+          ok: false,
+          step: 'verify_space',
+          message: `Space ${adoptSpaceId} não acessível (${checkRes.status}). Token sem permissão ou Space não existe.`,
+          details: checkRes.data
+        });
+      }
+      const verifiedName = checkRes.data?.name || null;
+
+      // Persiste como lj_space_id (substitui se já tinha outro).
+      await req.tenantDb.query(
+        'UPDATE clickup_credentials SET lj_space_id = $1 WHERE user_id = $2',
+        [adoptSpaceId, userId]
+      );
+
+      return res.status(200).json({
+        ok: true,
+        spaceId: adoptSpaceId,
+        spaceName: verifiedName || spaceName,
+        created: false,
+        adopted: true,
+        message: `Space "${verifiedName}" adotado como raiz da hierarquia LJ.`
+      });
+    }
+
+    // 3. MODO CREATE — cria Space novo no workspace (cliente pediu explicitamente).
+    // Reuso idempotente: se já tem lj_space_id válido E cliente não passou novo nome,
+    // mantém o atual (evita criar duplicado em refreshes acidentais).
+    if (cred.lj_space_id && spaceName === 'LeadJourney') {
       const checkRes = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${cred.lj_space_id}`).catch(() => ({ ok: false }));
       if (checkRes.ok) {
         return res.status(200).json({
@@ -43,13 +78,11 @@ module.exports = async function handler(req, res) {
           spaceId: cred.lj_space_id,
           spaceName: checkRes.data?.name || spaceName,
           created: false,
-          message: 'Space LeadJourney já existe — reusando.'
+          message: 'Space já configurado — mantendo o atual.'
         });
       }
-      // Existia mas foi deletado pelo cliente → re-cria abaixo
     }
 
-    // 3. Cria Space novo no workspace do user
     const createRes = await clickupFetch(req.tenantDb, userId, 'POST', `/team/${cred.workspace_id}/space`, {
       name: spaceName,
       multiple_assignees: true,
@@ -70,14 +103,13 @@ module.exports = async function handler(req, res) {
       return res.status(502).json({
         ok: false,
         step: 'create_space',
-        message: `ClickUp recusou criar Space (${createRes.status}). User do PAT precisa de permissão pra criar Space no workspace.`,
+        message: `ClickUp recusou criar Space (${createRes.status}). Token precisa de permissão pra criar Space no workspace.`,
         details: createRes.data
       });
     }
 
     const spaceId = String(createRes.data.id);
 
-    // 4. Salva lj_space_id nas credenciais
     await req.tenantDb.query(
       'UPDATE clickup_credentials SET lj_space_id = $1 WHERE user_id = $2',
       [spaceId, userId]

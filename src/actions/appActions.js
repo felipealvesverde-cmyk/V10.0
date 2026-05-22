@@ -5593,23 +5593,143 @@ Object.assign(Actions, {
     }
   },
 
-  // V32.2.0 — Mirror: setup do Space LeadJourney + load mappings + toggle.
-  async setupClickupSpace() {
-    if (!confirm('Criar o Space "LeadJourney" no seu ClickUp?\n\nIsso é o root da hierarquia espelhada Produto>Campanha>Ação>Tarefa. Idempotente: se já existir, reusa.\n\n⚠ O PAT do user precisa de permissão pra criar Space no workspace. Confirma?')) return;
-    const token = localStorage.getItem('lj_jwt');
+  // V32.5.9 — Setup Wizard ClickUp.
+  // Princípio: LJ NÃO cria Space autonomamente. Cliente lista os Spaces do
+  // workspace dele e ESCOLHE: adotar um existente OU pedir pra criar novo.
+  // Substitui a antiga `setupClickupSpace` que criava "LeadJourney" silencioso.
+
+  openClickupSpaceWizard() {
+    App.state.clickupSpaceWizard = {
+      open: true,
+      loading: true,
+      spaces: [],
+      workspaceName: null,
+      currentLjSpaceId: null,
+      mode: 'select',
+      selectedId: null,
+      newName: 'LeadJourney',
+      submitting: false,
+      error: null
+    };
+    App.save(); App.render();
+    this.loadClickupSpaceWizard();
+  },
+
+  closeClickupSpaceWizard() {
+    App.state.clickupSpaceWizard = {
+      ...App.state.clickupSpaceWizard,
+      open: false,
+      submitting: false,
+      error: null
+    };
+    App.save(); App.render();
+  },
+
+  async loadClickupSpaceWizard() {
+    const w = App.state.clickupSpaceWizard;
+    w.loading = true;
+    w.error = null;
+    App.save(); App.render();
     try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-spaces-list', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) {
+        w.loading = false;
+        w.error = data.message || 'Falha ao listar Spaces.';
+        App.save(); App.render();
+        return;
+      }
+      w.loading = false;
+      w.spaces = Array.isArray(data.spaces) ? data.spaces : [];
+      w.workspaceName = data.workspaceName || null;
+      w.currentLjSpaceId = data.currentLjSpaceId || null;
+      // Default: se já tem um lj_space_id atual + ele tá na lista, pré-seleciona.
+      if (w.currentLjSpaceId && w.spaces.some(s => s.id === w.currentLjSpaceId)) {
+        w.selectedId = w.currentLjSpaceId;
+      } else if (w.spaces.length > 0) {
+        w.selectedId = w.spaces[0].id;
+      }
+      App.save(); App.render();
+    } catch (err) {
+      w.loading = false;
+      w.error = err.message;
+      App.save(); App.render();
+    }
+  },
+
+  setClickupSpaceWizardMode(mode) {
+    App.state.clickupSpaceWizard.mode = (mode === 'create') ? 'create' : 'select';
+    App.save(); App.render();
+  },
+
+  setClickupSpaceWizardSelected(spaceId) {
+    App.state.clickupSpaceWizard.selectedId = String(spaceId || '');
+    App.save(); App.render();
+  },
+
+  setClickupSpaceWizardNewName(name) {
+    App.state.clickupSpaceWizard.newName = String(name || '').slice(0, 64);
+    App.save();
+    // não chama render — evita perder foco do input
+  },
+
+  async confirmClickupSpaceWizard() {
+    const w = App.state.clickupSpaceWizard;
+    if (w.submitting) return;
+
+    const body = {};
+    if (w.mode === 'create') {
+      const name = String(w.newName || '').trim();
+      if (!name) {
+        w.error = 'Dê um nome pro Space novo.';
+        App.save(); App.render();
+        return;
+      }
+      body.space_name = name;
+    } else {
+      if (!w.selectedId) {
+        w.error = 'Selecione um Space da lista ou troque pra criar novo.';
+        App.save(); App.render();
+        return;
+      }
+      body.space_id = w.selectedId;
+    }
+
+    w.submitting = true;
+    w.error = null;
+    App.save(); App.render();
+
+    try {
+      const token = localStorage.getItem('lj_jwt');
       const r = await fetch('/api/clickup-setup-space', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ space_name: 'LeadJourney' })
+        body: JSON.stringify(body)
       });
       const data = await r.json();
-      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      if (!data.ok) {
+        w.submitting = false;
+        w.error = data.message || 'Falha ao configurar Space.';
+        App.save(); App.render();
+        return;
+      }
       Utils.toast(`✓ ${data.message}`);
+      // Fecha wizard, recarrega status + mappings.
+      App.state.clickupSpaceWizard = {
+        ...App.state.clickupSpaceWizard,
+        open: false,
+        submitting: false,
+        error: null
+      };
+      App.save();
       await this.loadClickupStatus();
       await this.loadClickupMappings();
+      App.render();
     } catch (err) {
-      Utils.toast(`Erro: ${err.message}`);
+      w.submitting = false;
+      w.error = err.message;
+      App.save(); App.render();
     }
   },
 

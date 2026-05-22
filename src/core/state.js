@@ -60,6 +60,21 @@ var State = {
       // V32.5.8 — Persiste estado aberto/fechado do <details> "Configurações avançadas"
       // no card ClickUp. <details> nativo perde `open` em todo innerHTML re-render.
       clickupAdvancedOpen: false,
+      // V32.5.9 — Setup Wizard ClickUp: cliente lista spaces do workspace dele
+      // e ESCOLHE qual usar como raiz (ou pede pra criar novo com nome custom).
+      // Princípio: LJ não cria Space autonomamente — soberania do workspace.
+      clickupSpaceWizard: {
+        open: false,
+        loading: false,
+        spaces: [],
+        workspaceName: null,
+        currentLjSpaceId: null,
+        mode: 'select',         // 'select' | 'create'
+        selectedId: null,
+        newName: 'LeadJourney',
+        submitting: false,
+        error: null
+      },
       taskCreationModal: null,
       djowTaskChat: null,
       // V31.2.41 — Status das 3 conexões RD (atualizado por testAllRdConnections).
@@ -705,6 +720,20 @@ var State = {
         : { clientId: '', clientSecret: '' },
       // V32.5.8 — estado persistente do <details> "Configurações avançadas".
       clickupAdvancedOpen: !!raw.clickupAdvancedOpen,
+      // V32.5.9 — Setup Wizard ClickUp sempre boota fechado (UI state).
+      // Spaces refetched ao abrir.
+      clickupSpaceWizard: {
+        open: false,
+        loading: false,
+        spaces: [],
+        workspaceName: null,
+        currentLjSpaceId: null,
+        mode: 'select',
+        selectedId: null,
+        newName: 'LeadJourney',
+        submitting: false,
+        error: null
+      },
       // Modais ficam SEMPRE fechados no boot (UI state, não persiste aberto)
       taskCreationModal: null,
       djowTaskChat: null,

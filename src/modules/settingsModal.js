@@ -2624,6 +2624,7 @@ var SettingsModal = {
       : '';
 
     return `<div class="space-y-5">
+      ${App.state.clickupSpaceWizard?.open ? this._clickupSpaceWizardRender() : ''}
       ${encWarn}
       ${readOnlyBanner}
       ${spaceDeleteBanner}
@@ -2960,6 +2961,147 @@ var SettingsModal = {
     </div>`;
   },
 
+  // V32.5.9 — Setup Wizard Space ClickUp.
+  // Cliente vê os Spaces do workspace dele e ESCOLHE (adotar existente ou criar
+  // novo com nome custom). LJ não cria autonomamente — soberania do workspace.
+  _clickupSpaceWizardRender() {
+    const w = App.state.clickupSpaceWizard || {};
+    const mode = w.mode === 'create' ? 'create' : 'select';
+    const submitting = !!w.submitting;
+    const loading = !!w.loading;
+
+    const tabBtn = (key, label) => {
+      const active = mode === key;
+      return `<button onclick="Actions.setClickupSpaceWizardMode('${key}')"
+        class="flex-1 px-4 py-2.5 rounded-xl text-xs font-black transition ${active
+          ? 'bg-violet-600 text-white shadow-sm'
+          : 'bg-slate-100 hover:bg-slate-200 text-slate-700'}"
+        ${active ? 'style="color:#fff!important;"' : ''}>${label}</button>`;
+    };
+
+    const spaceRow = (s) => {
+      const checked = w.selectedId === s.id;
+      const isCurrent = w.currentLjSpaceId === s.id;
+      return `<label class="flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition ${checked
+        ? 'border-violet-500 bg-violet-50'
+        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}">
+        <input type="radio" name="clickup-space-pick" value="${Utils.escape(s.id)}" ${checked ? 'checked' : ''}
+          onchange="Actions.setClickupSpaceWizardSelected('${Utils.escape(s.id)}')"
+          class="w-4 h-4 text-violet-600 shrink-0">
+        <div class="flex-1 min-w-0">
+          <p class="font-black text-sm text-slate-900 truncate">${Utils.escape(s.name)}</p>
+          <p class="text-[10px] text-slate-500">
+            ID ${Utils.escape(s.id)}
+            ${s.private ? ' · privado' : ''}
+            ${isCurrent ? ' · <span class="text-violet-700 font-black">SPACE ATUAL DO LJ</span>' : ''}
+          </p>
+        </div>
+      </label>`;
+    };
+
+    const errorBox = w.error
+      ? `<div class="rounded-xl bg-red-50 border border-red-200 p-3 text-red-800 text-xs">${Utils.escape(w.error)}</div>`
+      : '';
+
+    let body = '';
+    if (loading) {
+      body = `<div class="py-10 text-center text-sm text-slate-500">
+        <i data-lucide="loader-2" class="w-5 h-5 inline-block animate-spin mr-2"></i>
+        Lendo Spaces do seu workspace…
+      </div>`;
+    } else if (mode === 'select') {
+      const list = Array.isArray(w.spaces) ? w.spaces : [];
+      if (list.length === 0) {
+        body = `<div class="py-6 text-center text-sm text-slate-500">
+          Nenhum Space ativo encontrado no workspace.
+          Mude pra aba "Criar novo" abaixo.
+        </div>`;
+      } else {
+        body = `<div class="space-y-2">
+          <p class="text-[11px] text-slate-500 mb-2">
+            Escolha um Space para o LJ usar como raiz. Folders (Produtos), Lists (Campanhas)
+            e Tasks pai (Ações) serão criadas <b>dentro</b> dele conforme você for usando.
+          </p>
+          ${list.map(spaceRow).join('')}
+        </div>`;
+      }
+    } else {
+      body = `<div class="space-y-3">
+        <p class="text-[11px] text-slate-600 leading-relaxed">
+          O LJ vai pedir ao ClickUp pra criar um Space novo no seu workspace
+          <b>${Utils.escape(w.workspaceName || 'atual')}</b>. Use isso se você quer
+          separar 100% a estrutura LJ dos outros Spaces do time.
+        </p>
+        <label class="block">
+          <span class="text-[11px] font-black text-slate-700 uppercase tracking-wide">Nome do Space novo</span>
+          <input type="text"
+            value="${Utils.escape(w.newName || '')}"
+            oninput="Actions.setClickupSpaceWizardNewName(this.value)"
+            placeholder="LeadJourney"
+            maxlength="64"
+            class="mt-1 w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-violet-500 focus:ring-2 focus:ring-violet-200 text-sm font-semibold text-slate-800">
+        </label>
+        <p class="text-[10px] text-slate-400 italic">
+          Você precisa de permissão pra criar Space no workspace ${Utils.escape(w.workspaceName || '')}.
+        </p>
+      </div>`;
+    }
+
+    const confirmLabel = mode === 'create' ? 'Criar Space novo' : 'Usar este Space';
+    const confirmDisabled = submitting || loading || (mode === 'select' && !w.selectedId) || (mode === 'create' && !String(w.newName || '').trim());
+
+    return `<div class="fixed inset-0 z-[95] bg-black/70 backdrop-blur-sm grid place-items-center p-4"
+      onclick="if(event.target === this) Actions.closeClickupSpaceWizard()">
+      <div class="bg-white rounded-3xl w-full max-w-xl max-h-[90vh] overflow-auto shadow-2xl">
+        <div class="p-5 border-b border-slate-100 flex items-start justify-between gap-3 sticky top-0 bg-white z-10">
+          <div>
+            <p class="text-[10px] font-black text-violet-600 uppercase tracking-widest">ClickUp · Setup do Space</p>
+            <h2 class="text-xl font-black text-slate-900 mt-0.5">Onde o LJ vai criar a estrutura?</h2>
+            ${w.workspaceName
+              ? `<p class="text-[11px] text-slate-500 mt-0.5">Workspace: <b>${Utils.escape(w.workspaceName)}</b></p>`
+              : ''}
+          </div>
+          <button onclick="Actions.closeClickupSpaceWizard()" class="w-9 h-9 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xl">×</button>
+        </div>
+
+        <div class="p-5 space-y-4">
+          <div class="rounded-2xl bg-violet-50 border border-violet-200 p-3 text-[12px] text-violet-900 leading-relaxed">
+            <p>O LJ <b>nunca</b> cria coisas no seu ClickUp sem você mandar. Aqui você decide:
+            usar um Space que já existe (<b>recomendado</b> se o time já tem rotina rodando lá)
+            ou criar um Space novo dedicado ao LJ.</p>
+          </div>
+
+          <div class="flex gap-2">
+            ${tabBtn('select', 'Usar Space existente')}
+            ${tabBtn('create', 'Criar Space novo')}
+          </div>
+
+          ${errorBox}
+
+          <div class="min-h-[120px]">
+            ${body}
+          </div>
+        </div>
+
+        <div class="p-5 border-t border-slate-100 flex justify-end gap-2 sticky bottom-0 bg-white">
+          <button onclick="Actions.closeClickupSpaceWizard()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs">
+            Cancelar
+          </button>
+          <button onclick="Actions.confirmClickupSpaceWizard()"
+            ${confirmDisabled ? 'disabled' : ''}
+            class="px-4 py-2 rounded-xl ${confirmDisabled
+              ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+              : 'bg-violet-600 hover:bg-violet-700 text-white'} font-black text-xs flex items-center gap-1.5"
+            ${confirmDisabled ? '' : 'style="color:#fff!important;"'}>
+            ${submitting
+              ? '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>Configurando…'
+              : `<i data-lucide="check" class="w-3.5 h-3.5"></i>${confirmLabel}`}
+          </button>
+        </div>
+      </div>
+    </div>`;
+  },
+
   // V32.2.0 — Card "Hierarquia espelhada" (Produto>Campanha>Ação>Tarefa).
   // Geraldo decision (Felipe aprovado): LJ é opinionated. Estrutura idêntica
   // entre LJ e ClickUp do cliente. Mata cognitive load de traduzir.
@@ -3045,8 +3187,9 @@ var SettingsModal = {
             </details>
           ` : `
             <p class="text-xs text-amber-800 mt-1 leading-relaxed">
-              <b>Setup obrigatório:</b> LJ precisa criar um Space dedicado no seu ClickUp pra ser raiz da hierarquia.
-              Sem isso, modo espelhado fica inativo. Botão abaixo cria 1 Space chamado "LeadJourney".
+              <b>Setup obrigatório:</b> escolha qual Space do seu workspace o LJ vai usar como raiz da hierarquia
+              (Produto → Folder, Campanha → List, Ação → Task pai). Você pode <b>reaproveitar um Space existente</b>
+              ou pedir pro LJ <b>criar um novo</b> com o nome que preferir.
             </p>
           `}
         </div>
@@ -3055,6 +3198,9 @@ var SettingsModal = {
             ? `<button onclick="Actions.testClickupSpace()" title="Verifica se PAT consegue acessar o Space" class="px-3 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-black text-xs flex items-center gap-1.5">
                 <i data-lucide="zap" class="w-3.5 h-3.5"></i>Testar
               </button>
+              <button onclick="Actions.openClickupSpaceWizard()" title="Trocar pra outro Space do workspace" class="px-3 py-2 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-black text-xs flex items-center gap-1.5">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>Trocar Space
+              </button>
               <button onclick="Actions.migrateClickupToMirror()" title="Cria toda a estrutura LJ atual no ClickUp em lote" class="px-3 py-2 rounded-xl bg-violet-100 hover:bg-violet-200 text-violet-800 font-black text-xs flex items-center gap-1.5">
                 <i data-lucide="git-merge" class="w-3.5 h-3.5"></i>Migrar tudo
               </button>
@@ -3062,8 +3208,8 @@ var SettingsModal = {
                 <i data-lucide="${mirrorOn ? 'pause' : 'play'}" class="w-3.5 h-3.5"></i>
                 ${mirrorOn ? 'Desativar' : 'Reativar'}
               </button>`
-            : `<button onclick="Actions.setupClickupSpace()" class="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs flex items-center gap-1.5 animate-pulse" style="color:#fff!important;">
-                <i data-lucide="zap" class="w-3.5 h-3.5"></i>Inicializar Space
+            : `<button onclick="Actions.openClickupSpaceWizard()" class="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs flex items-center gap-1.5 animate-pulse" style="color:#fff!important;">
+                <i data-lucide="zap" class="w-3.5 h-3.5"></i>Configurar Space
               </button>`
           }
         </div>
