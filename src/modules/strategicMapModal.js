@@ -1023,7 +1023,7 @@ window.StrategicMapModal = {
   _productVisionBlock(product, vision) {
     return `<section class="rounded-3xl bg-white/[0.05] border border-white/10 p-5">
       <div class="flex items-center gap-2 mb-2"><i data-lucide="star" class="w-4 h-4 text-violet-300"></i><p class="text-[11px] font-black text-violet-200 uppercase tracking-wider">Visão do Produto (única, compartilhada por todas as campanhas)</p></div>
-      <textarea oninput="Actions.updateStrategicVision(this.value)" placeholder="Aonde esse produto chega nos próximos 12 meses?" class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[80px] placeholder:text-slate-500" style="color-scheme:dark;">${Utils.escape(vision)}</textarea>
+      <textarea id="strategicVisionTextareaOverview" oninput="Actions.updateStrategicVision(this.value)" placeholder="Aonde esse produto chega nos próximos 12 meses?" class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[80px] placeholder:text-slate-500" style="color-scheme:dark;">${Utils.escape(vision)}</textarea>
     </section>`;
   },
 
@@ -1360,33 +1360,31 @@ window.StrategicMapModal = {
         'É a missão que a empresa dá para aquele produto específico para ajudar a ganhar dinheiro.'
       )}
 
-      ${!hasVision ? `
-        ${/* V32.5.1 — REVERTIDA L3 V32.5.0. Felipe corrigiu: exemplos são
-            REFERÊNCIA DIDÁTICA, não cardápio. Cliente NÃO deve clicar e
-            ter objetivo do produto dele setado pra "café da manhã favorito".
-            Lista passiva (bullet) pra leitura — sinal visual claro de
-            "isso é só pra você ENTENDER, não pra usar literalmente". */ ''}
-        <div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">Exemplo de produto</span>
-            <span class="text-[11px] text-slate-400">Pra você entender o formato — escreva o seu abaixo</span>
-          </div>
-          <p class="text-base text-white font-semibold leading-relaxed italic mb-3">"${Utils.escape(exampleCacau)}"</p>
-
-          <div class="mt-4 pt-3 border-t border-white/10">
-            <p class="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Outros exemplos pra leitura (não clicáveis):</p>
-            <ul class="space-y-1">
-              ${otherExamples.map(e => `<li class="text-[12px] text-slate-300">• ${Utils.escape(e)}</li>`).join('')}
-            </ul>
-          </div>
+      ${/* V32.5.3 — Felipe: card de exemplo + transição SEMPRE visíveis na
+          etapa 1. Antes era condicionado a !hasVision — quando user digitava
+          1 letra, a tela mudava (exemplo sumia). Sensação: a interface
+          "engolia" o exemplo no meio do typing. Agora tela é estável: o
+          cliente sempre tem a referência visível enquanto escreve. */ ''}
+      <div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">Exemplo de produto</span>
+          <span class="text-[11px] text-slate-400">Pra você entender o formato — escreva o seu abaixo</span>
         </div>
+        <p class="text-base text-white font-semibold leading-relaxed italic mb-3">"${Utils.escape(exampleCacau)}"</p>
 
-        <p class="text-center text-[12px] text-slate-300 italic px-4">Agora, depois que você entendeu o conceito, escreva o objetivo do seu produto aqui ↓</p>
-      ` : ''}
+        <div class="mt-4 pt-3 border-t border-white/10">
+          <p class="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Outros exemplos pra leitura (não clicáveis):</p>
+          <ul class="space-y-1">
+            ${otherExamples.map(e => `<li class="text-[12px] text-slate-300">• ${Utils.escape(e)}</li>`).join('')}
+          </ul>
+        </div>
+      </div>
+
+      <p class="text-center text-[12px] text-slate-300 italic px-4">Agora, depois que você entendeu o conceito, escreva o objetivo do seu produto aqui ↓</p>
 
       <div class="rounded-3xl bg-white/[0.05] border border-white/10 p-5">
         <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Objetivo do produto em uma frase</label>
-        <textarea oninput="Actions.updateStrategicVision(this.value)" placeholder="Tornar [esse produto] o(a) [posição] pra [público] até [horizonte]" class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[100px] placeholder:text-slate-500" style="color-scheme:dark;">${Utils.escape(map.vision || '')}</textarea>
+        <textarea id="strategicVisionTextarea" oninput="Actions.updateStrategicVision(this.value)" placeholder="Tornar [esse produto] o(a) [posição] pra [público] até [horizonte]" class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[100px] placeholder:text-slate-500" style="color-scheme:dark;">${Utils.escape(map.vision || '')}</textarea>
         <p class="text-[11px] text-slate-400 mt-2">💡 Conecta o produto a quem ele serve. Esse objetivo norteia tudo: Marketing, Vendas e Sucesso do Cliente.</p>
       </div>
 
