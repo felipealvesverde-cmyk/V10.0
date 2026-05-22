@@ -2610,15 +2610,20 @@ var SettingsModal = {
         </div>`
       : '';
 
-    // V32.2.3 (Geraldo A5) — Aviso proeminente sobre delete do Space LeadJourney.
-    // Antes era texto pequeno dentro do card. Agora banner visível no topo —
-    // cliente vê ANTES de fazer qualquer coisa no ClickUp.
-    const spaceDeleteBanner = status.connected && status.ljSpaceId
+    // V32.2.3 → V32.6.0 — Aviso proeminente sobre delete da raiz LJ.
+    // Texto adapta por rootKind (Space/Folder/List).
+    const _rootIdForBanner = status.rootId || status.ljSpaceId || null;
+    const _rootKindForBanner = status.rootKind || (status.ljSpaceId ? 'space' : null);
+    const _rootNameForBanner = status.rootName || null;
+    const _rootLabelForBanner = _rootKindForBanner === 'space' ? 'Space'
+                              : _rootKindForBanner === 'folder' ? 'Folder'
+                              : _rootKindForBanner === 'list' ? 'List' : 'raiz';
+    const spaceDeleteBanner = status.connected && _rootIdForBanner
       ? `<div class="rounded-2xl bg-red-50 border border-red-200 p-3 mb-4 text-red-900 flex items-start gap-3">
           <i data-lucide="alert-octagon" class="w-4 h-4 mt-0.5 shrink-0"></i>
           <div class="flex-1 text-xs">
-            <p class="font-black">⚠ NUNCA delete o Space "LeadJourney" no ClickUp</p>
-            <p>Se deletar, todo o mapeamento Produto/Campanha/Ação se perde. Tasks novas viram duplicatas das anteriores. Renomear o Space é OK (LJ acha pelo ID).</p>
+            <p class="font-black">⚠ NUNCA delete ${_rootLabelForBanner === 'List' ? 'a' : 'o'} ${_rootLabelForBanner}${_rootNameForBanner ? ' "' + Utils.escape(_rootNameForBanner) + '"' : ''} no ClickUp</p>
+            <p>É a raiz do LJ. Se deletar, todo o mapeamento se perde e tasks novas viram duplicatas das anteriores. Renomear é OK (LJ acha pelo ID).</p>
           </div>
         </div>`
       : '';
@@ -2961,14 +2966,21 @@ var SettingsModal = {
     </div>`;
   },
 
-  // V32.5.9 — Setup Wizard Space ClickUp.
-  // Cliente vê os Spaces do workspace dele e ESCOLHE (adotar existente ou criar
-  // novo com nome custom). LJ não cria autonomamente — soberania do workspace.
+  // V32.6.0 — Setup Wizard ClickUp com tree view profunda.
+  // Cliente navega Space → Folder → List e ESCOLHE um nó. Tipo do nó determina
+  // o modo de espelhamento:
+  //   space  → cascado completo (Folder=Produto, List=Campanha, Task=Ação, Subtask=Tarefa)
+  //   folder → cascado parcial (List=Campanha, Task=Ação, Subtask=Tarefa) [Produto = metadado LJ]
+  //   list   → achatado (Task=Tarefa) [Produto/Campanha/Ação ficam só no LJ]
+  // Princípio (workspace-sovereignty): LJ NUNCA cria nada sem cliente mandar.
   _clickupSpaceWizardRender() {
     const w = App.state.clickupSpaceWizard || {};
     const mode = w.mode === 'create' ? 'create' : 'select';
     const submitting = !!w.submitting;
     const loading = !!w.loading;
+    const selected = w.selectedNode || null;
+    const expSpaces = w.expandedSpaces || [];
+    const expFolders = w.expandedFolders || [];
 
     const tabBtn = (key, label) => {
       const active = mode === key;
@@ -2979,52 +2991,117 @@ var SettingsModal = {
         ${active ? 'style="color:#fff!important;"' : ''}>${label}</button>`;
     };
 
-    const spaceRow = (s) => {
-      const checked = w.selectedId === s.id;
-      const isCurrent = w.currentLjSpaceId === s.id;
-      return `<label class="flex items-center gap-3 p-3 rounded-2xl border-2 cursor-pointer transition ${checked
-        ? 'border-violet-500 bg-violet-50'
-        : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'}">
-        <input type="radio" name="clickup-space-pick" value="${Utils.escape(s.id)}" ${checked ? 'checked' : ''}
-          onchange="Actions.setClickupSpaceWizardSelected('${Utils.escape(s.id)}')"
-          class="w-4 h-4 text-violet-600 shrink-0">
-        <div class="flex-1 min-w-0">
-          <p class="font-black text-sm text-slate-900 truncate">${Utils.escape(s.name)}</p>
-          <p class="text-[10px] text-slate-500">
-            ID ${Utils.escape(s.id)}
-            ${s.private ? ' · privado' : ''}
-            ${isCurrent ? ' · <span class="text-violet-700 font-black">SPACE ATUAL DO LJ</span>' : ''}
-          </p>
-        </div>
+    // Linha clicável de um nó (Space, Folder ou List). Mostra radio + ícone + nome.
+    const nodeRow = (kind, id, name, indentLevel, expandToggleHtml) => {
+      const isSelected = selected && selected.id === id && selected.kind === kind;
+      const isCurrent = w.currentRootId === id && w.currentRootKind === kind;
+      const icon = kind === 'space' ? 'box' : kind === 'folder' ? 'folder' : 'list';
+      const escId = Utils.escape(id);
+      const escName = Utils.escape(name);
+      const indentStyle = `padding-left:${10 + indentLevel * 18}px`;
+      const labelKind = kind === 'space' ? 'Space' : kind === 'folder' ? 'Folder' : 'List';
+      return `<label
+        class="flex items-center gap-2 py-1.5 pr-3 rounded-lg cursor-pointer transition ${isSelected
+          ? 'bg-violet-100 ring-2 ring-violet-500'
+          : 'hover:bg-slate-100'}"
+        style="${indentStyle}"
+        onclick="Actions.setClickupWizardSelectedNode('${escId}', '${kind}', this.dataset.name)"
+        data-name="${escName}">
+        <input type="radio" name="clickup-tree-pick" ${isSelected ? 'checked' : ''}
+          class="w-3.5 h-3.5 text-violet-600 shrink-0 pointer-events-none">
+        ${expandToggleHtml || `<span class="w-3.5"></span>`}
+        <i data-lucide="${icon}" class="w-3.5 h-3.5 text-slate-500 shrink-0"></i>
+        <span class="flex-1 min-w-0 text-[12px] font-semibold text-slate-800 truncate">${escName}</span>
+        <span class="text-[9px] font-black uppercase tracking-widest ${kind === 'space' ? 'text-violet-700' : kind === 'folder' ? 'text-amber-700' : 'text-sky-700'} shrink-0">${labelKind}</span>
+        ${isCurrent ? '<span class="text-[9px] font-black text-violet-700 px-1.5 py-0.5 rounded bg-violet-50 shrink-0">ATUAL</span>' : ''}
       </label>`;
     };
+
+    const expandBtn = (open, onclick) => `<button
+      onclick="event.preventDefault(); event.stopPropagation(); ${onclick}"
+      class="w-3.5 h-3.5 flex items-center justify-center text-slate-500 hover:text-slate-800 shrink-0">
+      <i data-lucide="${open ? 'chevron-down' : 'chevron-right'}" class="w-3 h-3"></i>
+    </button>`;
+
+    // Render recursivo da árvore
+    const treeHtml = (() => {
+      const tree = Array.isArray(w.tree) ? w.tree : [];
+      if (tree.length === 0) {
+        return `<div class="py-6 text-center text-sm text-slate-500">
+          Nenhum Space ativo encontrado no workspace. Troque pra aba "Criar Space novo".
+        </div>`;
+      }
+      return tree.map(space => {
+        const spaceOpen = expSpaces.includes(space.id);
+        const hasChildren = (space.folderlessLists?.length || 0) + (space.folders?.length || 0) > 0;
+        const spaceRowHtml = nodeRow('space', space.id, space.name, 0,
+          hasChildren ? expandBtn(spaceOpen, `Actions.toggleClickupWizardSpace('${Utils.escape(space.id)}')`) : null
+        );
+
+        let childrenHtml = '';
+        if (spaceOpen) {
+          const folderlessLists = (space.folderlessLists || []).map(list =>
+            nodeRow('list', list.id, list.name, 1, null)
+          ).join('');
+
+          const folders = (space.folders || []).map(folder => {
+            const folderOpen = expFolders.includes(folder.id);
+            const hasLists = (folder.lists?.length || 0) > 0;
+            const folderRowHtml = nodeRow('folder', folder.id, folder.name, 1,
+              hasLists ? expandBtn(folderOpen, `Actions.toggleClickupWizardFolder('${Utils.escape(folder.id)}')`) : null
+            );
+            const listsHtml = folderOpen && hasLists
+              ? folder.lists.map(list => nodeRow('list', list.id, list.name, 2, null)).join('')
+              : '';
+            return folderRowHtml + listsHtml;
+          }).join('');
+
+          childrenHtml = folderlessLists + folders;
+        }
+
+        return spaceRowHtml + childrenHtml;
+      }).join('');
+    })();
 
     const errorBox = w.error
       ? `<div class="rounded-xl bg-red-50 border border-red-200 p-3 text-red-800 text-xs">${Utils.escape(w.error)}</div>`
       : '';
 
+    // Hint dinâmico do modo do nó selecionado
+    const modeHint = selected ? (() => {
+      if (selected.kind === 'space') return {
+        title: 'Modo cascado completo',
+        body: 'Folders viram Produtos · Lists viram Campanhas · Tasks pai viram Ações · Subtasks viram Tarefas. Estrutura LJ inteira espelhada.'
+      };
+      if (selected.kind === 'folder') return {
+        title: 'Modo cascado parcial',
+        body: 'Lists viram Campanhas · Tasks pai viram Ações · Subtasks viram Tarefas. Produto LJ fica só como metadado (não espelha).'
+      };
+      return {
+        title: 'Modo achatado',
+        body: 'Toda Tarefa LJ vira Task direto nesta List. Produto/Campanha/Ação ficam apenas no LJ (não espelham no ClickUp).'
+      };
+    })() : null;
+
     let body = '';
     if (loading) {
       body = `<div class="py-10 text-center text-sm text-slate-500">
         <i data-lucide="loader-2" class="w-5 h-5 inline-block animate-spin mr-2"></i>
-        Lendo Spaces do seu workspace…
+        Lendo árvore do seu workspace…
       </div>`;
     } else if (mode === 'select') {
-      const list = Array.isArray(w.spaces) ? w.spaces : [];
-      if (list.length === 0) {
-        body = `<div class="py-6 text-center text-sm text-slate-500">
-          Nenhum Space ativo encontrado no workspace.
-          Mude pra aba "Criar novo" abaixo.
-        </div>`;
-      } else {
-        body = `<div class="space-y-2">
-          <p class="text-[11px] text-slate-500 mb-2">
-            Escolha um Space para o LJ usar como raiz. Folders (Produtos), Lists (Campanhas)
-            e Tasks pai (Ações) serão criadas <b>dentro</b> dele conforme você for usando.
-          </p>
-          ${list.map(spaceRow).join('')}
-        </div>`;
-      }
+      body = `<div class="space-y-3">
+        <p class="text-[11px] text-slate-500">
+          Navegue na árvore e escolha onde o LJ vai ancorar. O <b>tipo</b> do nó escolhido (Space, Folder ou List) decide quanto da hierarquia LJ é espelhada.
+        </p>
+        <div class="rounded-2xl border border-slate-200 bg-white max-h-[40vh] overflow-auto p-1.5">
+          ${treeHtml}
+        </div>
+        ${modeHint ? `<div class="rounded-xl bg-violet-50 border border-violet-200 p-3 text-[11px] text-violet-900">
+          <p class="font-black mb-0.5">→ ${Utils.escape(modeHint.title)}</p>
+          <p class="leading-relaxed">${modeHint.body}</p>
+        </div>` : ''}
+      </div>`;
     } else {
       body = `<div class="space-y-3">
         <p class="text-[11px] text-slate-600 leading-relaxed">
@@ -3047,16 +3124,20 @@ var SettingsModal = {
       </div>`;
     }
 
-    const confirmLabel = mode === 'create' ? 'Criar Space novo' : 'Usar este Space';
-    const confirmDisabled = submitting || loading || (mode === 'select' && !w.selectedId) || (mode === 'create' && !String(w.newName || '').trim());
+    const confirmLabel = mode === 'create'
+      ? 'Criar Space novo'
+      : (selected ? `Usar ${selected.kind === 'space' ? 'este Space' : selected.kind === 'folder' ? 'este Folder' : 'esta List'}` : 'Escolha um nó');
+    const confirmDisabled = submitting || loading
+      || (mode === 'select' && !selected)
+      || (mode === 'create' && !String(w.newName || '').trim());
 
     return `<div class="fixed inset-0 z-[95] bg-black/70 backdrop-blur-sm grid place-items-center p-4"
       onclick="if(event.target === this) Actions.closeClickupSpaceWizard()">
       <div class="bg-white rounded-3xl w-full max-w-xl max-h-[90vh] overflow-auto shadow-2xl">
         <div class="p-5 border-b border-slate-100 flex items-start justify-between gap-3 sticky top-0 bg-white z-10">
           <div>
-            <p class="text-[10px] font-black text-violet-600 uppercase tracking-widest">ClickUp · Setup do Space</p>
-            <h2 class="text-xl font-black text-slate-900 mt-0.5">Onde o LJ vai criar a estrutura?</h2>
+            <p class="text-[10px] font-black text-violet-600 uppercase tracking-widest">ClickUp · Onde ancorar o LJ</p>
+            <h2 class="text-xl font-black text-slate-900 mt-0.5">Onde o LJ vai morar no seu ClickUp?</h2>
             ${w.workspaceName
               ? `<p class="text-[11px] text-slate-500 mt-0.5">Workspace: <b>${Utils.escape(w.workspaceName)}</b></p>`
               : ''}
@@ -3066,13 +3147,11 @@ var SettingsModal = {
 
         <div class="p-5 space-y-4">
           <div class="rounded-2xl bg-violet-50 border border-violet-200 p-3 text-[12px] text-violet-900 leading-relaxed">
-            <p>O LJ <b>nunca</b> cria coisas no seu ClickUp sem você mandar. Aqui você decide:
-            usar um Space que já existe (<b>recomendado</b> se o time já tem rotina rodando lá)
-            ou criar um Space novo dedicado ao LJ.</p>
+            <p>O LJ <b>nunca</b> cria coisas no seu ClickUp sem você mandar. Aqui você navega a árvore do workspace (Space → Folder → List) e escolhe <b>exatamente onde</b> ele vai ancorar. O <b>tipo</b> do nó escolhido decide o quanto da hierarquia LJ é espelhada no ClickUp.</p>
           </div>
 
           <div class="flex gap-2">
-            ${tabBtn('select', 'Usar Space existente')}
+            ${tabBtn('select', 'Escolher nó existente')}
             ${tabBtn('create', 'Criar Space novo')}
           </div>
 
@@ -3107,8 +3186,25 @@ var SettingsModal = {
   // entre LJ e ClickUp do cliente. Mata cognitive load de traduzir.
   _clickupMirrorCard(status) {
     const mirrorOn = status.mirrorEnabled !== false;
-    const hasSpace = Boolean(status.ljSpaceId);
+    // V32.6.0 — raiz pode ser Space/Folder/List. ljSpaceId mantido por back-compat.
+    const rootId = status.rootId || status.ljSpaceId || null;
+    const rootKind = status.rootKind || (status.ljSpaceId ? 'space' : null);
+    const hasRoot = Boolean(rootId && rootKind);
+    const hasSpace = hasRoot; // alias pra reutilizar lógica antiga
     const cache = App.state._clickupMappingsCache;
+    const rootName = status.rootName || cache?.rootName || cache?.ljSpaceName || null;
+
+    const rootLabel = rootKind === 'space' ? 'Space' : rootKind === 'folder' ? 'Folder' : rootKind === 'list' ? 'List' : 'raiz';
+    const hierarchyTitle = rootKind === 'list'
+      ? 'Hierarquia achatada (Tarefa = Task)'
+      : rootKind === 'folder'
+      ? 'Hierarquia parcial (Campanha > Ação > Tarefa)'
+      : 'Hierarquia espelhada (Produto > Campanha > Ação > Tarefa)';
+    const modeDescription = rootKind === 'list'
+      ? `Modo <b>achatado</b>: toda Tarefa LJ vira Task direto na List <b>${Utils.escape(rootName || rootId || '—')}</b>. Produto, Campanha e Ação ficam só no LJ (não espelham).`
+      : rootKind === 'folder'
+      ? `Modo <b>cascado parcial</b> no Folder <b>${Utils.escape(rootName || rootId || '—')}</b>: Campanha vira List, Ação vira Task pai, Tarefa vira Subtask. Produto LJ fica só como metadado (não espelha).`
+      : `Modo <b>cascado completo</b> no Space <b>${Utils.escape(rootName || cache?.ljSpaceName || 'LeadJourney')}</b>: estrutura LJ inteira espelhada.`;
 
     // Auto-load mappings se cache vazio
     if (hasSpace && !cache && !App._clickupMappingsHydrated) {
@@ -3121,15 +3217,15 @@ var SettingsModal = {
         <div class="min-w-0 flex-1">
           <p class="font-black ${hasSpace ? 'text-violet-900' : 'text-amber-900'} text-sm flex items-center gap-2">
             <i data-lucide="layers" class="w-4 h-4"></i>
-            Hierarquia espelhada (Produto > Campanha > Ação > Tarefa)
+            ${hierarchyTitle}
           </p>
           ${hasSpace ? `
             <p class="text-xs text-violet-800 mt-1 leading-relaxed">
-              LJ está espelhando sua estrutura no Space <b>${Utils.escape(cache?.ljSpaceName || 'LeadJourney')}</b> do ClickUp.
-              ${cache?.counts
+              ${modeDescription}
+              ${cache?.counts && rootKind !== 'list'
                 ? (cache.counts.products === 0 && cache.counts.campaigns === 0 && cache.counts.actions === 0
-                    ? '<i class="text-violet-600">Nenhum produto espelhado ainda — a hierarquia vai sendo criada conforme você criar tasks.</i>'
-                    : `Já criou ${cache.counts.products} produto(s), ${cache.counts.campaigns} campanha(s), ${cache.counts.actions} ação(ões).`)
+                    ? ' <i class="text-violet-600">Nenhum produto espelhado ainda — a hierarquia vai sendo criada conforme você criar tasks.</i>'
+                    : ` Já criou ${cache.counts.products} produto(s), ${cache.counts.campaigns} campanha(s), ${cache.counts.actions} ação(ões).`)
                 : ''}
             </p>
             ${(() => {
@@ -3182,7 +3278,7 @@ var SettingsModal = {
                 <p><b class="text-violet-800">Criação preguiçosa.</b> Folder do Produto + List da Campanha + Task Pai da Ação só nascem no ClickUp quando a <i>primeira tarefa operacional</i> daquela ação é criada. Se você cria Produto/Campanha/Ação no LJ mas não criou tarefa ainda, é normal não ver nada no ClickUp.</p>
                 <p><b class="text-violet-800">Renomeação só do LJ pro ClickUp.</b> Renomeie <i>no LJ</i> e o ClickUp atualiza sozinho. Se renomear <i>no ClickUp</i>, o LJ continua funcionando pelo ID interno — mas os nomes ficam diferentes. Não é bug.</p>
                 <p><b class="text-violet-800">Delete propaga.</b> Deletar Produto/Campanha/Ação/Tarefa no LJ remove a entity correspondente no ClickUp (irreversível). Confirme antes.</p>
-                <p><b class="text-rose-700">⚠ Nunca delete o Space "LeadJourney" no ClickUp.</b> Se deletar, o mapeamento inteiro é perdido. Tasks existentes ficam órfãs no histórico do ClickUp e LJ re-cria o Space do zero na próxima ação.</p>
+                <p><b class="text-rose-700">⚠ Nunca delete a raiz LJ (${Utils.escape(rootLabel)}${rootName ? ' "' + Utils.escape(rootName) + '"' : ''}) no ClickUp.</b> Se deletar, o mapeamento inteiro é perdido. Tasks existentes ficam órfãs no histórico do ClickUp e o LJ precisa ser re-configurado na próxima ação.</p>
               </div>
             </details>
           ` : `

@@ -15,11 +15,14 @@ module.exports = async function handler(req, res) {
   const userId = req.user.sub;
 
   try {
+    // V32.6.0 — lê lj_root_id/kind/name (com fallback lj_space_id pra cliente pré-V32.6.0).
     const credRow = await req.tenantDb.query(
-      'SELECT lj_space_id, mirror_enabled FROM clickup_credentials WHERE user_id = $1',
+      'SELECT lj_space_id, lj_root_id, lj_root_kind, lj_root_name, mirror_enabled FROM clickup_credentials WHERE user_id = $1',
       [userId]
     );
     const cred = credRow.rows[0] || {};
+    const rootId = cred.lj_root_id || cred.lj_space_id || null;
+    const rootKind = cred.lj_root_kind || (cred.lj_space_id ? 'space' : null);
 
     const rows = await listMappings(req.tenantDb, userId);
     const grouped = {
@@ -28,19 +31,25 @@ module.exports = async function handler(req, res) {
       actions: rows.filter(r => r.lj_kind === 'action')
     };
 
-    // Tenta buscar nome do Space pra exibir (opcional, falha silenciosa)
-    let ljSpaceName = null;
-    if (cred.lj_space_id) {
+    // Tenta buscar nome da raiz pra exibir (opcional, falha silenciosa)
+    let rootName = cred.lj_root_name || null;
+    if (!rootName && rootId && rootKind) {
       try {
-        const r = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${cred.lj_space_id}`);
-        if (r.ok) ljSpaceName = r.data?.name || null;
+        const path = rootKind === 'space'  ? `/space/${rootId}`
+                   : rootKind === 'folder' ? `/folder/${rootId}`
+                   :                         `/list/${rootId}`;
+        const r = await clickupFetch(req.tenantDb, userId, 'GET', path);
+        if (r.ok) rootName = r.data?.name || null;
       } catch (_) { /* silent */ }
     }
 
     return res.status(200).json({
       ok: true,
-      ljSpaceId: cred.lj_space_id || null,
-      ljSpaceName,
+      // V32.6.0 — campos novos
+      rootId, rootKind, rootName,
+      // Back-compat: ljSpace* aparecem só quando kind='space'
+      ljSpaceId: rootKind === 'space' ? rootId : null,
+      ljSpaceName: rootKind === 'space' ? rootName : null,
       mirrorEnabled: cred.mirror_enabled !== false,
       counts: {
         products: grouped.products.length,

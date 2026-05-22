@@ -23,21 +23,34 @@ module.exports = async function handler(req, res) {
 
   const userId = req.user.sub;
 
+  // V32.6.0 — usa lj_root_id/kind (com fallback lj_space_id pra cliente pré-V32.6.0).
   const credRow = await req.tenantDb.query(
-    'SELECT lj_space_id, mirror_enabled, write_enabled FROM clickup_credentials WHERE user_id = $1',
+    'SELECT lj_space_id, lj_root_id, lj_root_kind, mirror_enabled, write_enabled FROM clickup_credentials WHERE user_id = $1',
     [userId]
   );
   if (!credRow.rows.length) return res.status(404).json({ ok: false, message: 'ClickUp não conectado.' });
   const cred = credRow.rows[0];
+  const rootId = cred.lj_root_id || cred.lj_space_id || null;
+  const rootKind = cred.lj_root_kind || (cred.lj_space_id ? 'space' : null);
 
-  if (!cred.lj_space_id) {
-    return res.status(400).json({ ok: false, code: 'no_space', message: 'Inicialize o Space LeadJourney antes de migrar.' });
+  if (!rootId || !rootKind) {
+    return res.status(400).json({ ok: false, code: 'no_root', message: 'Configure a raiz LJ antes de migrar (Configurações → ClickUp → Configurar Space).' });
   }
   if (cred.write_enabled === false) {
     return res.status(403).json({ ok: false, code: 'read_only', message: 'ClickUp em modo somente-leitura. Reative em Configurações.' });
   }
   if (cred.mirror_enabled === false) {
     return res.status(400).json({ ok: false, code: 'mirror_disabled', message: 'Reative modo espelhado antes de migrar.' });
+  }
+
+  // Modo flat (raiz=List): nada a pré-criar — tasks viram Tasks na list direto
+  // quando criadas. "Migrar tudo" não faz sentido aqui.
+  if (rootKind === 'list') {
+    return res.status(200).json({
+      ok: true,
+      foldersCreated: 0, listsCreated: 0, taskParentsCreated: 0, errors: [],
+      message: 'Modo achatado (raiz=List): não há estrutura pra pré-criar. Tarefas viram Tasks diretamente ao serem criadas no LJ.'
+    });
   }
 
   const products = Array.isArray(req.body?.products) ? req.body.products : [];
@@ -48,13 +61,21 @@ module.exports = async function handler(req, res) {
   for (const product of products) {
     if (!product?.id || !product?.name) continue;
     try {
-      const folderRes = await mirror.ensureProductFolder(req.tenantDb, userId, cred.lj_space_id, product.id, product.name);
-      if (folderRes.created) stats.foldersCreated++;
+      // Em modo space: cria Folder(Produto) abaixo da raiz; em modo folder:
+      // pula Folder(Produto), Campanha já vira List dentro da raiz Folder.
+      let parentForCampaigns;
+      if (rootKind === 'folder') {
+        parentForCampaigns = rootId;
+      } else {
+        const folderRes = await mirror.ensureProductFolder(req.tenantDb, userId, rootId, product.id, product.name);
+        if (folderRes.created) stats.foldersCreated++;
+        parentForCampaigns = folderRes.clickupId;
+      }
 
       for (const campaign of (product.campaigns || [])) {
         if (!campaign?.id || !campaign?.name) continue;
         try {
-          const listRes = await mirror.ensureCampaignList(req.tenantDb, userId, folderRes.clickupId, campaign.id, campaign.name);
+          const listRes = await mirror.ensureCampaignList(req.tenantDb, userId, parentForCampaigns, campaign.id, campaign.name);
           if (listRes.created) stats.listsCreated++;
 
           for (const action of (campaign.actions || [])) {

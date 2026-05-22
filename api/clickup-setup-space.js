@@ -1,17 +1,18 @@
-// V32.5.9 — POST /api/clickup-setup-space
-// Setup wizard: adopta um Space EXISTENTE do workspace OU cria um novo
-// pra ser raiz da hierarquia espelhada Produto>Campanha>Ação>Tarefa.
+// V32.6.0 — POST /api/clickup-setup-space
+// Configura a raiz LJ no ClickUp. A raiz pode ser:
+//   - Space  → cliente quer mirror cascado completo (Folder=Produto, List=Campanha, ...)
+//   - Folder → mirror cascado parcial (List=Campanha, ...). Produto vira metadado LJ.
+//   - List   → mirror achatado: toda Tarefa LJ vira Task na List. Produto/Campanha/Ação ficam só no LJ.
 //
-// Body (2 modos):
-//   - Adopt: { space_id: '12345' }  ← cliente escolheu Space existente
-//   - Create: { space_name: 'LeadJourney' }  ← cria novo no workspace
+// Princípio (V32.5.9 → V32.6.0): LJ NÃO cria nada autonomamente. Cliente escolhe
+// um nó EXISTENTE da árvore do workspace dele OU pede pra criar um Space novo.
 //
-// Princípio (V32.5.9): LJ NÃO cria Space autonomamente. Cliente sempre
-// escolhe entre Spaces existentes do workspace dele ou pede pra criar
-// um novo com nome customizado — soberania do workspace.
+// Body (3 modos):
+//   - Adopt nó existente: { root_id: '12345', root_kind: 'space'|'folder'|'list' }
+//   - Adopt legacy Space (compat): { space_id: '12345' }  ← V32.5.9, vira root_kind='space'
+//   - Create Space novo:  { space_name: 'LeadJourney' }   ← cria Space no workspace
 //
-// Idempotente: se lj_space_id já tá salvo + Space ainda existe no ClickUp,
-// retorna o existente sem mudar nada (modo legacy/refresh).
+// Idempotente: se já tem lj_root_id válido + nada vier no body, retorna o atual.
 const { clickupFetch } = require('../lib/clickup-client');
 
 module.exports = async function handler(req, res) {
@@ -20,13 +21,18 @@ module.exports = async function handler(req, res) {
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
 
   const userId = req.user.sub;
-  const adoptSpaceId = String(req.body?.space_id || '').trim();
+  const adoptRootId = String(req.body?.root_id || req.body?.space_id || '').trim();
+  const adoptRootKind = String(req.body?.root_kind || (req.body?.space_id ? 'space' : '')).trim().toLowerCase();
   const spaceName = String(req.body?.space_name || 'LeadJourney').trim().slice(0, 64);
 
+  // Valida root_kind se veio
+  if (adoptRootId && !['space', 'folder', 'list'].includes(adoptRootKind)) {
+    return res.status(400).json({ ok: false, message: `root_kind inválido: "${adoptRootKind}". Use space, folder ou list.` });
+  }
+
   try {
-    // 1. Pega credenciais + workspace_id + lj_space_id atual
     const credRow = await req.tenantDb.query(
-      'SELECT workspace_id, workspace_name, lj_space_id FROM clickup_credentials WHERE user_id = $1',
+      'SELECT workspace_id, workspace_name, lj_root_id, lj_root_kind, lj_root_name FROM clickup_credentials WHERE user_id = $1',
       [userId]
     );
     if (!credRow.rows.length) {
@@ -37,48 +43,59 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ ok: false, message: 'workspace_id não definido — reconecte ClickUp.' });
     }
 
-    // 2. MODO ADOPT — cliente escolheu Space existente.
-    if (adoptSpaceId) {
-      // Valida que o Space existe + token consegue lê-lo.
-      const checkRes = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${adoptSpaceId}`);
+    // MODO ADOPT — cliente escolheu nó existente (space/folder/list).
+    if (adoptRootId) {
+      const path = adoptRootKind === 'space'  ? `/space/${adoptRootId}`
+                 : adoptRootKind === 'folder' ? `/folder/${adoptRootId}`
+                 :                              `/list/${adoptRootId}`;
+      const checkRes = await clickupFetch(req.tenantDb, userId, 'GET', path);
       if (!checkRes.ok) {
         return res.status(400).json({
           ok: false,
-          step: 'verify_space',
-          message: `Space ${adoptSpaceId} não acessível (${checkRes.status}). Token sem permissão ou Space não existe.`,
+          step: 'verify_node',
+          message: `${adoptRootKind} ${adoptRootId} não acessível (${checkRes.status}). Token sem permissão ou nó não existe.`,
           details: checkRes.data
         });
       }
-      const verifiedName = checkRes.data?.name || null;
+      const verifiedName = String(checkRes.data?.name || '').slice(0, 255) || null;
 
-      // Persiste como lj_space_id (substitui se já tinha outro).
+      // Persiste. lj_space_id mantido em sincronia quando kind='space' (compat
+      // c/ código V32.2.x-V32.5.x que ainda lê lj_space_id direto).
       await req.tenantDb.query(
-        'UPDATE clickup_credentials SET lj_space_id = $1 WHERE user_id = $2',
-        [adoptSpaceId, userId]
+        `UPDATE clickup_credentials
+            SET lj_root_id = $1, lj_root_kind = $2, lj_root_name = $3,
+                lj_space_id = CASE WHEN $2 = 'space' THEN $1 ELSE lj_space_id END
+          WHERE user_id = $4`,
+        [adoptRootId, adoptRootKind, verifiedName, userId]
       );
 
       return res.status(200).json({
         ok: true,
-        spaceId: adoptSpaceId,
-        spaceName: verifiedName || spaceName,
+        rootId: adoptRootId,
+        rootKind: adoptRootKind,
+        rootName: verifiedName,
         created: false,
         adopted: true,
-        message: `Space "${verifiedName}" adotado como raiz da hierarquia LJ.`
+        message: `${labelFor(adoptRootKind)} "${verifiedName}" adotado como raiz do LJ.`
       });
     }
 
-    // 3. MODO CREATE — cria Space novo no workspace (cliente pediu explicitamente).
-    // Reuso idempotente: se já tem lj_space_id válido E cliente não passou novo nome,
-    // mantém o atual (evita criar duplicado em refreshes acidentais).
-    if (cred.lj_space_id && spaceName === 'LeadJourney') {
-      const checkRes = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${cred.lj_space_id}`).catch(() => ({ ok: false }));
-      if (checkRes.ok) {
+    // MODO CREATE — cria Space novo no workspace.
+    // Reuso idempotente: se já tem root configurado E body não pediu nada novo,
+    // mantém o atual.
+    if (cred.lj_root_id && cred.lj_root_kind) {
+      const path = cred.lj_root_kind === 'space'  ? `/space/${cred.lj_root_id}`
+                 : cred.lj_root_kind === 'folder' ? `/folder/${cred.lj_root_id}`
+                 :                                  `/list/${cred.lj_root_id}`;
+      const checkRes = await clickupFetch(req.tenantDb, userId, 'GET', path).catch(() => ({ ok: false }));
+      if (checkRes.ok && spaceName === 'LeadJourney') {
         return res.status(200).json({
           ok: true,
-          spaceId: cred.lj_space_id,
-          spaceName: checkRes.data?.name || spaceName,
+          rootId: cred.lj_root_id,
+          rootKind: cred.lj_root_kind,
+          rootName: checkRes.data?.name || cred.lj_root_name || spaceName,
           created: false,
-          message: 'Space já configurado — mantendo o atual.'
+          message: 'Raiz LJ já configurada — mantendo a atual.'
         });
       }
     }
@@ -109,21 +126,30 @@ module.exports = async function handler(req, res) {
     }
 
     const spaceId = String(createRes.data.id);
+    const createdName = String(createRes.data.name || spaceName).slice(0, 255);
 
     await req.tenantDb.query(
-      'UPDATE clickup_credentials SET lj_space_id = $1 WHERE user_id = $2',
-      [spaceId, userId]
+      `UPDATE clickup_credentials
+          SET lj_root_id = $1, lj_root_kind = 'space', lj_root_name = $2,
+              lj_space_id = $1
+        WHERE user_id = $3`,
+      [spaceId, createdName, userId]
     );
 
     return res.status(200).json({
       ok: true,
-      spaceId,
-      spaceName: createRes.data.name || spaceName,
+      rootId: spaceId,
+      rootKind: 'space',
+      rootName: createdName,
       created: true,
-      message: `Space "${createRes.data.name}" criado no workspace ${cred.workspace_name || cred.workspace_id}.`
+      message: `Space "${createdName}" criado no workspace ${cred.workspace_name || cred.workspace_id}.`
     });
   } catch (err) {
     console.error('[clickup-setup-space]', err);
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
+
+function labelFor(kind) {
+  return kind === 'space' ? 'Space' : kind === 'folder' ? 'Folder' : kind === 'list' ? 'List' : 'Nó';
+}

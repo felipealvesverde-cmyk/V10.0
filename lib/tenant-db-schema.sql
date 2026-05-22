@@ -106,6 +106,11 @@ CREATE TABLE IF NOT EXISTS clickup_credentials (
   write_enabled BOOLEAN DEFAULT TRUE,
   lj_space_id VARCHAR(64),
   mirror_enabled BOOLEAN DEFAULT TRUE,
+  -- V32.6.0: raiz flexível (space|folder|list) — lj_space_id continua existindo
+  -- por back-compat (sinônimo de lj_root_id quando lj_root_kind='space').
+  lj_root_id VARCHAR(64),
+  lj_root_kind VARCHAR(16),
+  lj_root_name VARCHAR(255),
   connected_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -141,6 +146,13 @@ ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS status_map_json TEXT;
 ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS write_enabled BOOLEAN DEFAULT TRUE;
 ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS lj_space_id VARCHAR(64);
 ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS mirror_enabled BOOLEAN DEFAULT TRUE;
+-- V32.6.0: raiz flexível
+ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS lj_root_id VARCHAR(64);
+ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS lj_root_kind VARCHAR(16);
+ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS lj_root_name VARCHAR(255);
+UPDATE clickup_credentials
+   SET lj_root_id = lj_space_id, lj_root_kind = 'space'
+ WHERE lj_space_id IS NOT NULL AND (lj_root_id IS NULL OR lj_root_kind IS NULL);
 
 -- ============================================================================
 -- RD STATION (3 token types por user)

@@ -5504,9 +5504,13 @@ Object.assign(Actions, {
           taskPrefix: data.taskPrefix || null,
           statusMap: data.statusMap || null,
           writeEnabled: data.writeEnabled !== false,
-          // V32.2.0 — hierarquia espelhada
+          // V32.2.0 — hierarquia espelhada (back-compat)
           ljSpaceId: data.ljSpaceId || null,
-          mirrorEnabled: data.mirrorEnabled !== false
+          mirrorEnabled: data.mirrorEnabled !== false,
+          // V32.6.0 — raiz flexível
+          rootId: data.rootId || null,
+          rootKind: data.rootKind || null,
+          rootName: data.rootName || null
         };
         App.save(); App.render();
         // V31.2.33 — Quando conecta, pre-fetch metadata pra modal de criar task abrir instantâneo.
@@ -5593,20 +5597,26 @@ Object.assign(Actions, {
     }
   },
 
-  // V32.5.9 — Setup Wizard ClickUp.
-  // Princípio: LJ NÃO cria Space autonomamente. Cliente lista os Spaces do
-  // workspace dele e ESCOLHE: adotar um existente OU pedir pra criar novo.
-  // Substitui a antiga `setupClickupSpace` que criava "LeadJourney" silencioso.
+  // V32.5.9 → V32.6.0 — Setup Wizard ClickUp.
+  // Cliente navega tree do workspace (Space → Folder → List) e escolhe um nó
+  // como raiz LJ. Tipo do nó define o modo de espelhamento:
+  //   - Space  → cascado completo (Folder=Produto, List=Campanha, ...)
+  //   - Folder → cascado parcial (List=Campanha, ...). Produto vira só metadado LJ.
+  //   - List   → achatado: tarefas viram Tasks na list direto.
+  // Princípio (workspace-sovereignty): LJ nunca cria nada sem cliente mandar.
 
   openClickupSpaceWizard() {
     App.state.clickupSpaceWizard = {
       open: true,
       loading: true,
-      spaces: [],
+      tree: [],
       workspaceName: null,
-      currentLjSpaceId: null,
+      currentRootId: null,
+      currentRootKind: null,
       mode: 'select',
-      selectedId: null,
+      expandedSpaces: [],
+      expandedFolders: [],
+      selectedNode: null,
       newName: 'LeadJourney',
       submitting: false,
       error: null
@@ -5632,23 +5642,29 @@ Object.assign(Actions, {
     App.save(); App.render();
     try {
       const token = localStorage.getItem('lj_jwt');
-      const r = await fetch('/api/clickup-spaces-list', { headers: { Authorization: `Bearer ${token}` } });
+      const r = await fetch('/api/clickup-tree', { headers: { Authorization: `Bearer ${token}` } });
       const data = await r.json();
       if (!data.ok) {
         w.loading = false;
-        w.error = data.message || 'Falha ao listar Spaces.';
+        w.error = data.message || 'Falha ao listar árvore do ClickUp.';
         App.save(); App.render();
         return;
       }
       w.loading = false;
-      w.spaces = Array.isArray(data.spaces) ? data.spaces : [];
+      w.tree = Array.isArray(data.spaces) ? data.spaces : [];
       w.workspaceName = data.workspaceName || null;
-      w.currentLjSpaceId = data.currentLjSpaceId || null;
-      // Default: se já tem um lj_space_id atual + ele tá na lista, pré-seleciona.
-      if (w.currentLjSpaceId && w.spaces.some(s => s.id === w.currentLjSpaceId)) {
-        w.selectedId = w.currentLjSpaceId;
-      } else if (w.spaces.length > 0) {
-        w.selectedId = w.spaces[0].id;
+      // Pega raiz atual do clickupStatus (loadClickupStatus já rodou em paralelo).
+      const st = App.state.clickupStatus || {};
+      w.currentRootId = st.rootId || st.ljSpaceId || null;
+      w.currentRootKind = st.rootKind || (st.ljSpaceId ? 'space' : null);
+      // Pré-seleciona o nó atual + expande os ancestrais pra usuário ver onde tá.
+      if (w.currentRootId && w.currentRootKind) {
+        const found = Actions._findNodeInTree(w.tree, w.currentRootId, w.currentRootKind);
+        if (found) {
+          w.selectedNode = { id: found.node.id, kind: w.currentRootKind, name: found.node.name };
+          if (found.spaceId && !w.expandedSpaces.includes(found.spaceId)) w.expandedSpaces.push(found.spaceId);
+          if (found.folderId && !w.expandedFolders.includes(found.folderId)) w.expandedFolders.push(found.folderId);
+        }
       }
       App.save(); App.render();
     } catch (err) {
@@ -5658,13 +5674,59 @@ Object.assign(Actions, {
     }
   },
 
+  // Helper interno (não é Action UI-callable): localiza nó na tree por kind+id.
+  // Retorna { node, spaceId, folderId? } se achar, null caso contrário.
+  _findNodeInTree(tree, targetId, targetKind) {
+    if (!Array.isArray(tree)) return null;
+    for (const space of tree) {
+      if (targetKind === 'space' && space.id === targetId) {
+        return { node: space, spaceId: null, folderId: null };
+      }
+      if (targetKind === 'list') {
+        const fl = (space.folderlessLists || []).find(l => l.id === targetId);
+        if (fl) return { node: fl, spaceId: space.id, folderId: null };
+        for (const folder of (space.folders || [])) {
+          const li = (folder.lists || []).find(l => l.id === targetId);
+          if (li) return { node: li, spaceId: space.id, folderId: folder.id };
+        }
+      }
+      if (targetKind === 'folder') {
+        const folder = (space.folders || []).find(f => f.id === targetId);
+        if (folder) return { node: folder, spaceId: space.id, folderId: null };
+      }
+    }
+    return null;
+  },
+
   setClickupSpaceWizardMode(mode) {
     App.state.clickupSpaceWizard.mode = (mode === 'create') ? 'create' : 'select';
     App.save(); App.render();
   },
 
-  setClickupSpaceWizardSelected(spaceId) {
-    App.state.clickupSpaceWizard.selectedId = String(spaceId || '');
+  toggleClickupWizardSpace(spaceId) {
+    const w = App.state.clickupSpaceWizard;
+    const id = String(spaceId);
+    const idx = w.expandedSpaces.indexOf(id);
+    if (idx >= 0) w.expandedSpaces.splice(idx, 1);
+    else w.expandedSpaces.push(id);
+    App.save(); App.render();
+  },
+
+  toggleClickupWizardFolder(folderId) {
+    const w = App.state.clickupSpaceWizard;
+    const id = String(folderId);
+    const idx = w.expandedFolders.indexOf(id);
+    if (idx >= 0) w.expandedFolders.splice(idx, 1);
+    else w.expandedFolders.push(id);
+    App.save(); App.render();
+  },
+
+  setClickupWizardSelectedNode(id, kind, name) {
+    App.state.clickupSpaceWizard.selectedNode = {
+      id: String(id || ''),
+      kind: (kind === 'space' || kind === 'folder' || kind === 'list') ? kind : 'space',
+      name: String(name || '')
+    };
     App.save(); App.render();
   },
 
@@ -5688,12 +5750,13 @@ Object.assign(Actions, {
       }
       body.space_name = name;
     } else {
-      if (!w.selectedId) {
-        w.error = 'Selecione um Space da lista ou troque pra criar novo.';
+      if (!w.selectedNode || !w.selectedNode.id) {
+        w.error = 'Selecione um nó da árvore (Space, Folder ou List) ou troque pra criar novo.';
         App.save(); App.render();
         return;
       }
-      body.space_id = w.selectedId;
+      body.root_id = w.selectedNode.id;
+      body.root_kind = w.selectedNode.kind;
     }
 
     w.submitting = true;
@@ -5710,12 +5773,11 @@ Object.assign(Actions, {
       const data = await r.json();
       if (!data.ok) {
         w.submitting = false;
-        w.error = data.message || 'Falha ao configurar Space.';
+        w.error = data.message || 'Falha ao configurar raiz.';
         App.save(); App.render();
         return;
       }
       Utils.toast(`✓ ${data.message}`);
-      // Fecha wizard, recarrega status + mappings.
       App.state.clickupSpaceWizard = {
         ...App.state.clickupSpaceWizard,
         open: false,

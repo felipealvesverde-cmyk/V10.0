@@ -25,7 +25,8 @@ module.exports = async function handler(req, res) {
         `SELECT workspace_name, default_list_id, default_list_name, default_space_id,
                 lj_tag_name, task_prefix, status_map_json, write_enabled,
                 lj_space_id, mirror_enabled,
-                token_type
+                token_type,
+                lj_root_id, lj_root_kind, lj_root_name
          FROM clickup_credentials WHERE user_id = $1`,
         [userId]
       );
@@ -47,9 +48,13 @@ module.exports = async function handler(req, res) {
         taskPrefix: row.task_prefix || null,
         statusMap,
         writeEnabled: row.write_enabled !== false,
-        // V32.2.0 — hierarquia espelhada
+        // V32.2.0 — hierarquia espelhada (back-compat, sinônimo de root quando kind=space)
         ljSpaceId: row.lj_space_id || null,
         mirrorEnabled: row.mirror_enabled !== false,
+        // V32.6.0 — raiz flexível (space|folder|list)
+        rootId: row.lj_root_id || null,
+        rootKind: row.lj_root_kind || null,
+        rootName: row.lj_root_name || null,
         encryptionReady: isEncryptionReady()
       });
     } catch (err) {

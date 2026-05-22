@@ -1,9 +1,9 @@
-// V32.2.3 — GET /api/clickup-test-space
-// Verifica se o Space "LeadJourney" ainda está acessível com PAT atual.
-// Útil pra detectar PAT revogado / permissions removidas / Space deletado
-// ANTES da primeira task falhar.
+// V32.6.0 — GET /api/clickup-test-space
+// Verifica se a raiz LJ (Space/Folder/List configurado) ainda está acessível
+// com o token atual. Útil pra detectar token revogado, permissions removidas
+// ou nó deletado pelo cliente — ANTES da primeira task falhar.
 //
-// Retorna { ok: true, accessible: bool, message, spaceName? }.
+// Retorna { ok: true, accessible: bool, rootId, rootKind, rootName?, message }.
 const { clickupFetch } = require('../lib/clickup-client');
 
 module.exports = async function handler(req, res) {
@@ -15,45 +15,55 @@ module.exports = async function handler(req, res) {
 
   try {
     const credRow = await req.tenantDb.query(
-      'SELECT lj_space_id FROM clickup_credentials WHERE user_id = $1',
+      'SELECT lj_root_id, lj_root_kind, lj_space_id FROM clickup_credentials WHERE user_id = $1',
       [userId]
     );
     if (!credRow.rows.length) {
       return res.status(404).json({ ok: false, message: 'ClickUp não conectado.' });
     }
-    const ljSpaceId = credRow.rows[0].lj_space_id;
-    if (!ljSpaceId) {
+    const row = credRow.rows[0];
+    // Back-compat: clientes pré-V32.6.0 só têm lj_space_id (sem root_kind).
+    const rootId = row.lj_root_id || row.lj_space_id || null;
+    const rootKind = row.lj_root_kind || (row.lj_space_id ? 'space' : null);
+
+    if (!rootId || !rootKind) {
       return res.status(200).json({
         ok: true,
         accessible: false,
-        message: 'Space LeadJourney não inicializado. Clique em "Inicializar Space" no card de Hierarquia.'
+        message: 'Raiz LJ não inicializada. Clique em "Configurar Space" no card de Hierarquia.'
       });
     }
 
-    // Faz GET /space/{id} pra confirmar que o Space existe + PAT pode lê-lo.
-    const r = await clickupFetch(req.tenantDb, userId, 'GET', `/space/${ljSpaceId}`);
+    const path = rootKind === 'space'  ? `/space/${rootId}`
+               : rootKind === 'folder' ? `/folder/${rootId}`
+               :                         `/list/${rootId}`;
+    const r = await clickupFetch(req.tenantDb, userId, 'GET', path);
     if (!r.ok) {
       return res.status(200).json({
         ok: true,
         accessible: false,
-        spaceId: ljSpaceId,
+        rootId, rootKind,
         statusCode: r.status,
         message: r.status === 404
-          ? 'Space "LeadJourney" não existe mais no ClickUp (deletado ou inacessível). Re-inicialize.'
+          ? `${labelFor(rootKind)} raiz LJ não existe mais no ClickUp (deletado ou inacessível). Re-configure em "Trocar Space".`
           : r.status === 401 || r.status === 403
-          ? 'PAT sem permissão pra ler o Space. Token pode ter sido revogado/rotacionado no ClickUp.'
+          ? 'Token sem permissão pra ler a raiz LJ. Token pode ter sido revogado/rotacionado no ClickUp.'
           : `ClickUp respondeu ${r.status}.`
       });
     }
     return res.status(200).json({
       ok: true,
       accessible: true,
-      spaceId: ljSpaceId,
-      spaceName: r.data?.name || 'LeadJourney',
-      message: `✓ Space "${r.data?.name || 'LeadJourney'}" acessível.`
+      rootId, rootKind,
+      rootName: r.data?.name || null,
+      message: `✓ ${labelFor(rootKind)} "${r.data?.name || rootId}" acessível.`
     });
   } catch (err) {
     console.error('[clickup-test-space]', err);
     return res.status(500).json({ ok: false, message: err.message });
   }
 };
+
+function labelFor(kind) {
+  return kind === 'space' ? 'Space' : kind === 'folder' ? 'Folder' : kind === 'list' ? 'List' : 'Nó';
+}

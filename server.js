@@ -184,6 +184,28 @@ async function runMigrations() {
     await client.query(`
       ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS mirror_enabled BOOLEAN DEFAULT TRUE;
     `);
+    // V32.6.0 — Raiz flexível: cliente pode ancorar LJ num Space, Folder ou List.
+    // lj_root_id + lj_root_kind substituem conceitualmente lj_space_id (que continua
+    // existindo pra back-compat). Mapping LJ→ClickUp depende do kind:
+    //   space  → Folder(Produto) > List(Campanha) > Task(Ação) > Subtask(Tarefa)
+    //   folder → List(Campanha) > Task(Ação) > Subtask(Tarefa) [Produto vira metadado]
+    //   list   → Task(Tarefa) [Produto/Campanha/Ação ficam só no LJ]
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS lj_root_id VARCHAR(64);
+    `);
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS lj_root_kind VARCHAR(16);
+    `);
+    await client.query(`
+      ALTER TABLE clickup_credentials ADD COLUMN IF NOT EXISTS lj_root_name VARCHAR(255);
+    `);
+    // Backfill idempotente: clientes V32.2.x-V32.5.x (lj_space_id setado) viram
+    // automaticamente root_kind='space'. Quem nunca configurou fica NULL nas 2 cols.
+    await client.query(`
+      UPDATE clickup_credentials
+         SET lj_root_id = lj_space_id, lj_root_kind = 'space'
+       WHERE lj_space_id IS NOT NULL AND (lj_root_id IS NULL OR lj_root_kind IS NULL);
+    `);
     // V32.2.0 — Mapeamento LJ ↔ ClickUp: cada entity LJ (product/campaign/action)
     // tem 1 row mapeando pro folder/list/task pai correspondente no ClickUp.
     // Find-or-create cascado em /api/clickup-create-task usa esta tabela.

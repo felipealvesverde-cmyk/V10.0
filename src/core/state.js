@@ -48,7 +48,7 @@ var State = {
       // V32.5.6 — tokenType ('oauth' | 'pat' | null) propaga do backend pra UI
       // diferenciar visualmente o método de conexão e habilitar/desabilitar
       // "Revelar PAT" (só faz sentido em token_type='pat').
-      clickupStatus: { connected: false, configured: false, encryptionReady: true, workspaceName: null, tokenType: null, defaultListId: null, defaultListName: null, defaultSpaceId: null, ljTagName: null, taskPrefix: null, statusMap: null, writeEnabled: true, ljSpaceId: null, mirrorEnabled: true },
+      clickupStatus: { connected: false, configured: false, encryptionReady: true, workspaceName: null, tokenType: null, defaultListId: null, defaultListName: null, defaultSpaceId: null, ljTagName: null, taskPrefix: null, statusMap: null, writeEnabled: true, ljSpaceId: null, mirrorEnabled: true, rootId: null, rootKind: null, rootName: null },
       clickupMeta: { loaded: false, loadedAt: null, workspaceId: null, listId: null, spaceId: null, members: [], statuses: [], tags: [], customFields: [] },
       clickupConfigDraft: { client_id: '', client_secret: '' },
       clickupPatDraft: '',
@@ -60,17 +60,20 @@ var State = {
       // V32.5.8 — Persiste estado aberto/fechado do <details> "Configurações avançadas"
       // no card ClickUp. <details> nativo perde `open` em todo innerHTML re-render.
       clickupAdvancedOpen: false,
-      // V32.5.9 — Setup Wizard ClickUp: cliente lista spaces do workspace dele
-      // e ESCOLHE qual usar como raiz (ou pede pra criar novo com nome custom).
-      // Princípio: LJ não cria Space autonomamente — soberania do workspace.
+      // V32.5.9 → V32.6.0 — Setup Wizard ClickUp: cliente navega tree do workspace
+      // (Space → Folder → List), escolhe um nó como raiz LJ. Tipo do nó determina
+      // modo de espelhamento (space cascado / folder parcial / list flat).
       clickupSpaceWizard: {
         open: false,
         loading: false,
-        spaces: [],
+        tree: [],                             // [{ id, name, folderlessLists, folders: [{ id, name, lists }] }]
         workspaceName: null,
-        currentLjSpaceId: null,
-        mode: 'select',         // 'select' | 'create'
-        selectedId: null,
+        currentRootId: null,
+        currentRootKind: null,
+        mode: 'select',                       // 'select' | 'create'
+        expandedSpaces: [],                   // ids dos Spaces expandidos na tree
+        expandedFolders: [],                  // ids dos Folders expandidos
+        selectedNode: null,                   // { id, kind, name } | null
         newName: 'LeadJourney',
         submitting: false,
         error: null
@@ -720,16 +723,19 @@ var State = {
         : { clientId: '', clientSecret: '' },
       // V32.5.8 — estado persistente do <details> "Configurações avançadas".
       clickupAdvancedOpen: !!raw.clickupAdvancedOpen,
-      // V32.5.9 — Setup Wizard ClickUp sempre boota fechado (UI state).
-      // Spaces refetched ao abrir.
+      // V32.5.9 → V32.6.0 — Wizard sempre boota fechado (UI state).
+      // Tree refetched ao abrir.
       clickupSpaceWizard: {
         open: false,
         loading: false,
-        spaces: [],
+        tree: [],
         workspaceName: null,
-        currentLjSpaceId: null,
+        currentRootId: null,
+        currentRootKind: null,
         mode: 'select',
-        selectedId: null,
+        expandedSpaces: [],
+        expandedFolders: [],
+        selectedNode: null,
         newName: 'LeadJourney',
         submitting: false,
         error: null
