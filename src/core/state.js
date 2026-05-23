@@ -202,6 +202,11 @@ var State = {
       // mesmo login compartilhado).
       revopsGroupCollapsed: {},        // { [groupId]: bool } — UI state
       revopsGroupLocked: {},           // { [groupId]: bool } — persiste
+      // V32.10.0 — Override de MCU/MSU na tab RevOps. Cliente edita 1 valor
+      // único (natural ou =fórmula) OU compõe múltiplas deduções nomeadas.
+      // Shape: { [productId]: { mcu: {mode,value,components}, msu: {mode,value,components} } }
+      // mode: 'auto' (calcula default) | 'manual' (1 valor) | 'composed' (lista deduções)
+      revopsKpiOverrides: {},
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -608,6 +613,8 @@ var State = {
       // V32.9.4 — collapse boota da última sessão, lock idem (regra new-state).
       revopsGroupCollapsed: raw.revopsGroupCollapsed && typeof raw.revopsGroupCollapsed === 'object' ? raw.revopsGroupCollapsed : {},
       revopsGroupLocked: raw.revopsGroupLocked && typeof raw.revopsGroupLocked === 'object' ? raw.revopsGroupLocked : {},
+      // V32.10.0 — overrides persistem por produto entre sessões.
+      revopsKpiOverrides: raw.revopsKpiOverrides && typeof raw.revopsKpiOverrides === 'object' ? raw.revopsKpiOverrides : {},
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

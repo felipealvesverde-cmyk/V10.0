@@ -863,23 +863,82 @@
     // TAB 4: REVOPS KPIs
     // ────────────────────────────────────────────────────────────
 
+    // V32.10.0 — Cascata RevOps vertical: TM → MCU → CAC → MSU → Custo Fixo → Breakeven.
+    // MCU e MSU editáveis (modo single ou composto). Cada linha educa o cliente
+    // sobre o que aquela métrica representa.
     _revopsTab(cfg, ev) {
-      const mcu = ev.ticket > 0 ? ev.ticket : 0;
-      const msu = ev.fixedTotal > 0 && mcu > 0 ? Math.ceil(ev.fixedTotal / mcu) : 0;
-      const breakevenRevenue = msu * ev.ticket;
+      const productId = cfg.productId;
+
+      // 1. TM (auto, vem das Ofertas)
+      const tm = ev.ticket;
+
+      // 2. MCU auto (TM − Σ custos variáveis unitários inferidos)
+      const mcuAuto = RevopsWhitelabelEngine.computeAutoMCU(cfg, ev);
+      const mcuOverride = App.state.revopsKpiOverrides?.[productId]?.mcu || { mode: 'auto' };
+      mcuOverride.baseValue = tm; // base pra modo composed
+      const mcuResolved = RevopsWhitelabelEngine.resolveOverride(mcuOverride, mcuAuto.value, ev.symbols);
+      const mcu = mcuResolved.value;
+
+      // 3. CAC (auto: CTC / Total de Vendas)
+      const totalSales = ev.sales || 0;
+      const ctc = ev.acquisitionTotal;
+      const cac = totalSales > 0 ? ctc / totalSales : 0;
+
+      // 4. MSU auto (MCU − CAC)
+      const msuAuto = RevopsWhitelabelEngine.computeAutoMSU(mcu, cac);
+      const msuOverride = App.state.revopsKpiOverrides?.[productId]?.msu || { mode: 'auto' };
+      msuOverride.baseValue = mcu;
+      const msuResolved = RevopsWhitelabelEngine.resolveOverride(msuOverride, msuAuto.value, ev.symbols);
+      const msu = msuResolved.value;
+
+      // 5. Custo Fixo (auto: soma bucket=fixed)
+      const fixedTotal = ev.fixedTotal;
+
+      // 6. Breakeven (auto: Custo Fixo ÷ MSU)
+      const breakeven = msu > 0 ? Math.ceil(fixedTotal / msu) : 0;
+
+      // Microcopy operacional
+      const previstas = totalSales;
+      const folgaPct = breakeven > 0 ? (previstas / breakeven) * 100 : 0;
+      let bkHealth;
+      if (folgaPct >= 130)      bkHealth = { cls: 'emerald', msg: `previstas ${previstas} = ${folgaPct.toFixed(0)}% do Breakeven · folga sólida ✓` };
+      else if (folgaPct >= 100) bkHealth = { cls: 'amber',   msg: `previstas ${previstas} = ${folgaPct.toFixed(0)}% do Breakeven · operação respira justo ⚠` };
+      else                       bkHealth = { cls: 'rose',    msg: `previstas ${previstas} = ${folgaPct.toFixed(0)}% do Breakeven · operação queima caixa ✗` };
+      const folgaVendas = previstas - breakeven;
+      const ebitdaProjetado = folgaVendas * msu;
+
       const customKpis = cfg.customKpis || [];
+
       return `<div class="space-y-4">
         ${this._djowTip('revops')}
-        <h3 class="font-black text-slate-900">RevOps KPIs (rosa)</h3>
-        <p class="text-[12px] text-slate-500">Margem de contribuição, breakeven, e KPIs custom que você criar via fórmula.</p>
-
-        <div class="grid md:grid-cols-3 gap-3">
-          ${this._bigCell('MCU — Margem Contribuição Unit.', this._money(mcu), 'rose')}
-          ${this._bigCell('MSU — Breakeven (vendas)', msu.toLocaleString('pt-BR'), 'rose')}
-          ${this._bigCell('Faturamento no Breakeven', this._money(breakevenRevenue), 'rose')}
+        <div>
+          <h3 class="font-black text-slate-900">Cascata RevOps · Equilíbrio da operação</h3>
+          <p class="text-[12px] text-slate-500">Lê de cima pra baixo. Cada linha mostra o que sai a cada etapa até o Breakeven (quantas vendas pra empatar o mês).</p>
         </div>
 
-        <div class="rounded-2xl bg-rose-50/50 border border-rose-200 p-3">
+        <div>
+          ${this._cascadeLine('💧', 'PONTO DE PARTIDA', 'TM · Ticket Médio', this._money(tm), 'sky',
+            'Receita média por venda. Vem da tab Ofertas (média ponderada).')}
+          ${this._cascadeArrow('↓')}
+
+          ${this._cascadeMcu(productId, mcuAuto, mcuOverride, mcuResolved, ev)}
+          ${this._cascadeArrow('↓')}
+
+          ${this._cascadeLine('🟡', 'SUBTRAÇÃO', 'CAC · Custo de Aquisição', this._money(cac), 'amber',
+            `Fórmula: CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = ${this._money(cac)}. O preço de cada cliente novo.`)}
+          ${this._cascadeArrow('↓')}
+
+          ${this._cascadeMsu(productId, msuAuto, msuOverride, msuResolved, mcu, cac, ev)}
+          ${this._cascadeArrow('÷')}
+
+          ${this._cascadeLine('🔴', 'BARREIRA FIXA', 'Custo Fixo de Operação', this._money(fixedTotal), 'rose',
+            'Soma do bucket Fixos (G&A). Mensalidade pra existir — independe de vender 0 ou 10.000.')}
+          ${this._cascadeArrow('↓')}
+
+          ${this._cascadeBreakeven(breakeven, msu, fixedTotal, bkHealth, folgaVendas, ebitdaProjetado)}
+        </div>
+
+        <div class="rounded-2xl bg-rose-50/50 border border-rose-200 p-3 mt-5">
           <div class="flex items-center justify-between mb-2">
             <p class="text-[11px] font-black text-rose-700 uppercase tracking-wider">KPIs Custom (fórmula livre)</p>
             <button onclick="Actions.addRevopsCustomKpi('${cfg.productId}')" class="px-2 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black" style="color:#fff!important;">+ KPI</button>
@@ -887,6 +946,196 @@
           ${customKpis.length === 0
             ? '<p class="text-[11px] text-rose-700/70 italic">Crie KPIs personalizados como % crescimento receita, NRR, etc.</p>'
             : customKpis.map(k => this._customKpiRow(cfg.productId, k, ev)).join('')}
+        </div>
+      </div>`;
+    },
+
+    // V32.10.0 — Linha derivada (não-editável) da cascata. icon · badge · nome · valor · hint.
+    _cascadeLine(icon, badge, name, value, color, hint) {
+      const tone = {
+        sky:     { bg: 'bg-sky-50',     border: 'border-sky-200',     text: 'text-sky-900',     pill: 'text-sky-700/80' },
+        amber:   { bg: 'bg-amber-50',   border: 'border-amber-200',   text: 'text-amber-900',   pill: 'text-amber-700/80' },
+        emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-900', pill: 'text-emerald-700/80' },
+        rose:    { bg: 'bg-rose-50',    border: 'border-rose-200',    text: 'text-rose-900',    pill: 'text-rose-700/80' },
+        violet:  { bg: 'bg-violet-50',  border: 'border-violet-200',  text: 'text-violet-900',  pill: 'text-violet-700/80' }
+      }[color] || { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-900', pill: 'text-slate-700/80' };
+      return `<div class="rounded-2xl ${tone.bg} border ${tone.border} p-4">
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-lg">${icon}</span>
+            <div class="min-w-0">
+              <p class="text-[9px] font-black ${tone.pill} uppercase tracking-widest">${badge}</p>
+              <p class="text-sm font-black ${tone.text}">${Utils.escape(name)}</p>
+            </div>
+          </div>
+          <p class="text-2xl font-black ${tone.text} whitespace-nowrap shrink-0">${value}</p>
+        </div>
+        <p class="text-[11px] text-slate-600 italic mt-1">💡 ${hint}</p>
+      </div>`;
+    },
+
+    // V32.10.0 — Seta conectora entre linhas da cascata.
+    _cascadeArrow(symbol) {
+      return `<div class="flex justify-center py-1">
+        <span class="text-xl font-black text-slate-400">${symbol}</span>
+      </div>`;
+    },
+
+    // V32.10.0 — Linha MCU (editável).
+    _cascadeMcu(productId, mcuAuto, override, resolved, ev) {
+      const value = resolved.value;
+      const isManual = override.mode === 'manual';
+      const isComposed = override.mode === 'composed';
+      const diff = (isManual || isComposed) ? (value - mcuAuto.value) : 0;
+      const badge = override.mode === 'auto' ? '<span class="text-[9px] font-black text-slate-400 uppercase">auto</span>'
+                  : isManual ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-violet-600 text-white" style="color:#fff!important;">MANUAL</span>'
+                  : '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-sky-600 text-white" style="color:#fff!important;">COMPOSTO</span>';
+      const diffHint = (isManual || isComposed) && Math.abs(diff) > 0.5
+        ? `<p class="text-[10px] text-violet-700 mt-0.5">Auto seria ${this._money(mcuAuto.value)} · diferença ${diff > 0 ? '+' : ''}${this._money(diff)}</p>`
+        : '';
+      return `<div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-4">
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-lg">💚</span>
+            <div class="min-w-0">
+              <p class="text-[9px] font-black text-emerald-700/80 uppercase tracking-widest">= MARGEM POR VENDA (após custos variáveis)</p>
+              <p class="text-sm font-black text-emerald-900">MCU · Margem de Contribuição Unitária</p>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <p class="text-2xl font-black text-emerald-900 whitespace-nowrap">${this._money(value)}</p>
+            ${badge}
+            ${diffHint}
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-600 italic mt-1 mb-2">💡 Quanto sobra por venda depois de tirar custos que escalam com receita (impostos, comissões, taxa de plataforma).</p>
+
+        ${this._cascadeEditPanel(productId, 'mcu', override, mcuAuto)}
+      </div>`;
+    },
+
+    // V32.10.0 — Linha MSU (editável).
+    _cascadeMsu(productId, msuAuto, override, resolved, mcu, cac, ev) {
+      const value = resolved.value;
+      const isManual = override.mode === 'manual';
+      const isComposed = override.mode === 'composed';
+      const diff = (isManual || isComposed) ? (value - msuAuto.value) : 0;
+      const badge = override.mode === 'auto' ? '<span class="text-[9px] font-black text-slate-400 uppercase">auto</span>'
+                  : isManual ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-violet-600 text-white" style="color:#fff!important;">MANUAL</span>'
+                  : '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-sky-600 text-white" style="color:#fff!important;">COMPOSTO</span>';
+      const diffHint = (isManual || isComposed) && Math.abs(diff) > 0.5
+        ? `<p class="text-[10px] text-violet-700 mt-0.5">Auto seria ${this._money(msuAuto.value)} · diferença ${diff > 0 ? '+' : ''}${this._money(diff)}</p>`
+        : '';
+      const tmPct = ev.ticket > 0 ? (value / ev.ticket) * 100 : 0;
+      const healthHint = tmPct >= 40
+        ? `<span class="text-emerald-700 font-bold">✓ ${tmPct.toFixed(0)}% do TM — saudável</span>`
+        : tmPct >= 25
+        ? `<span class="text-amber-700 font-bold">⚠ ${tmPct.toFixed(0)}% do TM — apertada</span>`
+        : `<span class="text-rose-700 font-bold">✗ ${tmPct.toFixed(0)}% do TM — crítica</span>`;
+      return `<div class="rounded-2xl bg-emerald-50 border-2 border-emerald-300 p-4">
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-lg">💚</span>
+            <div class="min-w-0">
+              <p class="text-[9px] font-black text-emerald-700/80 uppercase tracking-widest">= MARGEM REAL (após CAC)</p>
+              <p class="text-sm font-black text-emerald-900">MSU · Margem de Segurança Unitária</p>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <p class="text-2xl font-black text-emerald-900 whitespace-nowrap">${this._money(value)}</p>
+            ${badge}
+            ${diffHint}
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-600 italic mt-1">💡 Quanto cada venda contribui DE VERDADE pra pagar os custos fixos. ${healthHint}</p>
+        <p class="text-[11px] text-slate-600 mt-1 mb-2">Fórmula auto: MCU (${this._money(mcu)}) − CAC (${this._money(cac)})</p>
+
+        ${this._cascadeEditPanel(productId, 'msu', override, msuAuto)}
+      </div>`;
+    },
+
+    // V32.10.0 — Painel de edição shared MCU/MSU: 3 abas (Auto / Valor único / Composição).
+    _cascadeEditPanel(productId, kpi, override, autoData) {
+      const mode = override.mode || 'auto';
+      const tabBtn = (m, label) => {
+        const active = mode === m;
+        return `<button onclick="Actions.setRevopsKpiOverrideMode('${productId}', '${kpi}', '${m}')"
+          class="px-2.5 py-1 rounded-lg text-[10px] font-black ${active
+            ? 'bg-violet-600 text-white'
+            : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'}" ${active ? 'style="color:#fff!important;"' : ''}>${label}</button>`;
+      };
+      let body = '';
+      if (mode === 'manual') {
+        const value = override.value != null ? String(override.value) : '';
+        body = `<div>
+          <label class="text-[10px] font-black text-slate-500 uppercase block mb-1">Valor manual (número ou =fórmula)</label>
+          <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(value)}" onchange="Actions.setRevopsKpiOverrideValue('${productId}', '${kpi}', this.value)" placeholder="220 ou =tm*0,55" class="w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-mono text-slate-800" />
+          <p class="text-[10px] text-slate-500 mt-1">Use número direto (<code>220</code>) ou fórmula (<code>=tm*0,55</code>, <code>=tm-180</code>, <code>=fat_bruto/sales</code>). Handles: <code>tm</code>, <code>ticket</code>, <code>fat_bruto</code>, <code>sales</code>, <code>ebitda</code>, etc.</p>
+        </div>`;
+      } else if (mode === 'composed') {
+        const components = Array.isArray(override.components) ? override.components : [];
+        body = `<div class="space-y-1.5">
+          <p class="text-[10px] font-black text-slate-500 uppercase">Composição (cada linha é uma dedução do valor base)</p>
+          ${components.length === 0 ? '<p class="text-[11px] text-slate-400 italic">Nenhuma dedução. Clique "+ Dedução" pra adicionar.</p>' : ''}
+          ${components.map((c, idx) => `<div class="flex items-center gap-1.5">
+            <span class="text-slate-500 font-black text-xs">−</span>
+            <input value="${Utils.escape(c.name || '')}" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'name', this.value); App.render();" placeholder="Nome (ex: Imposto)" class="flex-1 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800" />
+            <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(c.value || '')}" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'value', this.value); App.render();" placeholder="60 ou =tm*0,15" class="w-40 px-2 py-1 rounded-lg bg-white border border-slate-300 text-xs font-mono text-slate-800" />
+            <button onclick="Actions.deleteRevopsKpiComponent('${productId}', '${kpi}', ${idx})" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
+          </div>`).join('')}
+          <button onclick="Actions.addRevopsKpiComponent('${productId}', '${kpi}')" class="mt-1.5 px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[10px] font-black" style="color:#fff!important;">+ Dedução</button>
+        </div>`;
+      } else if (mode === 'auto' && autoData?.breakdown && autoData.breakdown.length > 0) {
+        body = `<details class="text-[11px]">
+          <summary class="cursor-pointer text-slate-600 hover:text-slate-900 font-bold">▼ Como chegamos automaticamente</summary>
+          <div class="mt-2 space-y-0.5 pl-3">
+            <div class="flex justify-between text-slate-700"><span>TM (base)</span><span>${this._money(autoData.ticket)}</span></div>
+            ${autoData.breakdown.map(b => `<div class="flex justify-between text-amber-700">
+              <span>(−) ${Utils.escape(b.name)} <span class="text-[9px] text-slate-400">${Utils.escape(b.formula || '')}</span></span>
+              <span>−${this._money(b.unit)}</span>
+            </div>`).join('')}
+            <div class="flex justify-between text-emerald-700 font-black border-t border-slate-200 pt-0.5"><span>= MCU</span><span>${this._money(autoData.value)}</span></div>
+          </div>
+        </details>`;
+      } else if (mode === 'auto') {
+        body = `<p class="text-[10px] text-slate-400 italic">Sistema calcula automaticamente. Para sobrescrever, escolha "Valor único" ou "Composição".</p>`;
+      }
+      return `<div class="mt-3 pt-3 border-t border-emerald-200">
+        <div class="flex items-center gap-1.5 mb-2 flex-wrap">
+          <span class="text-[10px] font-black text-slate-500 uppercase mr-1">Edição:</span>
+          ${tabBtn('auto', 'Auto')}
+          ${tabBtn('manual', 'Valor único')}
+          ${tabBtn('composed', 'Composição')}
+          ${(mode === 'manual' || mode === 'composed')
+            ? `<button onclick="Actions.resetRevopsKpiOverride('${productId}', '${kpi}')" class="ml-auto text-[10px] text-slate-500 hover:text-slate-700 underline">↩ Voltar pro auto</button>`
+            : ''}
+        </div>
+        ${body}
+      </div>`;
+    },
+
+    // V32.10.0 — Card final de Breakeven com microcopy operacional.
+    _cascadeBreakeven(breakeven, msu, fixedTotal, health, folgaVendas, ebitdaProjetado) {
+      const healthBg = { emerald: 'bg-emerald-50 border-emerald-200', amber: 'bg-amber-50 border-amber-200', rose: 'bg-rose-50 border-rose-200' }[health.cls];
+      return `<div class="rounded-2xl bg-violet-50 border-2 border-violet-300 p-4">
+        <div class="flex items-start justify-between gap-3 mb-1">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-lg">🎯</span>
+            <div class="min-w-0">
+              <p class="text-[9px] font-black text-violet-700/80 uppercase tracking-widest">LINHA DE EQUILÍBRIO</p>
+              <p class="text-sm font-black text-violet-900">Breakeven em Unidades</p>
+            </div>
+          </div>
+          <p class="text-3xl font-black text-violet-900 whitespace-nowrap">${breakeven.toLocaleString('pt-BR')} <span class="text-sm font-bold">vendas</span></p>
+        </div>
+        <p class="text-[11px] text-slate-600 italic mt-1 mb-2">💡 ${this._money(fixedTotal)} ÷ MSU ${this._money(msu)} = ${breakeven} vendas pra o mês empatar.</p>
+        <div class="rounded-xl ${healthBg} border p-3 mt-2">
+          <p class="text-[11px] font-bold">${health.msg}</p>
+          ${folgaVendas > 0
+            ? `<p class="text-[11px] mt-1">Folga: ${folgaVendas} vendas × ${this._money(msu)} = <b>${this._money(ebitdaProjetado)} de EBITDA projetado</b></p>`
+            : folgaVendas < 0
+            ? `<p class="text-[11px] mt-1">Faltam ${Math.abs(folgaVendas)} vendas pra cobrir os fixos. Prejuízo projetado: <b>${this._money(Math.abs(ebitdaProjetado))}</b></p>`
+            : ''}
         </div>
       </div>`;
     },

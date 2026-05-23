@@ -452,6 +452,123 @@
     },
 
     // ─────────────────────────────────────────────────────────────
+    // V32.10.0 — KPIs da cascata RevOps (TM → MCU → CAC → MSU → Fixed → Breakeven)
+    // ─────────────────────────────────────────────────────────────
+    //
+    // Cálculos AUTO (cliente pode sobrescrever via override).
+    // Override shape: { mode: 'auto'|'manual'|'composed', value?, formula?, components? }
+
+    // Auto MCU: TM − Σ custos variáveis unitários inferidos.
+    // Inferência (Opção A cravada com Felipe):
+    //   - bucket='variable' + mode='percent_of' base ∈ {fat_bruto, ticket, fat_liquido}
+    //     → unit = ticket × factor%
+    //   - bucket='variable' + mode='custom_formula' que referencia fat_bruto/ticket/sales
+    //     → unit = itemValue / sales (assume escalou com vendas)
+    //   - bucket='variable' + mode='fixed': IGNORADO (assume pacote mensal, não unitário).
+    //     Cliente que tem custo R$/un cadastra como percent_of base=ticket.
+    computeAutoMCU(cfg, ev) {
+      const ticket = ev.ticket;
+      const sales = ev.sales || 1;
+      let variableUnitCost = 0;
+      const breakdown = [];
+      for (const group of (cfg.groups || [])) {
+        if (group.bucket !== 'variable') continue;
+        for (const item of (group.items || [])) {
+          const calc = item.calc || {};
+          let unitCost = 0;
+          let formulaDesc = '';
+          if (calc.mode === 'percent_of') {
+            const base = String(calc.base || '').toLowerCase();
+            const scaleHandles = ['fat_bruto', 'fat_liquido', 'ticket', 'sales'];
+            if (scaleHandles.includes(base)) {
+              const factor = this._num(calc.factor) / 100;
+              if (base === 'sales') {
+                // sales*factor — custo total escalado por vendas → unit = factor
+                unitCost = factor;
+              } else if (base === 'ticket') {
+                unitCost = ticket * factor;
+              } else {
+                // fat_bruto / fat_liquido: dimensão receita; unit = ticket * factor
+                unitCost = ticket * factor;
+              }
+              formulaDesc = `${calc.factor}% × ${base}`;
+            }
+          } else if (calc.mode === 'custom_formula') {
+            const f = String(calc.formula || '').toLowerCase();
+            if (/fat_bruto|fat_liquido|ticket|sales/.test(f)) {
+              // Escala com receita/vendas — pega valor total já calculado e divide por vendas
+              const itemValue = ev.itemValues[item.id] || 0;
+              unitCost = sales > 0 ? itemValue / sales : 0;
+              formulaDesc = `${calc.formula} ÷ ${sales} vendas`;
+            }
+          }
+          // mode='fixed', 'percent_self', 'derived' → não entram (assume pacote / não-unitário)
+          if (unitCost > 0) {
+            variableUnitCost += unitCost;
+            breakdown.push({ name: item.name, unit: unitCost, formula: formulaDesc, itemId: item.id });
+          }
+        }
+      }
+      return {
+        value: ticket - variableUnitCost,
+        ticket,
+        variableUnitCost,
+        breakdown
+      };
+    },
+
+    // Auto MSU = MCU − CAC
+    computeAutoMSU(mcu, cac) {
+      return { value: mcu - cac, mcu, cac };
+    },
+
+    // Resolve override pra valor final.
+    // override = { mode, value, formula, components }
+    // autoValue = valor calculado se mode='auto'
+    // symbols = symbol table pra resolver fórmulas dos overrides
+    resolveOverride(override, autoValue, symbols) {
+      const o = override || { mode: 'auto' };
+      if (o.mode === 'auto' || !o.mode) {
+        return { value: autoValue, source: 'auto' };
+      }
+      if (o.mode === 'manual') {
+        // value pode ser número ou string-fórmula. Se começa com '=' resolve.
+        const raw = o.value;
+        if (typeof raw === 'number' && Number.isFinite(raw)) {
+          return { value: raw, source: 'manual', input: String(raw) };
+        }
+        const strRaw = String(raw || '').trim();
+        if (strRaw.startsWith('=')) {
+          const computed = this._evalFormula(strRaw, symbols);
+          return { value: computed, source: 'manual', input: strRaw, isFormula: true };
+        }
+        const num = this._num(strRaw);
+        return { value: num, source: 'manual', input: strRaw };
+      }
+      if (o.mode === 'composed') {
+        // base = autoValue (TM pra MCU, MCU pra MSU) e components subtraem/somam
+        const components = Array.isArray(o.components) ? o.components : [];
+        let total = autoValue; // começa do auto
+        // V32.10.0 — Compor sobre o valor BASE (TM pra MCU; MCU pra MSU).
+        // Cliente deduz componentes a partir do base. Convenção: signal default = '−'.
+        // Mas o componente.value pode vir negativo OU positivo, sistema soma cru.
+        // Pra UX, componentes são listados como deduções (sinal − implícito).
+        // override.baseValue = TM ou MCU (passado pelo caller)
+        if (typeof o.baseValue === 'number') total = o.baseValue;
+        for (const c of components) {
+          const raw = String(c.value || '').trim();
+          let v = 0;
+          if (raw.startsWith('=')) v = this._evalFormula(raw, symbols);
+          else v = this._num(raw);
+          // Convenção: components são DEDUÇÕES (subtraem do base)
+          total -= v;
+        }
+        return { value: total, source: 'composed', components };
+      }
+      return { value: autoValue, source: 'auto' };
+    },
+
+    // ─────────────────────────────────────────────────────────────
     // VALIDATE FORMULA — feedback visual pro cliente saber se fórmula está OK
     // ─────────────────────────────────────────────────────────────
     //

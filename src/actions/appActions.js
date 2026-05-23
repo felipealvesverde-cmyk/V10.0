@@ -3587,6 +3587,64 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V32.10.0 — Override de MCU/MSU na tab RevOps (cascata).
+  // Cliente pode escolher modo single ('manual') ou múltiplas deduções ('composed').
+  // Helper interno: get-or-init override do produto+kpi.
+  _revopsGetOverride(productId, kpi) {
+    if (!App.state.revopsKpiOverrides) App.state.revopsKpiOverrides = {};
+    const pid = String(productId);
+    if (!App.state.revopsKpiOverrides[pid]) App.state.revopsKpiOverrides[pid] = {};
+    if (!App.state.revopsKpiOverrides[pid][kpi]) {
+      App.state.revopsKpiOverrides[pid][kpi] = { mode: 'auto', value: null, components: [] };
+    }
+    return App.state.revopsKpiOverrides[pid][kpi];
+  },
+
+  setRevopsKpiOverrideMode(productId, kpi, mode) {
+    const o = Actions._revopsGetOverride(productId, kpi);
+    o.mode = ['auto', 'manual', 'composed'].includes(mode) ? mode : 'auto';
+    if (o.mode === 'composed' && !Array.isArray(o.components)) o.components = [];
+    if (o.mode === 'manual' && (o.value == null || o.value === '')) o.value = '';
+    App.save(); App.render();
+  },
+
+  setRevopsKpiOverrideValue(productId, kpi, value) {
+    const o = Actions._revopsGetOverride(productId, kpi);
+    o.value = value;
+    App.save(); App.render();
+  },
+
+  addRevopsKpiComponent(productId, kpi) {
+    const o = Actions._revopsGetOverride(productId, kpi);
+    o.mode = 'composed';
+    if (!Array.isArray(o.components)) o.components = [];
+    o.components.push({ name: 'Nova dedução', value: '0' });
+    App.save(); App.render();
+  },
+
+  updateRevopsKpiComponent(productId, kpi, index, field, value) {
+    const o = Actions._revopsGetOverride(productId, kpi);
+    if (!Array.isArray(o.components) || !o.components[index]) return;
+    o.components[index][field] = String(value || '');
+    App.save();
+    // não render — evita perder foco em input. Re-render via onchange.
+  },
+
+  deleteRevopsKpiComponent(productId, kpi, index) {
+    const o = Actions._revopsGetOverride(productId, kpi);
+    if (!Array.isArray(o.components)) return;
+    o.components.splice(index, 1);
+    App.save(); App.render();
+  },
+
+  resetRevopsKpiOverride(productId, kpi) {
+    const o = Actions._revopsGetOverride(productId, kpi);
+    o.mode = 'auto';
+    o.value = null;
+    o.components = [];
+    App.save(); App.render();
+  },
+
   // V32.9.4 — Collapse/Lock por grupo no RevOps.
   // Collapse: UI state, qualquer click expande. Lock: persistido, pede senha
   // do user logado pra destravar (anti edição acidental em login compartilhado).
