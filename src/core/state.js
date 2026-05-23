@@ -171,6 +171,9 @@ var State = {
       // estiver vazio mas revopsFinance[productId] tiver dado, migra automaticamente.
       // UI antiga continua lendo do legacy. UI nova (Onda 2) lê do V2.
       revopsFinanceV2: {},
+      // V32.8.1 (Onda 2) — tab ativa do painel novo + flag pra voltar ao clássico.
+      revopsWhitelabelActiveTab: 'costs',
+      revopsClassicMode: false,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -561,6 +564,9 @@ var State = {
       // Roda 1x por F5 mas migrateFromLegacy é idempotente (sempre produz mesma
       // saída do mesmo input) — safe re-rodar.
       revopsFinanceV2: this._normalizeRevopsFinanceV2(raw.revopsFinanceV2, raw.revopsFinance),
+      // V32.8.1 — tab ativa + flag clássico persistem.
+      revopsWhitelabelActiveTab: typeof raw.revopsWhitelabelActiveTab === 'string' ? raw.revopsWhitelabelActiveTab : 'costs',
+      revopsClassicMode: !!raw.revopsClassicMode,
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

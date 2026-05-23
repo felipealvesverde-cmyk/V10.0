@@ -3305,6 +3305,191 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // ─────────────────────────────────────────────────────────────
+  // V32.8.1 — RevOps Whitelabel (Onda 2): actions do painel novo.
+  // ─────────────────────────────────────────────────────────────
+
+  // Helper interno: pega config V2 do produto, garante que existe (migra do
+  // legacy se ainda não), aplica mutador, salva. Mutador recebe a config e
+  // retorna a versão modificada (ou só muta in-place).
+  _revopsV2Mutate(productId, mutator) {
+    if (!productId) return;
+    const pid = String(productId);
+    if (!App.state.revopsFinanceV2) App.state.revopsFinanceV2 = {};
+    let cfg = App.state.revopsFinanceV2[pid];
+    if (!cfg) {
+      const legacy = App.state.revopsFinance?.[pid];
+      cfg = legacy ? RevopsWhitelabelEngine.migrateFromLegacy(legacy) : RevopsWhitelabelEngine.defaultConfig(pid);
+      cfg.productId = pid;
+    }
+    const next = mutator(cfg) || cfg;
+    App.state.revopsFinanceV2[pid] = next;
+    App.save(); App.render();
+  },
+
+  setRevopsActiveProductId(productId) {
+    App.state.revopsSelectedProductId = productId ? Number(productId) : null;
+    App.save(); App.render();
+  },
+
+  setRevopsWhitelabelTab(tabId) {
+    App.state.revopsWhitelabelActiveTab = String(tabId || 'costs');
+    App.save(); App.render();
+  },
+
+  toggleRevopsClassicMode() {
+    App.state.revopsClassicMode = !App.state.revopsClassicMode;
+    App.save(); App.render();
+  },
+
+  setRevopsWhitelabelPeriod(productId, period) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      cfg.period = ['monthly', 'quarterly', 'yearly'].includes(period) ? period : 'monthly';
+    });
+  },
+
+  setRevopsSalesProjection(productId, value) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      cfg.salesProjection = Number(value) || 0;
+    });
+  },
+
+  // GRUPOS
+  addRevopsGroup(productId, bucket) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const labels = { fixed: 'Novo grupo fixo', acquisition: 'Nova origem de aquisição', variable: 'Novo custo variável', custom: 'Novo grupo custom' };
+      const g = RevopsWhitelabelEngine.emptyGroup(labels[bucket] || 'Novo grupo', bucket);
+      cfg.groups = [...(cfg.groups || []), g];
+    });
+  },
+
+  renameRevopsGroup(productId, groupId, newLabel) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const g = (cfg.groups || []).find(x => x.id === groupId);
+      if (g) g.label = String(newLabel || g.label).trim();
+    });
+  },
+
+  deleteRevopsGroup(productId, groupId) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      cfg.groups = (cfg.groups || []).filter(g => g.id !== groupId);
+    });
+  },
+
+  // ITEMS
+  addRevopsItem(productId, groupId) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const g = (cfg.groups || []).find(x => x.id === groupId);
+      if (g) g.items = [...(g.items || []), RevopsWhitelabelEngine.emptyItem('Novo item')];
+    });
+  },
+
+  renameRevopsItem(productId, groupId, itemId, newName) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const g = (cfg.groups || []).find(x => x.id === groupId);
+      const it = g?.items?.find(i => i.id === itemId);
+      if (it) it.name = String(newName || it.name).trim();
+    });
+  },
+
+  deleteRevopsItem(productId, groupId, itemId) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const g = (cfg.groups || []).find(x => x.id === groupId);
+      if (g) g.items = (g.items || []).filter(i => i.id !== itemId);
+    });
+  },
+
+  changeRevopsItemMode(productId, groupId, itemId, mode) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const g = (cfg.groups || []).find(x => x.id === groupId);
+      const it = g?.items?.find(i => i.id === itemId);
+      if (it) it.calc = RevopsWhitelabelEngine.emptyCalc(mode);
+    });
+  },
+
+  updateRevopsItemCalc(productId, groupId, itemId, field, value) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const g = (cfg.groups || []).find(x => x.id === groupId);
+      const it = g?.items?.find(i => i.id === itemId);
+      if (!it || !it.calc) return;
+      // Numéricos: coerce. Strings (base, groupRef, formula): direto.
+      const numericFields = ['value', 'factor', 'baseValue'];
+      it.calc[field] = numericFields.includes(field) ? (Number(value) || 0) : String(value || '');
+    });
+  },
+
+  // OFFERS
+  addRevopsOffer(productId) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const o = { id: `offer_${Date.now().toString(36).slice(-4)}`, name: 'Nova oferta', price: 0, mix: 0, selectedForTicket: true };
+      cfg.offers = [...(cfg.offers || []), o];
+    });
+  },
+
+  renameRevopsOffer(productId, offerId, name) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const o = (cfg.offers || []).find(x => x.id === offerId);
+      if (o) o.name = String(name || o.name).trim();
+    });
+  },
+
+  updateRevopsOfferField(productId, offerId, field, value) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const o = (cfg.offers || []).find(x => x.id === offerId);
+      if (o) o[field] = Number(value) || 0;
+    });
+  },
+
+  toggleRevopsOfferTicket(productId, offerId) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const o = (cfg.offers || []).find(x => x.id === offerId);
+      if (o) o.selectedForTicket = !o.selectedForTicket;
+    });
+  },
+
+  deleteRevopsOffer(productId, offerId) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      cfg.offers = (cfg.offers || []).filter(o => o.id !== offerId);
+    });
+  },
+
+  setRevopsTicketMode(productId, mode) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      cfg.ticketMode = mode === 'manual' ? 'manual' : 'weighted';
+    });
+  },
+
+  setRevopsTicketManual(productId, value) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      cfg.ticketManualValue = Number(value) || 0;
+    });
+  },
+
+  // CUSTOM KPIs
+  addRevopsCustomKpi(productId) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      cfg.customKpis = [...(cfg.customKpis || []), {
+        id: `kpi_${Date.now().toString(36).slice(-4)}`,
+        name: 'Novo KPI',
+        formula: '=0',
+        unit: 'BRL'
+      }];
+    });
+  },
+
+  updateRevopsCustomKpi(productId, kpiId, field, value) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const k = (cfg.customKpis || []).find(x => x.id === kpiId);
+      if (k) k[field] = String(value || '');
+    });
+  },
+
+  deleteRevopsCustomKpi(productId, kpiId) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      cfg.customKpis = (cfg.customKpis || []).filter(k => k.id !== kpiId);
+    });
+  },
+
   openRevopsAcquisitionModal() {
     const config = this._revopsEnsureConfig();
     if (!config) return Utils.toast('Selecione um produto.');

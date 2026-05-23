@@ -1,13 +1,21 @@
-// V14 — RevOps & Governança: tela principal.
+// V14 → V32.8.1 — RevOps & Governança: tela principal.
 // Dropdown de produto + cards editáveis + métricas + entradas para Simulação e Cenários Salvos.
+// V32.8.1: rota condicional pro painel whitelabel novo (Onda 2). Cliente pode voltar
+// ao clássico via toggle no header do painel novo.
 var RevopsGovernanceModule = {
   render() {
+    // V32.8.1 — Default: painel whitelabel novo. Flag revopsClassicMode = true
+    // volta pro painel V14 legado (refúgio caso de bug).
+    if (!App.state.revopsClassicMode && window.RevopsWhitelabelPanel) {
+      return RevopsWhitelabelPanel.render();
+    }
     const products = App.state.products || [];
     if (!products.length) return this._emptyState();
     const productId = this._currentProductId();
     const config = this._currentConfig(productId);
     const metrics = RevopsFinanceEngine.computeMetrics(config);
     return `<div class="space-y-4">
+      <div class="flex justify-end"><button onclick="Actions.toggleRevopsClassicMode()" class="px-3 py-2 rounded-xl bg-violet-100 hover:bg-violet-200 text-violet-800 text-xs font-bold flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Voltar ao painel novo (Whitelabel)</button></div>
       ${this._hero(productId, products, config)}
       ${this._metricsStrip(metrics, config)}
       ${window.RevopsPinkDashboard ? RevopsPinkDashboard.render(config) : ''}
