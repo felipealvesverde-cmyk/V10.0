@@ -1623,7 +1623,46 @@ var SettingsModal = {
 
       </div>
 
+      ${this._deploySnapshotBlock()}
       ${this._remoteSnapshotsBlock()}
+    </div>`;
+  },
+
+  // V32.10.5 — Vetor obrigatório pré-deploy: master clica e backend tira
+  // snapshot de TODOS os tenants ativos antes da promoção pra prod. Retention
+  // de 10 snapshots com prefix 'deploy-' por owner. Antídoto contra perda de
+  // dados durante upgrades (incidente Sansone V32.10.x).
+  _deploySnapshotBlock() {
+    // Só master vê
+    let isMaster = false;
+    try {
+      const u = JSON.parse(localStorage.getItem('lj_user') || '{}');
+      isMaster = !!u.isMaster;
+    } catch (_) {}
+    if (!isMaster) return '';
+    const version = window.LJVersion || 'unknown';
+    return `<div class="mt-5 rounded-3xl bg-gradient-to-br from-amber-50 to-rose-50 border-2 border-amber-300 p-5 shadow-sm">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="min-w-0 flex-1">
+          <h3 class="text-lg font-black text-amber-900 flex items-center gap-2">
+            <i data-lucide="shield-alert" class="w-5 h-5 text-amber-700"></i>
+            Snapshot pré-deploy (todos os tenants)
+          </h3>
+          <p class="text-[12px] text-amber-800 mt-1 leading-relaxed">
+            Vetor de segurança obrigatório. Antes de promover qualquer versão pra prod, dispare este botão.
+            Backend itera <b>todos os tenants ativos</b>, tira snapshot do state atual de cada user, salva com label
+            <code class="text-[10px] bg-white px-1 py-0.5 rounded">deploy-V${version}-{ts}</code>.
+            Retém os <b>10 últimos</b> com esse prefix por tenant.
+          </p>
+          <p class="text-[11px] text-amber-700/80 mt-2 italic">
+            ⚠ Só master pode disparar. Workflow cravado: Felipe → "subir produção" → dev clica este botão → dev faz git push.
+          </p>
+        </div>
+        <button onclick="Actions.createDeploySnapshotAllTenants('${Utils.escape(version)}')" class="px-4 py-3 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-black text-sm flex items-center gap-2 shrink-0" style="color:#fff!important;">
+          <i data-lucide="camera" class="w-5 h-5"></i>
+          Snapshot pré-deploy V${Utils.escape(version)}
+        </button>
+      </div>
     </div>`;
   },
 

@@ -3085,6 +3085,30 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.10.5 — Snapshot deploy-wide: salva state de TODOS os tenants ativos
+  // antes de qualquer deploy de produção. Master-only. Workflow obrigatório:
+  // Felipe dispara → backend itera tenants → snapshot por user → retention 10
+  // por owner. Antídoto contra "atualizei nova versão e dados sumiram".
+  async createDeploySnapshotAllTenants(version) {
+    if (!confirm(`Criar snapshot pré-deploy de TODOS os tenants ativos?\n\nVersão atual: ${version || window.LJVersion}\n\nIsso é o vetor de segurança ANTES de promover pra prod. Confirma?`)) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/admin-deploy-snapshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ version: version || window.LJVersion })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ ${data.message}`);
+      console.log('[deploy-snapshot] stats:', data.stats);
+      // Recarrega lista pra mostrar os novos
+      Actions.loadRemoteSnapshots();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V32.10.2 — Auto-snapshot ao entrar/sair de áreas críticas. Guard por
   // sessão+label pra não spammar o backend.
   _autoSnapshotOnce(label) {
