@@ -3465,6 +3465,67 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V32.8.5 — Salva os overrides atuais do simulator como cenário nomeado.
+  // Cenário é puro snapshot: sales/ticket overrides + nome + timestamp.
+  // Custos do cfg NÃO entram (cliente preserva como referência viva).
+  saveRevopsScenario(productId, name) {
+    if (!productId) return Utils.toast('Sem produto ativo.');
+    const sim = App.state.revopsSimulator;
+    if (!sim || !sim.active) return Utils.toast('Ative o Simulador antes de salvar cenário.');
+    const cleanName = String(name || '').trim();
+    if (!cleanName) return Utils.toast('Dê um nome pro cenário.');
+    const pid = String(productId);
+    if (!App.state.revopsScenarios) App.state.revopsScenarios = {};
+    if (!App.state.revopsScenarios[pid]) App.state.revopsScenarios[pid] = [];
+    App.state.revopsScenarios[pid].push({
+      id: `sc_${Date.now().toString(36)}`,
+      name: cleanName.slice(0, 64),
+      salesOverride: sim.salesOverride,
+      ticketOverride: sim.ticketOverride,
+      savedAt: new Date().toISOString()
+    });
+    App.save(); App.render();
+    Utils.toast(`✓ Cenário "${cleanName}" salvo.`);
+  },
+
+  loadRevopsScenario(productId, scenarioId) {
+    const pid = String(productId);
+    const sc = (App.state.revopsScenarios?.[pid] || []).find(s => s.id === scenarioId);
+    if (!sc) return;
+    App.state.revopsSimulator = {
+      active: true,
+      salesOverride: sc.salesOverride,
+      ticketOverride: sc.ticketOverride
+    };
+    App.save(); App.render();
+    Utils.toast(`Cenário "${sc.name}" carregado no Simulador.`);
+  },
+
+  deleteRevopsScenario(productId, scenarioId) {
+    const pid = String(productId);
+    if (!App.state.revopsScenarios?.[pid]) return;
+    App.state.revopsScenarios[pid] = App.state.revopsScenarios[pid].filter(s => s.id !== scenarioId);
+    // Limpa seleção se cenário deletado estava sendo comparado
+    const sel = App.state.revopsCompareSelection || {};
+    if (sel.left === scenarioId) sel.left = null;
+    if (sel.right === scenarioId) sel.right = null;
+    App.state.revopsCompareSelection = sel;
+    App.save(); App.render();
+  },
+
+  setRevopsCompareSlot(slot, scenarioId) {
+    if (!App.state.revopsCompareSelection) App.state.revopsCompareSelection = { left: null, right: null };
+    if (slot === 'left' || slot === 'right') {
+      App.state.revopsCompareSelection[slot] = scenarioId || null;
+    }
+    App.save(); App.render();
+  },
+
+  clearRevopsCompare() {
+    App.state.revopsCompareSelection = { left: null, right: null };
+    App.save(); App.render();
+  },
+
   // V32.8.2 — Save direto de fórmula via Modo Excel. Vira custom_formula.
   // Se a fórmula puder ser reduzida pra um modo Builder mais simples (ex:
   // só um número), simplifica de volta — preserva A/B sync transparente.

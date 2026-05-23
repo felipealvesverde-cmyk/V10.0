@@ -186,6 +186,13 @@ var State = {
       // overrides voláteis e vê impacto em tempo real, sem mexer no salvo.
       // null = usa valor real do cfg.
       revopsSimulator: { salesOverride: null, ticketOverride: null, active: false },
+      // V32.8.5 (Onda 6) — Cenários nomeados por produto. Salva combinações de
+      // overrides como "Cenário pessimista", "Crescer 30%", etc. Pode carregar
+      // de volta no Simulator OU comparar 2 lado-a-lado.
+      // Shape: { [productId]: [{ id, name, salesOverride, ticketOverride, savedAt }] }
+      revopsScenarios: {},
+      // IDs dos 2 cenários selecionados pra comparação (ou null = baseline).
+      revopsCompareSelection: { left: null, right: null },
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -586,6 +593,9 @@ var State = {
       revopsDjowSuggestions: {},
       // V32.8.4 — Simulator boota desligado (estado UI volátil).
       revopsSimulator: { salesOverride: null, ticketOverride: null, active: false },
+      // V32.8.5 — cenários persistem; seleção de comparação não.
+      revopsScenarios: raw.revopsScenarios && typeof raw.revopsScenarios === 'object' ? raw.revopsScenarios : {},
+      revopsCompareSelection: { left: null, right: null },
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

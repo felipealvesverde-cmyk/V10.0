@@ -560,13 +560,18 @@
         </div>
 
         ${sim.active ? this._simulatorEbitdaCompare(ev, simEv) : ''}
+        ${this._scenarioCompareBlock(cfg, ev)}
       </div>`;
     },
 
-    // V32.8.4 — Painel do Simulator: 2 inputs de override + reset.
+    // V32.8.4 → V32.8.5 — Painel do Simulator: overrides + Save + lista de
+    // cenários salvos + comparação lado-a-lado.
     _simulatorPanel(cfg, ev, simEv) {
       const sim = App.state.revopsSimulator;
       const productId = cfg.productId;
+      const scenarios = (App.state.revopsScenarios?.[productId] || []);
+      const compareSel = App.state.revopsCompareSelection || {};
+
       return `<div class="rounded-2xl bg-amber-50 border-2 border-amber-300 p-4 space-y-3">
         <div class="flex items-start justify-between gap-2">
           <div>
@@ -574,9 +579,12 @@
               <i data-lucide="flask-conical" class="w-4 h-4"></i>
               Modo Simulação ON · valores reais não foram alterados
             </p>
-            <p class="text-[11px] text-amber-800/80 mt-0.5">Edite as overrides abaixo. Os cards mostram delta (Δ) vs baseline.</p>
+            <p class="text-[11px] text-amber-800/80 mt-0.5">Edite as overrides abaixo. Salve cenários pra comparar depois.</p>
           </div>
-          <button onclick="Actions.resetRevopsSimulator()" class="px-2 py-1 rounded-lg bg-white border border-amber-300 hover:bg-amber-100 text-amber-700 text-[10px] font-black">Reset</button>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button onclick="(function(){const n=prompt('Nome do cenário:', 'Cenário ${scenarios.length + 1}'); if(n) Actions.saveRevopsScenario('${productId}', n);})()" class="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black flex items-center gap-1" style="color:#fff!important;"><i data-lucide="save" class="w-3 h-3"></i> Salvar</button>
+            <button onclick="Actions.resetRevopsSimulator()" class="px-2 py-1 rounded-lg bg-white border border-amber-300 hover:bg-amber-100 text-amber-700 text-[10px] font-black">Reset</button>
+          </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <label class="block">
@@ -594,6 +602,93 @@
             </div>
           </label>
         </div>
+
+        ${/* V32.8.5 — Lista de cenários salvos + selects de comparação */ ''}
+        ${scenarios.length > 0 ? `<div class="rounded-xl bg-white border border-amber-200 p-3 space-y-2">
+          <p class="text-[10px] font-black text-amber-700 uppercase tracking-wider">Cenários salvos (${scenarios.length})</p>
+          <div class="space-y-1">
+            ${scenarios.map(sc => `<div class="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-amber-50/60 border border-amber-200 hover:bg-amber-100/60">
+              <div class="min-w-0 flex-1">
+                <p class="text-[12px] font-black text-amber-900 truncate">${Utils.escape(sc.name)}</p>
+                <p class="text-[9px] text-amber-700/80">Vendas: ${sc.salesOverride ?? '—'} · TM: ${sc.ticketOverride != null ? this._money(sc.ticketOverride) : '—'}</p>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <button onclick="Actions.loadRevopsScenario('${productId}', '${sc.id}')" title="Carregar no Simulador" class="px-1.5 py-0.5 rounded bg-white border border-amber-300 hover:bg-amber-100 text-amber-700 text-[10px] font-black"><i data-lucide="play" class="w-3 h-3"></i></button>
+                <button onclick="if(confirm('Apagar cenário \\'${Utils.escape(sc.name)}\\'?')) Actions.deleteRevopsScenario('${productId}', '${sc.id}')" class="px-1.5 py-0.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
+              </div>
+            </div>`).join('')}
+          </div>
+
+          ${scenarios.length >= 2 ? `<div class="pt-2 border-t border-amber-200">
+            <p class="text-[10px] font-black text-amber-700 uppercase tracking-wider mb-1.5">Comparar 2 cenários lado-a-lado</p>
+            <div class="grid grid-cols-2 gap-2">
+              <select onchange="Actions.setRevopsCompareSlot('left', this.value)" class="px-2 py-1.5 rounded-lg bg-white border border-amber-300 text-xs font-bold text-slate-800">
+                <option value="">— Esquerda —</option>
+                ${scenarios.map(sc => `<option value="${sc.id}" ${compareSel.left === sc.id ? 'selected' : ''}>${Utils.escape(sc.name)}</option>`).join('')}
+              </select>
+              <select onchange="Actions.setRevopsCompareSlot('right', this.value)" class="px-2 py-1.5 rounded-lg bg-white border border-amber-300 text-xs font-bold text-slate-800">
+                <option value="">— Direita —</option>
+                ${scenarios.map(sc => `<option value="${sc.id}" ${compareSel.right === sc.id ? 'selected' : ''}>${Utils.escape(sc.name)}</option>`).join('')}
+              </select>
+            </div>
+            ${(compareSel.left || compareSel.right) ? `<button onclick="Actions.clearRevopsCompare()" class="mt-1.5 text-[10px] text-amber-700 hover:text-amber-900 underline">Limpar seleção</button>` : ''}
+          </div>` : ''}
+        </div>` : ''}
+      </div>`;
+    },
+
+    // V32.8.5 — Bloco de comparação 2 cenários lado-a-lado. Renderizado em
+    // _resultTab quando há seleção (compareSel.left || compareSel.right).
+    _scenarioCompareBlock(cfg, ev) {
+      const compareSel = App.state.revopsCompareSelection || {};
+      if (!compareSel.left && !compareSel.right) return '';
+      const scenarios = (App.state.revopsScenarios?.[cfg.productId] || []);
+      const left = compareSel.left ? scenarios.find(s => s.id === compareSel.left) : null;
+      const right = compareSel.right ? scenarios.find(s => s.id === compareSel.right) : null;
+      const evalScenario = (sc) => sc
+        ? RevopsWhitelabelEngine.evaluate(cfg, {
+            sales: sc.salesOverride != null ? sc.salesOverride : ev.sales,
+            ticket: sc.ticketOverride != null ? sc.ticketOverride : ev.ticket
+          })
+        : ev;
+      const evL = evalScenario(left);
+      const evR = evalScenario(right);
+      const labelL = left ? left.name : 'Baseline (real)';
+      const labelR = right ? right.name : 'Baseline (real)';
+      const row = (metric, valL, valR, fmt) => {
+        const fmtFn = fmt === 'money' ? (v) => this._money(v) : fmt === 'percent' ? (v) => `${v.toFixed(1)}%` : (v) => Math.round(v).toLocaleString('pt-BR');
+        const better = valR - valL;
+        const cls = better > 0 ? 'text-emerald-700' : better < 0 ? 'text-rose-700' : 'text-slate-500';
+        return `<tr class="border-b border-slate-200 last:border-0">
+          <td class="py-1.5 text-[11px] font-bold text-slate-700">${metric}</td>
+          <td class="py-1.5 text-[12px] font-black text-slate-900 text-right">${fmtFn(valL)}</td>
+          <td class="py-1.5 text-[12px] font-black text-slate-900 text-right">${fmtFn(valR)}</td>
+          <td class="py-1.5 text-[11px] font-bold text-right ${cls}">${better > 0 ? '+' : ''}${fmt === 'money' ? this._money(better) : fmt === 'percent' ? `${better.toFixed(1)}pp` : Math.round(better).toLocaleString('pt-BR')}</td>
+        </tr>`;
+      };
+      return `<div class="rounded-2xl bg-violet-50 border-2 border-violet-300 p-4">
+        <p class="font-black text-violet-900 text-sm mb-3 flex items-center gap-1.5">
+          <i data-lucide="git-compare" class="w-4 h-4"></i>
+          Comparação de cenários
+        </p>
+        <table class="w-full">
+          <thead>
+            <tr class="border-b-2 border-violet-300">
+              <th class="text-left py-2 text-[10px] font-black text-violet-800 uppercase tracking-wider">Métrica</th>
+              <th class="text-right py-2 text-[10px] font-black text-violet-800 uppercase tracking-wider">${Utils.escape(labelL)}</th>
+              <th class="text-right py-2 text-[10px] font-black text-violet-800 uppercase tracking-wider">${Utils.escape(labelR)}</th>
+              <th class="text-right py-2 text-[10px] font-black text-violet-800 uppercase tracking-wider">Δ (R→L)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${row('Vendas',           evL.sales,            evR.sales,            'count')}
+            ${row('Ticket Médio',     evL.ticket,           evR.ticket,           'money')}
+            ${row('Faturamento Bruto', evL.fatBruto,        evR.fatBruto,         'money')}
+            ${row('Faturamento Líquido', evL.fatLiquido,    evR.fatLiquido,       'money')}
+            ${row('EBITDA',           evL.ebitda,           evR.ebitda,           'money')}
+            ${row('Margem EBITDA',    evL.ebitdaMargin,     evR.ebitdaMargin,     'percent')}
+          </tbody>
+        </table>
       </div>`;
     },
 
