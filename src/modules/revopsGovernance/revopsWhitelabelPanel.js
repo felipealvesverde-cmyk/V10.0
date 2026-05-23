@@ -410,17 +410,17 @@
         case 'fixed':
           return `<label class="block">
             <span class="text-[9px] font-black text-slate-500 uppercase">Valor (R$)</span>
-            <input type="number" step="0.01" value="${calc.value || 0}" oninput="${update('value')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+            <input type="number" step="0.01" value="${calc.value || 0}" onchange="${update('value')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
           </label>`;
         case 'percent_self':
           return `<div class="grid grid-cols-2 gap-2">
             <label class="block">
               <span class="text-[9px] font-black text-slate-500 uppercase">Valor base (R$)</span>
-              <input type="number" step="0.01" value="${calc.baseValue || 0}" oninput="${update('baseValue')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+              <input type="number" step="0.01" value="${calc.baseValue || 0}" onchange="${update('baseValue')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
             </label>
             <label class="block">
               <span class="text-[9px] font-black text-slate-500 uppercase">% aplicado</span>
-              <input type="number" step="0.1" value="${calc.factor || 0}" oninput="${update('factor')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+              <input type="number" step="0.1" value="${calc.factor || 0}" onchange="${update('factor')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
             </label>
           </div>`;
         case 'percent_of': {
@@ -435,7 +435,7 @@
             </label>
             <label class="block">
               <span class="text-[9px] font-black text-slate-500 uppercase">% aplicado</span>
-              <input type="number" step="0.1" value="${calc.factor || 0}" oninput="${update('factor')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+              <input type="number" step="0.1" value="${calc.factor || 0}" onchange="${update('factor')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
             </label>
           </div>`;
         }
@@ -452,7 +452,7 @@
         case 'custom_formula':
           return `<label class="block">
             <span class="text-[9px] font-black text-slate-500 uppercase">Fórmula (Modo B — edição completa na V32.8.2)</span>
-            <input type="text" value="${Utils.escape(calc.formula || '=0')}" oninput="${update('formula')}" placeholder="=fat_bruto * 0.3" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-mono text-slate-800" />
+            <input type="text" value="${Utils.escape(calc.formula || '=0')}" onchange="${update('formula')}" placeholder="=fat_bruto * 0.3" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-mono text-slate-800" />
             <p class="text-[10px] text-amber-700 mt-0.5"><i data-lucide="zap" class="w-3 h-3 inline-block"></i> Use handles: <code>fat_bruto</code>, <code>ebitda</code>, <code>g_software_total</code>, etc.</p>
           </label>`;
         default:
@@ -590,14 +590,14 @@
           <label class="block">
             <span class="text-[10px] font-black text-amber-800 uppercase tracking-wider">Vendas previstas</span>
             <div class="flex items-center gap-1">
-              <input type="number" min="0" value="${sim.salesOverride ?? ev.sales}" oninput="Actions.setRevopsSimulatorOverride('salesOverride', this.value)" placeholder="${ev.sales}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-white border border-amber-300 text-sm font-bold text-slate-800" />
+              <input type="number" min="0" value="${sim.salesOverride ?? ev.sales}" onchange="Actions.setRevopsSimulatorOverride('salesOverride', this.value)" placeholder="${ev.sales}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-white border border-amber-300 text-sm font-bold text-slate-800" />
               <span class="text-[10px] text-amber-700 mt-0.5">baseline: ${ev.sales}</span>
             </div>
           </label>
           <label class="block">
             <span class="text-[10px] font-black text-amber-800 uppercase tracking-wider">Ticket Médio (R$)</span>
             <div class="flex items-center gap-1">
-              <input type="number" step="0.01" min="0" value="${sim.ticketOverride ?? ev.ticket.toFixed(2)}" oninput="Actions.setRevopsSimulatorOverride('ticketOverride', this.value)" placeholder="${ev.ticket.toFixed(2)}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-white border border-amber-300 text-sm font-bold text-slate-800" />
+              <input type="number" step="0.01" min="0" value="${sim.ticketOverride ?? ev.ticket.toFixed(2)}" onchange="Actions.setRevopsSimulatorOverride('ticketOverride', this.value)" placeholder="${ev.ticket.toFixed(2)}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-white border border-amber-300 text-sm font-bold text-slate-800" />
               <span class="text-[10px] text-amber-700 mt-0.5">baseline: ${this._money(ev.ticket)}</span>
             </div>
           </label>
