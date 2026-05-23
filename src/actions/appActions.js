@@ -6757,6 +6757,24 @@ Object.assign(Actions, {
     if (!String(d.description || '').trim()) return Utils.toast('Descrição é obrigatória.');
     if (!Array.isArray(d.assignees) || !d.assignees.length) return Utils.toast('Selecione pelo menos 1 responsável.');
 
+    // V32.9.2 (Geraldo A16) — Pré-check de custom fields obrigatórios.
+    // Lê do cache novo (clickupListFieldsCache) que cobre o caso de cliente
+    // mudar list_id no dropdown. Fallback pro clickupMeta.customFields (default list).
+    const targetListId = Actions._resolveClickupTargetList(m);
+    let requiredFields = [];
+    if (targetListId && App.state.clickupListFieldsCache?.[targetListId]?.fields) {
+      requiredFields = App.state.clickupListFieldsCache[targetListId].fields.filter(f => f.required);
+    } else {
+      requiredFields = (App.state.clickupMeta?.customFields || []).filter(f => f.required);
+    }
+    const missing = requiredFields.filter(f => {
+      const v = (d.custom_fields || {})[f.id];
+      return v === undefined || v === null || String(v).trim() === '';
+    });
+    if (missing.length) {
+      return Utils.toast(`Campos obrigatórios faltando: ${missing.map(f => f.name).join(', ')}`);
+    }
+
     App.state.taskCreationModal = { ...m, submitting: true };
     App.render();
 
@@ -6832,6 +6850,65 @@ Object.assign(Actions, {
       ackAt: new Date().toISOString()
     };
     App.save(); App.render();
+  },
+
+  // V32.9.2 (Geraldo A16) — Pré-check de custom fields obrigatórios.
+  // Carrega fields de uma list do ClickUp e cacheia. Modal de criar task
+  // usa pra mostrar campos required ANTES do submit (mata 422 silencioso).
+  async loadClickupListFields(listId) {
+    if (!listId) return;
+    const lid = String(listId);
+    if (!App.state.clickupListFieldsCache) App.state.clickupListFieldsCache = {};
+    const existing = App.state.clickupListFieldsCache[lid];
+    if (existing && existing.fetchedAt && !existing.error) return; // cache hit
+    App.state.clickupListFieldsCache[lid] = { fields: [], fetchedAt: null, loading: true, error: null };
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(`/api/clickup-list-fields?list_id=${encodeURIComponent(lid)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        App.state.clickupListFieldsCache[lid] = { fields: [], fetchedAt: null, loading: false, error: data.message };
+        App.render();
+        return;
+      }
+      App.state.clickupListFieldsCache[lid] = {
+        fields: data.fields || [],
+        fetchedAt: new Date().toISOString(),
+        loading: false,
+        error: null
+      };
+      App.save(); App.render();
+    } catch (err) {
+      App.state.clickupListFieldsCache[lid] = { fields: [], fetchedAt: null, loading: false, error: err.message };
+      App.render();
+    }
+  },
+
+  // V32.9.2 — Resolve qual list o modal de criar task vai usar (pra pré-check).
+  // Em modo flat (raiz=list): retorna lj_root_id. Modo mirror cascado:
+  // procura mapping pela ação. Modo manual: usa o list_id selecionado/default.
+  _resolveClickupTargetList(m) {
+    if (!m) return null;
+    const status = App.state.clickupStatus || {};
+    const draftListId = m.draft?.list_id;
+    if (draftListId) return String(draftListId);
+    if (status.rootKind === 'list' && status.rootId) return String(status.rootId);
+    if (status.defaultListId) return String(status.defaultListId);
+    return null;
+  },
+
+  // V32.9.2 — Update de custom_field value no draft do modal.
+  updateClickupCustomField(fieldId, value) {
+    const m = App.state.taskCreationModal;
+    if (!m) return;
+    m.draft = m.draft || {};
+    m.draft.custom_fields = m.draft.custom_fields || {};
+    m.draft.custom_fields[fieldId] = value;
+    App.save();
+    // não re-render — input perderia foco
   },
 
   // V32.7.0 — Pull subtasks reais do ClickUp via mapping cascado.

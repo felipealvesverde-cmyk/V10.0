@@ -221,15 +221,55 @@ window.StrategicMapModal = {
               <textarea oninput="Actions.updateTaskDraft('markdown_content', this.value)" rows="3" placeholder="# Título\n- bullet\n- outra coisa" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-mono resize-y">${Utils.escape(d.markdown_content)}</textarea>
             </div>
 
-            ${meta.customFields.length > 0 ? `<div>
-              <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Custom fields da list</p>
-              <div class="space-y-2">
-                ${meta.customFields.map(cf => `<div>
-                  <label class="block text-[10px] font-bold text-slate-400 mb-0.5">${Utils.escape(cf.name)} <span class="text-slate-500">(${Utils.escape(cf.type)})</span>${cf.required ? ' <span class="text-red-400">*</span>' : ''}</label>
-                  <input value="${Utils.escape(String(d.custom_fields[cf.id] || ''))}" oninput="Actions.updateTaskDraft('custom_fields', { ...App.state.taskCreationModal.draft.custom_fields, '${cf.id}': this.value })" placeholder="valor" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" />
-                </div>`).join('')}
-              </div>
-            </div>` : ''}
+            ${(() => {
+              // V32.9.2 (Geraldo A16) — Pré-check custom fields obrigatórios.
+              // Usa cache novo (clickupListFieldsCache) que cobre list específica
+              // (dropdown trocado pelo cliente). Fallback meta.customFields.
+              const targetListId = Actions._resolveClickupTargetList?.(m);
+              const cached = targetListId ? App.state.clickupListFieldsCache?.[targetListId] : null;
+              // Auto-load se não tem cache da list atual (1x por list por sessão)
+              if (targetListId && !cached && !App._listFieldsAutoload?.has(targetListId)) {
+                if (!App._listFieldsAutoload) App._listFieldsAutoload = new Set();
+                App._listFieldsAutoload.add(targetListId);
+                setTimeout(() => Actions.loadClickupListFields?.(targetListId), 50);
+              }
+              const fields = (cached?.fields && cached.fields.length) ? cached.fields : (meta.customFields || []);
+              const requiredCount = fields.filter(f => f.required).length;
+              if (cached?.loading) {
+                return `<div class="text-[11px] text-slate-400 italic flex items-center gap-1.5"><i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Verificando custom fields da list…</div>`;
+              }
+              if (fields.length === 0) return '';
+              return `<div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                  Custom fields da list
+                  ${requiredCount > 0 ? `<span class="px-1.5 py-0.5 rounded bg-red-500/20 border border-red-400/40 text-red-200 text-[9px] font-black">${requiredCount} obrigatório${requiredCount > 1 ? 's' : ''}</span>` : ''}
+                </p>
+                <div class="space-y-2">
+                  ${fields.map(cf => {
+                    const isReq = cf.required;
+                    const value = String((d.custom_fields || {})[cf.id] || '');
+                    const isEmpty = value.trim() === '';
+                    const warnCls = isReq && isEmpty ? 'border-red-400/60 ring-1 ring-red-400/30' : 'border-white/10';
+                    // Render diferente por type
+                    if (cf.type === 'drop_down' && Array.isArray(cf.options)) {
+                      return `<div>
+                        <label class="block text-[10px] font-bold text-slate-400 mb-0.5">${Utils.escape(cf.name)} <span class="text-slate-500">(${Utils.escape(cf.type)})</span>${isReq ? ' <span class="text-red-400">*</span>' : ''}</label>
+                        <select onchange="Actions.updateClickupCustomField('${cf.id}', this.value)" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border ${warnCls} text-white text-[12px]">
+                          <option value="">— escolha —</option>
+                          ${cf.options.map(o => `<option value="${Utils.escape(o.id)}" ${value === o.id ? 'selected' : ''}>${Utils.escape(o.name)}</option>`).join('')}
+                        </select>
+                        ${isReq && isEmpty ? '<p class="text-[10px] text-red-400 mt-0.5">⚠ Obrigatório — preencha antes de criar</p>' : ''}
+                      </div>`;
+                    }
+                    return `<div>
+                      <label class="block text-[10px] font-bold text-slate-400 mb-0.5">${Utils.escape(cf.name)} <span class="text-slate-500">(${Utils.escape(cf.type)})</span>${isReq ? ' <span class="text-red-400">*</span>' : ''}</label>
+                      <input value="${Utils.escape(value)}" oninput="Actions.updateClickupCustomField('${cf.id}', this.value)" placeholder="valor" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border ${warnCls} text-white text-[12px]" />
+                      ${isReq && isEmpty ? '<p class="text-[10px] text-red-400 mt-0.5">⚠ Obrigatório — preencha antes de criar</p>' : ''}
+                    </div>`;
+                  }).join('')}
+                </div>
+              </div>`;
+            })()}
           </div>` : ''}
         </div>
 

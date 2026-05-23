@@ -50,6 +50,10 @@ var State = {
       // "Revelar PAT" (só faz sentido em token_type='pat').
       clickupStatus: { connected: false, configured: false, encryptionReady: true, workspaceName: null, tokenType: null, defaultListId: null, defaultListName: null, defaultSpaceId: null, ljTagName: null, taskPrefix: null, statusMap: null, writeEnabled: true, ljSpaceId: null, mirrorEnabled: true, rootId: null, rootKind: null, rootName: null },
       clickupMeta: { loaded: false, loadedAt: null, workspaceId: null, listId: null, spaceId: null, members: [], statuses: [], tags: [], customFields: [] },
+      // V32.9.2 (Geraldo A16) — Cache de custom fields por list. Modal de criar
+      // task lê pra pré-checar required antes do submit (evita 422 do ClickUp).
+      // Shape: { [listId]: { fields, fetchedAt, loading } }
+      clickupListFieldsCache: {},
       clickupConfigDraft: { client_id: '', client_secret: '' },
       clickupPatDraft: '',
       // V32.5.6 — Reabilita OAuth no frontend (lado a lado com PAT em tabs).
@@ -824,6 +828,8 @@ var State = {
         : { clientId: '', clientSecret: '' },
       // V32.5.8 — estado persistente do <details> "Configurações avançadas".
       clickupAdvancedOpen: !!raw.clickupAdvancedOpen,
+      // V32.9.2 — Cache fields ClickUp por list. Boot vazio (refetched on demand).
+      clickupListFieldsCache: {},
       // V32.5.9 → V32.6.0 — Wizard sempre boota fechado (UI state).
       // Tree refetched ao abrir.
       clickupSpaceWizard: {
