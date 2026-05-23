@@ -3437,6 +3437,34 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V32.8.4 — Simulator inline. Toggle on/off + overrides voláteis pra cliente
+  // testar "e se vendas fossem +20%? E se ticket fosse R$X?". Sem persistir
+  // no cfg (não polui o real). Δ vs baseline mostrado nos cards de Resultado.
+  toggleRevopsSimulator() {
+    if (!App.state.revopsSimulator) App.state.revopsSimulator = { salesOverride: null, ticketOverride: null, active: false };
+    App.state.revopsSimulator.active = !App.state.revopsSimulator.active;
+    if (!App.state.revopsSimulator.active) {
+      // Limpa overrides ao desligar
+      App.state.revopsSimulator.salesOverride = null;
+      App.state.revopsSimulator.ticketOverride = null;
+    }
+    App.save(); App.render();
+  },
+
+  setRevopsSimulatorOverride(field, value) {
+    if (!App.state.revopsSimulator) App.state.revopsSimulator = { salesOverride: null, ticketOverride: null, active: false };
+    const numeric = value === '' || value == null ? null : Number(value);
+    if (field === 'salesOverride' || field === 'ticketOverride') {
+      App.state.revopsSimulator[field] = Number.isFinite(numeric) ? numeric : null;
+    }
+    App.save(); App.render();
+  },
+
+  resetRevopsSimulator() {
+    App.state.revopsSimulator = { salesOverride: null, ticketOverride: null, active: false };
+    App.save(); App.render();
+  },
+
   // V32.8.2 — Save direto de fórmula via Modo Excel. Vira custom_formula.
   // Se a fórmula puder ser reduzida pra um modo Builder mais simples (ex:
   // só um número), simplifica de volta — preserva A/B sync transparente.

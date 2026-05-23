@@ -182,6 +182,10 @@ var State = {
       // "Análise Djow" e fica até reload. Evita re-fetch (custa tokens).
       // Shape: { [tabId]: { suggestion, askedAt, loading, error } }
       revopsDjowSuggestions: {},
+      // V32.8.4 (Onda 5) — Simulator inline na tab Resultado. Cliente edita
+      // overrides voláteis e vê impacto em tempo real, sem mexer no salvo.
+      // null = usa valor real do cfg.
+      revopsSimulator: { salesOverride: null, ticketOverride: null, active: false },
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -580,6 +584,8 @@ var State = {
       // V32.8.3 — cache Djow sempre boota vazio (sugestões caras de re-gerar
       // ficam stale entre sessões; melhor re-pedir).
       revopsDjowSuggestions: {},
+      // V32.8.4 — Simulator boota desligado (estado UI volátil).
+      revopsSimulator: { salesOverride: null, ticketOverride: null, active: false },
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

@@ -525,17 +525,122 @@
       const realSales = RevopsFinanceEngine?.productRealSales?.(cfg.productId) || 0;
       const realRevenue = realSales * ev.ticket;
       const cac = realSales > 0 ? ev.acquisitionTotal / realSales : 0;
+
+      // V32.8.4 — Simulator inline. Quando ativo, recomputa o engine com
+      // overrides voláteis e calcula deltas vs baseline pra mostrar impacto.
+      const sim = App.state.revopsSimulator || { active: false };
+      const simSales = sim.active && sim.salesOverride != null ? sim.salesOverride : ev.sales;
+      const simTicket = sim.active && sim.ticketOverride != null ? sim.ticketOverride : ev.ticket;
+      const simEv = sim.active
+        ? RevopsWhitelabelEngine.evaluate(cfg, { sales: simSales, ticket: simTicket })
+        : ev;
+
       return `<div class="space-y-3">
         ${this._djowTip('result')}
-        <h3 class="font-black text-slate-900">Resultado consolidado</h3>
-        <p class="text-[12px] text-slate-500">Comparação previsto × real. CAC vem do total da Aquisição dividido pelos convertidos no funil.</p>
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h3 class="font-black text-slate-900">Resultado consolidado</h3>
+            <p class="text-[12px] text-slate-500">Comparação previsto × real. CAC vem do total da Aquisição dividido pelos convertidos no funil.</p>
+          </div>
+          <button onclick="Actions.toggleRevopsSimulator()" class="px-3 py-2 rounded-xl ${sim.active ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} text-xs font-black flex items-center gap-1.5" ${sim.active ? 'style="color:#fff!important;"' : ''}>
+            <i data-lucide="${sim.active ? 'pause' : 'flask-conical'}" class="w-3.5 h-3.5"></i>
+            ${sim.active ? 'Sair do Simulador' : 'Simular cenário'}
+          </button>
+        </div>
+
+        ${sim.active ? this._simulatorPanel(cfg, ev, simEv) : ''}
+
         <div class="grid md:grid-cols-3 gap-3">
-          ${this._bigCell('Vendas previstas',  Math.round(ev.sales).toLocaleString('pt-BR'), 'violet')}
+          ${this._bigCellWithDelta('Vendas previstas',  Math.round(simEv.sales).toLocaleString('pt-BR'), Math.round(ev.sales).toLocaleString('pt-BR'), simEv.sales, ev.sales, 'violet', sim.active)}
           ${this._bigCell('Vendas reais',      Math.round(realSales).toLocaleString('pt-BR'), 'sky')}
-          ${this._bigCell('CAC efetivo',       this._money(cac), cac > 0 && cac <= ev.ticket ? 'emerald' : 'amber')}
-          ${this._bigCell('Faturamento previsto', this._money(ev.fatBruto), 'violet')}
+          ${this._bigCellWithDelta('CAC efetivo',       this._money(simSales > 0 ? simEv.acquisitionTotal / simSales : 0), this._money(cac), simSales > 0 ? simEv.acquisitionTotal / simSales : 0, cac, cac > 0 && cac <= ev.ticket ? 'emerald' : 'amber', sim.active, true)}
+          ${this._bigCellWithDelta('Faturamento previsto', this._money(simEv.fatBruto), this._money(ev.fatBruto), simEv.fatBruto, ev.fatBruto, 'violet', sim.active)}
           ${this._bigCell('Faturamento real',  this._money(realRevenue), 'sky')}
           ${this._bigCell('Aquisição total',   this._money(ev.acquisitionTotal), 'rose')}
+        </div>
+
+        ${sim.active ? this._simulatorEbitdaCompare(ev, simEv) : ''}
+      </div>`;
+    },
+
+    // V32.8.4 — Painel do Simulator: 2 inputs de override + reset.
+    _simulatorPanel(cfg, ev, simEv) {
+      const sim = App.state.revopsSimulator;
+      const productId = cfg.productId;
+      return `<div class="rounded-2xl bg-amber-50 border-2 border-amber-300 p-4 space-y-3">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <p class="font-black text-amber-900 text-sm flex items-center gap-1.5">
+              <i data-lucide="flask-conical" class="w-4 h-4"></i>
+              Modo Simulação ON · valores reais não foram alterados
+            </p>
+            <p class="text-[11px] text-amber-800/80 mt-0.5">Edite as overrides abaixo. Os cards mostram delta (Δ) vs baseline.</p>
+          </div>
+          <button onclick="Actions.resetRevopsSimulator()" class="px-2 py-1 rounded-lg bg-white border border-amber-300 hover:bg-amber-100 text-amber-700 text-[10px] font-black">Reset</button>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="text-[10px] font-black text-amber-800 uppercase tracking-wider">Vendas previstas</span>
+            <div class="flex items-center gap-1">
+              <input type="number" min="0" value="${sim.salesOverride ?? ev.sales}" oninput="Actions.setRevopsSimulatorOverride('salesOverride', this.value)" placeholder="${ev.sales}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-white border border-amber-300 text-sm font-bold text-slate-800" />
+              <span class="text-[10px] text-amber-700 mt-0.5">baseline: ${ev.sales}</span>
+            </div>
+          </label>
+          <label class="block">
+            <span class="text-[10px] font-black text-amber-800 uppercase tracking-wider">Ticket Médio (R$)</span>
+            <div class="flex items-center gap-1">
+              <input type="number" step="0.01" min="0" value="${sim.ticketOverride ?? ev.ticket.toFixed(2)}" oninput="Actions.setRevopsSimulatorOverride('ticketOverride', this.value)" placeholder="${ev.ticket.toFixed(2)}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-white border border-amber-300 text-sm font-bold text-slate-800" />
+              <span class="text-[10px] text-amber-700 mt-0.5">baseline: ${this._money(ev.ticket)}</span>
+            </div>
+          </label>
+        </div>
+      </div>`;
+    },
+
+    // V32.8.4 — Card grande que mostra delta vs baseline quando simulator ON.
+    _bigCellWithDelta(label, simValue, baseValue, simNumeric, baseNumeric, tone, simActive, inverse = false) {
+      if (!simActive) return this._bigCell(label, baseValue, tone);
+      const delta = simNumeric - baseNumeric;
+      const deltaPct = baseNumeric !== 0 ? (delta / baseNumeric) * 100 : 0;
+      const isPositive = inverse ? delta < 0 : delta > 0;
+      const isNegative = inverse ? delta > 0 : delta < 0;
+      const deltaCls = isPositive ? 'text-emerald-700' : isNegative ? 'text-rose-700' : 'text-slate-500';
+      const deltaArrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '·';
+      const deltaLabel = `${deltaArrow} ${Math.abs(deltaPct).toFixed(1)}% vs baseline`;
+      const toneCls = {
+        violet: 'bg-violet-50 border-violet-200 text-violet-900',
+        sky:    'bg-sky-50 border-sky-200 text-sky-900',
+        emerald:'bg-emerald-50 border-emerald-200 text-emerald-900',
+        amber:  'bg-amber-50 border-amber-200 text-amber-900',
+        rose:   'bg-rose-50 border-rose-200 text-rose-900'
+      }[tone] || 'bg-slate-50 border-slate-200 text-slate-900';
+      return `<div class="rounded-2xl border ${toneCls} p-4">
+        <p class="text-[10px] font-black uppercase tracking-wider opacity-80">${label}</p>
+        <p class="text-2xl font-black mt-1">${simValue}</p>
+        <p class="text-[10px] font-black mt-1 ${deltaCls}">${deltaLabel}</p>
+      </div>`;
+    },
+
+    // V32.8.4 — Bloco de comparação EBITDA: antes × depois quando simulator ON.
+    _simulatorEbitdaCompare(ev, simEv) {
+      const delta = simEv.ebitda - ev.ebitda;
+      const deltaPct = ev.ebitda !== 0 ? (delta / Math.abs(ev.ebitda)) * 100 : 0;
+      const cls = delta > 0 ? 'emerald' : delta < 0 ? 'rose' : 'slate';
+      return `<div class="rounded-2xl bg-slate-900 text-white p-4 grid md:grid-cols-3 gap-4">
+        <div>
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">EBITDA Baseline</p>
+          <p class="text-xl font-black mt-1">${this._money(ev.ebitda)}</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">Margem ${ev.ebitdaMargin.toFixed(1)}%</p>
+        </div>
+        <div>
+          <p class="text-[10px] font-black text-amber-300 uppercase tracking-wider">EBITDA Simulado</p>
+          <p class="text-xl font-black mt-1">${this._money(simEv.ebitda)}</p>
+          <p class="text-[10px] text-amber-300/70 mt-0.5">Margem ${simEv.ebitdaMargin.toFixed(1)}%</p>
+        </div>
+        <div>
+          <p class="text-[10px] font-black text-${cls}-300 uppercase tracking-wider">Δ Impacto</p>
+          <p class="text-xl font-black mt-1 text-${cls}-300">${delta >= 0 ? '+' : ''}${this._money(delta)}</p>
+          <p class="text-[10px] text-${cls}-300/70 mt-0.5">${delta >= 0 ? '+' : ''}${deltaPct.toFixed(1)}% vs baseline</p>
         </div>
       </div>`;
     },
