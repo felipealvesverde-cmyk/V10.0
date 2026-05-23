@@ -184,6 +184,16 @@ var State = {
       strategicMapZoom: 'strategy',
       strategicMapOnboardingSeen: {},
       strategicMaps: {},
+      // V32.7.1 — Campos que estavam sendo escritos em App.state mas NÃO
+      // mapeados em normalize(). Bug detectado pelo warning [State.load]
+      // "Campos persistidos NÃO mapeados — risco de perda de dados".
+      // Cada F5 droppava esses campos, cliente perdia branch ativa do Mapa,
+      // estado dos cards expandidos, catálogo custom, etc.
+      strategicMapCampaignId: null,                  // branch ativa (null = vista produto)
+      strategicMapMode: 'product',                   // 'product' | 'campaign'
+      strategicSkipOnboarding: false,                // pula welcome screen
+      strategicKrCardOpen: {},                       // { [pkrId]: bool } — cards expandidos
+      customActionCatalog: [],                       // ações custom criadas pelo user
       // V32.6.6 — Progressive disclosure no zoom "As Ações": uma ação expandida
       // por vez (em foco). Pendentes sem foco ficam colapsadas com CTA. Reduz
       // "muralha de decisões" que confundia o cliente após criar campanha.
@@ -533,6 +543,12 @@ var State = {
       strategicMapZoom: raw.strategicMapZoom || 'strategy',
       strategicMapOnboardingSeen: raw.strategicMapOnboardingSeen && typeof raw.strategicMapOnboardingSeen === 'object' ? raw.strategicMapOnboardingSeen : {},
       strategicMaps: raw.strategicMaps && typeof raw.strategicMaps === 'object' ? raw.strategicMaps : {},
+      // V32.7.1 — Persistir 5 campos que estavam sendo dropados a cada F5.
+      strategicMapCampaignId: raw.strategicMapCampaignId != null ? Number(raw.strategicMapCampaignId) : null,
+      strategicMapMode: (raw.strategicMapMode === 'campaign') ? 'campaign' : 'product',
+      strategicSkipOnboarding: !!raw.strategicSkipOnboarding,
+      strategicKrCardOpen: raw.strategicKrCardOpen && typeof raw.strategicKrCardOpen === 'object' ? raw.strategicKrCardOpen : {},
+      customActionCatalog: Array.isArray(raw.customActionCatalog) ? raw.customActionCatalog : [],
       // V32.6.6 — progressive disclosure no zoom "As Ações" (boot null = nada em foco).
       strategicActiveActionId: raw.strategicActiveActionId ? Number(raw.strategicActiveActionId) : null,
       // V32.7.0 — Cache subtasks ClickUp boot sempre vazio (refresh no abrir step 6).

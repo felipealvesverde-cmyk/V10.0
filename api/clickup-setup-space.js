@@ -59,14 +59,20 @@ module.exports = async function handler(req, res) {
       }
       const verifiedName = String(checkRes.data?.name || '').slice(0, 255) || null;
 
-      // Persiste. lj_space_id mantido em sincronia quando kind='space' (compat
-      // c/ código V32.2.x-V32.5.x que ainda lê lj_space_id direto).
-      // V32.6.5 — sem reuso de placeholder. Postgres infere tipo do parâmetro
-      // no PARSE (antes de qualquer cast), então usar mesmo $X em col=$X E em
-      // expressão CASE WHEN $X = 'literal' levanta "inconsistent types deduced".
-      // Aqui resolvemos com placeholders separados: $5 carrega lj_space_id calculado
-      // no app (não no SQL), evitando expressão CASE com $X duplicado.
-      const newLjSpaceId = (adoptRootKind === 'space') ? adoptRootId : null;
+      // V32.7.1 (Geraldo A1) — Extrai SPACE ANCESTOR pra `lj_space_id`. Tags
+      // ClickUp vivem em Space. Quando raiz é Folder/List, precisamos saber em
+      // qual Space aplicar a tag `lj-auto`. Antes ficava NULL em modo folder/
+      // list e a tag não aplicava silenciosamente.
+      //   - kind='space'  → space_id = root_id
+      //   - kind='folder' → checkRes.data.space.id (API ClickUp retorna)
+      //   - kind='list'   → checkRes.data.space.id (API ClickUp retorna)
+      const newLjSpaceId = (adoptRootKind === 'space')
+        ? adoptRootId
+        : (checkRes.data?.space?.id ? String(checkRes.data.space.id) : null);
+
+      // Persiste. lj_space_id agora SEMPRE carrega o Space onde a tag mora
+      // (independente do kind da raiz). Compat com código V32.2.x-V32.5.x
+      // que lê lj_space_id direto pra contexto de Space.
       await req.tenantDb.query(
         `UPDATE clickup_credentials
             SET lj_root_id = $1, lj_root_kind = $2, lj_root_name = $3,
