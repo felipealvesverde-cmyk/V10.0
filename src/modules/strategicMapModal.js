@@ -234,9 +234,30 @@ window.StrategicMapModal = {
         </div>
 
         <!-- Footer -->
-        <div class="p-4 border-t border-white/10 flex items-center justify-end gap-2 sticky bottom-0 bg-slate-950">
-          <button onclick="Actions.closeTaskCreationModal()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-[12px] font-black">Cancelar</button>
-          <button onclick="Actions.submitTaskCreation()" ${submitting ? 'disabled' : ''} class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[12px] font-black flex items-center gap-1.5 disabled:opacity-50" style="color:#fff!important;"><i data-lucide="${submitting ? 'loader' : 'send'}" class="w-3.5 h-3.5 ${submitting ? 'animate-spin' : ''}"></i> ${submitting ? 'Enviando...' : 'Criar no ClickUp'}</button>
+        <div class="p-4 border-t border-white/10 flex items-center justify-between gap-2 sticky bottom-0 bg-slate-950">
+          ${(() => {
+            // V32.7.2 (Geraldo A4) — Feedback do que está acontecendo quando
+            // o backend está criando estrutura cascada em workspace virgem
+            // (Folder Produto + List Campanha + Task pai Ação + Subtask).
+            // Pode demorar 2-4s. Cliente ficava olhando o botão "Enviando..."
+            // sem saber o que está rolando.
+            if (!submitting) return '<span></span>';
+            const status = App.state.clickupStatus || {};
+            const hasRoot = Boolean(status.rootId || status.ljSpaceId);
+            const isMirror = hasRoot && status.mirrorEnabled !== false;
+            const cache = App.state._clickupMappingsCache;
+            const isFirstTime = isMirror && (!cache || ((cache.counts?.products || 0) + (cache.counts?.campaigns || 0) + (cache.counts?.actions || 0)) === 0);
+            const copy = isFirstTime
+              ? 'Criando estrutura no ClickUp (Folder do Produto + List da Campanha + Task pai da Ação)… 2-4s'
+              : isMirror
+              ? 'Resolvendo hierarquia no ClickUp…'
+              : 'Enviando pra ClickUp…';
+            return `<span class="text-[11px] text-violet-300 flex items-center gap-1.5"><i data-lucide="loader" class="w-3 h-3 animate-spin"></i> ${copy}</span>`;
+          })()}
+          <div class="flex items-center gap-2">
+            <button onclick="Actions.closeTaskCreationModal()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-[12px] font-black">Cancelar</button>
+            <button onclick="Actions.submitTaskCreation()" ${submitting ? 'disabled' : ''} class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[12px] font-black flex items-center gap-1.5 disabled:opacity-50" style="color:#fff!important;"><i data-lucide="${submitting ? 'loader' : 'send'}" class="w-3.5 h-3.5 ${submitting ? 'animate-spin' : ''}"></i> ${submitting ? 'Enviando…' : 'Criar no ClickUp'}</button>
+          </div>
         </div>
       </div>
     </div>`;

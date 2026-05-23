@@ -5854,7 +5854,7 @@ Object.assign(Actions, {
   // V32.2.3 (Geraldo A6) — Testa acessibilidade do Space LeadJourney sob demanda.
   async testClickupSpace() {
     const token = localStorage.getItem('lj_jwt');
-    Utils.toast('Testando conexão com Space...');
+    Utils.toast('Testando raiz LJ no ClickUp…');
     try {
       const r = await fetch('/api/clickup-test-space', { headers: { Authorization: `Bearer ${token}` } });
       const data = await r.json();

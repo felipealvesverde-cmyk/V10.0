@@ -40,27 +40,32 @@ window.CreateClickupTaskModal = {
           </div>` : ''}
 
           ${(() => {
-            // V32.2.1 — Banner sobre modo espelhado.
+            // V32.2.1 → V32.7.2 — Banner sobre modo espelhado. Atualizado pra
+            // V32.6+ que tem rootKind (space/folder/list), não só ljSpaceId.
             const status = App.state.clickupStatus || {};
-            const mirrorOn = Boolean(status.ljSpaceId) && status.mirrorEnabled !== false;
+            const hasRoot = Boolean(status.rootId || status.ljSpaceId);
+            const mirrorOn = hasRoot && status.mirrorEnabled !== false;
             if (!mirrorOn) return '';
+            const rootLabel = status.rootKind === 'list' ? 'List' : status.rootKind === 'folder' ? 'Folder' : 'Space';
             if (m.seedContext?.actionId) {
               return `<div class="rounded-xl bg-violet-50 border border-violet-200 p-3 text-[11px] text-violet-900 flex items-start gap-2">
                 <i data-lucide="layers" class="w-3.5 h-3.5 mt-0.5 shrink-0"></i>
-                <div><b>Modo espelhado ativo:</b> task vai virar subtask da ação na hierarquia Produto>Campanha>Ação no ClickUp. List de destino abaixo será ignorada — LJ resolve sozinho.</div>
+                <div><b>Modo espelhado ativo (${rootLabel}):</b> LJ resolve sozinho onde criar a task. List de destino abaixo será ignorada.</div>
               </div>`;
             }
             return `<div class="rounded-xl bg-amber-50 border-2 border-amber-300 p-3 text-[11px] text-amber-900 flex items-start gap-2">
               <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mt-0.5 shrink-0"></i>
-              <div><b>Modo espelhado ativo, mas sem contexto de ação:</b> pra criar task na hierarquia, abra o modal pelo Mapa da Receita (botão "Criar tarefa" numa ação). Aqui standalone só funciona com list_id explícito (modo fallback).</div>
+              <div><b>Modo espelhado ativo (${rootLabel}), mas sem contexto de ação:</b> pra criar task na hierarquia, abra o modal pelo Mapa da Receita (botão "Criar tarefa" numa ação). Aqui standalone só funciona com list_id explícito (modo fallback).</div>
             </div>`;
           })()}
 
           ${(() => {
-            // V32.2.3 (Geraldo A3) — Em modo mirror + seedContext.actionId, LJ resolve
-            // a list sozinho via hierarquia. Dropdown não tem sentido. Esconde.
+            // V32.2.3 → V32.7.2 (Geraldo A3) — Em modo mirror + seedContext.actionId,
+            // LJ resolve a list sozinho. Dropdown não tem sentido. Esconde.
+            // Atualizado pra V32.6+ (rootId/rootKind, não só ljSpaceId).
             const status = App.state.clickupStatus || {};
-            const mirrorOn = Boolean(status.ljSpaceId) && status.mirrorEnabled !== false;
+            const hasRoot = Boolean(status.rootId || status.ljSpaceId);
+            const mirrorOn = hasRoot && status.mirrorEnabled !== false;
             const hasActionContext = Boolean(m.seedContext?.actionId);
             // Em modo mirror SEM action context: dropdown precisa aparecer pra fallback explícito
             // Em modo mirror COM action context: dropdown some

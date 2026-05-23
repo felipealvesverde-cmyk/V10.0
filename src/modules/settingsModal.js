@@ -3286,7 +3286,9 @@ var SettingsModal = {
               ${modeDescription}
               ${cache?.counts && rootKind !== 'list'
                 ? (cache.counts.products === 0 && cache.counts.campaigns === 0 && cache.counts.actions === 0
-                    ? ' <i class="text-violet-600">Nenhum produto espelhado ainda — a hierarquia vai sendo criada conforme você criar tasks.</i>'
+                    ? (rootKind === 'folder'
+                        ? ' <i class="text-violet-600">Workspace virgem: nenhuma campanha criada ainda nesse Folder. A primeira List nasce quando você criar a primeira tarefa de qualquer ação.</i>'
+                        : ' <i class="text-violet-600">Workspace virgem: nenhum produto espelhado ainda. Folder/List/Task pai nascem quando você criar a primeira tarefa de qualquer ação.</i>')
                     : ` Já criou ${cache.counts.products} produto(s), ${cache.counts.campaigns} campanha(s), ${cache.counts.actions} ação(ões).`)
                 : ''}
             </p>
