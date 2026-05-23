@@ -2630,6 +2630,53 @@ var SettingsModal = {
 
     return `<div class="space-y-5">
       ${App.state.clickupSpaceWizard?.open ? this._clickupSpaceWizardRender() : ''}
+      ${(() => {
+        // V32.7.3 (Geraldo A5) — Modal de alerta 1ª vez sobre delete da raiz.
+        // Aparece quando: ClickUp conectado + raiz configurada + cliente ainda
+        // não fez ack DESSA raiz específica (trocou raiz → ack reseta).
+        if (!status.connected) return '';
+        const rootId = status.rootId || status.ljSpaceId;
+        if (!rootId) return '';
+        const ack = App.state.clickupDeleteWarningAck;
+        if (ack && String(ack.rootId) === String(rootId)) return '';
+        const kindLabel = status.rootKind === 'list' ? 'List' : status.rootKind === 'folder' ? 'Folder' : 'Space';
+        const articleLabel = kindLabel === 'List' ? 'a List' : `o ${kindLabel}`;
+        const rootNameDisplay = status.rootName ? Utils.escape(status.rootName) : rootId;
+        return `<div class="fixed inset-0 z-[95] bg-black/80 backdrop-blur-sm grid place-items-center p-4"
+          onclick="if(event.target === this) Actions.acknowledgeClickupDeleteWarning()">
+          <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div class="p-5 bg-gradient-to-br from-red-50 to-rose-50 border-b border-red-200">
+              <div class="flex items-start gap-3">
+                <div class="w-12 h-12 rounded-2xl bg-red-500 grid place-items-center shrink-0">
+                  <i data-lucide="alert-octagon" class="w-6 h-6 text-white"></i>
+                </div>
+                <div>
+                  <p class="text-[10px] font-black text-red-700 uppercase tracking-widest">ClickUp · Atenção</p>
+                  <h2 class="text-lg font-black text-slate-900 mt-0.5">Nunca delete ${articleLabel} <b>"${rootNameDisplay}"</b> no ClickUp</h2>
+                </div>
+              </div>
+            </div>
+            <div class="p-5 space-y-3 text-sm text-slate-700 leading-relaxed">
+              <p>Esse ${kindLabel} é a <b>raiz da hierarquia LJ</b>. Se você deletar no ClickUp:</p>
+              <ul class="space-y-1.5 list-disc pl-5 text-[13px]">
+                <li>Todo o mapeamento Produto/Campanha/Ação se perde</li>
+                <li>Tasks novas criadas pelo LJ viram duplicatas das anteriores</li>
+                <li>Tasks antigas ficam órfãs no histórico</li>
+                <li>Você precisa rodar o setup wizard de novo</li>
+              </ul>
+              <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-[12px] text-emerald-900 mt-2">
+                <b>OK fazer:</b> renomear no ClickUp · arquivar tasks individuais · mover ${kindLabel} pra outro lugar do workspace (LJ acha pelo ID, não pelo nome).
+              </div>
+            </div>
+            <div class="p-4 border-t border-slate-100 flex justify-end gap-2 bg-slate-50">
+              <button onclick="Actions.acknowledgeClickupDeleteWarning()" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs flex items-center gap-1.5" style="color:#fff!important;">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                Entendi, vou cuidar
+              </button>
+            </div>
+          </div>
+        </div>`;
+      })()}
       ${encWarn}
       ${readOnlyBanner}
       ${spaceDeleteBanner}

@@ -6372,6 +6372,19 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.7.3 (Geraldo A5) — Cliente reconhece o risco de deletar a raiz LJ.
+  // Marca ack vinculado ao rootId atual. Se ele trocar de raiz depois, modal
+  // aparece de novo (risco renovado).
+  acknowledgeClickupDeleteWarning() {
+    const rootId = App.state.clickupStatus?.rootId || App.state.clickupStatus?.ljSpaceId || null;
+    if (!rootId) return;
+    App.state.clickupDeleteWarningAck = {
+      rootId: String(rootId),
+      ackAt: new Date().toISOString()
+    };
+    App.save(); App.render();
+  },
+
   // V32.7.0 — Pull subtasks reais do ClickUp via mapping cascado.
   // ClickUp = source of truth no step 6 (substitui ExecutionTaskStore que era
   // frágil — multi-aba, snapshot restore, race condition do sync remoto

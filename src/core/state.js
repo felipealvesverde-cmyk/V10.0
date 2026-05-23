@@ -203,6 +203,10 @@ var State = {
       // source of truth. Cache evita refazer fetch a cada render — refresh
       // automático no boot do step 6 e manual via botão Sync.
       clickupActionSubtasks: { byActionId: {}, fetchedAt: null, loading: false },
+      // V32.7.3 (Geraldo A5) — Cliente confirma 1x que entendeu o risco de
+      // deletar a raiz LJ. Modal de alerta só aparece enquanto não acknowledge.
+      // Reseta quando raiz muda (cliente troca pra outra Space/Folder/List).
+      clickupDeleteWarningAck: null,            // { rootId: string, ackAt: ISO }
       // V31.2.12 — Catálogo aprendido: KRs customizados criados pelo user viram
       // sugestões pros próximos produtos. Estrutura: { marketing: [...], sales: [...], cs: [...] }.
       customKpiCatalog: {},
@@ -554,6 +558,8 @@ var State = {
       // V32.7.0 — Cache subtasks ClickUp boot sempre vazio (refresh no abrir step 6).
       // Cache em memória — se persistisse, ficaria stale entre sessões.
       clickupActionSubtasks: { byActionId: {}, fetchedAt: null, loading: false },
+      // V32.7.3 — ack persiste (cliente já viu o alerta nessa raiz).
+      clickupDeleteWarningAck: raw.clickupDeleteWarningAck && typeof raw.clickupDeleteWarningAck === 'object' ? raw.clickupDeleteWarningAck : null,
       // V31.0.4 — Fix core: strategicCampaignMaps (branches V29) não estava sendo
       // preservado no normalize. Causa: cada load do state limpava as branches.
       strategicCampaignMaps: raw.strategicCampaignMaps && typeof raw.strategicCampaignMaps === 'object' ? raw.strategicCampaignMaps : {},

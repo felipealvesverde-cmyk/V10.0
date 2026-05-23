@@ -568,12 +568,14 @@ async function execTool(name, input, state, ctx) {
         });
 
         if (!prepared.ok) {
-          // V32.2.4 (Geraldo A19) — Mensagem inteligente quando faltar action_id.
+          // V32.2.4 → V32.7.3 (Geraldo A19) — Anti-loop: instrução IMPERATIVA
+          // pro Djow PERGUNTAR direto ao user em vez de query_state + re-tentar.
+          // Antes: "faça UMA destas: pergunte OU chame query_state" — Djow
+          // costumava escolher query_state, gastar tokens, e ainda assim
+          // não conseguir adivinhar a ação certa.
           if (prepared.code === 'no_default_list') {
             return {
-              error: prepared.message || (
-                'Modo espelhado ativo — task precisa pertencer a uma ação LJ. Antes de re-chamar essa tool, faça UMA destas: (a) pergunte ao user qual ação contextualmente faz sentido pra essa task; OU (b) chame query_state com path="actions" pra listar as ações disponíveis. Depois passe action_id (não list_id).'
-              )
+              error: 'AÇÃO REQUERIDA PELO USER: PARE de chamar tools. PERGUNTE ao user em PT-BR direto: "Pra qual ação essa task pertence?" (NÃO chame query_state — isso retorna uma lista enorme e mesmo assim você não sabe qual é a intenção dele). Depois que ele responder, chame create_clickup_task de novo com action_id correto.'
             };
           }
           if (prepared.code === 'clickup_read_only') {
