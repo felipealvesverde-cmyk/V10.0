@@ -6372,6 +6372,76 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.7.0 — Pull subtasks reais do ClickUp via mapping cascado.
+  // ClickUp = source of truth no step 6 (substitui ExecutionTaskStore que era
+  // frágil — multi-aba, snapshot restore, race condition do sync remoto
+  // faziam tasks sumirem).
+  //
+  // Aceita actionIds explícitos OU pega todas conectadas a OKRs do produto atual.
+  // silent=true pula toast (auto-call no abrir do step). Default false (manual).
+  async pullClickupActionSubtasks(actionIds = null, silent = false) {
+    if (!App.state.clickupStatus?.connected) {
+      if (!silent) Utils.toast('ClickUp não conectado.');
+      return;
+    }
+    // Se não passou actionIds, pega todas as ações conectadas a algum OKR do produto.
+    if (!Array.isArray(actionIds) || !actionIds.length) {
+      const productId = App.state.strategicMapProductId;
+      const campaignId = App.state.strategicMapCampaignId;
+      const source = (campaignId && window.StrategicMapEngine?.getBranchMap)
+        ? (StrategicMapEngine.getBranchMap(campaignId) || { objectives: [] })
+        : (productId && StrategicMapEngine.getForProduct(productId)) || { objectives: [] };
+      const ids = new Set();
+      (source.objectives || []).forEach(o => (o.okrs || []).forEach(kr => {
+        (kr.connectedActionIds || []).forEach(id => ids.add(Number(id)));
+      }));
+      actionIds = Array.from(ids).filter(Boolean);
+    }
+    if (!actionIds.length) {
+      if (!silent) Utils.toast('Nenhuma ação conectada pra puxar tasks.');
+      return;
+    }
+    const cache = App.state.clickupActionSubtasks || { byActionId: {}, fetchedAt: null };
+    cache.loading = true;
+    App.state.clickupActionSubtasks = cache;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-pull-action-subtasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action_ids: actionIds })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        cache.loading = false;
+        App.state.clickupActionSubtasks = cache;
+        App.render();
+        if (!silent) Utils.toast(`Falha: ${data.message}`);
+        return;
+      }
+      // Merge: mantém entries antigas que não vieram no response (caso request parcial)
+      const merged = { ...(cache.byActionId || {}), ...(data.subtasksByAction || {}) };
+      App.state.clickupActionSubtasks = {
+        byActionId: merged,
+        fetchedAt: new Date().toISOString(),
+        loading: false,
+        rootKind: data.rootKind || null,
+        skipped: data.skipped || null
+      };
+      App.save(); App.render();
+      if (!silent) {
+        const totalSubs = Object.values(data.subtasksByAction || {}).reduce((sum, arr) => sum + arr.length, 0);
+        Utils.toast(`✓ ${totalSubs} subtask(s) puxada(s) do ClickUp.`);
+      }
+    } catch (err) {
+      cache.loading = false;
+      App.state.clickupActionSubtasks = cache;
+      App.render();
+      if (!silent) Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V32.6.9 — Sync status das tasks do ClickUp. Itera ExecutionTaskStore,
   // pega provider_task_ids da provider='clickup', POST pro endpoint que
   // retorna status atual de cada uma. Atualiza store local in-place.

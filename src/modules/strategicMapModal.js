@@ -2992,45 +2992,105 @@ window.StrategicMapModal = {
     </div>`;
   },
 
+  // V32.6.9 → V32.7.0 — ClickUp = source of truth. Antes lia ExecutionTaskStore
+  // local (frágil — multi-aba, race condition, snapshot restore faziam tasks
+  // sumirem). Agora puxa subtasks reais via clickupActionSubtasks cache.
+  // Auto-pull no abrir do step. Fallback ExecutionTaskStore em modo flat
+  // (raiz=List, sem mapping cascado).
   _executionOkrCard(product, obj, kr) {
     const actions = StrategicFlowBridge.actionsForOkr(product.id, kr);
-    const tasks = (window.ExecutionTaskStore?.all() || []).filter(t => actions.some(a => Number(a.id) === Number(t.linked_action_id)));
-    const executed = tasks.filter(t => t.status === 'completed').length;
+    const cache = App.state.clickupActionSubtasks || { byActionId: {}, fetchedAt: null, loading: false };
+    const subtasksByAction = cache.byActionId || {};
+    const rootKind = App.state.clickupStatus?.rootKind || cache.rootKind;
+    const isFlatMode = rootKind === 'list';
+
+    // Auto-pull subtasks na primeira abertura do step (1x por sessão).
+    // Modo flat: pula, cai no fallback ExecutionTaskStore.
+    if (!isFlatMode && App.state.clickupStatus?.connected && !cache.fetchedAt && !cache.loading && !App._clickupSubtasksPullScheduled) {
+      App._clickupSubtasksPullScheduled = true;
+      setTimeout(() => {
+        App._clickupSubtasksPullScheduled = false;
+        Actions.pullClickupActionSubtasks?.(null, true);
+      }, 100);
+    }
+
+    // Coleta subtasks de TODAS as actions desse OKR.
+    let tasks = [];
+    if (isFlatMode) {
+      // Fallback: ExecutionTaskStore (cobre tasks pré-V32.7.0 e modo list).
+      tasks = (window.ExecutionTaskStore?.all() || [])
+        .filter(t => actions.some(a => Number(a.id) === Number(t.linked_action_id)))
+        .map(t => ({
+          id: t.provider_task_id || t.task_id,
+          name: t.title,
+          ljStatus: t.status,
+          url: t.external_url,
+          fromLocal: true
+        }));
+    } else {
+      actions.forEach(a => {
+        const subs = subtasksByAction[a.id] || subtasksByAction[String(a.id)] || [];
+        subs.forEach(s => tasks.push({
+          id: s.id,
+          name: s.name,
+          status: s.status,
+          statusType: s.statusType,
+          url: s.url,
+          assignees: s.assignees
+        }));
+      });
+    }
+
+    const isDoneTask = (t) => t.fromLocal ? (t.ljStatus === 'completed') : (t.statusType === 'closed');
+    const executed = tasks.filter(isDoneTask).length;
     const pending = tasks.length - executed;
     const progress = StrategicOkrEngine.progress(kr);
     const status = StrategicMapRenderer.okrStatus(progress);
+    const isLoading = cache.loading && !isFlatMode;
+    const skippedHere = (cache.skipped && actions.some(a => cache.skipped[a.id])) ? true : false;
 
-    // V32.6.9 — Auto-sync status com ClickUp na primeira render do step execution.
-    // Cliente abre step 6 e vê status FRESCO sem precisar clicar nada. Hydratação
-    // controlada via App._clickupTaskStatusSynced (Set por sessão).
-    if (tasks.some(t => t.provider === 'clickup' && t.provider_task_id) && !App._clickupTaskStatusSynced) {
-      App._clickupTaskStatusSynced = true;
-      setTimeout(() => Actions.syncClickupTaskStatuses?.(true), 100);
-    }
-
-    // V32.6.9 — Render inline das tasks. Antes só tinha botão "Ver X tarefas"
-    // que abria modal. Felipe: "as ações estão lá e a gente não está vendo aqui,
-    // status pendente/concluída tem que aparecer". Resolvido.
-    const tasksList = tasks.length ? `<div class="mt-3 pt-3 border-t border-white/10 space-y-1.5">
-      <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Tarefas no provider</p>
-      ${tasks.map(t => {
-        const isDone = t.status === 'completed';
-        const isProgress = t.status === 'in_progress';
-        const statusBadge = isDone
-          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-emerald-500/25 text-emerald-200 border border-emerald-400/40">✓ CONCLUÍDA</span>'
-          : isProgress
-          ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500/25 text-amber-200 border border-amber-400/40">○ EM PROGRESSO</span>'
-          : '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-slate-500/25 text-slate-200 border border-slate-400/40">◌ PENDENTE</span>';
-        const externalLink = t.external_url
-          ? `<a href="${Utils.escape(t.external_url)}" target="_blank" rel="noopener" title="Abrir no ClickUp" class="text-slate-400 hover:text-white shrink-0"><i data-lucide="external-link" class="w-3 h-3"></i></a>`
-          : '';
-        return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg ${isDone ? 'bg-emerald-500/[0.04] border border-emerald-500/15' : 'bg-slate-900/40 border border-white/5'}">
-          ${statusBadge}
-          <span class="text-[12px] font-bold text-white flex-1 min-w-0 truncate ${isDone ? 'line-through text-slate-400' : ''}">${Utils.escape(t.title)}</span>
-          ${externalLink}
+    const tasksList = (() => {
+      if (isLoading && !tasks.length) {
+        return `<div class="mt-3 pt-3 border-t border-white/10 text-[11px] text-slate-400 italic flex items-center gap-2">
+          <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Puxando tarefas do ClickUp…
         </div>`;
-      }).join('')}
-    </div>` : '';
+      }
+      if (!tasks.length) {
+        if (skippedHere && !isFlatMode) {
+          return `<div class="mt-3 pt-3 border-t border-white/10 text-[11px] text-amber-300/80 italic">
+            Ações ainda não têm task pai no ClickUp — crie uma tarefa abaixo pra começar a cadeia.
+          </div>`;
+        }
+        return '';
+      }
+      const sourceLabel = isFlatMode
+        ? 'Tarefas no LJ (modo achatado)'
+        : `Tarefas no ClickUp${cache.fetchedAt ? ` <span class="text-slate-500 font-normal normal-case">· lido ${new Date(cache.fetchedAt).toLocaleTimeString('pt-BR')}</span>` : ''}`;
+      return `<div class="mt-3 pt-3 border-t border-white/10 space-y-1.5">
+        <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">${sourceLabel}</p>
+        ${tasks.map(t => {
+          const isDone = isDoneTask(t);
+          const statusLabel = t.fromLocal
+            ? (t.ljStatus === 'completed' ? 'CONCLUÍDA' : t.ljStatus === 'in_progress' ? 'EM PROGRESSO' : 'PENDENTE')
+            : String(t.status || '—').toUpperCase();
+          const isProgress = !isDone && /progress|doing|andamento/i.test(statusLabel);
+          const badgeCls = isDone
+            ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400/40'
+            : isProgress
+            ? 'bg-amber-500/25 text-amber-200 border-amber-400/40'
+            : 'bg-slate-500/25 text-slate-200 border-slate-400/40';
+          const badgeIcon = isDone ? '✓' : isProgress ? '○' : '◌';
+          const externalLink = t.url
+            ? `<a href="${Utils.escape(t.url)}" target="_blank" rel="noopener" title="Abrir no ClickUp" class="text-slate-400 hover:text-white shrink-0"><i data-lucide="external-link" class="w-3 h-3"></i></a>`
+            : '';
+          return `<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg ${isDone ? 'bg-emerald-500/[0.04] border border-emerald-500/15' : 'bg-slate-900/40 border border-white/5'}">
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-black border ${badgeCls} whitespace-nowrap shrink-0">${badgeIcon} ${Utils.escape(statusLabel)}</span>
+            <span class="text-[12px] font-bold text-white flex-1 min-w-0 truncate ${isDone ? 'line-through text-slate-400' : ''}">${Utils.escape(t.name)}</span>
+            ${externalLink}
+          </div>`;
+        }).join('')}
+      </div>`;
+    })();
 
     return `<div class="rounded-3xl bg-white/[0.05] border border-white/10 p-4">
       <div class="flex items-start justify-between gap-3 mb-3">
@@ -3045,7 +3105,7 @@ window.StrategicMapModal = {
       ${tasksList}
       <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/10">
         ${actions.map(a => `<button onclick="Actions.openTaskCreationModal(${a.id})" class="px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-[11px] font-black flex items-center gap-1.5" style="color:#fff!important;" title="Abrir modal de transição ação → ClickUp"><i data-lucide="send" class="w-3 h-3"></i> Criar task · ${Utils.escape(a.name)}</button>`).join('')}
-        ${tasks.length ? `<button onclick="Actions.syncClickupTaskStatuses(false)" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[11px] font-black flex items-center gap-1.5" title="Pegar status atual do ClickUp"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Sync ClickUp</button>` : ''}
+        ${!isFlatMode && App.state.clickupStatus?.connected ? `<button onclick="Actions.pullClickupActionSubtasks(null, false)" ${isLoading ? 'disabled' : ''} class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[11px] font-black flex items-center gap-1.5 disabled:opacity-50" title="Puxar lista atualizada do ClickUp"><i data-lucide="${isLoading ? 'loader-2' : 'refresh-cw'}" class="w-3 h-3 ${isLoading ? 'animate-spin' : ''}"></i> ${isLoading ? 'Puxando…' : 'Sync ClickUp'}</button>` : ''}
         <button onclick="Actions.syncStrategicOkrSingle('${obj.id}','${kr.id}')" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-[11px] font-black flex items-center gap-1.5"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Atualizar leitura</button>
       </div>
     </div>`;
