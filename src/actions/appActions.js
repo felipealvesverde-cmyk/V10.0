@@ -3054,9 +3054,17 @@ Object.assign(Actions, {
     }
   },
 
-  // V32.10.2 — Cria snapshot remoto manual ou automático.
+  // V32.10.2 → V32.10.4 — Cria snapshot remoto. Guarda contra state vazio:
+  // não polui retention (50) com snapshots vazios + não mascara histórico bom.
   // silent=true: sem toast, sem render (uso interno em auto-snapshot).
   async createRemoteSnapshot(label = 'manual', silent = false) {
+    const s = App.state || {};
+    const totalReal = (s.products||[]).length + (s.campaigns||[]).length + (s.actions||[]).length;
+    if (totalReal === 0) {
+      if (!silent) Utils.toast('Snapshot pulado: nada pra salvar (state vazio).');
+      console.warn(`[snapshot] "${label}" PULADO: state vazio.`);
+      return null;
+    }
     try {
       const token = localStorage.getItem('lj_jwt');
       const r = await fetch('/api/snapshots-list', {

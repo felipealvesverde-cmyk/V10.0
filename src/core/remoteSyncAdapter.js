@@ -73,6 +73,42 @@ window.RemoteSyncAdapter = {
 
   async _doPush() {
     if (!window.App?.state) return;
+    const s = window.App.state;
+
+    // V32.10.4 — GUARDA DE EMERGÊNCIA (Felipe perda de dados RevOps).
+    // BLOQUEIA push se state aparenta corrompido/vazio. Pior cenário: push
+    // raro deixa de propagar mudança real. Melhor cenário: impede DB ser
+    // sobrescrito com state vazio durante boot/race/migration buggy.
+    //
+    // Critério: nunca pode pushar se TODOS desaparecerem (products + campaigns
+    // + actions = 0). Se PRIMEIRO uso, sem dados ainda, o último push remoto
+    // do user também é vazio — sem regressão.
+    //
+    // Guarda extra: se memória anterior MOSTRA que tinha N produtos e agora
+    // tem 0, é OBVIAMENTE perda de dados em curso. Bloqueia E faz snapshot
+    // do estado anterior (recuperável) E avisa cliente alto.
+    const productsNow = (s.products || []).length;
+    const campaignsNow = (s.campaigns || []).length;
+    const actionsNow = (s.actions || []).length;
+    const totalNow = productsNow + campaignsNow + actionsNow;
+    const lastSnapshot = this._lastPushSnapshot || null;
+    if (lastSnapshot && totalNow === 0 && lastSnapshot.total > 5) {
+      // Regressão massiva detectada — não pusha. Salva snapshot recuperável.
+      console.error('[RemoteSync] 🚨 BLOQUEADO: state aparenta corrompido.', {
+        antes: lastSnapshot,
+        agora: { products: productsNow, campaigns: campaignsNow, actions: actionsNow }
+      });
+      this._lastPushStatus = 'blocked_data_loss_guard';
+      try {
+        if (window.Utils?.toast) {
+          window.Utils.toast('⚠ PERDA DE DADOS DETECTADA — push remoto BLOQUEADO. Vá em Configurações → Backup pra restaurar.');
+        }
+      } catch (_) {}
+      return;
+    }
+    // Marca snapshot pra próxima comparação
+    this._lastPushSnapshot = { products: productsNow, campaigns: campaignsNow, actions: actionsNow, total: totalNow };
+
     this._lastPushStatus = 'pushing';
     try {
       const res = await fetch('/api/state-sync', {
@@ -105,6 +141,14 @@ window.RemoteSyncAdapter = {
   async _doSnapshot(label) {
     if (!window.App?.state) return;
     if (!this.isProduction()) return;
+    const s = window.App.state;
+    // V32.10.4 — Guarda: NÃO criar snapshot vazio. Snapshot vazio polui retention
+    // (LIMIT 50) e pode mascarar histórico bom. Só salva se há dados reais.
+    const totalReal = (s.products||[]).length + (s.campaigns||[]).length + (s.actions||[]).length;
+    if (totalReal === 0) {
+      console.warn(`[RemoteSync] snapshot "${label}" PULADO: state vazio (nada pra salvar).`);
+      return;
+    }
     try {
       const res = await fetch('/api/snapshots-list', {
         method: 'POST',
