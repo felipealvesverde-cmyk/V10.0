@@ -3342,6 +3342,31 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V32.8.2 — Toggle Modo Builder (A) ↔ Modo Excel (B) na tab Custos.
+  setRevopsExcelMode(on) {
+    App.state.revopsExcelMode = !!on;
+    App.save(); App.render();
+  },
+
+  // V32.8.2 — Save direto de fórmula via Modo Excel. Vira custom_formula.
+  // Se a fórmula puder ser reduzida pra um modo Builder mais simples (ex:
+  // só um número), simplifica de volta — preserva A/B sync transparente.
+  saveRevopsExcelFormula(productId, groupId, itemId, formula) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const g = (cfg.groups || []).find(x => x.id === groupId);
+      const it = g?.items?.find(i => i.id === itemId);
+      if (!it) return;
+      const raw = String(formula || '').trim().replace(/^=/, '').trim();
+      // Reduz pra fixed se for puramente numérico (ex: "=115.29")
+      const asNum = Number(raw.replace(',', '.'));
+      if (Number.isFinite(asNum) && /^-?[0-9.]+$/.test(raw.replace(/\s/g, ''))) {
+        it.calc = { mode: 'fixed', value: asNum };
+      } else {
+        it.calc = { mode: 'custom_formula', formula: `=${raw}` };
+      }
+    });
+  },
+
   setRevopsWhitelabelPeriod(productId, period) {
     Actions._revopsV2Mutate(productId, cfg => {
       cfg.period = ['monthly', 'quarterly', 'yearly'].includes(period) ? period : 'monthly';

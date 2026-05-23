@@ -195,13 +195,22 @@
     _costsTab(cfg, ev) {
       const groups = cfg.groups || [];
       const productId = cfg.productId;
+      const excelMode = !!App.state.revopsExcelMode;
       return `<div class="space-y-4">
+        ${this._djowTip('costs')}
         <div class="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h3 class="font-black text-slate-900">Seus custos e despesas</h3>
             <p class="text-[12px] text-slate-500 mt-0.5">Crie grupos como faz na sua planilha. Cada item pode ser valor fixo, % sobre algo, ou fórmula avançada.</p>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
+            ${/* V32.8.2 — Toggle Modo A (Builder) ↔ Modo B (Excel). Item por item
+                 fica sincronizado: o que você cria em A vê como fórmula em B; o
+                 que edita em B vira custom_formula automático. */ ''}
+            <div class="inline-flex items-center rounded-xl bg-slate-100 border border-slate-200 p-0.5">
+              <button onclick="Actions.setRevopsExcelMode(false)" class="px-2.5 py-1.5 rounded-lg text-xs font-black ${!excelMode ? 'bg-violet-600 text-white' : 'text-slate-600'}" ${!excelMode ? 'style="color:#fff!important;"' : ''}>📝 Builder</button>
+              <button onclick="Actions.setRevopsExcelMode(true)" class="px-2.5 py-1.5 rounded-lg text-xs font-black ${excelMode ? 'bg-violet-600 text-white' : 'text-slate-600'}" ${excelMode ? 'style="color:#fff!important;"' : ''}>📊 Excel</button>
+            </div>
             <select id="lj-revops-new-bucket" class="px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800">
               ${BUCKETS.map(b => `<option value="${b.id}">${b.label}</option>`).join('')}
             </select>
@@ -211,16 +220,78 @@
           </div>
         </div>
 
+        ${excelMode ? this._handlesLegend(cfg) : ''}
+        ${this._handlesDatalist(cfg)}
+
         ${groups.length === 0
           ? `<div class="rounded-2xl bg-amber-50 border border-amber-300 p-5 text-center">
               <p class="text-sm font-bold text-amber-900 mb-1">Nenhum grupo criado ainda</p>
               <p class="text-xs text-amber-800">Crie pelo menos um (ex: "Software", "Aquisição") pra começar a montar seu DRE.</p>
             </div>`
-          : groups.map(g => this._groupCard(productId, g, ev)).join('')}
+          : groups.map(g => this._groupCard(productId, g, ev, excelMode)).join('')}
       </div>`;
     },
 
-    _groupCard(productId, group, ev) {
+    // V32.8.2 — Legenda dos handles disponíveis (aparece no Modo Excel).
+    // Cliente vê de uma lista o que pode usar em fórmulas (sales, fat_bruto,
+    // ebitda, g_<group>_total, ou qualquer item_id).
+    _handlesLegend(cfg) {
+      const handles = RevopsWhitelabelEngine.availableHandles(cfg);
+      const specials = handles.filter(h => h.kind === 'special');
+      const groupTotals = handles.filter(h => h.kind === 'group_total');
+      const items = handles.filter(h => h.kind === 'item');
+      const chip = (h) => `<code class="text-[10px] font-mono bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-700">${h.id}</code>`;
+      return `<details open class="rounded-2xl bg-violet-50/40 border border-violet-200 p-3">
+        <summary class="cursor-pointer text-[11px] font-black text-violet-800 uppercase tracking-wider flex items-center gap-1.5 select-none">
+          <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+          Handles disponíveis no Modo Excel (${handles.length})
+        </summary>
+        <div class="mt-2 space-y-2 text-[11px]">
+          <div>
+            <p class="font-black text-slate-600 mb-1">Especiais (sempre disponíveis)</p>
+            <div class="flex flex-wrap gap-1">${specials.map(chip).join('')}</div>
+          </div>
+          ${groupTotals.length ? `<div>
+            <p class="font-black text-slate-600 mb-1">Totais de grupo</p>
+            <div class="flex flex-wrap gap-1">${groupTotals.map(chip).join('')}</div>
+          </div>` : ''}
+          ${items.length ? `<div>
+            <p class="font-black text-slate-600 mb-1">Itens cadastrados</p>
+            <div class="flex flex-wrap gap-1">${items.slice(0, 30).map(chip).join('')}${items.length > 30 ? `<span class="text-slate-400">+${items.length - 30}</span>` : ''}</div>
+          </div>` : ''}
+          <p class="text-slate-500 italic mt-1">Exemplo: <code class="text-[10px] font-mono">=fat_bruto * 0.3 + g_software_total</code></p>
+        </div>
+      </details>`;
+    },
+
+    // V32.8.2 — Datalist HTML5 nativo pra autocomplete nos inputs de fórmula.
+    // Browser sugere handles que casam com o que cliente digita.
+    _handlesDatalist(cfg) {
+      const handles = RevopsWhitelabelEngine.availableHandles(cfg);
+      return `<datalist id="lj-revops-handles">
+        ${handles.map(h => `<option value="${Utils.escape(h.id)}">${Utils.escape(h.label)}</option>`).join('')}
+      </datalist>`;
+    },
+
+    // V32.8.2 — Dica Djow por tab. Hardcoded por enquanto (V32.8.3 vai plugar
+    // backend pra suggestions dinâmicas via /api/djow-chat).
+    _djowTip(tabId) {
+      const tips = {
+        costs:  'Comece pelos custos fixos óbvios (software, ferramentas). Depois liste aquisição (mídia paga, SDR). Variáveis (impostos, comissões) ficam pra depois.',
+        offers: 'Mesmo que você tenha 1 oferta, cadastre — o sistema precisa pra calcular Faturamento Bruto (Vendas × Ticket).',
+        result: 'CAC efetivo = Aquisição total ÷ Vendas reais (do funil). Se CAC > Ticket, você está pagando pra entregar — revise origens.',
+        revops: 'MSU é seu Breakeven em vendas — número mínimo de vendas pra cobrir custos fixos. Se MSU > Vendas previstas, operação não respira.',
+        dre:    'DRE roda Bruto → Variáveis → Líquido → G&A → Após Fixos → Aquisição → EBITDA. Margem EBITDA saudável: >25%.'
+      };
+      const tip = tips[tabId];
+      if (!tip) return '';
+      return `<div class="rounded-xl bg-indigo-50 border border-indigo-200 p-3 flex items-start gap-2">
+        <i data-lucide="sparkles" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
+        <p class="text-[12px] text-indigo-900 leading-relaxed"><b class="text-indigo-700">Djow:</b> ${tip}</p>
+      </div>`;
+    },
+
+    _groupCard(productId, group, ev, excelMode = false) {
       const items = group.items || [];
       const total = ev.groupTotals[group.id] || 0;
       const bucketLabel = BUCKETS.find(b => b.id === group.bucket)?.label || group.bucket;
@@ -244,7 +315,31 @@
 
         ${items.length === 0
           ? `<p class="text-[11px] text-slate-400 italic px-2 py-3 text-center">Sem itens. Clique "+ Item" pra adicionar.</p>`
-          : `<div class="space-y-2">${items.map(it => this._itemRow(productId, group, it, ev)).join('')}</div>`}
+          : `<div class="space-y-2">${items.map(it => excelMode
+              ? this._itemRowExcel(productId, group, it, ev)
+              : this._itemRow(productId, group, it, ev)
+            ).join('')}</div>`}
+      </div>`;
+    },
+
+    // V32.8.2 — Renderização Modo B (Excel): item vira só uma linha com input
+    // de fórmula + autocomplete via datalist + valor calculado.
+    // Save vira calc.mode='custom_formula' automaticamente.
+    _itemRowExcel(productId, group, item, ev) {
+      const cfg = this._currentConfig(productId);
+      const derivedFormula = RevopsWhitelabelEngine.deriveFormula(item.calc, cfg);
+      const value = ev.itemValues[item.id] || 0;
+      const isCustom = item.calc?.mode === 'custom_formula';
+      return `<div class="rounded-xl bg-white border border-slate-200 p-2.5 flex items-center gap-2">
+        <input value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome" class="w-40 shrink-0 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800" />
+        <code class="text-[9px] text-slate-400 shrink-0">${item.id} =</code>
+        <input type="text" value="${Utils.escape(derivedFormula)}" list="lj-revops-handles" onchange="Actions.saveRevopsExcelFormula('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="=fat_bruto * 0.3" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-xs font-mono text-slate-800 focus:bg-white focus:border-amber-400" />
+        <div class="text-right shrink-0 w-24">
+          <p class="text-[9px] font-black text-slate-400 uppercase">Calculado</p>
+          <p class="text-xs font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
+        </div>
+        ${!isCustom ? `<span class="text-[9px] font-bold text-amber-700 shrink-0" title="Editar aqui vira fórmula custom (não dá pra voltar pro Builder fácil)">⚠</span>` : ''}
+        <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black shrink-0">×</button>
       </div>`;
     },
 
@@ -339,6 +434,7 @@
       const offers = cfg.offers || [];
       const productId = cfg.productId;
       return `<div class="space-y-4">
+        ${this._djowTip('offers')}
         <div class="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h3 class="font-black text-slate-900">Ofertas e Ticket Médio</h3>
@@ -396,6 +492,7 @@
       const realRevenue = realSales * ev.ticket;
       const cac = realSales > 0 ? ev.acquisitionTotal / realSales : 0;
       return `<div class="space-y-3">
+        ${this._djowTip('result')}
         <h3 class="font-black text-slate-900">Resultado consolidado</h3>
         <p class="text-[12px] text-slate-500">Comparação previsto × real. CAC vem do total da Aquisição dividido pelos convertidos no funil.</p>
         <div class="grid md:grid-cols-3 gap-3">
@@ -433,6 +530,7 @@
       const breakevenRevenue = msu * ev.ticket;
       const customKpis = cfg.customKpis || [];
       return `<div class="space-y-4">
+        ${this._djowTip('revops')}
         <h3 class="font-black text-slate-900">RevOps KPIs (rosa)</h3>
         <p class="text-[12px] text-slate-500">Margem de contribuição, breakeven, e KPIs custom que você criar via fórmula.</p>
 
@@ -485,6 +583,7 @@
         { label: '(=) EBITDA',              value: ev.ebitda,               tone: ev.ebitda >= 0 ? 'emerald' : 'rose', bold: true, highlight: true }
       ];
       return `<div class="space-y-3">
+        ${this._djowTip('dre')}
         <h3 class="font-black text-slate-900">DRE Operacional (cinza da planilha)</h3>
         <p class="text-[12px] text-slate-500">Demonstrativo do Resultado do Exercício — operacional. Linha por linha do Bruto até o EBITDA.</p>
         <div class="rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden">

@@ -415,6 +415,36 @@
     },
 
     // ─────────────────────────────────────────────────────────────
+    // FORMULA DERIVE — pra Modo B mostrar TODO item como expressão
+    // ─────────────────────────────────────────────────────────────
+    //
+    // Pega item.calc do Modo A e retorna a fórmula equivalente que o cliente
+    // veria no Modo B. Ex: { mode:'percent_of', base:'fat_bruto', factor:30 }
+    // vira '=fat_bruto * 0.30'.
+    //
+    // Pra mode='custom_formula', retorna o próprio calc.formula sem mudar.
+
+    deriveFormula(calc, cfg) {
+      if (!calc || typeof calc !== 'object') return '=0';
+      switch (calc.mode) {
+        case 'fixed':
+          return `=${this._num(calc.value)}`;
+        case 'percent_self':
+          return `=${this._num(calc.baseValue)} * ${this._num(calc.factor) / 100}`;
+        case 'percent_of':
+          if (!calc.base) return '=0';
+          return `=${calc.base} * ${this._num(calc.factor) / 100}`;
+        case 'derived':
+          if (!calc.groupRef) return '=0';
+          return `=${calc.groupRef}_total`;
+        case 'custom_formula':
+          return String(calc.formula || '=0');
+        default:
+          return '=0';
+      }
+    },
+
+    // ─────────────────────────────────────────────────────────────
     // HANDLES — dicionário do que está disponível pra autocomplete no Modo B
     // ─────────────────────────────────────────────────────────────
 

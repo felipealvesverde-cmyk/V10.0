@@ -174,6 +174,10 @@ var State = {
       // V32.8.1 (Onda 2) — tab ativa do painel novo + flag pra voltar ao clássico.
       revopsWhitelabelActiveTab: 'costs',
       revopsClassicMode: false,
+      // V32.8.2 (Onda 3) — toggle Modo B (Excel) na tab Custos. Quando ON,
+      // cada item renderiza como input livre de fórmula com autocomplete de
+      // handles. Ediçao salva como calc.mode='custom_formula'.
+      revopsExcelMode: false,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -567,6 +571,8 @@ var State = {
       // V32.8.1 — tab ativa + flag clássico persistem.
       revopsWhitelabelActiveTab: typeof raw.revopsWhitelabelActiveTab === 'string' ? raw.revopsWhitelabelActiveTab : 'costs',
       revopsClassicMode: !!raw.revopsClassicMode,
+      // V32.8.2 — toggle Excel persiste.
+      revopsExcelMode: !!raw.revopsExcelMode,
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,
