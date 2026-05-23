@@ -280,6 +280,61 @@
       </datalist>`;
     },
 
+    // V32.10.7 — Handle picker (olhinho) reutilizável.
+    // Renderiza: "Escolha um número para se basear  👁" + popover com lista
+    // agrupada (Apelidos · Especiais · KPIs · Grupos · Itens). Click no
+    // handle copia o id pro clipboard (cliente cola na fórmula).
+    //
+    // pickerKey: chave única do contexto (ex: 'composed:p1:mcu', 'item:p1:itemX')
+    // cfg: config do produto (pra extrair handles disponíveis)
+    _handlePicker(pickerKey, cfg) {
+      const open = App.state.revopsHandlePickerKey === pickerKey;
+      const trigger = `<button onclick="Actions.toggleRevopsHandlePicker('${Utils.escape(pickerKey)}')" type="button"
+        class="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 hover:text-sky-900 ${open ? 'text-sky-900' : ''}"
+        title="Ver números disponíveis pra usar na fórmula">
+        <span>Escolha um número para se basear</span>
+        <span class="text-base leading-none">${open ? '🙈' : '👁'}</span>
+      </button>`;
+      if (!open) return `<span class="inline-block">${trigger}</span>`;
+      return `<div class="inline-block">${trigger}</div>
+        ${this._handlePickerPopover(cfg)}`;
+    },
+
+    // V32.10.7 — Só o popover (sem trigger). Usado quando o trigger é
+    // renderizado em outro lugar (ex: Modo Excel — olhinho na linha do item).
+    _handlePickerPopover(cfg) {
+      const handles = RevopsWhitelabelEngine.availableHandles(cfg);
+      const groups = {
+        alias: { label: 'Apelidos', items: [], cls: 'text-sky-700' },
+        special: { label: 'Básicos', items: [], cls: 'text-emerald-700' },
+        kpi: { label: 'KPIs da cascata', items: [], cls: 'text-violet-700' },
+        group_total: { label: 'Totais de grupo', items: [], cls: 'text-amber-700' },
+        item: { label: 'Itens (linhas)', items: [], cls: 'text-slate-700' }
+      };
+      for (const h of handles) {
+        if (groups[h.kind]) groups[h.kind].items.push(h);
+      }
+      const renderItem = (h) => `<button type="button"
+        onclick="Actions.copyRevopsHandle('${Utils.escape(h.id)}')"
+        class="text-left px-2 py-1 rounded-lg bg-white border border-slate-200 hover:border-sky-400 hover:bg-sky-50 transition"
+        title="Click pra copiar &quot;${Utils.escape(h.id)}&quot; — cole depois na fórmula">
+        <code class="text-[11px] font-black text-slate-900">${Utils.escape(h.id)}</code>
+        <span class="text-[10px] text-slate-500 block leading-tight">${Utils.escape(h.label)}</span>
+      </button>`;
+      const sections = Object.entries(groups)
+        .filter(([_, g]) => g.items.length > 0)
+        .map(([_, g]) => `<div class="mb-2 last:mb-0">
+          <p class="text-[9px] font-black uppercase tracking-wider ${g.cls} mb-1">${g.label}</p>
+          <div class="grid gap-1" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
+            ${g.items.map(renderItem).join('')}
+          </div>
+        </div>`).join('');
+      return `<div class="mt-1.5 rounded-xl bg-sky-50/60 border border-sky-200 p-2.5">
+        <p class="text-[10px] text-slate-600 mb-1.5">💡 Click no número pra copiar. Depois cole na fórmula (ex: <code>=tm*0,15</code>).</p>
+        ${sections}
+      </div>`;
+    },
+
     // V32.8.2 → V32.8.3 — Dica Djow por tab.
     // - Estática (sempre): princípio operacional do bloco.
     // - Dinâmica (sob demanda): cliente clica "Pedir análise" → backend Claude
@@ -394,16 +449,22 @@
       const borderCls = validation.status === 'ok' ? 'border-emerald-300'
                       : validation.status === 'warn' ? 'border-amber-300'
                       : 'border-rose-400';
-      return `<div class="rounded-xl bg-white border border-slate-200 p-2.5 flex items-center gap-2">
-        <input value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome" class="w-40 shrink-0 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800" />
-        <code class="text-[9px] text-slate-400 shrink-0">${item.id} =</code>
-        <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" title="${Utils.escape(validation.message)}" value="${Utils.escape(derivedFormula)}" list="lj-revops-handles" onchange="Actions.saveRevopsExcelFormula('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="=fat_bruto * 0.3" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-amber-50 border ${borderCls} text-xs font-mono text-slate-800 focus:bg-white focus:border-amber-400" />
-        <div class="text-right shrink-0 w-24">
-          <p class="text-[9px] font-black text-slate-400 uppercase">Calculado</p>
-          <p class="text-xs font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
+      const pickerKey = `excel:${productId}:${item.id}`;
+      const pickerOpen = App.state.revopsHandlePickerKey === pickerKey;
+      return `<div class="rounded-xl bg-white border border-slate-200 p-2.5">
+        <div class="flex items-center gap-2">
+          <input value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome" class="w-40 shrink-0 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800" />
+          <code class="text-[9px] text-slate-400 shrink-0">${item.id} =</code>
+          <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" title="${Utils.escape(validation.message)}" value="${Utils.escape(derivedFormula)}" list="lj-revops-handles" onchange="Actions.saveRevopsExcelFormula('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="=fat_bruto * 0.3" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-amber-50 border ${borderCls} text-xs font-mono text-slate-800 focus:bg-white focus:border-amber-400" />
+          <button onclick="Actions.toggleRevopsHandlePicker('${pickerKey}')" type="button" title="Escolha um número para se basear" class="shrink-0 px-1.5 py-1 rounded-lg bg-sky-50 border border-sky-200 hover:bg-sky-100 text-sky-700 text-xs leading-none">${pickerOpen ? '🙈' : '👁'}</button>
+          <div class="text-right shrink-0 w-24">
+            <p class="text-[9px] font-black text-slate-400 uppercase">Calculado</p>
+            <p class="text-xs font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
+          </div>
+          ${!isCustom ? `<span class="text-[9px] font-bold text-amber-700 shrink-0" title="Editar aqui vira fórmula custom (não dá pra voltar pro Builder fácil)">⚠</span>` : ''}
+          <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black shrink-0">×</button>
         </div>
-        ${!isCustom ? `<span class="text-[9px] font-bold text-amber-700 shrink-0" title="Editar aqui vira fórmula custom (não dá pra voltar pro Builder fácil)">⚠</span>` : ''}
-        <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black shrink-0">×</button>
+        ${pickerOpen ? `<div class="mt-2">${this._handlePickerPopover(cfg)}</div>` : ''}
       </div>`;
     },
 
@@ -496,17 +557,21 @@
                          : validation.status === 'warn' ? 'bg-amber-50 border-amber-200 text-amber-800'
                          : 'bg-rose-50 border-rose-200 text-rose-800';
           const badgeIcon = validation.status === 'ok' ? '✓' : validation.status === 'warn' ? '⚠' : '✗';
-          return `<label class="block">
-            <span class="text-[9px] font-black text-slate-500 uppercase">Fórmula avançada</span>
-            <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(calc.formula || '=0')}" onchange="${update('formula')}" placeholder="=fat_bruto * 0,059" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border ${borderCls} text-sm font-mono text-slate-800" />
+          const pickerKey = `item:${productId}:${item.id}`;
+          return `<div class="block">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <span class="text-[9px] font-black text-slate-500 uppercase">Fórmula avançada</span>
+              ${this._handlePicker(pickerKey, cfg)}
+            </div>
+            <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(calc.formula || '=0')}" list="lj-revops-handles" onchange="${update('formula')}" placeholder="=fat_bruto * 0,059" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border ${borderCls} text-sm font-mono text-slate-800" />
             <div class="mt-1 px-2 py-1 rounded text-[10px] font-bold border ${badgeCls}">
               ${badgeIcon} ${Utils.escape(validation.message)}
               ${validation.suggestions && validation.suggestions.length
                 ? `<br><span class="font-normal">Quis dizer: ${validation.suggestions.map(s => `<code class="text-[10px] bg-white px-1 rounded">${Utils.escape(s)}</code>`).join(', ')}?</span>`
                 : ''}
             </div>
-            <p class="text-[10px] text-slate-500 mt-1"><i data-lucide="zap" class="w-3 h-3 inline-block"></i> Use <code>fat_bruto</code>, <code>ebitda</code>, <code>g_software_total</code>, etc. Vírgula BR (<code>0,059</code>) ou ponto (<code>0.059</code>) — ambos funcionam.</p>
-          </label>`;
+            <p class="text-[10px] text-slate-500 mt-1"><i data-lucide="zap" class="w-3 h-3 inline-block"></i> Vírgula BR (<code>0,059</code>) ou ponto (<code>0.059</code>) — ambos funcionam.</p>
+          </div>`;
         }
         default:
           return '';
@@ -904,6 +969,14 @@
       // 6. Breakeven (auto: Custo Fixo ÷ MSU)
       const breakeven = msu > 0 ? Math.ceil(fixedTotal / msu) : 0;
 
+      // V32.10.7 — Injeta KPIs cascata em ev.symbols pra que validateFormula
+      // (chamada por _composedDeductionRow etc) reconheça mcu/msu/cac/breakeven.
+      // Já estão listados em availableHandles() do engine, faltava só popular.
+      ev.symbols.mcu = mcu;
+      ev.symbols.msu = msu;
+      ev.symbols.cac = cac;
+      ev.symbols.breakeven = breakeven;
+
       // Microcopy operacional
       const previstas = totalSales;
       const folgaPct = breakeven > 0 ? (previstas / breakeven) * 100 : 0;
@@ -1074,10 +1147,15 @@
       let body = '';
       if (mode === 'manual') {
         const value = override.value != null ? String(override.value) : '';
+        const cfgNow = this._currentConfig(productId);
+        const pickerKey = `manual:${productId}:${kpi}`;
         body = `<div>
-          <label class="text-[10px] font-black text-slate-500 uppercase block mb-1">Valor manual (número ou =fórmula)</label>
-          <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(value)}" onchange="Actions.setRevopsKpiOverrideValue('${productId}', '${kpi}', this.value)" placeholder="220 ou =tm*0,55" class="w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-mono text-slate-800" />
-          <p class="text-[10px] text-slate-500 mt-1">Use número direto (<code>220</code>) ou fórmula (<code>=tm*0,55</code>, <code>=tm-180</code>, <code>=fat_bruto/sales</code>). Handles: <code>tm</code>, <code>ticket</code>, <code>fat_bruto</code>, <code>sales</code>, <code>ebitda</code>, etc.</p>
+          <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+            <label class="text-[10px] font-black text-slate-500 uppercase">Valor manual (número ou =fórmula)</label>
+            ${this._handlePicker(pickerKey, cfgNow)}
+          </div>
+          <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(value)}" list="lj-revops-handles" onchange="Actions.setRevopsKpiOverrideValue('${productId}', '${kpi}', this.value)" placeholder="220 ou =tm*0,55" class="w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-mono text-slate-800" />
+          <p class="text-[10px] text-slate-500 mt-1">Use número direto (<code>220</code>) ou fórmula (<code>=tm*0,55</code>, <code>=tm-180</code>, <code>=fat_bruto/sales</code>).</p>
         </div>`;
       } else if (mode === 'composed') {
         // V32.10.3 (Felipe) — Refator UX: labels persistentes acima dos campos,
@@ -1086,9 +1164,13 @@
         // por linha. Resolve confusão "coloquei fórmula no campo errado".
         const components = Array.isArray(override.components) ? override.components : [];
         const cfgNow = this._currentConfig(productId);
-        const evNow = RevopsWhitelabelEngine.evaluate(cfgNow);
+        const evNow = this._evalWithCascade(cfgNow);
+        const pickerKey = `composed:${productId}:${kpi}`;
         body = `<div class="space-y-2">
-          <p class="text-[10px] font-black text-slate-500 uppercase">Composição (cada linha é uma dedução do valor base)</p>
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <p class="text-[10px] font-black text-slate-500 uppercase">Composição (cada linha é uma dedução do valor base)</p>
+            ${this._handlePicker(pickerKey, cfgNow)}
+          </div>
           ${components.length === 0
             ? '<p class="text-[11px] text-slate-400 italic">Nenhuma dedução. Clique "+ Dedução" pra adicionar.</p>'
             : `<div class="grid gap-1.5 px-1" style="grid-template-columns: 12px 1fr 1.4fr 90px 28px;">
@@ -1165,7 +1247,7 @@
           </div>` : ''}
         </div>
         <div>
-          <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(valueRaw)}" title="${Utils.escape(validation.message)}" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'value', this.value); App.render();" placeholder="60 ou =tm*0,15" class="w-full px-2 py-1.5 rounded-lg bg-white border ${borderCls} text-xs font-mono text-slate-800" />
+          <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(valueRaw)}" title="${Utils.escape(validation.message)}" list="lj-revops-handles" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'value', this.value); App.render();" placeholder="60 ou =tm*0,15" class="w-full px-2 py-1.5 rounded-lg bg-white border ${borderCls} text-xs font-mono text-slate-800" />
           ${validation.status === 'error' && validation.suggestions && validation.suggestions.length
             ? `<p class="text-[9px] text-rose-700 mt-0.5">${Utils.escape(validation.message)} · sugestão: <code class="text-[9px] bg-white px-1 rounded">${Utils.escape(validation.suggestions[0])}</code></p>`
             : validation.status === 'error'
@@ -1208,16 +1290,23 @@
     _customKpiRow(productId, kpi, ev) {
       const value = ev.customKpiValues?.[kpi.id] || 0;
       const display = kpi.unit === 'percent' ? `${value.toFixed(1)}%` : kpi.unit === 'BRL' ? this._money(value) : value.toLocaleString('pt-BR');
-      return `<div class="rounded-xl bg-white border border-rose-200 p-2 mt-2 flex items-center gap-2">
-        <input value="${Utils.escape(kpi.name)}" onchange="Actions.updateRevopsCustomKpi('${productId}', '${kpi.id}', 'name', this.value)" placeholder="Nome do KPI" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800" />
-        <input value="${Utils.escape(kpi.formula)}" onchange="Actions.updateRevopsCustomKpi('${productId}', '${kpi.id}', 'formula', this.value)" placeholder="=fat_bruto / sales" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-mono text-slate-800" />
-        <select onchange="Actions.updateRevopsCustomKpi('${productId}', '${kpi.id}', 'unit', this.value)" class="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800">
-          <option value="BRL" ${kpi.unit === 'BRL' ? 'selected' : ''}>R$</option>
-          <option value="percent" ${kpi.unit === 'percent' ? 'selected' : ''}>%</option>
-          <option value="unit" ${kpi.unit === 'unit' ? 'selected' : ''}>un</option>
-        </select>
-        <span class="text-sm font-black text-rose-900 w-24 text-right">${display}</span>
-        <button onclick="Actions.deleteRevopsCustomKpi('${productId}', '${kpi.id}')" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
+      const cfg = this._currentConfig(productId);
+      const pickerKey = `customKpi:${productId}:${kpi.id}`;
+      const pickerOpen = App.state.revopsHandlePickerKey === pickerKey;
+      return `<div class="rounded-xl bg-white border border-rose-200 p-2 mt-2">
+        <div class="flex items-center gap-2">
+          <input value="${Utils.escape(kpi.name)}" onchange="Actions.updateRevopsCustomKpi('${productId}', '${kpi.id}', 'name', this.value)" placeholder="Nome do KPI" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800" />
+          <input value="${Utils.escape(kpi.formula)}" list="lj-revops-handles" onchange="Actions.updateRevopsCustomKpi('${productId}', '${kpi.id}', 'formula', this.value)" placeholder="=fat_bruto / sales" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-mono text-slate-800" />
+          <button onclick="Actions.toggleRevopsHandlePicker('${pickerKey}')" type="button" title="Escolha um número para se basear" class="shrink-0 px-1.5 py-1 rounded-lg bg-sky-50 border border-sky-200 hover:bg-sky-100 text-sky-700 text-xs leading-none">${pickerOpen ? '🙈' : '👁'}</button>
+          <select onchange="Actions.updateRevopsCustomKpi('${productId}', '${kpi.id}', 'unit', this.value)" class="px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800">
+            <option value="BRL" ${kpi.unit === 'BRL' ? 'selected' : ''}>R$</option>
+            <option value="percent" ${kpi.unit === 'percent' ? 'selected' : ''}>%</option>
+            <option value="unit" ${kpi.unit === 'unit' ? 'selected' : ''}>un</option>
+          </select>
+          <span class="text-sm font-black text-rose-900 w-24 text-right">${display}</span>
+          <button onclick="Actions.deleteRevopsCustomKpi('${productId}', '${kpi.id}')" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
+        </div>
+        ${pickerOpen ? `<div class="mt-2">${this._handlePickerPopover(cfg)}</div>` : ''}
       </div>`;
     },
 
@@ -1279,6 +1368,29 @@
       const legacy = App.state.revopsFinance?.[productId];
       if (legacy) return RevopsWhitelabelEngine.migrateFromLegacy(legacy);
       return RevopsWhitelabelEngine.defaultConfig(productId);
+    },
+
+    // V32.10.7 — Evaluate + injeção dos KPIs cascata (mcu/msu/cac/breakeven)
+    // em ev.symbols. Usado por qualquer chamada que precise validar fórmula
+    // referenciando esses KPIs (ex: composedDeductionRow, customKpiRow).
+    _evalWithCascade(cfg) {
+      const ev = RevopsWhitelabelEngine.evaluate(cfg);
+      const productId = cfg.productId;
+      const mcuAuto = RevopsWhitelabelEngine.computeAutoMCU(cfg, ev);
+      const mcuOv = App.state.revopsKpiOverrides?.[productId]?.mcu || { mode: 'auto' };
+      mcuOv.baseValue = ev.ticket;
+      const mcu = RevopsWhitelabelEngine.resolveOverride(mcuOv, mcuAuto.value, ev.symbols).value;
+      const cac = ev.sales > 0 ? ev.acquisitionTotal / ev.sales : 0;
+      const msuAuto = RevopsWhitelabelEngine.computeAutoMSU(mcu, cac);
+      const msuOv = App.state.revopsKpiOverrides?.[productId]?.msu || { mode: 'auto' };
+      msuOv.baseValue = mcu;
+      const msu = RevopsWhitelabelEngine.resolveOverride(msuOv, msuAuto.value, ev.symbols).value;
+      const breakeven = msu > 0 ? Math.ceil(ev.fixedTotal / msu) : 0;
+      ev.symbols.mcu = mcu;
+      ev.symbols.msu = msu;
+      ev.symbols.cac = cac;
+      ev.symbols.breakeven = breakeven;
+      return ev;
     },
 
     _activeTab() {

@@ -210,6 +210,10 @@ var State = {
       // V32.10.6 — Cache do admin inspector (master-only). Snapshots de tenant
       // específico com preview de conteúdo (contagem RevOps groups etc).
       adminInspector: null,
+      // V32.10.7 — Handle picker (olhinho) aberto em qual contexto.
+      // Valor é a chave única do input (ex: "composed:p1:mcu", "item:p1:itemX").
+      // null = nenhum picker aberto.
+      revopsHandlePickerKey: null,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -618,6 +622,8 @@ var State = {
       revopsGroupLocked: raw.revopsGroupLocked && typeof raw.revopsGroupLocked === 'object' ? raw.revopsGroupLocked : {},
       // V32.10.0 — overrides persistem por produto entre sessões.
       revopsKpiOverrides: raw.revopsKpiOverrides && typeof raw.revopsKpiOverrides === 'object' ? raw.revopsKpiOverrides : {},
+      // V32.10.7 — Handle picker é estado UI volátil (sempre fechado em F5).
+      revopsHandlePickerKey: null,
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

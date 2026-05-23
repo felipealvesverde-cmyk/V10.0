@@ -33,6 +33,16 @@
 
   const RevopsWhitelabelEngine = {
 
+    // V32.10.7 — Apelidos naturais de handles. Cliente BR escreve "tm" pra
+    // Ticket Médio e "vendas" pra Sales naturalmente; ambos resolvem pro
+    // canônico no symbol table (ver evaluate()) e validateFormula aceita.
+    HANDLE_ALIASES: {
+      tm: 'ticket',
+      vendas: 'sales',
+      faturamento: 'fat_bruto',
+      faturamento_liquido: 'fat_liquido'
+    },
+
     // ─────────────────────────────────────────────────────────────
     // DEFAULTS + FACTORY
     // ─────────────────────────────────────────────────────────────
@@ -317,6 +327,13 @@
       symbols.g_a_total = fixedTotal;
       symbols.aquisicao_total = acquisitionTotal;
       symbols.variavel_total = variableTotal;
+
+      // V32.10.7 — Aliases brasileiros naturais. Cliente digita "tm" esperando
+      // Ticket Médio; "vendas" pra Sales. Injetar como espelho mantém uma única
+      // tabela de símbolos (parser e validateFormula resolvem sem código extra).
+      for (const [alias, canonical] of Object.entries(this.HANDLE_ALIASES)) {
+        if (canonical in symbols) symbols[alias] = symbols[canonical];
+      }
 
       // Custom KPIs: avalia fórmulas no symbol table final
       const customKpiValues = {};
@@ -668,8 +685,23 @@
         { id: 'ebitda',               label: 'EBITDA',                  kind: 'special' },
         { id: 'g_a_total',            label: 'G&A Total',               kind: 'special' },
         { id: 'aquisicao_total',      label: 'Aquisição Total',         kind: 'special' },
-        { id: 'variavel_total',       label: 'Variável Total',          kind: 'special' }
+        { id: 'variavel_total',       label: 'Variável Total',          kind: 'special' },
+        // V32.10.7 — KPIs da cascata RevOps (injetados pelo panel em ev.symbols)
+        { id: 'mcu',                  label: 'MCU · Margem Contribuição Unitária', kind: 'kpi' },
+        { id: 'msu',                  label: 'MSU · Margem após Aquisição',         kind: 'kpi' },
+        { id: 'cac',                  label: 'CAC · Custo de Aquisição',            kind: 'kpi' },
+        { id: 'breakeven',            label: 'Breakeven (vendas)',                  kind: 'kpi' }
       ];
+      // V32.10.7 — Aliases naturais (tm, vendas, etc) listados no picker
+      for (const [alias, canonical] of Object.entries(this.HANDLE_ALIASES)) {
+        const target = handles.find(h => h.id === canonical);
+        handles.push({
+          id: alias,
+          label: `apelido de ${target ? target.label : canonical}`,
+          kind: 'alias',
+          aliasOf: canonical
+        });
+      }
       for (const group of cfg.groups || []) {
         handles.push({ id: `${group.id}_total`, label: `${group.label} (total do grupo)`, kind: 'group_total' });
         for (const item of group.items || []) {

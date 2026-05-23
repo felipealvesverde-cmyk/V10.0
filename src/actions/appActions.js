@@ -3848,6 +3848,37 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V32.10.7 — Handle picker (olhinho): toggla painel com lista de handles
+  // disponíveis (tm, ticket, sales, mcu, etc) ao lado de qualquer input de
+  // fórmula. Estado UI volátil (não persiste).
+  toggleRevopsHandlePicker(pickerKey) {
+    const cur = App.state.revopsHandlePickerKey;
+    App.state.revopsHandlePickerKey = (cur === pickerKey) ? null : String(pickerKey);
+    App.render();
+  },
+
+  // V32.10.7 — Copia handle pro clipboard. Cliente cola no input de fórmula.
+  // Fallback execCommand pra contextos sem Clipboard API (iframes restritos etc).
+  async copyRevopsHandle(handleId) {
+    const id = String(handleId || '').trim();
+    if (!id) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(id);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = id;
+        ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      Utils.toast(`✓ "${id}" copiado — cole na fórmula (ex: =${id}*0,15)`);
+    } catch (err) {
+      Utils.toast(`Falha ao copiar: ${err.message}`);
+    }
+  },
+
   // V32.9.4 — Collapse/Lock por grupo no RevOps.
   // Collapse: UI state, qualquer click expande. Lock: persistido, pede senha
   // do user logado pra destravar (anti edição acidental em login compartilhado).
