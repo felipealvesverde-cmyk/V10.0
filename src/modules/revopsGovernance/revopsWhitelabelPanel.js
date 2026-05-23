@@ -99,7 +99,7 @@
 
         <div class="mt-3 flex items-center gap-3 flex-wrap">
           <label class="text-[11px] font-black text-slate-600 uppercase">Vendas previstas no período:</label>
-          <input type="number" min="0" value="${cfg.salesProjection}" onchange="Actions.setRevopsSalesProjection('${productId}', this.value)" placeholder="0" class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800 w-32" />
+          <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" min="0" value="${cfg.salesProjection}" onchange="Actions.setRevopsSalesProjection('${productId}', this.value)" placeholder="0" class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800 w-32" />
           <span class="text-[11px] text-slate-500 italic">Usado pra calcular Faturamento Bruto = Vendas × Ticket.</span>
         </div>
       </div>`;
@@ -384,7 +384,7 @@
       return `<div class="rounded-xl bg-white border border-slate-200 p-2.5 flex items-center gap-2">
         <input value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome" class="w-40 shrink-0 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800" />
         <code class="text-[9px] text-slate-400 shrink-0">${item.id} =</code>
-        <input type="text" value="${Utils.escape(derivedFormula)}" list="lj-revops-handles" onchange="Actions.saveRevopsExcelFormula('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="=fat_bruto * 0.3" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-xs font-mono text-slate-800 focus:bg-white focus:border-amber-400" />
+        <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(derivedFormula)}" list="lj-revops-handles" onchange="Actions.saveRevopsExcelFormula('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="=fat_bruto * 0.3" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-xs font-mono text-slate-800 focus:bg-white focus:border-amber-400" />
         <div class="text-right shrink-0 w-24">
           <p class="text-[9px] font-black text-slate-400 uppercase">Calculado</p>
           <p class="text-xs font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
@@ -431,17 +431,17 @@
         case 'fixed':
           return `<label class="block">
             <span class="text-[9px] font-black text-slate-500 uppercase">Valor (R$)</span>
-            <input type="text" inputmode="decimal" value="${Utils.formatCents(calc.value || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="${moneyUpdate('value')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+            <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(calc.value || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="${moneyUpdate('value')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
           </label>`;
         case 'percent_self':
           return `<div class="grid grid-cols-2 gap-2">
             <label class="block">
               <span class="text-[9px] font-black text-slate-500 uppercase">Valor base (R$)</span>
-              <input type="text" inputmode="decimal" value="${Utils.formatCents(calc.baseValue || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="${moneyUpdate('baseValue')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+              <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(calc.baseValue || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="${moneyUpdate('baseValue')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
             </label>
             <label class="block">
               <span class="text-[9px] font-black text-slate-500 uppercase">% aplicado</span>
-              <input type="number" step="0.1" value="${calc.factor || 0}" onchange="${update('factor')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+              <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${calc.factor || 0}" onchange="${update('factor')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
             </label>
           </div>`;
         case 'percent_of': {
@@ -456,7 +456,7 @@
             </label>
             <label class="block">
               <span class="text-[9px] font-black text-slate-500 uppercase">% aplicado</span>
-              <input type="number" step="0.1" value="${calc.factor || 0}" onchange="${update('factor')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+              <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${calc.factor || 0}" onchange="${update('factor')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
             </label>
           </div>`;
         }
@@ -473,7 +473,7 @@
         case 'custom_formula':
           return `<label class="block">
             <span class="text-[9px] font-black text-slate-500 uppercase">Fórmula (Modo B — edição completa na V32.8.2)</span>
-            <input type="text" value="${Utils.escape(calc.formula || '=0')}" onchange="${update('formula')}" placeholder="=fat_bruto * 0.3" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-mono text-slate-800" />
+            <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(calc.formula || '=0')}" onchange="${update('formula')}" placeholder="=fat_bruto * 0.3" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-mono text-slate-800" />
             <p class="text-[10px] text-amber-700 mt-0.5"><i data-lucide="zap" class="w-3 h-3 inline-block"></i> Use handles: <code>fat_bruto</code>, <code>ebitda</code>, <code>g_software_total</code>, etc.</p>
           </label>`;
         default:
@@ -505,7 +505,7 @@
           <label class="flex items-center gap-1.5 text-xs"><input type="radio" name="lj-tm-mode" ${cfg.ticketMode === 'weighted' ? 'checked' : ''} onchange="Actions.setRevopsTicketMode('${productId}', 'weighted')" /> Ponderado (preço × mix)</label>
           <label class="flex items-center gap-1.5 text-xs"><input type="radio" name="lj-tm-mode" ${cfg.ticketMode === 'manual' ? 'checked' : ''} onchange="Actions.setRevopsTicketMode('${productId}', 'manual')" /> Manual</label>
           ${cfg.ticketMode === 'manual'
-            ? `<input type="text" inputmode="decimal" value="${Utils.formatCents(cfg.ticketManualValue || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.setRevopsTicketManual('${productId}', Utils.parseBRL(this.value))" placeholder="Ticket manual" class="px-2 py-1 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800 w-32" />`
+            ? `<input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(cfg.ticketManualValue || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.setRevopsTicketManual('${productId}', Utils.parseBRL(this.value))" placeholder="Ticket manual" class="px-2 py-1 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800 w-32" />`
             : `<span class="text-xs text-slate-500">TM calculado: <b class="text-slate-800">${this._money(ev.ticket)}</b></span>`}
         </div>
 
@@ -524,11 +524,11 @@
         <input value="${Utils.escape(offer.name)}" onchange="Actions.renameRevopsOffer('${productId}', '${offer.id}', this.value)" placeholder="Nome da oferta" class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-sm font-bold text-slate-800" />
         <label class="block w-28">
           <span class="text-[9px] font-black text-slate-500 uppercase">Preço (R$)</span>
-          <input type="text" inputmode="decimal" value="${Utils.formatCents(offer.price || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'price', Utils.parseBRL(this.value))" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+          <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(offer.price || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'price', Utils.parseBRL(this.value))" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
         </label>
         ${isWeighted ? `<label class="block w-20">
           <span class="text-[9px] font-black text-slate-500 uppercase">Mix (%)</span>
-          <input type="number" step="0.1" value="${offer.mix}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'mix', this.value)" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+          <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${offer.mix}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'mix', this.value)" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
         </label>
         <label class="flex items-center gap-1 text-[11px] text-slate-700 ml-1">
           <input type="checkbox" ${offer.selectedForTicket ? 'checked' : ''} onchange="Actions.toggleRevopsOfferTicket('${productId}', '${offer.id}')" />
@@ -611,14 +611,14 @@
           <label class="block">
             <span class="text-[10px] font-black text-amber-800 uppercase tracking-wider">Vendas previstas</span>
             <div class="flex items-center gap-1">
-              <input type="number" min="0" value="${sim.salesOverride ?? ev.sales}" onchange="Actions.setRevopsSimulatorOverride('salesOverride', this.value)" placeholder="${ev.sales}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-white border border-amber-300 text-sm font-bold text-slate-800" />
+              <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" min="0" value="${sim.salesOverride ?? ev.sales}" onchange="Actions.setRevopsSimulatorOverride('salesOverride', this.value)" placeholder="${ev.sales}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-white border border-amber-300 text-sm font-bold text-slate-800" />
               <span class="text-[10px] text-amber-700 mt-0.5">baseline: ${ev.sales}</span>
             </div>
           </label>
           <label class="block">
             <span class="text-[10px] font-black text-amber-800 uppercase tracking-wider">Ticket Médio (R$)</span>
             <div class="flex items-center gap-1">
-              <input type="text" inputmode="decimal" value="${Utils.formatCents(sim.ticketOverride ?? ev.ticket)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.setRevopsSimulatorOverride('ticketOverride', Utils.parseBRL(this.value))" placeholder="${Utils.formatCents(ev.ticket)}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-white border border-amber-300 text-sm font-bold text-slate-800" />
+              <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(sim.ticketOverride ?? ev.ticket)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.setRevopsSimulatorOverride('ticketOverride', Utils.parseBRL(this.value))" placeholder="${Utils.formatCents(ev.ticket)}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-white border border-amber-300 text-sm font-bold text-slate-800" />
               <span class="text-[10px] text-amber-700 mt-0.5">baseline: ${this._money(ev.ticket)}</span>
             </div>
           </label>
