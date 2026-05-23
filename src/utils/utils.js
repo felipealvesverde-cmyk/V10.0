@@ -44,6 +44,40 @@ var Utils = {
         try { inputEl.setSelectionRange(end, end); } catch (_) {}
         return value;
       },
+      // V32.9.5 — Parser tolerante de string BRL pra número.
+      // Aceita: "115,29" "1.234,56" "R$ 1.000.000,00" "1234.56" "115" etc.
+      // Heurística: se tem vírgula, vírgula = decimal e ponto = milhares (BR).
+      // Se só tem ponto e máx 2 dígitos depois, ponto = decimal (US-like fallback).
+      parseBRL(str) {
+        if (typeof str === 'number') return Number.isFinite(str) ? str : 0;
+        if (str == null) return 0;
+        let s = String(str).replace(/R\$/gi, '').replace(/\s/g, '').trim();
+        if (!s) return 0;
+        const hasComma = s.includes(',');
+        if (hasComma) {
+          // BR: ponto é milhares, vírgula é decimal
+          s = s.replace(/\./g, '').replace(',', '.');
+        } else {
+          // Sem vírgula: ponto pode ser decimal (115.29) ou milhares (1.234)
+          // Convenção: se houver 1 ponto e 1-2 dígitos depois, decimal. Senão, milhares.
+          const dotPos = s.lastIndexOf('.');
+          if (dotPos >= 0) {
+            const after = s.length - dotPos - 1;
+            if (after === 3 && s.split('.').length > 2) {
+              // múltiplos pontos OU 1 ponto + 3 dígitos = milhares
+              s = s.replace(/\./g, '');
+            }
+            // 1 ponto + 1 ou 2 dígitos = decimal (mantém)
+          }
+        }
+        const n = parseFloat(s);
+        return Number.isFinite(n) ? n : 0;
+      },
+      // V32.9.5 — Format BRL completo com R$ prefix.
+      formatBRL(value) {
+        const n = Number(value) || 0;
+        return 'R$ ' + this.formatCents(n);
+      },
       splitCsvLine(line) {
         const result = [];
         let current = '';
