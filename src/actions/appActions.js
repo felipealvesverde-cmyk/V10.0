@@ -3714,6 +3714,18 @@ Object.assign(Actions, {
     // não render — evita perder foco em input. Re-render via onchange.
   },
 
+  // V32.10.3 — Swap fórmula do campo Nome pro campo Valor (cliente confundiu).
+  // Detecção: nome começa com '=' ou contém handle conhecido. Botão "Mover →"
+  // dispara isso, move o conteúdo, limpa o nome (cliente renomeia depois).
+  moveRevopsComponentFormulaToValue(productId, kpi, index) {
+    const o = Actions._revopsGetOverride(productId, kpi);
+    if (!Array.isArray(o.components) || !o.components[index]) return;
+    const c = o.components[index];
+    c.value = c.name || c.value;
+    c.name = ''; // cliente renomeia manualmente
+    App.save(); App.render();
+  },
+
   deleteRevopsKpiComponent(productId, kpi, index) {
     const o = Actions._revopsGetOverride(productId, kpi);
     if (!Array.isArray(o.components)) return;

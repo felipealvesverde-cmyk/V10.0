@@ -1080,17 +1080,26 @@
           <p class="text-[10px] text-slate-500 mt-1">Use número direto (<code>220</code>) ou fórmula (<code>=tm*0,55</code>, <code>=tm-180</code>, <code>=fat_bruto/sales</code>). Handles: <code>tm</code>, <code>ticket</code>, <code>fat_bruto</code>, <code>sales</code>, <code>ebitda</code>, etc.</p>
         </div>`;
       } else if (mode === 'composed') {
+        // V32.10.3 (Felipe) — Refator UX: labels persistentes acima dos campos,
+        // detecção de fórmula no nome (swap auto), validação verde/amarelo/
+        // vermelho por dedução (igual fórmula avançada V32.9.8), mini-resultado
+        // por linha. Resolve confusão "coloquei fórmula no campo errado".
         const components = Array.isArray(override.components) ? override.components : [];
-        body = `<div class="space-y-1.5">
+        const cfgNow = this._currentConfig(productId);
+        const evNow = RevopsWhitelabelEngine.evaluate(cfgNow);
+        body = `<div class="space-y-2">
           <p class="text-[10px] font-black text-slate-500 uppercase">Composição (cada linha é uma dedução do valor base)</p>
-          ${components.length === 0 ? '<p class="text-[11px] text-slate-400 italic">Nenhuma dedução. Clique "+ Dedução" pra adicionar.</p>' : ''}
-          ${components.map((c, idx) => `<div class="flex items-center gap-1.5">
-            <span class="text-slate-500 font-black text-xs">−</span>
-            <input value="${Utils.escape(c.name || '')}" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'name', this.value); App.render();" placeholder="Nome (ex: Imposto)" class="flex-1 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800" />
-            <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(c.value || '')}" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'value', this.value); App.render();" placeholder="60 ou =tm*0,15" class="w-40 px-2 py-1 rounded-lg bg-white border border-slate-300 text-xs font-mono text-slate-800" />
-            <button onclick="Actions.deleteRevopsKpiComponent('${productId}', '${kpi}', ${idx})" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
-          </div>`).join('')}
-          <button onclick="Actions.addRevopsKpiComponent('${productId}', '${kpi}')" class="mt-1.5 px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[10px] font-black" style="color:#fff!important;">+ Dedução</button>
+          ${components.length === 0
+            ? '<p class="text-[11px] text-slate-400 italic">Nenhuma dedução. Clique "+ Dedução" pra adicionar.</p>'
+            : `<div class="grid gap-1.5 px-1" style="grid-template-columns: 12px 1fr 1.4fr 90px 28px;">
+                <div></div>
+                <div class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Nome</div>
+                <div class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Valor (R$ ou =fórmula)</div>
+                <div class="text-[9px] font-black text-slate-500 uppercase tracking-wider text-right">Resultado</div>
+                <div></div>
+              </div>`}
+          ${components.map((c, idx) => this._composedDeductionRow(productId, kpi, idx, c, evNow.symbols)).join('')}
+          <button onclick="Actions.addRevopsKpiComponent('${productId}', '${kpi}')" class="mt-2 px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[10px] font-black" style="color:#fff!important;">+ Dedução</button>
         </div>`;
       } else if (mode === 'auto' && autoData?.breakdown && autoData.breakdown.length > 0) {
         body = `<details class="text-[11px]">
@@ -1118,6 +1127,55 @@
             : ''}
         </div>
         ${body}
+      </div>`;
+    },
+
+    // V32.10.3 — Linha de dedução no modo Composição (MCU/MSU).
+    // Layout grid alinhado com headers (Nome | Valor | Resultado | ×).
+    // Features:
+    //  - Labels persistentes acima (no header da composição)
+    //  - Detecção de fórmula no campo Nome → warning amber + botão "Mover →"
+    //  - Validação por dedução: borda verde/amarela/vermelha no campo Valor
+    //  - Mini-resultado calculado por linha à direita
+    _composedDeductionRow(productId, kpi, idx, c, symbols) {
+      const nameRaw = String(c.name || '');
+      const valueRaw = String(c.value || '');
+      // Detecta fórmula no nome (vetor de erro Felipe)
+      const nameLooksLikeFormula = /^=/.test(nameRaw.trim()) || /=\s*[a-z_]/i.test(nameRaw);
+      // Valida o valor (mesma engine que fórmula avançada)
+      const validation = RevopsWhitelabelEngine.validateFormula(valueRaw, symbols, null);
+      const borderCls = validation.status === 'ok' ? 'border-emerald-400'
+                      : validation.status === 'warn' ? 'border-amber-400'
+                      : 'border-rose-400';
+      const resultCls = validation.status === 'ok' ? 'text-emerald-700'
+                      : validation.status === 'warn' ? 'text-amber-700'
+                      : 'text-rose-700';
+      const resultIcon = validation.status === 'ok' ? '✓' : validation.status === 'warn' ? '⚠' : '✗';
+      const resultLabel = validation.status === 'error'
+        ? '— erro'
+        : '−' + this._money(validation.value);
+
+      return `<div class="grid gap-1.5 items-start" style="grid-template-columns: 12px 1fr 1.4fr 90px 28px;">
+        <span class="text-slate-500 font-black text-xs pt-1.5">−</span>
+        <div>
+          <input value="${Utils.escape(nameRaw)}" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'name', this.value); App.render();" placeholder="Imposto, Comissão, etc" class="w-full px-2 py-1.5 rounded-lg bg-slate-50 border ${nameLooksLikeFormula ? 'border-amber-400 ring-1 ring-amber-200' : 'border-slate-200'} text-xs font-bold text-slate-800" />
+          ${nameLooksLikeFormula ? `<div class="mt-1 flex items-center gap-1.5 text-[10px] text-amber-800">
+            <span>⚠ Isso parece fórmula — campo errado.</span>
+            <button onclick="Actions.moveRevopsComponentFormulaToValue('${productId}', '${kpi}', ${idx})" class="px-1.5 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-black" style="color:#fff!important;">Mover →</button>
+          </div>` : ''}
+        </div>
+        <div>
+          <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(valueRaw)}" title="${Utils.escape(validation.message)}" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'value', this.value); App.render();" placeholder="60 ou =tm*0,15" class="w-full px-2 py-1.5 rounded-lg bg-white border ${borderCls} text-xs font-mono text-slate-800" />
+          ${validation.status === 'error' && validation.suggestions && validation.suggestions.length
+            ? `<p class="text-[9px] text-rose-700 mt-0.5">${Utils.escape(validation.message)} · sugestão: <code class="text-[9px] bg-white px-1 rounded">${Utils.escape(validation.suggestions[0])}</code></p>`
+            : validation.status === 'error'
+            ? `<p class="text-[9px] text-rose-700 mt-0.5">${Utils.escape(validation.message)}</p>`
+            : ''}
+        </div>
+        <div class="text-right pt-1.5">
+          <span class="text-xs font-black ${resultCls} whitespace-nowrap">${resultIcon} ${resultLabel}</span>
+        </div>
+        <button onclick="Actions.deleteRevopsKpiComponent('${productId}', '${kpi}', ${idx})" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black self-start mt-0.5">×</button>
       </div>`;
     },
 
