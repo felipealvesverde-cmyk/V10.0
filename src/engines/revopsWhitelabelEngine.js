@@ -395,8 +395,15 @@
     // Sem IF, sem funções, sem strings. Mantém simples — expandir conforme caso real.
 
     _evalFormula(rawFormula, symbols) {
-      const f = String(rawFormula || '').trim().replace(/^=/, '').trim();
+      let f = String(rawFormula || '').trim().replace(/^=/, '').trim();
       if (!f) return 0;
+      // V32.9.6 — Normaliza vírgula BR pra ponto JS ANTES de qualquer parse.
+      // Cliente brasileiro naturalmente escreve "0,059" pra 5,9%. Parser
+      // anterior só aceitava "0.059" e retornava 0 silenciosamente.
+      // Regex casa vírgula entre dígitos: "0,059" → "0.059", "1,5" → "1.5".
+      // Não toca vírgulas entre letras (parser também rejeita letras então
+      // não há ambiguidade com argumentos de função).
+      f = f.replace(/(\d),(\d)/g, '$1.$2');
       // Substitui handles por valores. Casa identificadores e troca pelo valor numérico (ou 0).
       const replaced = f.replace(/[a-zA-Z_][a-zA-Z0-9_]*/g, (match) => {
         const key = match.toLowerCase();
