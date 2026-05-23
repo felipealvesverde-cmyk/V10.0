@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS clickup_credentials (
 CREATE TABLE IF NOT EXISTS clickup_lj_mappings (
   user_id INT NOT NULL,
   lj_kind VARCHAR(16) NOT NULL,
-  lj_id INT NOT NULL,
+  lj_id BIGINT NOT NULL,
   clickup_id VARCHAR(64) NOT NULL,
   clickup_kind VARCHAR(16) NOT NULL,
   clickup_name VARCHAR(255),
@@ -127,6 +127,15 @@ CREATE TABLE IF NOT EXISTS clickup_lj_mappings (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   PRIMARY KEY (user_id, lj_kind, lj_id)
 );
+
+-- V32.10.1 — Migração idempotente pra tenants antigos: lj_id INT estourava
+-- pra IDs Date.now() (13 dígitos > max INT 32-bit ~2.1bi). Convertido pra BIGINT.
+DO $$ BEGIN
+  BEGIN
+    ALTER TABLE clickup_lj_mappings ALTER COLUMN lj_id TYPE BIGINT;
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_clickup_mappings_user
   ON clickup_lj_mappings(user_id);

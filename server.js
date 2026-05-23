@@ -215,7 +215,7 @@ async function runMigrations() {
       CREATE TABLE IF NOT EXISTS clickup_lj_mappings (
         user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         lj_kind VARCHAR(16) NOT NULL,
-        lj_id INT NOT NULL,
+        lj_id BIGINT NOT NULL,
         clickup_id VARCHAR(64) NOT NULL,
         clickup_kind VARCHAR(16) NOT NULL,
         clickup_name VARCHAR(255),
@@ -224,6 +224,14 @@ async function runMigrations() {
         PRIMARY KEY (user_id, lj_kind, lj_id)
       );
     `);
+    // V32.10.1 — Migração idempotente: tabelas antigas têm lj_id INT (32-bit
+    // signed max ~2.1bi). IDs de produto/campanha/ação no LJ são Date.now()
+    // (~13 dígitos = 10^13) → estouravam INT silenciosamente. ALTER pra BIGINT.
+    await client.query(`
+      ALTER TABLE clickup_lj_mappings ALTER COLUMN lj_id TYPE BIGINT;
+    `).catch(err => {
+      console.warn('[clickup_lj_mappings] ALTER lj_id TYPE BIGINT falhou (talvez já seja):', err.message);
+    });
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_clickup_lj_mappings_user
         ON clickup_lj_mappings(user_id);
