@@ -6830,6 +6830,19 @@ Object.assign(Actions, {
         rootKind: data.rootKind || null,
         skipped: data.skipped || null
       };
+      // V32.9.0 — Subtasks frescas chegaram → recomputa strategicStatus de
+      // todas as ações dessa pull. Continuity loop: ClickUp → cache → engine
+      // → action.strategicStatus → UI do step 4 (As Ações) reflete realidade
+      // sem cliente fazer nada manual.
+      if (window.StrategicStatusEngine && actionIds.length) {
+        let changed = 0;
+        actionIds.forEach(aid => {
+          if (StrategicStatusEngine.recompute(aid) !== null) changed++;
+        });
+        if (changed > 0 && !silent) {
+          Utils.toast(`✓ ${changed} ação(ões) tiveram status atualizado pelo ClickUp.`);
+        }
+      }
       App.save(); App.render();
       if (!silent) {
         const totalSubs = Object.values(data.subtasksByAction || {}).reduce((sum, arr) => sum + arr.length, 0);
