@@ -1520,10 +1520,113 @@ var SettingsModal = {
 
 
 
+  // V32.9.1 (Geraldo Item 3) — placeholder dead-end substituído por painel
+  // funcional. Cliente pode: (a) baixar snapshot JSON local; (b) restaurar
+  // de arquivo .json; (c) restaurar de slot de backup rotativo do localStorage
+  // (StorageAdapter já mantém 3 slots automaticamente).
   backupPanel() {
-    return `<div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
-      <h3 class="text-2xl font-black text-slate-950">Backup em breve</h3>
-      <p class="text-sm text-slate-500 mt-2">Área reservada para backups automáticos, restauração e snapshots versionados.</p>
+    // Inspeciona slots de backup existentes
+    const slots = [];
+    for (let i = 1; i <= 3; i++) {
+      const raw = localStorage.getItem(`lj_state_v2__backup_${i}`);
+      if (!raw) {
+        slots.push({ slot: i, exists: false });
+        continue;
+      }
+      try {
+        const parsed = JSON.parse(raw);
+        slots.push({
+          slot: i,
+          exists: true,
+          productsCount: (parsed.products || []).length,
+          campaignsCount: (parsed.campaigns || []).length,
+          actionsCount: (parsed.actions || []).length,
+          savedAt: parsed.lastSavedAt || null,
+          sizeKb: Math.round(raw.length / 1024)
+        });
+      } catch (_) {
+        slots.push({ slot: i, exists: true, corrupted: true });
+      }
+    }
+    const currentState = App.state || {};
+    const currentSize = Math.round(JSON.stringify(currentState).length / 1024);
+    return `<div class="space-y-5">
+      <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
+        <div class="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h3 class="text-2xl font-black text-slate-950">Backup &amp; Restauração</h3>
+            <p class="text-sm text-slate-500 mt-1">Snapshots locais do seu estado completo. Use antes de mudanças grandes ou pra reverter alterações acidentais.</p>
+          </div>
+        </div>
+
+        <!-- Card: Estado atual -->
+        <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 mb-4">
+          <div class="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider">Estado atual</p>
+              <p class="text-sm font-black text-slate-900 mt-0.5">${(currentState.products || []).length} produtos · ${(currentState.campaigns || []).length} campanhas · ${(currentState.actions || []).length} ações</p>
+              <p class="text-[11px] text-slate-500 mt-0.5">Tamanho: ${currentSize} KB · Último save: ${currentState.lastSavedAt ? new Date(currentState.lastSavedAt).toLocaleString('pt-BR') : '—'}</p>
+            </div>
+            <button onclick="Actions.downloadStateSnapshot('manual')" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i> Baixar snapshot
+            </button>
+          </div>
+        </div>
+
+        <!-- Card: Restaurar de arquivo -->
+        <div class="rounded-2xl bg-amber-50 border border-amber-200 p-4 mb-4">
+          <div class="flex items-start justify-between gap-3 flex-wrap">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-black text-amber-900 flex items-center gap-1.5">
+                <i data-lucide="upload" class="w-4 h-4"></i>
+                Restaurar de arquivo .json
+              </p>
+              <p class="text-[11px] text-amber-800 mt-1 leading-relaxed">Upload de um snapshot baixado anteriormente. <b>Vai substituir o state atual</b> — baixe o atual primeiro se quiser preservar.</p>
+            </div>
+            <label class="px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black flex items-center gap-1.5 cursor-pointer shrink-0" style="color:#fff!important;">
+              <i data-lucide="file-up" class="w-3.5 h-3.5"></i> Escolher arquivo
+              <input type="file" accept=".json,application/json" style="display:none" onchange="if(this.files[0]) Actions.restoreStateFromFile(this.files[0])" />
+            </label>
+          </div>
+        </div>
+
+        <!-- Card: Backups rotativos do localStorage -->
+        <div>
+          <p class="text-[11px] font-black text-slate-700 uppercase tracking-wider mb-2">Backups automáticos (rotativos)</p>
+          <p class="text-[11px] text-slate-500 mb-3">O LeadJourney mantém os 3 últimos states em backup local. Slot 1 = mais recente.</p>
+          <div class="space-y-2">
+            ${slots.map(s => {
+              if (!s.exists) {
+                return `<div class="rounded-xl bg-slate-50 border border-slate-200 p-3 flex items-center justify-between gap-2 opacity-60">
+                  <p class="text-xs font-bold text-slate-500">Slot ${s.slot} · vazio</p>
+                  <span class="text-[10px] text-slate-400">—</span>
+                </div>`;
+              }
+              if (s.corrupted) {
+                return `<div class="rounded-xl bg-rose-50 border border-rose-200 p-3 flex items-center justify-between gap-2">
+                  <p class="text-xs font-bold text-rose-700">Slot ${s.slot} · corrompido</p>
+                  <span class="text-[10px] text-rose-600">não pode ser restaurado</span>
+                </div>`;
+              }
+              return `<div class="rounded-xl bg-white border border-slate-200 p-3 flex items-center justify-between gap-2">
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs font-black text-slate-900">Slot ${s.slot} · ${s.productsCount} produtos · ${s.campaignsCount} campanhas · ${s.actionsCount} ações</p>
+                  <p class="text-[10px] text-slate-500 mt-0.5">${s.sizeKb} KB · ${s.savedAt ? new Date(s.savedAt).toLocaleString('pt-BR') : 'sem timestamp'}</p>
+                </div>
+                <button onclick="Actions.restoreFromLocalBackup(${s.slot})" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-black flex items-center gap-1 shrink-0">
+                  <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Restaurar
+                </button>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Hint operacional -->
+        <div class="mt-4 rounded-xl bg-slate-50 border border-slate-200 p-3 text-[11px] text-slate-600 flex items-start gap-2">
+          <i data-lucide="info" class="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5"></i>
+          <p><b>Snapshots remotos</b> (versão histórica salva no DB do tenant) vêm em V32.10+. Hoje os 3 slots cobrem rollback de 1-2 horas tipicamente.</p>
+        </div>
+      </div>
     </div>`;
   },
 
@@ -3610,7 +3713,7 @@ var SettingsModal = {
                 "Configurar" no banner do provider). */ ''}
             ${this.sectionButton('integrations','Integrações','link')}
             ${this.sectionButton('agents','Agentes Externos','cpu')}
-            ${this.sectionButton('backup','Backup em breve','archive')}
+            ${this.sectionButton('backup','Backup','archive')}
             ${App.currentUser?.isMaster ? `<div class="border-t border-slate-200 my-3"></div>${this.sectionButton('admin','Administrar Lead Journey','shield-alert')}${this.sectionButton('tenants','Tenants (Global Mode)','layers')}` : ''}
           </aside>
 

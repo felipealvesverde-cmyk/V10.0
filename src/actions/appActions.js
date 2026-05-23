@@ -2966,6 +2966,67 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.9.1 (Geraldo Item 3) — Restore via upload de arquivo JSON. Aplica state
+  // após confirmação dupla pra evitar destruir dados do cliente por engano.
+  async restoreStateFromFile(file) {
+    if (!file) return Utils.toast('Nenhum arquivo selecionado.');
+    if (!file.name.endsWith('.json')) return Utils.toast('Arquivo precisa ser .json.');
+    let parsed;
+    try {
+      const text = await file.text();
+      parsed = JSON.parse(text);
+    } catch (err) {
+      return Utils.toast(`Arquivo inválido: ${err.message}`);
+    }
+    // Validação mínima: state precisa ter pelo menos UMA das chaves principais
+    const hasRealData = parsed && typeof parsed === 'object' &&
+      (Array.isArray(parsed.products) || Array.isArray(parsed.campaigns) || Array.isArray(parsed.actions));
+    if (!hasRealData) return Utils.toast('JSON não parece um state válido (sem products/campaigns/actions).');
+
+    const productsCount = (parsed.products || []).length;
+    const campaignsCount = (parsed.campaigns || []).length;
+    const actionsCount = (parsed.actions || []).length;
+    const message = `Vai SUBSTITUIR o state atual por este snapshot:\n\n` +
+      `  ${productsCount} produto(s)\n  ${campaignsCount} campanha(s)\n  ${actionsCount} ação(ões)\n\n` +
+      `Você ESTÁ PERDENDO o que está no LJ agora se não baixou snapshot antes.\nConfirma?`;
+    if (!confirm(message)) return;
+    if (!confirm('Tem CERTEZA? Isso é irreversível sem snapshot prévio.')) return;
+
+    try {
+      App.state = State.normalize(parsed);
+      App.state.lastSavedAt = new Date().toISOString();
+      App.save();
+      App.render();
+      Utils.toast(`✓ Snapshot restaurado: ${productsCount} produtos · ${campaignsCount} campanhas · ${actionsCount} ações.`);
+    } catch (err) {
+      Utils.toast(`Falha ao aplicar: ${err.message}`);
+    }
+  },
+
+  // V32.9.1 — Restaura state de um backup rotativo do localStorage (slots 1-3).
+  // StorageAdapter já mantém 3 slots automaticamente. Cliente recupera versão
+  // anterior sem precisar de arquivo.
+  restoreFromLocalBackup(slot) {
+    const raw = localStorage.getItem(`lj_state_v2__backup_${slot}`);
+    if (!raw) return Utils.toast(`Slot ${slot} vazio.`);
+    let parsed;
+    try { parsed = JSON.parse(raw); }
+    catch (_) { return Utils.toast(`Slot ${slot} corrompido.`); }
+    const productsCount = (parsed.products || []).length;
+    const campaignsCount = (parsed.campaigns || []).length;
+    const actionsCount = (parsed.actions || []).length;
+    if (!confirm(`Restaurar slot ${slot}? Vai substituir o atual por:\n${productsCount} produtos · ${campaignsCount} campanhas · ${actionsCount} ações.`)) return;
+    try {
+      App.state = State.normalize(parsed);
+      App.state.lastSavedAt = new Date().toISOString();
+      App.save();
+      App.render();
+      Utils.toast(`✓ Slot ${slot} restaurado.`);
+    } catch (err) {
+      Utils.toast(`Falha: ${err.message}`);
+    }
+  },
+
   // V21.8 — Troca authorization_code por access_token via fetch direto ao RD.
   async exchangeRDAuthorizationCode() {
     this.ensureIntegrations();
