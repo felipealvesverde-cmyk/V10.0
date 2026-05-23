@@ -452,6 +452,91 @@
     },
 
     // ─────────────────────────────────────────────────────────────
+    // VALIDATE FORMULA — feedback visual pro cliente saber se fórmula está OK
+    // ─────────────────────────────────────────────────────────────
+    //
+    // Diagnostica problemas comuns:
+    //   - syntax_error: parêntese desbalanceado, operador isolado, etc.
+    //   - unknown_handle: cliente escreveu 'fatBrut' em vez de 'fat_bruto'
+    //   - zero_result: fórmula calcula 0 (warn — pode ser real ou base zerada)
+    //   - circular_self_ref: fórmula referencia o próprio item
+    //
+    // Retorna { status, value, message, suggestions }
+    //   status: 'ok' | 'warn' | 'error'
+
+    validateFormula(rawFormula, symbols, itemId) {
+      const empty = (msg) => ({ status: 'warn', value: 0, message: msg || 'Fórmula vazia — vai calcular 0.', suggestions: [] });
+      let f = String(rawFormula || '').trim().replace(/^=/, '').trim();
+      if (!f) return empty();
+
+      // Normaliza vírgula BR
+      f = f.replace(/(\d),(\d)/g, '$1.$2');
+
+      // Extrai TODOS os identifiers (palavras) usados na fórmula
+      const identifiers = (f.match(/[a-zA-Z_][a-zA-Z0-9_]*/g) || []).map(s => s.toLowerCase());
+      const unknownHandles = identifiers.filter(id => !(id in symbols));
+      const availableHandles = Object.keys(symbols);
+
+      // Sugestões pra handles desconhecidos (Levenshtein simples — match parcial)
+      const suggestionsFor = (handle) => {
+        return availableHandles
+          .filter(h => {
+            // Match se prefixo OU substring de >= 4 chars
+            if (h.startsWith(handle.slice(0, 4)) || handle.startsWith(h.slice(0, 4))) return true;
+            if (handle.length >= 5 && h.includes(handle.slice(0, 5))) return true;
+            if (h.length >= 5 && handle.includes(h.slice(0, 5))) return true;
+            return false;
+          })
+          .slice(0, 3);
+      };
+
+      if (unknownHandles.length > 0) {
+        const first = unknownHandles[0];
+        const sugs = suggestionsFor(first);
+        return {
+          status: 'error',
+          value: 0,
+          message: `Handle desconhecido: "${first}"`,
+          suggestions: sugs.length ? sugs : null,
+          unknownHandles
+        };
+      }
+
+      // Circular self-reference (item referenciando próprio id)
+      if (itemId && identifiers.includes(String(itemId).toLowerCase())) {
+        return {
+          status: 'error',
+          value: 0,
+          message: `Fórmula referencia o próprio item ("${itemId}") — circular.`,
+          suggestions: null
+        };
+      }
+
+      // Tenta avaliar — se parser retornar 0 com handles válidos, é zero_result (warn)
+      let value;
+      try {
+        value = this._evalFormula(rawFormula, symbols);
+      } catch (e) {
+        return { status: 'error', value: 0, message: `Erro de sintaxe: ${e.message}`, suggestions: null };
+      }
+
+      if (!Number.isFinite(value)) {
+        return { status: 'error', value: 0, message: 'Resultado inválido (NaN ou Infinity) — operação matemática proibida (divisão por zero?).', suggestions: null };
+      }
+
+      if (value === 0) {
+        return {
+          status: 'warn',
+          value: 0,
+          message: 'Fórmula válida mas resultou 0. Verifique se as bases (ex: fat_bruto) têm valor.',
+          suggestions: null
+        };
+      }
+
+      return { status: 'ok', value, message: `Resultado: R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`, suggestions: null };
+    },
+
+    // ─────────────────────────────────────────────────────────────
     // HANDLES — dicionário do que está disponível pra autocomplete no Modo B
     // ─────────────────────────────────────────────────────────────
 

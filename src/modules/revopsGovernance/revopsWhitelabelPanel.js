@@ -381,10 +381,16 @@
       const derivedFormula = RevopsWhitelabelEngine.deriveFormula(item.calc, cfg);
       const value = ev.itemValues[item.id] || 0;
       const isCustom = item.calc?.mode === 'custom_formula';
+      // V32.9.8 — Validação compacta no Modo Excel: só borda colorida + title
+      // tooltip (sem badge expandido pra não quebrar layout horizontal).
+      const validation = RevopsWhitelabelEngine.validateFormula(derivedFormula, ev.symbols, item.id);
+      const borderCls = validation.status === 'ok' ? 'border-emerald-300'
+                      : validation.status === 'warn' ? 'border-amber-300'
+                      : 'border-rose-400';
       return `<div class="rounded-xl bg-white border border-slate-200 p-2.5 flex items-center gap-2">
         <input value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome" class="w-40 shrink-0 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800" />
         <code class="text-[9px] text-slate-400 shrink-0">${item.id} =</code>
-        <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(derivedFormula)}" list="lj-revops-handles" onchange="Actions.saveRevopsExcelFormula('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="=fat_bruto * 0.3" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-xs font-mono text-slate-800 focus:bg-white focus:border-amber-400" />
+        <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" title="${Utils.escape(validation.message)}" value="${Utils.escape(derivedFormula)}" list="lj-revops-handles" onchange="Actions.saveRevopsExcelFormula('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="=fat_bruto * 0.3" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-amber-50 border ${borderCls} text-xs font-mono text-slate-800 focus:bg-white focus:border-amber-400" />
         <div class="text-right shrink-0 w-24">
           <p class="text-[9px] font-black text-slate-400 uppercase">Calculado</p>
           <p class="text-xs font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
@@ -470,12 +476,31 @@
             </select>
           </label>`;
         }
-        case 'custom_formula':
+        case 'custom_formula': {
+          // V32.9.8 — Validação visual em tempo real: verde=OK, amarelo=resultado 0,
+          // vermelho=erro (handle desconhecido com sugestão, sintaxe, circular ref).
+          const cfg = this._currentConfig(productId);
+          const evNow = RevopsWhitelabelEngine.evaluate(cfg);
+          const validation = RevopsWhitelabelEngine.validateFormula(calc.formula, evNow.symbols, item.id);
+          const borderCls = validation.status === 'ok' ? 'border-emerald-400 ring-1 ring-emerald-200'
+                          : validation.status === 'warn' ? 'border-amber-400 ring-1 ring-amber-200'
+                          : 'border-rose-400 ring-1 ring-rose-200';
+          const badgeCls = validation.status === 'ok' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                         : validation.status === 'warn' ? 'bg-amber-50 border-amber-200 text-amber-800'
+                         : 'bg-rose-50 border-rose-200 text-rose-800';
+          const badgeIcon = validation.status === 'ok' ? '✓' : validation.status === 'warn' ? '⚠' : '✗';
           return `<label class="block">
-            <span class="text-[9px] font-black text-slate-500 uppercase">Fórmula (Modo B — edição completa na V32.8.2)</span>
-            <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(calc.formula || '=0')}" onchange="${update('formula')}" placeholder="=fat_bruto * 0.3" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-mono text-slate-800" />
-            <p class="text-[10px] text-amber-700 mt-0.5"><i data-lucide="zap" class="w-3 h-3 inline-block"></i> Use handles: <code>fat_bruto</code>, <code>ebitda</code>, <code>g_software_total</code>, etc.</p>
+            <span class="text-[9px] font-black text-slate-500 uppercase">Fórmula avançada</span>
+            <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(calc.formula || '=0')}" onchange="${update('formula')}" placeholder="=fat_bruto * 0,059" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border ${borderCls} text-sm font-mono text-slate-800" />
+            <div class="mt-1 px-2 py-1 rounded text-[10px] font-bold border ${badgeCls}">
+              ${badgeIcon} ${Utils.escape(validation.message)}
+              ${validation.suggestions && validation.suggestions.length
+                ? `<br><span class="font-normal">Quis dizer: ${validation.suggestions.map(s => `<code class="text-[10px] bg-white px-1 rounded">${Utils.escape(s)}</code>`).join(', ')}?</span>`
+                : ''}
+            </div>
+            <p class="text-[10px] text-slate-500 mt-1"><i data-lucide="zap" class="w-3 h-3 inline-block"></i> Use <code>fat_bruto</code>, <code>ebitda</code>, <code>g_software_total</code>, etc. Vírgula BR (<code>0,059</code>) ou ponto (<code>0.059</code>) — ambos funcionam.</p>
           </label>`;
+        }
         default:
           return '';
       }
