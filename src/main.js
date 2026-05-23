@@ -130,6 +130,39 @@ var App = {
         if (window.StrategicStatusEngine) {
           try { StrategicStatusEngine.startTick(); StrategicStatusEngine.recomputeAll(); } catch (e) { console.warn('StrategicStatusEngine start falhou:', e); }
         }
+        // V32.10.2 — Detecção multi-aba via BroadcastChannel. Toda aba LJ que
+        // abre envia 'open'. Se essa aba ouvir outra 'open' depois dela ter
+        // aberto, mostra banner "outra aba aberta — escolha uma pra editar".
+        // Vetor principal de perda de dados: aba A salva, aba B (estado mais
+        // antigo) salva DEPOIS sobrescrevendo. Aviso preventivo.
+        try {
+          if ('BroadcastChannel' in window) {
+            window._ljTabChannel = new BroadcastChannel('lj-tabs');
+            const myTabId = `tab_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+            window._ljMyTabId = myTabId;
+            window._ljOtherTabs = new Set();
+            window._ljTabChannel.onmessage = (ev) => {
+              const msg = ev.data || {};
+              if (msg.type === 'open' && msg.tabId !== myTabId) {
+                window._ljOtherTabs.add(msg.tabId);
+                // Replica ping pra novo entrante saber que eu existo
+                window._ljTabChannel.postMessage({ type: 'ping', tabId: myTabId });
+                if (!window._ljMultiTabBannerShown) {
+                  window._ljMultiTabBannerShown = true;
+                  try { Utils.toast('⚠ Outra aba LeadJourney está aberta. Use só 1 pra evitar perda de dados.'); } catch (_) {}
+                }
+              } else if (msg.type === 'ping' && msg.tabId !== myTabId) {
+                window._ljOtherTabs.add(msg.tabId);
+              } else if (msg.type === 'close' && msg.tabId !== myTabId) {
+                window._ljOtherTabs.delete(msg.tabId);
+              }
+            };
+            window._ljTabChannel.postMessage({ type: 'open', tabId: myTabId });
+            window.addEventListener('beforeunload', () => {
+              try { window._ljTabChannel.postMessage({ type: 'close', tabId: myTabId }); } catch (_) {}
+            });
+          }
+        } catch (e) { console.warn('[multi-tab] detection falhou:', e); }
       },
 
       // V23.0.0 — Verifica sessão JWT chamando /api/auth-me.

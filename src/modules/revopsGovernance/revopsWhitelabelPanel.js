@@ -54,6 +54,13 @@
       const activeTab = this._activeTab();
       const tabUnlocked = this._tabUnlockState(cfg);
 
+      // V32.10.2 — Auto-snapshot remoto na 1ª render desta sessão. Protege
+      // contra perda de dados (incidente Sansone V32.10.x). Fire-and-forget,
+      // 1× por dia por sessão (guard via _autoSnapshotDone Set).
+      if (window.Actions?._autoSnapshotOnce) {
+        setTimeout(() => Actions._autoSnapshotOnce('auto-revops-entry-' + new Date().toISOString().slice(0, 10)), 200);
+      }
+
       return `<div class="space-y-4">
         ${this._header(productId, products, cfg, evaluation)}
         ${this._tabsBar(activeTab, tabUnlocked)}

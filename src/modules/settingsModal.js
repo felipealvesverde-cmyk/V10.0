@@ -1621,11 +1621,74 @@ var SettingsModal = {
           </div>
         </div>
 
-        <!-- Hint operacional -->
-        <div class="mt-4 rounded-xl bg-slate-50 border border-slate-200 p-3 text-[11px] text-slate-600 flex items-start gap-2">
-          <i data-lucide="info" class="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5"></i>
-          <p><b>Snapshots remotos</b> (versão histórica salva no DB do tenant) vêm em V32.10+. Hoje os 3 slots cobrem rollback de 1-2 horas tipicamente.</p>
+      </div>
+
+      ${this._remoteSnapshotsBlock()}
+    </div>`;
+  },
+
+  // V32.10.2 — Bloco snapshots remotos (DB tenant). Lista até 50, restaura sob
+  // demanda. Auto-snapshot ao entrar no RevOps mantém histórico fresco.
+  // Solução pro incidente Sansone: dados sumiam do localStorage (multi-aba?,
+  // sync race?). Snapshots remotos persistem no DB tenant, sobrevivem a tudo.
+  _remoteSnapshotsBlock() {
+    const cache = App.state.remoteSnapshotsCache;
+    // Auto-load 1× por sessão (guard App._remoteSnapshotsAutoload)
+    if (!cache && !App._remoteSnapshotsAutoload) {
+      App._remoteSnapshotsAutoload = true;
+      setTimeout(() => Actions.loadRemoteSnapshots?.(), 100);
+    }
+    return `<div class="mt-5 rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
+      <div class="flex items-start justify-between gap-3 mb-3 flex-wrap">
+        <div>
+          <h3 class="text-lg font-black text-slate-900 flex items-center gap-2">
+            <i data-lucide="cloud" class="w-5 h-5 text-sky-600"></i>
+            Snapshots no servidor (DB tenant)
+          </h3>
+          <p class="text-[12px] text-slate-500 mt-1">Persistem entre dispositivos, navegadores e sessões. Auto-snapshot 1×/dia ao entrar no RevOps. Crie manuais antes de mudanças grandes.</p>
         </div>
+        <div class="flex items-center gap-2">
+          <button onclick="Actions.createRemoteSnapshot('manual-' + new Date().toISOString().slice(0,10), false)" class="px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;">
+            <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i> Criar snapshot remoto
+          </button>
+          <button onclick="Actions.loadRemoteSnapshots()" title="Atualizar lista" class="px-2 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      ${cache?.loading
+        ? `<div class="text-[11px] text-slate-500 italic flex items-center gap-2 py-3"><i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Carregando snapshots…</div>`
+        : cache?.error
+        ? `<div class="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800">Falha: ${Utils.escape(cache.error)}</div>`
+        : !cache || !(cache.snapshots && cache.snapshots.length)
+        ? `<div class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-[11px] text-amber-900">Nenhum snapshot no servidor ainda. Clique <b>Criar snapshot remoto</b> agora pra ter ponto de restauração seguro.</div>`
+        : `<div class="space-y-1.5 max-h-96 overflow-auto">
+            ${cache.snapshots.map(s => {
+              const label = s.label || 'sem rótulo';
+              const when = s.created_at ? new Date(s.created_at).toLocaleString('pt-BR') : '—';
+              const isAuto = label.startsWith('auto-');
+              const isPre = label.startsWith('pre-');
+              const labelCls = isAuto ? 'text-sky-700' : isPre ? 'text-amber-700' : 'text-emerald-700';
+              const labelIcon = isAuto ? 'zap' : isPre ? 'shield' : 'bookmark';
+              return `<div class="rounded-xl bg-slate-50 border border-slate-200 p-3 flex items-center justify-between gap-2 hover:bg-slate-100">
+                <div class="min-w-0 flex-1 flex items-center gap-2">
+                  <i data-lucide="${labelIcon}" class="w-3.5 h-3.5 ${labelCls} shrink-0"></i>
+                  <div class="min-w-0">
+                    <p class="text-xs font-black ${labelCls} truncate">${Utils.escape(label)}</p>
+                    <p class="text-[10px] text-slate-500">${when}${s.triggered_by ? ` · por ${Utils.escape(s.triggered_by)}` : ''}</p>
+                  </div>
+                </div>
+                <button onclick="Actions.restoreFromRemoteSnapshot(${s.id})" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black flex items-center gap-1 shrink-0" style="color:#fff!important;">
+                  <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Restaurar
+                </button>
+              </div>`;
+            }).join('')}
+          </div>`}
+
+      <div class="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-[11px] text-emerald-900 flex items-start gap-2">
+        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5"></i>
+        <p><b>Importante:</b> ao restaurar, o LJ cria automaticamente um snapshot do estado ATUAL (label <code>pre-restore-...</code>) antes de aplicar. Você nunca perde o que está agora.</p>
       </div>
     </div>`;
   },

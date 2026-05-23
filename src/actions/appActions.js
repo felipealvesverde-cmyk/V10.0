@@ -3003,6 +3003,90 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.10.2 — Snapshots remotos (journey_snapshots no DB tenant).
+  // Caso Sansone (perda de dados RevOps): aqui é onde ele recupera versão
+  // anterior persistida no servidor (não depende do localStorage frágil).
+  async loadRemoteSnapshots() {
+    if (!App.state.remoteSnapshotsCache) App.state.remoteSnapshotsCache = { snapshots: [], loading: false, fetchedAt: null };
+    App.state.remoteSnapshotsCache.loading = true;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/snapshots-list', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) {
+        App.state.remoteSnapshotsCache = { snapshots: [], loading: false, fetchedAt: null, error: data.message };
+        App.render();
+        return;
+      }
+      App.state.remoteSnapshotsCache = {
+        snapshots: data.snapshots || [],
+        loading: false,
+        fetchedAt: new Date().toISOString(),
+        error: null
+      };
+      App.render();
+    } catch (err) {
+      App.state.remoteSnapshotsCache = { snapshots: [], loading: false, fetchedAt: null, error: err.message };
+      App.render();
+    }
+  },
+
+  async restoreFromRemoteSnapshot(snapshotId) {
+    if (!snapshotId) return;
+    const sc = (App.state.remoteSnapshotsCache?.snapshots || []).find(s => Number(s.id) === Number(snapshotId));
+    const label = sc?.label || `snapshot #${snapshotId}`;
+    const when = sc?.created_at ? new Date(sc.created_at).toLocaleString('pt-BR') : '?';
+    if (!confirm(`Restaurar snapshot "${label}" (${when})?\n\nUm backup do state atual será criado ANTES (você não perde nada). Confirma?`)) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/snapshots-restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ snapshotId: Number(snapshotId) })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ Snapshot restaurado. Recarregando…`);
+      setTimeout(() => window.location.reload(), 800);
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V32.10.2 — Cria snapshot remoto manual ou automático.
+  // silent=true: sem toast, sem render (uso interno em auto-snapshot).
+  async createRemoteSnapshot(label = 'manual', silent = false) {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/snapshots-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ state: App.state, label })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        if (!silent) Utils.toast(`Falha snapshot: ${data.message}`);
+        return null;
+      }
+      if (!silent) Utils.toast(`✓ Snapshot "${label}" criado.`);
+      return data.snapshot;
+    } catch (err) {
+      if (!silent) Utils.toast(`Erro: ${err.message}`);
+      return null;
+    }
+  },
+
+  // V32.10.2 — Auto-snapshot ao entrar/sair de áreas críticas. Guard por
+  // sessão+label pra não spammar o backend.
+  _autoSnapshotOnce(label) {
+    if (!App._autoSnapshotDone) App._autoSnapshotDone = new Set();
+    if (App._autoSnapshotDone.has(label)) return;
+    App._autoSnapshotDone.add(label);
+    // Fire-and-forget — não bloqueia UI nem mostra toast.
+    Actions.createRemoteSnapshot(label, true);
+  },
+
   // V32.9.1 — Restaura state de um backup rotativo do localStorage (slots 1-3).
   // StorageAdapter já mantém 3 slots automaticamente. Cliente recupera versão
   // anterior sem precisar de arquivo.
