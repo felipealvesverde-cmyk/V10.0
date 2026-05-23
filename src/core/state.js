@@ -197,6 +197,11 @@ var State = {
       revopsScenarios: {},
       // IDs dos 2 cenários selecionados pra comparação (ou null = baseline).
       revopsCompareSelection: { left: null, right: null },
+      // V32.9.4 — Collapse + Lock por grupo no RevOps. Lock pede senha do
+      // user logado pra desbloquear (anti edição acidental por colega no
+      // mesmo login compartilhado).
+      revopsGroupCollapsed: {},        // { [groupId]: bool } — UI state
+      revopsGroupLocked: {},           // { [groupId]: bool } — persiste
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -600,6 +605,9 @@ var State = {
       // V32.8.5 — cenários persistem; seleção de comparação não.
       revopsScenarios: raw.revopsScenarios && typeof raw.revopsScenarios === 'object' ? raw.revopsScenarios : {},
       revopsCompareSelection: { left: null, right: null },
+      // V32.9.4 — collapse boota da última sessão, lock idem (regra new-state).
+      revopsGroupCollapsed: raw.revopsGroupCollapsed && typeof raw.revopsGroupCollapsed === 'object' ? raw.revopsGroupCollapsed : {},
+      revopsGroupLocked: raw.revopsGroupLocked && typeof raw.revopsGroupLocked === 'object' ? raw.revopsGroupLocked : {},
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

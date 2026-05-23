@@ -3587,6 +3587,59 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V32.9.4 — Collapse/Lock por grupo no RevOps.
+  // Collapse: UI state, qualquer click expande. Lock: persistido, pede senha
+  // do user logado pra destravar (anti edição acidental em login compartilhado).
+  toggleRevopsGroupCollapsed(groupId) {
+    if (!App.state.revopsGroupCollapsed) App.state.revopsGroupCollapsed = {};
+    // Não permite expandir se trancado
+    if (App.state.revopsGroupLocked?.[groupId]) {
+      return Actions.requestUnlockRevopsGroup(groupId);
+    }
+    App.state.revopsGroupCollapsed[groupId] = !App.state.revopsGroupCollapsed[groupId];
+    App.save(); App.render();
+  },
+
+  lockRevopsGroup(groupId) {
+    if (!App.state.revopsGroupLocked) App.state.revopsGroupLocked = {};
+    if (!App.state.revopsGroupCollapsed) App.state.revopsGroupCollapsed = {};
+    App.state.revopsGroupLocked[groupId] = true;
+    App.state.revopsGroupCollapsed[groupId] = true;  // lock força collapse
+    App.save(); App.render();
+    Utils.toast('🔒 Grupo trancado. Só destrava com sua senha de login.');
+  },
+
+  // Pede senha via prompt e valida no backend. Se ok, destrava.
+  async requestUnlockRevopsGroup(groupId) {
+    const pwd = prompt('Senha do seu login pra destravar este grupo:');
+    if (!pwd) return; // cancelou
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/auth-verify-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ password: pwd })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      if (!data.valid) {
+        if (data.code === 'no_password') {
+          return Utils.toast(data.message || 'Você não tem senha cadastrada.');
+        }
+        return Utils.toast('Senha incorreta.');
+      }
+      // Senha correta — destrava
+      if (!App.state.revopsGroupLocked) App.state.revopsGroupLocked = {};
+      if (!App.state.revopsGroupCollapsed) App.state.revopsGroupCollapsed = {};
+      App.state.revopsGroupLocked[groupId] = false;
+      App.state.revopsGroupCollapsed[groupId] = false;
+      App.save(); App.render();
+      Utils.toast('🔓 Grupo destravado.');
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V32.8.2 — Save direto de fórmula via Modo Excel. Vira custom_formula.
   // Se a fórmula puder ser reduzida pra um modo Builder mais simples (ex:
   // só um número), simplifica de volta — preserva A/B sync transparente.

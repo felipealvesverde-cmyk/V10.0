@@ -329,30 +329,47 @@
       const items = group.items || [];
       const total = ev.groupTotals[group.id] || 0;
       const bucketLabel = BUCKETS.find(b => b.id === group.bucket)?.label || group.bucket;
-      return `<div class="rounded-2xl bg-slate-50 border border-slate-200 p-4">
-        <div class="flex items-start justify-between gap-3 mb-3">
+      // V32.9.4 — Collapse + Lock por grupo.
+      // Lock: persistido, pede senha do login pra destravar (anti edição
+      // acidental por colega em login compartilhado).
+      // Collapse: UI state, qualquer click no chevron expande/recolhe.
+      // Lock força collapse = true.
+      const isLocked = !!App.state.revopsGroupLocked?.[group.id];
+      const isCollapsed = isLocked || !!App.state.revopsGroupCollapsed?.[group.id];
+      const cardCls = isLocked
+        ? 'rounded-2xl bg-slate-100 border-2 border-slate-300 p-4'
+        : 'rounded-2xl bg-slate-50 border border-slate-200 p-4';
+      return `<div class="${cardCls}">
+        <div class="flex items-start justify-between gap-3 ${isCollapsed ? '' : 'mb-3'}">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 flex-wrap">
-              <input value="${Utils.escape(group.label)}" onchange="Actions.renameRevopsGroup('${productId}', '${group.id}', this.value)" class="font-black text-slate-900 text-sm bg-transparent border-b border-transparent hover:border-slate-300 focus:border-violet-500 focus:outline-none px-1 py-0.5" />
+              ${isLocked ? '<i data-lucide="lock" class="w-3.5 h-3.5 text-slate-600"></i>' : ''}
+              <input value="${Utils.escape(group.label)}" ${isLocked ? 'readonly' : ''} onchange="Actions.renameRevopsGroup('${productId}', '${group.id}', this.value)" class="font-black text-slate-900 text-sm bg-transparent border-b border-transparent ${isLocked ? '' : 'hover:border-slate-300 focus:border-violet-500'} focus:outline-none px-1 py-0.5" />
               <span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">${Utils.escape(bucketLabel)}</span>
-              <code class="text-[9px] text-slate-400">${group.id}</code>
+              ${!isLocked ? `<code class="text-[9px] text-slate-400">${group.id}</code>` : ''}
             </div>
-            <p class="text-[10px] text-slate-500 mt-1">${items.length} item(ns) · Total: <b class="text-slate-800">${this._money(total)}</b></p>
+            <p class="text-[10px] text-slate-500 mt-1">${items.length} item(ns) · Total: <b class="text-slate-800">${this._money(total)}</b>${isLocked ? ' · <span class="text-slate-700 font-black">🔒 TRANCADO</span>' : ''}</p>
           </div>
           <div class="flex items-center gap-1 shrink-0">
-            <button onclick="Actions.addRevopsItem('${productId}', '${group.id}')" class="px-2 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-[10px] font-black flex items-center gap-1">
+            ${!isLocked
+              ? `<button onclick="Actions.toggleRevopsGroupCollapsed('${group.id}')" title="${isCollapsed ? 'Expandir' : 'Recolher'}" class="px-1.5 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700"><i data-lucide="${isCollapsed ? 'chevron-down' : 'chevron-up'}" class="w-3 h-3"></i></button>`
+              : ''}
+            ${isLocked
+              ? `<button onclick="Actions.requestUnlockRevopsGroup('${group.id}')" title="Destravar (pede senha do login)" class="px-2 py-1 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-[10px] font-black flex items-center gap-1" style="color:#fff!important;"><i data-lucide="unlock" class="w-3 h-3"></i> Destravar</button>`
+              : `<button onclick="if(confirm('Trancar este grupo? Só destrava com sua senha de login.')) Actions.lockRevopsGroup('${group.id}')" title="Trancar (pede senha pra destravar)" class="px-1.5 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700"><i data-lucide="lock" class="w-3 h-3"></i></button>`}
+            ${!isLocked ? `<button onclick="Actions.addRevopsItem('${productId}', '${group.id}')" class="px-2 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-[10px] font-black flex items-center gap-1">
               <i data-lucide="plus" class="w-3 h-3"></i> Item
-            </button>
-            <button onclick="if(confirm('Apagar grupo \\'${Utils.escape(group.label)}\\' e todos os itens?')) Actions.deleteRevopsGroup('${productId}', '${group.id}')" class="px-2 py-1 rounded-lg bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
+            </button>` : ''}
+            ${!isLocked ? `<button onclick="if(confirm('Apagar grupo \\'${Utils.escape(group.label)}\\' e todos os itens?')) Actions.deleteRevopsGroup('${productId}', '${group.id}')" class="px-2 py-1 rounded-lg bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>` : ''}
           </div>
         </div>
 
-        ${items.length === 0
+        ${isCollapsed ? '' : (items.length === 0
           ? `<p class="text-[11px] text-slate-400 italic px-2 py-3 text-center">Sem itens. Clique "+ Item" pra adicionar.</p>`
           : `<div class="space-y-2">${items.map(it => excelMode
               ? this._itemRowExcel(productId, group, it, ev)
               : this._itemRow(productId, group, it, ev)
-            ).join('')}</div>`}
+            ).join('')}</div>`)}
       </div>`;
     },
 
