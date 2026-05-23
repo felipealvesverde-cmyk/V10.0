@@ -178,6 +178,10 @@ var State = {
       // cada item renderiza como input livre de fórmula com autocomplete de
       // handles. Ediçao salva como calc.mode='custom_formula'.
       revopsExcelMode: false,
+      // V32.8.3 (Onda 4) — Cache de sugestões Djow por tab. Cliente clica
+      // "Análise Djow" e fica até reload. Evita re-fetch (custa tokens).
+      // Shape: { [tabId]: { suggestion, askedAt, loading, error } }
+      revopsDjowSuggestions: {},
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -573,6 +577,9 @@ var State = {
       revopsClassicMode: !!raw.revopsClassicMode,
       // V32.8.2 — toggle Excel persiste.
       revopsExcelMode: !!raw.revopsExcelMode,
+      // V32.8.3 — cache Djow sempre boota vazio (sugestões caras de re-gerar
+      // ficam stale entre sessões; melhor re-pedir).
+      revopsDjowSuggestions: {},
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

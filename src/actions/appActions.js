@@ -3348,6 +3348,95 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V32.8.3 — Pede análise contextual do Djow pra uma tab do RevOps Whitelabel.
+  // One-shot: backend chama Claude Haiku c/ resumo enxuto, retorna 3-5 frases.
+  // Cache em App.state.revopsDjowSuggestions[tabId] — cliente clica explicit
+  // pra refrescar (evita custo de tokens automático).
+  async askRevopsDjow(productId, tabId) {
+    if (!productId || !tabId) return;
+    const pid = String(productId);
+    const cfg = App.state.revopsFinanceV2?.[pid];
+    if (!cfg) return Utils.toast('Configure o RevOps deste produto primeiro.');
+    const ev = window.RevopsWhitelabelEngine?.evaluate(cfg);
+    if (!ev) return Utils.toast('Engine RevOps não carregada.');
+
+    // Set loading
+    App.state.revopsDjowSuggestions = {
+      ...(App.state.revopsDjowSuggestions || {}),
+      [tabId]: { loading: true, suggestion: null, askedAt: null, error: null }
+    };
+    App.render();
+
+    // Monta resumo compacto pro Claude (limita tokens trafegados)
+    const product = (App.state.products || []).find(p => Number(p.id) === Number(pid));
+    const lines = [];
+    lines.push(`Produto: ${product?.name || pid} (período: ${cfg.period})`);
+    lines.push(`Vendas previstas: ${ev.sales} · Ticket: R$${ev.ticket.toFixed(2)}`);
+    lines.push(`Fat Bruto: R$${ev.fatBruto.toFixed(0)} · Fat Líquido: R$${ev.fatLiquido.toFixed(0)} · EBITDA: R$${ev.ebitda.toFixed(0)} (${ev.ebitdaMargin.toFixed(1)}%)`);
+    lines.push(`Totais: G&A R$${ev.fixedTotal.toFixed(0)} · Aquisição R$${ev.acquisitionTotal.toFixed(0)} · Variáveis R$${ev.variableTotal.toFixed(0)}`);
+    lines.push('');
+    lines.push('GRUPOS DE CUSTOS:');
+    (cfg.groups || []).forEach(g => {
+      const t = ev.groupTotals[g.id] || 0;
+      lines.push(`- [${g.bucket}] ${g.label} (total R$${t.toFixed(0)}):`);
+      (g.items || []).forEach(it => {
+        const v = ev.itemValues[it.id] || 0;
+        const calcDesc = it.calc?.mode === 'fixed' ? `R$${it.calc.value || 0}`
+                       : it.calc?.mode === 'percent_of' ? `${it.calc.factor}% de ${it.calc.base}`
+                       : it.calc?.mode === 'percent_self' ? `${it.calc.factor}% de R$${it.calc.baseValue}`
+                       : it.calc?.mode === 'derived' ? `total de ${it.calc.groupRef}`
+                       : it.calc?.mode === 'custom_formula' ? `fórmula: ${it.calc.formula}`
+                       : '?';
+        lines.push(`  • ${it.name} = ${calcDesc} → R$${v.toFixed(0)}`);
+      });
+    });
+    lines.push('');
+    lines.push('OFERTAS:');
+    (cfg.offers || []).forEach(o => {
+      lines.push(`- ${o.name}: R$${o.price} (mix ${o.mix}%${o.selectedForTicket ? ', conta no TM' : ''})`);
+    });
+    if ((cfg.customKpis || []).length) {
+      lines.push('');
+      lines.push('KPIs CUSTOM:');
+      (cfg.customKpis || []).forEach(k => {
+        const v = ev.customKpiValues?.[k.id] || 0;
+        lines.push(`- ${k.name}: ${k.formula} → ${v.toFixed(2)} ${k.unit}`);
+      });
+    }
+    const summary = lines.join('\n');
+
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-revops-suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ product_id: pid, tab_id: tabId, summary })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        App.state.revopsDjowSuggestions[tabId] = { loading: false, suggestion: null, askedAt: null, error: data.message || 'Erro Djow' };
+        App.render();
+        return;
+      }
+      App.state.revopsDjowSuggestions[tabId] = {
+        loading: false,
+        suggestion: data.suggestion,
+        askedAt: new Date().toISOString(),
+        error: null
+      };
+      App.save(); App.render();
+    } catch (err) {
+      App.state.revopsDjowSuggestions[tabId] = { loading: false, suggestion: null, askedAt: null, error: err.message };
+      App.render();
+    }
+  },
+
+  clearRevopsDjowSuggestion(tabId) {
+    if (!App.state.revopsDjowSuggestions) return;
+    delete App.state.revopsDjowSuggestions[tabId];
+    App.save(); App.render();
+  },
+
   // V32.8.2 — Save direto de fórmula via Modo Excel. Vira custom_formula.
   // Se a fórmula puder ser reduzida pra um modo Builder mais simples (ex:
   // só um número), simplifica de volta — preserva A/B sync transparente.

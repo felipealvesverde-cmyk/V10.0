@@ -273,8 +273,11 @@
       </datalist>`;
     },
 
-    // V32.8.2 — Dica Djow por tab. Hardcoded por enquanto (V32.8.3 vai plugar
-    // backend pra suggestions dinâmicas via /api/djow-chat).
+    // V32.8.2 → V32.8.3 — Dica Djow por tab.
+    // - Estática (sempre): princípio operacional do bloco.
+    // - Dinâmica (sob demanda): cliente clica "Pedir análise" → backend Claude
+    //   Haiku one-shot c/ resumo enxuto do RevOps deste produto. Resposta
+    //   cacheada em App.state.revopsDjowSuggestions[tabId] até refresh manual.
     _djowTip(tabId) {
       const tips = {
         costs:  'Comece pelos custos fixos óbvios (software, ferramentas). Depois liste aquisição (mídia paga, SDR). Variáveis (impostos, comissões) ficam pra depois.',
@@ -285,9 +288,40 @@
       };
       const tip = tips[tabId];
       if (!tip) return '';
-      return `<div class="rounded-xl bg-indigo-50 border border-indigo-200 p-3 flex items-start gap-2">
-        <i data-lucide="sparkles" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
-        <p class="text-[12px] text-indigo-900 leading-relaxed"><b class="text-indigo-700">Djow:</b> ${tip}</p>
+      const productId = this._currentProductId();
+      const suggestion = App.state.revopsDjowSuggestions?.[tabId];
+      const loading = suggestion?.loading;
+      const hasResult = !!suggestion?.suggestion;
+      const hasError = !!suggestion?.error;
+      const askedAtLabel = suggestion?.askedAt
+        ? new Date(suggestion.askedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+        : null;
+
+      return `<div class="rounded-xl bg-indigo-50 border border-indigo-200 p-3 space-y-2">
+        <div class="flex items-start gap-2">
+          <i data-lucide="sparkles" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
+          <p class="text-[12px] text-indigo-900 leading-relaxed flex-1"><b class="text-indigo-700">Djow:</b> ${tip}</p>
+          ${hasResult || hasError
+            ? `<button onclick="Actions.askRevopsDjow('${productId}', '${tabId}')" ${loading ? 'disabled' : ''} title="Re-pedir análise" class="px-2 py-1 rounded-lg bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-700 text-[10px] font-black flex items-center gap-1 shrink-0 disabled:opacity-50">
+                <i data-lucide="${loading ? 'loader-2' : 'refresh-cw'}" class="w-3 h-3 ${loading ? 'animate-spin' : ''}"></i>
+                ${loading ? 'Pensando…' : 'Re-analisar'}
+              </button>`
+            : `<button onclick="Actions.askRevopsDjow('${productId}', '${tabId}')" ${loading ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black flex items-center gap-1 shrink-0 disabled:opacity-50" style="color:#fff!important;">
+                <i data-lucide="${loading ? 'loader-2' : 'brain'}" class="w-3 h-3 ${loading ? 'animate-spin' : ''}"></i>
+                ${loading ? 'Pensando…' : 'Pedir análise'}
+              </button>`}
+        </div>
+        ${hasResult ? `<div class="rounded-lg bg-white border border-indigo-300 p-3 mt-2">
+          <div class="flex items-start gap-2 mb-1">
+            <span class="text-[9px] font-black text-indigo-700 uppercase tracking-wider">Análise contextual</span>
+            <span class="text-[9px] text-slate-400">· ${askedAtLabel}</span>
+            <button onclick="Actions.clearRevopsDjowSuggestion('${tabId}')" title="Fechar" class="ml-auto text-slate-400 hover:text-slate-600 text-[10px]">×</button>
+          </div>
+          <p class="text-[12px] text-slate-800 leading-relaxed whitespace-pre-wrap">${Utils.escape(suggestion.suggestion)}</p>
+        </div>` : ''}
+        ${hasError ? `<div class="rounded-lg bg-rose-50 border border-rose-200 p-2 text-[11px] text-rose-800">
+          Falha: ${Utils.escape(suggestion.error)}
+        </div>` : ''}
       </div>`;
     },
 
