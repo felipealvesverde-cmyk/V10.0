@@ -166,6 +166,11 @@ var State = {
       campaignProductFilterId: null,
       revopsSelectedProductId: null,
       revopsFinance: {},
+      // V32.8.0 (RevOps Whitelabel Onda 1) — formato novo coexiste com revopsFinance
+      // legacy V14. Migration silenciosa: na 1ª leitura, se revopsFinanceV2[productId]
+      // estiver vazio mas revopsFinance[productId] tiver dado, migra automaticamente.
+      // UI antiga continua lendo do legacy. UI nova (Onda 2) lê do V2.
+      revopsFinanceV2: {},
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -321,6 +326,27 @@ var State = {
       normalized[productId] = RevopsFinanceEngine.normalize(config, productId);
     }
     return normalized;
+  },
+  // V32.8.0 — Normaliza revopsFinanceV2 (formato whitelabel) + migration silenciosa
+  // do legacy revopsFinance quando V2 do produto ainda não existe. Idempotente.
+  _normalizeRevopsFinanceV2(rawV2, rawLegacy) {
+    if (!window.RevopsWhitelabelEngine) return rawV2 || {};
+    const out = {};
+    const v2Source = rawV2 && typeof rawV2 === 'object' ? rawV2 : {};
+    const legacySource = rawLegacy && typeof rawLegacy === 'object' ? rawLegacy : {};
+    // Pega TODOS productIds que aparecem em qualquer um dos dois
+    const allProductIds = new Set([...Object.keys(v2Source), ...Object.keys(legacySource)]);
+    for (const productId of allProductIds) {
+      if (v2Source[productId]) {
+        // V2 existe → normaliza
+        out[productId] = RevopsWhitelabelEngine.normalize(v2Source[productId], productId);
+      } else if (legacySource[productId]) {
+        // Só legacy → migra
+        out[productId] = RevopsWhitelabelEngine.migrateFromLegacy(legacySource[productId]);
+        out[productId].productId = productId;
+      }
+    }
+    return out;
   },
   normalizeOkrs(okrs) {
     const source = Array.isArray(okrs) ? okrs : [];
@@ -531,6 +557,10 @@ var State = {
       campaignProductFilterId: raw.campaignProductFilterId || null,
       revopsSelectedProductId: raw.revopsSelectedProductId || null,
       revopsFinance: this.normalizeRevopsFinance(raw.revopsFinance),
+      // V32.8.0 — Normaliza V2 + migration silenciosa do legacy quando V2 vazio.
+      // Roda 1x por F5 mas migrateFromLegacy é idempotente (sempre produz mesma
+      // saída do mesmo input) — safe re-rodar.
+      revopsFinanceV2: this._normalizeRevopsFinanceV2(raw.revopsFinanceV2, raw.revopsFinance),
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,
