@@ -207,6 +207,9 @@ var State = {
       // Shape: { [productId]: { mcu: {mode,value,components}, msu: {mode,value,components} } }
       // mode: 'auto' (calcula default) | 'manual' (1 valor) | 'composed' (lista deduções)
       revopsKpiOverrides: {},
+      // V32.10.6 — Cache do admin inspector (master-only). Snapshots de tenant
+      // específico com preview de conteúdo (contagem RevOps groups etc).
+      adminInspector: null,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },

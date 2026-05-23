@@ -3085,6 +3085,81 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.10.6 — Admin inspector: master lê snapshots de um tenant escolhido
+  // com preview de conteúdo (contagem de products, RevOps groups, etc).
+  // Permite identificar QUAL snapshot tem os dados completos antes de restaurar.
+  async loadAdminTenantSnapshots(tenantSlug) {
+    if (!tenantSlug) return Utils.toast('Tenant slug obrigatório.');
+    if (!App.state.adminInspector) App.state.adminInspector = {};
+    App.state.adminInspector.loading = true;
+    App.state.adminInspector.tenantSlug = tenantSlug;
+    App.state.adminInspector.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(`/api/admin-tenant-snapshots?tenant_slug=${encodeURIComponent(tenantSlug)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        App.state.adminInspector.loading = false;
+        App.state.adminInspector.error = data.message;
+        App.render();
+        return;
+      }
+      App.state.adminInspector = {
+        ...App.state.adminInspector,
+        loading: false,
+        tenant: data.tenant,
+        users: data.users,
+        snapshots: data.snapshots,
+        fetchedAt: new Date().toISOString(),
+        error: null
+      };
+      App.save(); App.render();
+    } catch (err) {
+      App.state.adminInspector.loading = false;
+      App.state.adminInspector.error = err.message;
+      App.render();
+    }
+  },
+
+  setAdminInspectorTenantSlug(slug) {
+    if (!App.state.adminInspector) App.state.adminInspector = {};
+    App.state.adminInspector.tenantSlug = String(slug || '').trim().toLowerCase();
+    App.save();
+  },
+
+  // V32.10.6 — Restaura snapshot de um tenant pra um user específico, sem
+  // o user precisar logar. Master controla o estrago do incidente Sansone.
+  async adminRestoreTenantSnapshot(tenantSlug, snapshotId, snapshotPreview) {
+    if (!tenantSlug || !snapshotId) return;
+    const preview = snapshotPreview || {};
+    const msg = `Restaurar este snapshot no tenant "${tenantSlug}"?\n\n` +
+      `Conteúdo do snapshot:\n` +
+      `  ${preview.products || 0} produtos\n` +
+      `  ${preview.campaigns || 0} campanhas\n` +
+      `  ${preview.actions || 0} ações\n` +
+      `  ${preview.revopsGroups || 0} grupos RevOps · ${preview.revopsItems || 0} items\n\n` +
+      `Um snapshot pre-restore-admin-* será criado ANTES (não perde nada).\nConfirma?`;
+    if (!confirm(msg)) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/admin-restore-tenant-snapshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenant_slug: tenantSlug, snapshot_id: snapshotId })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ Restaurado: ${data.before.products}→${data.after.products} produtos, ${data.before.actions}→${data.after.actions} ações`);
+      // Recarrega lista pra ver o pre-restore que entrou
+      Actions.loadAdminTenantSnapshots(tenantSlug);
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V32.10.5 — Snapshot deploy-wide: salva state de TODOS os tenants ativos
   // antes de qualquer deploy de produção. Master-only. Workflow obrigatório:
   // Felipe dispara → backend itera tenants → snapshot por user → retention 10

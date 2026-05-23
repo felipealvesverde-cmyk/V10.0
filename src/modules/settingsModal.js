@@ -1624,7 +1624,102 @@ var SettingsModal = {
       </div>
 
       ${this._deploySnapshotBlock()}
+      ${this._adminInspectorBlock()}
       ${this._remoteSnapshotsBlock()}
+    </div>`;
+  },
+
+  // V32.10.6 — Inspector admin: master digita slug do tenant e vê todos os
+  // snapshots dele com PREVIEW de conteúdo (contagem products, RevOps groups,
+  // items, etc). Permite identificar qual snapshot tem dados completos antes
+  // de restaurar. Crítico pro caso Sansone.
+  _adminInspectorBlock() {
+    let isMaster = false;
+    try { isMaster = !!(JSON.parse(localStorage.getItem('lj_user') || '{}').isMaster); } catch (_) {}
+    if (!isMaster) return '';
+    const insp = App.state.adminInspector || {};
+    const currentSlug = insp.tenantSlug || '';
+    return `<div class="mt-5 rounded-3xl bg-white border-2 border-indigo-300 p-5 shadow-sm">
+      <div class="flex items-start gap-3 mb-3">
+        <i data-lucide="search-code" class="w-5 h-5 text-indigo-700 mt-1"></i>
+        <div>
+          <h3 class="text-lg font-black text-indigo-900">Inspector admin (snapshots de tenant)</h3>
+          <p class="text-[12px] text-indigo-800 mt-1 leading-relaxed">
+            Lê snapshots de QUALQUER tenant ativo com preview de conteúdo (contagem de produtos, campanhas, RevOps groups). Identifica qual snapshot tem dados completos antes de restaurar — sem precisar o cliente final logar.
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 mb-3">
+        <input id="lj-admin-inspector-slug" value="${Utils.escape(currentSlug)}" onkeydown="if(event.key==='Enter'){event.preventDefault();Actions.loadAdminTenantSnapshots(this.value);}" placeholder="Slug do tenant (ex: sansone)" class="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-sm font-bold text-slate-800 font-mono" />
+        <button onclick="Actions.loadAdminTenantSnapshots(document.getElementById('lj-admin-inspector-slug').value)" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;">
+          <i data-lucide="search" class="w-3.5 h-3.5"></i> Inspecionar
+        </button>
+      </div>
+
+      ${insp.loading
+        ? `<div class="text-[11px] text-slate-500 italic flex items-center gap-2 py-3"><i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Carregando snapshots…</div>`
+        : insp.error
+        ? `<div class="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800">Falha: ${Utils.escape(insp.error)}</div>`
+        : insp.snapshots
+        ? this._renderAdminSnapshotsList(insp)
+        : `<p class="text-[11px] text-slate-500 italic">Digite o slug do tenant acima (ex: <code>sansone</code>) e clique Inspecionar.</p>`}
+    </div>`;
+  },
+
+  _renderAdminSnapshotsList(insp) {
+    const tenantInfo = insp.tenant || {};
+    const usersInfo = insp.users || [];
+    const snapshots = insp.snapshots || [];
+    return `<div>
+      <div class="rounded-xl bg-indigo-50 border border-indigo-200 p-3 mb-3 text-[11px] text-indigo-900">
+        <p><b>Tenant:</b> ${Utils.escape(tenantInfo.name || tenantInfo.slug)} (slug: <code>${Utils.escape(tenantInfo.slug)}</code>, id: ${tenantInfo.id}, status: ${Utils.escape(tenantInfo.status)})</p>
+        <p><b>Users (${usersInfo.length}):</b> ${usersInfo.map(u => `${Utils.escape(u.username)} (#${u.id})`).join(' · ') || '—'}</p>
+        <p class="mt-1 text-indigo-700"><b>${snapshots.length}</b> snapshot(s) encontrados (max 100 mais recentes)</p>
+      </div>
+
+      ${snapshots.length === 0
+        ? `<p class="text-[11px] text-slate-500 italic">Nenhum snapshot pra este tenant.</p>`
+        : `<div class="space-y-1.5 max-h-[600px] overflow-auto">
+            ${snapshots.map(s => {
+              const p = s.preview || {};
+              const label = s.label || 'sem rótulo';
+              const when = s.created_at ? new Date(s.created_at).toLocaleString('pt-BR') : '—';
+              const isAuto = label.startsWith('auto-');
+              const isPre = label.startsWith('pre-');
+              const isDeploy = label.startsWith('deploy-');
+              const labelCls = isDeploy ? 'text-amber-700' : isAuto ? 'text-sky-700' : isPre ? 'text-violet-700' : 'text-emerald-700';
+              // Health visual: snapshot com RevOps completo = verde forte; vazio = cinza
+              const hasRevops = (p.revopsGroups || 0) > 0 || (p.revopsItems || 0) > 0;
+              const hasCore = (p.products || 0) > 0 || (p.campaigns || 0) > 0;
+              const rowBg = !hasCore ? 'bg-slate-100 opacity-60'
+                          : hasRevops ? 'bg-emerald-50 border-emerald-200'
+                          : 'bg-amber-50/50 border-amber-200';
+              return `<div class="rounded-xl border ${rowBg} p-3">
+                <div class="flex items-center justify-between gap-2 mb-1">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-xs font-black ${labelCls} truncate">${Utils.escape(label)}</p>
+                    <p class="text-[10px] text-slate-500">${when} · owner #${s.owner_user_id || '?'} · ${p.totalKb || 0} KB</p>
+                  </div>
+                  <button onclick='Actions.adminRestoreTenantSnapshot("${Utils.escape(insp.tenant.slug)}", ${s.id}, ${JSON.stringify(p).replace(/'/g, "\\'")})' class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-black flex items-center gap-1 shrink-0" style="color:#fff!important;">
+                    <i data-lucide="rotate-ccw" class="w-3 h-3"></i> Restaurar
+                  </button>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px] mt-2">
+                  <div class="flex items-center gap-1"><span class="text-slate-500">Produtos:</span> <b class="text-slate-800">${p.products || 0}</b></div>
+                  <div class="flex items-center gap-1"><span class="text-slate-500">Campanhas:</span> <b class="text-slate-800">${p.campaigns || 0}</b></div>
+                  <div class="flex items-center gap-1"><span class="text-slate-500">Ações:</span> <b class="text-slate-800">${p.actions || 0}</b></div>
+                  <div class="flex items-center gap-1"><span class="text-slate-500">Leads:</span> <b class="text-slate-800">${p.leads || 0}</b></div>
+                  <div class="flex items-center gap-1"><span class="${hasRevops ? 'text-emerald-700' : 'text-slate-400'}">RevOps grupos:</span> <b class="${hasRevops ? 'text-emerald-900' : 'text-slate-500'}">${p.revopsGroups || 0}</b></div>
+                  <div class="flex items-center gap-1"><span class="${hasRevops ? 'text-emerald-700' : 'text-slate-400'}">RevOps items:</span> <b class="${hasRevops ? 'text-emerald-900' : 'text-slate-500'}">${p.revopsItems || 0}</b></div>
+                  <div class="flex items-center gap-1"><span class="text-slate-500">Ofertas:</span> <b class="text-slate-800">${p.revopsOffers || 0}</b></div>
+                  <div class="flex items-center gap-1"><span class="text-slate-500">KPIs:</span> <b class="text-slate-800">${p.revopsCustomKpis || 0}</b></div>
+                </div>
+                ${p.revopsLegacyHasData ? '<p class="text-[10px] text-violet-700 mt-1">+ tem dados RevOps LEGACY V14 (revopsFinance)</p>' : ''}
+                ${p.revopsHasOverrides ? '<p class="text-[10px] text-violet-700 mt-1">+ tem overrides MCU/MSU</p>' : ''}
+              </div>`;
+            }).join('')}
+          </div>`}
     </div>`;
   },
 
