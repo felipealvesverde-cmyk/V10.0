@@ -1007,21 +1007,21 @@
         ${this._tabHeader('RevOps · Cascata', 'Equilíbrio da Operação', 'Lê de cima pra baixo. Cada linha mostra o que sai a cada etapa até o Breakeven — quantas vendas pra empatar o mês.')}
 
         <div>
-          ${this._cascadeLine('💧', 'PONTO DE PARTIDA', 'TM · Ticket Médio', this._money(tm), 'sky',
+          ${this._cascadeLine('coins', 'PONTO DE PARTIDA', 'TM · Ticket Médio', this._money(tm), 'sky',
             'Receita média por venda. Vem da tab Ofertas (média ponderada).')}
           ${this._cascadeArrow('↓')}
 
           ${this._cascadeMcu(productId, mcuAuto, mcuOverride, mcuResolved, ev)}
           ${this._cascadeArrow('↓')}
 
-          ${this._cascadeLine('🟡', 'SUBTRAÇÃO', 'CAC · Custo de Aquisição', this._money(cac), 'amber',
+          ${this._cascadeLine('minus-circle', 'SUBTRAÇÃO', 'CAC · Custo de Aquisição', this._money(cac), 'amber',
             `Fórmula: CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = ${this._money(cac)}. O preço de cada cliente novo.`)}
           ${this._cascadeArrow('↓')}
 
           ${this._cascadeMsu(productId, msuAuto, msuOverride, msuResolved, mcu, cac, ev)}
           ${this._cascadeArrow('÷')}
 
-          ${this._cascadeLine('🔴', 'BARREIRA FIXA', 'Custo Fixo de Operação', this._money(fixedTotal), 'rose',
+          ${this._cascadeLine('shield', 'BARREIRA FIXA', 'Custo Fixo de Operação', this._money(fixedTotal), 'rose',
             'Soma do bucket Fixos (G&A). Mensalidade pra existir — independe de vender 0 ou 10.000.')}
           ${this._cascadeArrow('↓')}
 
@@ -1041,106 +1041,148 @@
     },
 
     // V32.10.0 — Linha derivada (não-editável) da cascata. icon · badge · nome · valor · hint.
-    _cascadeLine(icon, badge, name, value, color, hint) {
-      const tone = {
-        sky:     { bg: 'bg-sky-50',     border: 'border-sky-200',     text: 'text-sky-900',     pill: 'text-sky-700/80' },
-        amber:   { bg: 'bg-amber-50',   border: 'border-amber-200',   text: 'text-amber-900',   pill: 'text-amber-700/80' },
-        emerald: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-900', pill: 'text-emerald-700/80' },
-        rose:    { bg: 'bg-rose-50',    border: 'border-rose-200',    text: 'text-rose-900',    pill: 'text-rose-700/80' },
-        violet:  { bg: 'bg-violet-50',  border: 'border-violet-200',  text: 'text-violet-900',  pill: 'text-violet-700/80' }
-      }[color] || { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-900', pill: 'text-slate-700/80' };
-      return `<div class="rounded-2xl ${tone.bg} border ${tone.border} p-4">
-        <div class="flex items-start justify-between gap-3 mb-1">
-          <div class="flex items-center gap-2 min-w-0">
-            <span class="text-lg">${icon}</span>
-            <div class="min-w-0">
-              <p class="text-[9px] font-black ${tone.pill} uppercase tracking-widest">${badge}</p>
-              <p class="text-sm font-black ${tone.text}">${Utils.escape(name)}</p>
+    // V32.11.1 — Leonardo: cards da cascata RevOps com padrão executivo.
+    // Estrutura: bg-white + left-border 4px tone + pill com Lucide icon +
+    // selo uppercase tracking-widest + título font-black + hint com info-icon.
+    // Argumento `icon` agora é nome do Lucide (não emoji).
+    _cascadeLine(iconLucide, badge, name, value, color, hint) {
+      const tone = this._cascadeTone(color);
+      return `<div class="rounded-2xl bg-white border border-slate-200 ${tone.borderL} overflow-hidden">
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="shrink-0 w-9 h-9 rounded-xl ${tone.iconBg} grid place-items-center ${tone.iconText}">
+                <i data-lucide="${iconLucide}" class="w-4 h-4"></i>
+              </span>
+              <div class="min-w-0">
+                <p class="text-[10px] font-black ${tone.pill} uppercase tracking-widest">${badge}</p>
+                <p class="text-sm font-black text-slate-900 leading-tight">${Utils.escape(name)}</p>
+              </div>
             </div>
+            <p class="text-2xl font-black ${tone.text} whitespace-nowrap shrink-0">${value}</p>
           </div>
-          <p class="text-2xl font-black ${tone.text} whitespace-nowrap shrink-0">${value}</p>
+          ${hint ? `<div class="mt-2 flex items-start gap-1.5 text-[11px] text-slate-500">
+            <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
+            <span>${hint}</span>
+          </div>` : ''}
         </div>
-        <p class="text-[11px] text-slate-600 italic mt-1">💡 ${hint}</p>
       </div>`;
     },
 
-    // V32.10.0 — Seta conectora entre linhas da cascata.
+    // V32.11.1 — Paleta executiva por tom da cascata. Centraliza pra cards
+    // (MCU/MSU/Breakeven) usarem mesma referência sem duplicação.
+    _cascadeTone(color) {
+      return {
+        sky:     { borderL: 'border-l-4 border-l-sky-500',     iconBg: 'bg-sky-500/15',     iconText: 'text-sky-700',     pill: 'text-sky-700',     text: 'text-sky-900',     softBg: 'bg-sky-50/40' },
+        amber:   { borderL: 'border-l-4 border-l-amber-500',   iconBg: 'bg-amber-500/15',   iconText: 'text-amber-700',   pill: 'text-amber-700',   text: 'text-amber-900',   softBg: 'bg-amber-50/40' },
+        emerald: { borderL: 'border-l-4 border-l-emerald-500', iconBg: 'bg-emerald-500/15', iconText: 'text-emerald-700', pill: 'text-emerald-700', text: 'text-emerald-900', softBg: 'bg-emerald-50/40' },
+        rose:    { borderL: 'border-l-4 border-l-rose-500',    iconBg: 'bg-rose-500/15',    iconText: 'text-rose-700',    pill: 'text-rose-700',    text: 'text-rose-900',    softBg: 'bg-rose-50/40' },
+        violet:  { borderL: 'border-l-4 border-l-violet-600',  iconBg: 'bg-violet-500/15',  iconText: 'text-violet-700',  pill: 'text-violet-700',  text: 'text-violet-900',  softBg: 'bg-violet-50/40' }
+      }[color] || { borderL: 'border-l-4 border-l-slate-500', iconBg: 'bg-slate-500/15', iconText: 'text-slate-700', pill: 'text-slate-700', text: 'text-slate-900', softBg: 'bg-slate-50' };
+    },
+
+    // V32.11.1 — Conector vertical entre cards. Linha sutil + chevron Lucide
+    // em vez de seta unicode. Tom executivo.
     _cascadeArrow(symbol) {
-      return `<div class="flex justify-center py-1">
-        <span class="text-xl font-black text-slate-400">${symbol}</span>
+      const isDivide = symbol === '÷';
+      return `<div class="flex flex-col items-center py-1.5">
+        ${isDivide
+          ? `<span class="text-[10px] font-black text-slate-400 tracking-widest">÷</span>`
+          : `<span class="w-px h-3 bg-slate-300"></span><i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 -my-0.5"></i><span class="w-px h-3 bg-slate-300"></span>`}
       </div>`;
     },
 
-    // V32.10.0 — Linha MCU (editável).
+    // V32.11.1 — Pill executiva pra status do override (Auto/Manual/Composto).
+    _cascadeOverrideBadge(mode) {
+      if (mode === 'auto' || !mode) return '<span class="inline-flex items-center gap-1 text-[10px] font-black text-slate-400 uppercase tracking-widest"><i data-lucide="zap" class="w-3 h-3"></i> Auto</span>';
+      if (mode === 'manual') return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-violet-500/15 border border-violet-400/30 text-violet-700 uppercase tracking-widest"><i data-lucide="edit-3" class="w-3 h-3"></i> Manual</span>';
+      return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-sky-500/15 border border-sky-400/30 text-sky-700 uppercase tracking-widest"><i data-lucide="layers" class="w-3 h-3"></i> Composto</span>';
+    },
+
+    // V32.11.1 — Leonardo: MCU executivo. bg-white + left-border emerald +
+    // ícone Lucide em pill + override badge sóbrio + edit panel.
     _cascadeMcu(productId, mcuAuto, override, resolved, ev) {
       const value = resolved.value;
-      const isManual = override.mode === 'manual';
-      const isComposed = override.mode === 'composed';
-      const diff = (isManual || isComposed) ? (value - mcuAuto.value) : 0;
-      const badge = override.mode === 'auto' ? '<span class="text-[9px] font-black text-slate-400 uppercase">auto</span>'
-                  : isManual ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-violet-600 text-white" style="color:#fff!important;">MANUAL</span>'
-                  : '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-sky-600 text-white" style="color:#fff!important;">COMPOSTO</span>';
-      const diffHint = (isManual || isComposed) && Math.abs(diff) > 0.5
-        ? `<p class="text-[10px] text-violet-700 mt-0.5">Auto seria ${this._money(mcuAuto.value)} · diferença ${diff > 0 ? '+' : ''}${this._money(diff)}</p>`
+      const tone = this._cascadeTone('emerald');
+      const isOverride = override.mode === 'manual' || override.mode === 'composed';
+      const diff = isOverride ? (value - mcuAuto.value) : 0;
+      const diffHint = isOverride && Math.abs(diff) > 0.5
+        ? `<p class="text-[10px] text-violet-700 mt-1 font-bold">Auto seria ${this._money(mcuAuto.value)} · diferença ${diff > 0 ? '+' : ''}${this._money(diff)}</p>`
         : '';
-      return `<div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-4">
-        <div class="flex items-start justify-between gap-3 mb-1">
-          <div class="flex items-center gap-2 min-w-0">
-            <span class="text-lg">💚</span>
-            <div class="min-w-0">
-              <p class="text-[9px] font-black text-emerald-700/80 uppercase tracking-widest">= MARGEM POR VENDA (após custos variáveis)</p>
-              <p class="text-sm font-black text-emerald-900">MCU · Margem de Contribuição Unitária</p>
+      return `<div class="rounded-2xl bg-white border border-slate-200 ${tone.borderL} overflow-hidden">
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="shrink-0 w-9 h-9 rounded-xl ${tone.iconBg} grid place-items-center ${tone.iconText}">
+                <i data-lucide="trending-up" class="w-4 h-4"></i>
+              </span>
+              <div class="min-w-0">
+                <p class="text-[10px] font-black ${tone.pill} uppercase tracking-widest">= Margem por Venda</p>
+                <p class="text-sm font-black text-slate-900 leading-tight">MCU · Margem de Contribuição Unitária</p>
+                <p class="text-[10px] text-slate-500">após custos variáveis</p>
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <p class="text-2xl font-black ${tone.text} whitespace-nowrap">${this._money(value)}</p>
+              <div class="mt-1">${this._cascadeOverrideBadge(override.mode)}</div>
+              ${diffHint}
             </div>
           </div>
-          <div class="text-right shrink-0">
-            <p class="text-2xl font-black text-emerald-900 whitespace-nowrap">${this._money(value)}</p>
-            ${badge}
-            ${diffHint}
+          <div class="mt-2 flex items-start gap-1.5 text-[11px] text-slate-500">
+            <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
+            <span>Quanto sobra por venda depois de tirar custos que escalam com receita (impostos, comissões, taxa de plataforma).</span>
           </div>
         </div>
-        <p class="text-[11px] text-slate-600 italic mt-1 mb-2">💡 Quanto sobra por venda depois de tirar custos que escalam com receita (impostos, comissões, taxa de plataforma).</p>
-
-        ${this._cascadeEditPanel(productId, 'mcu', override, mcuAuto)}
+        <div class="border-t border-slate-100 ${tone.softBg}">
+          ${this._cascadeEditPanel(productId, 'mcu', override, mcuAuto)}
+        </div>
       </div>`;
     },
 
-    // V32.10.0 — Linha MSU (editável).
+    // V32.11.1 — Leonardo: MSU executivo. Mesmo padrão MCU, com pill de saúde
+    // (% do TM) substituindo o ✓/⚠/✗ casual.
     _cascadeMsu(productId, msuAuto, override, resolved, mcu, cac, ev) {
       const value = resolved.value;
-      const isManual = override.mode === 'manual';
-      const isComposed = override.mode === 'composed';
-      const diff = (isManual || isComposed) ? (value - msuAuto.value) : 0;
-      const badge = override.mode === 'auto' ? '<span class="text-[9px] font-black text-slate-400 uppercase">auto</span>'
-                  : isManual ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-violet-600 text-white" style="color:#fff!important;">MANUAL</span>'
-                  : '<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-sky-600 text-white" style="color:#fff!important;">COMPOSTO</span>';
-      const diffHint = (isManual || isComposed) && Math.abs(diff) > 0.5
-        ? `<p class="text-[10px] text-violet-700 mt-0.5">Auto seria ${this._money(msuAuto.value)} · diferença ${diff > 0 ? '+' : ''}${this._money(diff)}</p>`
+      const tone = this._cascadeTone('emerald');
+      const isOverride = override.mode === 'manual' || override.mode === 'composed';
+      const diff = isOverride ? (value - msuAuto.value) : 0;
+      const diffHint = isOverride && Math.abs(diff) > 0.5
+        ? `<p class="text-[10px] text-violet-700 mt-1 font-bold">Auto seria ${this._money(msuAuto.value)} · diferença ${diff > 0 ? '+' : ''}${this._money(diff)}</p>`
         : '';
       const tmPct = ev.ticket > 0 ? (value / ev.ticket) * 100 : 0;
-      const healthHint = tmPct >= 40
-        ? `<span class="text-emerald-700 font-bold">✓ ${tmPct.toFixed(0)}% do TM — saudável</span>`
+      const healthPill = tmPct >= 40
+        ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/10 border border-emerald-400/30 text-emerald-700 uppercase tracking-wider"><i data-lucide="check-circle-2" class="w-3 h-3"></i> ${tmPct.toFixed(0)}% do TM · Saudável</span>`
         : tmPct >= 25
-        ? `<span class="text-amber-700 font-bold">⚠ ${tmPct.toFixed(0)}% do TM — apertada</span>`
-        : `<span class="text-rose-700 font-bold">✗ ${tmPct.toFixed(0)}% do TM — crítica</span>`;
-      return `<div class="rounded-2xl bg-emerald-50 border-2 border-emerald-300 p-4">
-        <div class="flex items-start justify-between gap-3 mb-1">
-          <div class="flex items-center gap-2 min-w-0">
-            <span class="text-lg">💚</span>
-            <div class="min-w-0">
-              <p class="text-[9px] font-black text-emerald-700/80 uppercase tracking-widest">= MARGEM REAL (após CAC)</p>
-              <p class="text-sm font-black text-emerald-900">MSU · Margem de Segurança Unitária</p>
+        ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-500/10 border border-amber-400/30 text-amber-700 uppercase tracking-wider"><i data-lucide="alert-triangle" class="w-3 h-3"></i> ${tmPct.toFixed(0)}% do TM · Apertada</span>`
+        : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-500/10 border border-rose-400/30 text-rose-700 uppercase tracking-wider"><i data-lucide="x-circle" class="w-3 h-3"></i> ${tmPct.toFixed(0)}% do TM · Crítica</span>`;
+      return `<div class="rounded-2xl bg-white border border-slate-200 ${tone.borderL} overflow-hidden shadow-sm">
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="shrink-0 w-9 h-9 rounded-xl ${tone.iconBg} grid place-items-center ${tone.iconText}">
+                <i data-lucide="heart-pulse" class="w-4 h-4"></i>
+              </span>
+              <div class="min-w-0">
+                <p class="text-[10px] font-black ${tone.pill} uppercase tracking-widest">= Margem Real</p>
+                <p class="text-sm font-black text-slate-900 leading-tight">MSU · Margem de Segurança Unitária</p>
+                <p class="text-[10px] text-slate-500">após CAC · Fórmula: MCU (${this._money(mcu)}) − CAC (${this._money(cac)})</p>
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <p class="text-2xl font-black ${tone.text} whitespace-nowrap">${this._money(value)}</p>
+              <div class="mt-1">${this._cascadeOverrideBadge(override.mode)}</div>
+              ${diffHint}
             </div>
           </div>
-          <div class="text-right shrink-0">
-            <p class="text-2xl font-black text-emerald-900 whitespace-nowrap">${this._money(value)}</p>
-            ${badge}
-            ${diffHint}
+          <div class="mt-2 flex items-start gap-1.5 text-[11px] text-slate-500">
+            <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
+            <span>Quanto cada venda contribui DE VERDADE pra pagar os custos fixos.</span>
           </div>
+          <div class="mt-2">${healthPill}</div>
         </div>
-        <p class="text-[11px] text-slate-600 italic mt-1">💡 Quanto cada venda contribui DE VERDADE pra pagar os custos fixos. ${healthHint}</p>
-        <p class="text-[11px] text-slate-600 mt-1 mb-2">Fórmula auto: MCU (${this._money(mcu)}) − CAC (${this._money(cac)})</p>
-
-        ${this._cascadeEditPanel(productId, 'msu', override, msuAuto)}
+        <div class="border-t border-slate-100 ${tone.softBg}">
+          ${this._cascadeEditPanel(productId, 'msu', override, msuAuto)}
+        </div>
       </div>`;
     },
 
@@ -1208,14 +1250,17 @@
       } else if (mode === 'auto') {
         body = `<p class="text-[10px] text-slate-400 italic">Sistema calcula automaticamente. Para sobrescrever, escolha "Valor único" ou "Composição".</p>`;
       }
-      return `<div class="mt-3 pt-3 border-t border-emerald-200">
+      // V32.11.1 — Sem mt/pt/border-t aqui porque agora vive dentro de container
+      // (border-t + softBg externos cuidam da divisão visual). Padding lateral
+      // próprio pra respirar.
+      return `<div class="px-4 py-3">
         <div class="flex items-center gap-1.5 mb-2 flex-wrap">
-          <span class="text-[10px] font-black text-slate-500 uppercase mr-1">Edição:</span>
+          <span class="text-[10px] font-black text-slate-500 uppercase tracking-wider mr-1">Edição</span>
           ${tabBtn('auto', 'Auto')}
           ${tabBtn('manual', 'Valor único')}
           ${tabBtn('composed', 'Composição')}
           ${(mode === 'manual' || mode === 'composed')
-            ? `<button onclick="Actions.resetRevopsKpiOverride('${productId}', '${kpi}')" class="ml-auto text-[10px] text-slate-500 hover:text-slate-700 underline">↩ Voltar pro auto</button>`
+            ? `<button onclick="Actions.resetRevopsKpiOverride('${productId}', '${kpi}')" class="ml-auto text-[10px] font-bold text-slate-500 hover:text-slate-700 inline-flex items-center gap-1"><i data-lucide="rotate-ccw" class="w-3 h-3"></i> Voltar pro auto</button>`
             : ''}
         </div>
         ${body}
@@ -1272,27 +1317,48 @@
     },
 
     // V32.10.0 — Card final de Breakeven com microcopy operacional.
+    // V32.11.1 — Leonardo: Breakeven highlight final. Gradient violet-50→white
+    // + left-border violet 600 (espessa, é o destino da cascata). Health pill
+    // sóbria, com Lucide icon de status.
     _cascadeBreakeven(breakeven, msu, fixedTotal, health, folgaVendas, ebitdaProjetado) {
-      const healthBg = { emerald: 'bg-emerald-50 border-emerald-200', amber: 'bg-amber-50 border-amber-200', rose: 'bg-rose-50 border-rose-200' }[health.cls];
-      return `<div class="rounded-2xl bg-violet-50 border-2 border-violet-300 p-4">
-        <div class="flex items-start justify-between gap-3 mb-1">
-          <div class="flex items-center gap-2 min-w-0">
-            <span class="text-lg">🎯</span>
-            <div class="min-w-0">
-              <p class="text-[9px] font-black text-violet-700/80 uppercase tracking-widest">LINHA DE EQUILÍBRIO</p>
-              <p class="text-sm font-black text-violet-900">Breakeven em Unidades</p>
+      const tone = this._cascadeTone('violet');
+      const healthMap = {
+        emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-400/30', text: 'text-emerald-800', icon: 'check-circle-2' },
+        amber:   { bg: 'bg-amber-500/10',   border: 'border-amber-400/30',   text: 'text-amber-800',   icon: 'alert-triangle' },
+        rose:    { bg: 'bg-rose-500/10',    border: 'border-rose-400/30',    text: 'text-rose-800',    icon: 'x-circle' }
+      };
+      const h = healthMap[health.cls] || healthMap.amber;
+      return `<div class="rounded-2xl bg-gradient-to-br from-violet-50 to-white border-2 border-violet-200 ${tone.borderL} overflow-hidden shadow-md">
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="shrink-0 w-10 h-10 rounded-xl ${tone.iconBg} grid place-items-center ${tone.iconText}">
+                <i data-lucide="target" class="w-5 h-5"></i>
+              </span>
+              <div class="min-w-0">
+                <p class="text-[10px] font-black ${tone.pill} uppercase tracking-widest">Linha de Equilíbrio</p>
+                <p class="text-sm font-black text-slate-900 leading-tight">Breakeven em Unidades</p>
+              </div>
+            </div>
+            <p class="text-3xl font-black ${tone.text} whitespace-nowrap shrink-0">${breakeven.toLocaleString('pt-BR')} <span class="text-sm font-bold text-violet-700">vendas</span></p>
+          </div>
+          <div class="mt-2 flex items-start gap-1.5 text-[11px] text-slate-500">
+            <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
+            <span>${this._money(fixedTotal)} ÷ MSU ${this._money(msu)} = ${breakeven} vendas pra o mês empatar.</span>
+          </div>
+          <div class="mt-3 rounded-xl ${h.bg} border ${h.border} p-3">
+            <div class="flex items-start gap-2 ${h.text}">
+              <i data-lucide="${h.icon}" class="w-4 h-4 shrink-0 mt-0.5"></i>
+              <div class="min-w-0">
+                <p class="text-[11px] font-black">${health.msg}</p>
+                ${folgaVendas > 0
+                  ? `<p class="text-[11px] mt-1 font-bold">Folga: ${folgaVendas} vendas × ${this._money(msu)} = <b>${this._money(ebitdaProjetado)} de EBITDA projetado</b></p>`
+                  : folgaVendas < 0
+                  ? `<p class="text-[11px] mt-1 font-bold">Faltam ${Math.abs(folgaVendas)} vendas pra cobrir os fixos. Prejuízo projetado: <b>${this._money(Math.abs(ebitdaProjetado))}</b></p>`
+                  : ''}
+              </div>
             </div>
           </div>
-          <p class="text-3xl font-black text-violet-900 whitespace-nowrap">${breakeven.toLocaleString('pt-BR')} <span class="text-sm font-bold">vendas</span></p>
-        </div>
-        <p class="text-[11px] text-slate-600 italic mt-1 mb-2">💡 ${this._money(fixedTotal)} ÷ MSU ${this._money(msu)} = ${breakeven} vendas pra o mês empatar.</p>
-        <div class="rounded-xl ${healthBg} border p-3 mt-2">
-          <p class="text-[11px] font-bold">${health.msg}</p>
-          ${folgaVendas > 0
-            ? `<p class="text-[11px] mt-1">Folga: ${folgaVendas} vendas × ${this._money(msu)} = <b>${this._money(ebitdaProjetado)} de EBITDA projetado</b></p>`
-            : folgaVendas < 0
-            ? `<p class="text-[11px] mt-1">Faltam ${Math.abs(folgaVendas)} vendas pra cobrir os fixos. Prejuízo projetado: <b>${this._money(Math.abs(ebitdaProjetado))}</b></p>`
-            : ''}
         </div>
       </div>`;
     },
