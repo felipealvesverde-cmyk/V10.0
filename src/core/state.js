@@ -217,6 +217,9 @@ var State = {
       // V32.10.9 — DRE: estado de expansão da linha "Deduções" per-product.
       // { [productId]: boolean }. Default: colapsado.
       revopsDreDeducoesExpanded: {},
+      // V32.12.1 — Expansão da faixa "Performance Externa" no card de Campanha.
+      // { [campaignId]: boolean }. Default: colapsado.
+      campaignPerfExpanded: {},
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -629,6 +632,8 @@ var State = {
       revopsHandlePickerKey: null,
       // V32.10.9 — DRE: estado de expansão da Deduções persiste por produto.
       revopsDreDeducoesExpanded: raw.revopsDreDeducoesExpanded && typeof raw.revopsDreDeducoesExpanded === 'object' ? raw.revopsDreDeducoesExpanded : {},
+      // V32.12.1 — Performance Externa expand state persiste por campanha.
+      campaignPerfExpanded: raw.campaignPerfExpanded && typeof raw.campaignPerfExpanded === 'object' ? raw.campaignPerfExpanded : {},
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

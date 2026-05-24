@@ -2895,6 +2895,77 @@ var SettingsModal = {
   // V30.0.0 — Painel de Integrações. Por enquanto só ClickUp.
   // V31.2.29 — Reescrito: conexão via Personal API Token (PAT) em 1 passo.
   // OAuth flow removido da UI (continua no backend pra quem já está conectado).
+  // V32.12.1 — Leonardo: bloco "Integrações de Performance" com 3 fontes
+  // (Meta Ads / Google Ads / Stripe). V32.12.1 = esqueleto visual (botões
+  // placeholder). Backend OAuth chega em V32.12.2 (Meta), .3 (Google), .4 (Stripe).
+  _performanceIntegrationsBlock() {
+    const cards = [
+      {
+        id: 'meta',
+        name: 'Meta Ads',
+        desc: 'Investimento, conversões e CAC por campanha (Facebook + Instagram).',
+        icon: 'megaphone',
+        tone: 'sky',
+        status: 'soon'  // 'soon' | 'connected' | 'disconnected'
+      },
+      {
+        id: 'google',
+        name: 'Google Ads',
+        desc: 'Search, Display e YouTube por campanha. Imports diários.',
+        icon: 'search',
+        tone: 'amber',
+        status: 'soon'
+      },
+      {
+        id: 'stripe',
+        name: 'Stripe',
+        desc: 'Vendas reais, reembolsos e MRR por produto/oferta.',
+        icon: 'credit-card',
+        tone: 'violet',
+        status: 'soon'
+      }
+    ];
+    const toneCls = {
+      sky:    { border: 'border-l-sky-500',    iconBg: 'bg-sky-500/15',    iconText: 'text-sky-700',    pill: 'text-sky-700' },
+      amber:  { border: 'border-l-amber-500',  iconBg: 'bg-amber-500/15',  iconText: 'text-amber-700',  pill: 'text-amber-700' },
+      violet: { border: 'border-l-violet-500', iconBg: 'bg-violet-500/15', iconText: 'text-violet-700', pill: 'text-violet-700' }
+    };
+    const statusBadge = (s) => {
+      if (s === 'connected') return '<span class="text-[10px] font-black text-emerald-700 bg-emerald-500/10 border border-emerald-400/30 px-2 py-0.5 rounded-md uppercase tracking-wider">Conectado</span>';
+      if (s === 'soon')      return '<span class="text-[10px] font-black text-slate-500 bg-slate-200/60 border border-slate-300 px-2 py-0.5 rounded-md uppercase tracking-wider">Em breve</span>';
+      return '<span class="text-[10px] font-black text-slate-500 bg-slate-200/60 border border-slate-300 px-2 py-0.5 rounded-md uppercase tracking-wider">Desconectado</span>';
+    };
+    return `<div class="rounded-3xl bg-gradient-to-br from-slate-900 via-violet-950 to-slate-900 border border-violet-500/30 p-5 shadow-2xl">
+      <div class="mb-4">
+        <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest">Integrações · Performance</p>
+        <h3 class="text-xl font-black text-white mt-1 leading-tight">Conecte as fontes de receita</h3>
+        <p class="text-[12px] text-violet-200/70 mt-1">Meta Ads e Google Ads vão alimentar os cards de Campanha com investido/conversões/CAC reais. Stripe alimenta Vendas reais e MRR por produto.</p>
+      </div>
+      <div class="grid md:grid-cols-3 gap-3">
+        ${cards.map(c => {
+          const t = toneCls[c.tone];
+          const isSoon = c.status === 'soon';
+          return `<div class="rounded-2xl bg-white border border-slate-200 border-l-4 ${t.border} p-4 flex flex-col gap-2">
+            <div class="flex items-start justify-between gap-2">
+              <span class="w-9 h-9 rounded-xl ${t.iconBg} grid place-items-center ${t.iconText}">
+                <i data-lucide="${c.icon}" class="w-4 h-4"></i>
+              </span>
+              ${statusBadge(c.status)}
+            </div>
+            <div>
+              <p class="text-[10px] font-black ${t.pill} uppercase tracking-widest">${c.name}</p>
+              <p class="text-[11px] text-slate-600 leading-snug mt-1">${c.desc}</p>
+            </div>
+            <button ${isSoon ? 'disabled' : ''} title="${isSoon ? 'Disponível em breve (V32.12.x)' : 'Conectar agora'}" class="mt-1 px-3 py-1.5 rounded-lg ${isSoon ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-violet-600 hover:bg-violet-700 text-white'} text-[10px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5" ${isSoon ? '' : 'style="color:#fff!important;"'}>
+              <i data-lucide="${isSoon ? 'clock' : 'plug'}" class="w-3 h-3"></i>
+              ${isSoon ? 'Em breve' : 'Conectar'}
+            </button>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  },
+
   integrationsPanel() {
     const status = App.state.clickupStatus || { connected: false, encryptionReady: true };
     const draft = App.state.clickupPatDraft || '';
@@ -2929,6 +3000,7 @@ var SettingsModal = {
       : '';
 
     return `<div class="space-y-5">
+      ${this._performanceIntegrationsBlock()}
       ${App.state.clickupSpaceWizard?.open ? this._clickupSpaceWizardRender() : ''}
       ${(() => {
         // V32.7.3 (Geraldo A5) — Modal de alerta 1ª vez sobre delete da raiz.

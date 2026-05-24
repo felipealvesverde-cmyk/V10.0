@@ -926,10 +926,12 @@ window.Actions = Actions;
 
 // Database settings and connection patch.
 Object.assign(Actions, {
-  openSettingsModal() {
+  openSettingsModal(section) {
     App.state.showSettingsModal = true;
     // V32.4.0 (Geraldo Item 6) — default agora 'myAccount' (V11 'database' removida)
-    App.state.settingsActiveSection = 'myAccount';
+    // V32.12.1 — aceita section opcional pra deep-link (ex: 'integrations' via
+    // CTA "Conectar Meta/Google/Stripe" do card de Campanha).
+    App.state.settingsActiveSection = typeof section === 'string' && section ? section : 'myAccount';
     App.save(); App.render();
   },
   closeSettingsModal() {
@@ -3920,6 +3922,15 @@ Object.assign(Actions, {
     if (!App.state.revopsDreDeducoesExpanded) App.state.revopsDreDeducoesExpanded = {};
     const cur = !!App.state.revopsDreDeducoesExpanded[productId];
     App.state.revopsDreDeducoesExpanded[productId] = !cur;
+    App.save(); App.render();
+  },
+
+  // V32.12.1 — Toggle da faixa "Performance Externa" no card de Campanha.
+  // Persiste por campanha; backend (Meta/Google/Stripe) chega na V32.12.2+.
+  toggleCampaignPerfExpanded(campaignId) {
+    if (!App.state.campaignPerfExpanded) App.state.campaignPerfExpanded = {};
+    const cur = !!App.state.campaignPerfExpanded[campaignId];
+    App.state.campaignPerfExpanded[campaignId] = !cur;
     App.save(); App.render();
   },
 

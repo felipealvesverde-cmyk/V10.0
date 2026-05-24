@@ -243,6 +243,69 @@ var CampaignModule = {
           <button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${campaign.id})" ${actions.length ? '' : 'disabled'} title="${actions.length ? 'Ver fluxo desta campanha' : 'Crie ao menos 1 ação pra abrir o fluxo'}" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed lj-dark-button flex items-center justify-center gap-1.5" style="color:#fff!important;"><i data-lucide="${actions.length ? 'workflow' : 'lock'}" class="w-3.5 h-3.5"></i> Fluxo da Campanha</button>
         </div>
       </div>
+      ${this._performanceStrip(campaign)}
+    </div>`;
+  },
+
+  // V32.12.1 — Leonardo: faixa "Performance Externa" embaixo do card de
+  // Campanha. Mostra Meta Ads/Google Ads/Stripe integrados. V32.12.1 = só
+  // esqueleto visual (sem backend); V32.12.2+ pluga OAuth + dado real.
+  //
+  // Estados:
+  //   - colapsada (default): 1 linha com chevron + selo + status resumido
+  //   - expandida + não conectado: CTA "Conectar Meta · Google · Stripe"
+  //   - expandida + conectado: 3 pills (Investido/Conv/CAC) + placeholder drawer
+  _performanceStrip(campaign) {
+    const expanded = !!App.state.campaignPerfExpanded?.[campaign.id];
+    // V32.12.1 — Sem backend ainda, sempre "não conectado". Quando OAuth
+    // estiver vivo, ler de App.state.campaignPerformance[campaign.id].
+    const connected = false;
+    const chevron = expanded ? 'chevron-up' : 'chevron-down';
+    if (!expanded) {
+      const statusLabel = connected
+        ? '💸 R$ 0 · 🎯 0 · 📐 —'
+        : 'Meta · Google · Stripe · não conectado';
+      return `<div onclick="event.stopPropagation(); Actions.toggleCampaignPerfExpanded(${campaign.id})" class="mt-3 pt-3 border-t border-slate-200 cursor-pointer hover:bg-slate-50 -mx-4 px-4 -mb-4 pb-4 rounded-b-3xl">
+        <div class="flex items-center gap-2 text-[11px] font-bold text-slate-500 hover:text-slate-700">
+          <i data-lucide="${chevron}" class="w-3.5 h-3.5"></i>
+          <span class="text-[10px] font-black uppercase tracking-widest text-slate-600">Performance Externa</span>
+          <span class="text-slate-400">·</span>
+          <span class="text-[11px]">${statusLabel}</span>
+        </div>
+      </div>`;
+    }
+    // Expandida
+    const body = connected
+      ? `<div class="grid grid-cols-3 gap-2 mt-2">
+          <div class="bg-white rounded-xl border border-slate-200 border-l-4 border-l-sky-500 px-3 py-2">
+            <div class="text-[9px] font-black text-sky-700 uppercase tracking-widest">Investido</div>
+            <div class="font-black text-base text-slate-900 mt-0.5">R$ 0</div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 border-l-4 border-l-emerald-500 px-3 py-2">
+            <div class="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Conversões</div>
+            <div class="font-black text-base text-slate-900 mt-0.5">0</div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 border-l-4 border-l-violet-500 px-3 py-2">
+            <div class="text-[9px] font-black text-violet-700 uppercase tracking-widest">CAC</div>
+            <div class="font-black text-base text-slate-900 mt-0.5">—</div>
+          </div>
+        </div>
+        <p class="text-[10px] text-slate-400 italic mt-2">Detalhe por canal (Meta/Google), criativos e ROAS chegam na V32.12.3.</p>`
+      : `<div class="mt-2 rounded-xl bg-slate-50 border border-dashed border-slate-300 p-3 text-center">
+          <p class="text-[12px] text-slate-600 mb-2">Nenhuma fonte conectada. Plugue Meta Ads, Google Ads ou Stripe pra ver gasto, conversões e CAC reais aqui.</p>
+          <button onclick="event.stopPropagation(); Actions.openSettingsModal('integrations')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black uppercase tracking-wider" style="color:#fff!important;">
+            <i data-lucide="plug" class="w-3 h-3"></i> Conectar Meta · Google · Stripe
+          </button>
+        </div>`;
+    return `<div onclick="event.stopPropagation();" class="mt-3 pt-3 border-t border-slate-200 -mx-4 px-4 -mb-4 pb-4 rounded-b-3xl bg-slate-50/40">
+      <div onclick="event.stopPropagation(); Actions.toggleCampaignPerfExpanded(${campaign.id})" class="flex items-center gap-2 cursor-pointer hover:opacity-70">
+        <i data-lucide="${chevron}" class="w-3.5 h-3.5 text-slate-600"></i>
+        <span class="text-[10px] font-black uppercase tracking-widest text-slate-700">Performance Externa</span>
+        ${connected
+          ? '<span class="text-[10px] font-black text-emerald-700 bg-emerald-500/10 border border-emerald-400/30 px-2 py-0.5 rounded-md uppercase tracking-wider">conectado</span>'
+          : '<span class="text-[10px] font-black text-slate-500 bg-slate-200/60 border border-slate-300 px-2 py-0.5 rounded-md uppercase tracking-wider">não conectado</span>'}
+      </div>
+      ${body}
     </div>`;
   }
 };
