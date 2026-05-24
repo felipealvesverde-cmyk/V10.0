@@ -35,11 +35,13 @@
     { id: 'custom_formula',  label: 'Fórmula avançada (Modo B)', hint: 'Expressão livre — edição completa só no Modo Excel (em breve)' }
   ];
 
+  // V32.11.3 — Leonardo: cada bucket ganha tom + ícone Lucide pra identidade
+  // visual consistente nos cards de grupo.
   const BUCKETS = [
-    { id: 'fixed',       label: 'Fixos (G&A)' },
-    { id: 'acquisition', label: 'Aquisição (S&M)' },
-    { id: 'variable',    label: 'Variáveis (% sobre Faturamento)' },
-    { id: 'custom',      label: 'Outro' }
+    { id: 'fixed',       label: 'Fixos (G&A)',                  tone: 'violet', icon: 'shield' },
+    { id: 'acquisition', label: 'Aquisição (S&M)',              tone: 'sky',    icon: 'megaphone' },
+    { id: 'variable',    label: 'Variáveis (% sobre Faturamento)', tone: 'amber', icon: 'percent' },
+    { id: 'custom',      label: 'Outro',                         tone: 'slate',  icon: 'box' }
   ];
 
   const RevopsWhitelabelPanel = {
@@ -424,47 +426,50 @@
       </div>`;
     },
 
+    // V32.11.3 — Leonardo: card de grupo executivo. bg-white + left-border tone
+    // pelo bucket + ícone Lucide em pill + label + bucket pill sóbrio. Locked
+    // state com border slate em vez de bg cinza pesado.
     _groupCard(productId, group, ev, excelMode = false) {
       const items = group.items || [];
       const total = ev.groupTotals[group.id] || 0;
-      const bucketLabel = BUCKETS.find(b => b.id === group.bucket)?.label || group.bucket;
-      // V32.9.4 — Collapse + Lock por grupo.
-      // Lock: persistido, pede senha do login pra destravar (anti edição
-      // acidental por colega em login compartilhado).
-      // Collapse: UI state, qualquer click no chevron expande/recolhe.
-      // Lock força collapse = true.
+      const bucket = BUCKETS.find(b => b.id === group.bucket) || BUCKETS[3];
+      const tone = this._cascadeTone(bucket.tone);
       const isLocked = !!App.state.revopsGroupLocked?.[group.id];
       const isCollapsed = isLocked || !!App.state.revopsGroupCollapsed?.[group.id];
       const cardCls = isLocked
-        ? 'rounded-2xl bg-slate-100 border-2 border-slate-300 p-4'
-        : 'rounded-2xl bg-slate-50 border border-slate-200 p-4';
+        ? `rounded-2xl bg-slate-50 border border-slate-300 border-l-4 border-l-slate-500 p-4 opacity-90`
+        : `rounded-2xl bg-white border border-slate-200 ${tone.borderL} p-4 hover:border-slate-300 transition`;
       return `<div class="${cardCls}">
         <div class="flex items-start justify-between gap-3 ${isCollapsed ? '' : 'mb-3'}">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 flex-wrap">
-              ${isLocked ? '<i data-lucide="lock" class="w-3.5 h-3.5 text-slate-600"></i>' : ''}
-              <input value="${Utils.escape(group.label)}" ${isLocked ? 'readonly' : ''} onchange="Actions.renameRevopsGroup('${productId}', '${group.id}', this.value)" class="font-black text-slate-900 text-sm bg-transparent border-b border-transparent ${isLocked ? '' : 'hover:border-slate-300 focus:border-violet-500'} focus:outline-none px-1 py-0.5" />
-              <span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">${Utils.escape(bucketLabel)}</span>
-              ${!isLocked ? `<code class="text-[9px] text-slate-400">${group.id}</code>` : ''}
+              <span class="shrink-0 w-7 h-7 rounded-lg ${isLocked ? 'bg-slate-200 text-slate-600' : tone.iconBg + ' ' + tone.iconText} grid place-items-center">
+                <i data-lucide="${isLocked ? 'lock' : bucket.icon}" class="w-3.5 h-3.5"></i>
+              </span>
+              <input value="${Utils.escape(group.label)}" ${isLocked ? 'readonly' : ''} onchange="Actions.renameRevopsGroup('${productId}', '${group.id}', this.value)" class="font-black text-slate-900 text-sm bg-transparent border-b border-transparent ${isLocked ? '' : 'hover:border-slate-300 focus:border-violet-500'} focus:outline-none px-1 py-0.5 min-w-0" />
+              <span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${tone.iconBg} ${tone.iconText}">${Utils.escape(bucket.label)}</span>
+              ${!isLocked ? `<code class="text-[9px] text-slate-400">${group.id}</code>` : '<span class="text-[9px] font-black text-slate-600 uppercase tracking-wider inline-flex items-center gap-1"><i data-lucide="lock" class="w-3 h-3"></i> Trancado</span>'}
             </div>
-            <p class="text-[10px] text-slate-500 mt-1">${items.length} item(ns) · Total: <b class="text-slate-800">${this._money(total)}</b>${isLocked ? ' · <span class="text-slate-700 font-black">🔒 TRANCADO</span>' : ''}</p>
+            <p class="text-[10px] text-slate-500 mt-1.5 ml-9">${items.length} item${items.length === 1 ? '' : 'ns'} · Total: <b class="text-slate-800">${this._money(total)}</b></p>
           </div>
           <div class="flex items-center gap-1 shrink-0">
             ${!isLocked
-              ? `<button onclick="Actions.toggleRevopsGroupCollapsed('${group.id}')" title="${isCollapsed ? 'Expandir' : 'Recolher'}" class="px-1.5 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700"><i data-lucide="${isCollapsed ? 'chevron-down' : 'chevron-up'}" class="w-3 h-3"></i></button>`
+              ? `<button onclick="Actions.toggleRevopsGroupCollapsed('${group.id}')" title="${isCollapsed ? 'Expandir' : 'Recolher'}" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-600"><i data-lucide="${isCollapsed ? 'chevron-down' : 'chevron-up'}" class="w-3.5 h-3.5"></i></button>`
               : ''}
             ${isLocked
-              ? `<button onclick="Actions.requestUnlockRevopsGroup('${group.id}')" title="Destravar (pede senha do login)" class="px-2 py-1 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-[10px] font-black flex items-center gap-1" style="color:#fff!important;"><i data-lucide="unlock" class="w-3 h-3"></i> Destravar</button>`
-              : `<button onclick="if(confirm('Trancar este grupo? Só destrava com sua senha de login.')) Actions.lockRevopsGroup('${group.id}')" title="Trancar (pede senha pra destravar)" class="px-1.5 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700"><i data-lucide="lock" class="w-3 h-3"></i></button>`}
-            ${!isLocked ? `<button onclick="Actions.addRevopsItem('${productId}', '${group.id}')" class="px-2 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-[10px] font-black flex items-center gap-1">
+              ? `<button onclick="Actions.requestUnlockRevopsGroup('${group.id}')" title="Destravar (pede senha do login)" class="px-2 py-1 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-[10px] font-black flex items-center gap-1 uppercase tracking-wider" style="color:#fff!important;"><i data-lucide="unlock" class="w-3 h-3"></i> Destravar</button>`
+              : `<button onclick="if(confirm('Trancar este grupo? Só destrava com sua senha de login.')) Actions.lockRevopsGroup('${group.id}')" title="Trancar (pede senha pra destravar)" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-600"><i data-lucide="lock" class="w-3.5 h-3.5"></i></button>`}
+            ${!isLocked ? `<button onclick="Actions.addRevopsItem('${productId}', '${group.id}')" class="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:border-violet-300 hover:bg-violet-50 text-slate-700 text-[10px] font-black flex items-center gap-1 uppercase tracking-wider">
               <i data-lucide="plus" class="w-3 h-3"></i> Item
             </button>` : ''}
-            ${!isLocked ? `<button onclick="if(confirm('Apagar grupo \\'${Utils.escape(group.label)}\\' e todos os itens?')) Actions.deleteRevopsGroup('${productId}', '${group.id}')" class="px-2 py-1 rounded-lg bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>` : ''}
+            ${!isLocked ? `<button onclick="if(confirm('Apagar grupo \\'${Utils.escape(group.label)}\\' e todos os itens?')) Actions.deleteRevopsGroup('${productId}', '${group.id}')" title="Apagar grupo" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>` : ''}
           </div>
         </div>
 
         ${isCollapsed ? '' : (items.length === 0
-          ? `<p class="text-[11px] text-slate-400 italic px-2 py-3 text-center">Sem itens. Clique "+ Item" pra adicionar.</p>`
+          ? `<div class="rounded-xl bg-slate-50 border border-dashed border-slate-300 px-3 py-4 text-center">
+              <p class="text-[11px] text-slate-500">Sem itens nesse grupo. Clique <b>+ Item</b> pra adicionar.</p>
+            </div>`
           : `<div class="space-y-2">${items.map(it => excelMode
               ? this._itemRowExcel(productId, group, it, ev)
               : this._itemRow(productId, group, it, ev)
@@ -488,40 +493,42 @@
                       : 'border-rose-400';
       const pickerKey = `excel:${productId}:${item.id}`;
       const pickerOpen = App.state.revopsHandlePickerKey === pickerKey;
-      return `<div class="rounded-xl bg-white border border-slate-200 p-2.5">
+      return `<div class="rounded-xl bg-white border border-slate-200 hover:border-slate-300 transition p-2.5">
         <div class="flex items-center gap-2">
-          <input value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome" class="w-40 shrink-0 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800" />
+          <input value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome" class="w-40 shrink-0 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
           <code class="text-[9px] text-slate-400 shrink-0">${item.id} =</code>
-          <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" title="${Utils.escape(validation.message)}" value="${Utils.escape(derivedFormula)}" list="lj-revops-handles" onchange="Actions.saveRevopsExcelFormula('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="=fat_bruto * 0.3" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-amber-50 border ${borderCls} text-xs font-mono text-slate-800 focus:bg-white focus:border-amber-400" />
-          <button onclick="Actions.toggleRevopsHandlePicker('${pickerKey}')" type="button" title="Escolha um número para se basear" class="shrink-0 px-1.5 py-1 rounded-lg bg-sky-50 border border-sky-200 hover:bg-sky-100 text-sky-700 text-xs leading-none">${pickerOpen ? '🙈' : '👁'}</button>
+          <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" title="${Utils.escape(validation.message)}" value="${Utils.escape(derivedFormula)}" list="lj-revops-handles" onchange="Actions.saveRevopsExcelFormula('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="=fat_bruto * 0.3" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-slate-50 border ${borderCls} text-xs font-mono text-slate-800 focus:bg-white focus:border-violet-400" />
+          <button onclick="Actions.toggleRevopsHandlePicker('${pickerKey}')" type="button" title="Escolha um número para se basear" class="shrink-0 px-1.5 py-1 rounded-lg bg-violet-50 border border-violet-200 hover:bg-violet-100 text-violet-700"><i data-lucide="${pickerOpen ? 'eye-off' : 'eye'}" class="w-3.5 h-3.5"></i></button>
           <div class="text-right shrink-0 w-24">
-            <p class="text-[9px] font-black text-slate-400 uppercase">Calculado</p>
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider">Calculado</p>
             <p class="text-xs font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
           </div>
-          ${!isCustom ? `<span class="text-[9px] font-bold text-amber-700 shrink-0" title="Editar aqui vira fórmula custom (não dá pra voltar pro Builder fácil)">⚠</span>` : ''}
-          <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black shrink-0">×</button>
+          ${!isCustom ? `<span class="shrink-0 text-amber-600" title="Editar aqui vira fórmula custom (não dá pra voltar pro Builder fácil)"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i></span>` : ''}
+          <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" title="Apagar item" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700 shrink-0"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
         </div>
         ${pickerOpen ? `<div class="mt-2">${this._handlePickerPopover(cfg)}</div>` : ''}
       </div>`;
     },
 
+    // V32.11.3 — Leonardo: item Builder executivo. Inputs sóbrios com focus
+    // violet, "Calculado" como pill, delete icon Lucide.
     _itemRow(productId, group, item, ev) {
       const calc = item.calc || { mode: 'fixed', value: 0 };
       const value = ev.itemValues[item.id] || 0;
-      return `<div class="rounded-xl bg-white border border-slate-200 p-3">
-        <div class="flex items-start gap-2 mb-2">
-          <input value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome do item" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-slate-100 border border-slate-200 text-sm font-bold text-slate-800" />
-          <div class="text-right shrink-0">
-            <p class="text-[9px] font-black text-slate-400 uppercase">Calculado</p>
+      return `<div class="rounded-xl bg-white border border-slate-200 hover:border-slate-300 transition p-3">
+        <div class="flex items-start gap-2 mb-2.5">
+          <input value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome do item" class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
+          <div class="text-right shrink-0 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200">
+            <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider">Calculado</p>
             <p class="text-sm font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
           </div>
-          <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black shrink-0">×</button>
+          <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" title="Apagar item" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700 shrink-0 self-start"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-2 items-end">
           <div>
-            <label class="text-[9px] font-black text-slate-500 uppercase block mb-0.5">Tipo de cálculo</label>
-            <select onchange="Actions.changeRevopsItemMode('${productId}', '${group.id}', '${item.id}', this.value)" class="w-full px-2 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800">
+            <label class="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-1">Tipo de cálculo</label>
+            <select onchange="Actions.changeRevopsItemMode('${productId}', '${group.id}', '${item.id}', this.value)" class="w-full px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:border-violet-400 focus:bg-white">
               ${CALC_MODES.map(m => `<option value="${m.id}" ${calc.mode === m.id ? 'selected' : ''}>${m.label}</option>`).join('')}
             </select>
           </div>
@@ -647,23 +654,28 @@
       </div>`;
     },
 
+    // V32.11.3 — Leonardo: linha de oferta executiva. Left-border emerald (cor
+    // de Ofertas/Receita), inputs sóbrios com focus violet, delete Lucide.
     _offerRow(productId, offer, ticketMode) {
       const isWeighted = ticketMode === 'weighted';
-      return `<div class="rounded-xl bg-white border border-slate-200 p-3 flex items-center gap-2">
-        <input value="${Utils.escape(offer.name)}" onchange="Actions.renameRevopsOffer('${productId}', '${offer.id}', this.value)" placeholder="Nome da oferta" class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-sm font-bold text-slate-800" />
+      return `<div class="rounded-xl bg-white border border-slate-200 border-l-4 border-l-emerald-500 hover:border-slate-300 transition p-3 flex items-center gap-2.5">
+        <span class="shrink-0 w-7 h-7 rounded-lg bg-emerald-500/15 grid place-items-center text-emerald-700">
+          <i data-lucide="tag" class="w-3.5 h-3.5"></i>
+        </span>
+        <input value="${Utils.escape(offer.name)}" onchange="Actions.renameRevopsOffer('${productId}', '${offer.id}', this.value)" placeholder="Nome da oferta" class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
         <label class="block w-28">
-          <span class="text-[9px] font-black text-slate-500 uppercase">Preço (R$)</span>
-          <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(offer.price || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'price', Utils.parseBRL(this.value))" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+          <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Preço (R$)</span>
+          <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(offer.price || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'price', Utils.parseBRL(this.value))" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
         </label>
         ${isWeighted ? `<label class="block w-20">
-          <span class="text-[9px] font-black text-slate-500 uppercase">Mix (%)</span>
-          <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${offer.mix}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'mix', this.value)" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+          <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Mix (%)</span>
+          <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${offer.mix}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'mix', this.value)" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
         </label>
-        <label class="flex items-center gap-1 text-[11px] text-slate-700 ml-1">
-          <input type="checkbox" ${offer.selectedForTicket ? 'checked' : ''} onchange="Actions.toggleRevopsOfferTicket('${productId}', '${offer.id}')" />
+        <label class="flex items-center gap-1 text-[10px] font-black text-slate-700 ml-1 uppercase tracking-wider">
+          <input type="checkbox" ${offer.selectedForTicket ? 'checked' : ''} onchange="Actions.toggleRevopsOfferTicket('${productId}', '${offer.id}')" class="accent-violet-600" />
           TM
         </label>` : ''}
-        <button onclick="if(confirm('Apagar oferta \\'${Utils.escape(offer.name)}\\'?')) Actions.deleteRevopsOffer('${productId}', '${offer.id}')" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black shrink-0">×</button>
+        <button onclick="if(confirm('Apagar oferta \\'${Utils.escape(offer.name)}\\'?')) Actions.deleteRevopsOffer('${productId}', '${offer.id}')" title="Apagar oferta" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700 shrink-0 self-center"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
       </div>`;
     },
 
