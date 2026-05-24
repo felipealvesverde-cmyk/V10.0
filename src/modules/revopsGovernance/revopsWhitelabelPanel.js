@@ -1364,16 +1364,36 @@
         </div>`;
       };
 
+      // V32.10.10 — Sub-itens da Deduções: itens do bucket variable (read-only,
+      // editáveis em Custos) + extras inseríveis direto na DRE + botão "+".
       const renderDeducoesSubItems = () => {
-        if (variableItems.length === 0) {
-          return `<div class="px-6 py-2 bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 italic">
-            Nenhum custo variável cadastrado. Adicione em <b>Custos</b> (bucket Variável) — impostos, comissões, taxas.
-          </div>`;
-        }
-        return variableItems.map(it => `<div class="flex items-center justify-between gap-3 px-6 py-1.5 bg-slate-50 border-b border-slate-200 text-[12px]">
-          <span class="text-slate-600">– ${Utils.escape(it.name)} <span class="text-[10px] text-slate-400">(${Utils.escape(it.groupLabel)})</span></span>
-          <span class="text-rose-700 font-bold whitespace-nowrap">${this._money(it.value)}</span>
+        const fromVariableBucket = variableItems.length > 0
+          ? variableItems.map(it => `<div class="flex items-center justify-between gap-3 px-6 py-1.5 bg-slate-50 border-b border-slate-200 text-[12px]">
+              <span class="text-slate-600">– ${Utils.escape(it.name)} <span class="text-[10px] text-slate-400">(${Utils.escape(it.groupLabel)})</span></span>
+              <span class="text-rose-700 font-bold whitespace-nowrap">${this._money(it.value)}</span>
+            </div>`).join('')
+          : `<div class="px-6 py-2 bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 italic">
+              Nenhum custo variável cadastrado em <b>Custos</b>. Adicione deduções avulsas abaixo.
+            </div>`;
+
+        const insideExtras = (dre.deducoesInsideExtras || []).map(l => `<div class="grid items-center gap-2 px-6 py-1.5 bg-rose-50/40 border-b border-slate-200" style="grid-template-columns: 32px 1fr 1.2fr 110px 28px;">
+          <select onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'signal', this.value)" class="px-1 py-0.5 rounded-md bg-white border border-slate-300 text-xs font-black text-slate-800">
+            <option value="+" ${l.signal === '+' ? 'selected' : ''}>+</option>
+            <option value="-" ${l.signal === '-' ? 'selected' : ''}>−</option>
+          </select>
+          <input value="${Utils.escape(l.name)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Ex: ISS, Comissão extra" class="px-2 py-1 rounded-lg bg-white border border-slate-300 text-xs font-bold text-slate-800" />
+          <input value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" placeholder="6000 ou =fat_bruto*0,03" class="px-2 py-1 rounded-lg bg-white border border-slate-300 text-xs font-mono text-slate-800" />
+          <span class="text-right ${l.signal === '+' ? 'text-rose-700' : 'text-emerald-700'} font-bold text-xs whitespace-nowrap">${l.signal === '+' ? '+' : '−'}${this._money(l.value)}</span>
+          <button onclick="Actions.deleteDreExtraLine('${productId}', '${l.id}')" title="Remover" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
         </div>`).join('');
+
+        const addBtn = `<div class="flex justify-start px-6 py-1.5 bg-slate-50 border-b border-slate-200">
+          <button onclick="Actions.addDreExtraLine('${productId}', 'deducoes_inside')" type="button" class="text-[11px] text-sky-700 hover:text-sky-900 font-bold inline-flex items-center gap-1">
+            <span class="text-sm leading-none">＋</span> Inserir dedução
+          </button>
+        </div>`;
+
+        return fromVariableBucket + insideExtras + addBtn;
       };
 
       const renderExtraLine = (l) => {

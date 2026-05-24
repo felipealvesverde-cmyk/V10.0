@@ -132,7 +132,9 @@
           name: String(l.name || '').trim(),
           value: String(l.value || ''),
           signal: l.signal === '+' ? '+' : '-',
-          afterStep: ['fat_bruto', 'deducoes', 'venda_liquida', 'lucro_bruto', 's_m', 'g_a'].includes(l.afterStep) ? l.afterStep : 'lucro_bruto'
+          // V32.10.10 — 'deducoes_inside' é especial: extras aparecem DENTRO
+          // do bloco Deduções expandido e somam ao total de Deduções.
+          afterStep: ['fat_bruto', 'deducoes_inside', 'deducoes', 'venda_liquida', 'lucro_bruto', 's_m', 'g_a'].includes(l.afterStep) ? l.afterStep : 'lucro_bruto'
         })) : [],
         savedAt: raw.savedAt || null
       };
@@ -739,7 +741,6 @@
 
       // Valores base (auto, vêm de evaluate())
       const fb = ev.fatBruto;
-      const deducoes = ev.variableTotal;   // soma do bucket variable
       const sm = ev.acquisitionTotal;
       const ga = ev.fixedTotal;
 
@@ -759,11 +760,17 @@
           .reduce((s, l) => s + (l.signal === '+' ? resolveExtra(l) : -resolveExtra(l)), 0);
       };
 
+      // V32.10.10 — Deduções = soma do bucket variable + extras inseridas DENTRO
+      // do bloco Deduções na DRE (afterStep='deducoes_inside'). Signal das
+      // extras_inside: '+' soma à dedução (custo extra), '-' reduz (crédito).
+      const deducoesExtrasInside = sumExtras('deducoes_inside');
+      const deducoes = ev.variableTotal + deducoesExtrasInside;
+
       // Cálculo cumulativo
       let running = fb;
       // Extras after fat_bruto
       running += sumExtras('fat_bruto');
-      // Aplica deduções
+      // Aplica deduções (já inclui deducoes_inside)
       running -= deducoes;
       // Extras after deducoes
       running += sumExtras('deducoes');
@@ -806,6 +813,15 @@
         }
       };
 
+      // V32.10.10 — Coleta extras dedicadas ao bloco Deduções (pra o panel
+      // renderizar dentro do bloco expandido, não no fluxo principal).
+      const deducoesInsideExtras = extras
+        .filter(x => x.afterStep === 'deducoes_inside')
+        .map(l => ({
+          id: l.id, name: l.name || '', raw: l.value,
+          value: resolveExtra(l), signal: l.signal
+        }));
+
       pushBase('fat_bruto',     '(+) Faturamento Bruto',   fb,           { signal: '+', tone: 'emerald', bold: true });
       pushExtrasAfter('fat_bruto');
       pushBase('deducoes',      '(−) Deduções',            deducoes,     { signal: '-', tone: 'rose' });
@@ -822,6 +838,7 @@
 
       return {
         lines,
+        deducoesInsideExtras,
         totals: { fb, deducoes, vendaLiquida, lucroBruto, sm, ga, lucroLiquido },
         margem: fb > 0 ? (lucroLiquido / fb) * 100 : 0
       };
