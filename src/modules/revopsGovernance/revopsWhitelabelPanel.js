@@ -2,7 +2,7 @@
 //
 // Estrutura:
 //   [Header: produto + período + sales + métricas strip]
-//   [Tabs: 💰 Custos · 🟢 Ofertas & TM · 📊 Resultado · 🌹 RevOps · ⚪ DRE]
+//   [Tabs: Custos · Ofertas · Resultado · RevOps KPIs · DRE] (Lucide icons)
 //   [Conteúdo da tab ativa]
 //
 // Gating progressivo (D3 cravado):
@@ -16,12 +16,15 @@
 (function() {
   'use strict';
 
+  // V32.11.0 — Leonardo: tabs com Lucide icons (sem emojis decorativos).
+  // Icon = lucide name (carregado via data-lucide=). Tom executivo unificado
+  // com Home/Mapa.
   const TABS = [
-    { id: 'costs',    label: 'Custos',         icon: '💰', alwaysOpen: true  },
-    { id: 'offers',   label: 'Ofertas',        icon: '🟢', alwaysOpen: true  },
-    { id: 'result',   label: 'Resultado',      icon: '📊', alwaysOpen: false },
-    { id: 'revops',   label: 'RevOps KPIs',    icon: '🌹', alwaysOpen: false },
-    { id: 'dre',      label: 'DRE',            icon: '⚪', alwaysOpen: false }
+    { id: 'costs',    label: 'Custos',         icon: 'wallet',      alwaysOpen: true  },
+    { id: 'offers',   label: 'Ofertas',        icon: 'target',      alwaysOpen: true  },
+    { id: 'result',   label: 'Resultado',      icon: 'bar-chart-3', alwaysOpen: false },
+    { id: 'revops',   label: 'RevOps KPIs',    icon: 'sparkles',    alwaysOpen: false },
+    { id: 'dre',      label: 'DRE',            icon: 'file-text',   alwaysOpen: false }
   ];
 
   const CALC_MODES = [
@@ -74,29 +77,34 @@
     // HEADER + MÉTRICAS STRIP
     // ────────────────────────────────────────────────────────────
 
+    // V32.11.0 — Leonardo: header executivo. Gradient escuro
+    // (slate-900 → violet-950 → slate-900) na linha do Home/Mapa. Tipografia:
+    // label uppercase tracking-widest violet-300 (selo), título font-black white,
+    // subtítulo violet-200/70. Selects e botão tema escuro (slate-800/60 +
+    // violet-400/30 border).
     _header(productId, products, cfg, ev) {
       const periodLabel = cfg.period === 'yearly' ? 'Anual' : cfg.period === 'quarterly' ? 'Trimestral' : 'Mensal';
-      return `<div class="bg-gradient-to-br from-violet-50 to-slate-50 rounded-3xl border border-violet-200 p-5">
-        <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
-          <div>
-            <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">RevOps & Governança · DRE Operacional</p>
-            <h2 class="text-xl font-black text-slate-900 mt-0.5">Whitelabel — modele sua operação como ela é</h2>
-            <p class="text-[12px] text-slate-600 mt-1">Sem categorias forçadas: você cria os grupos e itens, o sistema calcula EBITDA/Breakeven.</p>
+      return `<div class="bg-gradient-to-br from-slate-900 via-violet-950 to-slate-900 rounded-3xl border border-violet-500/30 p-5 shadow-2xl">
+        <div class="flex items-start justify-between gap-3 flex-wrap mb-4">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest">RevOps & Governança · CFO</p>
+            <h2 class="text-2xl font-black text-white mt-1 leading-tight">Operação de Receita</h2>
+            <p class="text-[12px] text-violet-200/70 mt-1">Modele sua operação como ela é</p>
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            <select onchange="Actions.setRevopsActiveProductId(this.value)" class="px-3 py-2 rounded-xl bg-white border border-slate-300 text-sm font-bold text-slate-800">
-              ${products.map(p => `<option value="${p.id}" ${Number(p.id) === Number(productId) ? 'selected' : ''}>${Utils.escape(p.name)}</option>`).join('')}
+            <select onchange="Actions.setRevopsActiveProductId(this.value)" class="px-3 py-2 rounded-xl bg-slate-800/60 border border-violet-400/30 text-sm font-bold text-white hover:bg-slate-800 focus:outline-none focus:border-violet-300">
+              ${products.map(p => `<option value="${p.id}" ${Number(p.id) === Number(productId) ? 'selected' : ''} class="bg-slate-900">${Utils.escape(p.name)}</option>`).join('')}
             </select>
-            <select onchange="Actions.setRevopsWhitelabelPeriod('${productId}', this.value)" class="px-3 py-2 rounded-xl bg-white border border-slate-300 text-sm font-bold text-slate-800">
-              <option value="monthly"   ${cfg.period === 'monthly'   ? 'selected' : ''}>Mensal</option>
-              <option value="quarterly" ${cfg.period === 'quarterly' ? 'selected' : ''}>Trimestral</option>
-              <option value="yearly"    ${cfg.period === 'yearly'    ? 'selected' : ''}>Anual</option>
+            <select onchange="Actions.setRevopsWhitelabelPeriod('${productId}', this.value)" class="px-3 py-2 rounded-xl bg-slate-800/60 border border-violet-400/30 text-sm font-bold text-white hover:bg-slate-800 focus:outline-none focus:border-violet-300">
+              <option value="monthly"   ${cfg.period === 'monthly'   ? 'selected' : ''} class="bg-slate-900">Mensal</option>
+              <option value="quarterly" ${cfg.period === 'quarterly' ? 'selected' : ''} class="bg-slate-900">Trimestral</option>
+              <option value="yearly"    ${cfg.period === 'yearly'    ? 'selected' : ''} class="bg-slate-900">Anual</option>
             </select>
-            <button onclick="Actions.toggleRevopsClassicMode()" title="Voltar ao painel clássico (V14)" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">← Clássico</button>
+            <button onclick="Actions.toggleRevopsClassicMode()" title="Voltar ao painel clássico (V14)" class="px-3 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-violet-400/20 text-violet-200 text-xs font-bold">← Clássico</button>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mt-3">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
           ${this._metricCell('Ticket Médio', this._money(ev.ticket), 'violet')}
           ${this._metricCell(`Faturamento Bruto (${periodLabel})`, this._money(ev.fatBruto), 'emerald')}
           ${this._metricCell('Faturamento Líquido', this._money(ev.fatLiquido), 'sky')}
@@ -104,23 +112,26 @@
           ${this._metricCell('Margem EBITDA', `${ev.ebitdaMargin.toFixed(1)}%`, ev.ebitdaMargin >= 25 ? 'emerald' : ev.ebitdaMargin >= 0 ? 'amber' : 'rose')}
         </div>
 
-        <div class="mt-3 flex items-center gap-3 flex-wrap">
-          <label class="text-[11px] font-black text-slate-600 uppercase">Vendas previstas no período:</label>
-          <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" min="0" value="${cfg.salesProjection}" onchange="Actions.setRevopsSalesProjection('${productId}', this.value)" placeholder="0" class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800 w-32" />
-          <span class="text-[11px] text-slate-500 italic">Usado pra calcular Faturamento Bruto = Vendas × Ticket.</span>
+        <div class="mt-4 flex items-center gap-3 flex-wrap">
+          <label class="text-[10px] font-black text-violet-300 uppercase tracking-wider">Vendas previstas no período</label>
+          <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" min="0" value="${cfg.salesProjection}" onchange="Actions.setRevopsSalesProjection('${productId}', this.value)" placeholder="0" class="px-3 py-1.5 rounded-lg bg-slate-800/60 border border-violet-400/30 text-sm font-bold text-white placeholder-slate-500 focus:outline-none focus:border-violet-300 w-32" />
+          <span class="text-[11px] text-violet-200/60 italic">Usado pra calcular Faturamento Bruto = Vendas × Ticket.</span>
         </div>
       </div>`;
     },
 
+    // V32.11.0 — Leonardo: métricas sobre fundo escuro. Padrão violet-500/15
+    // bg + violet-400/30 border + text-violet-100 (cores semânticas seguem
+    // mesma sintaxe pra emerald/sky/amber/rose).
     _metricCell(label, value, tone) {
       const toneCls = {
-        violet:  'bg-violet-100 border-violet-200 text-violet-900',
-        emerald: 'bg-emerald-100 border-emerald-200 text-emerald-900',
-        sky:     'bg-sky-100 border-sky-200 text-sky-900',
-        amber:   'bg-amber-100 border-amber-200 text-amber-900',
-        rose:    'bg-rose-100 border-rose-200 text-rose-900'
-      }[tone] || 'bg-slate-100 border-slate-200 text-slate-900';
-      return `<div class="rounded-xl border ${toneCls} px-3 py-2">
+        violet:  'bg-violet-500/15  border-violet-400/30  text-violet-100',
+        emerald: 'bg-emerald-500/15 border-emerald-400/30 text-emerald-100',
+        sky:     'bg-sky-500/15     border-sky-400/30     text-sky-100',
+        amber:   'bg-amber-500/15   border-amber-400/30   text-amber-100',
+        rose:    'bg-rose-500/15    border-rose-400/30    text-rose-100'
+      }[tone] || 'bg-slate-500/15 border-slate-400/30 text-slate-100';
+      return `<div class="rounded-xl border ${toneCls} px-3 py-2 backdrop-blur-sm">
         <p class="text-[9px] font-black uppercase tracking-wider opacity-70">${label}</p>
         <p class="text-sm font-black mt-0.5 truncate">${value}</p>
       </div>`;
@@ -130,21 +141,24 @@
     // TABS BAR + GATING
     // ────────────────────────────────────────────────────────────
 
+    // V32.11.0 — Leonardo: tabs Lucide icons (sem emojis). Estilo executivo:
+    // ativa violet sólido, inativa branca com hover violet, trancada cinza.
     _tabsBar(activeTab, unlocked) {
       return `<div class="flex items-center gap-1.5 overflow-x-auto pb-1">
         ${TABS.map(t => {
           const isActive = t.id === activeTab;
           const isLocked = !t.alwaysOpen && !unlocked.all;
           const baseCls = isActive
-            ? 'bg-violet-600 text-white shadow-md'
+            ? 'bg-violet-600 text-white shadow-md border border-violet-700'
             : isLocked
-            ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-            : 'bg-white border border-slate-200 hover:border-violet-300 text-slate-700';
+            ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+            : 'bg-white border border-slate-200 hover:border-violet-300 hover:bg-violet-50 text-slate-700';
           const onClick = isLocked
             ? `onclick="Utils.toast('${this._lockReason(unlocked)}')"`
             : `onclick="Actions.setRevopsWhitelabelTab('${t.id}')"`;
+          const iconName = isLocked ? 'lock' : t.icon;
           return `<button ${onClick} class="px-3 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 whitespace-nowrap transition ${baseCls}" ${isActive ? 'style="color:#fff!important;"' : ''}>
-            ${isLocked ? '<i data-lucide="lock" class="w-3 h-3"></i>' : `<span class="text-sm">${t.icon}</span>`}
+            <i data-lucide="${iconName}" class="w-3.5 h-3.5"></i>
             ${t.label}
           </button>`;
         }).join('')}
@@ -195,6 +209,20 @@
       </div>`;
     },
 
+    // V32.11.0 — Leonardo: header consistente pras 5 tabs internas. Selo
+    // uppercase + título font-black + subtítulo cinza. rightSide opcional
+    // pra ações (toggle Builder/Excel, botões etc).
+    _tabHeader(seal, title, subtitle, rightSide = '') {
+      return `<div class="flex items-start justify-between gap-3 flex-wrap pb-2 border-b border-slate-100">
+        <div class="min-w-0">
+          <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">${seal}</p>
+          <h3 class="text-base font-black text-slate-900 mt-0.5">${title}</h3>
+          ${subtitle ? `<p class="text-[12px] text-slate-500 mt-0.5">${subtitle}</p>` : ''}
+        </div>
+        ${rightSide ? `<div class="flex items-center gap-2 flex-wrap shrink-0">${rightSide}</div>` : ''}
+      </div>`;
+    },
+
     // ────────────────────────────────────────────────────────────
     // TAB 1: CUSTOS — grupos dinâmicos + Builder A
     // ────────────────────────────────────────────────────────────
@@ -203,29 +231,20 @@
       const groups = cfg.groups || [];
       const productId = cfg.productId;
       const excelMode = !!App.state.revopsExcelMode;
+      const rightSide = `
+        <div class="inline-flex items-center rounded-xl bg-slate-100 border border-slate-200 p-0.5">
+          <button onclick="Actions.setRevopsExcelMode(false)" class="px-2.5 py-1.5 rounded-lg text-xs font-black inline-flex items-center gap-1 ${!excelMode ? 'bg-violet-600 text-white' : 'text-slate-600'}" ${!excelMode ? 'style="color:#fff!important;"' : ''}><i data-lucide="layout-list" class="w-3 h-3"></i> Builder</button>
+          <button onclick="Actions.setRevopsExcelMode(true)" class="px-2.5 py-1.5 rounded-lg text-xs font-black inline-flex items-center gap-1 ${excelMode ? 'bg-violet-600 text-white' : 'text-slate-600'}" ${excelMode ? 'style="color:#fff!important;"' : ''}><i data-lucide="sigma" class="w-3 h-3"></i> Excel</button>
+        </div>
+        <select id="lj-revops-new-bucket" class="px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800">
+          ${BUCKETS.map(b => `<option value="${b.id}">${b.label}</option>`).join('')}
+        </select>
+        <button onclick="Actions.addRevopsGroup('${productId}', document.getElementById('lj-revops-new-bucket').value)" class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Novo grupo
+        </button>`;
       return `<div class="space-y-4">
         ${this._djowTip('costs')}
-        <div class="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <h3 class="font-black text-slate-900">Seus custos e despesas</h3>
-            <p class="text-[12px] text-slate-500 mt-0.5">Crie grupos como faz na sua planilha. Cada item pode ser valor fixo, % sobre algo, ou fórmula avançada.</p>
-          </div>
-          <div class="flex items-center gap-2 flex-wrap">
-            ${/* V32.8.2 — Toggle Modo A (Builder) ↔ Modo B (Excel). Item por item
-                 fica sincronizado: o que você cria em A vê como fórmula em B; o
-                 que edita em B vira custom_formula automático. */ ''}
-            <div class="inline-flex items-center rounded-xl bg-slate-100 border border-slate-200 p-0.5">
-              <button onclick="Actions.setRevopsExcelMode(false)" class="px-2.5 py-1.5 rounded-lg text-xs font-black ${!excelMode ? 'bg-violet-600 text-white' : 'text-slate-600'}" ${!excelMode ? 'style="color:#fff!important;"' : ''}>📝 Builder</button>
-              <button onclick="Actions.setRevopsExcelMode(true)" class="px-2.5 py-1.5 rounded-lg text-xs font-black ${excelMode ? 'bg-violet-600 text-white' : 'text-slate-600'}" ${excelMode ? 'style="color:#fff!important;"' : ''}>📊 Excel</button>
-            </div>
-            <select id="lj-revops-new-bucket" class="px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800">
-              ${BUCKETS.map(b => `<option value="${b.id}">${b.label}</option>`).join('')}
-            </select>
-            <button onclick="Actions.addRevopsGroup('${productId}', document.getElementById('lj-revops-new-bucket').value)" class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;">
-              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Novo grupo
-            </button>
-          </div>
-        </div>
+        ${this._tabHeader('Custos · Operação', 'Custos e Despesas', 'Crie grupos como faz na sua planilha. Cada item pode ser valor fixo, % sobre algo ou fórmula avançada.', rightSide)}
 
         ${excelMode ? this._handlesLegend(cfg) : ''}
         ${this._handlesDatalist(cfg)}
@@ -589,17 +608,12 @@
     _offersTab(cfg, ev) {
       const offers = cfg.offers || [];
       const productId = cfg.productId;
+      const rightSide = `<button onclick="Actions.addRevopsOffer('${productId}')" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nova oferta
+      </button>`;
       return `<div class="space-y-4">
         ${this._djowTip('offers')}
-        <div class="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <h3 class="font-black text-slate-900">Ofertas e Ticket Médio</h3>
-            <p class="text-[12px] text-slate-500 mt-0.5">Cadastre as ofertas com preço e mix. Sistema calcula o TM ponderado, ou você define manual.</p>
-          </div>
-          <button onclick="Actions.addRevopsOffer('${productId}')" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;">
-            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nova oferta
-          </button>
-        </div>
+        ${this._tabHeader('Ofertas · Pricing', 'Ofertas e Ticket Médio', 'Cadastre ofertas com preço e mix. O sistema calcula o TM ponderado, ou você define manual.', rightSide)}
 
         <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex items-center gap-3 flex-wrap">
           <label class="text-[11px] font-black text-slate-600 uppercase">Modo do TM:</label>
@@ -675,18 +689,13 @@
       const baseCac = baseTotalSales > 0 ? baseCtc / baseTotalSales : 0;
       const baseFatBruto = ev.fatBruto;
 
+      const rightSide = `<button onclick="Actions.toggleRevopsSimulator()" class="px-3 py-2 rounded-xl ${sim.active ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} text-xs font-black flex items-center gap-1.5" ${sim.active ? 'style="color:#fff!important;"' : ''}>
+        <i data-lucide="${sim.active ? 'pause' : 'flask-conical'}" class="w-3.5 h-3.5"></i>
+        ${sim.active ? 'Sair do Simulador' : 'Simular cenário'}
+      </button>`;
       return `<div class="space-y-3">
         ${this._djowTip('result')}
-        <div class="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <h3 class="font-black text-slate-900">Resultado consolidado</h3>
-            <p class="text-[12px] text-slate-500">4 indicadores principais que respondem: quantas vendas, quanto custou cada uma, quanto gerou.</p>
-          </div>
-          <button onclick="Actions.toggleRevopsSimulator()" class="px-3 py-2 rounded-xl ${sim.active ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} text-xs font-black flex items-center gap-1.5" ${sim.active ? 'style="color:#fff!important;"' : ''}>
-            <i data-lucide="${sim.active ? 'pause' : 'flask-conical'}" class="w-3.5 h-3.5"></i>
-            ${sim.active ? 'Sair do Simulador' : 'Simular cenário'}
-          </button>
-        </div>
+        ${this._tabHeader('Resultado · Indicadores', 'Resultado Consolidado', 'Quatro indicadores principais: quantas vendas, quanto custou cada uma, quanto gerou.', rightSide)}
 
         ${sim.active ? this._simulatorPanel(cfg, ev, simEv) : ''}
 
@@ -995,10 +1004,7 @@
 
       return `<div class="space-y-4">
         ${this._djowTip('revops')}
-        <div>
-          <h3 class="font-black text-slate-900">Cascata RevOps · Equilíbrio da operação</h3>
-          <p class="text-[12px] text-slate-500">Lê de cima pra baixo. Cada linha mostra o que sai a cada etapa até o Breakeven (quantas vendas pra empatar o mês).</p>
-        </div>
+        ${this._tabHeader('RevOps · Cascata', 'Equilíbrio da Operação', 'Lê de cima pra baixo. Cada linha mostra o que sai a cada etapa até o Breakeven — quantas vendas pra empatar o mês.')}
 
         <div>
           ${this._cascadeLine('💧', 'PONTO DE PARTIDA', 'TM · Ticket Médio', this._money(tm), 'sky',
@@ -1455,12 +1461,7 @@
 
       return `<div class="space-y-3">
         ${this._djowTip('dre')}
-        <div class="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <h3 class="font-black text-slate-900">DRE — Demonstrativo do Resultado</h3>
-            <p class="text-[12px] text-slate-500">Faturamento → Deduções → Venda Líquida → Lucro Bruto → S&M → G&A → Lucro Líquido. Use <b>+ inserir linha</b> pra entradas extras (IR, receitas financeiras, participações, etc).</p>
-          </div>
-        </div>
+        ${this._tabHeader('DRE · Demonstrativo do Resultado', 'Apuração do Período', 'Faturamento → Deduções → Venda Líquida → Lucro Bruto → S&M → G&A → Lucro Líquido. Use <b>+ inserir linha</b> pra entradas extras (IR, receitas financeiras, participações).')}
         <div class="rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden">
           ${rowsV2.join('')}
         </div>
