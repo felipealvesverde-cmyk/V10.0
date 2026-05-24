@@ -151,21 +151,35 @@ var ProductsModule = {
   productCard(product) {
     const summary = ProductRevenueEngine.summary(product.id);
     const selected = Number(product.id) === Number(App.state.selectedProductId);
-    return `<div onclick="Actions.selectProduct(${product.id})" class="lj-product-created-card relative w-full text-left p-4 rounded-3xl border ${selected ? 'border-slate-900 bg-slate-50 ring-2 ring-slate-900/5' : 'border-slate-100 bg-slate-50'} hover:bg-slate-100 transition cursor-pointer">
+    // V32.12.0 — Leonardo: card produto ganha left-border violet (cor RevOps)
+    // pra ancorar visualmente com as campanhas filhas (que também tem accent
+    // violet quando estratégicas). Selo "Produto" no header. KPI boxes com
+    // left-border tone consistente (violet/sky/emerald).
+    return `<div onclick="Actions.selectProduct(${product.id})" class="lj-product-created-card relative w-full text-left p-4 rounded-3xl border border-l-4 ${selected ? 'border-slate-900 border-l-violet-600 bg-slate-50 ring-2 ring-slate-900/5' : 'border-slate-200 border-l-violet-500 bg-white'} hover:bg-slate-50 transition cursor-pointer">
       <button onclick="event.stopPropagation(); Actions.openProductEditModal(${product.id})" title="Editar Produto" aria-label="Editar Produto" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm"><i data-lucide="settings" class="w-4 h-4"></i></button>
       <div class="flex flex-col gap-4">
         <div class="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-3 pr-12">
           <div class="min-w-0">
+            <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-0.5">Produto</p>
             <div class="flex items-center gap-2 mb-1">
-              <h3 class="font-black text-xl leading-tight break-words">${Utils.escape(product.name)}</h3>
-              ${selected ? '<span class="shrink-0 px-2 py-1 rounded-full bg-slate-900 text-white text-[10px] font-black">Selecionado</span>' : ''}
+              <h3 class="font-black text-xl leading-tight break-words text-slate-900">${Utils.escape(product.name)}</h3>
+              ${selected ? '<span class="shrink-0 px-2 py-0.5 rounded-md bg-violet-500/15 border border-violet-400/30 text-violet-700 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Selecionado</span>' : ''}
             </div>
             <p class="text-sm text-slate-500">${Utils.escape(product.type || 'Produto')} • ${Utils.escape(product.revenueModel || 'Venda única')}</p>
           </div>
-          <div class="grid grid-cols-3 gap-2 text-center w-full xl:w-[300px] shrink-0">
-            <div class="bg-white rounded-2xl px-3 py-2"><div class="font-black">${summary.campaigns}</div><div class="text-xs text-slate-500">Campanhas</div></div>
-            <div class="bg-white rounded-2xl px-3 py-2"><div class="font-black">${summary.actions}</div><div class="text-xs text-slate-500">Ações</div></div>
-            <div class="bg-white rounded-2xl px-3 py-2"><div class="font-black">${product.healthScore || 0}</div><div class="text-xs text-slate-500">Health</div></div>
+          <div class="grid grid-cols-3 gap-2 w-full xl:w-[320px] shrink-0">
+            <div class="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-violet-500 px-3 py-2 text-center">
+              <div class="text-[9px] font-black text-violet-700 uppercase tracking-widest">Campanhas</div>
+              <div class="font-black text-lg text-slate-900 mt-0.5">${summary.campaigns}</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-sky-500 px-3 py-2 text-center">
+              <div class="text-[9px] font-black text-sky-700 uppercase tracking-widest">Ações</div>
+              <div class="font-black text-lg text-slate-900 mt-0.5">${summary.actions}</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 px-3 py-2 text-center">
+              <div class="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Health</div>
+              <div class="font-black text-lg text-slate-900 mt-0.5">${product.healthScore || 0}</div>
+            </div>
           </div>
         </div>
         ${this._strategicMapSummary(product)}

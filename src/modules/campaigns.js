@@ -142,7 +142,10 @@ var CampaignModule = {
     // V22.0 — Estado do pipeline RD da campanha (gate de "Criar Ação" e visual do botão).
     const hasPipeline = Boolean(window.RdCrmConfig?.hasPipelineForCampaign?.(campaign.id));
     const pipelineInfo = hasPipeline ? RdCrmConfig.pipelineInfoForCampaign(campaign.id) : null;
-    const pipelineOutline = hasPipeline ? 'border-emerald-500' : 'border-red-500';
+    // V32.12.0 — Leonardo: vermelho é cor destrutiva; "Gerar Pipeline" é ação
+    // positiva principal. Trocar pra violet (cor RevOps/ação) quando faltar
+    // pipeline, mantém emerald quando OK.
+    const pipelineOutline = hasPipeline ? 'border-emerald-500' : 'border-violet-500';
     const pipelineLabel = hasPipeline ? 'Pipeline OK' : 'Gerar Pipeline';
     const pipelineIcon = hasPipeline ? 'check-circle-2' : 'git-branch';
 
@@ -167,15 +170,17 @@ var CampaignModule = {
     }
     // V29.0.0 — Visual por status estratégico (3 estágios):
     // active = roxo, configuring = âmbar, unplugged = padrão preto.
+    // V32.12.0 — Leonardo: adiciona left-border tone como assinatura visual
+    // por status (consistente com card de produto que ancora violet).
     let cardBgCls, cardStyle;
     if (strategicStatus === 'active') {
-      cardBgCls = App.state.selectedCampaignId === campaign.id ? 'border-violet-500 ring-2 ring-violet-300' : 'border-violet-300';
-      cardStyle = 'style="background:linear-gradient(135deg, rgba(139,92,246,.06), rgba(34,197,94,.04));"';
+      cardBgCls = App.state.selectedCampaignId === campaign.id ? 'border-violet-500 border-l-4 border-l-violet-600 ring-2 ring-violet-300' : 'border-violet-200 border-l-4 border-l-violet-500';
+      cardStyle = 'style="background:linear-gradient(135deg, rgba(139,92,246,.04), rgba(34,197,94,.02));"';
     } else if (strategicStatus === 'configuring') {
-      cardBgCls = App.state.selectedCampaignId === campaign.id ? 'border-amber-500 ring-2 ring-amber-200' : 'border-amber-300';
-      cardStyle = 'style="background:linear-gradient(135deg, rgba(251,191,36,.06), rgba(251,191,36,.02));"';
+      cardBgCls = App.state.selectedCampaignId === campaign.id ? 'border-amber-500 border-l-4 border-l-amber-600 ring-2 ring-amber-200' : 'border-amber-200 border-l-4 border-l-amber-500';
+      cardStyle = 'style="background:linear-gradient(135deg, rgba(251,191,36,.04), rgba(251,191,36,.01));"';
     } else {
-      cardBgCls = App.state.selectedCampaignId === campaign.id ? 'border-slate-900 bg-slate-50' : 'border-slate-100 bg-slate-50';
+      cardBgCls = App.state.selectedCampaignId === campaign.id ? 'border-slate-900 border-l-4 border-l-slate-900 bg-slate-50' : 'border-slate-200 border-l-4 border-l-slate-400 bg-white';
       cardStyle = '';
     }
 
@@ -185,30 +190,45 @@ var CampaignModule = {
     return `<div onclick="Actions.goToCampaignActions(${campaign.id})" class="lj-entity-card relative p-4 rounded-3xl border ${cardBgCls} hover:bg-slate-100 cursor-pointer transition" ${cardStyle}>
       <button onclick="event.stopPropagation(); Actions.openCampaignEditModal(${campaign.id})" title="Editar Campanha" aria-label="Editar Campanha" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm"><i data-lucide="settings" class="w-4 h-4"></i></button>
       ${(hasPipeline || strategicStatus !== 'unplugged') ? `<div class="absolute bottom-3 right-3 flex flex-wrap gap-1.5 justify-end">
-        ${hasPipeline ? `<span title="Pipeline RD criado e pronto pra receber leads." class="text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-1 rounded-full flex items-center gap-1 cursor-help"><i data-lucide="check" class="w-3 h-3"></i> Pipeline criado</span>` : ''}
-        ${strategicStatus === 'active' ? `<span title="Esta campanha tem KRs confirmados que alimentam o Mapa da Receita do produto via rollup." class="text-[10px] font-black text-violet-700 bg-violet-50 border border-violet-300 px-2 py-1 rounded-full flex items-center gap-1 cursor-help"><i data-lucide="compass" class="w-3 h-3"></i> Mapa da Receita ativo</span>` : ''}
-        ${strategicStatus === 'configuring' ? `<span title="Branch criada mas faltam KRs confirmados. Clique em 'Mapa da Receita' e vá pra etapa Números pra terminar de configurar." class="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full flex items-center gap-1 cursor-help"><i data-lucide="loader" class="w-3 h-3"></i> Mapa em configuração</span>` : ''}
+        ${hasPipeline ? `<span title="Pipeline RD criado e pronto pra receber leads." class="text-[10px] font-black text-emerald-700 bg-emerald-500/10 border border-emerald-400/30 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-help uppercase tracking-wider"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Pipeline criado</span>` : ''}
+        ${strategicStatus === 'active' ? `<span title="Esta campanha tem KRs confirmados que alimentam o Mapa da Receita do produto via rollup." class="text-[10px] font-black text-violet-700 bg-violet-500/10 border border-violet-400/30 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-help uppercase tracking-wider"><i data-lucide="compass" class="w-3 h-3"></i> Mapa ativo</span>` : ''}
+        ${strategicStatus === 'configuring' ? `<span title="Branch criada mas faltam KRs confirmados. Clique em 'Mapa da Receita' e vá pra etapa Números pra terminar de configurar." class="text-[10px] font-black text-amber-700 bg-amber-500/10 border border-amber-400/30 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-help uppercase tracking-wider"><i data-lucide="loader" class="w-3 h-3"></i> Mapa em configuração</span>` : ''}
       </div>` : ''}
       <div class="lj-entity-card-grid">
         <div class="lj-entity-copy pr-12">
-          <h3 class="font-black text-lg ${isStrategic ? 'text-violet-900' : ''}">${Utils.escape(campaign.name)}</h3>
+          <p class="text-[10px] font-black ${isStrategic ? 'text-violet-700' : 'text-slate-500'} uppercase tracking-widest mb-0.5">Campanha</p>
+          <h3 class="font-black text-lg ${isStrategic ? 'text-violet-900' : 'text-slate-900'}">${Utils.escape(campaign.name)}</h3>
           ${objectiveText ? `<p class="text-sm text-slate-500 mt-1">${Utils.escape(objectiveText)}</p>` : (isStrategic ? '' : '<p class="text-sm text-slate-500 mt-1">Sem objetivo</p>')}
           <p class="text-xs text-slate-400 mt-2">Produto: ${Utils.escape(product?.name || 'não vinculado')} • ${actions.length} ação(ões) • ${totalLeads} lead(s) • ${conversion}% conversão</p>
           ${hasPipeline ? `<p class="text-[11px] text-emerald-600 mt-1">Pipeline RD: <b>${Utils.escape(pipelineInfo?.pipelineName || '')}</b></p>` : ''}
           ${isStrategic && actionsWithoutObjective > 0 ? `<p class="text-[11px] text-amber-700 mt-1 font-bold">⚠️ ${actionsWithoutObjective} ação(ões) sem objetivo vinculado — veja detalhe no menu Ações.</p>` : ''}
           ${(() => {
             // V29.1.2 — Badge: CEO criou KRs-mãe que esta branch ainda não plugou.
+            // V32.12.0 — Leonardo: strip discreta border-l-amber + lucide alert-triangle
+            // (era texto roxo solto que se misturava com objetivo/meta).
             if (!isStrategic || !window.StrategicMapEngine?.getMissingChildrenInBranch || !product) return '';
             const missing = StrategicMapEngine.getMissingChildrenInBranch(product.id, campaign.id);
             if (!missing.length) return '';
-            return `<p class="text-[11px] text-violet-700 mt-1 font-bold">🔔 CEO criou ${missing.length} número(s)-mãe que esta campanha ainda não plugou — abra o Mapa e vá na etapa Campanha.</p>`;
+            return `<div class="mt-2 rounded-lg bg-amber-50/40 border border-amber-200 border-l-4 border-l-amber-500 px-2.5 py-1.5 flex items-start gap-1.5">
+              <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-700 mt-0.5 shrink-0"></i>
+              <p class="text-[11px] text-amber-900 font-bold leading-snug">CEO criou ${missing.length} número(s)-mãe que esta campanha ainda não plugou — abra o Mapa e vá na etapa Campanha.</p>
+            </div>`;
           })()}
         </div>
         <div class="lj-entity-metrics">
-          <div class="grid grid-cols-3 gap-2 text-center">
-            <div class="bg-white rounded-2xl px-3 py-2"><div class="font-black">${actions.length}</div><div class="text-xs text-slate-500">Ações</div></div>
-            <div class="bg-white rounded-2xl px-3 py-2"><div class="font-black">${totalLeads}</div><div class="text-xs text-slate-500">Leads</div></div>
-            <div class="bg-white rounded-2xl px-3 py-2"><div class="font-black">${conversion}%</div><div class="text-xs text-slate-500">Conv.</div></div>
+          <div class="grid grid-cols-3 gap-2">
+            <div class="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-sky-500 px-3 py-2 text-center">
+              <div class="text-[9px] font-black text-sky-700 uppercase tracking-widest">Ações</div>
+              <div class="font-black text-lg text-slate-900 mt-0.5">${actions.length}</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-violet-500 px-3 py-2 text-center">
+              <div class="text-[9px] font-black text-violet-700 uppercase tracking-widest">Leads</div>
+              <div class="font-black text-lg text-slate-900 mt-0.5">${totalLeads}</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 px-3 py-2 text-center">
+              <div class="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Conversão</div>
+              <div class="font-black text-lg text-slate-900 mt-0.5">${conversion}%</div>
+            </div>
           </div>
         </div>
         <div class="lj-card-actions grid grid-cols-2 gap-2">
@@ -218,9 +238,9 @@ var CampaignModule = {
               ? `<button onclick="event.stopPropagation(); Actions.openStrategicMap(${product.id})" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black border-2 border-violet-500 lj-dark-button flex items-center justify-center gap-1.5" style="color:#fff!important;" title="Abrir Mapa da Receita desta campanha"><i data-lucide="compass" class="w-3.5 h-3.5"></i> Mapa da Receita</button>`
               : `<button onclick="event.stopPropagation(); Actions.activateStrategicMapForCampaign(${campaign.id})" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black border-2 border-red-400 hover:border-violet-400 lj-dark-button flex items-center justify-center gap-1.5 opacity-90 hover:opacity-100" style="color:#fff!important;" title="🔴 Esta campanha está desplugada do Mapa — não alimenta nenhum KR do produto. Clique pra plugar e criar uma branch (compartilha a Visão do produto)."><i data-lucide="compass" class="w-3.5 h-3.5"></i> Ativar Mapa</button>`
           ) : ''}
-          <button onclick="event.stopPropagation(); Actions.pushCampaignICPToRD(${campaign.id})" ${hasPipeline ? '' : 'disabled'} class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed lj-dark-button flex items-center justify-center gap-1.5" ${hasPipeline ? 'style="color:#fff!important;"' : ''}><i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar ICP pro RD</button>
-          <button onclick="event.stopPropagation(); Actions.prepareActionForCampaign(${campaign.id})" ${hasPipeline ? '' : 'disabled'} title="${hasPipeline ? '' : 'Gere o pipeline antes de criar ações'}" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed lj-dark-button" ${hasPipeline ? 'style="color:#fff!important;"' : ''}>Criar Ação</button>
-          <button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${campaign.id})" ${actions.length ? '' : 'disabled'} class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed lj-dark-button" style="color:#fff!important;">Fluxo da Campanha</button>
+          <button onclick="event.stopPropagation(); Actions.pushCampaignICPToRD(${campaign.id})" ${hasPipeline ? '' : 'disabled'} title="${hasPipeline ? 'Enviar ICP da campanha pro RD' : 'Gere o pipeline antes de enviar o ICP'}" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed lj-dark-button flex items-center justify-center gap-1.5" ${hasPipeline ? 'style="color:#fff!important;"' : ''}><i data-lucide="${hasPipeline ? 'send' : 'lock'}" class="w-3.5 h-3.5"></i> Enviar ICP pro RD</button>
+          <button onclick="event.stopPropagation(); Actions.prepareActionForCampaign(${campaign.id})" ${hasPipeline ? '' : 'disabled'} title="${hasPipeline ? 'Criar ação nesta campanha' : 'Gere o pipeline antes de criar ações'}" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed lj-dark-button flex items-center justify-center gap-1.5" ${hasPipeline ? 'style="color:#fff!important;"' : ''}><i data-lucide="${hasPipeline ? 'zap' : 'lock'}" class="w-3.5 h-3.5"></i> Criar Ação</button>
+          <button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${campaign.id})" ${actions.length ? '' : 'disabled'} title="${actions.length ? 'Ver fluxo desta campanha' : 'Crie ao menos 1 ação pra abrir o fluxo'}" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed lj-dark-button flex items-center justify-center gap-1.5" style="color:#fff!important;"><i data-lucide="${actions.length ? 'workflow' : 'lock'}" class="w-3.5 h-3.5"></i> Fluxo da Campanha</button>
         </div>
       </div>
     </div>`;
