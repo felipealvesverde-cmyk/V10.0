@@ -788,66 +788,71 @@
       const scenarios = (App.state.revopsScenarios?.[productId] || []);
       const compareSel = App.state.revopsCompareSelection || {};
 
-      return `<div class="rounded-2xl bg-amber-50 border-2 border-amber-300 p-4 space-y-3">
+      // V32.11.4 — Leonardo: simulator com tom executivo. bg-white + left-border
+      // amber (sinaliza modo simulação) + pill icon flask-conical + selo "MODO
+      // SIMULAÇÃO". Botões com tracking-wider uppercase.
+      return `<div class="rounded-2xl bg-white border border-slate-200 border-l-4 border-l-amber-500 p-4 space-y-3 shadow-sm">
         <div class="flex items-start justify-between gap-2">
-          <div>
-            <p class="font-black text-amber-900 text-sm flex items-center gap-1.5">
+          <div class="flex items-start gap-2.5 min-w-0">
+            <span class="shrink-0 w-9 h-9 rounded-xl bg-amber-500/15 grid place-items-center text-amber-700">
               <i data-lucide="flask-conical" class="w-4 h-4"></i>
-              Modo Simulação ON · valores reais não foram alterados
-            </p>
-            <p class="text-[11px] text-amber-800/80 mt-0.5">Edite as overrides abaixo. Salve cenários pra comparar depois.</p>
+            </span>
+            <div class="min-w-0">
+              <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest">Modo Simulação · ON</p>
+              <p class="text-sm font-black text-slate-900 leading-tight">Valores reais não foram alterados</p>
+              <p class="text-[11px] text-slate-500 mt-0.5">Edite as overrides abaixo. Salve cenários pra comparar depois.</p>
+            </div>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
-            <button onclick="(function(){const n=prompt('Nome do cenário:', 'Cenário ${scenarios.length + 1}'); if(n) Actions.saveRevopsScenario('${productId}', n);})()" class="px-2 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black flex items-center gap-1" style="color:#fff!important;"><i data-lucide="save" class="w-3 h-3"></i> Salvar</button>
-            <button onclick="Actions.resetRevopsSimulator()" class="px-2 py-1 rounded-lg bg-white border border-amber-300 hover:bg-amber-100 text-amber-700 text-[10px] font-black">Reset</button>
+            <button onclick="(function(){const n=prompt('Nome do cenário:', 'Cenário ${scenarios.length + 1}'); if(n) Actions.saveRevopsScenario('${productId}', n);})()" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black flex items-center gap-1 uppercase tracking-wider" style="color:#fff!important;"><i data-lucide="save" class="w-3 h-3"></i> Salvar</button>
+            <button onclick="Actions.resetRevopsSimulator()" class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50 text-slate-700 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1"><i data-lucide="rotate-ccw" class="w-3 h-3"></i> Reset</button>
           </div>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <label class="block">
-            <span class="text-[10px] font-black text-amber-800 uppercase tracking-wider">Vendas previstas</span>
-            <div class="flex items-center gap-1">
-              <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" min="0" value="${sim.salesOverride ?? ev.sales}" onchange="Actions.setRevopsSimulatorOverride('salesOverride', this.value)" placeholder="${ev.sales}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-white border border-amber-300 text-sm font-bold text-slate-800" />
-              <span class="text-[10px] text-amber-700 mt-0.5">baseline: ${ev.sales}</span>
+            <span class="text-[10px] font-black text-slate-500 uppercase tracking-wider">Vendas previstas</span>
+            <div class="flex items-center gap-2">
+              <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" min="0" value="${sim.salesOverride ?? ev.sales}" onchange="Actions.setRevopsSimulatorOverride('salesOverride', this.value)" placeholder="${ev.sales}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
+              <span class="text-[10px] text-slate-500 mt-0.5 whitespace-nowrap">baseline: <b>${ev.sales}</b></span>
             </div>
           </label>
           <label class="block">
-            <span class="text-[10px] font-black text-amber-800 uppercase tracking-wider">Ticket Médio (R$)</span>
-            <div class="flex items-center gap-1">
-              <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(sim.ticketOverride ?? ev.ticket)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.setRevopsSimulatorOverride('ticketOverride', Utils.parseBRL(this.value))" placeholder="${Utils.formatCents(ev.ticket)}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-white border border-amber-300 text-sm font-bold text-slate-800" />
-              <span class="text-[10px] text-amber-700 mt-0.5">baseline: ${this._money(ev.ticket)}</span>
+            <span class="text-[10px] font-black text-slate-500 uppercase tracking-wider">Ticket Médio (R$)</span>
+            <div class="flex items-center gap-2">
+              <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(sim.ticketOverride ?? ev.ticket)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.setRevopsSimulatorOverride('ticketOverride', Utils.parseBRL(this.value))" placeholder="${Utils.formatCents(ev.ticket)}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
+              <span class="text-[10px] text-slate-500 mt-0.5 whitespace-nowrap">baseline: <b>${this._money(ev.ticket)}</b></span>
             </div>
           </label>
         </div>
 
-        ${/* V32.8.5 — Lista de cenários salvos + selects de comparação */ ''}
-        ${scenarios.length > 0 ? `<div class="rounded-xl bg-white border border-amber-200 p-3 space-y-2">
-          <p class="text-[10px] font-black text-amber-700 uppercase tracking-wider">Cenários salvos (${scenarios.length})</p>
+        ${scenarios.length > 0 ? `<div class="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-2">
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest inline-flex items-center gap-1.5"><i data-lucide="bookmark" class="w-3 h-3"></i> Cenários salvos · ${scenarios.length}</p>
           <div class="space-y-1">
-            ${scenarios.map(sc => `<div class="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-amber-50/60 border border-amber-200 hover:bg-amber-100/60">
+            ${scenarios.map(sc => `<div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-amber-300 transition">
               <div class="min-w-0 flex-1">
-                <p class="text-[12px] font-black text-amber-900 truncate">${Utils.escape(sc.name)}</p>
-                <p class="text-[9px] text-amber-700/80">Vendas: ${sc.salesOverride ?? '—'} · TM: ${sc.ticketOverride != null ? this._money(sc.ticketOverride) : '—'}</p>
+                <p class="text-[12px] font-black text-slate-900 truncate">${Utils.escape(sc.name)}</p>
+                <p class="text-[10px] text-slate-500">Vendas: <b>${sc.salesOverride ?? '—'}</b> · TM: <b>${sc.ticketOverride != null ? this._money(sc.ticketOverride) : '—'}</b></p>
               </div>
               <div class="flex items-center gap-1 shrink-0">
-                <button onclick="Actions.loadRevopsScenario('${productId}', '${sc.id}')" title="Carregar no Simulador" class="px-1.5 py-0.5 rounded bg-white border border-amber-300 hover:bg-amber-100 text-amber-700 text-[10px] font-black"><i data-lucide="play" class="w-3 h-3"></i></button>
-                <button onclick="if(confirm('Apagar cenário \\'${Utils.escape(sc.name)}\\'?')) Actions.deleteRevopsScenario('${productId}', '${sc.id}')" class="px-1.5 py-0.5 rounded bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
+                <button onclick="Actions.loadRevopsScenario('${productId}', '${sc.id}')" title="Carregar no Simulador" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-amber-300 hover:bg-amber-50 text-amber-700"><i data-lucide="play" class="w-3.5 h-3.5"></i></button>
+                <button onclick="if(confirm('Apagar cenário \\'${Utils.escape(sc.name)}\\'?')) Actions.deleteRevopsScenario('${productId}', '${sc.id}')" title="Apagar" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
               </div>
             </div>`).join('')}
           </div>
 
-          ${scenarios.length >= 2 ? `<div class="pt-2 border-t border-amber-200">
-            <p class="text-[10px] font-black text-amber-700 uppercase tracking-wider mb-1.5">Comparar 2 cenários lado-a-lado</p>
+          ${scenarios.length >= 2 ? `<div class="pt-2 border-t border-slate-200">
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 inline-flex items-center gap-1.5"><i data-lucide="git-compare" class="w-3 h-3"></i> Comparar 2 cenários lado-a-lado</p>
             <div class="grid grid-cols-2 gap-2">
-              <select onchange="Actions.setRevopsCompareSlot('left', this.value)" class="px-2 py-1.5 rounded-lg bg-white border border-amber-300 text-xs font-bold text-slate-800">
+              <select onchange="Actions.setRevopsCompareSlot('left', this.value)" class="px-2 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-800 focus:border-violet-400">
                 <option value="">— Esquerda —</option>
                 ${scenarios.map(sc => `<option value="${sc.id}" ${compareSel.left === sc.id ? 'selected' : ''}>${Utils.escape(sc.name)}</option>`).join('')}
               </select>
-              <select onchange="Actions.setRevopsCompareSlot('right', this.value)" class="px-2 py-1.5 rounded-lg bg-white border border-amber-300 text-xs font-bold text-slate-800">
+              <select onchange="Actions.setRevopsCompareSlot('right', this.value)" class="px-2 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-800 focus:border-violet-400">
                 <option value="">— Direita —</option>
                 ${scenarios.map(sc => `<option value="${sc.id}" ${compareSel.right === sc.id ? 'selected' : ''}>${Utils.escape(sc.name)}</option>`).join('')}
               </select>
             </div>
-            ${(compareSel.left || compareSel.right) ? `<button onclick="Actions.clearRevopsCompare()" class="mt-1.5 text-[10px] text-amber-700 hover:text-amber-900 underline">Limpar seleção</button>` : ''}
+            ${(compareSel.left || compareSel.right) ? `<button onclick="Actions.clearRevopsCompare()" class="mt-1.5 text-[10px] font-bold text-slate-500 hover:text-slate-700 inline-flex items-center gap-1"><i data-lucide="x" class="w-3 h-3"></i> Limpar seleção</button>` : ''}
           </div>` : ''}
         </div>` : ''}
       </div>`;
@@ -882,18 +887,23 @@
           <td class="py-1.5 text-[11px] font-bold text-right ${cls}">${better > 0 ? '+' : ''}${fmt === 'money' ? this._money(better) : fmt === 'percent' ? `${better.toFixed(1)}pp` : Math.round(better).toLocaleString('pt-BR')}</td>
         </tr>`;
       };
-      return `<div class="rounded-2xl bg-violet-50 border-2 border-violet-300 p-4">
-        <p class="font-black text-violet-900 text-sm mb-3 flex items-center gap-1.5">
-          <i data-lucide="git-compare" class="w-4 h-4"></i>
-          Comparação de cenários
-        </p>
+      return `<div class="rounded-2xl bg-white border border-slate-200 border-l-4 border-l-violet-500 p-4 shadow-sm">
+        <div class="flex items-center gap-2.5 mb-3">
+          <span class="shrink-0 w-8 h-8 rounded-lg bg-violet-500/15 grid place-items-center text-violet-700">
+            <i data-lucide="git-compare" class="w-4 h-4"></i>
+          </span>
+          <div>
+            <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">Comparativo</p>
+            <p class="text-sm font-black text-slate-900 leading-tight">Cenários lado-a-lado</p>
+          </div>
+        </div>
         <table class="w-full">
           <thead>
-            <tr class="border-b-2 border-violet-300">
-              <th class="text-left py-2 text-[10px] font-black text-violet-800 uppercase tracking-wider">Métrica</th>
-              <th class="text-right py-2 text-[10px] font-black text-violet-800 uppercase tracking-wider">${Utils.escape(labelL)}</th>
-              <th class="text-right py-2 text-[10px] font-black text-violet-800 uppercase tracking-wider">${Utils.escape(labelR)}</th>
-              <th class="text-right py-2 text-[10px] font-black text-violet-800 uppercase tracking-wider">Δ (R→L)</th>
+            <tr class="border-b-2 border-slate-200">
+              <th class="text-left py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">Métrica</th>
+              <th class="text-right py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">${Utils.escape(labelL)}</th>
+              <th class="text-right py-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">${Utils.escape(labelR)}</th>
+              <th class="text-right py-2 text-[10px] font-black text-violet-700 uppercase tracking-widest">Δ (R→L)</th>
             </tr>
           </thead>
           <tbody>
@@ -908,65 +918,74 @@
       </div>`;
     },
 
-    // V32.8.4 — Card grande que mostra delta vs baseline quando simulator ON.
+    // V32.11.4 — Leonardo: bigCell delta executivo. bg-white + left-border tone
+    // + delta pill com ícone Lucide trending-up/down/minus.
     _bigCellWithDelta(label, simValue, baseValue, simNumeric, baseNumeric, tone, simActive, inverse = false) {
       if (!simActive) return this._bigCell(label, baseValue, tone);
+      const t = this._cascadeTone(tone);
       const delta = simNumeric - baseNumeric;
       const deltaPct = baseNumeric !== 0 ? (delta / baseNumeric) * 100 : 0;
       const isPositive = inverse ? delta < 0 : delta > 0;
       const isNegative = inverse ? delta > 0 : delta < 0;
-      const deltaCls = isPositive ? 'text-emerald-700' : isNegative ? 'text-rose-700' : 'text-slate-500';
-      const deltaArrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '·';
-      const deltaLabel = `${deltaArrow} ${Math.abs(deltaPct).toFixed(1)}% vs baseline`;
-      const toneCls = {
-        violet: 'bg-violet-50 border-violet-200 text-violet-900',
-        sky:    'bg-sky-50 border-sky-200 text-sky-900',
-        emerald:'bg-emerald-50 border-emerald-200 text-emerald-900',
-        amber:  'bg-amber-50 border-amber-200 text-amber-900',
-        rose:   'bg-rose-50 border-rose-200 text-rose-900'
-      }[tone] || 'bg-slate-50 border-slate-200 text-slate-900';
-      return `<div class="rounded-2xl border ${toneCls} p-4">
-        <p class="text-[10px] font-black uppercase tracking-wider opacity-80">${label}</p>
-        <p class="text-2xl font-black mt-1">${simValue}</p>
-        <p class="text-[10px] font-black mt-1 ${deltaCls}">${deltaLabel}</p>
+      const deltaCls = isPositive ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-700' : isNegative ? 'bg-rose-500/10 border-rose-400/30 text-rose-700' : 'bg-slate-500/10 border-slate-400/30 text-slate-600';
+      const deltaIcon = delta > 0 ? 'trending-up' : delta < 0 ? 'trending-down' : 'minus';
+      return `<div class="rounded-2xl bg-white border border-slate-200 ${t.borderL} p-4 hover:border-slate-300 transition">
+        <p class="text-[10px] font-black ${t.pill} uppercase tracking-widest">${label}</p>
+        <p class="text-2xl font-black ${t.text} mt-1">${simValue}</p>
+        <span class="inline-flex items-center gap-1 mt-2 px-2 py-0.5 rounded-md border text-[10px] font-black uppercase tracking-wider ${deltaCls}">
+          <i data-lucide="${deltaIcon}" class="w-3 h-3"></i>
+          ${Math.abs(deltaPct).toFixed(1)}% vs baseline
+        </span>
       </div>`;
     },
 
-    // V32.8.4 — Bloco de comparação EBITDA: antes × depois quando simulator ON.
+    // V32.11.4 — Leonardo: bloco comparação EBITDA. Mantém slate-900 (executivo
+    // pesado) mas com Lucide icons por coluna e tracking-widest consistente.
     _simulatorEbitdaCompare(ev, simEv) {
       const delta = simEv.ebitda - ev.ebitda;
       const deltaPct = ev.ebitda !== 0 ? (delta / Math.abs(ev.ebitda)) * 100 : 0;
       const cls = delta > 0 ? 'emerald' : delta < 0 ? 'rose' : 'slate';
-      return `<div class="rounded-2xl bg-slate-900 text-white p-4 grid md:grid-cols-3 gap-4">
-        <div>
-          <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">EBITDA Baseline</p>
-          <p class="text-xl font-black mt-1">${this._money(ev.ebitda)}</p>
-          <p class="text-[10px] text-slate-400 mt-0.5">Margem ${ev.ebitdaMargin.toFixed(1)}%</p>
+      const deltaIcon = delta > 0 ? 'trending-up' : delta < 0 ? 'trending-down' : 'minus';
+      return `<div class="rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 text-white p-4 grid md:grid-cols-3 gap-4 shadow-lg">
+        <div class="flex items-start gap-2.5">
+          <span class="shrink-0 w-7 h-7 rounded-lg bg-slate-700/60 grid place-items-center text-slate-300">
+            <i data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i>
+          </span>
+          <div>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">EBITDA Baseline</p>
+            <p class="text-xl font-black mt-1">${this._money(ev.ebitda)}</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Margem ${ev.ebitdaMargin.toFixed(1)}%</p>
+          </div>
         </div>
-        <div>
-          <p class="text-[10px] font-black text-amber-300 uppercase tracking-wider">EBITDA Simulado</p>
-          <p class="text-xl font-black mt-1">${this._money(simEv.ebitda)}</p>
-          <p class="text-[10px] text-amber-300/70 mt-0.5">Margem ${simEv.ebitdaMargin.toFixed(1)}%</p>
+        <div class="flex items-start gap-2.5">
+          <span class="shrink-0 w-7 h-7 rounded-lg bg-amber-500/20 grid place-items-center text-amber-300">
+            <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i>
+          </span>
+          <div>
+            <p class="text-[10px] font-black text-amber-300 uppercase tracking-widest">EBITDA Simulado</p>
+            <p class="text-xl font-black mt-1">${this._money(simEv.ebitda)}</p>
+            <p class="text-[10px] text-amber-300/70 mt-0.5">Margem ${simEv.ebitdaMargin.toFixed(1)}%</p>
+          </div>
         </div>
-        <div>
-          <p class="text-[10px] font-black text-${cls}-300 uppercase tracking-wider">Δ Impacto</p>
-          <p class="text-xl font-black mt-1 text-${cls}-300">${delta >= 0 ? '+' : ''}${this._money(delta)}</p>
-          <p class="text-[10px] text-${cls}-300/70 mt-0.5">${delta >= 0 ? '+' : ''}${deltaPct.toFixed(1)}% vs baseline</p>
+        <div class="flex items-start gap-2.5">
+          <span class="shrink-0 w-7 h-7 rounded-lg bg-${cls}-500/20 grid place-items-center text-${cls}-300">
+            <i data-lucide="${deltaIcon}" class="w-3.5 h-3.5"></i>
+          </span>
+          <div>
+            <p class="text-[10px] font-black text-${cls}-300 uppercase tracking-widest">Δ Impacto</p>
+            <p class="text-xl font-black mt-1 text-${cls}-300">${delta >= 0 ? '+' : ''}${this._money(delta)}</p>
+            <p class="text-[10px] text-${cls}-300/70 mt-0.5">${delta >= 0 ? '+' : ''}${deltaPct.toFixed(1)}% vs baseline</p>
+          </div>
         </div>
       </div>`;
     },
 
+    // V32.11.4 — Leonardo: bigCell base executivo. bg-white + left-border tone.
     _bigCell(label, value, tone) {
-      const toneCls = {
-        violet: 'bg-violet-50 border-violet-200 text-violet-900',
-        sky:    'bg-sky-50 border-sky-200 text-sky-900',
-        emerald:'bg-emerald-50 border-emerald-200 text-emerald-900',
-        amber:  'bg-amber-50 border-amber-200 text-amber-900',
-        rose:   'bg-rose-50 border-rose-200 text-rose-900'
-      }[tone] || 'bg-slate-50 border-slate-200 text-slate-900';
-      return `<div class="rounded-2xl border ${toneCls} p-4">
-        <p class="text-[10px] font-black uppercase tracking-wider opacity-80">${label}</p>
-        <p class="text-2xl font-black mt-1">${value}</p>
+      const t = this._cascadeTone(tone);
+      return `<div class="rounded-2xl bg-white border border-slate-200 ${t.borderL} p-4 hover:border-slate-300 transition">
+        <p class="text-[10px] font-black ${t.pill} uppercase tracking-widest">${label}</p>
+        <p class="text-2xl font-black ${t.text} mt-1">${value}</p>
       </div>`;
     },
 
