@@ -324,14 +324,18 @@
       const sections = Object.entries(groups)
         .filter(([_, g]) => g.items.length > 0)
         .map(([_, g]) => `<div class="mb-2 last:mb-0">
-          <p class="text-[9px] font-black uppercase tracking-wider ${g.cls} mb-1">${g.label}</p>
+          <p class="text-[9px] font-black uppercase tracking-wider ${g.cls} mb-1 sticky top-0 bg-sky-50 py-0.5 z-10">${g.label}</p>
           <div class="grid gap-1" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
             ${g.items.map(renderItem).join('')}
           </div>
         </div>`).join('');
+      // V32.10.8 — Popover com altura ~3 handles + scroll. Section labels
+      // sticky no topo durante scroll pra cliente saber em que grupo está.
       return `<div class="mt-1.5 rounded-xl bg-sky-50/60 border border-sky-200 p-2.5">
-        <p class="text-[10px] text-slate-600 mb-1.5">💡 Click no número pra copiar. Depois cole na fórmula (ex: <code>=tm*0,15</code>).</p>
-        ${sections}
+        <p class="text-[10px] text-slate-600 mb-1.5">💡 Click no número pra copiar. Depois cole na fórmula (ex: <code>=tm*0,15</code>). Role pra ver mais.</p>
+        <div style="max-height: 180px; overflow-y: auto;" class="pr-1">
+          ${sections}
+        </div>
       </div>`;
     },
 
