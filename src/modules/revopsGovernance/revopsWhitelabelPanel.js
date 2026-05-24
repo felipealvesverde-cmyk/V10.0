@@ -1318,37 +1318,134 @@
     // TAB 5: DRE
     // ────────────────────────────────────────────────────────────
 
+    // V32.10.9 — DRE FLEX (Felipe formato planilha)
+    // Estrutura: FB → Deduções (expandível, sub-itens do bucket variable) →
+    // VL → LB → S&M → G&A → LL. Entre cada par, botão "+" pra inserir
+    // linha extra (handle ou número, signal +/−). Linhas extras persistem
+    // em cfg.dreExtraLines. Cálculo cumulativo via Engine.evaluateDRE().
     _dreTab(cfg, ev) {
-      const lines = [
-        { label: '(+) Faturamento Bruto',   value: ev.fatBruto,             tone: 'emerald', bold: true },
-        { label: '(−) Custos Variáveis',    value: -ev.variableTotal,       tone: 'rose'                 },
-        { label: '(=) Faturamento Líquido', value: ev.fatLiquido,           tone: 'sky',     bold: true },
-        { label: '(−) G&A (Fixos)',         value: -ev.fixedTotal,          tone: 'rose'                 },
-        { label: '(=) Resultado após Fixos',value: ev.resultadoAposFixos,   tone: 'amber',   bold: true },
-        { label: '(−) Aquisição (S&M)',     value: -ev.acquisitionTotal,    tone: 'rose'                 },
-        { label: '(=) EBITDA',              value: ev.ebitda,               tone: ev.ebitda >= 0 ? 'emerald' : 'rose', bold: true, highlight: true }
-      ];
+      const productId = cfg.productId;
+      const dre = RevopsWhitelabelEngine.evaluateDRE(cfg, ev);
+      const deducoesExpanded = !!App.state.revopsDreDeducoesExpanded?.[productId];
+      // Sub-itens das Deduções = todos itens dos grupos bucket='variable'
+      const variableItems = [];
+      for (const g of (cfg.groups || [])) {
+        if (g.bucket !== 'variable') continue;
+        for (const it of (g.items || [])) {
+          variableItems.push({
+            id: it.id, name: it.name, groupLabel: g.label,
+            value: ev.itemValues?.[it.id] || 0
+          });
+        }
+      }
+
+      const toneToText = {
+        emerald: 'text-emerald-700', rose: 'text-rose-700',
+        sky: 'text-sky-700', amber: 'text-amber-700', slate: 'text-slate-700'
+      };
+      const renderAddBtn = (afterStep) => `<div class="flex justify-center py-1 border-b border-dashed border-slate-200">
+        <button onclick="Actions.addDreExtraLine('${productId}', '${afterStep}')" type="button" title="Inserir linha entre fases" class="text-[10px] text-slate-400 hover:text-sky-700 font-bold inline-flex items-center gap-1">
+          <span class="text-sm leading-none">＋</span> inserir linha
+        </button>
+      </div>`;
+
+      const renderBaseLine = (l) => {
+        const cls = l.highlight ? 'bg-amber-50' : l.bold ? 'bg-white' : '';
+        const textCls = toneToText[l.tone] || 'text-slate-700';
+        const isDeducoes = l.id === 'deducoes';
+        const chevron = isDeducoes
+          ? `<button onclick="Actions.toggleDreDeducoesExpanded('${productId}')" type="button" class="mr-1 text-slate-500 hover:text-slate-900 text-xs leading-none">${deducoesExpanded ? '▼' : '▶'}</button>`
+          : '';
+        return `<div class="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-200 ${cls}">
+          <span class="${l.bold ? 'font-black text-slate-900' : 'text-slate-600'} text-[13px] inline-flex items-center">
+            ${chevron}${l.label}
+          </span>
+          <span class="${l.bold ? 'font-black text-base' : 'font-bold text-sm'} ${textCls} whitespace-nowrap">${this._money(l.value)}</span>
+        </div>`;
+      };
+
+      const renderDeducoesSubItems = () => {
+        if (variableItems.length === 0) {
+          return `<div class="px-6 py-2 bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 italic">
+            Nenhum custo variável cadastrado. Adicione em <b>Custos</b> (bucket Variável) — impostos, comissões, taxas.
+          </div>`;
+        }
+        return variableItems.map(it => `<div class="flex items-center justify-between gap-3 px-6 py-1.5 bg-slate-50 border-b border-slate-200 text-[12px]">
+          <span class="text-slate-600">– ${Utils.escape(it.name)} <span class="text-[10px] text-slate-400">(${Utils.escape(it.groupLabel)})</span></span>
+          <span class="text-rose-700 font-bold whitespace-nowrap">${this._money(it.value)}</span>
+        </div>`).join('');
+      };
+
+      const renderExtraLine = (l) => {
+        const textCls = toneToText[l.tone] || 'text-slate-700';
+        return `<div class="grid items-center gap-2 px-4 py-1.5 border-b border-slate-200 bg-sky-50/30" style="grid-template-columns: 32px 1fr 1.2fr 110px 28px;">
+          <select onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'signal', this.value)" class="px-1 py-0.5 rounded-md bg-white border border-slate-300 text-xs font-black text-slate-800">
+            <option value="-" ${l.signal === '-' ? 'selected' : ''}>−</option>
+            <option value="+" ${l.signal === '+' ? 'selected' : ''}>+</option>
+          </select>
+          <input value="${Utils.escape(l.label === '(sem nome)' ? '' : l.label)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Nome (ex: IR, Receita financeira)" class="px-2 py-1 rounded-lg bg-white border border-slate-300 text-xs font-bold text-slate-800" />
+          <input value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" placeholder="6000 ou =fat_bruto*0,03" class="px-2 py-1 rounded-lg bg-white border border-slate-300 text-xs font-mono text-slate-800" />
+          <span class="text-right ${textCls} font-bold text-xs whitespace-nowrap">${l.signal === '+' ? '+' : '−'}${this._money(l.value)}</span>
+          <button onclick="Actions.deleteDreExtraLine('${productId}', '${l.id}')" title="Remover" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
+        </div>`;
+      };
+
+      // Monta a lista intercalada: linha base + (sub-items se Deduções expandido)
+      // + botão "+" + extras dessa fase.
+      const rows = [];
+      for (const l of dre.lines) {
+        rows.push(renderBaseLine(l));
+        if (l.id === 'deducoes' && deducoesExpanded) {
+          rows.push(renderDeducoesSubItems());
+        }
+        if (l.kind === 'base' && l.id !== 'lucro_liquido') {
+          // Próximas extras desta fase já vêm em sequência via evaluateDRE,
+          // mas precisamos do "+" *depois* delas. Vou tratar inline abaixo.
+        }
+      }
+
+      // Refaz com lógica explícita: para cada base step não-final, mostra
+      // base → extras (já em dre.lines, kind:'extra') → "+".
+      const rowsV2 = [];
+      let i = 0;
+      while (i < dre.lines.length) {
+        const l = dre.lines[i];
+        if (l.kind === 'base') {
+          rowsV2.push(renderBaseLine(l));
+          if (l.id === 'deducoes' && deducoesExpanded) {
+            rowsV2.push(renderDeducoesSubItems());
+          }
+          // Coleta extras subsequentes desta fase
+          let j = i + 1;
+          while (j < dre.lines.length && dre.lines[j].kind === 'extra' && dre.lines[j].afterStep === l.id) {
+            rowsV2.push(renderExtraLine(dre.lines[j]));
+            j++;
+          }
+          // Botão "+" após esta fase (exceto na última)
+          if (l.id !== 'lucro_liquido') {
+            rowsV2.push(renderAddBtn(l.id));
+          }
+          i = j;
+        } else {
+          i++;
+        }
+      }
+
+      const margemCls = dre.margem >= 25 ? 'text-emerald-700' : dre.margem >= 0 ? 'text-amber-700' : 'text-rose-700';
+
       return `<div class="space-y-3">
         ${this._djowTip('dre')}
-        <h3 class="font-black text-slate-900">DRE Operacional (cinza da planilha)</h3>
-        <p class="text-[12px] text-slate-500">Demonstrativo do Resultado do Exercício — operacional. Linha por linha do Bruto até o EBITDA.</p>
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h3 class="font-black text-slate-900">DRE — Demonstrativo do Resultado</h3>
+            <p class="text-[12px] text-slate-500">Faturamento → Deduções → Venda Líquida → Lucro Bruto → S&M → G&A → Lucro Líquido. Use <b>+ inserir linha</b> pra entradas extras (IR, receitas financeiras, participações, etc).</p>
+          </div>
+        </div>
         <div class="rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden">
-          ${lines.map(l => {
-            const cls = l.highlight ? 'bg-amber-50' : l.bold ? 'bg-white' : '';
-            const textCls = {
-              emerald: 'text-emerald-700',
-              rose:    'text-rose-700',
-              sky:     'text-sky-700',
-              amber:   'text-amber-700'
-            }[l.tone] || 'text-slate-700';
-            return `<div class="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-200 last:border-b-0 ${cls}">
-              <span class="${l.bold ? 'font-black text-slate-900' : 'text-slate-600'} text-[13px]">${l.label}</span>
-              <span class="${l.bold ? 'font-black text-base' : 'font-bold text-sm'} ${textCls} whitespace-nowrap">${this._money(l.value)}</span>
-            </div>`;
-          }).join('')}
+          ${rowsV2.join('')}
         </div>
         <div class="rounded-xl bg-slate-100 border border-slate-200 p-3 text-[11px] text-slate-600">
-          <b>Saúde da operação:</b> ${ev.health} · Margem EBITDA: <b class="text-slate-900">${ev.ebitdaMargin.toFixed(1)}%</b>
+          <b>Margem Líquida:</b> <b class="${margemCls}">${dre.margem.toFixed(1)}%</b> · Lucro Líquido / Faturamento Bruto.
         </div>
       </div>`;
     },

@@ -60,6 +60,10 @@
         groups: [],
         // Custom KPIs (rosa da planilha do Felipe) — array de { id, name, formula, unit }
         customKpis: [],
+        // V32.10.9 — Linhas extras na DRE inseridas pelo cliente entre as fases.
+        // Cada uma: { id, name, value (str: número ou =fórmula), signal: '+'|'-',
+        // afterStep: 'fat_bruto'|'deducoes'|'venda_liquida'|'lucro_bruto'|'s_m'|'g_a' }
+        dreExtraLines: [],
         savedAt: null
       };
     },
@@ -122,6 +126,13 @@
           name: String(k.name || '').trim(),
           formula: String(k.formula || '=0'),
           unit: ['BRL', 'percent', 'unit'].includes(k.unit) ? k.unit : 'BRL'
+        })) : [],
+        dreExtraLines: Array.isArray(raw.dreExtraLines) ? raw.dreExtraLines.map(l => ({
+          id: String(l.id || `dre_${Date.now().toString(36).slice(-4)}`),
+          name: String(l.name || '').trim(),
+          value: String(l.value || ''),
+          signal: l.signal === '+' ? '+' : '-',
+          afterStep: ['fat_bruto', 'deducoes', 'venda_liquida', 'lucro_bruto', 's_m', 'g_a'].includes(l.afterStep) ? l.afterStep : 'lucro_bruto'
         })) : [],
         savedAt: raw.savedAt || null
       };
@@ -709,6 +720,111 @@
         }
       }
       return handles;
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // V32.10.9 — DRE FLEX (Felipe formato planilha)
+    // ─────────────────────────────────────────────────────────────
+    //
+    // Monta lista ordenada de linhas da DRE:
+    //   FB → Deduções(soma bucket variable) → VL → LB → S&M → G&A → LL
+    // Entre cada par, intercala extras manuais (cfg.dreExtraLines) com
+    // signal e value (number ou =fórmula). Subtotais recalculam cumulativamente.
+    //
+    // Retorna [{ id, kind: 'base'|'extra'|'subtotal', label, value, signal,
+    //            tone, bold, highlight, deletable, isSubtotal, afterStep? }]
+    evaluateDRE(cfg, ev) {
+      const symbols = ev.symbols || {};
+      const extras = Array.isArray(cfg.dreExtraLines) ? cfg.dreExtraLines : [];
+
+      // Valores base (auto, vêm de evaluate())
+      const fb = ev.fatBruto;
+      const deducoes = ev.variableTotal;   // soma do bucket variable
+      const sm = ev.acquisitionTotal;
+      const ga = ev.fixedTotal;
+
+      // Resolve valor de uma extra line. value pode ser número, string-número
+      // ou fórmula '=expr'. Retorna número.
+      const resolveExtra = (l) => {
+        const raw = String(l.value || '').trim();
+        if (!raw) return 0;
+        if (raw.startsWith('=')) return this._evalFormula(raw, symbols);
+        return this._num(raw);
+      };
+
+      // Soma extras de um step (signal aplicado: + soma, − subtrai)
+      const sumExtras = (afterStep) => {
+        return extras
+          .filter(l => l.afterStep === afterStep)
+          .reduce((s, l) => s + (l.signal === '+' ? resolveExtra(l) : -resolveExtra(l)), 0);
+      };
+
+      // Cálculo cumulativo
+      let running = fb;
+      // Extras after fat_bruto
+      running += sumExtras('fat_bruto');
+      // Aplica deduções
+      running -= deducoes;
+      // Extras after deducoes
+      running += sumExtras('deducoes');
+      const vendaLiquida = running;
+      // Extras after venda_liquida
+      running += sumExtras('venda_liquida');
+      const lucroBruto = running;
+      // Extras after lucro_bruto
+      running += sumExtras('lucro_bruto');
+      // Aplica S&M
+      running -= sm;
+      // Extras after s_m
+      running += sumExtras('s_m');
+      // Aplica G&A
+      running -= ga;
+      // Extras after g_a
+      running += sumExtras('g_a');
+      const lucroLiquido = running;
+
+      // Renderiza linhas em ordem. Cada linha base intercalada com suas extras.
+      const lines = [];
+      const pushBase = (id, label, value, opts) => lines.push({
+        id, kind: 'base', label, value,
+        signal: opts.signal || '', tone: opts.tone || 'slate',
+        bold: !!opts.bold, highlight: !!opts.highlight,
+        isSubtotal: !!opts.isSubtotal,
+        afterStep: id  // pra o botão + ser inserido logo após
+      });
+      const pushExtrasAfter = (afterStep) => {
+        for (const l of extras.filter(x => x.afterStep === afterStep)) {
+          lines.push({
+            id: l.id, kind: 'extra',
+            label: l.name || '(sem nome)',
+            value: resolveExtra(l),
+            signal: l.signal, raw: l.value,
+            tone: l.signal === '+' ? 'emerald' : 'rose',
+            bold: false, deletable: true,
+            afterStep
+          });
+        }
+      };
+
+      pushBase('fat_bruto',     '(+) Faturamento Bruto',   fb,           { signal: '+', tone: 'emerald', bold: true });
+      pushExtrasAfter('fat_bruto');
+      pushBase('deducoes',      '(−) Deduções',            deducoes,     { signal: '-', tone: 'rose' });
+      pushExtrasAfter('deducoes');
+      pushBase('venda_liquida', '(=) Venda Líquida',       vendaLiquida, { tone: 'sky',    bold: true, isSubtotal: true });
+      pushExtrasAfter('venda_liquida');
+      pushBase('lucro_bruto',   '(=) Lucro Bruto',         lucroBruto,   { tone: 'sky',    bold: true, isSubtotal: true });
+      pushExtrasAfter('lucro_bruto');
+      pushBase('s_m',           '(−) S&M (Aquisição)',     sm,           { signal: '-', tone: 'rose' });
+      pushExtrasAfter('s_m');
+      pushBase('g_a',           '(−) G&A (Fixos)',         ga,           { signal: '-', tone: 'rose' });
+      pushExtrasAfter('g_a');
+      pushBase('lucro_liquido', '(=) Lucro Líquido',       lucroLiquido, { tone: lucroLiquido >= 0 ? 'emerald' : 'rose', bold: true, highlight: true, isSubtotal: true });
+
+      return {
+        lines,
+        totals: { fb, deducoes, vendaLiquida, lucroBruto, sm, ga, lucroLiquido },
+        margem: fb > 0 ? (lucroLiquido / fb) * 100 : 0
+      };
     },
 
     // ─────────────────────────────────────────────────────────────

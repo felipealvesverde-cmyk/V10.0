@@ -3879,6 +3879,50 @@ Object.assign(Actions, {
     }
   },
 
+  // ─────────────────────────────────────────────────────────────
+  // V32.10.9 — DRE FLEX (Felipe formato planilha)
+  // ─────────────────────────────────────────────────────────────
+  //
+  // Cliente insere linhas extras entre fases da DRE (FB → Deduções → VL →
+  // LB → S&M → G&A → LL). Cada extra tem nome + valor (handle ou número) +
+  // sinal (+/−). Persiste em revopsFinanceV2.{productId}.dreExtraLines.
+
+  addDreExtraLine(productId, afterStep) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      if (!Array.isArray(cfg.dreExtraLines)) cfg.dreExtraLines = [];
+      cfg.dreExtraLines.push({
+        id: `dre_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(2,5)}`,
+        name: '',
+        value: '',
+        signal: '-',
+        afterStep: String(afterStep || 'lucro_bruto')
+      });
+    });
+  },
+
+  updateDreExtraLine(productId, lineId, field, value) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const line = (cfg.dreExtraLines || []).find(l => l.id === lineId);
+      if (!line) return;
+      if (field === 'signal') line.signal = value === '+' ? '+' : '-';
+      else if (field === 'name') line.name = String(value || '');
+      else if (field === 'value') line.value = String(value || '');
+    });
+  },
+
+  deleteDreExtraLine(productId, lineId) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      cfg.dreExtraLines = (cfg.dreExtraLines || []).filter(l => l.id !== lineId);
+    });
+  },
+
+  toggleDreDeducoesExpanded(productId) {
+    if (!App.state.revopsDreDeducoesExpanded) App.state.revopsDreDeducoesExpanded = {};
+    const cur = !!App.state.revopsDreDeducoesExpanded[productId];
+    App.state.revopsDreDeducoesExpanded[productId] = !cur;
+    App.save(); App.render();
+  },
+
   // V32.9.4 — Collapse/Lock por grupo no RevOps.
   // Collapse: UI state, qualquer click expande. Lock: persistido, pede senha
   // do user logado pra destravar (anti edição acidental em login compartilhado).

@@ -214,6 +214,9 @@ var State = {
       // Valor é a chave única do input (ex: "composed:p1:mcu", "item:p1:itemX").
       // null = nenhum picker aberto.
       revopsHandlePickerKey: null,
+      // V32.10.9 — DRE: estado de expansão da linha "Deduções" per-product.
+      // { [productId]: boolean }. Default: colapsado.
+      revopsDreDeducoesExpanded: {},
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -624,6 +627,8 @@ var State = {
       revopsKpiOverrides: raw.revopsKpiOverrides && typeof raw.revopsKpiOverrides === 'object' ? raw.revopsKpiOverrides : {},
       // V32.10.7 — Handle picker é estado UI volátil (sempre fechado em F5).
       revopsHandlePickerKey: null,
+      // V32.10.9 — DRE: estado de expansão da Deduções persiste por produto.
+      revopsDreDeducoesExpanded: raw.revopsDreDeducoesExpanded && typeof raw.revopsDreDeducoesExpanded === 'object' ? raw.revopsDreDeducoesExpanded : {},
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,
