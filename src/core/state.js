@@ -220,6 +220,11 @@ var State = {
       // V32.12.1 — Expansão da faixa "Performance Externa" no card de Campanha.
       // { [campaignId]: boolean }. Default: colapsado.
       campaignPerfExpanded: {},
+      // V32.12.2 — Modo demo da Performance Externa: força exibição com dados
+      // mockados (Meta + Google conectados) pra cliente ver como vai ficar
+      // antes do backend OAuth (V32.12.3+) chegar. Toggle via console:
+      //   App.state.campaignPerfDemoMode = true; App.render();
+      campaignPerfDemoMode: false,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -634,6 +639,8 @@ var State = {
       revopsDreDeducoesExpanded: raw.revopsDreDeducoesExpanded && typeof raw.revopsDreDeducoesExpanded === 'object' ? raw.revopsDreDeducoesExpanded : {},
       // V32.12.1 — Performance Externa expand state persiste por campanha.
       campaignPerfExpanded: raw.campaignPerfExpanded && typeof raw.campaignPerfExpanded === 'object' ? raw.campaignPerfExpanded : {},
+      // V32.12.2 — Modo demo persiste (cliente pode deixar ligado pra demonstração).
+      campaignPerfDemoMode: !!raw.campaignPerfDemoMode,
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,
