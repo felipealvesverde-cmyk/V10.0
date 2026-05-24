@@ -261,31 +261,37 @@
     // V32.8.2 — Legenda dos handles disponíveis (aparece no Modo Excel).
     // Cliente vê de uma lista o que pode usar em fórmulas (sales, fat_bruto,
     // ebitda, g_<group>_total, ou qualquer item_id).
+    // V32.11.2 — Leonardo: legenda de handles executiva. bg-slate-50 + accent
+    // violet, selo uppercase, chips sóbrios.
     _handlesLegend(cfg) {
       const handles = RevopsWhitelabelEngine.availableHandles(cfg);
       const specials = handles.filter(h => h.kind === 'special');
       const groupTotals = handles.filter(h => h.kind === 'group_total');
       const items = handles.filter(h => h.kind === 'item');
-      const chip = (h) => `<code class="text-[10px] font-mono bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-700">${h.id}</code>`;
-      return `<details open class="rounded-2xl bg-violet-50/40 border border-violet-200 p-3">
-        <summary class="cursor-pointer text-[11px] font-black text-violet-800 uppercase tracking-wider flex items-center gap-1.5 select-none">
-          <i data-lucide="zap" class="w-3.5 h-3.5"></i>
-          Handles disponíveis no Modo Excel (${handles.length})
+      const chip = (h) => `<code class="text-[10px] font-mono bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-700 hover:border-violet-300 hover:bg-violet-50 transition">${h.id}</code>`;
+      return `<details open class="rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-violet-500 p-3">
+        <summary class="cursor-pointer text-[10px] font-black text-violet-700 uppercase tracking-widest flex items-center gap-1.5 select-none">
+          <i data-lucide="sigma" class="w-3.5 h-3.5"></i>
+          Handles disponíveis no Modo Excel
+          <span class="ml-1 px-1.5 py-0.5 rounded bg-violet-500/15 border border-violet-400/30 text-violet-700 text-[9px]">${handles.length}</span>
         </summary>
-        <div class="mt-2 space-y-2 text-[11px]">
+        <div class="mt-3 space-y-2.5 text-[11px]">
           <div>
-            <p class="font-black text-slate-600 mb-1">Especiais (sempre disponíveis)</p>
+            <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Especiais (sempre disponíveis)</p>
             <div class="flex flex-wrap gap-1">${specials.map(chip).join('')}</div>
           </div>
           ${groupTotals.length ? `<div>
-            <p class="font-black text-slate-600 mb-1">Totais de grupo</p>
+            <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Totais de grupo</p>
             <div class="flex flex-wrap gap-1">${groupTotals.map(chip).join('')}</div>
           </div>` : ''}
           ${items.length ? `<div>
-            <p class="font-black text-slate-600 mb-1">Itens cadastrados</p>
-            <div class="flex flex-wrap gap-1">${items.slice(0, 30).map(chip).join('')}${items.length > 30 ? `<span class="text-slate-400">+${items.length - 30}</span>` : ''}</div>
+            <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Itens cadastrados</p>
+            <div class="flex flex-wrap gap-1">${items.slice(0, 30).map(chip).join('')}${items.length > 30 ? `<span class="text-slate-400 text-[10px] self-center">+${items.length - 30}</span>` : ''}</div>
           </div>` : ''}
-          <p class="text-slate-500 italic mt-1">Exemplo: <code class="text-[10px] font-mono">=fat_bruto * 0.3 + g_software_total</code></p>
+          <div class="flex items-start gap-1.5 text-slate-500 mt-2 pt-2 border-t border-slate-200">
+            <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
+            <span>Exemplo: <code class="text-[10px] font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">=fat_bruto * 0.3 + g_software_total</code></span>
+          </div>
         </div>
       </details>`;
     },
@@ -382,30 +388,38 @@
         ? new Date(suggestion.askedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
         : null;
 
-      return `<div class="rounded-xl bg-indigo-50 border border-indigo-200 p-3 space-y-2">
-        <div class="flex items-start gap-2">
-          <i data-lucide="sparkles" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
-          <p class="text-[12px] text-indigo-900 leading-relaxed flex-1"><b class="text-indigo-700">Djow:</b> ${tip}</p>
+      // V32.11.2 — Leonardo: Djow tip executivo. Paleta violet (cor do RevOps),
+      // selo "DJOW · ANÁLISE", ícone sparkles em pill, botão sóbrio outline.
+      return `<div class="rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-violet-500 p-3 space-y-2">
+        <div class="flex items-start gap-2.5">
+          <span class="shrink-0 w-7 h-7 rounded-lg bg-violet-500/15 grid place-items-center text-violet-700">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+          </span>
+          <div class="flex-1 min-w-0">
+            <p class="text-[9px] font-black text-violet-700 uppercase tracking-widest">Djow · Análise</p>
+            <p class="text-[12px] text-slate-700 leading-relaxed mt-0.5">${tip}</p>
+          </div>
           ${hasResult || hasError
-            ? `<button onclick="Actions.askRevopsDjow('${productId}', '${tabId}')" ${loading ? 'disabled' : ''} title="Re-pedir análise" class="px-2 py-1 rounded-lg bg-white border border-indigo-300 hover:bg-indigo-50 text-indigo-700 text-[10px] font-black flex items-center gap-1 shrink-0 disabled:opacity-50">
+            ? `<button onclick="Actions.askRevopsDjow('${productId}', '${tabId}')" ${loading ? 'disabled' : ''} title="Re-pedir análise" class="px-2.5 py-1.5 rounded-lg bg-white border border-violet-300 hover:bg-violet-50 text-violet-700 text-[10px] font-black flex items-center gap-1.5 shrink-0 disabled:opacity-50 uppercase tracking-wider">
                 <i data-lucide="${loading ? 'loader-2' : 'refresh-cw'}" class="w-3 h-3 ${loading ? 'animate-spin' : ''}"></i>
-                ${loading ? 'Pensando…' : 'Re-analisar'}
+                ${loading ? 'Analisando' : 'Re-analisar'}
               </button>`
-            : `<button onclick="Actions.askRevopsDjow('${productId}', '${tabId}')" ${loading ? 'disabled' : ''} class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black flex items-center gap-1 shrink-0 disabled:opacity-50" style="color:#fff!important;">
+            : `<button onclick="Actions.askRevopsDjow('${productId}', '${tabId}')" ${loading ? 'disabled' : ''} class="px-2.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black flex items-center gap-1.5 shrink-0 disabled:opacity-50 uppercase tracking-wider" style="color:#fff!important;">
                 <i data-lucide="${loading ? 'loader-2' : 'brain'}" class="w-3 h-3 ${loading ? 'animate-spin' : ''}"></i>
-                ${loading ? 'Pensando…' : 'Pedir análise'}
+                ${loading ? 'Analisando' : 'Pedir análise'}
               </button>`}
         </div>
-        ${hasResult ? `<div class="rounded-lg bg-white border border-indigo-300 p-3 mt-2">
-          <div class="flex items-start gap-2 mb-1">
-            <span class="text-[9px] font-black text-indigo-700 uppercase tracking-wider">Análise contextual</span>
+        ${hasResult ? `<div class="rounded-lg bg-white border border-violet-200 p-3 mt-2">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="text-[9px] font-black text-violet-700 uppercase tracking-widest">Análise contextual</span>
             <span class="text-[9px] text-slate-400">· ${askedAtLabel}</span>
-            <button onclick="Actions.clearRevopsDjowSuggestion('${tabId}')" title="Fechar" class="ml-auto text-slate-400 hover:text-slate-600 text-[10px]">×</button>
+            <button onclick="Actions.clearRevopsDjowSuggestion('${tabId}')" title="Fechar" class="ml-auto text-slate-400 hover:text-slate-600 inline-flex"><i data-lucide="x" class="w-3 h-3"></i></button>
           </div>
-          <p class="text-[12px] text-slate-800 leading-relaxed whitespace-pre-wrap">${Utils.escape(suggestion.suggestion)}</p>
+          <p class="text-[12px] text-slate-700 leading-relaxed whitespace-pre-wrap">${Utils.escape(suggestion.suggestion)}</p>
         </div>` : ''}
-        ${hasError ? `<div class="rounded-lg bg-rose-50 border border-rose-200 p-2 text-[11px] text-rose-800">
-          Falha: ${Utils.escape(suggestion.error)}
+        ${hasError ? `<div class="rounded-lg bg-rose-500/10 border border-rose-400/30 p-2 text-[11px] text-rose-800 inline-flex items-start gap-1.5">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i>
+          <span>Falha: ${Utils.escape(suggestion.error)}</span>
         </div>` : ''}
       </div>`;
     },
@@ -579,21 +593,21 @@
           const badgeCls = validation.status === 'ok' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                          : validation.status === 'warn' ? 'bg-amber-50 border-amber-200 text-amber-800'
                          : 'bg-rose-50 border-rose-200 text-rose-800';
-          const badgeIcon = validation.status === 'ok' ? '✓' : validation.status === 'warn' ? '⚠' : '✗';
+          const badgeIcon = validation.status === 'ok' ? 'check-circle-2' : validation.status === 'warn' ? 'alert-triangle' : 'x-circle';
           const pickerKey = `item:${productId}:${item.id}`;
           return `<div class="block">
             <div class="flex items-center justify-between flex-wrap gap-2">
-              <span class="text-[9px] font-black text-slate-500 uppercase">Fórmula avançada</span>
+              <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Fórmula avançada</span>
               ${this._handlePicker(pickerKey, cfg)}
             </div>
             <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(calc.formula || '=0')}" list="lj-revops-handles" onchange="${update('formula')}" placeholder="=fat_bruto * 0,059" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border ${borderCls} text-sm font-mono text-slate-800" />
-            <div class="mt-1 px-2 py-1 rounded text-[10px] font-bold border ${badgeCls}">
-              ${badgeIcon} ${Utils.escape(validation.message)}
-              ${validation.suggestions && validation.suggestions.length
+            <div class="mt-1 px-2 py-1 rounded text-[10px] font-bold border ${badgeCls} inline-flex items-start gap-1.5">
+              <i data-lucide="${badgeIcon}" class="w-3 h-3 mt-0.5 shrink-0"></i>
+              <span>${Utils.escape(validation.message)}${validation.suggestions && validation.suggestions.length
                 ? `<br><span class="font-normal">Quis dizer: ${validation.suggestions.map(s => `<code class="text-[10px] bg-white px-1 rounded">${Utils.escape(s)}</code>`).join(', ')}?</span>`
-                : ''}
+                : ''}</span>
             </div>
-            <p class="text-[10px] text-slate-500 mt-1"><i data-lucide="zap" class="w-3 h-3 inline-block"></i> Vírgula BR (<code>0,059</code>) ou ponto (<code>0.059</code>) — ambos funcionam.</p>
+            <p class="text-[10px] text-slate-500 mt-1 inline-flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i> Vírgula BR (<code>0,059</code>) ou ponto (<code>0.059</code>) — ambos funcionam.</p>
           </div>`;
         }
         default:
@@ -994,9 +1008,9 @@
       const previstas = totalSales;
       const folgaPct = breakeven > 0 ? (previstas / breakeven) * 100 : 0;
       let bkHealth;
-      if (folgaPct >= 130)      bkHealth = { cls: 'emerald', msg: `previstas ${previstas} = ${folgaPct.toFixed(0)}% do Breakeven · folga sólida ✓` };
-      else if (folgaPct >= 100) bkHealth = { cls: 'amber',   msg: `previstas ${previstas} = ${folgaPct.toFixed(0)}% do Breakeven · operação respira justo ⚠` };
-      else                       bkHealth = { cls: 'rose',    msg: `previstas ${previstas} = ${folgaPct.toFixed(0)}% do Breakeven · operação queima caixa ✗` };
+      if (folgaPct >= 130)      bkHealth = { cls: 'emerald', msg: `previstas ${previstas} = ${folgaPct.toFixed(0)}% do Breakeven · folga sólida` };
+      else if (folgaPct >= 100) bkHealth = { cls: 'amber',   msg: `previstas ${previstas} = ${folgaPct.toFixed(0)}% do Breakeven · operação respira justo` };
+      else                       bkHealth = { cls: 'rose',    msg: `previstas ${previstas} = ${folgaPct.toFixed(0)}% do Breakeven · operação queima caixa` };
       const folgaVendas = previstas - breakeven;
       const ebitdaProjetado = folgaVendas * msu;
 
@@ -1287,7 +1301,7 @@
       const resultCls = validation.status === 'ok' ? 'text-emerald-700'
                       : validation.status === 'warn' ? 'text-amber-700'
                       : 'text-rose-700';
-      const resultIcon = validation.status === 'ok' ? '✓' : validation.status === 'warn' ? '⚠' : '✗';
+      const resultIcon = validation.status === 'ok' ? 'check-circle-2' : validation.status === 'warn' ? 'alert-triangle' : 'x-circle';
       const resultLabel = validation.status === 'error'
         ? '— erro'
         : '−' + this._money(validation.value);
@@ -1297,8 +1311,9 @@
         <div>
           <input value="${Utils.escape(nameRaw)}" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'name', this.value); App.render();" placeholder="Imposto, Comissão, etc" class="w-full px-2 py-1.5 rounded-lg bg-slate-50 border ${nameLooksLikeFormula ? 'border-amber-400 ring-1 ring-amber-200' : 'border-slate-200'} text-xs font-bold text-slate-800" />
           ${nameLooksLikeFormula ? `<div class="mt-1 flex items-center gap-1.5 text-[10px] text-amber-800">
-            <span>⚠ Isso parece fórmula — campo errado.</span>
-            <button onclick="Actions.moveRevopsComponentFormulaToValue('${productId}', '${kpi}', ${idx})" class="px-1.5 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-black" style="color:#fff!important;">Mover →</button>
+            <i data-lucide="alert-triangle" class="w-3 h-3 shrink-0"></i>
+            <span>Isso parece fórmula — campo errado.</span>
+            <button onclick="Actions.moveRevopsComponentFormulaToValue('${productId}', '${kpi}', ${idx})" class="px-1.5 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-black inline-flex items-center gap-0.5" style="color:#fff!important;">Mover <i data-lucide="arrow-right" class="w-2.5 h-2.5"></i></button>
           </div>` : ''}
         </div>
         <div>
@@ -1310,7 +1325,7 @@
             : ''}
         </div>
         <div class="text-right pt-1.5">
-          <span class="text-xs font-black ${resultCls} whitespace-nowrap">${resultIcon} ${resultLabel}</span>
+          <span class="text-xs font-black ${resultCls} whitespace-nowrap inline-flex items-center gap-1 justify-end"><i data-lucide="${resultIcon}" class="w-3 h-3"></i> ${resultLabel}</span>
         </div>
         <button onclick="Actions.deleteRevopsKpiComponent('${productId}', '${kpi}', ${idx})" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black self-start mt-0.5">×</button>
       </div>`;
