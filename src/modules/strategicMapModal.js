@@ -3265,10 +3265,14 @@ window.StrategicMapModal = {
       <p class="text-[13px] font-black leading-snug line-clamp-2 mb-1.5 ${nameCls}" title="${Utils.escape(displayName)}">${Utils.escape(displayName)}</p>
       <p class="text-[10px] text-slate-500 truncate">${Utils.escape(action.channel || '— canal —')}</p>`;
 
+    // V32.15.3 (Leonardo) — Barra-totem na esquerda do card de ação espelha o
+    // peso visual do card master. 4px era apenas "borda", virava ruído contra
+    // a border-2 amber. 6px + leve gradient krColor→transparent no fundo lê
+    // como ancoragem, igual ao quadrado do ícone no master.
     const cardButton = `<button onclick="Actions.openMindMapActionEditor(${action.id})"
       title="Clique pra editar esta ação"
       class="w-48 text-left bg-slate-900/60 border-2 ${borderStatus} p-3 hover:bg-slate-800 transition group ${isComplete ? 'rounded-l-xl border-r-0' : 'rounded-xl hover:scale-[1.02] hover:shadow-lg'} ${animCls}"
-      style="border-left: 4px solid ${krColor};">
+      style="border-left: 6px solid ${krColor}; background-image: linear-gradient(to right, ${krColor}14 0%, transparent 22%);">
       ${cardInner}
     </button>`;
 
@@ -3297,9 +3301,15 @@ window.StrategicMapModal = {
         </div>`
       : '';
 
-    return `<div class="flex items-stretch ${animCls.replace('lj-mind-map-action-enter', '')}">
-      ${cardButton}
-      ${executeBtn}
+    // V32.15.3 (Leonardo) — Externo `items-start` não estica mais o card pela
+    // altura das tasks empilhadas. Wrapper interno `items-stretch` mantém o par
+    // card+executeBtn sempre da mesma altura (visual de bloco fechado). Tasks
+    // viram coluna independente alinhada ao centro, sem deformar o card.
+    return `<div class="flex items-start gap-0 ${animCls.replace('lj-mind-map-action-enter', '')}">
+      <div class="flex items-stretch">
+        ${cardButton}
+        ${executeBtn}
+      </div>
       ${executionBranch}
     </div>`;
   },
