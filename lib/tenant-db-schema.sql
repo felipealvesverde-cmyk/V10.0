@@ -213,6 +213,115 @@ CREATE INDEX IF NOT EXISTS idx_execution_credentials_user
   ON execution_credentials(user_id);
 
 -- ============================================================================
+-- V33 — ORQUESTRAÇÃO (tracker próprio + Suspect→Lead→Customer + atribuição causal)
+-- ============================================================================
+-- Onda 1 da V33 (memória [[project_v33_orchestration_architecture]]).
+-- 4 tabelas novas — NENHUMA altera tabela pré-existente. Zero risco em prod.
+-- Visitor é unidade central. Ele PERTENCE ao tenant + produto. Touchpoints
+-- registram qual campanha o trouxe (pode haver N touchpoints / N campanhas
+-- distintas pro mesmo visitor). Transitions registram mudanças de entidade.
+-- Events guardam o log cru do tracker (audit + debug).
+
+-- Visitor — 1 linha por pessoa rastreada (dedup por lj_visitor_id).
+-- Pertence a (user_id, product_id). entity_type evolui suspect→lead→customer.
+-- current_stage é qual dos 9 estágios ele tá agora (default marketing-tof).
+CREATE TABLE IF NOT EXISTS lj_visitors (
+  id BIGSERIAL PRIMARY KEY,
+  lj_visitor_id VARCHAR(64) NOT NULL,
+  user_id INT NOT NULL,
+  product_id BIGINT,
+  entity_type VARCHAR(16) NOT NULL DEFAULT 'suspect',  -- 'suspect' | 'lead' | 'customer'
+  current_stage VARCHAR(32) NOT NULL DEFAULT 'marketing-tof',
+  email VARCHAR(255),
+  phone VARCHAR(64),
+  name VARCHAR(255),
+  first_seen_at TIMESTAMPTZ DEFAULT NOW(),
+  last_seen_at TIMESTAMPTZ DEFAULT NOW(),
+  promoted_to_lead_at TIMESTAMPTZ,
+  promoted_to_customer_at TIMESTAMPTZ,
+  total_value_cents INT DEFAULT 0,   -- soma de receita atribuída (preenchida em Onda 2)
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT lj_visitors_visitor_id_user_uniq UNIQUE (user_id, lj_visitor_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lj_visitors_user_entity_stage
+  ON lj_visitors(user_id, entity_type, current_stage);
+CREATE INDEX IF NOT EXISTS idx_lj_visitors_user_product
+  ON lj_visitors(user_id, product_id);
+CREATE INDEX IF NOT EXISTS idx_lj_visitors_email
+  ON lj_visitors(user_id, email) WHERE email IS NOT NULL;
+
+-- Events — log cru de TUDO que o snippet captura (page_view, click, form_submit, etc).
+-- Volume alto esperado; tabela append-only. Útil pra debug e replays.
+CREATE TABLE IF NOT EXISTS lj_visitor_events (
+  id BIGSERIAL PRIMARY KEY,
+  lj_visitor_id VARCHAR(64) NOT NULL,
+  user_id INT NOT NULL,
+  event_type VARCHAR(64) NOT NULL,    -- 'page_view' | 'click' | 'form_submit' | etc
+  event_payload JSONB,
+  occurred_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lj_visitor_events_visitor
+  ON lj_visitor_events(lj_visitor_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_lj_visitor_events_user_type
+  ON lj_visitor_events(user_id, event_type, occurred_at);
+
+-- Touchpoints — toda visita registra source+campaign+UTM+cost. Coração do
+-- source tracking. Visitor pode ter N touchpoints. Atribuição (first/last/etc)
+-- é leitura sobre esta tabela.
+CREATE TABLE IF NOT EXISTS lj_visitor_touchpoints (
+  id BIGSERIAL PRIMARY KEY,
+  lj_visitor_id VARCHAR(64) NOT NULL,
+  user_id INT NOT NULL,
+  campaign_id BIGINT,                    -- campanha LJ que rastreou (vinda do snippet)
+  source VARCHAR(64),                    -- 'google_ads' | 'meta_ads' | 'google_organic' | 'rd_email' | 'direct' | ...
+  source_type VARCHAR(16),               -- 'paid' | 'owned' | 'earned' | 'direct'
+  utm_source VARCHAR(128),
+  utm_medium VARCHAR(128),
+  utm_campaign VARCHAR(128),
+  utm_content VARCHAR(255),
+  utm_term VARCHAR(128),
+  referrer_url TEXT,
+  landing_url TEXT,
+  cost_cents INT DEFAULT 0,              -- preenchido em Onda 4 pelos APIs Ads
+  is_first BOOLEAN DEFAULT FALSE,        -- primeiro touchpoint do visitor (pra first-touch attribution)
+  occurred_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lj_touchpoints_visitor
+  ON lj_visitor_touchpoints(lj_visitor_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_lj_touchpoints_user_campaign
+  ON lj_visitor_touchpoints(user_id, campaign_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_lj_touchpoints_user_source
+  ON lj_visitor_touchpoints(user_id, source, occurred_at);
+
+-- Transitions — audit log permanente de mudanças de entidade/estágio.
+-- NUNCA apagado. Coração da atribuição causal (triggered_by_action_id).
+-- Source diz como o LJ soube da transição (tracker próprio, webhook RD, etc).
+CREATE TABLE IF NOT EXISTS lj_transitions (
+  id BIGSERIAL PRIMARY KEY,
+  lj_visitor_id VARCHAR(64) NOT NULL,
+  user_id INT NOT NULL,
+  from_entity VARCHAR(16),               -- 'suspect' | 'lead' | 'customer' | NULL (criação)
+  to_entity VARCHAR(16) NOT NULL,
+  from_stage VARCHAR(32),
+  to_stage VARCHAR(32),
+  triggered_by_action_id BIGINT,         -- FK conceitual com App.state.actions; NULL quando não atribuível
+  source VARCHAR(32) NOT NULL,           -- 'tracker' | 'rd_webhook' | 'hotmart_webhook' | 'manual'
+  raw_payload JSONB,
+  occurred_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lj_transitions_visitor
+  ON lj_transitions(lj_visitor_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_lj_transitions_user_to
+  ON lj_transitions(user_id, to_entity, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_lj_transitions_user_action
+  ON lj_transitions(user_id, triggered_by_action_id) WHERE triggered_by_action_id IS NOT NULL;
+
+-- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS tenant_schema_meta (
@@ -221,5 +330,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v32.4.2')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v33.0.0-onda1')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
