@@ -2999,7 +2999,49 @@ var SettingsModal = {
         </div>`
       : '';
 
+    // V33.0.0 Onda 2 — Auto-fetch status Hotmart 1x quando user abre Integrações.
+    if (App.state.hotmartStatus === null && window.Actions?.loadHotmartStatus) {
+      setTimeout(() => Actions.loadHotmartStatus(), 0);
+    }
+    const hStatus = App.state.hotmartStatus || {};
+    const hotmartCard = `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div class="flex items-start gap-3 min-w-0">
+          <span class="shrink-0 w-10 h-10 rounded-xl bg-orange-100 grid place-items-center">
+            <i data-lucide="dollar-sign" class="w-5 h-5 text-orange-700"></i>
+          </span>
+          <div class="min-w-0">
+            <h3 class="font-black text-lg">Hotmart</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Recebe compras automaticamente e promove leads para customers.</p>
+          </div>
+        </div>
+        ${hStatus.configured
+          ? `<span class="px-2.5 py-1 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-700 text-[10px] font-black uppercase tracking-wider">Conectado</span>`
+          : `<span class="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-wider">Não conectado</span>`}
+      </div>
+      ${hStatus.configured ? `
+        <div class="rounded-2xl bg-slate-50 border border-slate-100 p-3 mb-3">
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">HOTTOK</p>
+          <p class="text-[12px] font-mono text-slate-700">${Utils.escape(hStatus.hottokMasked || '—')}</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="Actions.openHotmartWizard()" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;">
+            <i data-lucide="settings" class="w-3 h-3"></i> Gerenciar
+          </button>
+          <button onclick="Actions.disconnectHotmart()" class="px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-black flex items-center gap-1.5">
+            <i data-lucide="unplug" class="w-3 h-3"></i> Desconectar
+          </button>
+        </div>
+      ` : `
+        <button onclick="Actions.openHotmartWizard()" class="w-full px-4 py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-black flex items-center justify-center gap-2" style="color:#fff!important;">
+          <i data-lucide="plug" class="w-4 h-4"></i> Conectar Hotmart
+        </button>
+        <p class="text-[10px] text-slate-500 mt-2 italic">Wizard guiado: cola o HOTTOK e a URL do webhook no Hotmart.</p>
+      `}
+    </div>`;
+
     return `<div class="space-y-5">
+      ${hotmartCard}
       ${this._performanceIntegrationsBlock()}
       ${App.state.clickupSpaceWizard?.open ? this._clickupSpaceWizardRender() : ''}
       ${(() => {

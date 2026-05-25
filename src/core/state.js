@@ -277,6 +277,9 @@ var State = {
       selectedResultProductId: null,
       // V33.0.0 — Feature flag fallback pro Resultados antigo (caso user prefira).
       resultsClassicMode: false,
+      // V33.0.0 Onda 2 — Hotmart: status cache + wizard.
+      hotmartStatus: null,
+      hotmartWizardOpen: null,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -716,6 +719,9 @@ var State = {
       // V33.0.0 — Resultados produto-first persiste seleção.
       selectedResultProductId: raw.selectedResultProductId ? Number(raw.selectedResultProductId) : null,
       resultsClassicMode: Boolean(raw.resultsClassicMode),
+      // V33.0.0 Onda 2 — Hotmart status/wizard sempre volátil (re-fetch + fecha em F5).
+      hotmartStatus: null,
+      hotmartWizardOpen: null,
       // V32.14.8 — Timestamp da última sync ClickUp persiste.
       clickupLastSyncAt: Number(raw.clickupLastSyncAt) || null,
       // V32.15.0 — Recolher por bloco no Acompanhamento persiste.

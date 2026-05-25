@@ -9862,6 +9862,110 @@ Object.assign(Actions, {
   toggleResultsClassicMode() {
     App.state.resultsClassicMode = !App.state.resultsClassicMode;
     App.save(); App.render();
+  },
+
+  // ---- V33.0.0 ONDA 2 — Hotmart ----
+  async loadHotmartStatus() {
+    try {
+      const data = await this._trackerFetch('/api/hotmart-config');
+      App.state.hotmartStatus = data.ok ? data : { ok: false, configured: false, error: data.message };
+      App.render();
+    } catch (err) {
+      App.state.hotmartStatus = { ok: false, configured: false, error: err.message };
+      App.render();
+    }
+  },
+
+  openHotmartWizard() {
+    App.state.hotmartWizardOpen = {
+      step: 1,
+      draft: { hottok: '', productMappings: {} },
+      saving: false,
+      error: null
+    };
+    // Garante que status tá carregado pro wizard mostrar "já conectado" se for o caso
+    if (!App.state.hotmartStatus) Actions.loadHotmartStatus();
+    App.render();
+  },
+
+  closeHotmartWizard() {
+    App.state.hotmartWizardOpen = null;
+    App.render();
+  },
+
+  setHotmartWizardStep(step) {
+    if (!App.state.hotmartWizardOpen) return;
+    App.state.hotmartWizardOpen = { ...App.state.hotmartWizardOpen, step: Number(step) || 1 };
+    App.render();
+  },
+
+  updateHotmartDraft(field, value) {
+    if (!App.state.hotmartWizardOpen) return;
+    const draft = { ...(App.state.hotmartWizardOpen.draft || {}) };
+    draft[field] = value;
+    App.state.hotmartWizardOpen = { ...App.state.hotmartWizardOpen, draft };
+    // Não re-render — input perde foco se eu rerender em cada keystroke
+  },
+
+  async saveHotmartConfig() {
+    const w = App.state.hotmartWizardOpen;
+    if (!w?.draft?.hottok) return Utils.toast('Cole o HOTTOK primeiro.');
+    App.state.hotmartWizardOpen = { ...w, saving: true, error: null };
+    App.render();
+    try {
+      const data = await this._trackerFetch('/api/hotmart-config', {
+        method: 'POST',
+        body: JSON.stringify({
+          hottok: w.draft.hottok.trim(),
+          productMappings: w.draft.productMappings || {}
+        })
+      });
+      if (!data.ok) {
+        App.state.hotmartWizardOpen = { ...App.state.hotmartWizardOpen, saving: false, error: data.message };
+        App.render();
+        return;
+      }
+      Utils.toast('✓ Hotmart conectado.');
+      await Actions.loadHotmartStatus();
+      // Avança pro passo 3 (instruções webhook URL)
+      App.state.hotmartWizardOpen = { ...App.state.hotmartWizardOpen, saving: false, error: null, step: 3 };
+      App.render();
+    } catch (err) {
+      App.state.hotmartWizardOpen = { ...App.state.hotmartWizardOpen, saving: false, error: err.message };
+      App.render();
+    }
+  },
+
+  async disconnectHotmart() {
+    if (!confirm('Desconectar Hotmart? O LJ vai parar de receber compras desta integração.')) return;
+    try {
+      await this._trackerFetch('/api/hotmart-config', { method: 'DELETE' });
+      Utils.toast('Hotmart desconectado.');
+      App.state.hotmartStatus = { ok: true, configured: false };
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  copyHotmartWebhookUrl() {
+    // URL pra cliente colar no Hotmart. Inclui tenant_id pra roteamento.
+    const tenantId = (() => {
+      try {
+        const jwt = localStorage.getItem('lj_jwt');
+        if (!jwt) return null;
+        const payload = JSON.parse(atob(jwt.split('.')[1]));
+        return payload?.tenantId || null;
+      } catch (_) { return null; }
+    })();
+    if (!tenantId) return Utils.toast('Você precisa estar associado a um tenant pra gerar a URL.');
+    const url = `${window.location.origin}/api/hotmart-webhook?tenant_id=${tenantId}`;
+    try {
+      navigator.clipboard.writeText(url);
+      Utils.toast('✓ URL do webhook copiada.');
+    } catch (_) {
+      Utils.toast('Não consegui copiar — copie manualmente: ' + url);
+    }
   }
 });
 
