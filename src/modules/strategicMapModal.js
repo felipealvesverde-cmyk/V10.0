@@ -2376,21 +2376,31 @@ window.StrategicMapModal = {
     </section>`;
   },
 
-  // V32.13.2 — Mind-map horizontal: 3 frentes empilhadas verticalmente,
-  // cada uma com master à esquerda + ações ramificadas à direita (flex-wrap).
-  // Todas as frentes ficam visíveis simultâneas (sem fade, sem toggle).
-  // Botão "+ Adicionar ação" SEMPRE clicável em cada master.
+  // V32.13.3 — Híbrido: 3 frentes empilhadas verticalmente. Cada uma pode
+  // ficar em 3 estados:
+  //   - neutral (nenhuma ativa): cards compactos lado a lado, sem ações.
+  //   - active: ocupa todo espaço com mind-map horizontal expandido (master
+  //     à esquerda + ações ramificadas à direita em flex-wrap).
+  //   - fade: opacity-40 + pointer-events-none, compacto sem ações visíveis.
+  // Click no master toggla. Re-click na mesma volta neutro.
   _frenteStackVertical(product, productKrs, campaignId) {
     const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    const activeId = this._activeAreaId(product.id);  // null se neutro
+    const anyActive = activeId !== null;
     return `<div class="space-y-3">
-      ${areas.map(area => this._frenteMindMapRow(product, area, productKrs, campaignId)).join('')}
+      ${areas.map(area => {
+        const isActive = activeId === area.id;
+        const isFade = anyActive && !isActive;
+        return this._frenteMindMapRow(product, area, productKrs, campaignId, isActive, isFade);
+      }).join('')}
     </div>`;
   },
 
-  // V32.13.2 — Linha horizontal de uma frente no mind-map.
-  // Master (largura fixa ~280px) + ações ramificadas à direita (flex-wrap).
-  // Empty state: master sem ações mostra microcopy.
-  _frenteMindMapRow(product, area, productKrs, campaignId) {
+  // V32.13.3 — Linha de uma frente. Estados visuais:
+  //   - active: master destacado + mind-map horizontal expandido com ações
+  //   - fade: card compacto translúcido sem ações
+  //   - neutral: card compacto clicável (estado inicial)
+  _frenteMindMapRow(product, area, productKrs, campaignId, isActive, isFade) {
     const tone = area.color;
     const objective = (StrategicMapEngine.getObjectiveByArea ? StrategicMapEngine.getObjectiveByArea(product.id, area.id) : null);
     const okrs = objective?.okrs || [];
@@ -2401,38 +2411,59 @@ window.StrategicMapModal = {
                      : area.id === 'marketing' ? 'entrega <b>leads</b> →'
                      : 'entrega <b>clientes</b> →';
 
-    // Ações desta frente nesta campanha (agrupadas por KR pra cores adjacentes)
-    const actions = this._actionsForFrente(area.id, campaignId);
+    // Wrapper de estado (Leonardo)
+    const wrapperCls = isActive
+      ? `ring-2 ring-${tone}-400/50 shadow-lg bg-${tone}-500/5 border-${tone}-400/40`
+      : isFade
+      ? `opacity-40 pointer-events-none transition-opacity duration-300 bg-white/[0.02] border-white/10`
+      : `bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-${tone}-400/30 cursor-pointer transition`;
 
-    const masterCard = `<div class="shrink-0 w-64 rounded-2xl bg-${tone}-500/10 border border-${tone}-400/30 p-3 self-start">
-      <div class="flex items-center gap-2.5">
-        <span class="shrink-0 w-9 h-9 rounded-xl bg-${tone}-500/25 grid place-items-center">
-          <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
-        </span>
-        <div class="min-w-0 flex-1">
-          <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest">${Utils.escape(area.label)}</p>
-          <p class="text-[10px] text-slate-400 mt-0.5">${handoffHint}</p>
-        </div>
+    // Master card — sempre presente. Quando ativa, fica maior + botão "+ Adicionar ação" no header.
+    // Quando neutra/fade: compacto, clicável (no neutral) pra selecionar.
+    const masterHeader = `<button ${isFade ? 'tabindex="-1"' : ''} onclick="Actions.setStrategicActiveArea('${area.id}')" class="flex items-center gap-2.5 min-w-0 flex-1 text-left ${isFade ? 'cursor-not-allowed' : 'cursor-pointer'}">
+      <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-500/25 grid place-items-center">
+        <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
+      </span>
+      <div class="min-w-0">
+        <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest">${Utils.escape(area.label)}${isActive ? ' · <span class="text-${tone}-100">Ativo</span>' : ''}</p>
+        <p class="text-[10px] text-slate-400 mt-0.5">${handoffHint}</p>
+        <p class="text-[10px] ${isActive ? `text-${tone}-200` : 'text-slate-500'} font-bold mt-0.5">${stateLabel}</p>
       </div>
-      <p class="text-[10px] text-slate-500 font-bold mt-2">${stateLabel}</p>
-      <button onclick="Actions.openStrategicKrPicker('${area.id}')" title="Adicionar ação à árvore desta frente"
-        class="mt-2 w-full px-3 py-1.5 rounded-lg bg-${tone}-500/30 hover:bg-${tone}-500/50 border border-${tone}-400/50 text-${tone}-100 text-[10px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5">
-        <i data-lucide="plus" class="w-3 h-3"></i> Adicionar ação
-      </button>
-    </div>`;
+    </button>`;
 
+    // Estado neutro/fade: só master compacto largura inteira
+    if (!isActive) {
+      return `<div class="rounded-2xl border p-3 ${wrapperCls}">
+        <div class="flex items-center justify-between gap-3">
+          ${masterHeader}
+        </div>
+      </div>`;
+    }
+
+    // ATIVA: mind-map horizontal expandido
+    const actions = this._actionsForFrente(area.id, campaignId);
     const actionsArea = actions.length === 0
-      ? `<div class="flex-1 self-center px-4 py-3 rounded-xl bg-white/[0.02] border border-dashed border-white/10">
-          <p class="text-[11px] text-slate-500 italic">Nenhuma ação nesta frente. Clique <b>[+ ação]</b> à esquerda pra criar a primeira.</p>
+      ? `<div class="flex-1 self-center px-4 py-6 rounded-xl bg-white/[0.02] border border-dashed border-${tone}-400/30">
+          <p class="text-[11px] text-slate-400 italic text-center">Nenhuma ação ainda. Clique <b>[+ Adicionar ação]</b> ao lado pra criar a primeira.</p>
         </div>`
-      : `<div class="flex-1 flex flex-wrap gap-2 self-center">
+      : `<div class="flex-1 flex flex-wrap gap-2 self-start">
           ${actions.map(a => this._actionMindMapCard(a, area, productKrs)).join('')}
         </div>`;
 
-    // Conector visual: pseudo-border no master + gap controlado
-    return `<div class="flex items-stretch gap-3">
-      ${masterCard}
-      ${actionsArea}
+    return `<div class="rounded-2xl border p-4 ${wrapperCls}">
+      <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
+        ${masterHeader}
+        <button onclick="event.stopPropagation(); Actions.openStrategicKrPicker('${area.id}')" title="Adicionar ação à árvore desta frente"
+          class="shrink-0 px-3 py-2 rounded-xl bg-${tone}-500/30 hover:bg-${tone}-500/50 border border-${tone}-400/50 text-${tone}-100 text-[11px] font-black uppercase tracking-wider inline-flex items-center gap-1.5">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Adicionar ação
+        </button>
+      </div>
+      <div class="flex items-stretch gap-3 pt-3 border-t border-${tone}-400/20">
+        <div class="shrink-0 w-2 self-stretch flex flex-col items-center justify-center">
+          <span class="w-full h-full border-l-2 border-dashed border-${tone}-400/40"></span>
+        </div>
+        ${actionsArea}
+      </div>
     </div>`;
   },
 
