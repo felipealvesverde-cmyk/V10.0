@@ -261,6 +261,18 @@ var State = {
       // Felipe pediu recolher dos 4 layers: Números, Ações, Carga, Gantt.
       // Persiste pra a preferência sobreviver F5.
       acompanhamentoSectionsCollapsed: { krs: false, actions: false, carga: false, gantt: false },
+      // V33.0.0 — Onda 1 Fase 2: cache de visitors lidos do tenant DB.
+      // Não persiste (volátil) — sempre re-fetch ao abrir LJ.
+      trackerVisitorsCache: { counts: null, list: [], loadedAt: null, loading: false },
+      // V33.0.0 — Status do tracker por campanha (evita fetch em todo render).
+      // { [campaignId]: { connected, lastEventAt, totalVisitors, byEntityType, loadedAt } }
+      trackerStatusByCampaign: {},
+      // V33.0.0 — Modal wizard "Conectar LP" (volátil).
+      // null = fechado. Aberto: { campaignId, step, snippet, trackerToken, apiBase, copied }
+      trackerWizardOpen: null,
+      // V33.0.0 — Modal detalhe do visitor (prontuário, volátil).
+      // null = fechado. Aberto: { lj_visitor_id, data, loading }
+      trackerVisitorDetail: null,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -692,6 +704,11 @@ var State = {
       acompanhamentoKrDetail: null,
       // V32.14.2 — Drill-down Ação volátil.
       acompanhamentoActionDetail: null,
+      // V33.0.0 — Tracker caches + modais voláteis (sempre re-fetch/fecha em F5).
+      trackerVisitorsCache: { counts: null, list: [], loadedAt: null, loading: false },
+      trackerStatusByCampaign: {},
+      trackerWizardOpen: null,
+      trackerVisitorDetail: null,
       // V32.14.8 — Timestamp da última sync ClickUp persiste.
       clickupLastSyncAt: Number(raw.clickupLastSyncAt) || null,
       // V32.15.0 — Recolher por bloco no Acompanhamento persiste.

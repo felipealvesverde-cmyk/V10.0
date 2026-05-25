@@ -9663,4 +9663,181 @@ Prioridade: ${d.priority}
     }
   }
 });
+
+// V33.0.0 — Onda 1 Fase 2: actions do tracker.
+// Frontend chama /api/visitors-list, /api/visitor-detail, /api/tracker-status,
+// /api/tracker-snippet. Sem await em render — actions atualizam state e
+// disparam re-render quando dados chegam.
+Object.assign(Actions, {
+  _trackerFetch(path, init = {}) {
+    const token = localStorage.getItem('lj_jwt');
+    return fetch(path, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init.headers || {})
+      }
+    }).then(r => r.json());
+  },
+
+  async loadVisitorCounts(productId = null) {
+    if (App.state.trackerVisitorsCache.loading) return;
+    App.state.trackerVisitorsCache = { ...App.state.trackerVisitorsCache, loading: true };
+    try {
+      const qs = new URLSearchParams({ counts_only: 'true' });
+      if (productId) qs.set('product_id', String(productId));
+      const data = await this._trackerFetch(`/api/visitors-list?${qs.toString()}`);
+      if (!data.ok) {
+        // Silent fail: pode ser tenant sem schema novo ainda (master sem default tenant).
+        console.warn('[loadVisitorCounts]', data.message);
+        App.state.trackerVisitorsCache = {
+          counts: { total: 0, byEntityType: { suspect: 0, lead: 0, customer: 0 }, byStage: {} },
+          list: [], loadedAt: Date.now(), loading: false, error: data.message
+        };
+      } else {
+        App.state.trackerVisitorsCache = {
+          ...App.state.trackerVisitorsCache,
+          counts: { total: data.total, byEntityType: data.byEntityType, byStage: data.byStage },
+          loadedAt: Date.now(),
+          loading: false
+        };
+      }
+    } catch (err) {
+      console.error('[loadVisitorCounts]', err);
+      App.state.trackerVisitorsCache = { ...App.state.trackerVisitorsCache, loading: false, error: err.message };
+    }
+    App.render();
+  },
+
+  async loadVisitorsList(filters = {}) {
+    const qs = new URLSearchParams();
+    if (filters.productId) qs.set('product_id', String(filters.productId));
+    if (filters.campaignId) qs.set('campaign_id', String(filters.campaignId));
+    if (filters.entityType) qs.set('entity_type', filters.entityType);
+    if (filters.currentStage) qs.set('current_stage', filters.currentStage);
+    if (filters.limit) qs.set('limit', String(filters.limit));
+    if (filters.offset) qs.set('offset', String(filters.offset));
+    try {
+      const data = await this._trackerFetch(`/api/visitors-list?${qs.toString()}`);
+      if (!data.ok) return [];
+      App.state.trackerVisitorsCache = {
+        ...App.state.trackerVisitorsCache,
+        list: data.visitors,
+        loadedAt: Date.now()
+      };
+      App.render();
+      return data.visitors;
+    } catch (err) {
+      console.error('[loadVisitorsList]', err);
+      return [];
+    }
+  },
+
+  async loadVisitorDetail(visitorId) {
+    if (!visitorId) return;
+    App.state.trackerVisitorDetail = { lj_visitor_id: visitorId, data: null, loading: true };
+    App.render();
+    try {
+      const data = await this._trackerFetch(`/api/visitor-detail?lj_visitor_id=${encodeURIComponent(visitorId)}`);
+      if (data.ok) {
+        App.state.trackerVisitorDetail = { lj_visitor_id: visitorId, data, loading: false };
+      } else {
+        App.state.trackerVisitorDetail = { lj_visitor_id: visitorId, data: null, loading: false, error: data.message };
+      }
+    } catch (err) {
+      App.state.trackerVisitorDetail = { lj_visitor_id: visitorId, data: null, loading: false, error: err.message };
+    }
+    App.render();
+  },
+
+  closeVisitorDetail() {
+    App.state.trackerVisitorDetail = null;
+    App.render();
+  },
+
+  async loadTrackerStatus(campaignId) {
+    if (!campaignId) return;
+    try {
+      const data = await this._trackerFetch(`/api/tracker-status?campaign_id=${campaignId}`);
+      if (data.ok) {
+        App.state.trackerStatusByCampaign = {
+          ...App.state.trackerStatusByCampaign,
+          [campaignId]: { ...data, loadedAt: Date.now() }
+        };
+        App.render();
+      }
+    } catch (err) {
+      console.error('[loadTrackerStatus]', err);
+    }
+  },
+
+  async openTrackerWizard(campaignId) {
+    if (!campaignId) return Utils.toast('Selecione uma campanha.');
+    App.state.trackerWizardOpen = { campaignId, step: 1, snippet: null, trackerToken: null, apiBase: null, copied: false, loading: true };
+    App.render();
+    try {
+      const data = await this._trackerFetch(`/api/tracker-snippet?campaign_id=${campaignId}`);
+      if (!data.ok) {
+        App.state.trackerWizardOpen = { ...App.state.trackerWizardOpen, loading: false, error: data.message };
+      } else {
+        App.state.trackerWizardOpen = {
+          ...App.state.trackerWizardOpen,
+          snippet: data.snippet,
+          trackerToken: data.trackerToken,
+          apiBase: data.apiBase,
+          loading: false
+        };
+      }
+    } catch (err) {
+      App.state.trackerWizardOpen = { ...App.state.trackerWizardOpen, loading: false, error: err.message };
+    }
+    App.render();
+  },
+
+  closeTrackerWizard() {
+    App.state.trackerWizardOpen = null;
+    App.render();
+  },
+
+  setTrackerWizardStep(step) {
+    if (!App.state.trackerWizardOpen) return;
+    App.state.trackerWizardOpen = { ...App.state.trackerWizardOpen, step: Number(step) || 1 };
+    App.render();
+  },
+
+  async copyTrackerSnippet() {
+    const wizard = App.state.trackerWizardOpen;
+    if (!wizard?.snippet) return;
+    try {
+      await navigator.clipboard.writeText(wizard.snippet);
+      App.state.trackerWizardOpen = { ...wizard, copied: true };
+      Utils.toast('✓ Snippet copiado pra área de transferência.');
+      App.render();
+      setTimeout(() => {
+        if (App.state.trackerWizardOpen) {
+          App.state.trackerWizardOpen = { ...App.state.trackerWizardOpen, copied: false };
+          App.render();
+        }
+      }, 2500);
+    } catch (err) {
+      Utils.toast('Não consegui copiar — selecione e copie manualmente.');
+    }
+  },
+
+  async testTrackerConnection(campaignId) {
+    if (!campaignId) return;
+    Utils.toast('Buscando últimos eventos...');
+    await Actions.loadTrackerStatus(campaignId);
+    const status = App.state.trackerStatusByCampaign[campaignId];
+    if (!status) return Utils.toast('Não foi possível verificar agora.');
+    if (status.connected) {
+      const since = status.lastEventAt ? new Date(status.lastEventAt).toLocaleString('pt-BR') : '—';
+      Utils.toast(`✓ Conectado! ${status.totalVisitors} visitor(s). Último evento: ${since}`);
+    } else {
+      Utils.toast('Aguardando primeiro evento. Acesse a LP pra disparar um page_view.');
+    }
+  }
+});
+
 window.Actions = Actions;
