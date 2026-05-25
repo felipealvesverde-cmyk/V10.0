@@ -2376,28 +2376,21 @@ window.StrategicMapModal = {
     </section>`;
   },
 
-  // V32.13.0 — Leonardo: stack vertical das 3 frentes (Marketing/Vendas/CS).
-  // Substitui o _handoffNav (tabs horizontais) + _unifiedAreaBlock (single
-  // area) por um layout único onde cada frente é um card largura inteira que
-  // expande quando selecionada e fica fade quando inativa.
+  // V32.13.2 — Mind-map horizontal: 3 frentes empilhadas verticalmente,
+  // cada uma com master à esquerda + ações ramificadas à direita (flex-wrap).
+  // Todas as frentes ficam visíveis simultâneas (sem fade, sem toggle).
+  // Botão "+ Adicionar ação" SEMPRE clicável em cada master.
   _frenteStackVertical(product, productKrs, campaignId) {
     const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
-    const activeId = this._activeAreaId(product.id);  // pode ser null
-    const anyActive = activeId !== null;
     return `<div class="space-y-3">
-      ${areas.map(area => {
-        const isActive = activeId === area.id;
-        const isFade = anyActive && !isActive;
-        return this._frenteVerticalCard(product, area, productKrs, campaignId, isActive, isFade);
-      }).join('')}
+      ${areas.map(area => this._frenteMindMapRow(product, area, productKrs, campaignId)).join('')}
     </div>`;
   },
 
-  // V32.13.0 — Card individual de frente no stack vertical. 3 estados:
-  // - active: ring + bg destacado + botão "+ Adicionar ação" + KRs expandidos
-  // - fade: opacity-40 + pointer-events suprimido (não dá pra clicar nos KRs)
-  // - neutral: card clicável normal (quando nenhuma frente está selecionada)
-  _frenteVerticalCard(product, area, productKrs, campaignId, isActive, isFade) {
+  // V32.13.2 — Linha horizontal de uma frente no mind-map.
+  // Master (largura fixa ~280px) + ações ramificadas à direita (flex-wrap).
+  // Empty state: master sem ações mostra microcopy.
+  _frenteMindMapRow(product, area, productKrs, campaignId) {
     const tone = area.color;
     const objective = (StrategicMapEngine.getObjectiveByArea ? StrategicMapEngine.getObjectiveByArea(product.id, area.id) : null);
     const okrs = objective?.okrs || [];
@@ -2408,41 +2401,103 @@ window.StrategicMapModal = {
                      : area.id === 'marketing' ? 'entrega <b>leads</b> →'
                      : 'entrega <b>clientes</b> →';
 
-    // Estilos por estado (Leonardo)
-    const wrapperCls = isActive
-      ? `bg-${tone}-500/15 border-${tone}-400/60 ring-2 ring-${tone}-400/40 shadow-lg`
-      : isFade
-      ? `bg-white/[0.02] border-white/10 opacity-40 pointer-events-none transition-opacity duration-300`
-      : `bg-white/[0.03] border-white/10 hover:bg-white/[0.07] hover:border-${tone}-400/40 cursor-pointer transition`;
+    // Ações desta frente nesta campanha (agrupadas por KR pra cores adjacentes)
+    const actions = this._actionsForFrente(area.id, campaignId);
 
-    const header = `<div class="flex items-center justify-between gap-3 flex-wrap">
-      <button onclick="Actions.setStrategicActiveArea('${area.id}')" class="flex items-center gap-3 min-w-0 flex-1 text-left ${isFade ? 'pointer-events-none' : 'cursor-pointer'}">
-        <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-500/25 grid place-items-center">
-          <i data-lucide="${area.icon}" class="w-5 h-5 text-${tone}-200"></i>
+    const masterCard = `<div class="shrink-0 w-64 rounded-2xl bg-${tone}-500/10 border border-${tone}-400/30 p-3 self-start">
+      <div class="flex items-center gap-2.5">
+        <span class="shrink-0 w-9 h-9 rounded-xl bg-${tone}-500/25 grid place-items-center">
+          <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
         </span>
-        <div class="min-w-0">
-          <p class="font-black text-${tone}-100 text-base leading-tight">${Utils.escape(area.label)}${isActive ? ` <span class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest ml-1">· Ativo</span>` : ''}</p>
-          <p class="text-[11px] text-slate-400 mt-0.5">${handoffHint}</p>
-          <p class="text-[10px] ${isActive ? `text-${tone}-200` : 'text-slate-500'} font-bold mt-0.5">${stateLabel}</p>
+        <div class="min-w-0 flex-1">
+          <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest">${Utils.escape(area.label)}</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">${handoffHint}</p>
         </div>
+      </div>
+      <p class="text-[10px] text-slate-500 font-bold mt-2">${stateLabel}</p>
+      <button onclick="Actions.openStrategicKrPicker('${area.id}')" title="Adicionar ação à árvore desta frente"
+        class="mt-2 w-full px-3 py-1.5 rounded-lg bg-${tone}-500/30 hover:bg-${tone}-500/50 border border-${tone}-400/50 text-${tone}-100 text-[10px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5">
+        <i data-lucide="plus" class="w-3 h-3"></i> Adicionar ação
       </button>
-      ${isActive ? `<div class="flex items-center gap-2 shrink-0">
-        <button onclick="event.stopPropagation(); Actions.openStrategicKrPicker('${area.id}')" title="Adicionar ação à árvore desta frente" class="px-3 py-2 rounded-xl bg-${tone}-500/30 hover:bg-${tone}-500/50 border border-${tone}-400/50 text-${tone}-100 text-[11px] font-black uppercase tracking-wider inline-flex items-center gap-1.5">
-          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Adicionar ação
-        </button>
-      </div>` : ''}
     </div>`;
 
-    const expandedBody = isActive
-      ? `<div class="mt-3 pt-3 border-t border-${tone}-400/20">
-          ${this._unifiedAreaBlock(product, area, productKrs.filter(k => k.area === area.id), campaignId)}
+    const actionsArea = actions.length === 0
+      ? `<div class="flex-1 self-center px-4 py-3 rounded-xl bg-white/[0.02] border border-dashed border-white/10">
+          <p class="text-[11px] text-slate-500 italic">Nenhuma ação nesta frente. Clique <b>[+ ação]</b> à esquerda pra criar a primeira.</p>
         </div>`
-      : '';
+      : `<div class="flex-1 flex flex-wrap gap-2 self-center">
+          ${actions.map(a => this._actionMindMapCard(a, area, productKrs)).join('')}
+        </div>`;
 
-    return `<div class="rounded-2xl border ${wrapperCls} p-4">
-      ${header}
-      ${expandedBody}
+    // Conector visual: pseudo-border no master + gap controlado
+    return `<div class="flex items-stretch gap-3">
+      ${masterCard}
+      ${actionsArea}
     </div>`;
+  },
+
+  // V32.13.2 — Coleta ações desta frente nesta campanha, retorna ORDENADAS
+  // por KR principal (cores juntas adjacentes). Cada ação leva metadata:
+  // { action, primaryKrId, krColor, status }.
+  _actionsForFrente(areaId, campaignId) {
+    const allActions = (App.state.actions || []).filter(a =>
+      Number(a.campaignId) === Number(campaignId) && a.strategicAreaId === areaId
+    );
+    // Mapa actionId → primaryKrId (1º KR conectado via branchKrs)
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    const branchObj = (branch?.objectives || []).find(o => o.area === areaId);
+    const branchKrs = branchObj?.okrs || [];
+    const actionPrimaryKr = new Map();
+    branchKrs.forEach(kr => {
+      (kr.connectedActionIds || []).forEach(aid => {
+        if (!actionPrimaryKr.has(Number(aid))) {
+          actionPrimaryKr.set(Number(aid), kr.parentProductKrId || kr.id);
+        }
+      });
+    });
+    const decorated = allActions.map(a => {
+      const primaryKrId = actionPrimaryKr.get(Number(a.id)) || null;
+      return { action: a, primaryKrId };
+    });
+    // Sort: por primaryKrId pra agrupar cores adjacentes; sem KR vai pro fim.
+    decorated.sort((x, y) => {
+      if (!x.primaryKrId && !y.primaryKrId) return 0;
+      if (!x.primaryKrId) return 1;
+      if (!y.primaryKrId) return -1;
+      return String(x.primaryKrId).localeCompare(String(y.primaryKrId));
+    });
+    return decorated;
+  },
+
+  // V32.13.2 — Card compacto da ação no mind-map. ~180px largura.
+  // Bolinha cor KR + label do KR uppercase + nome da ação + status (✓/⚠).
+  // Click abre modal de edição existente (Print 3) — sem feature nova.
+  _actionMindMapCard({ action, primaryKrId }, area, productKrs) {
+    const krColor = primaryKrId ? StrategicMapEngine.krColorFromId(primaryKrId) : 'hsl(0 0% 50%)';
+    const kr = primaryKrId ? productKrs.find(k => k.id === primaryKrId) : null;
+    const krLabel = kr ? kr.name : 'Sem KR';
+    // Status: verde se ação tem nome + canal + actionType; amarelo se pendente.
+    const hasName = String(action.name || '').trim().length > 0;
+    const hasChannel = String(action.channel || '').trim().length > 0;
+    const hasType = String(action.actionType || '').trim().length > 0;
+    const isComplete = hasName && hasChannel && hasType;
+    const statusIcon = isComplete ? 'check-circle-2' : 'alert-triangle';
+    const statusColor = isComplete ? 'text-emerald-300' : 'text-amber-300';
+    const borderStatus = isComplete ? 'border-emerald-400/40' : 'border-amber-400/40';
+    return `<button onclick="Actions.openEditActionFromMap(${action.id})"
+      title="Clique pra editar esta ação"
+      class="w-44 text-left rounded-xl bg-slate-900/60 border ${borderStatus} p-2.5 hover:bg-slate-800 transition group"
+      style="border-left: 4px solid ${krColor};">
+      <div class="flex items-center gap-1.5 mb-1.5">
+        <span class="shrink-0 w-2 h-2 rounded-full" style="background:${krColor};"></span>
+        <p class="text-[9px] font-black uppercase tracking-widest truncate" style="color:${krColor};" title="${Utils.escape(krLabel)}">${Utils.escape(krLabel)}</p>
+      </div>
+      <p class="text-[12px] font-black text-white leading-tight line-clamp-2 mb-1.5" title="${Utils.escape(action.name || 'Sem nome')}">${Utils.escape(action.name || 'Sem nome')}</p>
+      <div class="flex items-center justify-between gap-1">
+        <span class="text-[9px] text-slate-500 truncate">${Utils.escape(action.channel || '—')}</span>
+        <i data-lucide="${statusIcon}" class="w-3.5 h-3.5 ${statusColor} shrink-0"></i>
+      </div>
+    </button>`;
   },
 
   _anyActionConnectedInBranch(campaignId) {
