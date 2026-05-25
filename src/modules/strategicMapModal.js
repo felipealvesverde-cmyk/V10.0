@@ -2603,16 +2603,31 @@ window.StrategicMapModal = {
   //     à esquerda + ações ramificadas à direita em flex-wrap).
   //   - fade: opacity-40 + pointer-events-none, compacto sem ações visíveis.
   // Click no master toggla. Re-click na mesma volta neutro.
+  // V32.13.14 — Microcopy CTA proeminente no topo quando nenhuma frente
+  // selecionada, pra usuário saber que precisa clicar pra abrir árvore.
   _frenteStackVertical(product, productKrs, campaignId) {
     const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
     const activeId = this._activeAreaId(product.id);  // null se neutro
     const anyActive = activeId !== null;
-    return `<div class="space-y-3">
-      ${areas.map(area => {
-        const isActive = activeId === area.id;
-        const isFade = anyActive && !isActive;
-        return this._frenteMindMapRow(product, area, productKrs, campaignId, isActive, isFade);
-      }).join('')}
+    // CTA proeminente quando neutro
+    const ctaHint = !anyActive ? `<div class="rounded-2xl bg-gradient-to-r from-violet-500/10 via-pink-500/10 to-teal-500/10 border border-violet-400/30 px-4 py-3 flex items-center gap-3 mb-3">
+      <span class="shrink-0 w-9 h-9 rounded-xl bg-violet-500/25 grid place-items-center text-violet-200">
+        <i data-lucide="mouse-pointer-click" class="w-4 h-4"></i>
+      </span>
+      <div class="min-w-0">
+        <p class="text-[12px] font-black text-white">Clique numa frente abaixo pra montar a árvore de ações.</p>
+        <p class="text-[11px] text-slate-400 mt-0.5">Comece por <b class="text-pink-200">Marketing</b> (entrega leads), depois <b class="text-teal-200">Vendas</b> (entrega clientes), depois <b class="text-sky-200">CS</b> (devolve advogados).</p>
+      </div>
+    </div>` : '';
+    return `<div>
+      ${ctaHint}
+      <div class="space-y-3">
+        ${areas.map(area => {
+          const isActive = activeId === area.id;
+          const isFade = anyActive && !isActive;
+          return this._frenteMindMapRow(product, area, productKrs, campaignId, isActive, isFade);
+        }).join('')}
+      </div>
     </div>`;
   },
 
@@ -2647,9 +2662,22 @@ window.StrategicMapModal = {
       : `bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-${tone}-400/30 cursor-pointer transition`;
 
     // Estado neutro/fade: master sozinho (sem Add Ação anexado).
+    // V32.13.14: cards neutros (não-fade) ganham hint inline "Clique pra abrir
+    // árvore →" pra deixar claro que a interação primária é clicar no card.
+    // Hover state reforçado: ring + scale leve.
     if (!isActive) {
+      const isNeutralClickable = !isFade;
+      const enhancedHover = isNeutralClickable
+        ? `bg-white/[0.04] border-${tone}-400/20 hover:bg-${tone}-500/10 hover:border-${tone}-400/50 hover:ring-2 hover:ring-${tone}-400/30 hover:scale-[1.005] cursor-pointer transition`
+        : masterBorderCls;
+      const wrapperClsNeutral = isNeutralClickable ? enhancedHover : masterBorderCls;
+      const clickHint = isNeutralClickable
+        ? `<span class="hidden md:inline-flex shrink-0 ml-auto items-center gap-1 px-2 py-1 rounded-md bg-${tone}-500/15 border border-${tone}-400/30 text-${tone}-200 text-[10px] font-black uppercase tracking-wider">
+            Abrir árvore <i data-lucide="arrow-right" class="w-3 h-3"></i>
+          </span>`
+        : '';
       const masterCardSolo = `<button ${isFade ? 'tabindex="-1"' : ''} onclick="Actions.setStrategicActiveArea('${area.id}')"
-        class="shrink-0 w-64 text-left rounded-2xl border p-3 ${masterBorderCls} ${isFade ? 'cursor-not-allowed' : ''}">
+        class="w-full text-left rounded-2xl border p-3 ${wrapperClsNeutral} ${isFade ? 'cursor-not-allowed' : ''}">
         <div class="flex items-center gap-2.5">
           <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-500/25 grid place-items-center">
             <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
@@ -2659,6 +2687,7 @@ window.StrategicMapModal = {
             <p class="text-[10px] text-slate-400 mt-0.5">${handoffHint}</p>
             <p class="text-[10px] text-slate-500 font-bold mt-0.5">${stateLabel}</p>
           </div>
+          ${clickHint}
         </div>
       </button>`;
       return `<div class="${wrapperCls}">${masterCardSolo}</div>`;
