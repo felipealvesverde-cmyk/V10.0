@@ -7659,23 +7659,9 @@ Object.assign(Actions, {
     // V32.14.0 — Data de entrega obrigatória (alimenta Etapa 6 acompanhamento).
     if (!String(d.due_date || '').trim()) return Utils.toast('Data de entrega é obrigatória pra acompanhar atrasos na Etapa 6.');
 
-    // V32.9.2 (Geraldo A16) — Pré-check de custom fields obrigatórios.
-    // Lê do cache novo (clickupListFieldsCache) que cobre o caso de cliente
-    // mudar list_id no dropdown. Fallback pro clickupMeta.customFields (default list).
-    const targetListId = Actions._resolveClickupTargetList(m);
-    let requiredFields = [];
-    if (targetListId && App.state.clickupListFieldsCache?.[targetListId]?.fields) {
-      requiredFields = App.state.clickupListFieldsCache[targetListId].fields.filter(f => f.required);
-    } else {
-      requiredFields = (App.state.clickupMeta?.customFields || []).filter(f => f.required);
-    }
-    const missing = requiredFields.filter(f => {
-      const v = (d.custom_fields || {})[f.id];
-      return v === undefined || v === null || String(v).trim() === '';
-    });
-    if (missing.length) {
-      return Utils.toast(`Campos obrigatórios faltando: ${missing.map(f => f.name).join(', ')}`);
-    }
+    // V32.14.8 — Custom fields ClickUp NÃO são obrigatórios no LJ (Felipe
+    // alinhou): cliente pode criar a task sem preencher categorias.
+    // Se o ClickUp rejeitar, o erro aparece via API normal.
 
     App.state.taskCreationModal = { ...m, submitting: true };
     App.render();
@@ -8011,11 +7997,15 @@ Object.assign(Actions, {
           updatedCount++;
         }
       }
+      // V32.14.8 — Grava timestamp da última sync pra mostrar no botão.
+      App.state.clickupLastSyncAt = Date.now();
       if (updatedCount > 0) {
         App.save(); App.render();
         if (!silent) Utils.toast(`✓ ${updatedCount} task(s) atualizada(s) do ClickUp.`);
-      } else if (!silent) {
-        Utils.toast('Tudo sincronizado — nenhuma task mudou status.');
+      } else {
+        App.save();
+        if (!silent) Utils.toast('Tudo sincronizado — nenhuma task mudou status.');
+        else App.render();
       }
     } catch (err) {
       if (!silent) Utils.toast(`Erro: ${err.message}`);

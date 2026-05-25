@@ -255,6 +255,8 @@ var State = {
       // null = fechado. Aberto: { actionId }. Mostra ação + KRs que ela move
       // + tasks dela com status agregado.
       acompanhamentoActionDetail: null,
+      // V32.14.8 — Timestamp da última sync ClickUp (ms). null = nunca.
+      clickupLastSyncAt: null,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -686,6 +688,8 @@ var State = {
       acompanhamentoKrDetail: null,
       // V32.14.2 — Drill-down Ação volátil.
       acompanhamentoActionDetail: null,
+      // V32.14.8 — Timestamp da última sync ClickUp persiste.
+      clickupLastSyncAt: Number(raw.clickupLastSyncAt) || null,
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

@@ -223,14 +223,11 @@ window.StrategicMapModal = {
                 </p>
                 <div class="grid ${dropdowns.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2">
                   ${dropdowns.map(cf => {
-                    const isReq = cf.required;
                     const value = String((d.custom_fields || {})[cf.id] || '');
-                    const isEmpty = value.trim() === '';
-                    const warnCls = isReq && isEmpty ? 'border-rose-400/60 ring-1 ring-rose-400/30' : 'border-white/10';
                     return `<div>
-                      <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">${Utils.escape(cf.name)}${isReq ? ' <span class="text-rose-400">*</span>' : ''}</label>
-                      <select onchange="Actions.updateClickupCustomField('${cf.id}', this.value)" class="w-full px-2 py-2 rounded-lg bg-slate-900 border ${warnCls} text-white text-[12px]" style="color-scheme:dark;">
-                        <option value="">— escolha —</option>
+                      <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">${Utils.escape(cf.name)}</label>
+                      <select onchange="Actions.updateClickupCustomField('${cf.id}', this.value)" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;">
+                        <option value="">— escolha (opcional) —</option>
                         ${cf.options.map(o => `<option value="${Utils.escape(o.id)}" ${value === o.id ? 'selected' : ''}>${Utils.escape(o.name)}</option>`).join('')}
                       </select>
                     </div>`;
@@ -313,29 +310,21 @@ window.StrategicMapModal = {
                 setTimeout(() => Actions.loadClickupListFields?.(targetListId), 50);
               }
               const fields = (cached?.fields && cached.fields.length) ? cached.fields : (meta.customFields || []);
-              // V32.14.3 — drop_downs já mostram no Normal. Aqui no Avançado
-              // só os tipos não-dropdown (texto, número, etc).
+              // V32.14.3 / V32.14.8 — drop_downs no Normal. Avançado tem só
+              // não-dropdown (texto, número). Todos OPCIONAIS no LJ.
               const nonDropdownFields = fields.filter(f => f.type !== 'drop_down');
-              const requiredCount = nonDropdownFields.filter(f => f.required).length;
               if (cached?.loading) {
                 return `<div class="text-[11px] text-slate-400 italic flex items-center gap-1.5"><i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Verificando custom fields da list…</div>`;
               }
               if (nonDropdownFields.length === 0) return '';
               return `<div>
-                <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  Outros custom fields da list
-                  ${requiredCount > 0 ? `<span class="px-1.5 py-0.5 rounded bg-red-500/20 border border-red-400/40 text-red-200 text-[9px] font-black">${requiredCount} obrigatório${requiredCount > 1 ? 's' : ''}</span>` : ''}
-                </p>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Outros custom fields da list <span class="text-slate-500 font-normal normal-case tracking-normal">(opcionais)</span></p>
                 <div class="space-y-2">
                   ${nonDropdownFields.map(cf => {
-                    const isReq = cf.required;
                     const value = String((d.custom_fields || {})[cf.id] || '');
-                    const isEmpty = value.trim() === '';
-                    const warnCls = isReq && isEmpty ? 'border-red-400/60 ring-1 ring-red-400/30' : 'border-white/10';
                     return `<div>
-                      <label class="block text-[10px] font-bold text-slate-400 mb-0.5">${Utils.escape(cf.name)} <span class="text-slate-500">(${Utils.escape(cf.type)})</span>${isReq ? ' <span class="text-red-400">*</span>' : ''}</label>
-                      <input value="${Utils.escape(value)}" oninput="Actions.updateClickupCustomField('${cf.id}', this.value)" placeholder="valor" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border ${warnCls} text-white text-[12px]" />
-                      ${isReq && isEmpty ? '<p class="text-[10px] text-red-400 mt-0.5">⚠ Obrigatório — preencha antes de criar</p>' : ''}
+                      <label class="block text-[10px] font-bold text-slate-400 mb-0.5">${Utils.escape(cf.name)} <span class="text-slate-500">(${Utils.escape(cf.type)})</span></label>
+                      <input value="${Utils.escape(value)}" oninput="Actions.updateClickupCustomField('${cf.id}', this.value)" placeholder="valor (opcional)" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" />
                     </div>`;
                   }).join('')}
                 </div>
@@ -659,7 +648,7 @@ window.StrategicMapModal = {
     const statusMap = {
       pending: 'bg-amber-500/15 border-amber-400/30 text-amber-200',
       in_progress: 'bg-sky-500/15 border-sky-400/30 text-sky-200',
-      review: 'bg-violet-500/15 border-violet-400/30 text-violet-200',
+      review: 'bg-orange-500/15 border-orange-400/30 text-orange-200',
       completed: 'bg-emerald-500/15 border-emerald-400/30 text-emerald-200',
       blocked: 'bg-rose-500/15 border-rose-400/30 text-rose-200'
     };
@@ -754,7 +743,7 @@ window.StrategicMapModal = {
     const statusMap = {
       pending: 'bg-amber-500/15 border-amber-400/30 text-amber-200',
       in_progress: 'bg-sky-500/15 border-sky-400/30 text-sky-200',
-      review: 'bg-violet-500/15 border-violet-400/30 text-violet-200',
+      review: 'bg-orange-500/15 border-orange-400/30 text-orange-200',
       completed: 'bg-emerald-500/15 border-emerald-400/30 text-emerald-200',
       blocked: 'bg-rose-500/15 border-rose-400/30 text-rose-200'
     };
@@ -797,7 +786,7 @@ window.StrategicMapModal = {
     const statusMap = {
       pending:     { label: 'Pendente',   tone: 'amber',   icon: 'circle' },
       in_progress: { label: 'Em curso',   tone: 'sky',     icon: 'loader' },
-      review:      { label: 'Em revisão', tone: 'violet',  icon: 'eye' },
+      review:      { label: 'Em revisão', tone: 'orange',  icon: 'eye' },
       completed:   { label: 'Concluída',  tone: 'emerald', icon: 'check-circle-2' },
       blocked:     { label: 'Bloqueada',  tone: 'rose',    icon: 'x-circle' }
     };
@@ -2952,11 +2941,19 @@ window.StrategicMapModal = {
     const clickupTaskCount = window.ExecutionTaskStore
       ? (ExecutionTaskStore.all() || []).filter(t => t.provider === 'clickup' && t.provider_task_id).length
       : 0;
+    // V32.14.8 — Timestamp da última sync ClickUp ao lado do botão.
+    const lastSyncAt = App.state.clickupLastSyncAt;
+    let lastSyncLabel = '';
+    if (lastSyncAt) {
+      const minsAgo = Math.floor((Date.now() - lastSyncAt) / 60000);
+      lastSyncLabel = minsAgo < 1 ? '· há segundos' : minsAgo < 60 ? `· há ${minsAgo}min` : `· há ${Math.floor(minsAgo / 60)}h`;
+    }
     const syncBtn = (clickupTaskCount > 0 && App.state.clickupStatus?.connected) ? `
       <div class="flex justify-end mb-2">
         <button onclick="Actions.syncClickupTaskStatuses(false)" title="Atualizar status das ${clickupTaskCount} task(s) ClickUp"
           class="px-3 py-2 rounded-xl bg-violet-500/15 hover:bg-violet-500/30 border border-violet-400/40 text-violet-200 text-[11px] font-black uppercase tracking-wider inline-flex items-center gap-1.5">
           <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar ${clickupTaskCount} task${clickupTaskCount === 1 ? '' : 's'} do ClickUp
+          ${lastSyncLabel ? `<span class="text-violet-300/70 font-normal normal-case ml-1">${lastSyncLabel}</span>` : ''}
         </button>
       </div>` : '';
 
@@ -2993,15 +2990,10 @@ window.StrategicMapModal = {
     const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
     const activeId = this._activeAreaId(product.id);  // null se neutro
     const anyActive = activeId !== null;
-    // CTA proeminente quando neutro
-    const ctaHint = !anyActive ? `<div class="rounded-2xl bg-gradient-to-r from-violet-500/10 via-pink-500/10 to-teal-500/10 border border-violet-400/30 px-4 py-3 flex items-center gap-3 mb-3">
-      <span class="shrink-0 w-9 h-9 rounded-xl bg-violet-500/25 grid place-items-center text-violet-200">
-        <i data-lucide="mouse-pointer-click" class="w-4 h-4"></i>
-      </span>
-      <div class="min-w-0">
-        <p class="text-[12px] font-black text-white">Clique numa frente abaixo pra montar a árvore de ações.</p>
-        <p class="text-[11px] text-slate-400 mt-0.5">Comece por <b class="text-pink-200">Marketing</b> (entrega leads), depois <b class="text-teal-200">Vendas</b> (entrega clientes), depois <b class="text-sky-200">CS</b> (devolve advogados).</p>
-      </div>
+    // V32.14.8 — CTA discreto (sem gradient pesado) quando neutro.
+    const ctaHint = !anyActive ? `<div class="rounded-xl bg-slate-900/40 border border-l-4 border-l-violet-500 border-white/5 px-3 py-2 flex items-center gap-2 mb-3">
+      <i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5 text-violet-300 shrink-0"></i>
+      <p class="text-[11px] text-slate-300">Clique numa frente abaixo pra montar a árvore de ações.</p>
     </div>` : '';
     return `<div>
       ${ctaHint}
@@ -3319,7 +3311,7 @@ window.StrategicMapModal = {
     const statusColorMap = {
       pending:     { bg: 'bg-amber-500/15',   border: 'border-amber-400/40',   text: 'text-amber-200',   label: 'Pendente',   icon: 'circle' },
       in_progress: { bg: 'bg-sky-500/15',     border: 'border-sky-400/40',     text: 'text-sky-200',     label: 'Em curso',   icon: 'loader' },
-      review:      { bg: 'bg-violet-500/15',  border: 'border-violet-400/40',  text: 'text-violet-200',  label: 'Em revisão', icon: 'eye' },
+      review:      { bg: 'bg-orange-500/15',  border: 'border-orange-400/40',  text: 'text-orange-200',  label: 'Em revisão', icon: 'eye' },
       completed:   { bg: 'bg-emerald-500/15', border: 'border-emerald-400/40', text: 'text-emerald-200', label: 'Feita',      icon: 'check-circle-2' },
       blocked:     { bg: 'bg-rose-500/15',    border: 'border-rose-400/40',    text: 'text-rose-200',    label: 'Bloqueada',  icon: 'x-circle' }
     };
@@ -3345,20 +3337,15 @@ window.StrategicMapModal = {
           <p class="text-[12px] font-black text-white leading-snug line-clamp-2" title="${Utils.escape(task.title || '')}">${Utils.escape(task.title || 'Task sem nome')}</p>
           ${task.external_url ? `<p class="text-[9px] text-sky-400 mt-1 inline-flex items-center gap-1"><i data-lucide="external-link" class="w-2.5 h-2.5"></i> Ver detalhe</p>` : ''}
         </button>
-        <!-- V32.14.6 — Botão Editar entre card e Duplicar. Abre taskCreationModal
-             em modo edit (editingTaskId), pré-populado com infos da task. -->
-        <button onclick="Actions.openTaskCreationModal(${task.linked_action_id}, '${task.task_id}')" title="Editar esta task (abre modal com infos)"
-          class="self-stretch px-2 border-t-2 border-b-2 ${status.border} bg-violet-500/15 hover:bg-violet-500/40 text-violet-200 text-[9px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-0.5 transition">
-          <i data-lucide="edit-3" class="w-3 h-3"></i>
-          <span class="text-[8px] leading-tight">Editar</span>
+        <!-- V32.14.6 / V32.14.8 — Botões Editar/Duplicar compactos (só ícone).
+             Leonardo: economizar largura, evitar 3 elementos volumosos lado a lado. -->
+        <button onclick="Actions.openTaskCreationModal(${task.linked_action_id}, '${task.task_id}')" title="Editar esta task"
+          class="self-stretch w-8 border-t-2 border-b-2 ${status.border} bg-violet-500/15 hover:bg-violet-500/40 text-violet-200 grid place-items-center transition">
+          <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
         </button>
-        <!-- V32.14.3 — Botão Duplicar adjacente ao card. Click cria nova task
-             local com mesmas infos (nome incrementado), ramifica visualmente
-             como mais uma branch da mesma ação. -->
-        <button onclick="Actions.duplicateExecutionTask('${task.task_id}')" title="Duplicar esta execução (cria mais uma branch local)"
-          class="self-stretch px-2 rounded-r-xl border-2 border-l-0 ${status.border} bg-sky-500/15 hover:bg-sky-500/40 text-sky-200 text-[9px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-0.5 transition">
-          <i data-lucide="copy" class="w-3 h-3"></i>
-          <span class="text-[8px] leading-tight">Duplicar</span>
+        <button onclick="Actions.duplicateExecutionTask('${task.task_id}')" title="Duplicar (cria branch local em revisão)"
+          class="self-stretch w-8 rounded-r-xl border-2 border-l-0 ${status.border} bg-sky-500/15 hover:bg-sky-500/40 text-sky-200 grid place-items-center transition">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
         </button>
       </div>`;
     }).join('');
