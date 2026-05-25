@@ -6066,8 +6066,11 @@ Object.assign(Actions, {
 
   // V28.2.3 — Seleciona qual frente está ativa (tab nav). V28.3: compartilhado
   // entre as etapas Números e Ações.
+  // V32.13.0 — Toggle: clicar na mesma frente desmarca (volta neutro).
+  // Permite estado "nenhuma selecionada" no stack vertical.
   setStrategicActiveArea(areaId) {
-    App.state.strategicActiveArea = areaId;
+    const cur = App.state.strategicActiveArea;
+    App.state.strategicActiveArea = (cur === areaId) ? null : areaId;
     App.render();
   },
 

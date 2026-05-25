@@ -1654,7 +1654,7 @@ window.StrategicMapModal = {
   _unpluggedParentKrsBanner(product) {
     const campaignId = App.state.strategicMapCampaignId;
     if (!campaignId || !window.StrategicMapEngine?.getMissingChildrenInBranch) return '';
-    const activeAreaId = this._activeAreaId(product.id);
+    const activeAreaId = this._activeAreaIdWithFallback(product.id);
     const missing = StrategicMapEngine.getMissingChildrenInBranch(product.id, campaignId)
       .filter(pkr => pkr.area === activeAreaId);
     if (!missing.length) return '';
@@ -1668,23 +1668,33 @@ window.StrategicMapModal = {
   },
 
   // V28.2.3 — Determina qual área está ativa (state user OU próxima a confirmar OU marketing).
+  // V32.13.0 — Suporta null (nenhuma frente selecionada — Etapa 5 stack vertical).
+  // Etapas anteriores que usam fallback chamam `_activeAreaIdWithFallback`.
   _activeAreaId(productId) {
     const stored = App.state.strategicActiveArea;
+    if (stored === null) return null;
     const valid = (StrategicMapEngine.COMERCIAL_AREAS || []).some(a => a.id === stored);
     if (valid) return stored;
+    return null;  // V32.13.0: estado neutro válido
+  },
+
+  // Fallback pra etapas anteriores (Números, Comercial) que precisam de área sempre.
+  _activeAreaIdWithFallback(productId) {
+    const stored = this._activeAreaId(productId);
+    if (stored) return stored;
     const next = StrategicMapEngine.nextUnconfirmedKr ? StrategicMapEngine.nextUnconfirmedKr(productId) : null;
     return next?.areaId || 'marketing';
   },
 
   _activeAreaObjective(product, objectives) {
-    const areaId = this._activeAreaId(product.id);
+    const areaId = this._activeAreaIdWithFallback(product.id);
     return objectives.find(o => o.area === areaId);
   },
 
   // V28.2.3 — Banner do handoff agora é navegação (3 abas clicáveis).
   // Substitui o _handoffBanner estático: cada frente vira tab, ativa fica destacada.
   _handoffNav(product) {
-    const activeId = this._activeAreaId(product.id);
+    const activeId = this._activeAreaIdWithFallback(product.id);
     const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
     const handoffArrows = ['→', '→', '↩'];
     return `<div class="rounded-2xl bg-gradient-to-r from-pink-500/10 via-teal-500/10 to-sky-500/10 border border-white/10 p-2">
@@ -2275,9 +2285,11 @@ window.StrategicMapModal = {
         </div>
       </section>`;
     }
-    // V29.3.0 — tabs Mkt/Vendas/CS, renderiza só a área ativa
-    const activeAreaId = this._activeAreaId(product.id);
-    const activeArea = areas.find(a => a.id === activeAreaId) || areas[0];
+    // V32.13.0 — Stack vertical das 3 frentes em vez de tabs horizontais.
+    // - Nenhuma ativa: 3 cards iguais clicáveis (estado neutro).
+    // - Uma ativa: card ativa expande com botão "+ Adicionar ação" e mostra
+    //   os KRs/ações dentro; as outras 2 ficam opacity-40 (fade).
+    // - Re-click na ativa toggla off (volta neutro).
     return `<section class="space-y-3">
       ${this._stepIntro(
         `Como você vai cobrir os números em ${Utils.escape(campaign?.name || 'sua campanha')}?`,
@@ -2290,12 +2302,79 @@ window.StrategicMapModal = {
 
       ${this._unifiedWorkCampaignHeader(product, campaign)}
 
-      ${this._handoffNav(product)}
-
-      ${this._unifiedAreaBlock(product, activeArea, productKrs.filter(k => k.area === activeArea.id), campaignId)}
+      ${this._frenteStackVertical(product, productKrs, campaignId)}
 
       ${this._stepCta('Próximo passo: colocar em campo', this._anyActionConnectedInBranch(campaignId), 'operations')}
     </section>`;
+  },
+
+  // V32.13.0 — Leonardo: stack vertical das 3 frentes (Marketing/Vendas/CS).
+  // Substitui o _handoffNav (tabs horizontais) + _unifiedAreaBlock (single
+  // area) por um layout único onde cada frente é um card largura inteira que
+  // expande quando selecionada e fica fade quando inativa.
+  _frenteStackVertical(product, productKrs, campaignId) {
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    const activeId = this._activeAreaId(product.id);  // pode ser null
+    const anyActive = activeId !== null;
+    return `<div class="space-y-3">
+      ${areas.map(area => {
+        const isActive = activeId === area.id;
+        const isFade = anyActive && !isActive;
+        return this._frenteVerticalCard(product, area, productKrs, campaignId, isActive, isFade);
+      }).join('')}
+    </div>`;
+  },
+
+  // V32.13.0 — Card individual de frente no stack vertical. 3 estados:
+  // - active: ring + bg destacado + botão "+ Adicionar ação" + KRs expandidos
+  // - fade: opacity-40 + pointer-events suprimido (não dá pra clicar nos KRs)
+  // - neutral: card clicável normal (quando nenhuma frente está selecionada)
+  _frenteVerticalCard(product, area, productKrs, campaignId, isActive, isFade) {
+    const tone = area.color;
+    const objective = (StrategicMapEngine.getObjectiveByArea ? StrategicMapEngine.getObjectiveByArea(product.id, area.id) : null);
+    const okrs = objective?.okrs || [];
+    const confirmedCount = okrs.filter(k => k.confirmed).length;
+    const totalCount = okrs.length;
+    const stateLabel = !totalCount ? 'sem números ainda' : `${confirmedCount}/${totalCount} confirmado${confirmedCount === 1 ? '' : 's'}`;
+    const handoffHint = area.id === 'cs' ? 'devolve <b>advogados</b> ↺'
+                     : area.id === 'marketing' ? 'entrega <b>leads</b> →'
+                     : 'entrega <b>clientes</b> →';
+
+    // Estilos por estado (Leonardo)
+    const wrapperCls = isActive
+      ? `bg-${tone}-500/15 border-${tone}-400/60 ring-2 ring-${tone}-400/40 shadow-lg`
+      : isFade
+      ? `bg-white/[0.02] border-white/10 opacity-40 pointer-events-none transition-opacity duration-300`
+      : `bg-white/[0.03] border-white/10 hover:bg-white/[0.07] hover:border-${tone}-400/40 cursor-pointer transition`;
+
+    const header = `<div class="flex items-center justify-between gap-3 flex-wrap">
+      <button onclick="Actions.setStrategicActiveArea('${area.id}')" class="flex items-center gap-3 min-w-0 flex-1 text-left ${isFade ? 'pointer-events-none' : 'cursor-pointer'}">
+        <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-500/25 grid place-items-center">
+          <i data-lucide="${area.icon}" class="w-5 h-5 text-${tone}-200"></i>
+        </span>
+        <div class="min-w-0">
+          <p class="font-black text-${tone}-100 text-base leading-tight">${Utils.escape(area.label)}${isActive ? ` <span class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest ml-1">· Ativo</span>` : ''}</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">${handoffHint}</p>
+          <p class="text-[10px] ${isActive ? `text-${tone}-200` : 'text-slate-500'} font-bold mt-0.5">${stateLabel}</p>
+        </div>
+      </button>
+      ${isActive ? `<div class="flex items-center gap-2 shrink-0">
+        <button onclick="event.stopPropagation(); Utils.toast('+ Adicionar ação chega na V32.13.1 (mini-modal KR picker)')" title="Adicionar ação à árvore desta frente" class="px-3 py-2 rounded-xl bg-${tone}-500/30 hover:bg-${tone}-500/50 border border-${tone}-400/50 text-${tone}-100 text-[11px] font-black uppercase tracking-wider inline-flex items-center gap-1.5">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Adicionar ação
+        </button>
+      </div>` : ''}
+    </div>`;
+
+    const expandedBody = isActive
+      ? `<div class="mt-3 pt-3 border-t border-${tone}-400/20">
+          ${this._unifiedAreaBlock(product, area, productKrs.filter(k => k.area === area.id), campaignId)}
+        </div>`
+      : '';
+
+    return `<div class="rounded-2xl border ${wrapperCls} p-4">
+      ${header}
+      ${expandedBody}
+    </div>`;
   },
 
   _anyActionConnectedInBranch(campaignId) {
@@ -2788,7 +2867,7 @@ window.StrategicMapModal = {
   // colapsadas com CTA "Configurar". Confirmadas mini-card verde compacto.
   // Reduz "muralha de 6 blocos × N ações" que confundia o cliente.
   _areaAcoesSection(product) {
-    const areaId = this._activeAreaId(product.id);
+    const areaId = this._activeAreaIdWithFallback(product.id);
     const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === areaId);
     if (!area) return '';
     const objective = StrategicMapEngine.getObjectiveByArea(product.id, areaId);
