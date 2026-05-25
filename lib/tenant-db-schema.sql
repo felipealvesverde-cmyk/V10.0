@@ -331,6 +331,62 @@ CREATE INDEX IF NOT EXISTS idx_lj_transitions_user_action
   ON lj_transitions(user_id, triggered_by_action_id) WHERE triggered_by_action_id IS NOT NULL;
 
 -- ============================================================================
+-- V33.0.0 ONDA 2 — HOTMART (Lead→Customer + receita real)
+-- ============================================================================
+-- Webhook do Hotmart bate em /api/hotmart-webhook quando alguém compra.
+-- LJ valida, matcha por email/phone com visitors existentes, promove pra
+-- Customer e grava purchase no audit log permanente.
+
+-- Config do Hotmart por tenant (HOTTOK + mapping produto Hotmart → LJ).
+CREATE TABLE IF NOT EXISTS hotmart_config (
+  user_id INT PRIMARY KEY,
+  hottok_enc TEXT NOT NULL,                  -- HOTTOK do produto, criptografado
+  webhook_secret_enc TEXT,                   -- secret opcional pra HMAC validation
+  product_mappings JSONB DEFAULT '{}',       -- {"<hotmart_product_id>": <lj_product_id>}
+  connected_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Purchases — audit log permanente de toda transação Hotmart capturada.
+-- transaction_id é unique pra dedup (Hotmart retry envia o mesmo webhook).
+CREATE TABLE IF NOT EXISTS lj_hotmart_purchases (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  transaction_id VARCHAR(128) NOT NULL,
+  product_id_hotmart VARCHAR(64),            -- id no Hotmart
+  product_id_lj BIGINT,                      -- produto LJ mapeado (pode ser NULL se sem mapping)
+  lj_visitor_id VARCHAR(64),                 -- visitor matchado (pode ser NULL se compra direta)
+  buyer_email VARCHAR(255),
+  buyer_name VARCHAR(255),
+  buyer_phone VARCHAR(64),
+  purchase_status VARCHAR(32),               -- 'approved'|'refunded'|'chargeback'|'canceled'|...
+  transaction_value_cents INT DEFAULT 0,
+  commission_cents INT DEFAULT 0,            -- valor líquido vendedor
+  currency VARCHAR(8) DEFAULT 'BRL',
+  is_recurring BOOLEAN DEFAULT FALSE,
+  recurrence_number INT,                     -- 1=primeira compra; 2,3,...=recompras/recorrência
+  raw_payload JSONB,
+  occurred_at TIMESTAMPTZ,                   -- timestamp da compra no Hotmart
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT lj_hotmart_purchases_tx_uniq UNIQUE (user_id, transaction_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lj_hotmart_purchases_user_status
+  ON lj_hotmart_purchases(user_id, purchase_status, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_lj_hotmart_purchases_visitor
+  ON lj_hotmart_purchases(user_id, lj_visitor_id) WHERE lj_visitor_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_lj_hotmart_purchases_email
+  ON lj_hotmart_purchases(user_id, buyer_email) WHERE buyer_email IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_lj_hotmart_purchases_product_lj
+  ON lj_hotmart_purchases(user_id, product_id_lj, occurred_at) WHERE product_id_lj IS NOT NULL;
+
+-- V33.0.0 Onda 2 — Métricas Hotmart agregadas no próprio visitor pra leitura
+-- rápida sem JOIN. Atualizadas no webhook processor.
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS hotmart_first_purchase_at TIMESTAMPTZ;
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS hotmart_last_purchase_at TIMESTAMPTZ;
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS hotmart_purchase_count INT DEFAULT 0;
+
+-- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS tenant_schema_meta (
@@ -339,5 +395,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v33.0.0-onda1')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v33.0.0-onda2')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();

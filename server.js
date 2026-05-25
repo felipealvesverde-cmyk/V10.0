@@ -829,8 +829,11 @@ const PUBLIC_API_ROUTES = new Set([
   // V33.0.0 — Tracker endpoints chamados pelo snippet JS no site do cliente.
   // Sem JWT (browser anônimo). Auth via tracker_token opaco no body (HMAC-encrypted).
   '/api/tracker-init',
-  '/api/tracker-event'
+  '/api/tracker-event',
   // /api/tracker-snippet NÃO é público — só dono do LJ gera snippet (JWT exigido).
+  // V33.0.0 Onda 2 — Hotmart webhook (Hotmart POSTa quando alguém compra).
+  // Auth: HOTTOK do body é comparado contra hotmart_config.hottok_enc do tenant.
+  '/api/hotmart-webhook'
 ]);
 
 // V23.0.0 — Gate de auth: rotas privadas /api/* exigem req.user.
