@@ -453,6 +453,10 @@ window.HomeModule = {
   render() {
     // Liga rotação só quando a aba está visível
     this.startRotation();
+    // V32.15.1 — Inclui StrategicMapModal aqui pra que o click nas estações
+    // do Pulso (Actions.openPulsoStation, V32.15.0) consiga renderizar o Mapa
+    // sem trocar de tab. Antes só Produtos/Campanhas/Ações renderizavam o modal,
+    // então abrir o Mapa pela Home não pintava nada no DOM.
     return `<div class="lj-home">
       ${this._greetingBar()}
       ${this._kpiSlots()}
@@ -463,6 +467,7 @@ window.HomeModule = {
         </div>
         ${this._sideStack()}
       </div>
+      ${window.StrategicMapModal ? StrategicMapModal.render() : ''}
     </div>`;
   },
 
