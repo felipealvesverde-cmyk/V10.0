@@ -2729,6 +2729,16 @@ window.StrategicMapModal = {
     const desplugadas = StrategicMapEngine.getDesplugedCampaigns(product.id);
     const activeCampaignId = App.state.strategicMapCampaignId;
 
+    // V33.0.0 — Auto-fetch silencioso do status do tracker pra cada campanha
+    // visível. Guard por campaignId em state (loadedAt) evita loop.
+    if (window.Actions?.loadTrackerStatus) {
+      for (const b of branches) {
+        if (!App.state.trackerStatusByCampaign?.[b.campaignId]) {
+          setTimeout(() => Actions.loadTrackerStatus(b.campaignId), 0);
+        }
+      }
+    }
+
     if (!productKrs.length) {
       return `<section class="space-y-4">
         ${this._stepIntro('Campanha', 'Selecione a campanha pra trabalhar.', 'git-branch')}
@@ -2792,16 +2802,40 @@ window.StrategicMapModal = {
     const pluggedCount = allBranchKrs.filter(k => k.parentProductKrId).length;
     const actionsCount = (App.state.actions || []).filter(a => Number(a.campaignId) === Number(branch.campaignId) && a.strategicAreaId).length;
     const isActive = Number(App.state.strategicMapCampaignId) === Number(branch.campaignId);
-    return `<div class="rounded-2xl bg-white/[0.05] border ${isActive ? 'border-violet-400/60 ring-2 ring-violet-400/20' : `border-${statusInfo.color}-400/30`} p-3 flex items-center justify-between gap-3">
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 mb-0.5 flex-wrap">
-          <p class="font-black text-white text-sm truncate">${Utils.escape(campaign.name)}</p>
-          <span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-${statusInfo.color}-500/20 text-${statusInfo.color}-200 border border-${statusInfo.color}-400/30">${statusInfo.label.toUpperCase()}</span>
-          ${isActive ? '<span class="text-[10px] text-violet-200 font-bold">· editando agora</span>' : ''}
+
+    // V33.0.0 — Tracker status pra esta campanha (vem do auto-fetch acima).
+    const trackerStatus = App.state.trackerStatusByCampaign?.[branch.campaignId];
+    const trackerConnected = !!trackerStatus?.connected;
+    const trackerCounts = trackerStatus?.byEntityType || { suspect: 0, lead: 0, customer: 0 };
+
+    return `<div class="rounded-2xl bg-white/[0.05] border ${isActive ? 'border-violet-400/60 ring-2 ring-violet-400/20' : `border-${statusInfo.color}-400/30`} p-3 space-y-2">
+      <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 mb-0.5 flex-wrap">
+            <p class="font-black text-white text-sm truncate">${Utils.escape(campaign.name)}</p>
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-${statusInfo.color}-500/20 text-${statusInfo.color}-200 border border-${statusInfo.color}-400/30">${statusInfo.label.toUpperCase()}</span>
+            ${isActive ? '<span class="text-[10px] text-violet-200 font-bold">· editando agora</span>' : ''}
+          </div>
+          <p class="text-[11px] text-slate-400">${pluggedCount}/${productKrs.length} números plugados · ${actionsCount} ação(ões) ativa(s)</p>
         </div>
-        <p class="text-[11px] text-slate-400">${pluggedCount}/${productKrs.length} números plugados · ${actionsCount} ação(ões) ativa(s)</p>
+        <button onclick="Actions.selectAndAdvanceCampaign(${branch.campaignId})" class="px-3 py-2 rounded-lg bg-violet-500 hover:bg-violet-600 text-white text-[11px] font-black flex items-center gap-1 shrink-0" style="color:#fff!important;">Seguir <i data-lucide="arrow-right" class="w-3 h-3"></i></button>
       </div>
-      <button onclick="Actions.selectAndAdvanceCampaign(${branch.campaignId})" class="px-3 py-2 rounded-lg bg-violet-500 hover:bg-violet-600 text-white text-[11px] font-black flex items-center gap-1 shrink-0" style="color:#fff!important;">Seguir <i data-lucide="arrow-right" class="w-3 h-3"></i></button>
+
+      <!-- V33.0.0 — Tracker LP: contadores + botão conectar/abrir wizard -->
+      <div class="flex items-center justify-between gap-2 pt-2 border-t border-white/5">
+        <div class="flex items-center gap-2 text-[10px] font-bold">
+          ${trackerConnected ? `
+            <span class="px-1.5 py-0.5 rounded bg-violet-500/15 border border-violet-400/30 text-violet-200">${trackerCounts.suspect} suspects</span>
+            <span class="px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-200">${trackerCounts.lead} leads</span>
+            <span class="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-200">${trackerCounts.customer} customers</span>
+          ` : `<span class="text-slate-500 italic">Sem rastreamento ainda</span>`}
+        </div>
+        <button onclick="Actions.openTrackerWizard(${branch.campaignId})" title="${trackerConnected ? 'Ver/editar snippet da LP' : 'Conectar landing page desta campanha'}"
+          class="px-2.5 py-1 rounded-lg ${trackerConnected ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-200' : 'bg-sky-500/15 border-sky-400/40 text-sky-200'} border text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 shrink-0">
+          <i data-lucide="${trackerConnected ? 'check-circle-2' : 'plug'}" class="w-3 h-3"></i>
+          ${trackerConnected ? 'LP conectada' : 'Conectar LP'}
+        </button>
+      </div>
     </div>`;
   },
 
