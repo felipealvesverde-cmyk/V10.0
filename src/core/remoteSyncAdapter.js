@@ -71,6 +71,16 @@ window.RemoteSyncAdapter = {
     await this._doPush();
   },
 
+  // V32.12.3 — Detecta erro de rede (offline, DNS fail, internet caiu).
+  // Usado pra silenciar TypeError: Failed to fetch (vinha jogando stack
+  // trace feio no console quando a rede oscila).
+  _isOfflineError(err) {
+    if (!err) return false;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+    const msg = String(err.message || err || '').toLowerCase();
+    return msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('load failed');
+  },
+
   async _doPush() {
     if (!window.App?.state) return;
     const s = window.App.state;
@@ -123,8 +133,14 @@ window.RemoteSyncAdapter = {
         this._lastPushStatus = `error_${res.status}`;
       }
     } catch (err) {
-      this._lastPushStatus = 'network_error';
-      console.warn('[RemoteSync] push falhou:', err);
+      // V32.12.3 — Offline = silencioso (volta sozinho quando rede voltar).
+      // Stack trace de TypeError não ajuda ninguém quando a internet caiu.
+      if (this._isOfflineError(err)) {
+        this._lastPushStatus = 'offline';
+      } else {
+        this._lastPushStatus = 'network_error';
+        console.warn('[RemoteSync] push falhou:', err);
+      }
     }
   },
 
@@ -160,7 +176,10 @@ window.RemoteSyncAdapter = {
       });
       if (!res.ok) console.warn('[RemoteSync] snapshot falhou:', res.status);
     } catch (err) {
-      console.warn('[RemoteSync] snapshot falhou:', err);
+      // V32.12.3 — Offline = silencioso (snapshot tenta de novo no próximo tick).
+      if (!this._isOfflineError(err)) {
+        console.warn('[RemoteSync] snapshot falhou:', err);
+      }
     }
   },
 
