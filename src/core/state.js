@@ -251,6 +251,10 @@ var State = {
       // null = fechado. Aberto: { krId, branchCampaignId }. Mostra ações + tasks
       // do KR com status agregado por task.
       acompanhamentoKrDetail: null,
+      // V32.14.2 — Modal de drill-down da Ação no Acompanhamento.
+      // null = fechado. Aberto: { actionId }. Mostra ação + KRs que ela move
+      // + tasks dela com status agregado.
+      acompanhamentoActionDetail: null,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -680,6 +684,8 @@ var State = {
       executionTaskDetail: null,
       // V32.14.1 — Drill-down KR volátil.
       acompanhamentoKrDetail: null,
+      // V32.14.2 — Drill-down Ação volátil.
+      acompanhamentoActionDetail: null,
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

@@ -62,6 +62,7 @@ window.StrategicMapModal = {
       ${App.state.strategicMindMapActionEditor ? this._mindMapActionEditorRender() : ''}
       ${App.state.executionTaskDetail ? this._executionTaskDetailRender() : ''}
       ${App.state.acompanhamentoKrDetail ? this._acompanhamentoKrDetailRender() : ''}
+      ${App.state.acompanhamentoActionDetail ? this._acompanhamentoActionDetailRender() : ''}
       ${App.state.strategicActionDetailModalId ? this._actionDetailModalRender() : ''}
       ${App.state.taskCreationModal?.open ? this._taskCreationModalRender() : ''}
       ${App.state.djowTaskChat?.open ? this._djowTaskChatRender() : ''}
@@ -587,6 +588,125 @@ window.StrategicMapModal = {
         <!-- FOOTER -->
         <div class="bg-slate-900/80 border-t border-white/5 px-5 py-3 flex justify-end">
           <button onclick="Actions.closeAcompanhamentoKrDetail()" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[10px] font-black uppercase tracking-wider">Fechar</button>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V32.14.2 — Drill-down (lupa) da Ação no Acompanhamento. Mostra detalhe da
+  // ação + KRs vinculados + lista de tasks com status agregado.
+  _acompanhamentoActionDetailRender() {
+    const detail = App.state.acompanhamentoActionDetail;
+    if (!detail?.actionId) return '';
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(detail.actionId));
+    if (!action) return '';
+    const productId = App.state.strategicMapProductId;
+    const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === action.strategicAreaId);
+    const tone = area?.color || 'slate';
+    // Coleta KRs vinculados a essa ação (across branches)
+    const branches = StrategicMapEngine.getBranchesByProduct(productId) || [];
+    const linkedKrs = [];
+    branches.forEach(b => {
+      (b.objectives || []).forEach(o => {
+        (o.okrs || []).forEach(kr => {
+          if ((kr.connectedActionIds || []).map(Number).includes(Number(action.id))) {
+            linkedKrs.push({ kr, branchCampaignId: b.campaignId, area: o.area });
+          }
+        });
+      });
+    });
+    const productKrs = StrategicMapEngine.getProductKrs(productId) || [];
+    // Tasks
+    const tasks = window.ExecutionTaskStore
+      ? (ExecutionTaskStore.all() || []).filter(t => Number(t.linked_action_id) === Number(action.id))
+      : [];
+    const now = new Date();
+    const completed = tasks.filter(t => t.status === 'completed').length;
+    const late = tasks.filter(t => t.status !== 'completed' && t.due_date && new Date(t.due_date) < now).length;
+    const onTime = tasks.length - late - completed;
+    const statusMap = {
+      pending: 'bg-amber-500/15 border-amber-400/30 text-amber-200',
+      in_progress: 'bg-sky-500/15 border-sky-400/30 text-sky-200',
+      completed: 'bg-emerald-500/15 border-emerald-400/30 text-emerald-200',
+      blocked: 'bg-rose-500/15 border-rose-400/30 text-rose-200'
+    };
+    const statusLabel = { pending: 'Pendente', in_progress: 'Em curso', completed: 'Concluída', blocked: 'Bloqueada' };
+    return `<div class="fixed inset-0 z-[92] grid place-items-center p-4" style="background: rgba(15,23,42,0.78); backdrop-filter: blur(6px);" onclick="if(event.target===this) Actions.closeAcompanhamentoActionDetail()">
+      <div class="w-full max-w-3xl rounded-3xl bg-slate-900 border-2 border-${tone}-400/40 shadow-2xl overflow-hidden">
+        <!-- HEADER -->
+        <div class="bg-${tone}-500/15 border-b border-${tone}-400/30 px-5 py-4 flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest">
+              ${area ? `<i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)} · ` : ''}AÇÃO · ACOMPANHAMENTO
+            </p>
+            <h2 class="text-lg font-black text-white mt-1 leading-tight">${Utils.escape(action.name || 'Sem nome')}</h2>
+            <p class="text-[11px] text-slate-300 mt-0.5">
+              ${Utils.escape(action.channel || '— canal —')} · ${Utils.escape(action.actionType || '— tipo —')}
+              ${action.funnelPoint ? ` · começa em <b>${Utils.escape(action.funnelPoint)}</b>` : ''}
+              ${action.destSector && action.destFunnelPoint ? ` · leva pra <b>${Utils.escape(action.destSector)} ${Utils.escape(action.destFunnelPoint)}</b>` : ''}
+            </p>
+          </div>
+          <button onclick="Actions.closeAcompanhamentoActionDetail()" class="shrink-0 w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 grid place-items-center"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+
+        <!-- BODY -->
+        <div class="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          <!-- KRs vinculados -->
+          <div class="rounded-xl bg-slate-800/40 border border-white/5 p-3">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 inline-flex items-center gap-1.5">
+              <i data-lucide="target" class="w-3 h-3"></i> KRs que esta ação move
+            </p>
+            ${linkedKrs.length === 0 ? `<p class="text-[11px] text-slate-500 italic">Sem KRs vinculados.</p>` : `<div class="space-y-1.5">
+              ${linkedKrs.map(({ kr, branchCampaignId }) => {
+                const productKr = productKrs.find(p => p.id === kr.parentProductKrId) || kr;
+                const krColor = StrategicMapEngine.krColorFromId(kr.parentProductKrId || kr.id);
+                return `<button onclick="Actions.closeAcompanhamentoActionDetail(); setTimeout(() => Actions.openAcompanhamentoKrDetail('${kr.id}', ${branchCampaignId || 'null'}), 100)" class="w-full text-left rounded-lg bg-slate-900/60 hover:bg-slate-900 border border-white/5 p-2 flex items-center justify-between gap-2 transition" style="border-left:4px solid ${krColor};">
+                  <div class="flex items-center gap-2 min-w-0 flex-1">
+                    <span class="shrink-0 w-2 h-2 rounded-full" style="background:${krColor};"></span>
+                    <div class="min-w-0">
+                      <p class="text-[12px] font-bold text-white truncate">${Utils.escape(productKr.name || kr.name)}</p>
+                      <p class="text-[10px] text-slate-500">SEGURA <b class="text-emerald-400">${Utils.escape(String(productKr.targetCommitted || '—'))}</b> ${Utils.escape(productKr.metric || '')}</p>
+                    </div>
+                  </div>
+                  <i data-lucide="external-link" class="w-3 h-3 text-slate-500 shrink-0"></i>
+                </button>`;
+              }).join('')}
+            </div>`}
+          </div>
+
+          <!-- Tasks -->
+          <div class="rounded-xl bg-slate-800/40 border border-white/5 p-3">
+            <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest inline-flex items-center gap-1.5">
+                <i data-lucide="list-checks" class="w-3 h-3"></i> Tasks · ${tasks.length}
+              </p>
+              <div class="flex items-center gap-1.5">
+                ${completed > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 uppercase tracking-wider">✓ ${completed}</span>` : ''}
+                ${onTime > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-200 uppercase tracking-wider">⏱ ${onTime}</span>` : ''}
+                ${late > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-400/30 text-rose-200 uppercase tracking-wider">⚠ ${late}</span>` : ''}
+              </div>
+            </div>
+            ${tasks.length === 0 ? `<p class="text-[11px] text-slate-500 italic">Sem tasks ainda. Volte pra As Ações e clique <b>Executar Ação</b> no card desta ação.</p>` : `<div class="space-y-1.5">
+              ${tasks.map(t => {
+                const isLate = t.status !== 'completed' && t.due_date && new Date(t.due_date) < now;
+                const statusCls = isLate ? 'bg-rose-500/20 border-rose-400/40 text-rose-200' : (statusMap[t.status] || statusMap.pending);
+                const statusTxt = isLate ? 'Atrasada' : (statusLabel[t.status] || 'Pendente');
+                const dueLabel = t.due_date ? new Date(t.due_date).toLocaleDateString('pt-BR') : '—';
+                return `<button onclick="Actions.openExecutionTaskDetail('${t.task_id}')" class="w-full text-left rounded-lg bg-slate-900/60 hover:bg-slate-900 border border-white/5 p-2 flex items-center justify-between gap-2 transition">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-[12px] font-bold text-white truncate" title="${Utils.escape(t.title || '')}">${Utils.escape(t.title || 'Task sem nome')}</p>
+                    <p class="text-[10px] text-slate-500 mt-0.5">Entrega: <b class="text-slate-300">${dueLabel}</b> · ${Utils.escape((t.provider || 'task').toUpperCase())}</p>
+                  </div>
+                  <span class="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider border ${statusCls} shrink-0">${statusTxt}</span>
+                </button>`;
+              }).join('')}
+            </div>`}
+          </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="bg-slate-900/80 border-t border-white/5 px-5 py-3 flex justify-end">
+          <button onclick="Actions.closeAcompanhamentoActionDetail()" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[10px] font-black uppercase tracking-wider">Fechar</button>
         </div>
       </div>
     </div>`;
@@ -4073,7 +4193,7 @@ window.StrategicMapModal = {
     const late = tasks.filter(t => t.status !== 'completed' && t.due_date && new Date(t.due_date) < now).length;
     const completed = tasks.filter(t => t.status === 'completed').length;
     const onTime = tasks.length - late - completed;
-    return `<div class="rounded-xl bg-slate-900/60 border border-white/10 p-3 flex items-center justify-between gap-3 flex-wrap">
+    return `<div class="rounded-xl bg-slate-900/60 border border-white/10 p-3 flex items-center justify-between gap-3 flex-wrap hover:bg-slate-900/80 transition">
       <div class="min-w-0 flex-1">
         <p class="font-black text-white text-[12px] truncate" title="${Utils.escape(action.name || 'Sem nome')}">${Utils.escape(action.name || 'Sem nome')}</p>
         <p class="text-[10px] text-slate-400 mt-0.5">${Utils.escape(action.channel || '— canal —')} · ${tasks.length} task${tasks.length === 1 ? '' : 's'}</p>
@@ -4083,6 +4203,9 @@ window.StrategicMapModal = {
         ${onTime > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-200 uppercase tracking-wider">⏱ ${onTime}</span>` : ''}
         ${late > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-400/30 text-rose-200 uppercase tracking-wider">⚠ ${late}</span>` : ''}
         ${tasks.length === 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-200 uppercase tracking-wider">Sem task</span>` : ''}
+        <button onclick="Actions.openAcompanhamentoActionDetail(${action.id})" title="Lupa: ver tasks e KRs desta ação" class="shrink-0 w-7 h-7 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-slate-200 grid place-items-center">
+          <i data-lucide="search" class="w-3.5 h-3.5"></i>
+        </button>
       </div>
     </div>`;
   },

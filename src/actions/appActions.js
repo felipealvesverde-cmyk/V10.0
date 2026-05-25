@@ -3323,6 +3323,18 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V32.14.2 — Drill-down da Ação no Acompanhamento. Mostra detalhe da ação
+  // + KRs que ela move + tasks com status agregado.
+  openAcompanhamentoActionDetail(actionId) {
+    App.state.acompanhamentoActionDetail = { actionId: Number(actionId) };
+    App.render();
+  },
+
+  closeAcompanhamentoActionDetail() {
+    App.state.acompanhamentoActionDetail = null;
+    App.render();
+  },
+
   // V32.13.17 — Auto-sync silencioso de tasks ClickUp ao entrar na Etapa 5.
   // Guard por chave + intervalo mínimo (5min) pra não estourar API e nem
   // chamar a cada re-render. Roda em setTimeout pra não bloquear UI.
