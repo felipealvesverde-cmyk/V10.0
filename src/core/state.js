@@ -280,6 +280,9 @@ var State = {
       // V33.0.0 Onda 2 — Hotmart: status cache + wizard.
       hotmartStatus: null,
       hotmartWizardOpen: null,
+      // V33.0.0 Onda 3 — Atribuição causal: cache de aggregação por action.
+      // { byActionId: { [id]: {transitions, leads, customers, lastAttributedAt} }, sinceDays, loadedAt, loading }
+      actionAttributionsCache: { byActionId: {}, sinceDays: 30, loadedAt: null, loading: false },
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -722,6 +725,8 @@ var State = {
       // V33.0.0 Onda 2 — Hotmart status/wizard sempre volátil (re-fetch + fecha em F5).
       hotmartStatus: null,
       hotmartWizardOpen: null,
+      // V33.0.0 Onda 3 — Cache de atribuição volátil (re-fetch ao abrir Mapa/Resultados).
+      actionAttributionsCache: { byActionId: {}, sinceDays: 30, loadedAt: null, loading: false },
       // V32.14.8 — Timestamp da última sync ClickUp persiste.
       clickupLastSyncAt: Number(raw.clickupLastSyncAt) || null,
       // V32.15.0 — Recolher por bloco no Acompanhamento persiste.

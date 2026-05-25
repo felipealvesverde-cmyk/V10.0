@@ -94,6 +94,19 @@ var ResultModule = {
     const actions = (App.state.actions || []).filter(a => campaigns.some(c => Number(c.id) === Number(a.campaignId)));
     const summary = this._summaryFromActions(actions);
 
+    // V33.0.0 Onda 3 — Auto-fetch atribuições pra Top Ações
+    const attrCache = App.state.actionAttributionsCache;
+    if (!attrCache?.loadedAt && !attrCache?.loading && window.Actions?.loadActionAttributions) {
+      setTimeout(() => Actions.loadActionAttributions(30), 0);
+    }
+    // Pega top 5 ações atribuídas DESTE produto, ordenadas por customers→transitions
+    const byId = attrCache?.byActionId || {};
+    const productActionIds = new Set(actions.map(a => Number(a.id)));
+    const topActions = Object.values(byId)
+      .filter(a => productActionIds.has(Number(a.actionId)))
+      .sort((a, b) => (b.customers - a.customers) || (b.transitions - a.transitions))
+      .slice(0, 5);
+
     // V33.0.0 — Funil consolidado vindo do tracker (visitors deste produto)
     const counts = App.state.trackerVisitorsCache?.counts;
     const trackerFunnel = counts?.byEntityType || { suspect: 0, lead: 0, customer: 0 };
@@ -143,6 +156,33 @@ var ResultModule = {
           ${Components.resultMetric('Conversão', `${summary.conversion}%`)}
           ${Components.resultMetric('Score médio', summary.avgScore)}
         </div>
+
+        <!-- V33.0.0 Onda 3 — Top ações por atribuição causal (30d) -->
+        ${topActions.length > 0 ? `<div class="rounded-3xl bg-white border border-emerald-200 p-4 mb-5">
+          <h3 class="font-black text-base mb-3 inline-flex items-center gap-2 text-emerald-800">
+            <i data-lucide="award" class="w-4 h-4"></i> Top ações por movimentação · últimos 30 dias
+          </h3>
+          <div class="space-y-2">
+            ${topActions.map((a, idx) => {
+              const action = actions.find(x => Number(x.id) === Number(a.actionId));
+              if (!action) return '';
+              const lastAt = a.lastAttributedAt ? new Date(a.lastAttributedAt).toLocaleDateString('pt-BR') : '—';
+              return `<button onclick="Actions.openActionResult(${action.id})" class="w-full text-left flex items-center justify-between gap-3 p-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                  <span class="shrink-0 w-7 h-7 rounded-full bg-emerald-600 text-white text-xs font-black grid place-items-center" style="color:#fff!important;">${idx + 1}</span>
+                  <div class="min-w-0">
+                    <p class="font-black text-sm text-emerald-900 truncate">${Utils.escape(action.name || 'Sem nome')}</p>
+                    <p class="text-[10px] text-emerald-700/70 truncate">${Utils.escape(action.channel || '—')} · último atribuído: ${lastAt}</p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                  ${a.customers > 0 ? `<span class="px-2 py-1 rounded bg-emerald-600 text-white text-[10px] font-black" style="color:#fff!important;">${a.customers} CUST</span>` : ''}
+                  <span class="px-2 py-1 rounded bg-sky-100 border border-sky-300 text-sky-800 text-[10px] font-black">${a.transitions} MOV</span>
+                </div>
+              </button>`;
+            }).join('')}
+          </div>
+        </div>` : ''}
 
         <!-- Lista de campanhas (drill-down) -->
         <h3 class="font-black text-lg mb-3 mt-5">Campanhas do produto</h3>

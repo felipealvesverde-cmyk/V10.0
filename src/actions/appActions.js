@@ -9948,6 +9948,26 @@ Object.assign(Actions, {
     }
   },
 
+  // V33.0.0 Onda 3 — Carrega atribuições agregadas por action.
+  async loadActionAttributions(sinceDays = 30) {
+    const cache = App.state.actionAttributionsCache || {};
+    if (cache.loading) return;
+    App.state.actionAttributionsCache = { ...cache, loading: true };
+    try {
+      const data = await this._trackerFetch(`/api/action-attributions?since_days=${sinceDays}`);
+      if (!data.ok) {
+        App.state.actionAttributionsCache = { byActionId: {}, sinceDays, loadedAt: Date.now(), loading: false, error: data.message };
+      } else {
+        const byActionId = {};
+        for (const a of (data.attributions || [])) byActionId[a.actionId] = a;
+        App.state.actionAttributionsCache = { byActionId, sinceDays, loadedAt: Date.now(), loading: false };
+      }
+    } catch (err) {
+      App.state.actionAttributionsCache = { ...App.state.actionAttributionsCache, loading: false, error: err.message };
+    }
+    App.render();
+  },
+
   copyHotmartWebhookUrl() {
     // URL pra cliente colar no Hotmart. Inclui tenant_id pra roteamento.
     const tenantId = (() => {

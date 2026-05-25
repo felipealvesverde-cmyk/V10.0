@@ -2948,6 +2948,12 @@ window.StrategicMapModal = {
   _stepOperations(product) {
     // V31.2.6 — Sem bifurcação CEO/Gestor. Sempre renderiza versão completa.
     // V29.2.0 — Trabalho unificado: plugar números + ativar ações que cobrem.
+    // V33.0.0 Onda 3 — Auto-fetch atribuições 1x quando abre Etapa 5
+    // (selos de eficácia nos cards de ação ficam disponíveis sem F5).
+    const attrCache = App.state.actionAttributionsCache;
+    if (!attrCache?.loadedAt && !attrCache?.loading && window.Actions?.loadActionAttributions) {
+      setTimeout(() => Actions.loadActionAttributions(30), 0);
+    }
     const productKrs = StrategicMapEngine.getProductKrs(product.id);
     const campaignId = App.state.strategicMapCampaignId;
     const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
@@ -3285,6 +3291,21 @@ window.StrategicMapModal = {
     const displayName = hasName ? action.name : 'Qual o nome da ação?';
     const nameCls = hasName ? 'text-white' : 'text-amber-200 italic';
 
+    // V33.0.0 Onda 3 — Selo de eficácia: quantos visitors essa action moveu
+    // nos últimos 30 dias (atribuição causal). Verde se >0, slate se 0/N.A.
+    const attribution = App.state.actionAttributionsCache?.byActionId?.[action.id];
+    const totalMoves = attribution ? Number(attribution.transitions || 0) : 0;
+    const customersFromThis = attribution ? Number(attribution.customers || 0) : 0;
+    const efficacyBadge = isComplete ? (totalMoves > 0
+      ? `<div class="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 text-[9px] font-black uppercase tracking-wider" title="Atribuição causal nos últimos 30 dias">
+          <i data-lucide="trending-up" class="w-2.5 h-2.5"></i>
+          ${totalMoves} mov · ${customersFromThis} cust
+        </div>`
+      : `<div class="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-500/15 border border-slate-400/30 text-slate-400 text-[9px] font-black uppercase tracking-wider" title="Sem atribuição nos últimos 30 dias">
+          <i data-lucide="moon" class="w-2.5 h-2.5"></i>
+          0 mov · 30d
+        </div>`) : '';
+
     // V32.13.12 — Card sozinho (incompleto) ou Card + Executar Ação (completo)
     const cardInner = `<div class="flex items-center justify-between gap-2 mb-2">
         <div class="flex items-center gap-1.5 min-w-0">
@@ -3297,7 +3318,8 @@ window.StrategicMapModal = {
         </span>
       </div>
       <p class="text-[13px] font-black leading-snug line-clamp-2 mb-1.5 ${nameCls}" title="${Utils.escape(displayName)}">${Utils.escape(displayName)}</p>
-      <p class="text-[10px] text-slate-500 truncate">${Utils.escape(action.channel || '— canal —')}</p>`;
+      <p class="text-[10px] text-slate-500 truncate">${Utils.escape(action.channel || '— canal —')}</p>
+      ${efficacyBadge}`;
 
     // V32.15.3 (Leonardo) — Barra-totem na esquerda do card de ação espelha o
     // peso visual do card master. 4px era apenas "borda", virava ruído contra
