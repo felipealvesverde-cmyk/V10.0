@@ -367,7 +367,7 @@ window.StrategicMapModal = {
           })()}
           <div class="flex items-center gap-2">
             <button onclick="Actions.closeTaskCreationModal()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-[12px] font-black">Cancelar</button>
-            <button onclick="Actions.submitTaskCreation()" ${submitting ? 'disabled' : ''} class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[12px] font-black flex items-center gap-1.5 disabled:opacity-50" style="color:#fff!important;"><i data-lucide="${submitting ? 'loader' : 'send'}" class="w-3.5 h-3.5 ${submitting ? 'animate-spin' : ''}"></i> ${submitting ? 'Enviando…' : 'Criar no ClickUp'}</button>
+            <button onclick="Actions.submitTaskCreation()" ${submitting ? 'disabled' : ''} class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[12px] font-black flex items-center gap-1.5 disabled:opacity-50" style="color:#fff!important;"><i data-lucide="${submitting ? 'loader' : 'send'}" class="w-3.5 h-3.5 ${submitting ? 'animate-spin' : ''}"></i> ${submitting ? 'Enviando…' : (m.editingTaskId ? 'Criar/Atualizar ClickUp' : 'Criar no ClickUp')}</button>
           </div>
         </div>
       </div>
@@ -659,10 +659,11 @@ window.StrategicMapModal = {
     const statusMap = {
       pending: 'bg-amber-500/15 border-amber-400/30 text-amber-200',
       in_progress: 'bg-sky-500/15 border-sky-400/30 text-sky-200',
+      review: 'bg-violet-500/15 border-violet-400/30 text-violet-200',
       completed: 'bg-emerald-500/15 border-emerald-400/30 text-emerald-200',
       blocked: 'bg-rose-500/15 border-rose-400/30 text-rose-200'
     };
-    const statusLabel = { pending: 'Pendente', in_progress: 'Em curso', completed: 'Concluída', blocked: 'Bloqueada' };
+    const statusLabel = { pending: 'Pendente', in_progress: 'Em curso', review: 'Em revisão', completed: 'Concluída', blocked: 'Bloqueada' };
     return `<div class="fixed inset-0 z-[92] grid place-items-center p-4" style="background: rgba(15,23,42,0.78); backdrop-filter: blur(6px);" onclick="if(event.target===this) Actions.closeAcompanhamentoActionDetail()">
       <div class="w-full max-w-3xl rounded-3xl bg-slate-900 border-2 border-${tone}-400/40 shadow-2xl overflow-hidden">
         <!-- HEADER -->
@@ -753,10 +754,11 @@ window.StrategicMapModal = {
     const statusMap = {
       pending: 'bg-amber-500/15 border-amber-400/30 text-amber-200',
       in_progress: 'bg-sky-500/15 border-sky-400/30 text-sky-200',
+      review: 'bg-violet-500/15 border-violet-400/30 text-violet-200',
       completed: 'bg-emerald-500/15 border-emerald-400/30 text-emerald-200',
       blocked: 'bg-rose-500/15 border-rose-400/30 text-rose-200'
     };
-    const statusLabel = { pending: 'Pendente', in_progress: 'Em curso', completed: 'Concluída', blocked: 'Bloqueada' };
+    const statusLabel = { pending: 'Pendente', in_progress: 'Em curso', review: 'Em revisão', completed: 'Concluída', blocked: 'Bloqueada' };
     return `<div class="rounded-xl bg-slate-800/40 border border-white/10 p-3 space-y-2">
       <div class="flex items-center justify-between gap-2 flex-wrap">
         <div class="min-w-0 flex-1">
@@ -795,6 +797,7 @@ window.StrategicMapModal = {
     const statusMap = {
       pending:     { label: 'Pendente',   tone: 'amber',   icon: 'circle' },
       in_progress: { label: 'Em curso',   tone: 'sky',     icon: 'loader' },
+      review:      { label: 'Em revisão', tone: 'violet',  icon: 'eye' },
       completed:   { label: 'Concluída',  tone: 'emerald', icon: 'check-circle-2' },
       blocked:     { label: 'Bloqueada',  tone: 'rose',    icon: 'x-circle' }
     };
@@ -3309,10 +3312,11 @@ window.StrategicMapModal = {
   // + status + link externo. Conectada por seta SVG amber.
   _executionBranchRender(tasks) {
     const statusColorMap = {
-      pending:     { bg: 'bg-amber-500/15',   border: 'border-amber-400/40',   text: 'text-amber-200',   label: 'Pendente', icon: 'circle' },
-      in_progress: { bg: 'bg-sky-500/15',     border: 'border-sky-400/40',     text: 'text-sky-200',     label: 'Em curso', icon: 'loader' },
-      completed:   { bg: 'bg-emerald-500/15', border: 'border-emerald-400/40', text: 'text-emerald-200', label: 'Feita',    icon: 'check-circle-2' },
-      blocked:     { bg: 'bg-rose-500/15',    border: 'border-rose-400/40',    text: 'text-rose-200',    label: 'Bloqueada', icon: 'x-circle' }
+      pending:     { bg: 'bg-amber-500/15',   border: 'border-amber-400/40',   text: 'text-amber-200',   label: 'Pendente',   icon: 'circle' },
+      in_progress: { bg: 'bg-sky-500/15',     border: 'border-sky-400/40',     text: 'text-sky-200',     label: 'Em curso',   icon: 'loader' },
+      review:      { bg: 'bg-violet-500/15',  border: 'border-violet-400/40',  text: 'text-violet-200',  label: 'Em revisão', icon: 'eye' },
+      completed:   { bg: 'bg-emerald-500/15', border: 'border-emerald-400/40', text: 'text-emerald-200', label: 'Feita',      icon: 'check-circle-2' },
+      blocked:     { bg: 'bg-rose-500/15',    border: 'border-rose-400/40',    text: 'text-rose-200',    label: 'Bloqueada',  icon: 'x-circle' }
     };
     const providerIconMap = { clickup: 'check-square', trello: 'trello', manual: 'list' };
     return tasks.map(task => {
@@ -3335,6 +3339,13 @@ window.StrategicMapModal = {
           </div>
           <p class="text-[12px] font-black text-white leading-snug line-clamp-2" title="${Utils.escape(task.title || '')}">${Utils.escape(task.title || 'Task sem nome')}</p>
           ${task.external_url ? `<p class="text-[9px] text-sky-400 mt-1 inline-flex items-center gap-1"><i data-lucide="external-link" class="w-2.5 h-2.5"></i> Ver detalhe</p>` : ''}
+        </button>
+        <!-- V32.14.6 — Botão Editar entre card e Duplicar. Abre taskCreationModal
+             em modo edit (editingTaskId), pré-populado com infos da task. -->
+        <button onclick="Actions.openTaskCreationModal(${task.linked_action_id}, '${task.task_id}')" title="Editar esta task (abre modal com infos)"
+          class="self-stretch px-2 border-t-2 border-b-2 ${status.border} bg-violet-500/15 hover:bg-violet-500/40 text-violet-200 text-[9px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-0.5 transition">
+          <i data-lucide="edit-3" class="w-3 h-3"></i>
+          <span class="text-[8px] leading-tight">Editar</span>
         </button>
         <!-- V32.14.3 — Botão Duplicar adjacente ao card. Click cria nova task
              local com mesmas infos (nome incrementado), ramifica visualmente

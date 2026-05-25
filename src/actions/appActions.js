@@ -3350,18 +3350,19 @@ Object.assign(Actions, {
     const linkedTasks = ExecutionTaskStore.byAction(original.linked_action_id) || [];
     const sameBaseCount = linkedTasks.filter(t => String(t.title || '').replace(/\s*\(\d+\)$/, '') === baseName).length;
     const newName = `${baseName} (${sameBaseCount + 1})`;
-    // Cria duplicata LOCAL — sem provider_task_id (não está criada no ClickUp)
+    // V32.14.6 — Duplicata entra com status='review' (não 'pending'): cliente
+    // precisa REVISAR e editar antes de criar no ClickUp.
     ExecutionTaskStore.create({
       linked_action_id: original.linked_action_id,
       title: newName,
       description: original.description,
-      status: 'pending',
+      status: 'review',
       provider: 'manual',  // local-only enquanto não executar real
       due_date: original.due_date || null,
       assignees: original.assignees || []
     });
     App.save(); App.render();
-    Utils.toast(`✓ Task duplicada: "${newName}". Clique nela e use Executar Ação pra criar no ClickUp.`);
+    Utils.toast(`✓ Task duplicada: "${newName}" (Em revisão). Clique em Editar pra revisar antes de criar no ClickUp.`);
   },
 
   // V32.13.17 — Auto-sync silencioso de tasks ClickUp ao entrar na Etapa 5.
@@ -7403,38 +7404,60 @@ Object.assign(Actions, {
   // V31.2.33 — TASK CREATION MODAL: ponte ação → execução ClickUp.
   // Substitui o clique direto do antigo "Criar tarefa via Djow" no Mapa.
   // 3 modos: form Normal (obrigatório), expand Avançado (opcional), botão Djow (auto).
-  openTaskCreationModal(actionId) {
+  // V32.14.6 — Aceita editingTaskId opcional: se passado, pré-popula draft
+  // com infos da task existente (modo edit). Sem ele, comportamento original
+  // (criar nova task).
+  openTaskCreationModal(actionId, editingTaskId) {
     const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
     if (!action) return Utils.toast('Ação não encontrada.');
     // Pre-fetch metadata se ainda não tem
     if (!App.state.clickupMeta?.loaded) this.loadClickupMetadata();
+
+    // Modo edit: lê task existente
+    const editingTask = editingTaskId && window.ExecutionTaskStore
+      ? ExecutionTaskStore.byId(String(editingTaskId))
+      : null;
+
+    const draftDefaults = {
+      name: action.name || '',
+      description: action.strategicDescription && action.strategicDescription !== 'Ação custom criada via engine'
+        ? action.strategicDescription
+        : `Ação operacional: ${action.name}. Canal: ${action.channel || '—'}.`,
+      assignees: [],
+      priority: '',
+      status: '',
+      due_date: '',
+      due_date_time: false,
+      start_date: '',
+      start_date_time: false,
+      tags: [],
+      time_estimate_hours: '',
+      points: '',
+      parent: '',
+      links_to: '',
+      markdown_content: '',
+      custom_fields: {}
+    };
+
+    // Sobrepõe com infos da task existente quando em modo edit
+    const draft = editingTask ? {
+      ...draftDefaults,
+      name: editingTask.title || draftDefaults.name,
+      description: editingTask.description || draftDefaults.description,
+      assignees: Array.isArray(editingTask.assignees) ? editingTask.assignees : [],
+      due_date: editingTask.due_date || '',
+      start_date: editingTask.start_date || '',
+      custom_fields: editingTask.custom_fields || {}
+    } : draftDefaults;
+
     App.state.taskCreationModal = {
       open: true,
       actionId: Number(actionId),
+      editingTaskId: editingTask ? String(editingTask.task_id) : null,
       showAdvanced: false,
       djowLoading: false,
       submitting: false,
-      draft: {
-        name: action.name || '',
-        description: action.strategicDescription && action.strategicDescription !== 'Ação custom criada via engine'
-          ? action.strategicDescription
-          : `Ação operacional: ${action.name}. Canal: ${action.channel || '—'}.`,
-        assignees: [],
-        // Avançado (vazio por default)
-        priority: '',
-        status: '',
-        due_date: '',
-        due_date_time: false,
-        start_date: '',
-        start_date_time: false,
-        tags: [],
-        time_estimate_hours: '',
-        points: '',
-        parent: '',
-        links_to: '',
-        markdown_content: '',
-        custom_fields: {}
-      }
+      draft
     };
     App.render();
   },
@@ -7676,34 +7699,107 @@ Object.assign(Actions, {
         .map(([id, value]) => ({ id, value }));
     }
 
+    // V32.14.6 — Modo edit: se editingTaskId existe E task já tem
+    // provider_task_id (já está no ClickUp), faz PUT pra atualizar no ClickUp
+    // via clickup-proxy. Se tem editingTaskId mas SEM provider_task_id (task
+    // local/duplicada/em revisão), cria primeira vez no ClickUp e atualiza a
+    // task local pra apontar pro novo provider_task_id.
+    const editingTask = m.editingTaskId && window.ExecutionTaskStore
+      ? ExecutionTaskStore.byId(m.editingTaskId)
+      : null;
+    const isEditWithProvider = editingTask && editingTask.provider_task_id;
+
     try {
       const token = localStorage.getItem('lj_jwt');
-      const r = await fetch('/api/clickup-create-task', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-      const data = await r.json();
-      if (data.ok) {
-        // Persiste o registro local também
-        if (window.ExecutionTaskStore) {
-          ExecutionTaskStore.create({
-            linked_action_id: m.actionId,
+      let r, data;
+
+      if (isEditWithProvider) {
+        // UPDATE task existente no ClickUp via proxy
+        const updateBody = {
+          name: payload.name,
+          description: payload.description,
+          assignees: { add: payload.assignees || [] }
+        };
+        if (payload.due_date) updateBody.due_date = payload.due_date;
+        if (payload.due_date_time !== undefined) updateBody.due_date_time = payload.due_date_time;
+        if (payload.start_date) updateBody.start_date = payload.start_date;
+        if (payload.start_date_time !== undefined) updateBody.start_date_time = payload.start_date_time;
+        if (payload.priority) updateBody.priority = payload.priority;
+        if (payload.status) updateBody.status = payload.status;
+        r = await fetch('/api/clickup-proxy', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            method: 'PUT',
+            path: `/task/${editingTask.provider_task_id}`,
+            body: updateBody
+          })
+        });
+        data = await r.json();
+        if (data.ok && data.status >= 200 && data.status < 300) {
+          // Atualiza task local
+          ExecutionTaskStore.update(editingTask.task_id, {
             title: payload.name,
             description: payload.description,
-            status: 'pending',
-            provider: 'clickup',
-            provider_task_id: data.providerTaskId,
-            external_url: data.externalUrl
+            due_date: payload.due_date || null,
+            assignees: payload.assignees || []
           });
+          // TODO: atualizar custom_fields requer PUT individual por campo (API ClickUp)
+          App.state.taskCreationModal = null;
+          App.save(); App.render();
+          Utils.toast(`✓ Task atualizada no ClickUp.`);
+        } else {
+          App.state.taskCreationModal = { ...m, submitting: false };
+          App.render();
+          Utils.toast(`Falhou atualizar: ${data.message || data.data?.err || 'erro desconhecido'}`);
         }
-        App.state.taskCreationModal = null;
-        App.save(); App.render();
-        Utils.toast(`✓ Task criada no ClickUp${data.externalUrl ? '. Clique no toast pra abrir.' : '.'}`);
       } else {
-        App.state.taskCreationModal = { ...m, submitting: false };
-        App.render();
-        Utils.toast(`Falhou: ${data.message || 'erro desconhecido'}`);
+        // CREATE (comportamento original): cria nova no ClickUp
+        r = await fetch('/api/clickup-create-task', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(payload)
+        });
+        data = await r.json();
+        if (data.ok) {
+          if (window.ExecutionTaskStore) {
+            if (editingTask) {
+              // Era uma task local (review/manual) sendo materializada no ClickUp.
+              // Update do registro local em vez de criar duplicata.
+              ExecutionTaskStore.update(editingTask.task_id, {
+                title: payload.name,
+                description: payload.description,
+                status: 'pending',  // sai de 'review' pra 'pending' agora no ClickUp
+                provider: 'clickup',
+                provider_task_id: data.providerTaskId,
+                external_url: data.externalUrl,
+                due_date: payload.due_date || null,
+                assignees: payload.assignees || []
+              });
+              Utils.toast(`✓ Task criada no ClickUp${data.externalUrl ? '. Clique no toast pra abrir.' : '.'}`);
+            } else {
+              // Criação nova pura (não vinculada a stub existente).
+              ExecutionTaskStore.create({
+                linked_action_id: m.actionId,
+                title: payload.name,
+                description: payload.description,
+                status: 'pending',
+                provider: 'clickup',
+                provider_task_id: data.providerTaskId,
+                external_url: data.externalUrl,
+                due_date: payload.due_date || null,
+                assignees: payload.assignees || []
+              });
+              Utils.toast(`✓ Task criada no ClickUp${data.externalUrl ? '. Clique no toast pra abrir.' : '.'}`);
+            }
+          }
+          App.state.taskCreationModal = null;
+          App.save(); App.render();
+        } else {
+          App.state.taskCreationModal = { ...m, submitting: false };
+          App.render();
+          Utils.toast(`Falhou: ${data.message || 'erro desconhecido'}`);
+        }
       }
     } catch (err) {
       App.state.taskCreationModal = { ...m, submitting: false };
