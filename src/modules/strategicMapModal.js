@@ -60,6 +60,7 @@ window.StrategicMapModal = {
       ${App.state.connectActionToKrsModal ? this._connectActionToKrsModalRender() : ''}
       ${App.state.strategicKrPickerOpen ? this._strategicKrPickerModalRender() : ''}
       ${App.state.strategicMindMapActionEditor ? this._mindMapActionEditorRender() : ''}
+      ${App.state.executionTaskDetail ? this._executionTaskDetailRender() : ''}
       ${App.state.strategicActionDetailModalId ? this._actionDetailModalRender() : ''}
       ${App.state.taskCreationModal?.open ? this._taskCreationModalRender() : ''}
       ${App.state.djowTaskChat?.open ? this._djowTaskChatRender() : ''}
@@ -501,6 +502,91 @@ window.StrategicMapModal = {
   // Aparece em z-[96] (acima do Mapa da Receita que é z-[80]). Mostra:
   //   - Mini-dashboard (velocímetro) do KR: rollup atual vs Meta Segura/Avançada
   //   - Lista de ações conectadas (across todas branches do produto) com
+  // V32.13.16 — Modal de detalhe da task de execução. Aberto via click no
+  // card amber da branch de execução no mind-map. Mostra metadados +
+  // ações: sincronizar status, abrir no provider, marcar concluída manual,
+  // apagar (sem tocar no provider).
+  _executionTaskDetailRender() {
+    const detail = App.state.executionTaskDetail;
+    if (!detail?.taskId) return '';
+    const task = window.ExecutionTaskStore ? ExecutionTaskStore.byId(detail.taskId) : null;
+    if (!task) return '';
+    const syncing = !!detail.syncing;
+    const statusMap = {
+      pending:     { label: 'Pendente',   tone: 'amber',   icon: 'circle' },
+      in_progress: { label: 'Em curso',   tone: 'sky',     icon: 'loader' },
+      completed:   { label: 'Concluída',  tone: 'emerald', icon: 'check-circle-2' },
+      blocked:     { label: 'Bloqueada',  tone: 'rose',    icon: 'x-circle' }
+    };
+    const status = statusMap[task.status] || statusMap.pending;
+    const provider = (task.provider || 'task').toUpperCase();
+    return `<div class="fixed inset-0 z-[92] grid place-items-center p-4" style="background: rgba(15,23,42,0.75); backdrop-filter: blur(6px);" onclick="if(event.target===this) Actions.closeExecutionTaskDetail()">
+      <div class="w-full max-w-lg rounded-3xl bg-slate-900 border-2 border-amber-400/40 shadow-2xl overflow-hidden">
+        <!-- HEADER -->
+        <div class="bg-amber-500/15 border-b border-amber-400/30 px-5 py-4 flex items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-amber-300 uppercase tracking-widest">Execução · ${Utils.escape(provider)}</p>
+            <h2 class="text-base font-black text-white mt-1 leading-tight">${Utils.escape(task.title || 'Task sem nome')}</h2>
+          </div>
+          <button onclick="Actions.closeExecutionTaskDetail()" class="shrink-0 w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 grid place-items-center">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- BODY -->
+        <div class="p-5 space-y-3">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-${status.tone}-500/15 border border-${status.tone}-400/40 text-${status.tone}-200 text-[10px] font-black uppercase tracking-wider">
+              <i data-lucide="${status.icon}" class="w-3 h-3"></i>
+              ${status.label}
+            </span>
+            ${task.completed_at ? `<span class="text-[10px] text-slate-500">Concluída em ${new Date(task.completed_at).toLocaleString('pt-BR')}</span>` : ''}
+          </div>
+
+          ${task.description ? `<div>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Descrição</p>
+            <p class="text-[12px] text-slate-300 leading-relaxed whitespace-pre-wrap">${Utils.escape(task.description)}</p>
+          </div>` : ''}
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Provider</p>
+              <p class="text-[12px] font-black text-slate-200">${Utils.escape(provider)}</p>
+            </div>
+            ${task.provider_task_id ? `<div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Task ID externo</p>
+              <p class="text-[11px] font-mono text-slate-300 truncate" title="${Utils.escape(task.provider_task_id)}">${Utils.escape(task.provider_task_id)}</p>
+            </div>` : ''}
+          </div>
+
+          ${task.external_url ? `<a href="${Utils.escape(task.external_url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-500/15 border border-sky-400/40 text-sky-200 text-[11px] font-black uppercase tracking-wider hover:bg-sky-500/25">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            Abrir no ${Utils.escape(task.provider || 'provider')}
+          </a>` : ''}
+        </div>
+
+        <!-- FOOTER ACTIONS -->
+        <div class="bg-slate-900/80 border-t border-white/5 px-5 py-3 flex items-center justify-between gap-2 flex-wrap">
+          <div class="flex items-center gap-1.5">
+            <button onclick="Actions.deleteExecutionTask()" class="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/30 border border-rose-400/40 text-rose-200 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1">
+              <i data-lucide="trash-2" class="w-3 h-3"></i> Apagar
+            </button>
+            ${task.status !== 'completed' ? `<button onclick="Actions.markExecutionTaskComplete()" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-400/40 text-emerald-200 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1">
+              <i data-lucide="check" class="w-3 h-3"></i> Marcar feita
+            </button>` : ''}
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="Actions.closeExecutionTaskDetail()" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[10px] font-black uppercase tracking-wider">Fechar</button>
+            ${task.provider !== 'manual' && task.provider_task_id ? `<button onclick="Actions.syncExecutionTask()" ${syncing ? 'disabled' : ''} class="px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 disabled:opacity-60" style="color:#fff!important;">
+              <i data-lucide="${syncing ? 'loader-2' : 'refresh-cw'}" class="w-3 h-3 ${syncing ? 'animate-spin' : ''}"></i>
+              ${syncing ? 'Sincronizando' : 'Sincronizar status'}
+            </button>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  },
+
   // V32.13.12 — Editor do card de ação no mind-map. Aberto via click no card.
   // Visual do Print 1 cravado por Felipe: KR plugado (header) + checkboxes de
   // outros KRs (esta ação move quais números?) + Nome + Onde começa + Pra onde
@@ -2937,12 +3023,9 @@ window.StrategicMapModal = {
     return tasks.map(task => {
       const status = statusColorMap[task.status] || statusColorMap.pending;
       const providerIcon = providerIconMap[task.provider] || 'briefcase';
-      const onclick = task.external_url
-        ? `window.open('${task.external_url}', '_blank')`
-        : `Utils.toast('Task sem link externo.')`;
       return `<div class="flex items-stretch shrink-0">
         ${this._mindMapConnectorSVG('hsl(35 90% 60%)', 24)}
-        <button onclick="${onclick}" title="Abrir task no ${task.provider || 'provider'}"
+        <button onclick="Actions.openExecutionTaskDetail('${task.task_id}')" title="Ver detalhe da task no ${task.provider || 'provider'}"
           class="w-44 text-left rounded-xl bg-slate-900/60 border-2 ${status.border} p-2.5 hover:bg-slate-800 transition group"
           style="border-left: 4px solid hsl(35 90% 60%);">
           <div class="flex items-center justify-between gap-2 mb-1.5">
@@ -2956,7 +3039,7 @@ window.StrategicMapModal = {
             </span>
           </div>
           <p class="text-[12px] font-black text-white leading-snug line-clamp-2" title="${Utils.escape(task.title || '')}">${Utils.escape(task.title || 'Task sem nome')}</p>
-          ${task.external_url ? `<p class="text-[9px] text-sky-400 mt-1 inline-flex items-center gap-1"><i data-lucide="external-link" class="w-2.5 h-2.5"></i> Abrir no ${task.provider}</p>` : ''}
+          ${task.external_url ? `<p class="text-[9px] text-sky-400 mt-1 inline-flex items-center gap-1"><i data-lucide="external-link" class="w-2.5 h-2.5"></i> Ver detalhe</p>` : ''}
         </button>
       </div>`;
     }).join('');

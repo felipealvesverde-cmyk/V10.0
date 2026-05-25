@@ -6295,6 +6295,69 @@ Object.assign(Actions, {
     }
   },
 
+  // V32.13.16 — Detalhe da task de execução (click no card amber do mind-map).
+  // Modal mostra metadados + ações: sincronizar status, abrir no provider,
+  // marcar concluída manual, apagar.
+  openExecutionTaskDetail(taskId) {
+    App.state.executionTaskDetail = { taskId: String(taskId), syncing: false };
+    App.render();
+  },
+
+  closeExecutionTaskDetail() {
+    App.state.executionTaskDetail = null;
+    App.render();
+  },
+
+  // Sincroniza status com provider externo (ClickUp/Trello/etc).
+  // Reusa ExecutionSyncEngine.syncTask que já existe (V16.3).
+  async syncExecutionTask() {
+    const detail = App.state.executionTaskDetail;
+    if (!detail?.taskId) return;
+    const task = ExecutionTaskStore.byId(detail.taskId);
+    if (!task) return Utils.toast('Task não encontrada localmente.');
+    App.state.executionTaskDetail = { ...detail, syncing: true };
+    App.render();
+    try {
+      const result = await ExecutionSyncEngine.syncTask(task);
+      if (result.ok) {
+        Utils.toast('✓ Status sincronizado com o provider.');
+      } else {
+        Utils.toast(`Sync falhou: ${result.message || 'erro desconhecido'}`);
+      }
+    } catch (err) {
+      Utils.toast(`Erro: ${err?.message || err}`);
+    } finally {
+      App.state.executionTaskDetail = { ...App.state.executionTaskDetail, syncing: false };
+      App.save(); App.render();
+    }
+  },
+
+  // Marca task como concluída sem chamar o provider (fallback manual).
+  markExecutionTaskComplete() {
+    const detail = App.state.executionTaskDetail;
+    if (!detail?.taskId) return;
+    if (!confirm('Marcar esta task como concluída? (não atualiza o provider externo)')) return;
+    ExecutionTaskStore.update(detail.taskId, {
+      status: 'completed',
+      completed_at: new Date().toISOString()
+    });
+    App.save(); App.render();
+    Utils.toast('✓ Task marcada como concluída.');
+  },
+
+  // Remove task local (não apaga no provider).
+  deleteExecutionTask() {
+    const detail = App.state.executionTaskDetail;
+    if (!detail?.taskId) return;
+    const task = ExecutionTaskStore.byId(detail.taskId);
+    if (!task) return;
+    if (!confirm(`Apagar a task "${task.title}" desta ação? (não apaga no provider)`)) return;
+    ExecutionTaskStore.remove(detail.taskId);
+    App.state.executionTaskDetail = null;
+    App.save(); App.render();
+    Utils.toast('Task removida.');
+  },
+
   // V28.3.1 — Fecha o popup didático do passe do bastão (estratégia → tático).
   // Se `advance=true`, navega pra etapa "As Ações"; caso contrário, só fecha.
   dismissStrategicHandoffPopup(advance) {

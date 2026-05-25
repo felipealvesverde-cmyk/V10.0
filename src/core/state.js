@@ -243,6 +243,10 @@ var State = {
       // do Felipe (KR plugado + checkboxes KR + nome + onde começa/pra onde
       // leva + canal + "Criar Ação"). Opera sobre action existente (não cria).
       strategicMindMapActionEditor: null,
+      // V32.13.16 — Modal de detalhe da task de execução acionado pelo click
+      // no card amber da branch de execução. null = fechado.
+      // Quando aberto: { taskId, syncing: bool }
+      executionTaskDetail: null,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -668,6 +672,8 @@ var State = {
       strategicJustCreatedActionId: null,
       // V32.13.12 — Editor de ação do mind-map é volátil (F5 fecha).
       strategicMindMapActionEditor: null,
+      // V32.13.16 — Detalhe execution task volátil (F5 fecha).
+      executionTaskDetail: null,
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,
