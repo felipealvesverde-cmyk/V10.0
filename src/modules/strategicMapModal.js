@@ -4106,7 +4106,101 @@ window.StrategicMapModal = {
       ${this._acompanhamentoStatCards(stats)}
       ${this._acompanhamentoKrList(product, connectedKrs)}
       ${this._acompanhamentoActionsList(connectedKrs)}
+      ${this._acompanhamentoCargaUsuariosList(connectedKrs)}
     </section>`;
+  },
+
+  // V32.14.4 — Bloco "Carga por usuário" no Acompanhamento. Ranking de
+  // responsáveis ClickUp por volume de tasks atribuídas. Identifica gargalos
+  // (1 pessoa com 12 tasks vs outra com 2) e tasks sem responsável.
+  _acompanhamentoCargaUsuariosList(connectedKrs) {
+    const allActionIds = new Set();
+    connectedKrs.forEach(({ kr }) => {
+      (kr.connectedActionIds || []).forEach(aid => allActionIds.add(Number(aid)));
+    });
+    if (allActionIds.size === 0) return '';
+    const allTasks = window.ExecutionTaskStore
+      ? (ExecutionTaskStore.all() || []).filter(t => allActionIds.has(Number(t.linked_action_id)))
+      : [];
+    if (allTasks.length === 0) return '';
+
+    // Agrega por assignee
+    const carga = new Map();  // userId → { count, completed, late, onTime }
+    const noAssigneeBucket = { count: 0, completed: 0, late: 0, onTime: 0 };
+    const now = new Date();
+    allTasks.forEach(t => {
+      const isCompleted = t.status === 'completed';
+      const due = t.due_date ? new Date(t.due_date) : null;
+      const isLate = !isCompleted && due && due < now;
+      const isOnTime = !isCompleted && !isLate;
+      const assignees = Array.isArray(t.assignees) ? t.assignees : [];
+      if (assignees.length === 0) {
+        noAssigneeBucket.count++;
+        if (isCompleted) noAssigneeBucket.completed++;
+        else if (isLate) noAssigneeBucket.late++;
+        else if (isOnTime) noAssigneeBucket.onTime++;
+      } else {
+        assignees.forEach(aid => {
+          const key = String(aid);
+          if (!carga.has(key)) carga.set(key, { userId: key, count: 0, completed: 0, late: 0, onTime: 0 });
+          const bucket = carga.get(key);
+          bucket.count++;
+          if (isCompleted) bucket.completed++;
+          else if (isLate) bucket.late++;
+          else if (isOnTime) bucket.onTime++;
+        });
+      }
+    });
+
+    // Cruza com members do ClickUp
+    const members = App.state.clickupMeta?.members || [];
+    const entries = Array.from(carga.values()).map(b => {
+      const m = members.find(mem => String(mem.id) === b.userId);
+      return {
+        ...b,
+        username: m?.username || `User ${b.userId}`,
+        email: m?.email || ''
+      };
+    });
+    // Sort desc por count
+    entries.sort((a, b) => b.count - a.count);
+    const maxCount = Math.max(noAssigneeBucket.count, ...entries.map(e => e.count));
+    if (maxCount === 0) return '';
+
+    const renderBar = (count, label, sublabel, completed, late, onTime, isNoAssignee) => {
+      const widthPct = Math.round((count / maxCount) * 100);
+      const tone = isNoAssignee ? 'amber' : (count >= maxCount * 0.7 ? 'rose' : count >= maxCount * 0.4 ? 'sky' : 'emerald');
+      const initial = label.charAt(0).toUpperCase();
+      return `<div class="rounded-xl bg-slate-900/60 border border-white/10 p-3">
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
+            <span class="shrink-0 w-8 h-8 rounded-lg bg-${tone}-500/20 border border-${tone}-400/30 grid place-items-center text-${tone}-200 text-xs font-black">${isNoAssignee ? '?' : Utils.escape(initial)}</span>
+            <div class="min-w-0">
+              <p class="font-black text-white text-[13px] truncate" title="${Utils.escape(label)}">${Utils.escape(label)}${isNoAssignee ? ` <span class="text-amber-400 text-[10px] font-bold">⚠</span>` : ''}</p>
+              ${sublabel ? `<p class="text-[10px] text-slate-500 truncate">${Utils.escape(sublabel)}</p>` : ''}
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            ${completed > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 uppercase tracking-wider">✓ ${completed}</span>` : ''}
+            ${onTime > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-200 uppercase tracking-wider">⏱ ${onTime}</span>` : ''}
+            ${late > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-400/30 text-rose-200 uppercase tracking-wider">⚠ ${late}</span>` : ''}
+            <span class="text-[12px] font-black text-white whitespace-nowrap ml-1">${count}</span>
+          </div>
+        </div>
+        <div class="h-1.5 rounded-full bg-white/5 overflow-hidden">
+          <div class="h-full bg-gradient-to-r from-${tone}-500 to-${tone}-400" style="width:${widthPct}%;"></div>
+        </div>
+      </div>`;
+    };
+
+    const totalUsers = entries.length + (noAssigneeBucket.count > 0 ? 1 : 0);
+    return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
+      <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 inline-flex items-center gap-1.5"><i data-lucide="users" class="w-3.5 h-3.5"></i> Carga por usuário (ClickUp) · ${totalUsers} ${totalUsers === 1 ? 'responsável' : 'responsáveis'}</p>
+      <div class="space-y-2">
+        ${entries.map(e => renderBar(e.count, e.username, e.email, e.completed, e.late, e.onTime, false)).join('')}
+        ${noAssigneeBucket.count > 0 ? renderBar(noAssigneeBucket.count, 'Sem responsável', 'Tasks órfãs — atribua alguém', noAssigneeBucket.completed, noAssigneeBucket.late, noAssigneeBucket.onTime, true) : ''}
+      </div>
+    </div>`;
   },
 
   // V32.14.0 — Agrega estatísticas de tasks (ClickUp + manual) pros stat cards
