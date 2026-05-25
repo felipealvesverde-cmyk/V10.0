@@ -2488,10 +2488,11 @@ window.StrategicMapModal = {
     const hue = this._hslHueForArea(tone);
     const connectorMasterToAdd = this._mindMapConnectorSVG(`hsl(${hue} 65% 55%)`, 32);
 
-    // V32.13.7/8 — Cada ação tem SEU PRÓPRIO conector SVG com ponta de flecha
-    // saindo do Add Ação. Cor herda do KR primário da ação.
+    // V32.13.9 — Felipe alinhou: cada ação ramifica DO Add Ação direto, não
+    // em sequência. Ações empilhadas verticalmente (flex-col), cada uma com
+    // sua própria seta horizontal individual saindo do Add Ação.
     const actionsBlock = actions.length > 0
-      ? `<div class="flex flex-wrap gap-y-2 self-center">
+      ? `<div class="flex flex-col gap-2 self-center">
           ${actions.map(a => this._actionMindMapNodeWithConnector(a, area, productKrs, hue)).join('')}
         </div>`
       : `${this._mindMapConnectorSVG(`hsl(${hue} 50% 50% / 0.5)`, 30)}
