@@ -12,6 +12,26 @@ window.StrategicMapModal = {
     // Skip via "Já configurou?" usa flag transient resetada por openStrategicMap.
     const showOnboarding = !App.state.strategicSkipOnboarding;
     return `<div id="strategicMapScrollContainer" class="fixed inset-0 z-[80] bg-slate-950/85 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center">
+      <style>
+        /* V32.13.6 — Animação "seta caminhando" pra action recém-criada no
+           mind-map. Card sai da esquerda + fade-in + pulse no border. */
+        @keyframes lj-mind-map-action-enter {
+          0%   { opacity: 0; transform: translateX(-32px) scale(0.92); box-shadow: 0 0 0 0 rgba(167, 139, 250, 0); }
+          50%  { opacity: 1; transform: translateX(0) scale(1.04);    box-shadow: 0 0 24px 6px rgba(167, 139, 250, 0.5); }
+          100% { opacity: 1; transform: translateX(0) scale(1);       box-shadow: 0 0 0 0 rgba(167, 139, 250, 0); }
+        }
+        .lj-mind-map-action-enter { animation: lj-mind-map-action-enter 1100ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+        /* Conectores do mind-map: linha com efeito de "fluxo" sutil */
+        @keyframes lj-mind-map-flow {
+          0%   { background-position: 0% 0; }
+          100% { background-position: 200% 0; }
+        }
+        .lj-mind-map-connector {
+          background-size: 200% 100%;
+          animation: lj-mind-map-flow 3s linear infinite;
+        }
+      </style>
       <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:98vw;max-width:1800px;background: radial-gradient(circle at 18% 8%, rgba(99,102,241,.25), transparent 32%), radial-gradient(circle at 82% 0%, rgba(34,197,94,.15), transparent 32%), #071326;">
         ${this._header(product)}
         ${showOnboarding ? this._onboarding(product) : this._body(product)}
@@ -2451,14 +2471,15 @@ window.StrategicMapModal = {
       <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Ação
     </button>`;
 
-    // Conector horizontal master → Add Ação
+    // Conector horizontal master → Add Ação (com efeito de fluxo animado)
+    const hue = this._hslHueForArea(tone);
     const connectorMasterToAdd = `<div class="shrink-0 self-center flex items-center" style="width:32px;">
-      <span class="block h-0.5 w-full" style="background:linear-gradient(to right, transparent, hsl(${this._hslHueForArea(tone)}, 50%, 50%, 0.6));"></span>
+      <span class="block h-0.5 w-full lj-mind-map-connector" style="background:linear-gradient(90deg, transparent 0%, hsla(${hue},60%,55%,0.7) 30%, hsla(${hue},70%,65%,1) 50%, hsla(${hue},60%,55%,0.7) 70%, transparent 100%);"></span>
     </div>`;
 
     // Conector horizontal Add Ação → primeira ação (só se há ações)
     const connectorAddToActions = actions.length > 0 ? `<div class="shrink-0 self-center flex items-center" style="width:24px;">
-      <span class="block h-0.5 w-full" style="background:linear-gradient(to right, hsl(${this._hslHueForArea(tone)}, 50%, 50%, 0.6), rgba(255,255,255,0.2));"></span>
+      <span class="block h-0.5 w-full lj-mind-map-connector" style="background:linear-gradient(90deg, hsla(${hue},60%,55%,0.7) 0%, hsla(${hue},70%,65%,1) 50%, rgba(255,255,255,0.3) 100%);"></span>
     </div>` : '';
 
     const actionCards = actions.length > 0
@@ -2525,9 +2546,11 @@ window.StrategicMapModal = {
     return decorated;
   },
 
-  // V32.13.2 — Card compacto da ação no mind-map. ~180px largura.
+  // V32.13.2 / V32.13.6 — Card compacto da ação no mind-map. ~180px largura.
   // Bolinha cor KR + label do KR uppercase + nome da ação + status (✓/⚠).
   // Click abre modal de edição existente (Print 3) — sem feature nova.
+  // V32.13.6: ação recém-criada (strategicJustCreatedActionId) ganha
+  // animação "slide-in" CSS pra simular a seta caminhando até ela.
   _actionMindMapCard({ action, primaryKrId }, area, productKrs) {
     const krColor = primaryKrId ? StrategicMapEngine.krColorFromId(primaryKrId) : 'hsl(0 0% 50%)';
     const kr = primaryKrId ? productKrs.find(k => k.id === primaryKrId) : null;
@@ -2540,15 +2563,19 @@ window.StrategicMapModal = {
     const statusIcon = isComplete ? 'check-circle-2' : 'alert-triangle';
     const statusColor = isComplete ? 'text-emerald-300' : 'text-amber-300';
     const borderStatus = isComplete ? 'border-emerald-400/40' : 'border-amber-400/40';
+    const isJustCreated = Number(App.state.strategicJustCreatedActionId) === Number(action.id);
+    const animCls = isJustCreated ? 'lj-mind-map-action-enter' : '';
+    const displayName = String(action.name || '').trim() || 'Qual o nome da ação?';
+    const nameCls = String(action.name || '').trim() ? 'text-white' : 'text-amber-200 italic';
     return `<button onclick="Actions.openEditActionFromMap(${action.id})"
       title="Clique pra editar esta ação"
-      class="w-44 text-left rounded-xl bg-slate-900/60 border ${borderStatus} p-2.5 hover:bg-slate-800 transition group"
+      class="w-44 text-left rounded-xl bg-slate-900/60 border ${borderStatus} p-2.5 hover:bg-slate-800 transition group ${animCls}"
       style="border-left: 4px solid ${krColor};">
       <div class="flex items-center gap-1.5 mb-1.5">
         <span class="shrink-0 w-2 h-2 rounded-full" style="background:${krColor};"></span>
         <p class="text-[9px] font-black uppercase tracking-widest truncate" style="color:${krColor};" title="${Utils.escape(krLabel)}">${Utils.escape(krLabel)}</p>
       </div>
-      <p class="text-[12px] font-black text-white leading-tight line-clamp-2 mb-1.5" title="${Utils.escape(action.name || 'Sem nome')}">${Utils.escape(action.name || 'Sem nome')}</p>
+      <p class="text-[12px] font-black leading-tight line-clamp-2 mb-1.5 ${nameCls}" title="${Utils.escape(displayName)}">${Utils.escape(displayName)}</p>
       <div class="flex items-center justify-between gap-1">
         <span class="text-[9px] text-slate-500 truncate">${Utils.escape(action.channel || '—')}</span>
         <i data-lucide="${statusIcon}" class="w-3.5 h-3.5 ${statusColor} shrink-0"></i>

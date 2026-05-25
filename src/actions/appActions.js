@@ -6088,16 +6088,117 @@ Object.assign(Actions, {
     App.render();
   },
 
-  // Cliente escolheu o KR-mãe → fecha mini-modal e abre engine de criação
-  // de ação (modal full existente — Print 3). engine pré-popula areaId + krId.
+  // V32.13.6 — Cliente escolheu o KR-mãe no mini-modal. Cria action STUB
+  // (sem nome ainda) já plugada ao KR + frente + campanha. Não abre modal
+  // de inserção — a action aparece como retângulo amber (pendente) no
+  // mind-map; cliente clica nela pra preencher.
+  //
+  // Reproduz a lógica do connectWizardConfirm: ensure branch + objective +
+  // childKr + connectedActionIds. Diferença: cria a action stub primeiro.
   chooseKrInPicker(areaId, krId) {
-    App.state.strategicKrPickerOpen = null;
-    // Reusa engine existente que cria action stub vinculada ao KR
-    if (typeof Actions.openCustomActionEngine === 'function') {
-      Actions.openCustomActionEngine(String(areaId), String(krId));
-    } else {
-      App.save(); App.render();
+    const campaignId = App.state.strategicMapCampaignId;
+    const productId = App.state.strategicMapProductId;
+    if (!campaignId || !productId) {
+      Utils.toast('Sem campanha/produto ativos — não dá pra criar ação.');
+      App.state.strategicKrPickerOpen = null;
+      App.render();
+      return;
     }
+    const productKr = (StrategicMapEngine.getProductKrs(productId) || []).find(k => k.id === krId);
+    if (!productKr) {
+      Utils.toast('KR-mãe não encontrado.');
+      App.state.strategicKrPickerOpen = null;
+      App.render();
+      return;
+    }
+
+    // 1. Cria action STUB (vazia) com strategic fields
+    const owner = (window.StrategicMapEngine?.getAreaOwner && StrategicMapEngine.getAreaOwner(productId, areaId)) || '';
+    const newAction = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      name: '',
+      campaignId: Number(campaignId),
+      channel: '',
+      actionType: '',
+      strategicAreaId: areaId,
+      strategicOwner: owner,
+      strategicStatus: 'planned',
+      strategicConfirmed: true,
+      strategicCadence: null,
+      strategicCatalogId: null,
+      strategicDescription: '',
+      leads: [],
+      createdAt: new Date().toISOString()
+    };
+    App.state.actions = [...(App.state.actions || []), newAction];
+
+    // 2. Ensure branch
+    let branch = StrategicMapEngine.getBranchMap(campaignId);
+    if (!branch) branch = StrategicMapEngine.ensureBranchMap(campaignId, productId);
+    if (!branch) {
+      Utils.toast('Falha ao criar branch da campanha.');
+      App.state.strategicKrPickerOpen = null;
+      App.render();
+      return;
+    }
+
+    // 3. Ensure objective (frente) dentro da branch
+    branch.objectives = branch.objectives || [];
+    let objective = branch.objectives.find(o => o.area === areaId);
+    if (!objective) {
+      const areaDef = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === areaId);
+      objective = {
+        id: `obj_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        label: areaDef?.label || areaId,
+        area: areaId,
+        owner,
+        deadline: '',
+        okrs: [],
+        createdAt: new Date().toISOString()
+      };
+      branch.objectives.push(objective);
+    }
+
+    // 4. Ensure child KR com parentProductKrId = productKr.id
+    let childKr = (objective.okrs || []).find(k => k.parentProductKrId === productKr.id);
+    if (!childKr) {
+      childKr = {
+        id: `okr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        name: productKr.name,
+        metric: productKr.metric || 'quantidade',
+        catalogId: productKr.catalogId || null,
+        isHandoff: false,
+        current: 0,
+        targetCommitted: productKr.targetCommitted ?? productKr.target ?? null,
+        targetStretch: productKr.targetStretch ?? null,
+        period: productKr.period || 90,
+        confirmed: false,
+        connectedActionIds: [],
+        parentProductKrId: productKr.id
+      };
+      objective.okrs = [...(objective.okrs || []), childKr];
+    }
+
+    // 5. Conecta action.id ao childKr.connectedActionIds
+    const ids = new Set((childKr.connectedActionIds || []).map(Number));
+    ids.add(Number(newAction.id));
+    childKr.connectedActionIds = Array.from(ids);
+
+    // 6. Persiste + fecha mini-modal + marca id pra animação no card
+    branch.updatedAt = new Date().toISOString();
+    App.state.strategicCampaignMaps = { ...(App.state.strategicCampaignMaps || {}), [campaignId]: branch };
+    App.state.strategicKrPickerOpen = null;
+    App.state.strategicJustCreatedActionId = newAction.id;  // pra anim CSS "entrar"
+    App.save();
+    App.render();
+    Utils.toast(`✓ Ação criada (vazia). Clique no retângulo amber pra preencher.`);
+    // Limpa flag de animação após o keyframe rodar (1100ms + margem) pra não
+    // re-animar em re-renders subsequentes (edição, etc).
+    setTimeout(() => {
+      if (App.state.strategicJustCreatedActionId === newAction.id) {
+        App.state.strategicJustCreatedActionId = null;
+      }
+    }, 1500);
   },
 
   // V28.3.1 — Fecha o popup didático do passe do bastão (estratégia → tático).

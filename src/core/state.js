@@ -235,6 +235,9 @@ var State = {
       // perguntando qual KR-mãe a nova ação vai mover. null = fechado.
       // Quando aberto: { areaId: 'marketing'|'sales'|'cs' }
       strategicKrPickerOpen: null,
+      // V32.13.6 — ID da action criada agora (last) pra animação "entrar"
+      // do retângulo no mind-map. Limpa após a animação rodar (3s).
+      strategicJustCreatedActionId: null,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -656,6 +659,8 @@ var State = {
       reloginInlineModal: { open: false, error: null, loading: false },
       // V32.13.1 — KR picker é volátil (sempre fecha em F5).
       strategicKrPickerOpen: null,
+      // V32.13.6 — JustCreatedActionId também é volátil.
+      strategicJustCreatedActionId: null,
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,
