@@ -2477,25 +2477,42 @@ window.StrategicMapModal = {
       <span class="block h-0.5 w-full lj-mind-map-connector" style="background:linear-gradient(90deg, transparent 0%, hsla(${hue},60%,55%,0.7) 30%, hsla(${hue},70%,65%,1) 50%, hsla(${hue},60%,55%,0.7) 70%, transparent 100%);"></span>
     </div>`;
 
-    // Conector horizontal Add Ação → primeira ação (só se há ações)
-    const connectorAddToActions = actions.length > 0 ? `<div class="shrink-0 self-center flex items-center" style="width:24px;">
-      <span class="block h-0.5 w-full lj-mind-map-connector" style="background:linear-gradient(90deg, hsla(${hue},60%,55%,0.7) 0%, hsla(${hue},70%,65%,1) 50%, rgba(255,255,255,0.3) 100%);"></span>
-    </div>` : '';
-
-    const actionCards = actions.length > 0
-      ? `<div class="flex flex-wrap gap-2 self-center">
-          ${actions.map(a => this._actionMindMapCard(a, area, productKrs)).join('')}
+    // V32.13.7 — Felipe alinhou: cada ação tem SEU PRÓPRIO traço individual
+    // saindo do Add Ação. Não tem mais conector único agregado.
+    // Cada card-de-ação vem encapsulado num wrapper com a linha à esquerda
+    // (~30px), seu próprio gradient + cor do KR primário.
+    const actionsBlock = actions.length > 0
+      ? `<div class="flex flex-wrap gap-y-2 self-center">
+          ${actions.map(a => this._actionMindMapNodeWithConnector(a, area, productKrs, hue)).join('')}
         </div>`
-      : `<p class="text-[11px] text-slate-500 italic self-center ml-2">Nenhuma ação ainda — clique no botão pra criar a primeira.</p>`;
+      : `<div class="shrink-0 self-center flex items-center" style="width:24px;">
+          <span class="block h-0.5 w-full lj-mind-map-connector" style="background:linear-gradient(90deg, hsla(${hue},60%,55%,0.7) 0%, transparent 100%);"></span>
+        </div>
+        <p class="text-[11px] text-slate-500 italic self-center ml-2">Nenhuma ação ainda — clique no botão pra criar a primeira.</p>`;
 
     return `<div class="${wrapperCls}">
       <div class="flex items-stretch gap-0 flex-wrap">
         ${masterCard}
         ${connectorMasterToAdd}
         ${addActionNode}
-        ${connectorAddToActions}
-        ${actionCards}
+        ${actionsBlock}
       </div>
+    </div>`;
+  },
+
+  // V32.13.7 — Wrapper de cada ação no mind-map: linha individual à esquerda
+  // (cor do KR da própria ação) + card. Linhas independentes pra cada ação,
+  // criando visual de árvore com galhos próprios.
+  _actionMindMapNodeWithConnector(actionMeta, area, productKrs, fallbackHue) {
+    const { primaryKrId } = actionMeta;
+    // Cor: do KR primário (determinística) ou hue da área se sem KR
+    const krColor = primaryKrId ? StrategicMapEngine.krColorFromId(primaryKrId) : `hsl(${fallbackHue} 60% 55%)`;
+    const connector = `<div class="shrink-0 self-center flex items-center" style="width:30px;">
+      <span class="block h-0.5 w-full lj-mind-map-connector" style="background:linear-gradient(90deg, ${krColor.replace('hsl(', 'hsla(').replace(')', ', 0.85)')} 0%, ${krColor} 50%, ${krColor.replace('hsl(', 'hsla(').replace(')', ', 0.4)')} 100%);"></span>
+    </div>`;
+    return `<div class="flex items-stretch shrink-0">
+      ${connector}
+      ${this._actionMindMapCard(actionMeta, area, productKrs)}
     </div>`;
   },
 
