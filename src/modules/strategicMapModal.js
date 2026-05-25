@@ -2450,47 +2450,65 @@ window.StrategicMapModal = {
       ? `opacity-40 pointer-events-none transition-opacity duration-300`
       : '';
 
-    // Master card — SEMPRE COMPACTO (mesmo quando ativo). Card recuado igual
-    // aos outros, só ganha leve highlight quando ativo.
+    // Master card — SEMPRE COMPACTO. Felipe alinhou (V32.13.10): quando ativo,
+    // o master e o Add Ação ficam ANEXADOS (mesmo bloco, divisória vertical
+    // entre os dois). Sem conector/seta entre eles.
     const masterBorderCls = isActive
       ? `bg-${tone}-500/10 border-${tone}-400/40`
       : `bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-${tone}-400/30 cursor-pointer transition`;
 
-    const masterCard = `<button ${isFade ? 'tabindex="-1"' : ''} onclick="Actions.setStrategicActiveArea('${area.id}')"
-      class="shrink-0 w-64 text-left rounded-2xl border p-3 ${masterBorderCls} ${isFade ? 'cursor-not-allowed' : ''}">
-      <div class="flex items-center gap-2.5">
-        <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-500/25 grid place-items-center">
-          <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
-        </span>
-        <div class="min-w-0">
-          <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest">${Utils.escape(area.label)}${isActive ? ` <span class="text-${tone}-100">· Ativo</span>` : ''}</p>
-          <p class="text-[10px] text-slate-400 mt-0.5">${handoffHint}</p>
-          <p class="text-[10px] ${isActive ? `text-${tone}-200` : 'text-slate-500'} font-bold mt-0.5">${stateLabel}</p>
-        </div>
-      </div>
-    </button>`;
-
-    // Estado neutro/fade: só master compacto largura inteira
+    // Estado neutro/fade: master sozinho (sem Add Ação anexado).
     if (!isActive) {
-      return `<div class="${wrapperCls}">${masterCard}</div>`;
+      const masterCardSolo = `<button ${isFade ? 'tabindex="-1"' : ''} onclick="Actions.setStrategicActiveArea('${area.id}')"
+        class="shrink-0 w-64 text-left rounded-2xl border p-3 ${masterBorderCls} ${isFade ? 'cursor-not-allowed' : ''}">
+        <div class="flex items-center gap-2.5">
+          <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-500/25 grid place-items-center">
+            <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
+          </span>
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest">${Utils.escape(area.label)}</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">${handoffHint}</p>
+            <p class="text-[10px] text-slate-500 font-bold mt-0.5">${stateLabel}</p>
+          </div>
+        </div>
+      </button>`;
+      return `<div class="${wrapperCls}">${masterCardSolo}</div>`;
     }
 
-    // ATIVA: master compacto + linha → Add Ação (nó separado) → linha → ações
+    // ATIVA: Master + Add Ação ANEXADOS num único bloco (divisória vertical).
     const actions = this._actionsForFrente(area.id, campaignId);
-    const addActionNode = `<button onclick="event.stopPropagation(); Actions.openStrategicKrPicker('${area.id}')" title="Adicionar ação à árvore desta frente"
-      class="shrink-0 self-center px-3 py-2 rounded-xl bg-${tone}-500/30 hover:bg-${tone}-500/50 border-2 border-dashed border-${tone}-400/50 text-${tone}-100 text-[11px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 hover:border-${tone}-300 transition">
-      <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Ação
-    </button>`;
-
-    // V32.13.8 — Conector master→Add Ação agora é SVG com ponta de flecha
-    // (era gradient CSS). Cor herda do tone da área. Stroke-dasharray anima
-    // efeito de "linha sendo traçada".
     const hue = this._hslHueForArea(tone);
-    const connectorMasterToAdd = this._mindMapConnectorSVG(`hsl(${hue} 65% 55%)`, 32);
 
-    // V32.13.9 — Felipe alinhou: cada ação ramifica DO Add Ação direto, não
-    // em sequência. Ações empilhadas verticalmente (flex-col), cada uma com
-    // sua própria seta horizontal individual saindo do Add Ação.
+    // Bloco anexado: master (área principal) + Add Ação (tira lateral direita).
+    // Borda externa única envolve os dois; divisória interna vertical separa.
+    const masterPlusAdd = `<div class="shrink-0 self-start flex rounded-2xl overflow-hidden border ${masterBorderCls}">
+      <!-- Master (esquerda, principal) -->
+      <button onclick="Actions.setStrategicActiveArea('${area.id}')"
+        class="w-64 text-left p-3 hover:bg-${tone}-500/15 transition">
+        <div class="flex items-center gap-2.5">
+          <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-500/25 grid place-items-center">
+            <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
+          </span>
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest">${Utils.escape(area.label)} <span class="text-${tone}-100">· Ativo</span></p>
+            <p class="text-[10px] text-slate-400 mt-0.5">${handoffHint}</p>
+            <p class="text-[10px] text-${tone}-200 font-bold mt-0.5">${stateLabel}</p>
+          </div>
+        </div>
+      </button>
+      <!-- Divisória vertical -->
+      <div class="self-stretch w-px bg-${tone}-400/40"></div>
+      <!-- Add Ação (direita, tira lateral) -->
+      <button onclick="event.stopPropagation(); Actions.openStrategicKrPicker('${area.id}')"
+        title="Adicionar ação à árvore desta frente"
+        class="self-stretch px-4 bg-${tone}-500/20 hover:bg-${tone}-500/40 text-${tone}-100 text-[11px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition" style="min-width:96px;">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        <span class="text-[10px] leading-tight text-center">Add<br/>Ação</span>
+      </button>
+    </div>`;
+
+    // Ações ramificam do Add Ação. Empilhadas verticalmente, cada uma com
+    // sua própria seta SVG individual (cor do KR primário).
     const actionsBlock = actions.length > 0
       ? `<div class="flex flex-col gap-2 self-center">
           ${actions.map(a => this._actionMindMapNodeWithConnector(a, area, productKrs, hue)).join('')}
@@ -2500,9 +2518,7 @@ window.StrategicMapModal = {
 
     return `<div class="${wrapperCls}">
       <div class="flex items-stretch gap-0 flex-wrap">
-        ${masterCard}
-        ${connectorMasterToAdd}
-        ${addActionNode}
+        ${masterPlusAdd}
         ${actionsBlock}
       </div>
     </div>`;
