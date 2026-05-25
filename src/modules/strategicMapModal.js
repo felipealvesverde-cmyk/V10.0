@@ -183,10 +183,13 @@ window.StrategicMapModal = {
               </div>`}
             </div>
             <!-- V31.2.34 — Datas movidas pro Normal -->
+            <!-- V32.14.0 — Data de entrega agora é OBRIGATÓRIA (Felipe cravou)
+                 pra alimentar Etapa 6 (status atrasada/em dia). -->
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Data de entrega</label>
-                <input type="datetime-local" value="${Utils.escape(d.due_date)}" oninput="Actions.updateTaskDraft('due_date', this.value); Actions.updateTaskDraft('due_date_time', this.value.includes('T'))" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;" />
+                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Data de entrega <span class="text-rose-400">*</span></label>
+                <input type="datetime-local" value="${Utils.escape(d.due_date)}" oninput="Actions.updateTaskDraft('due_date', this.value); Actions.updateTaskDraft('due_date_time', this.value.includes('T'))" required class="w-full px-2 py-2 rounded-lg bg-slate-900 border ${d.due_date ? 'border-white/10' : 'border-amber-400/40'} text-white text-[12px]" style="color-scheme:dark;" />
+                ${!d.due_date ? `<p class="text-[9px] text-amber-300 mt-0.5 inline-flex items-center gap-1"><i data-lucide="alert-triangle" class="w-2.5 h-2.5"></i> Obrigatório pra acompanhar atrasos.</p>` : ''}
               </div>
               <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Data de início</label>
@@ -3757,19 +3760,51 @@ window.StrategicMapModal = {
   // -------------------- STEP 5: EXECUTAR --------------------
   _stepExecution(product) {
     // V31.2.6 — Sem bifurcação CEO/Gestor. Sempre renderiza versão completa.
-    // V29.0.3 — Lê da branch ativa (campaignId) quando em vista campanha; fallback no legacy.
+    // V32.14.0 — Etapa 6 reformulada: ACOMPANHAMENTO (não mais "criar tarefas",
+    // que já migrou pra Etapa 5 via Executar Ação). Agora é o dashboard pós-
+    // execução: filtro campanha/produto + stat cards + KRs com saúde + ações
+    // com status agregado.
     const campaignId = App.state.strategicMapCampaignId;
-    const source = (campaignId && StrategicMapEngine.getBranchMap)
-      ? (StrategicMapEngine.getBranchMap(campaignId) || { objectives: [] })
-      : StrategicMapEngine.getForProduct(product.id);
-    const objectives = source.objectives || [];
-    const okrs = objectives.flatMap(o => (o.okrs || []).map(kr => ({ obj: o, kr })));
-    const connectedOkrs = okrs.filter(({ kr }) => (kr.connectedActionIds || []).length > 0);
-    if (!connectedOkrs.length) {
-      // V32.5.0 (Geraldo G2 + G5) — Vocab V27 ("OKR") trocado por "número".
-      // Botão de retorno alinhado ao nome real da etapa 5 ("As Ações").
+    const acompanhamentoScope = App.state.strategicAcompanhamentoScope || 'campaign';  // 'campaign' | 'product'
+    const isProductWide = acompanhamentoScope === 'product';
+
+    // Source dos KRs: branch da campanha OU todas branches do produto
+    let kruzhAll = [];
+    if (isProductWide) {
+      const branches = StrategicMapEngine.getBranchesByProduct(product.id) || [];
+      branches.forEach(b => {
+        (b.objectives || []).forEach(o => {
+          (o.okrs || []).forEach(kr => kruzhAll.push({ obj: o, kr, branchCampaignId: b.campaignId }));
+        });
+      });
+    } else if (campaignId) {
+      const branch = StrategicMapEngine.getBranchMap(campaignId);
+      (branch?.objectives || []).forEach(o => {
+        (o.okrs || []).forEach(kr => kruzhAll.push({ obj: o, kr, branchCampaignId: campaignId }));
+      });
+    }
+    const connectedKrs = kruzhAll.filter(({ kr }) => (kr.connectedActionIds || []).length > 0);
+
+    // Auto-sync silencioso
+    if (window.Actions?._autoSyncClickupTasksOnce) {
+      Actions._autoSyncClickupTasksOnce(`mapa-etapa6-${isProductWide ? 'product' : campaignId}`);
+    }
+
+    // Header com filtro
+    const campaigns = (App.state.campaigns || []).filter(c => Number(c.productId) === Number(product.id));
+    const currentCampaign = campaigns.find(c => Number(c.id) === Number(campaignId));
+    const scopeSelector = `<div class="flex items-center gap-2 flex-wrap">
+      <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Escopo</label>
+      <select onchange="Actions.setAcompanhamentoScope(this.value)" class="px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[12px] font-bold">
+        ${campaignId ? `<option value="campaign" ${!isProductWide ? 'selected' : ''}>Campanha: ${Utils.escape(currentCampaign?.name || 'atual')}</option>` : ''}
+        <option value="product" ${isProductWide ? 'selected' : ''}>📊 Produto inteiro (${campaigns.length} campanhas)</option>
+      </select>
+    </div>`;
+
+    if (!connectedKrs.length) {
       return `<section class="space-y-3">
-        ${this._stepIntro('Pronto pra colocar em campo?', 'Conecte números a ações antes de colocar em campo.', 'send')}
+        ${this._stepIntro('Acompanhamento em campo', 'Como cada número e cada ação está performando no provider operacional.', 'activity')}
+        ${scopeSelector}
         <div class="rounded-3xl bg-amber-500/10 border border-amber-400/30 p-5 text-amber-200">
           <p class="font-black mb-1">Nenhum número conectado a ação ainda.</p>
           <p class="text-sm">Volte pra <b>As Ações</b> e plugue ao menos um número a uma ação.</p>
@@ -3777,13 +3812,152 @@ window.StrategicMapModal = {
         </div>
       </section>`;
     }
+
+    // Agrega stats (V32.14.0)
+    const stats = this._acompanhamentoStats(connectedKrs, isProductWide);
     return `<section class="space-y-3">
-      ${this._stepIntro('Pronto pra colocar em campo?', 'Pra cada número conectado, dispare uma tarefa real no provider operacional configurado (ClickUp, Trello, etc.).', 'send')}
-      ${this._executionProviderBanner()}
-      <div class="space-y-3">
-        ${connectedOkrs.map(({ obj, kr }) => this._executionOkrCard(product, obj, kr)).join('')}
-      </div>
+      ${this._stepIntro('Acompanhamento em campo', 'Como cada número e cada ação está performando no provider operacional.', 'activity')}
+      ${scopeSelector}
+      ${this._acompanhamentoStatCards(stats)}
+      ${this._acompanhamentoKrList(product, connectedKrs)}
+      ${this._acompanhamentoActionsList(connectedKrs)}
     </section>`;
+  },
+
+  // V32.14.0 — Agrega estatísticas de tasks (ClickUp + manual) pros stat cards
+  // do Acompanhamento. Considera due_date pra "atrasada/em dia".
+  _acompanhamentoStats(connectedKrs, isProductWide) {
+    const allActionIds = new Set();
+    connectedKrs.forEach(({ kr }) => {
+      (kr.connectedActionIds || []).forEach(aid => allActionIds.add(Number(aid)));
+    });
+    const allTasks = window.ExecutionTaskStore
+      ? (ExecutionTaskStore.all() || []).filter(t => allActionIds.has(Number(t.linked_action_id)))
+      : [];
+    const now = new Date();
+    let onTime = 0, late = 0, completed = 0, noAssignee = 0, noDueDate = 0;
+    allTasks.forEach(t => {
+      const due = t.due_date ? new Date(t.due_date) : null;
+      const isCompleted = t.status === 'completed';
+      if (isCompleted) {
+        completed++;
+      } else if (due && due < now) {
+        late++;
+      } else if (due) {
+        onTime++;
+      } else {
+        noDueDate++;
+      }
+      // Sem responsável: t.assignees vazio OU undefined
+      if (!Array.isArray(t.assignees) || t.assignees.length === 0) noAssignee++;
+    });
+    return { total: allTasks.length, onTime, late, completed, noAssignee, noDueDate, actionCount: allActionIds.size, krCount: connectedKrs.length };
+  },
+
+  // V32.14.0 — Stat cards horizontais. 4 indicadores principais.
+  _acompanhamentoStatCards(s) {
+    const card = (icon, label, value, tone) => `<div class="rounded-xl bg-${tone}-500/10 border border-${tone}-400/30 p-3">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="w-7 h-7 rounded-lg bg-${tone}-500/20 grid place-items-center text-${tone}-300"><i data-lucide="${icon}" class="w-3.5 h-3.5"></i></span>
+        <p class="text-[9px] font-black text-${tone}-200 uppercase tracking-widest leading-tight">${label}</p>
+      </div>
+      <p class="text-xl font-black text-white">${value}</p>
+    </div>`;
+    return `<div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+      ${card('list-checks', 'Total tasks', s.total, 'violet')}
+      ${card('clock', 'Em dia', s.onTime, 'sky')}
+      ${card('alert-triangle', 'Atrasadas', s.late, 'rose')}
+      ${card('check-circle-2', 'Concluídas', s.completed, 'emerald')}
+      ${card('user-x', 'Sem resp.', s.noAssignee, 'amber')}
+    </div>`;
+  },
+
+  // V32.14.0 — Lista de KRs com saúde (% atingido, ações, tasks).
+  _acompanhamentoKrList(product, connectedKrs) {
+    if (!connectedKrs.length) return '';
+    return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
+      <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 inline-flex items-center gap-1.5"><i data-lucide="target" class="w-3.5 h-3.5"></i> Números (KRs) — saúde por número</p>
+      <div class="space-y-2">
+        ${connectedKrs.map(({ obj, kr }) => this._acompanhamentoKrRow(product, obj, kr)).join('')}
+      </div>
+    </div>`;
+  },
+
+  // V32.14.0 — Row de 1 KR no Acompanhamento. Mostra % atingido, ações, tasks.
+  _acompanhamentoKrRow(product, obj, kr) {
+    const areaColor = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === obj.area)?.color || 'slate';
+    const target = Number(kr.targetCommitted || 0);
+    const current = Number(kr.current || 0);
+    const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+    const actionIds = (kr.connectedActionIds || []).map(Number);
+    const allTasks = window.ExecutionTaskStore
+      ? (ExecutionTaskStore.all() || []).filter(t => actionIds.includes(Number(t.linked_action_id)))
+      : [];
+    const now = new Date();
+    const late = allTasks.filter(t => t.status !== 'completed' && t.due_date && new Date(t.due_date) < now).length;
+    const completed = allTasks.filter(t => t.status === 'completed').length;
+    const onTime = allTasks.length - late - completed;
+    const krColor = StrategicMapEngine.krColorFromId(kr.parentProductKrId || kr.id);
+    const pctTone = pct >= 75 ? 'emerald' : pct >= 40 ? 'amber' : 'rose';
+    return `<div class="rounded-xl bg-slate-900/60 border border-white/10 p-3" style="border-left: 4px solid ${krColor};">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <span class="shrink-0 w-2 h-2 rounded-full" style="background:${krColor};"></span>
+          <div class="min-w-0">
+            <p class="font-black text-white text-[13px] truncate" title="${Utils.escape(kr.name)}">${Utils.escape(kr.name)}</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">${actionIds.length} ação${actionIds.length === 1 ? '' : 'ões'} · ${allTasks.length} task${allTasks.length === 1 ? '' : 's'}</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          ${completed > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 uppercase tracking-wider"><i data-lucide="check" class="w-2.5 h-2.5 inline-block"></i> ${completed}</span>` : ''}
+          ${onTime > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-200 uppercase tracking-wider"><i data-lucide="clock" class="w-2.5 h-2.5 inline-block"></i> ${onTime}</span>` : ''}
+          ${late > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-400/30 text-rose-200 uppercase tracking-wider"><i data-lucide="alert-triangle" class="w-2.5 h-2.5 inline-block"></i> ${late}</span>` : ''}
+          <span class="text-[10px] font-black px-2 py-0.5 rounded bg-${pctTone}-500/15 border border-${pctTone}-400/30 text-${pctTone}-200 uppercase tracking-wider">${pct}% meta</span>
+        </div>
+      </div>
+      <div class="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
+        <div class="h-full bg-gradient-to-r from-${pctTone}-500 to-${pctTone}-400" style="width:${pct}%;"></div>
+      </div>
+    </div>`;
+  },
+
+  // V32.14.0 — Lista de ações com status agregado de suas tasks.
+  _acompanhamentoActionsList(connectedKrs) {
+    const allActionIds = new Set();
+    connectedKrs.forEach(({ kr }) => {
+      (kr.connectedActionIds || []).forEach(aid => allActionIds.add(Number(aid)));
+    });
+    if (allActionIds.size === 0) return '';
+    const actions = (App.state.actions || []).filter(a => allActionIds.has(Number(a.id)));
+    if (actions.length === 0) return '';
+    return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
+      <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 inline-flex items-center gap-1.5"><i data-lucide="zap" class="w-3.5 h-3.5"></i> Ações — status por ação</p>
+      <div class="space-y-2">
+        ${actions.map(a => this._acompanhamentoActionRow(a)).join('')}
+      </div>
+    </div>`;
+  },
+
+  _acompanhamentoActionRow(action) {
+    const tasks = window.ExecutionTaskStore
+      ? (ExecutionTaskStore.all() || []).filter(t => Number(t.linked_action_id) === Number(action.id))
+      : [];
+    const now = new Date();
+    const late = tasks.filter(t => t.status !== 'completed' && t.due_date && new Date(t.due_date) < now).length;
+    const completed = tasks.filter(t => t.status === 'completed').length;
+    const onTime = tasks.length - late - completed;
+    return `<div class="rounded-xl bg-slate-900/60 border border-white/10 p-3 flex items-center justify-between gap-3 flex-wrap">
+      <div class="min-w-0 flex-1">
+        <p class="font-black text-white text-[12px] truncate" title="${Utils.escape(action.name || 'Sem nome')}">${Utils.escape(action.name || 'Sem nome')}</p>
+        <p class="text-[10px] text-slate-400 mt-0.5">${Utils.escape(action.channel || '— canal —')} · ${tasks.length} task${tasks.length === 1 ? '' : 's'}</p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        ${completed > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 uppercase tracking-wider">✓ ${completed}</span>` : ''}
+        ${onTime > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-200 uppercase tracking-wider">⏱ ${onTime}</span>` : ''}
+        ${late > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-400/30 text-rose-200 uppercase tracking-wider">⚠ ${late}</span>` : ''}
+        ${tasks.length === 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-200 uppercase tracking-wider">Sem task</span>` : ''}
+      </div>
+    </div>`;
   },
 
   _executionProviderBanner() {

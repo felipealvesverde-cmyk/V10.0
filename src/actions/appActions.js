@@ -3301,6 +3301,13 @@ Object.assign(Actions, {
     Actions.createRemoteSnapshot(label, true);
   },
 
+  // V32.14.0 — Filtro escopo no Acompanhamento (Etapa 6).
+  // 'campaign' = só campanha atual | 'product' = todas campanhas do produto.
+  setAcompanhamentoScope(scope) {
+    App.state.strategicAcompanhamentoScope = scope === 'product' ? 'product' : 'campaign';
+    App.save(); App.render();
+  },
+
   // V32.13.17 — Auto-sync silencioso de tasks ClickUp ao entrar na Etapa 5.
   // Guard por chave + intervalo mínimo (5min) pra não estourar API e nem
   // chamar a cada re-render. Roda em setTimeout pra não bloquear UI.
@@ -7564,6 +7571,8 @@ Object.assign(Actions, {
     if (!String(d.name || '').trim()) return Utils.toast('Nome é obrigatório.');
     if (!String(d.description || '').trim()) return Utils.toast('Descrição é obrigatória.');
     if (!Array.isArray(d.assignees) || !d.assignees.length) return Utils.toast('Selecione pelo menos 1 responsável.');
+    // V32.14.0 — Data de entrega obrigatória (alimenta Etapa 6 acompanhamento).
+    if (!String(d.due_date || '').trim()) return Utils.toast('Data de entrega é obrigatória pra acompanhar atrasos na Etapa 6.');
 
     // V32.9.2 (Geraldo A16) — Pré-check de custom fields obrigatórios.
     // Lê do cache novo (clickupListFieldsCache) que cobre o caso de cliente
