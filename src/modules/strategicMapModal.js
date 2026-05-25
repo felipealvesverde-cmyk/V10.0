@@ -2507,14 +2507,37 @@ window.StrategicMapModal = {
       </button>
     </div>`;
 
-    // Ações ramificam do Add Ação. Empilhadas verticalmente, cada uma com
-    // sua própria seta SVG individual (cor do KR primário).
-    const actionsBlock = actions.length > 0
-      ? `<div class="flex flex-col gap-2 self-center">
-          ${actions.map(a => this._actionMindMapNodeWithConnector(a, area, productKrs, hue)).join('')}
-        </div>`
-      : `${this._mindMapConnectorSVG(`hsl(${hue} 50% 50% / 0.5)`, 30)}
+    // V32.13.11 — Felipe alinhou: setas "vindas do nada" sem tronco que ligue
+    // ao Add Ação. Agora há um TRONCO VERTICAL colorido (16px largura) entre
+    // o bloco master+Add e as setas individuais. Visualmente lê-se: bloco
+    // saída → tronco vertical → galhos individuais coloridos por KR → cards.
+    // Também agrupa ações do mesmo KR (gap-1 dentro, gap-3 entre grupos).
+    let actionsBlock;
+    if (actions.length === 0) {
+      actionsBlock = `${this._mindMapConnectorSVG(`hsl(${hue} 50% 50% / 0.5)`, 30)}
         <p class="text-[11px] text-slate-500 italic self-center ml-2">Nenhuma ação ainda — clique no botão pra criar a primeira.</p>`;
+    } else {
+      // Agrupa por primaryKrId (cores juntas) — Gestalt de proximidade
+      const groups = {};
+      const order = [];
+      actions.forEach(a => {
+        const k = a.primaryKrId || '__none__';
+        if (!groups[k]) { groups[k] = []; order.push(k); }
+        groups[k].push(a);
+      });
+      // Tronco vertical conectando Add Ação às setas individuais
+      const truncoVertical = `<div class="shrink-0 self-stretch flex flex-col items-center" style="width:16px;">
+        <span class="block w-0.5 h-full lj-mind-map-connector" style="background:linear-gradient(to bottom, hsla(${hue},60%,55%,0.3) 0%, hsla(${hue},65%,60%,0.7) 50%, hsla(${hue},60%,55%,0.3) 100%);"></span>
+      </div>`;
+      // Renderiza grupos com gap maior entre grupos diferentes
+      const groupBlocks = order.map(krId => {
+        const group = groups[krId];
+        return `<div class="flex flex-col gap-1">
+          ${group.map(a => this._actionMindMapNodeWithConnector(a, area, productKrs, hue)).join('')}
+        </div>`;
+      }).join('');
+      actionsBlock = `${truncoVertical}<div class="flex flex-col gap-3 self-center">${groupBlocks}</div>`;
+    }
 
     return `<div class="${wrapperCls}">
       <div class="flex items-stretch gap-0 flex-wrap">
@@ -2606,40 +2629,44 @@ window.StrategicMapModal = {
     return decorated;
   },
 
-  // V32.13.2 / V32.13.6 — Card compacto da ação no mind-map. ~180px largura.
-  // Bolinha cor KR + label do KR uppercase + nome da ação + status (✓/⚠).
-  // Click abre modal de edição existente (Print 3) — sem feature nova.
-  // V32.13.6: ação recém-criada (strategicJustCreatedActionId) ganha
-  // animação "slide-in" CSS pra simular a seta caminhando até ela.
+  // V32.13.2 / V32.13.6 / V32.13.11 — Card da ação no mind-map.
+  // Leonardo V32.13.11: padding aumentado, placeholder único "Qual o nome da
+  // ação?", status pill proeminente no header (pill colorido + border mais
+  // marcada), hover scale+glow pra affordance.
   _actionMindMapCard({ action, primaryKrId }, area, productKrs) {
     const krColor = primaryKrId ? StrategicMapEngine.krColorFromId(primaryKrId) : 'hsl(0 0% 50%)';
     const kr = primaryKrId ? productKrs.find(k => k.id === primaryKrId) : null;
     const krLabel = kr ? kr.name : 'Sem KR';
-    // Status: verde se ação tem nome + canal + actionType; amarelo se pendente.
     const hasName = String(action.name || '').trim().length > 0;
     const hasChannel = String(action.channel || '').trim().length > 0;
     const hasType = String(action.actionType || '').trim().length > 0;
     const isComplete = hasName && hasChannel && hasType;
     const statusIcon = isComplete ? 'check-circle-2' : 'alert-triangle';
-    const statusColor = isComplete ? 'text-emerald-300' : 'text-amber-300';
-    const borderStatus = isComplete ? 'border-emerald-400/40' : 'border-amber-400/40';
+    const statusPillCls = isComplete
+      ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300'
+      : 'bg-amber-500/15 border-amber-400/40 text-amber-300';
+    const statusLabel = isComplete ? 'OK' : 'Pendente';
+    const borderStatus = isComplete ? 'border-emerald-400/60' : 'border-amber-400/60';
     const isJustCreated = Number(App.state.strategicJustCreatedActionId) === Number(action.id);
     const animCls = isJustCreated ? 'lj-mind-map-action-enter' : '';
-    const displayName = String(action.name || '').trim() || 'Qual o nome da ação?';
-    const nameCls = String(action.name || '').trim() ? 'text-white' : 'text-amber-200 italic';
+    const displayName = hasName ? action.name : 'Qual o nome da ação?';
+    const nameCls = hasName ? 'text-white' : 'text-amber-200 italic';
     return `<button onclick="Actions.openEditActionFromMap(${action.id})"
       title="Clique pra editar esta ação"
-      class="w-44 text-left rounded-xl bg-slate-900/60 border ${borderStatus} p-2.5 hover:bg-slate-800 transition group ${animCls}"
+      class="w-48 text-left rounded-xl bg-slate-900/60 border-2 ${borderStatus} p-3 hover:bg-slate-800 hover:scale-[1.02] hover:shadow-lg transition group ${animCls}"
       style="border-left: 4px solid ${krColor};">
-      <div class="flex items-center gap-1.5 mb-1.5">
-        <span class="shrink-0 w-2 h-2 rounded-full" style="background:${krColor};"></span>
-        <p class="text-[9px] font-black uppercase tracking-widest truncate" style="color:${krColor};" title="${Utils.escape(krLabel)}">${Utils.escape(krLabel)}</p>
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <div class="flex items-center gap-1.5 min-w-0">
+          <span class="shrink-0 w-2 h-2 rounded-full" style="background:${krColor};"></span>
+          <p class="text-[9px] font-black uppercase tracking-widest truncate" style="color:${krColor};" title="${Utils.escape(krLabel)}">${Utils.escape(krLabel)}</p>
+        </div>
+        <span class="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${statusPillCls}">
+          <i data-lucide="${statusIcon}" class="w-2.5 h-2.5"></i>
+          ${statusLabel}
+        </span>
       </div>
-      <p class="text-[12px] font-black leading-tight line-clamp-2 mb-1.5 ${nameCls}" title="${Utils.escape(displayName)}">${Utils.escape(displayName)}</p>
-      <div class="flex items-center justify-between gap-1">
-        <span class="text-[9px] text-slate-500 truncate">${Utils.escape(action.channel || '—')}</span>
-        <i data-lucide="${statusIcon}" class="w-3.5 h-3.5 ${statusColor} shrink-0"></i>
-      </div>
+      <p class="text-[13px] font-black leading-snug line-clamp-2 mb-1.5 ${nameCls}" title="${Utils.escape(displayName)}">${Utils.escape(displayName)}</p>
+      <p class="text-[10px] text-slate-500 truncate">${Utils.escape(action.channel || '— canal —')}</p>
     </button>`;
   },
 
