@@ -1,19 +1,20 @@
 var JourneyPipelineModule = {
   defaultStages() {
     // V31.2.65 — Container aumentado (h-[420px] lg) + bolinhas movidas down.
-    // Wrapper das bolinhas (circle + labels + health pill) tem ~188px altura.
-    // Antes Y=90 fazia top edge do wrapper ficar em -4px (cortando topo).
-    // Agora Y=120, 200, 280 — TOP bolinha em y=120 → wrapper top ~26 (dentro).
+    // V32.15.6 — Felipe pediu reset dos números de amostra. Volumes/conversões/
+    // intent zerados. Health 'Inativa' (sem dado). Insights genéricos pedindo
+    // pra plugar ações. Os valores reais virão do OperationalAggregationEngine
+    // quando o user tiver ações conectadas a OKRs.
     return [
-      { id: 'marketing-tof', label: 'TOF', area: 'Marketing', x: 60, y: 120, volume: 8420, conversion: '100%', intent: 22, velocity: '0.4d', health: 'Saudável', color: '#2563eb', size: 96, gravity: 74, active: true, insight: 'O TOF está gerando volume. A leitura principal é separar alcance barato de atenção qualificada.', action: 'Comparar origem, campanha e tags iniciais para entender qualidade de aquisição.', risk: 'Volume sem qualificação pode contaminar MOF e inflar custo operacional.' },
-      { id: 'marketing-mof', label: 'MOF', area: 'Marketing', x: 217, y: 200, volume: 1840, conversion: '34%', intent: 68, velocity: '2.1d', health: 'Atenção', color: '#f59e0b', size: 86, gravity: 58, active: true, insight: 'Existe concentração de leads mornos no MOF. A operação gera atenção, mas ainda precisa converter intenção em avanço.', action: 'Criar ação para leads com #cta, visita de LP e score acima da média.', risk: 'Nutrir sem próximo passo claro pode criar acúmulo e perda de timing.' },
-      { id: 'marketing-bof', label: 'BOF', area: 'Marketing', x: 373, y: 280, volume: 520, conversion: '28%', intent: 76, velocity: '3.4d', health: 'Gargalo', color: '#ef4444', size: 76, gravity: 36, active: true, insight: 'O BOF de marketing está travando a passagem para vendas. O gargalo pode estar na oferta, CTA ou qualificação.', action: 'Revisar promessa de BOF e preparar handoff claro para vendas.', risk: 'Leads quentes podem esfriar antes da abordagem comercial.' },
-      { id: 'vendas-tof', label: 'TOF', area: 'Vendas', x: 493, y: 280, volume: 410, conversion: '79%', intent: 72, velocity: '1.8d', health: 'Saudável', color: '#0ea5e9', size: 76, gravity: 70, active: true, insight: 'Vendas recebe volume razoável e consegue iniciar contato com boa velocidade.', action: 'Padronizar critérios de entrada para manter qualidade no funil comercial.', risk: 'Entrada sem SLA pode gerar fila invisível.' },
-      { id: 'vendas-mof', label: 'MOF', area: 'Vendas', x: 650, y: 200, volume: 210, conversion: '51%', intent: 83, velocity: '7.8d', health: 'Saudável', color: '#10b981', size: 70, gravity: 71, active: true, insight: 'O meio de vendas apresenta boa qualidade. Quando o lead entra aqui, tende a avançar.', action: 'Retroalimentar marketing com padrões dos leads que chegaram no MOF de vendas.', risk: 'Pouco volume qualificado limita previsibilidade.' },
-      { id: 'vendas-bof', label: 'BOF', area: 'Vendas', x: 807, y: 120, volume: 62, conversion: '30%', intent: 88, velocity: '18d', health: 'Atenção', color: '#16a34a', size: 62, gravity: 66, active: true, insight: 'O BOF de vendas converte bem, mas o ciclo ainda pode ser longo.', action: 'Criar playbook de aceleração para oportunidades com alta intenção.', risk: 'Dependência de poucos leads muito quentes.' },
-      { id: 'cs-tof', label: 'TOF', area: 'CS', x: 927, y: 120, volume: 48, conversion: '77%', intent: 64, velocity: '5d', health: 'Saudável', color: '#8b5cf6', size: 58, gravity: 60, active: true, insight: 'CS começa com boa base de entrada, mas precisa transformar onboarding em sinal mensurável.', action: 'Criar tags de ativação e uso inicial.', risk: 'Sem eventos de ativação, CS vira uma caixa-preta.' },
-      { id: 'cs-mof', label: 'MOF', area: 'CS', x: 1084, y: 200, volume: 26, conversion: '54%', intent: 72, velocity: '21d', health: 'Atenção', color: '#7c3aed', size: 54, gravity: 44, active: true, insight: 'Há sinais de expansão, mas ainda pouco instrumentados.', action: 'Criar eventos de sucesso, uso recorrente e intenção de expansão.', risk: 'Sem leitura de saúde, oportunidades de expansão aparecem tarde.' },
-      { id: 'cs-bof', label: 'BOF', area: 'CS', x: 1240, y: 280, volume: 11, conversion: '42%', intent: 81, velocity: '42d', health: 'Atenção', color: '#6d28d9', size: 50, gravity: 48, active: true, insight: 'O BOF de CS mostra potencial de expansão, mas precisa de cadência comercial clara.', action: 'Criar ação de expansão para clientes com alto uso e alto fit.', risk: 'Expansão sem cadência vira oportunidade perdida.' }
+      { id: 'marketing-tof', label: 'TOF', area: 'Marketing', x: 60,   y: 120, volume: 0, conversion: '0%', intent: 0, velocity: '—', health: 'Inativa', color: '#2563eb', size: 96, gravity: 0, active: true, insight: 'Sem dados ainda. Plugue ações com origem TOF Marketing pra ver volume aqui.', action: 'Conectar ações de aquisição a este estágio.', risk: 'Sem leitura de TOF, não dá pra avaliar saúde da entrada.' },
+      { id: 'marketing-mof', label: 'MOF', area: 'Marketing', x: 217,  y: 200, volume: 0, conversion: '0%', intent: 0, velocity: '—', health: 'Inativa', color: '#f59e0b', size: 86, gravity: 0, active: true, insight: 'Sem dados ainda. Plugue ações de nutrição/qualificação aqui.', action: 'Conectar ações de qualificação MOF Marketing.', risk: '—' },
+      { id: 'marketing-bof', label: 'BOF', area: 'Marketing', x: 373,  y: 280, volume: 0, conversion: '0%', intent: 0, velocity: '—', health: 'Inativa', color: '#ef4444', size: 76, gravity: 0, active: true, insight: 'Sem dados ainda. Plugue ações de handoff pra vendas.', action: 'Conectar ações que entregam leads qualificados pra vendas.', risk: '—' },
+      { id: 'vendas-tof',    label: 'TOF', area: 'Vendas',    x: 493,  y: 280, volume: 0, conversion: '0%', intent: 0, velocity: '—', health: 'Inativa', color: '#0ea5e9', size: 76, gravity: 0, active: true, insight: 'Sem dados ainda. Plugue ações de prospect/SDR.', action: 'Conectar ações de entrada do funil comercial.', risk: '—' },
+      { id: 'vendas-mof',    label: 'MOF', area: 'Vendas',    x: 650,  y: 200, volume: 0, conversion: '0%', intent: 0, velocity: '—', health: 'Inativa', color: '#10b981', size: 70, gravity: 0, active: true, insight: 'Sem dados ainda. Plugue ações de descoberta/diagnóstico.', action: 'Conectar ações de meio do funil comercial.', risk: '—' },
+      { id: 'vendas-bof',    label: 'BOF', area: 'Vendas',    x: 807,  y: 120, volume: 0, conversion: '0%', intent: 0, velocity: '—', health: 'Inativa', color: '#16a34a', size: 62, gravity: 0, active: true, insight: 'Sem dados ainda. Plugue ações de proposta/fechamento.', action: 'Conectar ações de fechamento.', risk: '—' },
+      { id: 'cs-tof',        label: 'TOF', area: 'CS',        x: 927,  y: 120, volume: 0, conversion: '0%', intent: 0, velocity: '—', health: 'Inativa', color: '#8b5cf6', size: 58, gravity: 0, active: true, insight: 'Sem dados ainda. Plugue ações de onboarding/ativação.', action: 'Conectar ações de onboarding inicial.', risk: '—' },
+      { id: 'cs-mof',        label: 'MOF', area: 'CS',        x: 1084, y: 200, volume: 0, conversion: '0%', intent: 0, velocity: '—', health: 'Inativa', color: '#7c3aed', size: 54, gravity: 0, active: true, insight: 'Sem dados ainda. Plugue ações de uso recorrente/sucesso.', action: 'Conectar ações de adoção/retenção.', risk: '—' },
+      { id: 'cs-bof',        label: 'BOF', area: 'CS',        x: 1240, y: 280, volume: 0, conversion: '0%', intent: 0, velocity: '—', health: 'Inativa', color: '#6d28d9', size: 50, gravity: 0, active: true, insight: 'Sem dados ainda. Plugue ações de expansão/upsell.', action: 'Conectar ações de expansão.', risk: '—' }
     ];
   },
 
@@ -26,7 +27,10 @@ var JourneyPipelineModule = {
     'Inativa': 'bg-slate-200 text-slate-800'
   },
 
-  visualVersion: 'revenue-flow-v8-taller',
+  // V32.15.6 — Bump força ensureState() a sobrescrever pipelineStages no F5
+  // dos users existentes. Sem bump, o state remoto antigo (com 8420, etc)
+  // continuava prevalecendo.
+  visualVersion: 'revenue-flow-v9-zeroed',
 
   ensureState() {
     const defaultStages = this.defaultStages();
@@ -91,14 +95,21 @@ var JourneyPipelineModule = {
   metrics() {
     const stages = this.getStages();
     const leads = this.filteredLeads();
-    const avgScore = Math.round(leads.reduce((sum, lead) => sum + Number(lead.score || 0), 0) / Math.max(leads.length, 1));
+    // V32.15.6 — Reset dos números de amostra. Sem leads reais → tudo zero/—.
+    // Antes: fallbacks hardcoded (8420 people, +18%, 61 score, R$ 184k) davam
+    // sensação de dados quando o pipeline estava vazio.
+    const avgScore = leads.length
+      ? Math.round(leads.reduce((sum, lead) => sum + Number(lead.score || 0), 0) / leads.length)
+      : 0;
     const activeStages = stages.filter(stage => stage.active !== false);
+    const totalVolume = stages.reduce((sum, s) => sum + Number(s.volume || 0), 0);
     return {
-      people: leads.length || stages[0]?.volume || 0,
-      velocity: '+18%',
-      avgScore: avgScore || 61,
-      bottlenecks: activeStages.filter(stage => stage.health === 'Gargalo' || stage.gravity < 45).length,
-      forecast: 'R$ 184k'
+      people: leads.length || totalVolume,
+      velocity: '—',
+      avgScore,
+      bottlenecks: activeStages.filter(stage => stage.health === 'Gargalo' || (stage.health !== 'Inativa' && stage.gravity < 45)).length,
+      forecast: 'R$ 0',
+      conversionRate: '—'
     };
   },
 
@@ -110,7 +121,7 @@ var JourneyPipelineModule = {
       <div class="jp-hero rounded-[2rem] px-5 py-5 lg:px-6 lg:py-5 text-white overflow-hidden relative">
         <div class="relative z-10 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_430px] items-center gap-5">
           <div class="min-w-0"><div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 text-white text-xs font-black mb-3"><i data-lucide="activity" class="w-3.5 h-3.5"></i> JourneyScore Labs</div><h2 class="text-3xl lg:text-4xl font-black tracking-tight">Journey Pipeline</h2><p class="text-slate-300 mt-2 max-w-xl text-sm lg:text-base leading-relaxed">A linha viva da receita: marketing, vendas e CS conectados em um fluxo visual de inteligência operacional.</p></div>
-          <div class="w-full max-w-[430px] xl:ml-auto xl:mr-4 grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-slate-900">${this.metricCard('Pessoas no fluxo', Utils.escape(this.formatNumber(metrics.people)))}${this.metricCard('Velocidade', metrics.velocity)}${this.metricCard('Score médio', metrics.avgScore)}${this.metricCard('Gargalos', metrics.bottlenecks, 'text-amber-600')}${this.metricCard('Previsão', metrics.forecast, 'text-emerald-600')}${this.metricCard('Conversion Rate', '12%')}</div>
+          <div class="w-full max-w-[430px] xl:ml-auto xl:mr-4 grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-slate-900">${this.metricCard('Pessoas no fluxo', Utils.escape(this.formatNumber(metrics.people)))}${this.metricCard('Velocidade', metrics.velocity)}${this.metricCard('Score médio', metrics.avgScore)}${this.metricCard('Gargalos', metrics.bottlenecks, 'text-amber-600')}${this.metricCard('Previsão', metrics.forecast, 'text-emerald-600')}${this.metricCard('Conversion Rate', metrics.conversionRate)}</div>
         </div>
       </div>
       <section class="bg-white rounded-[2rem] p-5 lg:p-8 shadow-sm border border-slate-100 overflow-hidden">
