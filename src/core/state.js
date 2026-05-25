@@ -225,6 +225,11 @@ var State = {
       // antes do backend OAuth (V32.12.3+) chegar. Toggle via console:
       //   App.state.campaignPerfDemoMode = true; App.render();
       campaignPerfDemoMode: false,
+      // V32.12.4 — Modal de relogin inline (JWT expirado). Aberto quando
+      // QUALQUER endpoint retorna 401. NÃO faz logout automático — preserva
+      // localStorage e App.state pra cliente NÃO PERDER trabalho não-salvo.
+      // Após relogin OK, dispara _doPush imediato pra empurrar pendências.
+      reloginInlineModal: { open: false, error: null, loading: false },
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -641,6 +646,9 @@ var State = {
       campaignPerfExpanded: raw.campaignPerfExpanded && typeof raw.campaignPerfExpanded === 'object' ? raw.campaignPerfExpanded : {},
       // V32.12.2 — Modo demo persiste (cliente pode deixar ligado pra demonstração).
       campaignPerfDemoMode: !!raw.campaignPerfDemoMode,
+      // V32.12.4 — Modal volátil (sempre fecha em F5 — se token ainda expirado,
+      // próxima chamada 401 reabre).
+      reloginInlineModal: { open: false, error: null, loading: false },
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

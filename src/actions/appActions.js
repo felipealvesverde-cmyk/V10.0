@@ -1689,6 +1689,111 @@ Object.assign(Actions, {
     window.location.reload();
   },
 
+  // ─────────────────────────────────────────────────────────────────
+  // V32.12.4 — RELOGIN INLINE (jwt expirado, evita perda de dados)
+  // ─────────────────────────────────────────────────────────────────
+  //
+  // Lei JWT silent failure: 401 em QUALQUER endpoint NUNCA pode ser silencioso.
+  // Cravada após perda Sansone 2026-05-25 (ações criadas no Mapa nunca chegaram
+  // ao DB porque _doPush deu 401 silencioso, snapshots automáticos idem).
+  //
+  // Comportamento: detecção 401 abre modal bloqueante. Cliente digita senha,
+  // pegamos novo JWT, atualizamos localStorage, _doPush imediato pra empurrar
+  // o que estava pendente. localStorage NUNCA é limpo (preserva trabalho).
+  //
+  // Caso cliente queira sair: botão "Sair mesmo assim" baixa JSON backup
+  // automático ANTES de chamar logout normal.
+
+  openReloginInlineModal() {
+    if (App.state.reloginInlineModal?.open) return; // idempotente
+    App.state.reloginInlineModal = { open: true, error: null, loading: false };
+    App.render();
+  },
+
+  closeReloginInlineModal() {
+    App.state.reloginInlineModal = { open: false, error: null, loading: false };
+    App.render();
+  },
+
+  async submitReloginInline(password) {
+    const pwd = String(password || '');
+    if (!pwd.trim()) {
+      App.state.reloginInlineModal = { open: true, error: 'Informe a senha.', loading: false };
+      App.render();
+      return;
+    }
+    // Lê username do JWT atual (mesmo expirado, payload é legível).
+    let username = null;
+    try {
+      const jwt = localStorage.getItem('lj_jwt');
+      if (jwt) {
+        const payload = JSON.parse(atob(jwt.split('.')[1]));
+        username = payload?.username || null;
+      }
+    } catch (_) {}
+    // Fallback: lê de lj_user cache
+    if (!username) {
+      try {
+        const u = JSON.parse(localStorage.getItem('lj_user') || '{}');
+        username = u.username || u.email || null;
+      } catch (_) {}
+    }
+    if (!username) {
+      App.state.reloginInlineModal = { open: true, error: 'Sem username em cache — vai precisar deslogar e logar manualmente.', loading: false };
+      App.render();
+      return;
+    }
+    // Loading
+    App.state.reloginInlineModal = { open: true, error: null, loading: true };
+    App.render();
+    try {
+      const res = await fetch('/api/auth-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password: pwd })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        App.state.reloginInlineModal = { open: true, error: data.message || 'Senha inválida.', loading: false };
+        App.render();
+        return;
+      }
+      // SUCESSO: atualiza token SEM tocar em App.state nem StorageAdapter.
+      localStorage.setItem('lj_jwt', data.token);
+      localStorage.setItem('lj_user', JSON.stringify(data.user));
+      // Empurra mudanças pendentes IMEDIATAMENTE.
+      try {
+        if (window.RemoteSyncAdapter?.flushNow) await RemoteSyncAdapter.flushNow();
+      } catch (_) {}
+      // Fecha modal.
+      App.state.reloginInlineModal = { open: false, error: null, loading: false };
+      App.render();
+      Utils.toast('✓ Sessão renovada. Suas alterações foram salvas.');
+    } catch (err) {
+      App.state.reloginInlineModal = { open: true, error: `Erro de rede: ${err?.message || err}`, loading: false };
+      App.render();
+    }
+  },
+
+  // "Sair mesmo assim" — baixa JSON backup ANTES de limpar localStorage.
+  // Garante que cliente leva o trabalho atual mesmo desistindo do relogin.
+  async logoutWithBackup() {
+    const ok = confirm('Tem certeza? Vou baixar um JSON de backup do seu trabalho atual ANTES de sair — você poderá restaurar depois.');
+    if (!ok) return;
+    // Baixa snapshot do state atual ANTES de qualquer coisa destrutiva.
+    try {
+      if (Actions.downloadStateSnapshot) Actions.downloadStateSnapshot();
+    } catch (e) {
+      const proceed = confirm(`Falha ao baixar backup: ${e?.message || e}. Quer sair mesmo assim (vai perder o trabalho não-salvo)?`);
+      if (!proceed) return;
+    }
+    // Limpa tudo e recarrega (fluxo logout normal, mas sem confirm dupla).
+    try { StorageAdapter?.clear?.(); } catch (_) {}
+    localStorage.removeItem('lj_jwt');
+    localStorage.removeItem('lj_user');
+    window.location.reload();
+  },
+
   // V23.0.0 — Carrega lista de usuários (admin).
   async loadUsersList() {
     const token = localStorage.getItem('lj_jwt');

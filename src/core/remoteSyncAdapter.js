@@ -129,6 +129,12 @@ window.RemoteSyncAdapter = {
       if (res.ok) {
         this._lastPushAt = new Date();
         this._lastPushStatus = 'ok';
+      } else if (res.status === 401) {
+        // V32.12.4 — JWT expirado. NÃO marcar como erro silencioso (foi o que
+        // causou perda Sansone). Dispara modal de relogin inline preservando
+        // App.state e localStorage.
+        this._lastPushStatus = 'auth_expired';
+        this._triggerAuthExpired();
       } else {
         this._lastPushStatus = `error_${res.status}`;
       }
@@ -141,6 +147,16 @@ window.RemoteSyncAdapter = {
         this._lastPushStatus = 'network_error';
         console.warn('[RemoteSync] push falhou:', err);
       }
+    }
+  },
+
+  // V32.12.4 — Dispara modal de relogin inline (idempotente).
+  // Lei JWT silent failure: 401 NUNCA pode ser silencioso.
+  _triggerAuthExpired() {
+    if (window.Actions?.openReloginInlineModal) {
+      window.Actions.openReloginInlineModal();
+    } else {
+      console.error('[RemoteSync] 401 detectado mas Actions.openReloginInlineModal indisponível.');
     }
   },
 
@@ -174,7 +190,14 @@ window.RemoteSyncAdapter = {
           label: `${label}-${window.LJVersion || 'V?'}`
         })
       });
-      if (!res.ok) console.warn('[RemoteSync] snapshot falhou:', res.status);
+      if (!res.ok) {
+        if (res.status === 401) {
+          // V32.12.4 — Auto-snapshot também dispara modal de relogin.
+          this._triggerAuthExpired();
+        } else {
+          console.warn('[RemoteSync] snapshot falhou:', res.status);
+        }
+      }
     } catch (err) {
       // V32.12.3 — Offline = silencioso (snapshot tenta de novo no próximo tick).
       if (!this._isOfflineError(err)) {
