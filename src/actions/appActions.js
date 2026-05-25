@@ -6282,10 +6282,17 @@ Object.assign(Actions, {
     Utils.toast(`✓ Ação "${action.name}" criada.`);
   },
 
-  // V32.13.12 — Click no botão "Executar Ação" no card do mind-map.
-  // Placeholder enquanto Parte 2 (integração ClickUp/provider) não chega.
+  // V32.13.15 — Click no botão "Executar Ação" no card do mind-map.
+  // Abre o modal taskCreationModal existente, pré-populado com dados da ação.
+  // Cliente confirma → cria task no ClickUp via integração existente → mapeamento
+  // action_id → clickup_task_id é guardado pra renderizar a branch de execução
+  // no mind-map.
   executeStrategicAction(actionId) {
-    Utils.toast('🚧 Em breve: integra com ClickUp/Trello/etc (Parte 2 do roadmap).');
+    if (typeof Actions.openTaskCreationModal === 'function') {
+      Actions.openTaskCreationModal(Number(actionId));
+    } else {
+      Utils.toast('Função openTaskCreationModal indisponível.');
+    }
   },
 
   // V28.3.1 — Fecha o popup didático do passe do bastão (estratégia → tático).

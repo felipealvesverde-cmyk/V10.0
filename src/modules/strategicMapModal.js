@@ -2910,10 +2910,56 @@ window.StrategicMapModal = {
       <span class="text-[9px] leading-tight text-center">Executar<br/>Ação</span>
     </button>`;
 
+    // V32.13.15 — Branch de execuções: tasks criadas no ClickUp/provider pra
+    // esta ação. Cada uma vira um card amber compacto à direita, conectada
+    // por seta SVG (mesmo padrão da ramificação Add Ação → ações).
+    const executionTasks = window.ExecutionTaskStore ? ExecutionTaskStore.byAction(action.id) : [];
+    const executionBranch = executionTasks.length > 0 ? this._executionBranchRender(executionTasks) : '';
+
     return `<div class="flex items-stretch ${animCls.replace('lj-mind-map-action-enter', '')}">
       ${cardButton}
       ${executeBtn}
+      ${executionBranch}
     </div>`;
+  },
+
+  // V32.13.15 — Renderiza tasks de execução (ClickUp/Trello/etc) saindo do
+  // botão Executar Ação. Cada task = card compacto amber com nome + provider
+  // + status + link externo. Conectada por seta SVG amber.
+  _executionBranchRender(tasks) {
+    const statusColorMap = {
+      pending:     { bg: 'bg-amber-500/15',   border: 'border-amber-400/40',   text: 'text-amber-200',   label: 'Pendente', icon: 'circle' },
+      in_progress: { bg: 'bg-sky-500/15',     border: 'border-sky-400/40',     text: 'text-sky-200',     label: 'Em curso', icon: 'loader' },
+      completed:   { bg: 'bg-emerald-500/15', border: 'border-emerald-400/40', text: 'text-emerald-200', label: 'Feita',    icon: 'check-circle-2' },
+      blocked:     { bg: 'bg-rose-500/15',    border: 'border-rose-400/40',    text: 'text-rose-200',    label: 'Bloqueada', icon: 'x-circle' }
+    };
+    const providerIconMap = { clickup: 'check-square', trello: 'trello', manual: 'list' };
+    return tasks.map(task => {
+      const status = statusColorMap[task.status] || statusColorMap.pending;
+      const providerIcon = providerIconMap[task.provider] || 'briefcase';
+      const onclick = task.external_url
+        ? `window.open('${task.external_url}', '_blank')`
+        : `Utils.toast('Task sem link externo.')`;
+      return `<div class="flex items-stretch shrink-0">
+        ${this._mindMapConnectorSVG('hsl(35 90% 60%)', 24)}
+        <button onclick="${onclick}" title="Abrir task no ${task.provider || 'provider'}"
+          class="w-44 text-left rounded-xl bg-slate-900/60 border-2 ${status.border} p-2.5 hover:bg-slate-800 transition group"
+          style="border-left: 4px solid hsl(35 90% 60%);">
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <span class="inline-flex items-center gap-1 text-[9px] font-black text-amber-300 uppercase tracking-widest">
+              <i data-lucide="${providerIcon}" class="w-2.5 h-2.5"></i>
+              ${Utils.escape((task.provider || 'task').toUpperCase())}
+            </span>
+            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${status.bg} ${status.border} ${status.text}">
+              <i data-lucide="${status.icon}" class="w-2.5 h-2.5"></i>
+              ${status.label}
+            </span>
+          </div>
+          <p class="text-[12px] font-black text-white leading-snug line-clamp-2" title="${Utils.escape(task.title || '')}">${Utils.escape(task.title || 'Task sem nome')}</p>
+          ${task.external_url ? `<p class="text-[9px] text-sky-400 mt-1 inline-flex items-center gap-1"><i data-lucide="external-link" class="w-2.5 h-2.5"></i> Abrir no ${task.provider}</p>` : ''}
+        </button>
+      </div>`;
+    }).join('');
   },
 
   _anyActionConnectedInBranch(campaignId) {
