@@ -3294,11 +3294,16 @@ window.StrategicMapModal = {
       <span class="text-[9px] leading-tight text-center">Executar<br/>Ação</span>
     </button>`;
 
-    // V32.13.15 — Branch de execuções: tasks criadas no ClickUp/provider pra
-    // esta ação. Cada uma vira um card amber compacto à direita, conectada
-    // por seta SVG (mesmo padrão da ramificação Add Ação → ações).
+    // V32.13.15 / V32.14.7 — Branch de execuções: tasks criadas no ClickUp pra
+    // esta ação. Felipe alinhou: cada task ramifica DA AÇÃO (não em cadeia
+    // horizontal). Então as tasks ficam empilhadas verticalmente, cada uma
+    // com sua própria seta saindo do botão Executar Ação.
     const executionTasks = window.ExecutionTaskStore ? ExecutionTaskStore.byAction(action.id) : [];
-    const executionBranch = executionTasks.length > 0 ? this._executionBranchRender(executionTasks) : '';
+    const executionBranch = executionTasks.length > 0
+      ? `<div class="flex flex-col gap-2 self-center">
+          ${executionTasks.map(t => this._executionBranchRender([t])).join('')}
+        </div>`
+      : '';
 
     return `<div class="flex items-stretch ${animCls.replace('lj-mind-map-action-enter', '')}">
       ${cardButton}

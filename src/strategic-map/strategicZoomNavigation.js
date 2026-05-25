@@ -30,7 +30,7 @@ window.StrategicZoomNavigation = {
     { id: 'okrs',       label: 'Os números',          short: 'Números',   icon: 'target',     description: 'Como saber que cada frente está performando.',             thermal: 'fuchsia', word: 'metas',     titleQ: 'Quais são os números deste produto?' },
     { id: 'campaign',   label: 'Selecionar Campanha', short: 'Campanha',  icon: 'git-branch', description: 'Escolha em qual campanha vai trabalhar agora.',            thermal: 'pink',    word: 'escolha',   titleQ: 'Em qual campanha você quer trabalhar?' },
     { id: 'operations', label: 'As ações',            short: 'Ações',     icon: 'plug',       description: 'O que a operação faz pra mover esses números.',            thermal: 'orange',  word: 'trabalho',  titleQ: 'Como você vai cobrir esses números?' },
-    { id: 'execution',  label: 'Colocar em campo',    short: 'Campo',     icon: 'send',       description: 'Disparar tudo no seu provider de execução.',               thermal: 'amber',   word: 'receita',   titleQ: 'Pronto pra colocar em campo?' }
+    { id: 'execution',  label: 'Acompanhamento',      short: 'Acompanhamento', icon: 'activity', description: 'Como cada número e cada ação está performando no provider operacional.', thermal: 'amber', word: 'receita', titleQ: 'Acompanhamento em campo' }
   ],
 
   // V32.5.2 — Helper: quantos passos faltam até a receita.

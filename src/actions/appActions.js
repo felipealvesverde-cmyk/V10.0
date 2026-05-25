@@ -6375,12 +6375,18 @@ Object.assign(Actions, {
     }
   },
 
-  // V32.13.16 — Detalhe da task de execução (click no card amber do mind-map).
-  // Modal mostra metadados + ações: sincronizar status, abrir no provider,
-  // marcar concluída manual, apagar.
+  // V32.13.16 / V32.14.7 — Detalhe da task de execução. Auto-sync silencioso
+  // ao abrir (resolve cenário "atualizei no ClickUp e LJ não puxou ainda").
   openExecutionTaskDetail(taskId) {
     App.state.executionTaskDetail = { taskId: String(taskId), syncing: false };
     App.render();
+    // V32.14.7 — auto-sync individual (sem cooldown) ao abrir detail
+    setTimeout(() => {
+      const task = window.ExecutionTaskStore?.byId(String(taskId));
+      if (task && task.provider === 'clickup' && task.provider_task_id) {
+        Actions.syncExecutionTask();  // silent path interno já existe
+      }
+    }, 200);
   },
 
   closeExecutionTaskDetail() {
