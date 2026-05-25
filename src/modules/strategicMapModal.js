@@ -3294,10 +3294,18 @@ window.StrategicMapModal = {
     // esta ação. Felipe alinhou: cada task ramifica DA AÇÃO (não em cadeia
     // horizontal). Então as tasks ficam empilhadas verticalmente, cada uma
     // com sua própria seta saindo do botão Executar Ação.
+    // V32.15.5 (Leonardo) — Tronco vertical amber espelha o tronco magenta
+    // master→ações. Mesma anatomia: bloco saída → tronco → setas individuais
+    // → cards. Fecha a leitura de "frente operacional" da camada de execução.
     const executionTasks = window.ExecutionTaskStore ? ExecutionTaskStore.byAction(action.id) : [];
     const executionBranch = executionTasks.length > 0
-      ? `<div class="flex flex-col gap-2 self-center">
-          ${executionTasks.map(t => this._executionBranchRender([t])).join('')}
+      ? `<div class="flex items-stretch">
+          <div class="shrink-0 self-stretch flex flex-col items-center" style="width:16px;">
+            <span class="block w-0.5 h-full lj-mind-map-connector" style="background:linear-gradient(to bottom, hsla(35,90%,60%,0.3) 0%, hsla(35,95%,65%,0.7) 50%, hsla(35,90%,60%,0.3) 100%);"></span>
+          </div>
+          <div class="flex flex-col gap-2 self-center">
+            ${executionTasks.map(t => this._executionBranchRender([t])).join('')}
+          </div>
         </div>`
       : '';
 
