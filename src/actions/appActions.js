@@ -8026,14 +8026,28 @@ Object.assign(Actions, {
         if (!silent) Utils.toast(`Falha sync: ${data.message}`);
         return;
       }
-      // Aplica updates no store local
+      // V32.15.2 — Aplica updates no store local. Além do status LJ mapeado,
+      // grava o status RAW do ClickUp (label + cor) pra o badge no card mostrar
+      // exatamente o que o user definiu no ClickUp (ex: "parado" com cor #ff0000).
       let updatedCount = 0;
       for (const task of tasks) {
         const remote = data.statuses?.[task.provider_task_id];
         if (!remote || remote.error) continue;
         const newStatus = this._mapClickupStatusToLj(remote);
-        if (newStatus && newStatus !== task.status) {
-          ExecutionTaskStore.setStatus(task.task_id, newStatus);
+        const remoteLabel = remote.status ? String(remote.status) : null;
+        const remoteColor = remote.statusColor ? String(remote.statusColor) : null;
+        const changed = (newStatus && newStatus !== task.status)
+          || (remoteLabel && remoteLabel !== task.provider_status_label)
+          || (remoteColor && remoteColor !== task.provider_status_color);
+        if (changed) {
+          const patch = {
+            status: newStatus || task.status,
+            provider_status_label: remoteLabel,
+            provider_status_color: remoteColor
+          };
+          if (patch.status === 'in_progress' && !task.started_at) patch.started_at = new Date().toISOString();
+          if (patch.status === 'completed') patch.completed_at = new Date().toISOString();
+          ExecutionTaskStore.update(task.task_id, patch);
           updatedCount++;
         }
       }

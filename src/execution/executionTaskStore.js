@@ -27,6 +27,11 @@ window.ExecutionTaskStore = {
       due_date: task.due_date || null,
       priority: task.priority || 'normal',
       status: task.status || 'pending',
+      // V32.15.2 — Status RAW do provider (ClickUp/Trello/etc) com label e cor
+      // que o user definiu lá. Quando preenchidos, os badges no LJ exibem
+      // esses valores em vez do mapping binário pending/in_progress/completed.
+      provider_status_label: task.provider_status_label || null,
+      provider_status_color: task.provider_status_color || null,
       external_url: task.external_url || null,
       source_agent: task.source_agent || null,
       execution_context: task.execution_context || null,

@@ -711,15 +711,20 @@ window.StrategicMapModal = {
             ${tasks.length === 0 ? `<p class="text-[11px] text-slate-500 italic">Sem tasks ainda. Volte pra As Ações e clique <b>Executar Ação</b> no card desta ação.</p>` : `<div class="space-y-1.5">
               ${tasks.map(t => {
                 const isLate = t.status !== 'completed' && t.due_date && new Date(t.due_date) < now;
-                const statusCls = isLate ? 'bg-rose-500/20 border-rose-400/40 text-rose-200' : (statusMap[t.status] || statusMap.pending);
-                const statusTxt = isLate ? 'Atrasada' : (statusLabel[t.status] || 'Pendente');
+                // V32.15.2 — Atraso vence o status (banner rose), senão usa o badge real do provider.
+                const badge = this._taskStatusBadge(t);
+                const statusCls = isLate
+                  ? 'bg-rose-500/20 border-rose-400/40 text-rose-200'
+                  : (badge.useInline ? '' : `${badge.bg} ${badge.border} ${badge.text}`);
+                const statusStyle = (!isLate && badge.useInline) ? `style="${badge.styleAttr}"` : '';
+                const statusTxt = isLate ? 'Atrasada' : badge.label;
                 const dueLabel = t.due_date ? new Date(t.due_date).toLocaleDateString('pt-BR') : '—';
                 return `<button onclick="Actions.openExecutionTaskDetail('${t.task_id}')" class="w-full text-left rounded-lg bg-slate-900/60 hover:bg-slate-900 border border-white/5 p-2 flex items-center justify-between gap-2 transition">
                   <div class="min-w-0 flex-1">
                     <p class="text-[12px] font-bold text-white truncate" title="${Utils.escape(t.title || '')}">${Utils.escape(t.title || 'Task sem nome')}</p>
                     <p class="text-[10px] text-slate-500 mt-0.5">Entrega: <b class="text-slate-300">${dueLabel}</b> · ${Utils.escape((t.provider || 'task').toUpperCase())}</p>
                   </div>
-                  <span class="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider border ${statusCls} shrink-0">${statusTxt}</span>
+                  <span class="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider border ${statusCls} shrink-0" ${statusStyle}>${Utils.escape(String(statusTxt).toUpperCase())}</span>
                 </button>`;
               }).join('')}
             </div>`}
@@ -740,14 +745,7 @@ window.StrategicMapModal = {
     const tasks = window.ExecutionTaskStore
       ? (ExecutionTaskStore.all() || []).filter(t => Number(t.linked_action_id) === Number(action.id))
       : [];
-    const statusMap = {
-      pending: 'bg-amber-500/15 border-amber-400/30 text-amber-200',
-      in_progress: 'bg-sky-500/15 border-sky-400/30 text-sky-200',
-      review: 'bg-orange-500/15 border-orange-400/30 text-orange-200',
-      completed: 'bg-emerald-500/15 border-emerald-400/30 text-emerald-200',
-      blocked: 'bg-rose-500/15 border-rose-400/30 text-rose-200'
-    };
-    const statusLabel = { pending: 'Pendente', in_progress: 'Em curso', review: 'Em revisão', completed: 'Concluída', blocked: 'Bloqueada' };
+    // V32.15.2 — Badges via _taskStatusBadge (prefere status RAW do provider).
     return `<div class="rounded-xl bg-slate-800/40 border border-white/10 p-3 space-y-2">
       <div class="flex items-center justify-between gap-2 flex-wrap">
         <div class="min-w-0 flex-1">
@@ -758,15 +756,19 @@ window.StrategicMapModal = {
       ${tasks.length === 0 ? `<p class="text-[11px] text-slate-500 italic">Sem tasks criadas. Volte pra <b>As Ações</b> e clique em "Executar Ação".</p>` : `<div class="space-y-1.5">
         ${tasks.map(t => {
           const isLate = t.status !== 'completed' && t.due_date && new Date(t.due_date) < now;
-          const statusCls = isLate ? 'bg-rose-500/20 border-rose-400/40 text-rose-200' : (statusMap[t.status] || statusMap.pending);
-          const statusTxt = isLate ? 'Atrasada' : (statusLabel[t.status] || 'Pendente');
+          const badge = this._taskStatusBadge(t);
+          const statusCls = isLate
+            ? 'bg-rose-500/20 border-rose-400/40 text-rose-200'
+            : (badge.useInline ? '' : `${badge.bg} ${badge.border} ${badge.text}`);
+          const statusStyle = (!isLate && badge.useInline) ? `style="${badge.styleAttr}"` : '';
+          const statusTxt = isLate ? 'Atrasada' : badge.label;
           const dueLabel = t.due_date ? new Date(t.due_date).toLocaleDateString('pt-BR') : '—';
           return `<button onclick="Actions.openExecutionTaskDetail('${t.task_id}')" class="w-full text-left rounded-lg bg-slate-900/60 hover:bg-slate-900 border border-white/5 p-2 flex items-center justify-between gap-2 transition">
             <div class="min-w-0 flex-1">
               <p class="text-[12px] font-bold text-white truncate" title="${Utils.escape(t.title || '')}">${Utils.escape(t.title || 'Task sem nome')}</p>
               <p class="text-[10px] text-slate-500 mt-0.5">Entrega: <b class="text-slate-300">${dueLabel}</b> · ${Utils.escape((t.provider || 'task').toUpperCase())}</p>
             </div>
-            <span class="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider border ${statusCls} shrink-0">${statusTxt}</span>
+            <span class="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider border ${statusCls} shrink-0" ${statusStyle}>${Utils.escape(String(statusTxt).toUpperCase())}</span>
           </button>`;
         }).join('')}
       </div>`}
@@ -783,14 +785,8 @@ window.StrategicMapModal = {
     const task = window.ExecutionTaskStore ? ExecutionTaskStore.byId(detail.taskId) : null;
     if (!task) return '';
     const syncing = !!detail.syncing;
-    const statusMap = {
-      pending:     { label: 'Pendente',   tone: 'amber',   icon: 'circle' },
-      in_progress: { label: 'Em curso',   tone: 'sky',     icon: 'loader' },
-      review:      { label: 'Em revisão', tone: 'orange',  icon: 'eye' },
-      completed:   { label: 'Concluída',  tone: 'emerald', icon: 'check-circle-2' },
-      blocked:     { label: 'Bloqueada',  tone: 'rose',    icon: 'x-circle' }
-    };
-    const status = statusMap[task.status] || statusMap.pending;
+    // V32.15.2 — Status via _taskStatusBadge (label + cor do provider quando houver).
+    const status = this._taskStatusBadge(task);
     const provider = (task.provider || 'task').toUpperCase();
     return `<div class="fixed inset-0 z-[92] grid place-items-center p-4" style="background: rgba(15,23,42,0.75); backdrop-filter: blur(6px);" onclick="if(event.target===this) Actions.closeExecutionTaskDetail()">
       <div class="w-full max-w-lg rounded-3xl bg-slate-900 border-2 border-amber-400/40 shadow-2xl overflow-hidden">
@@ -808,9 +804,9 @@ window.StrategicMapModal = {
         <!-- BODY -->
         <div class="p-5 space-y-3">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-${status.tone}-500/15 border border-${status.tone}-400/40 text-${status.tone}-200 text-[10px] font-black uppercase tracking-wider">
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider border ${status.useInline ? '' : `${status.bg} ${status.border} ${status.text}`}" ${status.useInline ? `style="${status.styleAttr}"` : ''}>
               <i data-lucide="${status.icon}" class="w-3 h-3"></i>
-              ${status.label}
+              ${Utils.escape(String(status.label).toUpperCase())}
             </span>
             ${task.completed_at ? `<span class="text-[10px] text-slate-500">Concluída em ${new Date(task.completed_at).toLocaleString('pt-BR')}</span>` : ''}
           </div>
@@ -3308,20 +3304,60 @@ window.StrategicMapModal = {
     </div>`;
   },
 
+  // V32.15.2 — Mapping LJ-status → fallback visual (tone + icon + label).
+  // Usado SÓ quando a task não tem provider_status_label/color (manual ou
+  // sync ainda não pegou). Define como cada status LJ fica visualmente.
+  _LJ_STATUS_VISUAL: {
+    pending:     { tone: 'amber',   icon: 'circle',          label: 'Pendente'   },
+    in_progress: { tone: 'sky',     icon: 'loader',          label: 'Em curso'   },
+    review:      { tone: 'orange',  icon: 'eye',             label: 'Em revisão' },
+    completed:   { tone: 'emerald', icon: 'check-circle-2',  label: 'Concluída'  },
+    blocked:     { tone: 'rose',    icon: 'x-circle',        label: 'Bloqueada'  }
+  },
+
+  // V32.15.2 — Badge visual do status de uma task. Prefere o status RAW do
+  // provider (ClickUp custom statuses tipo "parado", "em revisão" com a cor
+  // que o user definiu lá) e cai pro mapping LJ se não tiver.
+  //
+  // Retorna { label, color, bg, border, text, icon } pra os 4 badges do Mapa
+  // consumirem uniformemente. Quando vem cor RAW, gera estilo inline; sem cor,
+  // usa classes Tailwind pelo tone do LJ-status.
+  _taskStatusBadge(task) {
+    const ljVisual = this._LJ_STATUS_VISUAL[task.status] || this._LJ_STATUS_VISUAL.pending;
+    const rawLabel = task.provider_status_label;
+    const rawColor = task.provider_status_color;
+    if (rawLabel && rawColor) {
+      // Provider mandou label + cor — usa diretamente. Estilo inline
+      // (não dá pra classes Tailwind com cor arbitrária).
+      const styleAttr = `background:${rawColor}26; border-color:${rawColor}66; color:${rawColor};`;
+      return {
+        label: rawLabel,
+        icon: ljVisual.icon,
+        useInline: true,
+        styleAttr,
+        bg: '', border: '', text: ''
+      };
+    }
+    // Fallback: classes Tailwind pelo LJ-status.
+    return {
+      label: rawLabel || ljVisual.label,
+      icon: ljVisual.icon,
+      useInline: false,
+      styleAttr: '',
+      bg: `bg-${ljVisual.tone}-500/15`,
+      border: `border-${ljVisual.tone}-400/40`,
+      text: `text-${ljVisual.tone}-200`
+    };
+  },
+
   // V32.13.15 — Renderiza tasks de execução (ClickUp/Trello/etc) saindo do
   // botão Executar Ação. Cada task = card compacto amber com nome + provider
   // + status + link externo. Conectada por seta SVG amber.
+  // V32.15.2 — Badge agora prefere status RAW do provider (label + cor user).
   _executionBranchRender(tasks) {
-    const statusColorMap = {
-      pending:     { bg: 'bg-amber-500/15',   border: 'border-amber-400/40',   text: 'text-amber-200',   label: 'Pendente',   icon: 'circle' },
-      in_progress: { bg: 'bg-sky-500/15',     border: 'border-sky-400/40',     text: 'text-sky-200',     label: 'Em curso',   icon: 'loader' },
-      review:      { bg: 'bg-orange-500/15',  border: 'border-orange-400/40',  text: 'text-orange-200',  label: 'Em revisão', icon: 'eye' },
-      completed:   { bg: 'bg-emerald-500/15', border: 'border-emerald-400/40', text: 'text-emerald-200', label: 'Feita',      icon: 'check-circle-2' },
-      blocked:     { bg: 'bg-rose-500/15',    border: 'border-rose-400/40',    text: 'text-rose-200',    label: 'Bloqueada',  icon: 'x-circle' }
-    };
     const providerIconMap = { clickup: 'check-square', trello: 'trello', manual: 'list' };
     return tasks.map(task => {
-      const status = statusColorMap[task.status] || statusColorMap.pending;
+      const status = this._taskStatusBadge(task);
       const providerIcon = providerIconMap[task.provider] || 'briefcase';
       return `<div class="flex items-stretch shrink-0">
         ${this._mindMapConnectorSVG('hsl(35 90% 60%)', 24)}
@@ -3333,9 +3369,9 @@ window.StrategicMapModal = {
               <i data-lucide="${providerIcon}" class="w-2.5 h-2.5"></i>
               ${Utils.escape((task.provider || 'task').toUpperCase())}
             </span>
-            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${status.bg} ${status.border} ${status.text}">
+            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${status.bg} ${status.border} ${status.text}" ${status.useInline ? `style="${status.styleAttr}"` : ''}>
               <i data-lucide="${status.icon}" class="w-2.5 h-2.5"></i>
-              ${status.label}
+              ${Utils.escape(String(status.label).toUpperCase())}
             </span>
           </div>
           <p class="text-[12px] font-black text-white leading-snug line-clamp-2" title="${Utils.escape(task.title || '')}">${Utils.escape(task.title || 'Task sem nome')}</p>
