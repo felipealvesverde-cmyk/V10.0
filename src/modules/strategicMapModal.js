@@ -12,7 +12,7 @@ window.StrategicMapModal = {
     // Skip via "Já configurou?" usa flag transient resetada por openStrategicMap.
     const showOnboarding = !App.state.strategicSkipOnboarding;
     return `<div id="strategicMapScrollContainer" class="fixed inset-0 z-[80] bg-slate-950/85 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center">
-      <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:92vw;max-width:1400px;background: radial-gradient(circle at 18% 8%, rgba(99,102,241,.25), transparent 32%), radial-gradient(circle at 82% 0%, rgba(34,197,94,.15), transparent 32%), #071326;">
+      <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:98vw;max-width:1800px;background: radial-gradient(circle at 18% 8%, rgba(99,102,241,.25), transparent 32%), radial-gradient(circle at 82% 0%, rgba(34,197,94,.15), transparent 32%), #071326;">
         ${this._header(product)}
         ${showOnboarding ? this._onboarding(product) : this._body(product)}
       </div>
@@ -2440,29 +2440,35 @@ window.StrategicMapModal = {
       </div>`;
     }
 
-    // ATIVA: mind-map horizontal expandido
+    // V32.13.4 — Botão "+ Adicionar ação" sai do header e vai pra fora do
+    // card master, ao lado dele (à direita), como primeira coisa na área
+    // ramificada. Felipe alinhou: botão fora do quadrado, antes das ações.
     const actions = this._actionsForFrente(area.id, campaignId);
-    const actionsArea = actions.length === 0
-      ? `<div class="flex-1 self-center px-4 py-6 rounded-xl bg-white/[0.02] border border-dashed border-${tone}-400/30">
-          <p class="text-[11px] text-slate-400 italic text-center">Nenhuma ação ainda. Clique <b>[+ Adicionar ação]</b> ao lado pra criar a primeira.</p>
-        </div>`
-      : `<div class="flex-1 flex flex-wrap gap-2 self-start">
+    const addActionBtn = `<button onclick="event.stopPropagation(); Actions.openStrategicKrPicker('${area.id}')" title="Adicionar ação à árvore desta frente"
+      class="shrink-0 self-start px-4 py-3 rounded-xl bg-${tone}-500/30 hover:bg-${tone}-500/50 border-2 border-dashed border-${tone}-400/50 text-${tone}-100 text-[12px] font-black uppercase tracking-wider inline-flex items-center gap-2 hover:border-${tone}-300 transition">
+      <i data-lucide="plus" class="w-4 h-4"></i> Adicionar ação
+    </button>`;
+    const actionCards = actions.length > 0
+      ? `<div class="flex flex-wrap gap-2 self-start">
           ${actions.map(a => this._actionMindMapCard(a, area, productKrs)).join('')}
-        </div>`;
+        </div>`
+      : '';
+    const emptyHint = actions.length === 0
+      ? `<p class="text-[11px] text-slate-500 italic self-center ml-2">Nenhuma ação ainda — clique no botão pra criar a primeira.</p>`
+      : '';
 
     return `<div class="rounded-2xl border p-4 ${wrapperCls}">
-      <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
-        ${masterHeader}
-        <button onclick="event.stopPropagation(); Actions.openStrategicKrPicker('${area.id}')" title="Adicionar ação à árvore desta frente"
-          class="shrink-0 px-3 py-2 rounded-xl bg-${tone}-500/30 hover:bg-${tone}-500/50 border border-${tone}-400/50 text-${tone}-100 text-[11px] font-black uppercase tracking-wider inline-flex items-center gap-1.5">
-          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Adicionar ação
-        </button>
-      </div>
-      <div class="flex items-stretch gap-3 pt-3 border-t border-${tone}-400/20">
-        <div class="shrink-0 w-2 self-stretch flex flex-col items-center justify-center">
-          <span class="w-full h-full border-l-2 border-dashed border-${tone}-400/40"></span>
+      <div class="flex items-stretch gap-4 flex-wrap">
+        <!-- MASTER (esquerda, largura fixa) -->
+        <div class="shrink-0 w-64">
+          ${masterHeader}
         </div>
-        ${actionsArea}
+        <!-- BOTÃO + AÇÕES (direita, ocupa resto) -->
+        <div class="flex-1 min-w-0 flex flex-wrap items-stretch gap-2">
+          ${addActionBtn}
+          ${actionCards}
+          ${emptyHint}
+        </div>
       </div>
     </div>`;
   },
