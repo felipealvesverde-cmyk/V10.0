@@ -252,6 +252,15 @@ CREATE INDEX IF NOT EXISTS idx_lj_visitors_user_product
 CREATE INDEX IF NOT EXISTS idx_lj_visitors_email
   ON lj_visitors(user_id, email) WHERE email IS NOT NULL;
 
+-- V33.0.0-alpha4 — IDs externos pra rastreabilidade com sistemas terceiros
+-- (RD CRM contact/deal, Hotmart purchase, etc) + status do sync mais recente.
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_contact_id VARCHAR(64);
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_deal_id VARCHAR(64);
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_sync_status VARCHAR(16);  -- 'pending'|'synced'|'error'|'skipped'
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_sync_error TEXT;
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_synced_at TIMESTAMPTZ;
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_hotmart_purchase_id VARCHAR(128);  -- preenchido em Onda 2
+
 -- Events — log cru de TUDO que o snippet captura (page_view, click, form_submit, etc).
 -- Volume alto esperado; tabela append-only. Útil pra debug e replays.
 CREATE TABLE IF NOT EXISTS lj_visitor_events (

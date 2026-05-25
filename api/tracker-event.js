@@ -20,6 +20,7 @@
 const { decrypt } = require('../lib/clickup-crypto');
 const tenantPoolHelper = require('../lib/tenant-pool');
 const transitionEngine = require('../lib/lj-transition-engine');
+const rdLeadSync = require('../lib/lj-rd-lead-sync');
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -106,8 +107,34 @@ module.exports = async function handler(req, res) {
       campaignId: decoded.campaignId
     });
 
-    // TODO Onda 1.4: se transition.promoted && transition.newEntityType==='lead',
-    // chamar rd-crm-service.createOrUpdateLead pra empurrar pro RD CRM.
+    // V33.0.0-alpha4 — Fire-and-forget pro RD CRM quando Suspect→Lead.
+    // Não bloqueia response (UX do site do cliente não pode esperar 2-3s).
+    // Resultado do sync vai pros campos external_rd_* do visitor; UI lê depois.
+    if (transition.promoted && transition.newEntityType === 'lead') {
+      // Recarrega visitor com identidade atualizada pra mandar dados frescos pro RD
+      const refreshed = await tenantDb.query(
+        `SELECT lj_visitor_id, email, phone, name, current_stage
+         FROM lj_visitors WHERE user_id = $1 AND lj_visitor_id = $2`,
+        [decoded.userId, visitorId]
+      );
+      const updatedVisitor = refreshed.rows[0];
+      if (updatedVisitor) {
+        // Marca como pending antes do dispatch (UI sabe que está em andamento)
+        await tenantDb.query(
+          `UPDATE lj_visitors SET external_rd_sync_status = 'pending'
+           WHERE user_id = $1 AND lj_visitor_id = $2`,
+          [decoded.userId, visitorId]
+        );
+        // Dispatch sem await — log se falhar, não quebra response
+        rdLeadSync.createOrUpdateLead({
+          controlDb: req.db,
+          tenantDb,
+          userId: decoded.userId,
+          visitor: updatedVisitor,
+          campaignId: decoded.campaignId
+        }).catch(err => console.error('[tracker-event] rd-sync dispatch fail:', err.message));
+      }
+    }
 
     return res.status(200).json({
       ok: true,
