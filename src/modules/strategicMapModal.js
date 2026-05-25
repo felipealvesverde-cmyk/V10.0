@@ -3075,7 +3075,9 @@ window.StrategicMapModal = {
 
     // Bloco anexado: master (área principal) + Add Ação (tira lateral direita).
     // Borda externa única envolve os dois; divisória interna vertical separa.
-    const masterPlusAdd = `<div class="shrink-0 self-start flex rounded-2xl overflow-hidden border ${masterBorderCls}">
+    // V32.14.9 — Felipe: self-center pra alinhar com setas/cards laterais
+    // (era self-start, ficava encostado no topo e visualmente desbalanceado).
+    const masterPlusAdd = `<div class="shrink-0 self-center flex rounded-2xl overflow-hidden border ${masterBorderCls}">
       <!-- Master (esquerda, principal) -->
       <button onclick="Actions.setStrategicActiveArea('${area.id}')"
         class="w-64 text-left p-3 hover:bg-${tone}-500/15 transition">
@@ -3278,10 +3280,12 @@ window.StrategicMapModal = {
       return cardButton;
     }
 
-    // Botão Executar Ação amber anexado (linha "6 Campo" do header)
+    // V32.14.9 — Botão Executar Ação: gradient agora sai de TRANSPARENTE
+    // (lado do card emerald) → amber dourado. Era from-emerald-500/15 que
+    // criava uma mancha verde acidental. Transparent deixa o amber "emergir".
     const executeBtn = `<button onclick="Actions.executeStrategicAction(${action.id})"
       title="Executar ação no provider operacional (ClickUp/Trello/etc)"
-      class="self-stretch px-3 rounded-r-xl border-2 border-l-0 border-amber-400/60 bg-gradient-to-r from-emerald-500/15 via-amber-500/30 to-amber-500/40 hover:from-amber-500/30 hover:to-amber-500/60 text-amber-100 text-[10px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition" style="min-width:64px;">
+      class="self-stretch px-3 rounded-r-xl border-2 border-l-0 border-amber-400/60 bg-gradient-to-r from-transparent via-amber-500/25 to-amber-500/45 hover:from-amber-500/10 hover:via-amber-500/40 hover:to-amber-500/60 text-amber-100 text-[10px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition" style="min-width:64px;">
       <i data-lucide="play" class="w-3.5 h-3.5"></i>
       <span class="text-[9px] leading-tight text-center">Executar<br/>Ação</span>
     </button>`;
