@@ -3301,11 +3301,13 @@ window.StrategicMapModal = {
         </div>`
       : '';
 
-    // V32.15.3 (Leonardo) — Externo `items-start` não estica mais o card pela
-    // altura das tasks empilhadas. Wrapper interno `items-stretch` mantém o par
-    // card+executeBtn sempre da mesma altura (visual de bloco fechado). Tasks
-    // viram coluna independente alinhada ao centro, sem deformar o card.
-    return `<div class="flex items-start gap-0 ${animCls.replace('lj-mind-map-action-enter', '')}">
+    // V32.15.3 → V32.15.4 (Leonardo) — Externo `items-center`: card+executeBtn
+    // ficam no MEIO vertical da coluna de tasks (espelha como o master é
+    // centralizado em relação às frentes). Antes (V32.15.3) era items-start,
+    // o card colava no topo enquanto as tasks cresciam pra baixo — quebrava
+    // alinhamento com a seta horizontal que vem do tronco magenta.
+    // Wrapper interno `items-stretch` mantém card e executeBtn com mesma altura.
+    return `<div class="flex items-center gap-0 ${animCls.replace('lj-mind-map-action-enter', '')}">
       <div class="flex items-stretch">
         ${cardButton}
         ${executeBtn}
