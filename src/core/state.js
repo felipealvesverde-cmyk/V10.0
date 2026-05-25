@@ -230,6 +230,11 @@ var State = {
       // localStorage e App.state pra cliente NÃO PERDER trabalho não-salvo.
       // Após relogin OK, dispara _doPush imediato pra empurrar pendências.
       reloginInlineModal: { open: false, error: null, loading: false },
+      // V32.13.1 — Mini-modal KR picker (Etapa 5 do Mapa da Receita).
+      // Quando cliente clica "+ Adicionar ação" no card da frente, abre modal
+      // perguntando qual KR-mãe a nova ação vai mover. null = fechado.
+      // Quando aberto: { areaId: 'marketing'|'sales'|'cs' }
+      strategicKrPickerOpen: null,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -649,6 +654,8 @@ var State = {
       // V32.12.4 — Modal volátil (sempre fecha em F5 — se token ainda expirado,
       // próxima chamada 401 reabre).
       reloginInlineModal: { open: false, error: null, loading: false },
+      // V32.13.1 — KR picker é volátil (sempre fecha em F5).
+      strategicKrPickerOpen: null,
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

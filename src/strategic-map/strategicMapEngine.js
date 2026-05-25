@@ -1023,6 +1023,37 @@ window.StrategicMapEngine = {
     return orphans;
   },
 
+  // V32.13.1 — Cor determinística por KR ID. Hash → HSL com saturação e
+  // luminosidade fixas pra todas cores ficarem com mesmo "peso" visual.
+  // Mesmo KR sempre tem mesma cor, em qualquer tela. Garante distinção entre
+  // 10+ KRs sem precisar gerenciar paleta manualmente.
+  //
+  // Saturação 65% + luminosidade 55% = paleta vibrante mas legível em fundo
+  // claro ou escuro. Hue varia 0-360 deterministicamente.
+  krColorFromId(krId) {
+    const str = String(krId || '');
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;  // força int32
+    }
+    // Golden ratio multiplier pra distribuir hues sem colisão visual
+    const hue = Math.abs(hash * 137) % 360;
+    return `hsl(${hue} 65% 55%)`;
+  },
+
+  // Variante mais clara (pra backgrounds sutis: bg-{tone}-500/15 equivalent)
+  krColorBgFromId(krId) {
+    const str = String(krId || '');
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    const hue = Math.abs(hash * 137) % 360;
+    return `hsla(${hue}, 65%, 55%, 0.15)`;
+  },
+
   // === MIGRAÇÃO LAZY V28 → V29 ===
   // Quando vai mexer em objectives de um produto, move legacy pra branch da
   // strategicCampaignId (se houver) e limpa o legacy.

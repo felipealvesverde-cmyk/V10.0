@@ -6071,7 +6071,33 @@ Object.assign(Actions, {
   setStrategicActiveArea(areaId) {
     const cur = App.state.strategicActiveArea;
     App.state.strategicActiveArea = (cur === areaId) ? null : areaId;
+    // V32.13.1 — Trocar de frente fecha qualquer KR picker aberto.
+    App.state.strategicKrPickerOpen = null;
     App.render();
+  },
+
+  // V32.13.1 — KR Picker: mini-modal que pergunta qual KR-mãe a nova ação
+  // vai mover. Aberto via botão "+ Adicionar ação" no card da frente ativa.
+  openStrategicKrPicker(areaId) {
+    App.state.strategicKrPickerOpen = { areaId: String(areaId) };
+    App.render();
+  },
+
+  closeStrategicKrPicker() {
+    App.state.strategicKrPickerOpen = null;
+    App.render();
+  },
+
+  // Cliente escolheu o KR-mãe → fecha mini-modal e abre engine de criação
+  // de ação (modal full existente — Print 3). engine pré-popula areaId + krId.
+  chooseKrInPicker(areaId, krId) {
+    App.state.strategicKrPickerOpen = null;
+    // Reusa engine existente que cria action stub vinculada ao KR
+    if (typeof Actions.openCustomActionEngine === 'function') {
+      Actions.openCustomActionEngine(String(areaId), String(krId));
+    } else {
+      App.save(); App.render();
+    }
   },
 
   // V28.3.1 — Fecha o popup didático do passe do bastão (estratégia → tático).
