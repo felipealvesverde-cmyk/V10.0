@@ -13,14 +13,13 @@
 //   - Decrypt token → {tenant_id, user_id, campaign_id}
 //   - Grava em lj_visitor_events
 //   - Atualiza last_seen_at do visitor
-//   - Se event_type indica promoção (form_submit com email/phone) E visitor
-//     ainda é 'suspect' em 'marketing-tof' → promove pra 'lead' em 'marketing-mof'
-//     + grava transition + atualiza visitor (entity_type, email/phone/name se vier)
-//   - Engine de promoção formal vem em Onda 1.3 (lj-transition-engine.js).
-//     Aqui é a regra MVP inline simples.
+//   - Delega pra lj-transition-engine pra avaliar promoção (regras em
+//     lj-promotion-rules.js). Engine atualiza visitor + grava lj_transitions
+//     se alguma regra matchar.
 
 const { decrypt } = require('../lib/clickup-crypto');
 const tenantPoolHelper = require('../lib/tenant-pool');
+const transitionEngine = require('../lib/lj-transition-engine');
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -37,16 +36,6 @@ function parseTrackerToken(token) {
   } catch (_) {
     return null;
   }
-}
-
-// Regra MVP: form_submit COM email vira promoção Suspect→Lead.
-// Onda 1.3 substitui isso pelo lj-transition-engine genérico com regras configuráveis.
-function shouldPromoteToLead(visitor, eventType, payload) {
-  if (visitor.entity_type !== 'suspect') return false;
-  if (eventType !== 'form_submit') return false;
-  const email = String(payload?.email || '').trim();
-  const phone = String(payload?.phone || '').trim();
-  return !!(email || phone);
 }
 
 module.exports = async function handler(req, res) {
@@ -105,52 +94,27 @@ module.exports = async function handler(req, res) {
       [decoded.userId, visitorId]
     );
 
-    // Promoção Suspect → Lead (regra MVP)
-    let promoted = false;
-    let newEntityType = visitor.entity_type;
-    let newStage = visitor.current_stage;
-    if (shouldPromoteToLead(visitor, eventType, payload)) {
-      const email = String(payload.email || '').trim() || visitor.email;
-      const phone = String(payload.phone || '').trim() || visitor.phone;
-      const name = String(payload.name || '').trim() || visitor.name;
+    // Engine de transição — aplica regras de promoção (lj-promotion-rules.js).
+    // Atualiza visitor + grava lj_transitions se alguma regra matchar.
+    const transition = await transitionEngine.applyEventRules({
+      tenantDb,
+      userId: decoded.userId,
+      visitor,
+      eventType,
+      payload,
+      source: 'tracker',
+      campaignId: decoded.campaignId
+    });
 
-      await tenantDb.query(
-        `UPDATE lj_visitors
-            SET entity_type = 'lead',
-                current_stage = 'marketing-mof',
-                email = COALESCE($3, email),
-                phone = COALESCE($4, phone),
-                name = COALESCE($5, name),
-                promoted_to_lead_at = NOW(),
-                updated_at = NOW()
-          WHERE user_id = $1 AND lj_visitor_id = $2`,
-        [decoded.userId, visitorId, email || null, phone || null, name || null]
-      );
-
-      // Audit log da transição
-      await tenantDb.query(
-        `INSERT INTO lj_transitions
-          (lj_visitor_id, user_id, from_entity, to_entity, from_stage, to_stage, source, raw_payload)
-         VALUES ($1, $2, $3, 'lead', $4, 'marketing-mof', 'tracker', $5)`,
-        [
-          visitorId, decoded.userId, visitor.entity_type, visitor.current_stage,
-          JSON.stringify({ event_type: eventType, campaign_id: decoded.campaignId, payload })
-        ]
-      );
-
-      promoted = true;
-      newEntityType = 'lead';
-      newStage = 'marketing-mof';
-
-      // TODO Onda 1.4: chamar rd-crm-service.createOrUpdateLead(visitor) aqui pra empurrar pro RD.
-      // Pra Onda 1.2 (atual) só grava local — empurra RD vem na próxima fase.
-    }
+    // TODO Onda 1.4: se transition.promoted && transition.newEntityType==='lead',
+    // chamar rd-crm-service.createOrUpdateLead pra empurrar pro RD CRM.
 
     return res.status(200).json({
       ok: true,
-      promoted,
-      new_entity_type: newEntityType,
-      new_stage: newStage
+      promoted: transition.promoted,
+      new_entity_type: transition.newEntityType,
+      new_stage: transition.newStage,
+      rule_id: transition.rule?.id || null
     });
   } catch (err) {
     console.error('[tracker-event]', err);
