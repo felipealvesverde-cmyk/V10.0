@@ -2396,10 +2396,13 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // V32.13.3 — Linha de uma frente. Estados visuais:
-  //   - active: master destacado + mind-map horizontal expandido com ações
-  //   - fade: card compacto translúcido sem ações
-  //   - neutral: card compacto clicável (estado inicial)
+  // V32.13.5 — Felipe alinhou: master continua compacto quando ativo (sem
+  // expansão grande). Botão "Add Ação" é um nó intermediário SEPARADO,
+  // conectado ao master por linha. Ações ramificam do Add Ação (não do master).
+  //
+  //   [Master] ──► [+ Add Ação] ──┬──► [ação1]
+  //                                ├──► [ação2]
+  //                                └──► [ação3]
   _frenteMindMapRow(product, area, productKrs, campaignId, isActive, isFade) {
     const tone = area.color;
     const objective = (StrategicMapEngine.getObjectiveByArea ? StrategicMapEngine.getObjectiveByArea(product.id, area.id) : null);
@@ -2411,66 +2414,82 @@ window.StrategicMapModal = {
                      : area.id === 'marketing' ? 'entrega <b>leads</b> →'
                      : 'entrega <b>clientes</b> →';
 
-    // Wrapper de estado (Leonardo)
-    const wrapperCls = isActive
-      ? `ring-2 ring-${tone}-400/50 shadow-lg bg-${tone}-500/5 border-${tone}-400/40`
-      : isFade
-      ? `opacity-40 pointer-events-none transition-opacity duration-300 bg-white/[0.02] border-white/10`
+    // Wrapper só pra fade quando outra está ativa. Sem ring/bg destacado pesado.
+    const wrapperCls = isFade
+      ? `opacity-40 pointer-events-none transition-opacity duration-300`
+      : '';
+
+    // Master card — SEMPRE COMPACTO (mesmo quando ativo). Card recuado igual
+    // aos outros, só ganha leve highlight quando ativo.
+    const masterBorderCls = isActive
+      ? `bg-${tone}-500/10 border-${tone}-400/40`
       : `bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-${tone}-400/30 cursor-pointer transition`;
 
-    // Master card — sempre presente. Quando ativa, fica maior + botão "+ Adicionar ação" no header.
-    // Quando neutra/fade: compacto, clicável (no neutral) pra selecionar.
-    const masterHeader = `<button ${isFade ? 'tabindex="-1"' : ''} onclick="Actions.setStrategicActiveArea('${area.id}')" class="flex items-center gap-2.5 min-w-0 flex-1 text-left ${isFade ? 'cursor-not-allowed' : 'cursor-pointer'}">
-      <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-500/25 grid place-items-center">
-        <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
-      </span>
-      <div class="min-w-0">
-        <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest">${Utils.escape(area.label)}${isActive ? ' · <span class="text-${tone}-100">Ativo</span>' : ''}</p>
-        <p class="text-[10px] text-slate-400 mt-0.5">${handoffHint}</p>
-        <p class="text-[10px] ${isActive ? `text-${tone}-200` : 'text-slate-500'} font-bold mt-0.5">${stateLabel}</p>
+    const masterCard = `<button ${isFade ? 'tabindex="-1"' : ''} onclick="Actions.setStrategicActiveArea('${area.id}')"
+      class="shrink-0 w-64 text-left rounded-2xl border p-3 ${masterBorderCls} ${isFade ? 'cursor-not-allowed' : ''}">
+      <div class="flex items-center gap-2.5">
+        <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-500/25 grid place-items-center">
+          <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
+        </span>
+        <div class="min-w-0">
+          <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest">${Utils.escape(area.label)}${isActive ? ` <span class="text-${tone}-100">· Ativo</span>` : ''}</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">${handoffHint}</p>
+          <p class="text-[10px] ${isActive ? `text-${tone}-200` : 'text-slate-500'} font-bold mt-0.5">${stateLabel}</p>
+        </div>
       </div>
     </button>`;
 
     // Estado neutro/fade: só master compacto largura inteira
     if (!isActive) {
-      return `<div class="rounded-2xl border p-3 ${wrapperCls}">
-        <div class="flex items-center justify-between gap-3">
-          ${masterHeader}
-        </div>
-      </div>`;
+      return `<div class="${wrapperCls}">${masterCard}</div>`;
     }
 
-    // V32.13.4 — Botão "+ Adicionar ação" sai do header e vai pra fora do
-    // card master, ao lado dele (à direita), como primeira coisa na área
-    // ramificada. Felipe alinhou: botão fora do quadrado, antes das ações.
+    // ATIVA: master compacto + linha → Add Ação (nó separado) → linha → ações
     const actions = this._actionsForFrente(area.id, campaignId);
-    const addActionBtn = `<button onclick="event.stopPropagation(); Actions.openStrategicKrPicker('${area.id}')" title="Adicionar ação à árvore desta frente"
-      class="shrink-0 self-start px-4 py-3 rounded-xl bg-${tone}-500/30 hover:bg-${tone}-500/50 border-2 border-dashed border-${tone}-400/50 text-${tone}-100 text-[12px] font-black uppercase tracking-wider inline-flex items-center gap-2 hover:border-${tone}-300 transition">
-      <i data-lucide="plus" class="w-4 h-4"></i> Adicionar ação
+    const addActionNode = `<button onclick="event.stopPropagation(); Actions.openStrategicKrPicker('${area.id}')" title="Adicionar ação à árvore desta frente"
+      class="shrink-0 self-center px-3 py-2 rounded-xl bg-${tone}-500/30 hover:bg-${tone}-500/50 border-2 border-dashed border-${tone}-400/50 text-${tone}-100 text-[11px] font-black uppercase tracking-wider inline-flex items-center gap-1.5 hover:border-${tone}-300 transition">
+      <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Ação
     </button>`;
+
+    // Conector horizontal master → Add Ação
+    const connectorMasterToAdd = `<div class="shrink-0 self-center flex items-center" style="width:32px;">
+      <span class="block h-0.5 w-full" style="background:linear-gradient(to right, transparent, hsl(${this._hslHueForArea(tone)}, 50%, 50%, 0.6));"></span>
+    </div>`;
+
+    // Conector horizontal Add Ação → primeira ação (só se há ações)
+    const connectorAddToActions = actions.length > 0 ? `<div class="shrink-0 self-center flex items-center" style="width:24px;">
+      <span class="block h-0.5 w-full" style="background:linear-gradient(to right, hsl(${this._hslHueForArea(tone)}, 50%, 50%, 0.6), rgba(255,255,255,0.2));"></span>
+    </div>` : '';
+
     const actionCards = actions.length > 0
-      ? `<div class="flex flex-wrap gap-2 self-start">
+      ? `<div class="flex flex-wrap gap-2 self-center">
           ${actions.map(a => this._actionMindMapCard(a, area, productKrs)).join('')}
         </div>`
-      : '';
-    const emptyHint = actions.length === 0
-      ? `<p class="text-[11px] text-slate-500 italic self-center ml-2">Nenhuma ação ainda — clique no botão pra criar a primeira.</p>`
-      : '';
+      : `<p class="text-[11px] text-slate-500 italic self-center ml-2">Nenhuma ação ainda — clique no botão pra criar a primeira.</p>`;
 
-    return `<div class="rounded-2xl border p-4 ${wrapperCls}">
-      <div class="flex items-stretch gap-4 flex-wrap">
-        <!-- MASTER (esquerda, largura fixa) -->
-        <div class="shrink-0 w-64">
-          ${masterHeader}
-        </div>
-        <!-- BOTÃO + AÇÕES (direita, ocupa resto) -->
-        <div class="flex-1 min-w-0 flex flex-wrap items-stretch gap-2">
-          ${addActionBtn}
-          ${actionCards}
-          ${emptyHint}
-        </div>
+    return `<div class="${wrapperCls}">
+      <div class="flex items-stretch gap-0 flex-wrap">
+        ${masterCard}
+        ${connectorMasterToAdd}
+        ${addActionNode}
+        ${connectorAddToActions}
+        ${actionCards}
       </div>
     </div>`;
+  },
+
+  // V32.13.5 — Helper: hue numérico (0-360) por tone da área, pra gradientes
+  // de conector. Mantém consistência com COMERCIAL_AREAS color.
+  _hslHueForArea(toneName) {
+    return ({
+      pink:   330,
+      teal:   175,
+      sky:    200,
+      violet: 270,
+      emerald: 145,
+      amber:  35,
+      rose:   355
+    })[toneName] || 220;
   },
 
   // V32.13.2 — Coleta ações desta frente nesta campanha, retorna ORDENADAS
