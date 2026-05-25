@@ -3301,6 +3301,22 @@ Object.assign(Actions, {
     Actions.createRemoteSnapshot(label, true);
   },
 
+  // V32.13.17 — Auto-sync silencioso de tasks ClickUp ao entrar na Etapa 5.
+  // Guard por chave + intervalo mínimo (5min) pra não estourar API e nem
+  // chamar a cada re-render. Roda em setTimeout pra não bloquear UI.
+  _autoSyncClickupTasksOnce(key) {
+    if (!App._autoSyncClickup) App._autoSyncClickup = new Map();
+    const last = App._autoSyncClickup.get(key) || 0;
+    const now = Date.now();
+    if (now - last < 5 * 60 * 1000) return;  // 5min cooldown
+    App._autoSyncClickup.set(key, now);
+    setTimeout(() => {
+      if (typeof Actions.syncClickupTaskStatuses === 'function') {
+        Actions.syncClickupTaskStatuses(true);  // silent
+      }
+    }, 300);
+  },
+
   // V32.9.1 — Restaura state de um backup rotativo do localStorage (slots 1-3).
   // StorageAdapter já mantém 3 slots automaticamente. Cliente recupera versão
   // anterior sem precisar de arquivo.

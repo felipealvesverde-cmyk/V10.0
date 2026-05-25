@@ -2660,10 +2660,23 @@ window.StrategicMapModal = {
       </section>`;
     }
     // V32.13.0 — Stack vertical das 3 frentes em vez de tabs horizontais.
-    // - Nenhuma ativa: 3 cards iguais clicáveis (estado neutro).
-    // - Uma ativa: card ativa expande com botão "+ Adicionar ação" e mostra
-    //   os KRs/ações dentro; as outras 2 ficam opacity-40 (fade).
-    // - Re-click na ativa toggla off (volta neutro).
+    // V32.13.17 — Auto-sync silencioso ClickUp ao entrar (1× por 5min por
+    // campanha) + botão visível "Sincronizar do ClickUp" quando há tasks.
+    if (window.Actions?._autoSyncClickupTasksOnce) {
+      Actions._autoSyncClickupTasksOnce(`mapa-etapa5-${campaignId}`);
+    }
+    // Conta tasks ClickUp pra decidir se mostra botão de sync
+    const clickupTaskCount = window.ExecutionTaskStore
+      ? (ExecutionTaskStore.all() || []).filter(t => t.provider === 'clickup' && t.provider_task_id).length
+      : 0;
+    const syncBtn = (clickupTaskCount > 0 && App.state.clickupStatus?.connected) ? `
+      <div class="flex justify-end mb-2">
+        <button onclick="Actions.syncClickupTaskStatuses(false)" title="Atualizar status das ${clickupTaskCount} task(s) ClickUp"
+          class="px-3 py-2 rounded-xl bg-violet-500/15 hover:bg-violet-500/30 border border-violet-400/40 text-violet-200 text-[11px] font-black uppercase tracking-wider inline-flex items-center gap-1.5">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar ${clickupTaskCount} task${clickupTaskCount === 1 ? '' : 's'} do ClickUp
+        </button>
+      </div>` : '';
+
     return `<section class="space-y-3">
       ${this._stepIntro(
         `Como você vai cobrir os números em ${Utils.escape(campaign?.name || 'sua campanha')}?`,
@@ -2675,6 +2688,8 @@ window.StrategicMapModal = {
       )}
 
       ${this._unifiedWorkCampaignHeader(product, campaign)}
+
+      ${syncBtn}
 
       ${this._frenteStackVertical(product, productKrs, campaignId)}
 
