@@ -139,6 +139,33 @@ var LeadsModule = {
       });
     });
 
+    // V33.0.0 — Onda 1 Fase 3.2: visitors rastreados pelo tracker entram
+    // como fonte adicional. Auto-fetch silencioso uma vez (guard via loadedAt).
+    // Não quebra dedup — upsertLead reune por email/phone igual ao resto.
+    if (!App.state.trackerVisitorsCache?.loadedAt && !App.state.trackerVisitorsCache?.loading && window.Actions?.loadVisitorsList) {
+      setTimeout(() => Actions.loadVisitorsList({ limit: 500 }), 0);
+    }
+    const visitorList = App.state.trackerVisitorsCache?.list || [];
+    visitorList.forEach(v => {
+      if (!v.email && !v.phone && !v.name) return; // suspect 100% anônimo não vira "lead" no buscador
+      upsertLead({
+        id: v.lj_visitor_id,
+        name: v.name || v.email || v.phone,
+        email: v.email || '',
+        phone: v.phone || '',
+        score: 0,
+        tags: v.entity_type === 'customer' ? 'customer' : (v.entity_type === 'lead' ? 'lead' : 'suspect')
+      }, {
+        campaignName: '',
+        actionName: 'Tracker LJ',
+        channel: 'tracker',
+        createdAt: v.first_seen_at,
+        type: 'tracker',
+        scoreId: fallbackScoreId,
+        countAsInteraction: false
+      });
+    });
+
     const campaignsById = new Map(App.state.campaigns.map(c => [c.id, c]));
     App.state.actions.forEach(action => {
       const campaign = campaignsById.get(action.campaignId);
@@ -357,7 +384,14 @@ var LeadsModule = {
 
   detail(lead) {
     const tempClass = lead.temperature === 'Quente' ? 'bg-red-100 text-red-700' : lead.temperature === 'Morno' ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-200 text-slate-700';
-    return `<div class="space-y-4"><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><button onclick="App.state.selectedLeadId=null; App.save(); App.render();" class="mb-4 px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar para Leads</button><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5"><div><div class="flex items-center gap-2 mb-2"><h2 class="text-2xl font-black">${Utils.escape(lead.name)}</h2><span class="px-3 py-1 rounded-full text-xs font-black ${tempClass}">${lead.temperature}</span></div><p class="text-sm text-slate-500">${Utils.escape(lead.email || 'sem email')} • ${Utils.escape(lead.phone || 'sem telefone')}</p></div><div class="grid grid-cols-3 gap-2 text-center"><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.globalScore}</div><div class="text-xs text-slate-500">Score Global</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.campaigns.length}</div><div class="text-xs text-slate-500">Campanhas</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.interactions}</div><div class="text-xs text-slate-500">Interações</div></div></div></div><div class="grid lg:grid-cols-3 gap-4"><div class="bg-slate-50 rounded-3xl p-4 border border-slate-100"><h3 class="font-black text-lg mb-3">Dados de perfil</h3><div class="grid grid-cols-2 gap-2 text-xs">${this.profileCell('Sexo', lead.sexo)}${this.profileCell('Idade', lead.idade ? lead.idade + ' anos' : '')}${this.profileCell('Estado', lead.estado)}${this.profileCell('Cidade', lead.cidade)}${this.profileCell('Estado civil', lead.estadoCivil)}${this.profileCell('Faixa salarial', lead.faixaSalarial)}</div></div><div class="lg:col-span-2 bg-slate-50 rounded-3xl p-4 border border-slate-100"><h3 class="font-black text-lg mb-3">Tags comportamentais</h3><div class="flex flex-wrap gap-2">${lead.behaviorTags.map(tag => `<span class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black">${Utils.escape(tag)}</span>`).join('') || '<span class="text-sm text-slate-500">Sem tags comportamentais</span>'}</div></div></div></div><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h3 class="text-xl font-black mb-5">Timeline da Jornada</h3><div class="space-y-3">${lead.actions.map(item => this.timelineItem(item)).join('') || Components.empty('Sem eventos de jornada.')}</div></div></div>`;
+    // V33.0.0 — Se o lead foi capturado pelo tracker, mostra botão "Jornada Causal"
+    // que abre TrackerVisitorDetailModal com touchpoints/transitions/events.
+    const hasTrackerOrigin = (lead.actions || []).some(a => a.channel === 'tracker');
+    const trackerVisitorId = hasTrackerOrigin ? lead.internalId : null;
+    const trackerBtn = trackerVisitorId
+      ? `<button onclick="Actions.loadVisitorDetail('${Utils.escape(String(trackerVisitorId))}')" class="ml-2 px-4 py-2 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black text-sm inline-flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="user-search" class="w-3.5 h-3.5"></i> Jornada Causal</button>`
+      : '';
+    return `<div class="space-y-4"><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="mb-4 flex items-center"><button onclick="App.state.selectedLeadId=null; App.save(); App.render();" class="px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar para Leads</button>${trackerBtn}</div><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5"><div><div class="flex items-center gap-2 mb-2"><h2 class="text-2xl font-black">${Utils.escape(lead.name)}</h2><span class="px-3 py-1 rounded-full text-xs font-black ${tempClass}">${lead.temperature}</span></div><p class="text-sm text-slate-500">${Utils.escape(lead.email || 'sem email')} • ${Utils.escape(lead.phone || 'sem telefone')}</p></div><div class="grid grid-cols-3 gap-2 text-center"><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.globalScore}</div><div class="text-xs text-slate-500">Score Global</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.campaigns.length}</div><div class="text-xs text-slate-500">Campanhas</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.interactions}</div><div class="text-xs text-slate-500">Interações</div></div></div></div><div class="grid lg:grid-cols-3 gap-4"><div class="bg-slate-50 rounded-3xl p-4 border border-slate-100"><h3 class="font-black text-lg mb-3">Dados de perfil</h3><div class="grid grid-cols-2 gap-2 text-xs">${this.profileCell('Sexo', lead.sexo)}${this.profileCell('Idade', lead.idade ? lead.idade + ' anos' : '')}${this.profileCell('Estado', lead.estado)}${this.profileCell('Cidade', lead.cidade)}${this.profileCell('Estado civil', lead.estadoCivil)}${this.profileCell('Faixa salarial', lead.faixaSalarial)}</div></div><div class="lg:col-span-2 bg-slate-50 rounded-3xl p-4 border border-slate-100"><h3 class="font-black text-lg mb-3">Tags comportamentais</h3><div class="flex flex-wrap gap-2">${lead.behaviorTags.map(tag => `<span class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black">${Utils.escape(tag)}</span>`).join('') || '<span class="text-sm text-slate-500">Sem tags comportamentais</span>'}</div></div></div></div><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h3 class="text-xl font-black mb-5">Timeline da Jornada</h3><div class="space-y-3">${lead.actions.map(item => this.timelineItem(item)).join('') || Components.empty('Sem eventos de jornada.')}</div></div></div>`;
   },
 
   profileCell(label, value) {

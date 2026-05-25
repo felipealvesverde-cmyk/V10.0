@@ -58,17 +58,53 @@ var JourneyPipelineModule = {
   getStages() {
     this.ensureState();
     const base = App.state.pipelineStages || [];
-    if (!window.OperationalAggregationEngine) return base;
+
+    // V33.0.0 — Fonte primária: trackerVisitorsCache.counts (vindos do tenant DB
+    // via /api/visitors-list?counts_only=true). Auto-fetch silencioso 1x por
+    // render quando ainda não tem cache. Fallback pro OperationalAggregationEngine
+    // (legado) se não houver dados de tracker pra esse stage.
+    const trackerCounts = App.state.trackerVisitorsCache?.counts?.byStage || null;
+    if (!trackerCounts && !App.state.trackerVisitorsCache?.loadedAt && !App.state.trackerVisitorsCache?.loading) {
+      if (window.Actions?.loadVisitorCounts) {
+        setTimeout(() => Actions.loadVisitorCounts(), 0);
+      }
+    }
+
+    // Mantém leitura legado pro OperationalAggregationEngine (ações com flowResolution).
     const selectedActions = this.selectableActions().filter(action => App.state.selectedPipelineActionId === 'all' || String(action.id) === String(App.state.selectedPipelineActionId));
-    const agg = OperationalAggregationEngine.aggregate(selectedActions);
+    const agg = window.OperationalAggregationEngine ? OperationalAggregationEngine.aggregate(selectedActions) : {};
+
     return base.map(stage => {
-      const key = String(stage.id || '').replace('marketing-', 'marketing-').replace('vendas-', 'vendas-');
+      // 1ª prioridade: count REAL do tracker (visitors no estágio)
+      const trackerVolume = trackerCounts ? Number(trackerCounts[stage.id] || 0) : 0;
+      if (trackerVolume > 0) {
+        const health = trackerVolume >= 100 ? 'Saudável' : trackerVolume >= 25 ? 'Atenção' : 'Gargalo';
+        const gravity = Math.min(90, Math.max(30, Math.round(20 + Math.log10(trackerVolume + 1) * 25)));
+        return {
+          ...stage,
+          volume: trackerVolume,
+          conversion: stage.conversion, // mantém placeholder até ciclo 3 calcular real
+          intent: stage.intent,
+          health,
+          gravity,
+          insight: `${trackerVolume} pessoa(s) em ${stage.area} ${stage.label} (rastreio em tempo real).`,
+          action: 'Veja os visitors detalhadamente em "Resultados" ou na lista de leads.',
+          risk: stage.risk
+        };
+      }
+
+      // 2ª prioridade: OperationalAggregationEngine (legado — ações com flowResolution)
+      const key = String(stage.id || '');
       const node = agg[key];
-      if (!node || !node.volume) return stage;
-      const conversion = node.volume ? `${Math.round((node.converted / node.volume) * 100)}%` : stage.conversion;
-      const score = node.actions ? Math.round(node.score / Math.max(node.actions, 1)) : stage.intent;
-      const health = conversion && parseFloat(conversion) < 25 ? 'Gargalo' : parseFloat(conversion) < 50 ? 'Atenção' : 'Saudável';
-      return { ...stage, volume: node.volume, conversion, intent: score, health, gravity: Math.max(20, Math.min(90, Math.round(parseFloat(conversion) || stage.gravity))), insight: `${stage.area} ${stage.label} está sendo alimentado por ${node.actions} ação(ões) e ${node.okrs.length} OKR(s) operacional(is).`, action: 'Priorizar leitura dos OKRs da ação e do handoff para decidir próxima intervenção.', risk: node.handoffs ? 'Há travessia entre setores; sem SLA, o handoff pode gerar perda operacional.' : stage.risk };
+      if (node && node.volume) {
+        const conversion = node.volume ? `${Math.round((node.converted / node.volume) * 100)}%` : stage.conversion;
+        const score = node.actions ? Math.round(node.score / Math.max(node.actions, 1)) : stage.intent;
+        const health = conversion && parseFloat(conversion) < 25 ? 'Gargalo' : parseFloat(conversion) < 50 ? 'Atenção' : 'Saudável';
+        return { ...stage, volume: node.volume, conversion, intent: score, health, gravity: Math.max(20, Math.min(90, Math.round(parseFloat(conversion) || stage.gravity))), insight: `${stage.area} ${stage.label} está sendo alimentado por ${node.actions} ação(ões) e ${node.okrs.length} OKR(s) operacional(is).`, action: 'Priorizar leitura dos OKRs da ação e do handoff para decidir próxima intervenção.', risk: node.handoffs ? 'Há travessia entre setores; sem SLA, o handoff pode gerar perda operacional.' : stage.risk };
+      }
+
+      // 3ª prioridade: default zerado (V32.15.6 reset)
+      return stage;
     });
   },
   selectedStage() {
