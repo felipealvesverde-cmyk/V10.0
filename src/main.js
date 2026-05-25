@@ -429,8 +429,8 @@ var App = {
             subtitle: 'Onde os OKRs nascem, os leads entram no fluxo e a execução alimenta o funil operacional.'
           },
           results: {
-            title: 'Resultado da campanha',
-            subtitle: 'Resultados consolidados por campanha e por ação, respeitando fluxos, conversões e identidade única de leads.'
+            title: 'Resultados',
+            subtitle: 'Funil consolidado por produto, drill-down por campanha e ação. Onde se responde "o que aconteceu e por causa do quê".'
           },
           scores: {
             title: 'Score',

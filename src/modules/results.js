@@ -1,17 +1,156 @@
 var ResultModule = {
   render() {
+    // V33.0.0 — Hierarquia produto-first. Fallback pro modo clássico via
+    // App.state.resultsClassicMode (toggle no header).
+    if (App.state.resultsClassicMode) return this._renderClassic();
+    return this._renderProductFirst();
+  },
+
+  // V33.0.0 — Modo NOVO (default): Produto → Campanha → Ação.
+  _renderProductFirst() {
     const selectedAction = App.state.actions.find(action => Number(action.id) === Number(App.state.selectedActionId)) || null;
     if (selectedAction) {
       const campaign = App.state.campaigns.find(c => Number(c.id) === Number(selectedAction.campaignId));
       return this.detail(campaign, selectedAction);
     }
+    const selectedCampaignId = App.state.selectedResultCampaignId || null;
+    if (selectedCampaignId) {
+      const campaign = App.state.campaigns.find(c => Number(c.id) === Number(selectedCampaignId));
+      if (campaign) return this.campaignOverview(campaign);
+    }
+    const selectedProductId = App.state.selectedResultProductId || null;
+    if (selectedProductId) {
+      const product = App.state.products.find(p => Number(p.id) === Number(selectedProductId));
+      if (product) return this.productOverview(product);
+    }
+    return this.productList();
+  },
 
+  // V33.0.0 — Modo CLÁSSICO (legado): direto na lista de campanhas.
+  _renderClassic() {
+    const selectedAction = App.state.actions.find(action => Number(action.id) === Number(App.state.selectedActionId)) || null;
+    if (selectedAction) {
+      const campaign = App.state.campaigns.find(c => Number(c.id) === Number(selectedAction.campaignId));
+      return this.detail(campaign, selectedAction);
+    }
     const selectedCampaignId = App.state.selectedResultCampaignId || null;
     if (!selectedCampaignId) return this.campaignList();
-
     const campaign = App.state.campaigns.find(c => Number(c.id) === Number(selectedCampaignId));
     if (!campaign) return this.campaignList();
     return this.campaignOverview(campaign);
+  },
+
+  // V33.0.0 — Toggle modo clássico no header (mostra em qualquer nível).
+  _modeToggle() {
+    const isClassic = App.state.resultsClassicMode;
+    return `<div class="flex justify-end mb-2">
+      <button onclick="Actions.toggleResultsClassicMode()" class="px-3 py-1.5 rounded-xl ${isClassic ? 'bg-violet-100 text-violet-800' : 'bg-slate-100 text-slate-600'} hover:bg-slate-200 text-[11px] font-bold flex items-center gap-1.5">
+        <i data-lucide="${isClassic ? 'sparkles' : 'undo-2'}" class="w-3 h-3"></i>
+        ${isClassic ? 'Voltar ao novo (produto-first)' : 'Ver modo clássico'}
+      </button>
+    </div>`;
+  },
+
+  // V33.0.0 — Nível 0: lista de produtos com snapshot executivo.
+  productList() {
+    const products = (App.state.products || []).filter(p => p.archived !== true);
+    return `<div class="space-y-3">
+      ${this._modeToggle()}
+      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+        <h2 class="text-xl font-black mb-1">Resultados</h2>
+        <p class="text-sm text-slate-500 mb-5">Escolha um produto pra ver o funil consolidado, performance das campanhas e atribuição de receita.</p>
+        ${products.length === 0
+          ? Components.empty('Cadastre um produto antes de ver resultados.')
+          : `<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">${products.map(p => this.productCard(p)).join('')}</div>`}
+      </div>
+    </div>`;
+  },
+
+  // V33.0.0 — Card de produto na lista (snapshot agregado de campanhas).
+  productCard(product) {
+    const campaigns = (App.state.campaigns || []).filter(c => Number(c.productId) === Number(product.id) && c.status !== 'Encerrada');
+    const actions = (App.state.actions || []).filter(a => campaigns.some(c => Number(c.id) === Number(a.campaignId)));
+    const summary = this._summaryFromActions(actions);
+    return `<button onclick="Actions.openResultProduct(${product.id})" class="text-left p-5 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition w-full">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div class="min-w-0 flex-1">
+          <p class="text-[10px] font-black text-violet-600 uppercase tracking-wider mb-0.5">Produto</p>
+          <h3 class="font-black text-lg truncate">${Utils.escape(product.name || 'Sem nome')}</h3>
+          <p class="text-xs text-slate-500 mt-1">${campaigns.length} campanha(s) ativa(s) · ${actions.length} ação(ões)</p>
+        </div>
+        <i data-lucide="arrow-right" class="w-4 h-4 text-slate-400"></i>
+      </div>
+      <div class="grid grid-cols-3 gap-2 text-center">
+        <div class="bg-white rounded-2xl px-2 py-2"><div class="font-black text-base">${summary.impacted}</div><div class="text-[10px] text-slate-500">Impactados</div></div>
+        <div class="bg-white rounded-2xl px-2 py-2"><div class="font-black text-base">${summary.converted}</div><div class="text-[10px] text-slate-500">Convertidos</div></div>
+        <div class="bg-white rounded-2xl px-2 py-2"><div class="font-black text-base">${summary.conversion}%</div><div class="text-[10px] text-slate-500">Conversão</div></div>
+      </div>
+    </button>`;
+  },
+
+  // V33.0.0 — Nível 1: Produto Overview (funil consolidado + lista campanhas).
+  productOverview(product) {
+    const campaigns = (App.state.campaigns || []).filter(c => Number(c.productId) === Number(product.id));
+    const actions = (App.state.actions || []).filter(a => campaigns.some(c => Number(c.id) === Number(a.campaignId)));
+    const summary = this._summaryFromActions(actions);
+
+    // V33.0.0 — Funil consolidado vindo do tracker (visitors deste produto)
+    const counts = App.state.trackerVisitorsCache?.counts;
+    const trackerFunnel = counts?.byEntityType || { suspect: 0, lead: 0, customer: 0 };
+    const trackerTotal = counts?.total || 0;
+
+    return `<div class="space-y-4">
+      ${this._modeToggle()}
+      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+        <button onclick="Actions.backToResultsProductList()" class="mb-4 px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar para produtos</button>
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5">
+          <div>
+            <p class="text-xs font-black text-violet-600 uppercase tracking-wider">Produto</p>
+            <h2 class="text-2xl font-black">${Utils.escape(product.name)}</h2>
+            <p class="text-sm text-slate-500">Funil consolidado de todas as campanhas + ações deste produto.</p>
+          </div>
+        </div>
+
+        <!-- Funil de suspects/leads/customers (tracker) -->
+        ${trackerTotal > 0 ? `<div class="rounded-3xl bg-gradient-to-br from-violet-50 to-sky-50 border border-violet-200 p-4 mb-5">
+          <p class="text-[11px] font-black text-violet-800 uppercase tracking-widest mb-3 inline-flex items-center gap-1.5">
+            <i data-lucide="filter" class="w-3.5 h-3.5"></i> Funil real (tracker)
+          </p>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="bg-white rounded-2xl px-3 py-3 text-center">
+              <div class="text-2xl font-black text-violet-700">${trackerFunnel.suspect}</div>
+              <div class="text-[10px] font-bold text-slate-500 uppercase">Suspects</div>
+            </div>
+            <div class="bg-white rounded-2xl px-3 py-3 text-center">
+              <div class="text-2xl font-black text-sky-700">${trackerFunnel.lead}</div>
+              <div class="text-[10px] font-bold text-slate-500 uppercase">Leads</div>
+            </div>
+            <div class="bg-white rounded-2xl px-3 py-3 text-center">
+              <div class="text-2xl font-black text-emerald-700">${trackerFunnel.customer}</div>
+              <div class="text-[10px] font-bold text-slate-500 uppercase">Customers</div>
+            </div>
+          </div>
+        </div>` : `<div class="rounded-3xl bg-slate-50 border border-slate-200 p-4 mb-5 text-center">
+          <p class="text-[11px] text-slate-500 italic">Sem visitors rastreados ainda. Conecte LPs das campanhas pra ativar o funil.</p>
+        </div>`}
+
+        <!-- Métricas legadas (Analytics) -->
+        <div class="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-5">
+          ${Components.resultMetric('Campanhas', campaigns.length)}
+          ${Components.resultMetric('Ações', actions.length)}
+          ${Components.resultMetric('Impactados', summary.impacted)}
+          ${Components.resultMetric('Convertidos', summary.converted)}
+          ${Components.resultMetric('Conversão', `${summary.conversion}%`)}
+          ${Components.resultMetric('Score médio', summary.avgScore)}
+        </div>
+
+        <!-- Lista de campanhas (drill-down) -->
+        <h3 class="font-black text-lg mb-3 mt-5">Campanhas do produto</h3>
+        ${campaigns.length === 0
+          ? Components.empty('Nenhuma campanha cadastrada para este produto.')
+          : `<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">${campaigns.map(c => this.campaignCard(c, actions.filter(a => Number(a.campaignId) === Number(c.id)))).join('')}</div>`}
+      </div>
+    </div>`;
   },
 
   _actionsByCampaign() {
@@ -52,7 +191,7 @@ var ResultModule = {
     const summary = this._summaryFromActions(actions);
     return `<div class="space-y-4">
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-        <button onclick="Actions.backToResultsCampaignList()" class="mb-4 px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar para campanhas</button>
+        <button onclick="Actions.backToResultsCampaignList()" class="mb-4 px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar ${App.state.resultsClassicMode ? 'para campanhas' : 'para o produto'}</button>
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5"><div><p class="text-xs font-black text-slate-500">Resultado consolidado da campanha</p><h2 class="text-2xl font-black">${Utils.escape(campaign.name)}</h2><p class="text-sm text-slate-500">Compilando todos os resultados das ações plugadas à campanha antes da leitura individual.</p></div><button onclick="Actions.openCampaignFlowModal(${campaign.id})" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-sm">Ver Fluxo da Campanha</button></div>
         <div class="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-5">${Components.resultMetric('Ações', actions.length)}${Components.resultMetric('Impactados', summary.impacted)}${Components.resultMetric('Convertidos', summary.converted)}${Components.resultMetric('Conversão', `${summary.conversion}%`)}${Components.resultMetric('Score médio', summary.avgScore)}${Components.resultMetric('OKRs únicos', summary.groupedOkrs.length)}</div>
         <div class="grid lg:grid-cols-2 gap-4">

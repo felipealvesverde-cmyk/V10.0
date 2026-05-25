@@ -498,7 +498,14 @@ Object.assign(Actions, {
 
   openCampaignResults(id) { App.state.selectedResultCampaignId = id; App.state.selectedActionId = null; App.state.selectedCampaignId = id; App.state.activeTab = 'results'; App.save(); App.render(); },
   backToCampaignResults() { App.state.selectedActionId = null; App.save(); App.render(); },
-  backToResultsCampaignList() { App.state.selectedResultCampaignId = null; App.state.selectedActionId = null; App.save(); App.render(); },
+  backToResultsCampaignList() {
+    // V33.0.0 — Smart: no modo novo (produto-first), volta pra Produto Overview
+    // (mantém selectedResultProductId). No modo clássico, vai pra lista geral.
+    App.state.selectedResultCampaignId = null;
+    App.state.selectedActionId = null;
+    if (App.state.resultsClassicMode) App.state.selectedResultProductId = null;
+    App.save(); App.render();
+  },
   openActionEditModal(actionId) {
     const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
     if (!action) return Utils.toast('Ação não encontrada.');
@@ -9837,6 +9844,24 @@ Object.assign(Actions, {
     } else {
       Utils.toast('Aguardando primeiro evento. Acesse a LP pra disparar um page_view.');
     }
+  },
+
+  // V33.0.0 — Resultados produto-first.
+  openResultProduct(productId) {
+    App.state.selectedResultProductId = Number(productId) || null;
+    App.state.selectedResultCampaignId = null;
+    App.state.selectedActionId = null;
+    App.save(); App.render();
+  },
+  backToResultsProductList() {
+    App.state.selectedResultProductId = null;
+    App.state.selectedResultCampaignId = null;
+    App.state.selectedActionId = null;
+    App.save(); App.render();
+  },
+  toggleResultsClassicMode() {
+    App.state.resultsClassicMode = !App.state.resultsClassicMode;
+    App.save(); App.render();
   }
 });
 

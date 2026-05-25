@@ -273,6 +273,10 @@ var State = {
       // V33.0.0 — Modal detalhe do visitor (prontuário, volátil).
       // null = fechado. Aberto: { lj_visitor_id, data, loading }
       trackerVisitorDetail: null,
+      // V33.0.0 — Resultados reorganizado (produto-first). null = lista de produtos.
+      selectedResultProductId: null,
+      // V33.0.0 — Feature flag fallback pro Resultados antigo (caso user prefira).
+      resultsClassicMode: false,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -709,6 +713,9 @@ var State = {
       trackerStatusByCampaign: {},
       trackerWizardOpen: null,
       trackerVisitorDetail: null,
+      // V33.0.0 — Resultados produto-first persiste seleção.
+      selectedResultProductId: raw.selectedResultProductId ? Number(raw.selectedResultProductId) : null,
+      resultsClassicMode: Boolean(raw.resultsClassicMode),
       // V32.14.8 — Timestamp da última sync ClickUp persiste.
       clickupLastSyncAt: Number(raw.clickupLastSyncAt) || null,
       // V32.15.0 — Recolher por bloco no Acompanhamento persiste.

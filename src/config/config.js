@@ -18,7 +18,7 @@ var Config = {
         { id: 'products', label: 'Produtos', icon: 'package' },
         { id: 'campaigns', label: 'Campanhas', icon: 'megaphone' },
         { id: 'actions', label: 'Ações da campanha', icon: 'plug' },
-        { id: 'results', label: 'Resultado da campanha', icon: 'bar-chart-3' },
+        { id: 'results', label: 'Resultados', icon: 'bar-chart-3' },
         { id: 'scores', label: 'Score', icon: 'gauge' },
         { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
         { id: 'leads', label: 'Leads', icon: 'users-round' },
