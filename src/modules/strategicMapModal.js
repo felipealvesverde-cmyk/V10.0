@@ -59,6 +59,7 @@ window.StrategicMapModal = {
       ${App.state.pluggedActionsModal ? this._pluggedActionsModalRender() : ''}
       ${App.state.connectActionToKrsModal ? this._connectActionToKrsModalRender() : ''}
       ${App.state.strategicKrPickerOpen ? this._strategicKrPickerModalRender() : ''}
+      ${App.state.strategicMindMapActionEditor ? this._mindMapActionEditorRender() : ''}
       ${App.state.strategicActionDetailModalId ? this._actionDetailModalRender() : ''}
       ${App.state.taskCreationModal?.open ? this._taskCreationModalRender() : ''}
       ${App.state.djowTaskChat?.open ? this._djowTaskChatRender() : ''}
@@ -500,6 +501,194 @@ window.StrategicMapModal = {
   // Aparece em z-[96] (acima do Mapa da Receita que é z-[80]). Mostra:
   //   - Mini-dashboard (velocímetro) do KR: rollup atual vs Meta Segura/Avançada
   //   - Lista de ações conectadas (across todas branches do produto) com
+  // V32.13.12 — Editor do card de ação no mind-map. Aberto via click no card.
+  // Visual do Print 1 cravado por Felipe: KR plugado (header) + checkboxes de
+  // outros KRs (esta ação move quais números?) + Nome + Onde começa + Pra onde
+  // leva + Canal + "+ Criar Ação". Opera sobre action existente (não cria).
+  _mindMapActionEditorRender() {
+    const ed = App.state.strategicMindMapActionEditor;
+    if (!ed?.actionId) return '';
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(ed.actionId));
+    if (!action) return '';
+    const productId = App.state.strategicMapProductId;
+    const campaignId = Number(action.campaignId);
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    const areaId = action.strategicAreaId;
+    const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === areaId);
+    const tone = area?.color || 'violet';
+    // KRs da frente
+    const productKrs = (StrategicMapEngine.getProductKrs(productId) || []).filter(k => k.area === areaId);
+    // KR primário (cor + meta): pega 1º KR conectado a essa action via branch
+    const branchObj = (branch?.objectives || []).find(o => o.area === areaId);
+    const childKrs = branchObj?.okrs || [];
+    const primaryChildKr = childKrs.find(kr => (kr.connectedActionIds || []).map(Number).includes(Number(action.id)));
+    const primaryProductKrId = primaryChildKr?.parentProductKrId;
+    const primaryKr = productKrs.find(k => k.id === primaryProductKrId);
+    const primaryKrColor = primaryProductKrId ? StrategicMapEngine.krColorFromId(primaryProductKrId) : `hsl(0 0% 50%)`;
+    // KRs vinculados atuais (todos os que têm action.id em connectedActionIds)
+    const linkedKrIds = childKrs
+      .filter(kr => (kr.connectedActionIds || []).map(Number).includes(Number(action.id)))
+      .map(kr => kr.parentProductKrId)
+      .filter(Boolean);
+    // Selected via input
+    const sel = new Set(linkedKrIds.map(String));
+    // Channels disponíveis (genérico)
+    const channels = ['RD Station', 'Meta Ads', 'Google Ads', 'Email', 'WhatsApp', 'Site/Blog', 'Evento', 'Webinar', 'Outro'];
+    const actionTypes = ['Post', 'Anúncio', 'Email', 'Vídeo', 'E-book', 'Webinar', 'Reunião', 'Outro'];
+    const funnelPoints = ['TOF', 'MOF', 'BOF'];
+    const sectors = ['Marketing', 'Sales', 'CS'];
+
+    const inputId = 'lj-mm-action-editor';
+    const handlePrefix = `${inputId}-`;
+
+    return `<div class="fixed inset-0 z-[91] grid place-items-center p-4" style="background: rgba(15,23,42,0.75); backdrop-filter: blur(6px);" onclick="if(event.target===this) Actions.closeMindMapActionEditor()">
+      <div class="w-full max-w-4xl rounded-3xl bg-slate-900 border-2 border-${tone}-400/40 shadow-2xl overflow-hidden">
+        <!-- HEADER: KR plugado -->
+        <div class="bg-${tone}-500/15 border-b border-${tone}-400/30 px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 uppercase tracking-wider inline-flex items-center gap-1">
+              <i data-lucide="check" class="w-3 h-3"></i> Plugado
+            </span>
+            ${primaryKr ? `<span class="font-black text-white text-sm" style="color:${primaryKrColor};">${Utils.escape(primaryKr.name)}</span>
+              <span class="text-[11px] text-slate-300">· Meta ${Utils.escape(String(primaryKr.targetCommitted || '—'))} ${Utils.escape(primaryKr.metric || '')}</span>` : '<span class="text-[12px] text-slate-400">Sem KR vinculado</span>'}
+          </div>
+          <button onclick="Actions.closeMindMapActionEditor()" class="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 grid place-items-center"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+
+        <!-- BODY: 2 colunas (form esquerda + contexto KRs direita) -->
+        <div class="grid md:grid-cols-[1.4fr_1fr] gap-0">
+          <!-- FORM ESQUERDA -->
+          <div class="p-5 space-y-4 border-r border-white/5">
+            <div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Esta ação move quais números?</p>
+              <div class="space-y-1.5">
+                ${productKrs.map(kr => {
+                  const isPrimary = kr.id === primaryProductKrId;
+                  const isChecked = sel.has(String(kr.id));
+                  const krColor = StrategicMapEngine.krColorFromId(kr.id);
+                  return `<label class="flex items-start gap-2 px-2.5 py-1.5 rounded-lg ${isChecked ? `bg-${tone}-500/10` : 'bg-slate-800/40'} border ${isChecked ? `border-${tone}-400/30` : 'border-white/5'} cursor-pointer hover:bg-slate-800/60">
+                    <input type="checkbox" id="${handlePrefix}kr-${kr.id}" ${isChecked ? 'checked' : ''} data-kr-id="${kr.id}" class="mt-1 accent-violet-500" />
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-1.5">
+                        <span class="shrink-0 w-2 h-2 rounded-full" style="background:${krColor};"></span>
+                        <span class="font-black text-white text-[12px]">${Utils.escape(kr.name)}</span>
+                        <span class="text-[10px] text-slate-400">(${Utils.escape(kr.metric || '')})</span>
+                        ${isPrimary ? `<span class="text-[9px] font-black uppercase tracking-widest" style="color:${krColor};">· deste card</span>` : ''}
+                      </div>
+                      <p class="text-[10px] text-slate-500 mt-0.5">
+                        <span class="text-emerald-400 font-bold">SEGURA ${Utils.escape(String(kr.targetCommitted || '—'))}</span>
+                        ${kr.targetStretch ? ` · <span class="text-violet-400 font-bold">AVANÇADA ${Utils.escape(String(kr.targetStretch))}</span>` : ''}
+                      </p>
+                    </div>
+                  </label>`;
+                }).join('')}
+              </div>
+            </div>
+
+            <div>
+              <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Nome da ação</label>
+              <input type="text" id="${handlePrefix}name" value="${Utils.escape(action.name || '')}" placeholder="Ex: Webinar trimestral pra C-level"
+                class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[13px] focus:border-${tone}-400 outline-none" />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Onde começa</label>
+                <select id="${handlePrefix}funnelPoint" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[13px] outline-none">
+                  <option value="">— escolha —</option>
+                  ${funnelPoints.map(fp => `<option value="${fp}" ${action.funnelPoint === fp ? 'selected' : ''}>${fp}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Pra onde leva</label>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <select id="${handlePrefix}destSector" class="px-2 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[12px] outline-none">
+                    ${sectors.map(s => `<option value="${s}" ${(action.destSector || area?.label) === s ? 'selected' : ''}>${s}</option>`).join('')}
+                  </select>
+                  <select id="${handlePrefix}destFunnelPoint" class="px-2 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[12px] outline-none">
+                    <option value="">— funil —</option>
+                    ${funnelPoints.map(fp => `<option value="${fp}" ${action.destFunnelPoint === fp ? 'selected' : ''}>${fp}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Canal</label>
+                <select id="${handlePrefix}channel" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[13px] outline-none">
+                  <option value="">— escolha —</option>
+                  ${channels.map(c => `<option value="${c}" ${action.channel === c ? 'selected' : ''}>${c}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Tipo</label>
+                <select id="${handlePrefix}actionType" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[13px] outline-none">
+                  <option value="">— escolha —</option>
+                  ${actionTypes.map(t => `<option value="${t}" ${action.actionType === t ? 'selected' : ''}>${t}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+              <button onclick="Actions.closeMindMapActionEditor()" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[12px] font-bold">Cancelar</button>
+              <button onclick="(function(){
+                const sel = Array.from(document.querySelectorAll('[id^=&quot;${handlePrefix}kr-&quot;]:checked')).map(el => el.dataset.krId);
+                Actions.saveMindMapAction({
+                  name: document.getElementById('${handlePrefix}name').value,
+                  channel: document.getElementById('${handlePrefix}channel').value,
+                  actionType: document.getElementById('${handlePrefix}actionType').value,
+                  funnelPoint: document.getElementById('${handlePrefix}funnelPoint').value,
+                  destSector: document.getElementById('${handlePrefix}destSector').value,
+                  destFunnelPoint: document.getElementById('${handlePrefix}destFunnelPoint').value,
+                  selectedKrIds: sel
+                });
+              })()" class="px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-700 text-white text-[12px] font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Criar Ação
+              </button>
+            </div>
+          </div>
+
+          <!-- SIDEBAR DIREITA: contexto dos KRs -->
+          <div class="bg-slate-900/60 p-5 space-y-3">
+            ${primaryKr ? `<div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Esta ação move</p>
+              <div class="rounded-xl bg-slate-800/60 border-2 p-3" style="border-color:${primaryKrColor};">
+                <p class="font-black text-white text-[13px]">${Utils.escape(primaryKr.name)} <span class="text-[10px] font-black uppercase tracking-widest" style="color:${primaryKrColor};">· move</span></p>
+                <p class="text-[10px] mt-1">
+                  <span class="text-emerald-400 font-bold">SEGURA <b class="text-white">${Utils.escape(String(primaryKr.targetCommitted || '—'))}</b></span>
+                  <span class="text-slate-500"> ${Utils.escape(primaryKr.metric || '')}</span>
+                </p>
+                ${primaryKr.targetStretch ? `<p class="text-[10px] mt-0.5">
+                  <span class="text-violet-400 font-bold">AVANÇADA <b class="text-white">${Utils.escape(String(primaryKr.targetStretch))}</b></span>
+                  <span class="text-slate-500"> ${Utils.escape(primaryKr.metric || '')}</span>
+                </p>` : ''}
+              </div>
+            </div>` : ''}
+            ${productKrs.filter(k => k.id !== primaryProductKrId).length > 0 ? `<div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Outros números desta frente</p>
+              <div class="space-y-2">
+                ${productKrs.filter(k => k.id !== primaryProductKrId).map(kr => {
+                  const krColor = StrategicMapEngine.krColorFromId(kr.id);
+                  return `<div class="rounded-xl bg-slate-800/40 border p-2.5" style="border-left:4px solid ${krColor};">
+                    <p class="font-black text-white text-[12px]">${Utils.escape(kr.name)}</p>
+                    <p class="text-[10px] mt-0.5">
+                      <span class="text-emerald-400 font-bold">SEGURA <b class="text-white">${Utils.escape(String(kr.targetCommitted || '—'))}</b></span>
+                      <span class="text-slate-500"> ${Utils.escape(kr.metric || '')}</span>
+                    </p>
+                    ${kr.targetStretch ? `<p class="text-[10px] mt-0.5">
+                      <span class="text-violet-400 font-bold">AVANÇADA <b class="text-white">${Utils.escape(String(kr.targetStretch))}</b></span>
+                    </p>` : ''}
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  },
+
   // V32.13.1 — Mini-modal KR Picker. Aberto via "+ Adicionar ação" no card
   // da frente ativa (Etapa 5). Lista os KRs daquela frente como cards
   // clicáveis. Cor à esquerda = krColorFromId determinística. Click no card
@@ -2629,10 +2818,10 @@ window.StrategicMapModal = {
     return decorated;
   },
 
-  // V32.13.2 / V32.13.6 / V32.13.11 — Card da ação no mind-map.
-  // Leonardo V32.13.11: padding aumentado, placeholder único "Qual o nome da
-  // ação?", status pill proeminente no header (pill colorido + border mais
-  // marcada), hover scale+glow pra affordance.
+  // V32.13.2 / V32.13.6 / V32.13.11 / V32.13.12 — Card da ação no mind-map.
+  // V32.13.12: click abre _mindMapActionEditor (Print 1 Felipe), não mais o
+  // ActionEditModal genérico. Quando ação completa (verde/OK), card ganha
+  // botão "Executar Ação" amber anexado à direita (igual master+Add Ação).
   _actionMindMapCard({ action, primaryKrId }, area, productKrs) {
     const krColor = primaryKrId ? StrategicMapEngine.krColorFromId(primaryKrId) : 'hsl(0 0% 50%)';
     const kr = primaryKrId ? productKrs.find(k => k.id === primaryKrId) : null;
@@ -2651,11 +2840,9 @@ window.StrategicMapModal = {
     const animCls = isJustCreated ? 'lj-mind-map-action-enter' : '';
     const displayName = hasName ? action.name : 'Qual o nome da ação?';
     const nameCls = hasName ? 'text-white' : 'text-amber-200 italic';
-    return `<button onclick="Actions.openEditActionFromMap(${action.id})"
-      title="Clique pra editar esta ação"
-      class="w-48 text-left rounded-xl bg-slate-900/60 border-2 ${borderStatus} p-3 hover:bg-slate-800 hover:scale-[1.02] hover:shadow-lg transition group ${animCls}"
-      style="border-left: 4px solid ${krColor};">
-      <div class="flex items-center justify-between gap-2 mb-2">
+
+    // V32.13.12 — Card sozinho (incompleto) ou Card + Executar Ação (completo)
+    const cardInner = `<div class="flex items-center justify-between gap-2 mb-2">
         <div class="flex items-center gap-1.5 min-w-0">
           <span class="shrink-0 w-2 h-2 rounded-full" style="background:${krColor};"></span>
           <p class="text-[9px] font-black uppercase tracking-widest truncate" style="color:${krColor};" title="${Utils.escape(krLabel)}">${Utils.escape(krLabel)}</p>
@@ -2666,8 +2853,31 @@ window.StrategicMapModal = {
         </span>
       </div>
       <p class="text-[13px] font-black leading-snug line-clamp-2 mb-1.5 ${nameCls}" title="${Utils.escape(displayName)}">${Utils.escape(displayName)}</p>
-      <p class="text-[10px] text-slate-500 truncate">${Utils.escape(action.channel || '— canal —')}</p>
+      <p class="text-[10px] text-slate-500 truncate">${Utils.escape(action.channel || '— canal —')}</p>`;
+
+    const cardButton = `<button onclick="Actions.openMindMapActionEditor(${action.id})"
+      title="Clique pra editar esta ação"
+      class="w-48 text-left bg-slate-900/60 border-2 ${borderStatus} p-3 hover:bg-slate-800 transition group ${isComplete ? 'rounded-l-xl border-r-0' : 'rounded-xl hover:scale-[1.02] hover:shadow-lg'} ${animCls}"
+      style="border-left: 4px solid ${krColor};">
+      ${cardInner}
     </button>`;
+
+    if (!isComplete) {
+      return cardButton;
+    }
+
+    // Botão Executar Ação amber anexado (linha "6 Campo" do header)
+    const executeBtn = `<button onclick="Actions.executeStrategicAction(${action.id})"
+      title="Executar ação no provider operacional (ClickUp/Trello/etc)"
+      class="self-stretch px-3 rounded-r-xl border-2 border-l-0 border-amber-400/60 bg-gradient-to-r from-emerald-500/15 via-amber-500/30 to-amber-500/40 hover:from-amber-500/30 hover:to-amber-500/60 text-amber-100 text-[10px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition" style="min-width:64px;">
+      <i data-lucide="play" class="w-3.5 h-3.5"></i>
+      <span class="text-[9px] leading-tight text-center">Executar<br/>Ação</span>
+    </button>`;
+
+    return `<div class="flex items-stretch ${animCls.replace('lj-mind-map-action-enter', '')}">
+      ${cardButton}
+      ${executeBtn}
+    </div>`;
   },
 
   _anyActionConnectedInBranch(campaignId) {

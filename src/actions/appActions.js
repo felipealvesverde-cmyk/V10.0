@@ -6201,6 +6201,93 @@ Object.assign(Actions, {
     }, 1500);
   },
 
+  // V32.13.12 — Editor de ação acionado pelo click no card do mind-map.
+  // Visual do Print 1 (KR plugado + checkboxes outros KRs + nome + onde
+  // começa + pra onde leva + canal). Opera sobre action EXISTENTE (não cria).
+  openMindMapActionEditor(actionId) {
+    App.state.strategicMindMapActionEditor = { actionId: Number(actionId) };
+    App.render();
+  },
+
+  closeMindMapActionEditor() {
+    App.state.strategicMindMapActionEditor = null;
+    App.render();
+  },
+
+  // Salva edição da action stub. Atualiza nome + canal + actionType +
+  // funnelPoint + destSector + destFunnelPoint + KRs vinculados.
+  saveMindMapAction(payload) {
+    const ed = App.state.strategicMindMapActionEditor;
+    if (!ed?.actionId) return;
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(ed.actionId));
+    if (!action) return Utils.toast('Ação não encontrada.');
+    const data = payload || {};
+    // Validação básica
+    if (!String(data.name || '').trim()) return Utils.toast('Dê um nome à ação.');
+    if (!data.channel) return Utils.toast('Escolha o canal.');
+    if (!data.actionType) return Utils.toast('Escolha o tipo.');
+    if (!data.funnelPoint) return Utils.toast('Escolha onde a ação começa.');
+    if (!data.destSector || !data.destFunnelPoint) return Utils.toast('Escolha pra onde a ação leva.');
+    // Atualiza
+    action.name = String(data.name).trim();
+    action.channel = String(data.channel || '').trim();
+    action.actionType = String(data.actionType || '').trim();
+    action.funnelPoint = data.funnelPoint;
+    action.destSector = data.destSector;
+    action.destFunnelPoint = data.destFunnelPoint;
+    // Atualiza KRs vinculados na branch
+    const campaignId = Number(action.campaignId);
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    if (branch) {
+      const objective = (branch.objectives || []).find(o => o.area === action.strategicAreaId);
+      if (objective) {
+        const selectedKrIds = Array.isArray(data.selectedKrIds) ? data.selectedKrIds.map(String) : [];
+        // Remove action.id de todos KRs daquela área primeiro
+        (objective.okrs || []).forEach(kr => {
+          const ids = (kr.connectedActionIds || []).map(Number).filter(id => id !== Number(action.id));
+          kr.connectedActionIds = ids;
+        });
+        // Adiciona action.id nos KRs selecionados (criando childKr se necessário)
+        selectedKrIds.forEach(parentKrId => {
+          let childKr = (objective.okrs || []).find(k => k.parentProductKrId === parentKrId);
+          if (!childKr) {
+            const productKr = (StrategicMapEngine.getProductKrs(App.state.strategicMapProductId) || []).find(k => k.id === parentKrId);
+            if (!productKr) return;
+            childKr = {
+              id: `okr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+              name: productKr.name,
+              metric: productKr.metric || 'quantidade',
+              catalogId: productKr.catalogId || null,
+              isHandoff: false,
+              current: 0,
+              targetCommitted: productKr.targetCommitted ?? productKr.target ?? null,
+              targetStretch: productKr.targetStretch ?? null,
+              period: productKr.period || 90,
+              confirmed: false,
+              connectedActionIds: [],
+              parentProductKrId: parentKrId
+            };
+            objective.okrs = [...(objective.okrs || []), childKr];
+          }
+          const ids = new Set((childKr.connectedActionIds || []).map(Number));
+          ids.add(Number(action.id));
+          childKr.connectedActionIds = Array.from(ids);
+        });
+        branch.updatedAt = new Date().toISOString();
+        App.state.strategicCampaignMaps = { ...(App.state.strategicCampaignMaps || {}), [campaignId]: branch };
+      }
+    }
+    App.state.strategicMindMapActionEditor = null;
+    App.save(); App.render();
+    Utils.toast(`✓ Ação "${action.name}" criada.`);
+  },
+
+  // V32.13.12 — Click no botão "Executar Ação" no card do mind-map.
+  // Placeholder enquanto Parte 2 (integração ClickUp/provider) não chega.
+  executeStrategicAction(actionId) {
+    Utils.toast('🚧 Em breve: integra com ClickUp/Trello/etc (Parte 2 do roadmap).');
+  },
+
   // V28.3.1 — Fecha o popup didático do passe do bastão (estratégia → tático).
   // Se `advance=true`, navega pra etapa "As Ações"; caso contrário, só fecha.
   dismissStrategicHandoffPopup(advance) {

@@ -238,6 +238,11 @@ var State = {
       // V32.13.6 — ID da action criada agora (last) pra animação "entrar"
       // do retângulo no mind-map. Limpa após a animação rodar (3s).
       strategicJustCreatedActionId: null,
+      // V32.13.12 — Editor de ação acionado pelo click no card do mind-map.
+      // null = fechado. Quando aberto: { actionId }. Visual baseado no print
+      // do Felipe (KR plugado + checkboxes KR + nome + onde começa/pra onde
+      // leva + canal + "Criar Ação"). Opera sobre action existente (não cria).
+      strategicMindMapActionEditor: null,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -661,6 +666,8 @@ var State = {
       strategicKrPickerOpen: null,
       // V32.13.6 — JustCreatedActionId também é volátil.
       strategicJustCreatedActionId: null,
+      // V32.13.12 — Editor de ação do mind-map é volátil (F5 fecha).
+      strategicMindMapActionEditor: null,
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,
