@@ -2826,10 +2826,17 @@ window.StrategicMapModal = {
     const krColor = primaryKrId ? StrategicMapEngine.krColorFromId(primaryKrId) : 'hsl(0 0% 50%)';
     const kr = primaryKrId ? productKrs.find(k => k.id === primaryKrId) : null;
     const krLabel = kr ? kr.name : 'Sem KR';
+    // V32.13.13 — Regra estrita: ação só é "completa" (mostra botão Executar
+    // Ação amber) quando TODOS os campos do modal de edição estão preenchidos.
+    // Frouxo antes (só name+channel+type) deixava stubs herdados com defaults
+    // parciais aparecerem como completos. Agora exige também funnel + dest.
     const hasName = String(action.name || '').trim().length > 0;
     const hasChannel = String(action.channel || '').trim().length > 0;
     const hasType = String(action.actionType || '').trim().length > 0;
-    const isComplete = hasName && hasChannel && hasType;
+    const hasFunnel = String(action.funnelPoint || '').trim().length > 0;
+    const hasDestSector = String(action.destSector || '').trim().length > 0;
+    const hasDestFunnel = String(action.destFunnelPoint || '').trim().length > 0;
+    const isComplete = hasName && hasChannel && hasType && hasFunnel && hasDestSector && hasDestFunnel;
     const statusIcon = isComplete ? 'check-circle-2' : 'alert-triangle';
     const statusPillCls = isComplete
       ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300'
