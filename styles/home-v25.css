@@ -268,7 +268,18 @@
   text-align: center;
   position: relative;
   animation: lj-stage-fade .6s var(--lj-pulso-delay, 0ms) ease-out both;
+  /* V32.15.0 — virou <button>, reseta user-agent. */
+  background: transparent;
+  border: 0;
+  font: inherit;
+  color: inherit;
+  cursor: default;
+  transition: transform .18s ease, filter .18s ease;
 }
+.lj-pulso-stage-clickable { cursor: pointer; }
+.lj-pulso-stage-clickable:hover { transform: translateY(-2px); filter: brightness(1.08); }
+.lj-pulso-stage-clickable:hover .lj-pulso-stage-icon { box-shadow: 0 16px 32px rgba(0,0,0,.30); }
+.lj-pulso-stage-clickable:focus-visible { outline: 2px solid rgba(167,139,250,.6); outline-offset: 4px; border-radius: 12px; }
 @keyframes lj-stage-fade {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }

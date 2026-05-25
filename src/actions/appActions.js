@@ -5109,6 +5109,46 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V32.15.0 — Click numa estação do Pulso da Receita (página Início) abre o
+  // Mapa da Receita direto na etapa equivalente. Mapeamento estação→zoom:
+  //   produto    → vision     (Etapa 1)
+  //   campanhas  → campaign   (Etapa 4)
+  //   acoes      → operations (Etapa 5)
+  //   execucoes  → execution  (Etapa 6 / Acompanhamento)
+  //   receita    → execution  (Receita vive dentro do Acompanhamento)
+  // Reusa openStrategicMap[ForCampaign] e sobrescreve o zoom no fim.
+  openPulsoStation(productId, stationId) {
+    if (!productId) return Utils.toast('Selecione um produto.');
+    const zoomMap = {
+      produto: 'vision',
+      campanhas: 'campaign',
+      acoes: 'operations',
+      execucoes: 'execution',
+      receita: 'execution'
+    };
+    const targetZoom = zoomMap[stationId] || 'vision';
+    const branches = window.StrategicMapEngine?.getBranchesByProduct
+      ? StrategicMapEngine.getBranchesByProduct(Number(productId))
+      : [];
+    if (branches.length) {
+      Actions.openStrategicMapForCampaign(branches[0].campaignId);
+    } else {
+      Actions.openStrategicMap(Number(productId));
+    }
+    App.state.strategicMapZoom = targetZoom;
+    App.state.strategicSkipOnboarding = true;
+    App.save(); App.render();
+  },
+
+  // V32.15.0 — Toggle recolher de um bloco da Etapa 6 (Acompanhamento).
+  // Felipe pediu na revisão: cada layer (Números/Ações/Carga/Gantt) com chevron.
+  toggleAcompanhamentoSection(key) {
+    if (!['krs', 'actions', 'carga', 'gantt'].includes(key)) return;
+    const cur = App.state.acompanhamentoSectionsCollapsed || { krs: false, actions: false, carga: false, gantt: false };
+    App.state.acompanhamentoSectionsCollapsed = { ...cur, [key]: !cur[key] };
+    App.save(); App.render();
+  },
+
   openStrategicOverview() {
     App.state.showStrategicOverview = true;
     App.save(); App.render();

@@ -206,12 +206,14 @@ window.HomeModule = {
     const allProducts = this._activeProducts();
     const idx = Number(App.state.homeProductIndex || 0);
 
+    // V32.15.0 — Cada estação ganha `stationId` pra ser clicável e abrir o
+    // Mapa da Receita na etapa equivalente (Actions.openPulsoStation).
     const stages = [
-      { label: 'Produto', icon: 'package', value: product ? Utils.escape(product.name || '—') : '—', sub: product?.priceValue ? `R$ ${product.priceValue.toLocaleString('pt-BR')}` : 'sem preço', accent: 'violet' },
-      { label: 'Campanhas', icon: 'megaphone', value: m.campaigns, sub: 'ativas', accent: 'sky' },
-      { label: 'Ações', icon: 'plug', value: m.actions, sub: 'configuradas', accent: 'teal' },
-      { label: 'Execuções', icon: 'check-square', value: m.executions, sub: 'tarefas no gestor', accent: 'emerald' },
-      { label: 'Receita', icon: 'dollar-sign', value: m.revenue ? `R$ ${m.revenue.toLocaleString('pt-BR')}` : 'R$ 0', sub: 'prevista', accent: 'amber' }
+      { id: 'produto',   label: 'Produto',   icon: 'package',      value: product ? Utils.escape(product.name || '—') : '—', sub: product?.priceValue ? `R$ ${product.priceValue.toLocaleString('pt-BR')}` : 'sem preço', accent: 'violet' },
+      { id: 'campanhas', label: 'Campanhas', icon: 'megaphone',    value: m.campaigns, sub: 'ativas',           accent: 'sky' },
+      { id: 'acoes',     label: 'Ações',     icon: 'plug',         value: m.actions,   sub: 'configuradas',     accent: 'teal' },
+      { id: 'execucoes', label: 'Execuções', icon: 'check-square', value: m.executions, sub: 'tarefas no gestor', accent: 'emerald' },
+      { id: 'receita',   label: 'Receita',   icon: 'dollar-sign',  value: m.revenue ? `R$ ${m.revenue.toLocaleString('pt-BR')}` : 'R$ 0', sub: 'prevista', accent: 'amber' }
     ];
 
     const navControls = allProducts.length > 1 ? `<div class="lj-pulso-controls">
@@ -262,12 +264,18 @@ window.HomeModule = {
 
       <div class="lj-pulso-stages">
         ${stages.map((s, i) => `
-          <div class="lj-pulso-stage lj-pulso-stage-${s.accent}" style="--lj-pulso-delay: ${i * 200}ms">
+          <button
+            type="button"
+            ${product ? `onclick="Actions.openPulsoStation(${product.id}, '${s.id}')"` : 'disabled'}
+            class="lj-pulso-stage lj-pulso-stage-${s.accent}${product ? ' lj-pulso-stage-clickable' : ''}"
+            style="--lj-pulso-delay: ${i * 200}ms"
+            title="${product ? `Abrir no Mapa da Receita: ${s.label}` : 'Cadastre um produto pra navegar'}"
+          >
             <div class="lj-pulso-stage-icon"><i data-lucide="${s.icon}" class="w-5 h-5"></i></div>
             <div class="lj-pulso-stage-label">${s.label}</div>
             <div class="lj-pulso-stage-value">${s.value}</div>
             <div class="lj-pulso-stage-sub">${s.sub}</div>
-          </div>
+          </button>
         `).join('')}
       </div>
 

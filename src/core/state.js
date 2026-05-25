@@ -257,6 +257,10 @@ var State = {
       acompanhamentoActionDetail: null,
       // V32.14.8 — Timestamp da última sync ClickUp (ms). null = nunca.
       clickupLastSyncAt: null,
+      // V32.15.0 — Recolher por bloco no Acompanhamento (Etapa 6 do Mapa).
+      // Felipe pediu recolher dos 4 layers: Números, Ações, Carga, Gantt.
+      // Persiste pra a preferência sobreviver F5.
+      acompanhamentoSectionsCollapsed: { krs: false, actions: false, carga: false, gantt: false },
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -690,6 +694,16 @@ var State = {
       acompanhamentoActionDetail: null,
       // V32.14.8 — Timestamp da última sync ClickUp persiste.
       clickupLastSyncAt: Number(raw.clickupLastSyncAt) || null,
+      // V32.15.0 — Recolher por bloco no Acompanhamento persiste.
+      acompanhamentoSectionsCollapsed: (() => {
+        const r = raw.acompanhamentoSectionsCollapsed || {};
+        return {
+          krs: Boolean(r.krs),
+          actions: Boolean(r.actions),
+          carga: Boolean(r.carga),
+          gantt: Boolean(r.gantt)
+        };
+      })(),
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,

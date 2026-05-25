@@ -4131,9 +4131,11 @@ window.StrategicMapModal = {
       ? (ExecutionTaskStore.all() || []).filter(t => allActionIds.has(Number(t.linked_action_id)) && t.due_date)
       : [];
     if (allTasks.length === 0) {
+      // V32.15.0 — Recolhível mesmo no estado vazio.
+      const empty = this._acompanhamentoSectionHeader('gantt', 'bar-chart-horizontal', 'Cronograma (Gantt)');
       return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
-        <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 inline-flex items-center gap-1.5"><i data-lucide="bar-chart-horizontal" class="w-3.5 h-3.5"></i> Cronograma (Gantt)</p>
-        <p class="text-[11px] text-slate-500 italic">Sem tasks com data de entrega ainda. Crie tasks via "Executar Ação" pra ver o cronograma aqui.</p>
+        ${empty.headerHtml}
+        ${empty.isCollapsed ? '' : `<p class="text-[11px] text-slate-500 italic">Sem tasks com data de entrega ainda. Crie tasks via "Executar Ação" pra ver o cronograma aqui.</p>`}
       </div>`;
     }
 
@@ -4175,10 +4177,11 @@ window.StrategicMapModal = {
     // Ordena tasks por start_date asc
     taskRanges.sort((a, b) => a.start - b.start);
 
+    // V32.15.0 — Recolhível (state.acompanhamentoSectionsCollapsed.gantt).
+    const { headerHtml, isCollapsed } = this._acompanhamentoSectionHeader('gantt', 'bar-chart-horizontal', `Cronograma (Gantt) · ${taskRanges.length} task${taskRanges.length === 1 ? '' : 's'}`);
     return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
-      <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 inline-flex items-center gap-1.5"><i data-lucide="bar-chart-horizontal" class="w-3.5 h-3.5"></i> Cronograma (Gantt) · ${taskRanges.length} task${taskRanges.length === 1 ? '' : 's'}</p>
-
-      <!-- Header de marcadores temporais -->
+      ${headerHtml}
+      ${isCollapsed ? '' : `<!-- Header de marcadores temporais -->
       <div class="relative h-6 mb-2 border-b border-white/10">
         ${ticks.map(t => `<div class="absolute top-0 bottom-0 flex items-center" style="left:${t.pct}%; transform:translateX(-50%);">
           <span class="text-[9px] font-bold text-slate-500 whitespace-nowrap">${t.label}</span>
@@ -4192,7 +4195,7 @@ window.StrategicMapModal = {
         ${taskRanges.map(r => this._acompanhamentoGanttRow(r, rangeStart, rangeMs, now)).join('')}
       </div>
 
-      ${todayPct !== null ? `<p class="text-[9px] text-violet-400 mt-2 inline-flex items-center gap-1"><span class="inline-block w-2 h-px bg-violet-400"></span> Hoje (${now.toLocaleDateString('pt-BR')})</p>` : ''}
+      ${todayPct !== null ? `<p class="text-[9px] text-violet-400 mt-2 inline-flex items-center gap-1"><span class="inline-block w-2 h-px bg-violet-400"></span> Hoje (${now.toLocaleDateString('pt-BR')})</p>` : ''}`}
     </div>`;
   },
 
@@ -4305,12 +4308,14 @@ window.StrategicMapModal = {
     };
 
     const totalUsers = entries.length + (noAssigneeBucket.count > 0 ? 1 : 0);
+    // V32.15.0 — Recolhível (state.acompanhamentoSectionsCollapsed.carga).
+    const { headerHtml, isCollapsed } = this._acompanhamentoSectionHeader('carga', 'users', `Carga por usuário (ClickUp) · ${totalUsers} ${totalUsers === 1 ? 'responsável' : 'responsáveis'}`);
     return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
-      <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 inline-flex items-center gap-1.5"><i data-lucide="users" class="w-3.5 h-3.5"></i> Carga por usuário (ClickUp) · ${totalUsers} ${totalUsers === 1 ? 'responsável' : 'responsáveis'}</p>
-      <div class="space-y-2">
+      ${headerHtml}
+      ${isCollapsed ? '' : `<div class="space-y-2">
         ${entries.map(e => renderBar(e.count, e.username, e.email, e.completed, e.late, e.onTime, false)).join('')}
         ${noAssigneeBucket.count > 0 ? renderBar(noAssigneeBucket.count, 'Sem responsável', 'Tasks órfãs — atribua alguém', noAssigneeBucket.completed, noAssigneeBucket.late, noAssigneeBucket.onTime, true) : ''}
-      </div>
+      </div>`}
     </div>`;
   },
 
@@ -4344,6 +4349,27 @@ window.StrategicMapModal = {
     return { total: allTasks.length, onTime, late, completed, noAssignee, noDueDate, actionCount: allActionIds.size, krCount: connectedKrs.length };
   },
 
+  // V32.15.0 — Header recolhível dos blocos da Etapa 6 (Acompanhamento).
+  // Felipe pediu chevron pra recolher Números/Ações/Carga/Gantt e manter só
+  // o que está olhando. State persiste (acompanhamentoSectionsCollapsed.{key}).
+  // Retorna { headerHtml, isCollapsed } pro caller condicionalmente renderizar o body.
+  _acompanhamentoSectionHeader(key, icon, title) {
+    const cur = App.state.acompanhamentoSectionsCollapsed || {};
+    const isCollapsed = Boolean(cur[key]);
+    const chevron = isCollapsed ? 'chevron-down' : 'chevron-up';
+    const ariaLabel = isCollapsed ? `Expandir ${title}` : `Recolher ${title}`;
+    const headerHtml = `<div class="flex items-center justify-between gap-2 ${isCollapsed ? '' : 'mb-3'}">
+      <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest inline-flex items-center gap-1.5">
+        <i data-lucide="${icon}" class="w-3.5 h-3.5"></i> ${title}
+      </p>
+      <button onclick="Actions.toggleAcompanhamentoSection('${key}')" title="${ariaLabel}" aria-label="${ariaLabel}"
+        class="shrink-0 w-7 h-7 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 grid place-items-center transition">
+        <i data-lucide="${chevron}" class="w-3.5 h-3.5"></i>
+      </button>
+    </div>`;
+    return { headerHtml, isCollapsed };
+  },
+
   // V32.14.0 — Stat cards horizontais. 4 indicadores principais.
   _acompanhamentoStatCards(s) {
     const card = (icon, label, value, tone) => `<div class="rounded-xl bg-${tone}-500/10 border border-${tone}-400/30 p-3">
@@ -4363,13 +4389,15 @@ window.StrategicMapModal = {
   },
 
   // V32.14.0 — Lista de KRs com saúde (% atingido, ações, tasks).
+  // V32.15.0 — Recolhível via chevron (state acompanhamentoSectionsCollapsed.krs).
   _acompanhamentoKrList(product, connectedKrs) {
     if (!connectedKrs.length) return '';
+    const { headerHtml, isCollapsed } = this._acompanhamentoSectionHeader('krs', 'target', `Números (KRs) — saúde por número · ${connectedKrs.length}`);
     return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
-      <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 inline-flex items-center gap-1.5"><i data-lucide="target" class="w-3.5 h-3.5"></i> Números (KRs) — saúde por número</p>
-      <div class="space-y-2">
+      ${headerHtml}
+      ${isCollapsed ? '' : `<div class="space-y-2">
         ${connectedKrs.map(({ obj, kr, branchCampaignId }) => this._acompanhamentoKrRow(product, obj, kr, branchCampaignId)).join('')}
-      </div>
+      </div>`}
     </div>`;
   },
 
@@ -4414,6 +4442,7 @@ window.StrategicMapModal = {
   },
 
   // V32.14.0 — Lista de ações com status agregado de suas tasks.
+  // V32.15.0 — Recolhível (state.acompanhamentoSectionsCollapsed.actions).
   _acompanhamentoActionsList(connectedKrs) {
     const allActionIds = new Set();
     connectedKrs.forEach(({ kr }) => {
@@ -4422,11 +4451,12 @@ window.StrategicMapModal = {
     if (allActionIds.size === 0) return '';
     const actions = (App.state.actions || []).filter(a => allActionIds.has(Number(a.id)));
     if (actions.length === 0) return '';
+    const { headerHtml, isCollapsed } = this._acompanhamentoSectionHeader('actions', 'zap', `Ações — status por ação · ${actions.length}`);
     return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
-      <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 inline-flex items-center gap-1.5"><i data-lucide="zap" class="w-3.5 h-3.5"></i> Ações — status por ação</p>
-      <div class="space-y-2">
+      ${headerHtml}
+      ${isCollapsed ? '' : `<div class="space-y-2">
         ${actions.map(a => this._acompanhamentoActionRow(a)).join('')}
-      </div>
+      </div>`}
     </div>`;
   },
 
