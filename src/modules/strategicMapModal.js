@@ -31,6 +31,17 @@ window.StrategicMapModal = {
           background-size: 200% 100%;
           animation: lj-mind-map-flow 3s linear infinite;
         }
+
+        /* V32.13.8 — Setas SVG: linha sendo "desenhada" + pulso sutil de
+           opacidade pra simular fluxo de energia. */
+        @keyframes lj-mind-map-svg-draw {
+          0%   { stroke-dashoffset: 100%; opacity: 0.4; }
+          60%  { stroke-dashoffset: 0%;   opacity: 1; }
+          100% { stroke-dashoffset: 0%;   opacity: 0.85; }
+        }
+        .lj-mind-map-svg-line {
+          animation: lj-mind-map-svg-draw 1100ms ease-out both;
+        }
       </style>
       <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:98vw;max-width:1800px;background: radial-gradient(circle at 18% 8%, rgba(99,102,241,.25), transparent 32%), radial-gradient(circle at 82% 0%, rgba(34,197,94,.15), transparent 32%), #071326;">
         ${this._header(product)}
@@ -2471,23 +2482,19 @@ window.StrategicMapModal = {
       <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Ação
     </button>`;
 
-    // Conector horizontal master → Add Ação (com efeito de fluxo animado)
+    // V32.13.8 — Conector master→Add Ação agora é SVG com ponta de flecha
+    // (era gradient CSS). Cor herda do tone da área. Stroke-dasharray anima
+    // efeito de "linha sendo traçada".
     const hue = this._hslHueForArea(tone);
-    const connectorMasterToAdd = `<div class="shrink-0 self-center flex items-center" style="width:32px;">
-      <span class="block h-0.5 w-full lj-mind-map-connector" style="background:linear-gradient(90deg, transparent 0%, hsla(${hue},60%,55%,0.7) 30%, hsla(${hue},70%,65%,1) 50%, hsla(${hue},60%,55%,0.7) 70%, transparent 100%);"></span>
-    </div>`;
+    const connectorMasterToAdd = this._mindMapConnectorSVG(`hsl(${hue} 65% 55%)`, 32);
 
-    // V32.13.7 — Felipe alinhou: cada ação tem SEU PRÓPRIO traço individual
-    // saindo do Add Ação. Não tem mais conector único agregado.
-    // Cada card-de-ação vem encapsulado num wrapper com a linha à esquerda
-    // (~30px), seu próprio gradient + cor do KR primário.
+    // V32.13.7/8 — Cada ação tem SEU PRÓPRIO conector SVG com ponta de flecha
+    // saindo do Add Ação. Cor herda do KR primário da ação.
     const actionsBlock = actions.length > 0
       ? `<div class="flex flex-wrap gap-y-2 self-center">
           ${actions.map(a => this._actionMindMapNodeWithConnector(a, area, productKrs, hue)).join('')}
         </div>`
-      : `<div class="shrink-0 self-center flex items-center" style="width:24px;">
-          <span class="block h-0.5 w-full lj-mind-map-connector" style="background:linear-gradient(90deg, hsla(${hue},60%,55%,0.7) 0%, transparent 100%);"></span>
-        </div>
+      : `${this._mindMapConnectorSVG(`hsl(${hue} 50% 50% / 0.5)`, 30)}
         <p class="text-[11px] text-slate-500 italic self-center ml-2">Nenhuma ação ainda — clique no botão pra criar a primeira.</p>`;
 
     return `<div class="${wrapperCls}">
@@ -2500,19 +2507,38 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // V32.13.7 — Wrapper de cada ação no mind-map: linha individual à esquerda
-  // (cor do KR da própria ação) + card. Linhas independentes pra cada ação,
-  // criando visual de árvore com galhos próprios.
+  // V32.13.7/8 — Wrapper de cada ação no mind-map: SVG com seta individual à
+  // esquerda (cor do KR da própria ação) + card. Setas independentes pra cada
+  // ação, criando visual de árvore com galhos próprios + ponta de flecha.
   _actionMindMapNodeWithConnector(actionMeta, area, productKrs, fallbackHue) {
     const { primaryKrId } = actionMeta;
-    // Cor: do KR primário (determinística) ou hue da área se sem KR
     const krColor = primaryKrId ? StrategicMapEngine.krColorFromId(primaryKrId) : `hsl(${fallbackHue} 60% 55%)`;
-    const connector = `<div class="shrink-0 self-center flex items-center" style="width:30px;">
-      <span class="block h-0.5 w-full lj-mind-map-connector" style="background:linear-gradient(90deg, ${krColor.replace('hsl(', 'hsla(').replace(')', ', 0.85)')} 0%, ${krColor} 50%, ${krColor.replace('hsl(', 'hsla(').replace(')', ', 0.4)')} 100%);"></span>
-    </div>`;
     return `<div class="flex items-stretch shrink-0">
-      ${connector}
+      ${this._mindMapConnectorSVG(krColor, 30)}
       ${this._actionMindMapCard(actionMeta, area, productKrs)}
+    </div>`;
+  },
+
+  // V32.13.8 — SVG inline com seta (ponta de flecha) pra conectores do mind-map.
+  // Cor controlável via param. Linha + marker triangular no fim.
+  // Stroke-dasharray + dashoffset animado pra efeito de "fluxo desenhando".
+  _mindMapConnectorSVG(color, width = 30) {
+    const markerId = `lj-arrow-${Math.random().toString(36).slice(2, 8)}`;
+    const lineY = 8;
+    const lineEnd = width - 6;  // deixa espaço pra ponta
+    return `<div class="shrink-0 self-center flex items-center" style="width:${width}px;height:16px;">
+      <svg width="${width}" height="16" viewBox="0 0 ${width} 16" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;">
+        <defs>
+          <marker id="${markerId}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="${color}"/>
+          </marker>
+        </defs>
+        <line x1="0" y1="${lineY}" x2="${lineEnd}" y2="${lineY}"
+          stroke="${color}" stroke-width="2" stroke-linecap="round"
+          marker-end="url(#${markerId})"
+          class="lj-mind-map-svg-line"
+          style="stroke-dasharray:${width};stroke-dashoffset:0;" />
+      </svg>
     </div>`;
   },
 
