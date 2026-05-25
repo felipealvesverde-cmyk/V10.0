@@ -4107,7 +4107,111 @@ window.StrategicMapModal = {
       ${this._acompanhamentoKrList(product, connectedKrs)}
       ${this._acompanhamentoActionsList(connectedKrs)}
       ${this._acompanhamentoCargaUsuariosList(connectedKrs)}
+      ${this._acompanhamentoGanttTimeline(connectedKrs)}
     </section>`;
+  },
+
+  // V32.14.5 — Gantt timeline simples no Acompanhamento. Barras horizontais
+  // representam tasks entre start_date e due_date. Cor por status (em dia,
+  // atrasada, completa). Range temporal auto-calculado pelas tasks existentes.
+  _acompanhamentoGanttTimeline(connectedKrs) {
+    const allActionIds = new Set();
+    connectedKrs.forEach(({ kr }) => {
+      (kr.connectedActionIds || []).forEach(aid => allActionIds.add(Number(aid)));
+    });
+    if (allActionIds.size === 0) return '';
+    const allTasks = window.ExecutionTaskStore
+      ? (ExecutionTaskStore.all() || []).filter(t => allActionIds.has(Number(t.linked_action_id)) && t.due_date)
+      : [];
+    if (allTasks.length === 0) {
+      return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
+        <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 inline-flex items-center gap-1.5"><i data-lucide="bar-chart-horizontal" class="w-3.5 h-3.5"></i> Cronograma (Gantt)</p>
+        <p class="text-[11px] text-slate-500 italic">Sem tasks com data de entrega ainda. Crie tasks via "Executar Ação" pra ver o cronograma aqui.</p>
+      </div>`;
+    }
+
+    // Calcula range temporal: min start vs min due, max due
+    const parseDate = (s) => s ? new Date(s) : null;
+    const taskRanges = allTasks.map(t => {
+      const due = parseDate(t.due_date);
+      let start = parseDate(t.start_date);
+      // Sem start, assume 7 dias antes do due (default visual)
+      if (!start) start = new Date(due.getTime() - 7 * 24 * 60 * 60 * 1000);
+      return { task: t, start, end: due };
+    });
+    const minDate = new Date(Math.min(...taskRanges.map(r => r.start.getTime())));
+    const maxDate = new Date(Math.max(...taskRanges.map(r => r.end.getTime())));
+    // Margem 5% nas pontas
+    const totalMs = maxDate - minDate;
+    const margin = totalMs * 0.05;
+    const rangeStart = new Date(minDate.getTime() - margin);
+    const rangeEnd = new Date(maxDate.getTime() + margin);
+    const rangeMs = rangeEnd - rangeStart;
+
+    // Marcadores temporais — divide o range em 4-5 ticks
+    const tickCount = 5;
+    const ticks = [];
+    for (let i = 0; i < tickCount; i++) {
+      const t = new Date(rangeStart.getTime() + (rangeMs * i / (tickCount - 1)));
+      ticks.push({
+        pct: (i / (tickCount - 1)) * 100,
+        label: t.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+      });
+    }
+
+    // Marca de "hoje" (se está dentro do range)
+    const now = new Date();
+    const todayPct = (now >= rangeStart && now <= rangeEnd)
+      ? ((now - rangeStart) / rangeMs) * 100
+      : null;
+
+    // Ordena tasks por start_date asc
+    taskRanges.sort((a, b) => a.start - b.start);
+
+    return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
+      <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 inline-flex items-center gap-1.5"><i data-lucide="bar-chart-horizontal" class="w-3.5 h-3.5"></i> Cronograma (Gantt) · ${taskRanges.length} task${taskRanges.length === 1 ? '' : 's'}</p>
+
+      <!-- Header de marcadores temporais -->
+      <div class="relative h-6 mb-2 border-b border-white/10">
+        ${ticks.map(t => `<div class="absolute top-0 bottom-0 flex items-center" style="left:${t.pct}%; transform:translateX(-50%);">
+          <span class="text-[9px] font-bold text-slate-500 whitespace-nowrap">${t.label}</span>
+        </div>`).join('')}
+        ${todayPct !== null ? `<div class="absolute top-0 bottom-0 w-px bg-violet-400" style="left:${todayPct}%;" title="Hoje"></div>` : ''}
+      </div>
+
+      <!-- Linhas de tasks -->
+      <div class="space-y-1.5 relative">
+        ${todayPct !== null ? `<div class="absolute top-0 bottom-0 w-px bg-violet-400/40 pointer-events-none z-10" style="left:${todayPct}%;"></div>` : ''}
+        ${taskRanges.map(r => this._acompanhamentoGanttRow(r, rangeStart, rangeMs, now)).join('')}
+      </div>
+
+      ${todayPct !== null ? `<p class="text-[9px] text-violet-400 mt-2 inline-flex items-center gap-1"><span class="inline-block w-2 h-px bg-violet-400"></span> Hoje (${now.toLocaleDateString('pt-BR')})</p>` : ''}
+    </div>`;
+  },
+
+  // V32.14.5 — Linha de uma task no Gantt. Calcula posição/largura % e cor por status.
+  _acompanhamentoGanttRow({ task, start, end }, rangeStart, rangeMs, now) {
+    const startPct = Math.max(0, ((start - rangeStart) / rangeMs) * 100);
+    const endPct = Math.min(100, ((end - rangeStart) / rangeMs) * 100);
+    const widthPct = Math.max(2, endPct - startPct);  // min 2% pra ficar visível
+    const isCompleted = task.status === 'completed';
+    const isLate = !isCompleted && end < now;
+    const tone = isCompleted ? 'emerald' : isLate ? 'rose' : 'sky';
+    const statusLabel = isCompleted ? 'Concluída' : isLate ? 'Atrasada' : 'Em curso';
+    const dueLabel = task.due_date ? new Date(task.due_date).toLocaleDateString('pt-BR') : '—';
+    return `<div class="grid items-center gap-2" style="grid-template-columns: 160px 1fr;">
+      <div class="min-w-0">
+        <p class="text-[11px] font-bold text-white truncate" title="${Utils.escape(task.title || '')}">${Utils.escape(task.title || 'Task')}</p>
+        <p class="text-[9px] text-slate-500 truncate">${dueLabel} · ${statusLabel}</p>
+      </div>
+      <div class="relative h-5 rounded bg-white/5">
+        <button onclick="Actions.openExecutionTaskDetail('${task.task_id}')" title="${Utils.escape(task.title || '')} · ${statusLabel} · entrega ${dueLabel}"
+          class="absolute top-0 bottom-0 rounded bg-gradient-to-r from-${tone}-500 to-${tone}-400 hover:opacity-80 transition border border-${tone}-300/40"
+          style="left:${startPct}%; width:${widthPct}%;">
+          <span class="absolute inset-0 grid place-items-center text-[9px] font-black text-white px-1 truncate" style="color:#fff !important;">${widthPct > 15 ? Utils.escape(task.title || '').slice(0, 20) : ''}</span>
+        </button>
+      </div>
+    </div>`;
   },
 
   // V32.14.4 — Bloco "Carga por usuário" no Acompanhamento. Ranking de
