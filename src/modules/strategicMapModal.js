@@ -61,6 +61,7 @@ window.StrategicMapModal = {
       ${App.state.strategicKrPickerOpen ? this._strategicKrPickerModalRender() : ''}
       ${App.state.strategicMindMapActionEditor ? this._mindMapActionEditorRender() : ''}
       ${App.state.executionTaskDetail ? this._executionTaskDetailRender() : ''}
+      ${App.state.acompanhamentoKrDetail ? this._acompanhamentoKrDetailRender() : ''}
       ${App.state.strategicActionDetailModalId ? this._actionDetailModalRender() : ''}
       ${App.state.taskCreationModal?.open ? this._taskCreationModalRender() : ''}
       ${App.state.djowTaskChat?.open ? this._djowTaskChatRender() : ''}
@@ -505,6 +506,130 @@ window.StrategicMapModal = {
   // Aparece em z-[96] (acima do Mapa da Receita que é z-[80]). Mostra:
   //   - Mini-dashboard (velocímetro) do KR: rollup atual vs Meta Segura/Avançada
   //   - Lista de ações conectadas (across todas branches do produto) com
+  // V32.14.1 — Drill-down (lupa) do KR no Acompanhamento. Mostra ações deste
+  // KR + tasks de cada ação com status (em dia/atrasada/concluída) + due_date
+  // + responsáveis. Click na task abre o executionTaskDetail existente.
+  _acompanhamentoKrDetailRender() {
+    const detail = App.state.acompanhamentoKrDetail;
+    if (!detail?.krId) return '';
+    const productId = App.state.strategicMapProductId;
+    // Localiza o childKr (branch local) e o productKr (mãe)
+    let childKr = null, branchObj = null, branchCampaignId = null;
+    if (detail.branchCampaignId) {
+      const branch = StrategicMapEngine.getBranchMap(detail.branchCampaignId);
+      (branch?.objectives || []).forEach(o => {
+        (o.okrs || []).forEach(kr => {
+          if (kr.id === detail.krId) { childKr = kr; branchObj = o; branchCampaignId = detail.branchCampaignId; }
+        });
+      });
+    }
+    if (!childKr) {
+      // Fallback: procura em todas branches do produto
+      const branches = StrategicMapEngine.getBranchesByProduct(productId) || [];
+      branches.forEach(b => {
+        (b.objectives || []).forEach(o => {
+          (o.okrs || []).forEach(kr => {
+            if (kr.id === detail.krId && !childKr) { childKr = kr; branchObj = o; branchCampaignId = b.campaignId; }
+          });
+        });
+      });
+    }
+    if (!childKr) return '';
+    const krColor = StrategicMapEngine.krColorFromId(childKr.parentProductKrId || childKr.id);
+    const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === branchObj?.area);
+    const target = Number(childKr.targetCommitted || 0);
+    const current = Number(childKr.current || 0);
+    const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+    const pctTone = pct >= 75 ? 'emerald' : pct >= 40 ? 'amber' : 'rose';
+    const actionIds = (childKr.connectedActionIds || []).map(Number);
+    const actions = (App.state.actions || []).filter(a => actionIds.includes(Number(a.id)));
+    const now = new Date();
+    return `<div class="fixed inset-0 z-[92] grid place-items-center p-4" style="background: rgba(15,23,42,0.78); backdrop-filter: blur(6px);" onclick="if(event.target===this) Actions.closeAcompanhamentoKrDetail()">
+      <div class="w-full max-w-3xl rounded-3xl bg-slate-900 border-2 shadow-2xl overflow-hidden" style="border-color: ${krColor};">
+        <!-- HEADER -->
+        <div class="px-5 py-4 flex items-start justify-between gap-3" style="background: linear-gradient(135deg, ${krColor.replace('hsl(', 'hsla(').replace(')', ', 0.20)')}, transparent);">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black uppercase tracking-widest" style="color: ${krColor};">
+              ${area ? `<i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)} · ` : ''}KR · ACOMPANHAMENTO
+            </p>
+            <h2 class="text-lg font-black text-white mt-1 leading-tight">${Utils.escape(childKr.name)}</h2>
+            <p class="text-[11px] text-slate-300 mt-0.5">
+              <span class="text-emerald-400 font-bold">SEGURA <b class="text-white">${target.toLocaleString('pt-BR')}</b></span>
+              ${childKr.targetStretch ? ` · <span class="text-violet-400 font-bold">AVANÇADA <b class="text-white">${Number(childKr.targetStretch).toLocaleString('pt-BR')}</b></span>` : ''}
+              <span class="text-slate-500"> ${Utils.escape(childKr.metric || '')}</span>
+            </p>
+          </div>
+          <button onclick="Actions.closeAcompanhamentoKrDetail()" class="shrink-0 w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 grid place-items-center"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+
+        <!-- BODY -->
+        <div class="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          <!-- Progresso -->
+          <div class="rounded-xl bg-slate-800/40 border border-white/5 p-3">
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Progresso atual</p>
+              <span class="text-[10px] font-black px-2 py-0.5 rounded bg-${pctTone}-500/15 border border-${pctTone}-400/30 text-${pctTone}-200 uppercase tracking-wider">${pct}% da meta</span>
+            </div>
+            <p class="text-[14px] font-black text-white"><b style="color: ${krColor};">${current.toLocaleString('pt-BR')}</b> <span class="text-slate-500 text-[11px]">de ${target.toLocaleString('pt-BR')} ${Utils.escape(childKr.metric || '')}</span></p>
+            <div class="mt-2 h-2 rounded-full bg-white/5 overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-${pctTone}-500 to-${pctTone}-400" style="width:${pct}%;"></div>
+            </div>
+          </div>
+
+          <!-- Lista de ações + suas tasks -->
+          ${actions.length === 0 ? `<div class="rounded-xl bg-amber-500/10 border border-amber-400/30 p-4 text-amber-200 text-center">
+            <p class="text-[12px] font-bold">Nenhuma ação conectada a este KR.</p>
+          </div>` : ''}
+
+          ${actions.map(action => this._acompanhamentoKrDetailActionBlock(action, now)).join('')}
+        </div>
+
+        <!-- FOOTER -->
+        <div class="bg-slate-900/80 border-t border-white/5 px-5 py-3 flex justify-end">
+          <button onclick="Actions.closeAcompanhamentoKrDetail()" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[10px] font-black uppercase tracking-wider">Fechar</button>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V32.14.1 — Bloco de 1 ação dentro do drill-down do KR. Mostra nome da ação
+  // + suas tasks com due_date + status + responsáveis.
+  _acompanhamentoKrDetailActionBlock(action, now) {
+    const tasks = window.ExecutionTaskStore
+      ? (ExecutionTaskStore.all() || []).filter(t => Number(t.linked_action_id) === Number(action.id))
+      : [];
+    const statusMap = {
+      pending: 'bg-amber-500/15 border-amber-400/30 text-amber-200',
+      in_progress: 'bg-sky-500/15 border-sky-400/30 text-sky-200',
+      completed: 'bg-emerald-500/15 border-emerald-400/30 text-emerald-200',
+      blocked: 'bg-rose-500/15 border-rose-400/30 text-rose-200'
+    };
+    const statusLabel = { pending: 'Pendente', in_progress: 'Em curso', completed: 'Concluída', blocked: 'Bloqueada' };
+    return `<div class="rounded-xl bg-slate-800/40 border border-white/10 p-3 space-y-2">
+      <div class="flex items-center justify-between gap-2 flex-wrap">
+        <div class="min-w-0 flex-1">
+          <p class="font-black text-white text-[13px] truncate" title="${Utils.escape(action.name || 'Sem nome')}">${Utils.escape(action.name || 'Sem nome')}</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">${Utils.escape(action.channel || '— canal —')} · ${tasks.length} task${tasks.length === 1 ? '' : 's'}</p>
+        </div>
+      </div>
+      ${tasks.length === 0 ? `<p class="text-[11px] text-slate-500 italic">Sem tasks criadas. Volte pra <b>As Ações</b> e clique em "Executar Ação".</p>` : `<div class="space-y-1.5">
+        ${tasks.map(t => {
+          const isLate = t.status !== 'completed' && t.due_date && new Date(t.due_date) < now;
+          const statusCls = isLate ? 'bg-rose-500/20 border-rose-400/40 text-rose-200' : (statusMap[t.status] || statusMap.pending);
+          const statusTxt = isLate ? 'Atrasada' : (statusLabel[t.status] || 'Pendente');
+          const dueLabel = t.due_date ? new Date(t.due_date).toLocaleDateString('pt-BR') : '—';
+          return `<button onclick="Actions.openExecutionTaskDetail('${t.task_id}')" class="w-full text-left rounded-lg bg-slate-900/60 hover:bg-slate-900 border border-white/5 p-2 flex items-center justify-between gap-2 transition">
+            <div class="min-w-0 flex-1">
+              <p class="text-[12px] font-bold text-white truncate" title="${Utils.escape(t.title || '')}">${Utils.escape(t.title || 'Task sem nome')}</p>
+              <p class="text-[10px] text-slate-500 mt-0.5">Entrega: <b class="text-slate-300">${dueLabel}</b> · ${Utils.escape((t.provider || 'task').toUpperCase())}</p>
+            </div>
+            <span class="text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider border ${statusCls} shrink-0">${statusTxt}</span>
+          </button>`;
+        }).join('')}
+      </div>`}
+    </div>`;
+  },
+
   // V32.13.16 — Modal de detalhe da task de execução. Aberto via click no
   // card amber da branch de execução no mind-map. Mostra metadados +
   // ações: sincronizar status, abrir no provider, marcar concluída manual,
@@ -3878,14 +4003,13 @@ window.StrategicMapModal = {
     return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
       <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 inline-flex items-center gap-1.5"><i data-lucide="target" class="w-3.5 h-3.5"></i> Números (KRs) — saúde por número</p>
       <div class="space-y-2">
-        ${connectedKrs.map(({ obj, kr }) => this._acompanhamentoKrRow(product, obj, kr)).join('')}
+        ${connectedKrs.map(({ obj, kr, branchCampaignId }) => this._acompanhamentoKrRow(product, obj, kr, branchCampaignId)).join('')}
       </div>
     </div>`;
   },
 
-  // V32.14.0 — Row de 1 KR no Acompanhamento. Mostra % atingido, ações, tasks.
-  _acompanhamentoKrRow(product, obj, kr) {
-    const areaColor = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === obj.area)?.color || 'slate';
+  // V32.14.0 / V32.14.1 — Row de 1 KR no Acompanhamento. Lupa abre drill-down.
+  _acompanhamentoKrRow(product, obj, kr, branchCampaignId) {
     const target = Number(kr.targetCommitted || 0);
     const current = Number(kr.current || 0);
     const pct = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
@@ -3899,7 +4023,7 @@ window.StrategicMapModal = {
     const onTime = allTasks.length - late - completed;
     const krColor = StrategicMapEngine.krColorFromId(kr.parentProductKrId || kr.id);
     const pctTone = pct >= 75 ? 'emerald' : pct >= 40 ? 'amber' : 'rose';
-    return `<div class="rounded-xl bg-slate-900/60 border border-white/10 p-3" style="border-left: 4px solid ${krColor};">
+    return `<div class="rounded-xl bg-slate-900/60 border border-white/10 p-3 hover:bg-slate-900/80 transition" style="border-left: 4px solid ${krColor};">
       <div class="flex items-center justify-between gap-3 flex-wrap">
         <div class="flex items-center gap-2 min-w-0 flex-1">
           <span class="shrink-0 w-2 h-2 rounded-full" style="background:${krColor};"></span>
@@ -3913,6 +4037,9 @@ window.StrategicMapModal = {
           ${onTime > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-200 uppercase tracking-wider"><i data-lucide="clock" class="w-2.5 h-2.5 inline-block"></i> ${onTime}</span>` : ''}
           ${late > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-400/30 text-rose-200 uppercase tracking-wider"><i data-lucide="alert-triangle" class="w-2.5 h-2.5 inline-block"></i> ${late}</span>` : ''}
           <span class="text-[10px] font-black px-2 py-0.5 rounded bg-${pctTone}-500/15 border border-${pctTone}-400/30 text-${pctTone}-200 uppercase tracking-wider">${pct}% meta</span>
+          <button onclick="Actions.openAcompanhamentoKrDetail('${kr.id}', ${branchCampaignId || 'null'})" title="Lupa: ver ações e tasks deste KR" class="shrink-0 w-7 h-7 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-slate-200 grid place-items-center">
+            <i data-lucide="search" class="w-3.5 h-3.5"></i>
+          </button>
         </div>
       </div>
       <div class="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">

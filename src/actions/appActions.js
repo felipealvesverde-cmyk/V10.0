@@ -3308,6 +3308,21 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V32.14.1 — Drill-down do KR no Acompanhamento (lupa). Mostra ações e
+  // tasks daquele KR específico com status agregado.
+  openAcompanhamentoKrDetail(krId, branchCampaignId) {
+    App.state.acompanhamentoKrDetail = {
+      krId: String(krId),
+      branchCampaignId: branchCampaignId ? Number(branchCampaignId) : null
+    };
+    App.render();
+  },
+
+  closeAcompanhamentoKrDetail() {
+    App.state.acompanhamentoKrDetail = null;
+    App.render();
+  },
+
   // V32.13.17 — Auto-sync silencioso de tasks ClickUp ao entrar na Etapa 5.
   // Guard por chave + intervalo mínimo (5min) pra não estourar API e nem
   // chamar a cada re-render. Roda em setTimeout pra não bloquear UI.

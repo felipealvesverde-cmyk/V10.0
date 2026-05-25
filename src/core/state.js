@@ -247,6 +247,10 @@ var State = {
       // no card amber da branch de execução. null = fechado.
       // Quando aberto: { taskId, syncing: bool }
       executionTaskDetail: null,
+      // V32.14.1 — Modal de drill-down do KR no Acompanhamento (Etapa 6).
+      // null = fechado. Aberto: { krId, branchCampaignId }. Mostra ações + tasks
+      // do KR com status agregado por task.
+      acompanhamentoKrDetail: null,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -674,6 +678,8 @@ var State = {
       strategicMindMapActionEditor: null,
       // V32.13.16 — Detalhe execution task volátil (F5 fecha).
       executionTaskDetail: null,
+      // V32.14.1 — Drill-down KR volátil.
+      acompanhamentoKrDetail: null,
       customChannels: Array.isArray(raw.customChannels) ? raw.customChannels : [],
       customActionTypes: Array.isArray(raw.customActionTypes) ? raw.customActionTypes : [],
       executionConfig: window.ExecutionProviderRegistry?.normalize?.(raw.executionConfig) || raw.executionConfig || base.executionConfig,
