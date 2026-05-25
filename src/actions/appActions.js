@@ -3335,6 +3335,35 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V32.14.3 — Duplica task de execução do mind-map. Felipe alinhou: cliente
+  // clica botão "Duplicar" → cria nova task local com mesmas infos (provider,
+  // descrição, due_date, assignees, custom_fields) mas nome incrementado.
+  // NÃO cria task nova no ClickUp — é só duplicação local pra cliente
+  // organizar mais branches visualmente. Cliente pode depois "Executar
+  // Ação" da duplicada pra criar real no ClickUp se quiser.
+  duplicateExecutionTask(taskId) {
+    if (!window.ExecutionTaskStore) return Utils.toast('ExecutionTaskStore indisponível.');
+    const original = ExecutionTaskStore.byId(taskId);
+    if (!original) return Utils.toast('Task original não encontrada.');
+    // Conta duplicatas existentes pra incrementar o nome
+    const baseName = String(original.title || 'Task').replace(/\s*\(\d+\)$/, '');
+    const linkedTasks = ExecutionTaskStore.byAction(original.linked_action_id) || [];
+    const sameBaseCount = linkedTasks.filter(t => String(t.title || '').replace(/\s*\(\d+\)$/, '') === baseName).length;
+    const newName = `${baseName} (${sameBaseCount + 1})`;
+    // Cria duplicata LOCAL — sem provider_task_id (não está criada no ClickUp)
+    ExecutionTaskStore.create({
+      linked_action_id: original.linked_action_id,
+      title: newName,
+      description: original.description,
+      status: 'pending',
+      provider: 'manual',  // local-only enquanto não executar real
+      due_date: original.due_date || null,
+      assignees: original.assignees || []
+    });
+    App.save(); App.render();
+    Utils.toast(`✓ Task duplicada: "${newName}". Clique nela e use Executar Ação pra criar no ClickUp.`);
+  },
+
   // V32.13.17 — Auto-sync silencioso de tasks ClickUp ao entrar na Etapa 5.
   // Guard por chave + intervalo mínimo (5min) pra não estourar API e nem
   // chamar a cada re-render. Roda em setTimeout pra não bloquear UI.

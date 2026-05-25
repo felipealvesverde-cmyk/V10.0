@@ -198,6 +198,46 @@ window.StrategicMapModal = {
                 <input type="datetime-local" value="${Utils.escape(d.start_date)}" oninput="Actions.updateTaskDraft('start_date', this.value); Actions.updateTaskDraft('start_date_time', this.value.includes('T'))" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;" />
               </div>
             </div>
+
+            <!-- V32.14.3 — Custom fields tipo drop_down do ClickUp aparecem
+                 AQUI no Normal (visível por default), não escondidos no Avançado.
+                 Felipe cravou: "tipo" e outros dropdowns devem ser sempre vistos. -->
+            ${(() => {
+              const targetListId = Actions._resolveClickupTargetList?.(m);
+              const cached = targetListId ? App.state.clickupListFieldsCache?.[targetListId] : null;
+              if (targetListId && !cached && !App._listFieldsAutoload?.has(targetListId)) {
+                if (!App._listFieldsAutoload) App._listFieldsAutoload = new Set();
+                App._listFieldsAutoload.add(targetListId);
+                setTimeout(() => Actions.loadClickupListFields?.(targetListId), 50);
+              }
+              const fields = (cached?.fields && cached.fields.length) ? cached.fields : (meta.customFields || []);
+              if (cached?.loading) {
+                return `<div class="text-[11px] text-slate-400 italic flex items-center gap-1.5"><i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Carregando campos do ClickUp…</div>`;
+              }
+              // Só drop_down no Normal (outros tipos ficam no Avançado pra não poluir)
+              const dropdowns = fields.filter(f => f.type === 'drop_down' && Array.isArray(f.options) && f.options.length);
+              if (dropdowns.length === 0) return '';
+              return `<div class="space-y-2 pt-2 border-t border-white/5">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider inline-flex items-center gap-1.5">
+                  <i data-lucide="list-tree" class="w-3 h-3"></i> Categorias do ClickUp
+                </p>
+                <div class="grid ${dropdowns.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2">
+                  ${dropdowns.map(cf => {
+                    const isReq = cf.required;
+                    const value = String((d.custom_fields || {})[cf.id] || '');
+                    const isEmpty = value.trim() === '';
+                    const warnCls = isReq && isEmpty ? 'border-rose-400/60 ring-1 ring-rose-400/30' : 'border-white/10';
+                    return `<div>
+                      <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">${Utils.escape(cf.name)}${isReq ? ' <span class="text-rose-400">*</span>' : ''}</label>
+                      <select onchange="Actions.updateClickupCustomField('${cf.id}', this.value)" class="w-full px-2 py-2 rounded-lg bg-slate-900 border ${warnCls} text-white text-[12px]" style="color-scheme:dark;">
+                        <option value="">— escolha —</option>
+                        ${cf.options.map(o => `<option value="${Utils.escape(o.id)}" ${value === o.id ? 'selected' : ''}>${Utils.escape(o.name)}</option>`).join('')}
+                      </select>
+                    </div>`;
+                  }).join('')}
+                </div>
+              </div>`;
+            })()}
           </div>
 
           <!-- Toggle Avançado -->
@@ -273,33 +313,25 @@ window.StrategicMapModal = {
                 setTimeout(() => Actions.loadClickupListFields?.(targetListId), 50);
               }
               const fields = (cached?.fields && cached.fields.length) ? cached.fields : (meta.customFields || []);
-              const requiredCount = fields.filter(f => f.required).length;
+              // V32.14.3 — drop_downs já mostram no Normal. Aqui no Avançado
+              // só os tipos não-dropdown (texto, número, etc).
+              const nonDropdownFields = fields.filter(f => f.type !== 'drop_down');
+              const requiredCount = nonDropdownFields.filter(f => f.required).length;
               if (cached?.loading) {
                 return `<div class="text-[11px] text-slate-400 italic flex items-center gap-1.5"><i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Verificando custom fields da list…</div>`;
               }
-              if (fields.length === 0) return '';
+              if (nonDropdownFields.length === 0) return '';
               return `<div>
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                  Custom fields da list
+                  Outros custom fields da list
                   ${requiredCount > 0 ? `<span class="px-1.5 py-0.5 rounded bg-red-500/20 border border-red-400/40 text-red-200 text-[9px] font-black">${requiredCount} obrigatório${requiredCount > 1 ? 's' : ''}</span>` : ''}
                 </p>
                 <div class="space-y-2">
-                  ${fields.map(cf => {
+                  ${nonDropdownFields.map(cf => {
                     const isReq = cf.required;
                     const value = String((d.custom_fields || {})[cf.id] || '');
                     const isEmpty = value.trim() === '';
                     const warnCls = isReq && isEmpty ? 'border-red-400/60 ring-1 ring-red-400/30' : 'border-white/10';
-                    // Render diferente por type
-                    if (cf.type === 'drop_down' && Array.isArray(cf.options)) {
-                      return `<div>
-                        <label class="block text-[10px] font-bold text-slate-400 mb-0.5">${Utils.escape(cf.name)} <span class="text-slate-500">(${Utils.escape(cf.type)})</span>${isReq ? ' <span class="text-red-400">*</span>' : ''}</label>
-                        <select onchange="Actions.updateClickupCustomField('${cf.id}', this.value)" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border ${warnCls} text-white text-[12px]">
-                          <option value="">— escolha —</option>
-                          ${cf.options.map(o => `<option value="${Utils.escape(o.id)}" ${value === o.id ? 'selected' : ''}>${Utils.escape(o.name)}</option>`).join('')}
-                        </select>
-                        ${isReq && isEmpty ? '<p class="text-[10px] text-red-400 mt-0.5">⚠ Obrigatório — preencha antes de criar</p>' : ''}
-                      </div>`;
-                    }
                     return `<div>
                       <label class="block text-[10px] font-bold text-slate-400 mb-0.5">${Utils.escape(cf.name)} <span class="text-slate-500">(${Utils.escape(cf.type)})</span>${isReq ? ' <span class="text-red-400">*</span>' : ''}</label>
                       <input value="${Utils.escape(value)}" oninput="Actions.updateClickupCustomField('${cf.id}', this.value)" placeholder="valor" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border ${warnCls} text-white text-[12px]" />
@@ -3289,7 +3321,7 @@ window.StrategicMapModal = {
       return `<div class="flex items-stretch shrink-0">
         ${this._mindMapConnectorSVG('hsl(35 90% 60%)', 24)}
         <button onclick="Actions.openExecutionTaskDetail('${task.task_id}')" title="Ver detalhe da task no ${task.provider || 'provider'}"
-          class="w-44 text-left rounded-xl bg-slate-900/60 border-2 ${status.border} p-2.5 hover:bg-slate-800 transition group"
+          class="w-44 text-left rounded-l-xl border-r-0 bg-slate-900/60 border-2 ${status.border} p-2.5 hover:bg-slate-800 transition group"
           style="border-left: 4px solid hsl(35 90% 60%);">
           <div class="flex items-center justify-between gap-2 mb-1.5">
             <span class="inline-flex items-center gap-1 text-[9px] font-black text-amber-300 uppercase tracking-widest">
@@ -3303,6 +3335,14 @@ window.StrategicMapModal = {
           </div>
           <p class="text-[12px] font-black text-white leading-snug line-clamp-2" title="${Utils.escape(task.title || '')}">${Utils.escape(task.title || 'Task sem nome')}</p>
           ${task.external_url ? `<p class="text-[9px] text-sky-400 mt-1 inline-flex items-center gap-1"><i data-lucide="external-link" class="w-2.5 h-2.5"></i> Ver detalhe</p>` : ''}
+        </button>
+        <!-- V32.14.3 — Botão Duplicar adjacente ao card. Click cria nova task
+             local com mesmas infos (nome incrementado), ramifica visualmente
+             como mais uma branch da mesma ação. -->
+        <button onclick="Actions.duplicateExecutionTask('${task.task_id}')" title="Duplicar esta execução (cria mais uma branch local)"
+          class="self-stretch px-2 rounded-r-xl border-2 border-l-0 ${status.border} bg-sky-500/15 hover:bg-sky-500/40 text-sky-200 text-[9px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-0.5 transition">
+          <i data-lucide="copy" class="w-3 h-3"></i>
+          <span class="text-[8px] leading-tight">Duplicar</span>
         </button>
       </div>`;
     }).join('');
