@@ -10465,6 +10465,103 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V34.6.z — Backlog RD push: visitors imputados mas que não entraram no RD CRM.
+  async openRdBacklogModal(campaignId) {
+    const cId = Number(campaignId || 0);
+    if (!cId) return Utils.toast('Campanha inválida.');
+    App.state.rdBacklogModal = { open: true, loading: true, campaignId: cId, total: 0, byReason: {}, visitors: [], retrying: false, error: null };
+    App.render();
+    try {
+      const data = await this._trackerFetch(`/api/visitors-rd-backlog?campaign_id=${cId}`);
+      if (!data.ok) {
+        App.state.rdBacklogModal = { ...App.state.rdBacklogModal, loading: false, error: data.message };
+        App.render();
+        return;
+      }
+      App.state.rdBacklogModal = {
+        open: true,
+        loading: false,
+        campaignId: cId,
+        total: Number(data.total || 0),
+        byReason: data.byReason || {},
+        visitors: data.visitors || [],
+        retrying: false,
+        error: null
+      };
+      App.render();
+    } catch (err) {
+      App.state.rdBacklogModal = { ...App.state.rdBacklogModal, loading: false, error: err.message };
+      App.render();
+    }
+  },
+
+  closeRdBacklogModal() {
+    App.state.rdBacklogModal = { open: false, loading: false, campaignId: null, total: 0, byReason: {}, visitors: [], retrying: false, error: null };
+    App.render();
+  },
+
+  // V34.6.z — Retenta TODOS os visitors do backlog. Reaproveita o endpoint
+  // impute-rd-push (idempotente). Chunks de 10, abort em 5 falhas seguidas.
+  async retryRdBacklog() {
+    const m = App.state.rdBacklogModal;
+    if (!m?.open || m.retrying) return;
+    const campaignId = m.campaignId;
+    const visitorIds = (m.visitors || []).map(v => v.lj_visitor_id).filter(Boolean);
+    if (!visitorIds.length) return Utils.toast('Nenhum visitor no backlog.');
+
+    App.state.rdBacklogModal = { ...m, retrying: true };
+    App.render();
+
+    const RD_CHUNK = 10;
+    const chunks = [];
+    for (let i = 0; i < visitorIds.length; i += RD_CHUNK) {
+      chunks.push(visitorIds.slice(i, i + RD_CHUNK));
+    }
+    let totalPushed = 0, totalSkipped = 0, totalAlready = 0;
+    let pipelineMatched = null;
+    let consecutiveFailures = 0;
+    const ABORT_THRESHOLD = 5;
+
+    for (let idx = 0; idx < chunks.length; idx++) {
+      try {
+        const data = await this._trackerFetch('/api/leads-impute-rd-push', {
+          method: 'POST',
+          body: JSON.stringify({ campaign_id: campaignId, visitor_ids: chunks[idx] })
+        });
+        if (!data.ok) {
+          if (data.rateLimit) {
+            Utils.toast(`Rate limit. Aguardando 5s...`);
+            await new Promise(r => setTimeout(r, 5000));
+            idx--;
+            continue;
+          }
+          consecutiveFailures++;
+          if (consecutiveFailures >= ABORT_THRESHOLD) {
+            Utils.toast(`${ABORT_THRESHOLD} lotes seguidos falharam. Aborto.`);
+            break;
+          }
+          continue;
+        }
+        consecutiveFailures = 0;
+        if (pipelineMatched === null) pipelineMatched = data.pipelineMatched;
+        if (!data.pipelineMatched) {
+          Utils.toast(`Pipeline RD "${data.pipelineName}" não encontrado.`);
+          break;
+        }
+        totalPushed += data.rdPushed || 0;
+        totalAlready += data.rdAlready || 0;
+        totalSkipped += data.rdSkipped || 0;
+      } catch (err) {
+        consecutiveFailures++;
+        if (consecutiveFailures >= ABORT_THRESHOLD) break;
+      }
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    Utils.toast(`✓ Retry: +${totalPushed} no RD${totalSkipped ? ` · ${totalSkipped} ainda falharam` : ''}`);
+    await Actions.openRdBacklogModal(campaignId); // re-load
+  },
+
   setImputeCampaignId(campaignId) {
     const m = App.state.imputeCampaignModal;
     if (!m?.open) return;
@@ -10620,9 +10717,16 @@ Object.assign(Actions, {
         }
       }
 
+      // V34.6.z — Se push RD tinha falhas, abre o backlog automaticamente
+      const hadRdFailures = pushToRd && !abort; // ran RD push, completou
+      const finalCampaignId = campaignId;
       App.state.imputeCampaignModal = { open: false, campaignId: null, visitorIds: [], pushToRd: false, processing: false, progress: null, error: null };
       const bankIds = App.state.visitorSearchResults?.bankIds;
       await Actions._runVisitorSearch(bankIds);
+      if (hadRdFailures) {
+        // Delay 1s pra render limpar antes de abrir o backlog
+        setTimeout(() => Actions.openRdBacklogModal(finalCampaignId), 1000);
+      }
     } catch (err) {
       App.state.imputeCampaignModal = { ...App.state.imputeCampaignModal, processing: false, progress: null, error: err.message };
       Utils.toast(`Erro: ${err.message}`);

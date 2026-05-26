@@ -309,6 +309,8 @@ var State = {
       // open=true mostra revisão de duplicatas. emailGroups/phoneGroups = output do
       // /api/visitors-find-duplicates. mergingKey = grupo em processamento (loading).
       duplicatesModal: { open: false, loading: false, emailGroups: [], phoneGroups: [], loadedAt: null, mergingKey: null, error: null },
+      // V34.6.z — Modal de backlog RD push (visitors imputados mas que não entraram no RD).
+      rdBacklogModal: { open: false, loading: false, campaignId: null, total: 0, byReason: {}, visitors: [], retrying: false, error: null },
       // V34.0.0 Onda 6.d — Counts agregados pra "sininho" no menu Leads.
       // duplicateGroupsTotal>0 destaca botão Duplicatas com badge âmbar.
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
@@ -786,6 +788,8 @@ var State = {
       imputeCampaignModal: { open: false, campaignId: null, visitorIds: [], pushToRd: false, processing: false, progress: null, error: null },
       // V34.0.0 Onda 6 — Modal de identity resolution (volátil, fecha em F5).
       duplicatesModal: { open: false, loading: false, emailGroups: [], phoneGroups: [], loadedAt: null, mergingKey: null, error: null },
+      // V34.6.z — Modal de backlog RD push (volátil).
+      rdBacklogModal: { open: false, loading: false, campaignId: null, total: 0, byReason: {}, visitors: [], retrying: false, error: null },
       // V34.0.0 Onda 6.d — Counts volátil (re-fetch periódico).
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
       // V32.14.8 — Timestamp da última sync ClickUp persiste.

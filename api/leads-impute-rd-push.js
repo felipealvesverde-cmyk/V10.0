@@ -249,8 +249,22 @@ module.exports = async function handler(req, res) {
 
   // V34.6.r — Processa N visitors EM PARALELO. Cada visitor roda suas 2-3
   // chamadas RD serial (lookup → upsert → create deal), mas os visitors do
-  // mesmo chunk não esperam uns aos outros. 10 visitors × 1.5s = ~1.5s
-  // wall-clock em vez de 15s serial.
+  // mesmo chunk não esperam uns aos outros.
+  // V34.6.z — Skips agora persistem em lj_visitors (status='failed', error msg)
+  // pra UI mostrar backlog "não entrou no RD" + botão retry.
+  async function persistFailure(visitorId, reason) {
+    try {
+      await req.tenantDb.query(
+        `UPDATE lj_visitors SET
+           external_rd_sync_status = 'failed',
+           external_rd_sync_error = $3,
+           external_rd_synced_at = NOW()
+         WHERE user_id = $1 AND lj_visitor_id = $2`,
+        [userId, visitorId, String(reason || 'unknown').slice(0, 500)]
+      );
+    } catch (_) { /* silent */ }
+  }
+
   async function processOneVisitor(visitorId) {
     try {
       const vRes = await req.tenantDb.query(
@@ -258,9 +272,14 @@ module.exports = async function handler(req, res) {
            FROM lj_visitors WHERE user_id = $1 AND lj_visitor_id = $2 LIMIT 1`,
         [userId, visitorId]
       );
-      if (!vRes.rows.length) return { status: 'skipped', error: 'visitor não encontrado' };
+      if (!vRes.rows.length) {
+        return { status: 'skipped', error: 'visitor não encontrado' };
+      }
       const v = vRes.rows[0];
-      if (!v.email && !v.phone) return { status: 'skipped', error: 'sem email/phone' };
+      if (!v.email && !v.phone) {
+        await persistFailure(visitorId, 'sem email/phone');
+        return { status: 'skipped', error: 'sem email/phone' };
+      }
       if (v.external_rd_deal_id) return { status: 'already' };
 
       let rdContactId = v.external_rd_contact_id || null;
@@ -276,10 +295,17 @@ module.exports = async function handler(req, res) {
         if (v.email) createBody.contact.emails = [{ email: v.email }];
         if (v.phone) createBody.contact.phones = [{ phone: v.phone, type: 'cellphone' }];
         const cr = await rdFetch('/contacts', token, { method: 'POST', body: createBody });
-        if (!cr.ok) return { status: 'skipped', error: `criar contact HTTP ${cr.status}` };
+        if (!cr.ok) {
+          const errMsg = `criar contact HTTP ${cr.status}`;
+          await persistFailure(visitorId, errMsg);
+          return { status: 'skipped', error: errMsg };
+        }
         const created = cr.data?.contact || cr.data;
         rdContactId = created?.id || created?._id;
-        if (!rdContactId) return { status: 'skipped', error: 'contact sem id' };
+        if (!rdContactId) {
+          await persistFailure(visitorId, 'contact sem id');
+          return { status: 'skipped', error: 'contact sem id' };
+        }
       }
 
       const dealBody = {
@@ -291,10 +317,17 @@ module.exports = async function handler(req, res) {
         contacts: [{ id: rdContactId }]
       };
       const dr = await rdFetch('/deals', token, { method: 'POST', body: dealBody });
-      if (!dr.ok) return { status: 'skipped', error: `criar deal HTTP ${dr.status}: ${JSON.stringify(dr.data).slice(0, 200)}` };
+      if (!dr.ok) {
+        const errMsg = `criar deal HTTP ${dr.status}: ${JSON.stringify(dr.data).slice(0, 200)}`;
+        await persistFailure(visitorId, errMsg);
+        return { status: 'skipped', error: errMsg };
+      }
       const dealData = dr.data?.deal || dr.data;
       const rdDealId = dealData?.id || dealData?._id;
-      if (!rdDealId) return { status: 'skipped', error: 'deal sem id' };
+      if (!rdDealId) {
+        await persistFailure(visitorId, 'deal sem id');
+        return { status: 'skipped', error: 'deal sem id' };
+      }
 
       await req.tenantDb.query(
         `UPDATE lj_visitors SET

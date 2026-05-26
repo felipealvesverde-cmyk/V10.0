@@ -42,6 +42,7 @@ var LeadsModule = {
       + this.bankSelectionModal()
       + this.imputeCampaignModal()
       + this.duplicatesModal()
+      + this.rdBacklogModal()
       + this.importModal()
       // V34.6.f hotfix — Modal "Criar banco" precisa render aqui também.
       // SettingsModal._leadBankEditModal só roda dentro de Settings; user
@@ -484,6 +485,81 @@ var LeadsModule = {
     </div>`;
   },
 
+  // V34.6.z — Modal de backlog RD push (visitors imputados mas que não entraram
+  // no RD CRM). Mostra razões agrupadas + lista + botão retry.
+  rdBacklogModal() {
+    const m = App.state.rdBacklogModal;
+    if (!m?.open) return '';
+    const total = Number(m.total || 0);
+    const byReason = m.byReason || {};
+    const visitors = m.visitors || [];
+    const retrying = Boolean(m.retrying);
+    const reasonsHtml = Object.entries(byReason)
+      .sort((a, b) => b[1] - a[1])
+      .map(([key, count]) => `<div class="flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200">
+        <span class="text-sm text-slate-800 font-bold">${Utils.escape(key)}</span>
+        <span class="px-2 py-1 rounded-lg bg-rose-100 text-rose-800 text-xs font-black">${count}</span>
+      </div>`).join('');
+    const visitorsList = visitors.slice(0, 50).map(v => `
+      <div class="px-3 py-2 rounded-xl bg-white border border-slate-100">
+        <div class="flex items-center justify-between gap-2">
+          <div class="min-w-0 flex-1">
+            <p class="font-black text-sm text-slate-900 truncate">${Utils.escape(v.name || '(sem nome)')}</p>
+            <p class="text-xs text-slate-500 truncate">${Utils.escape(v.email || '-')} · ${Utils.escape(v.phone || '-')} · banco: ${Utils.escape(v.bank_name || '-')}</p>
+          </div>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${v.sync_status === 'failed' ? 'bg-rose-100 text-rose-800' : 'bg-slate-200 text-slate-600'}">${Utils.escape(v.sync_status || 'pendente')}</span>
+        </div>
+        ${v.sync_error ? `<p class="text-[11px] text-rose-700 mt-1 font-mono">${Utils.escape(v.sync_error.slice(0, 120))}</p>` : ''}
+      </div>
+    `).join('');
+    return `<div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div class="bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 w-full max-w-3xl mt-8">
+        <div class="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1"><i data-lucide="alert-circle" class="w-5 h-5 text-rose-600"></i><h3 class="text-xl font-black">Backlog RD push</h3></div>
+            <p class="text-sm text-slate-500">Visitors imputados na campanha mas que NÃO entraram no RD CRM. Agrupados por motivo.</p>
+          </div>
+          <button onclick="Actions.closeRdBacklogModal()" class="w-10 h-10 rounded-2xl bg-slate-100 font-black text-xl shrink-0">×</button>
+        </div>
+
+        ${m.loading ? `<div class="py-12 text-center text-sm text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin inline mb-2"></i><p>Buscando backlog...</p></div>` : ''}
+        ${m.error ? `<div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-sm font-bold text-rose-800 mb-3">${Utils.escape(m.error)}</div>` : ''}
+
+        ${!m.loading && total === 0 ? `
+          <div class="py-12 text-center">
+            <i data-lucide="check-circle-2" class="w-12 h-12 text-emerald-500 inline mb-2"></i>
+            <p class="font-black text-slate-700">Nenhum backlog</p>
+            <p class="text-sm text-slate-500 mt-1">Todos os imputados entraram no RD CRM.</p>
+          </div>
+        ` : ''}
+
+        ${!m.loading && total > 0 ? `
+          <div class="bg-rose-50 border border-rose-200 rounded-2xl p-3 mb-3">
+            <p class="text-sm font-black text-rose-900">${total} visitor(s) imputado(s) mas SEM deal no RD</p>
+          </div>
+
+          <div class="mb-3">
+            <p class="text-xs font-black text-slate-500 uppercase tracking-wide mb-2">Motivos agrupados</p>
+            <div class="space-y-1">${reasonsHtml}</div>
+          </div>
+
+          <details class="mb-3">
+            <summary class="text-xs font-black text-slate-500 uppercase tracking-wide cursor-pointer">Ver visitors (${visitors.length}${visitors.length > 50 ? ', mostrando 50' : ''})</summary>
+            <div class="space-y-1 mt-2 max-h-[40vh] overflow-y-auto pr-1">${visitorsList}</div>
+          </details>
+        ` : ''}
+
+        <div class="flex gap-2 pt-4 mt-3 border-t border-slate-100 flex-wrap">
+          ${total > 0 ? `<button ${retrying ? 'disabled' : ''} onclick="Actions.retryRdBacklog()" class="flex-1 px-5 py-3 rounded-2xl ${retrying ? 'bg-slate-300 text-slate-500 cursor-wait' : 'bg-violet-600 hover:bg-violet-700 text-white'} font-black flex items-center justify-center gap-2" ${retrying ? '' : 'style="color:#fff!important;"'}>
+            <i data-lucide="${retrying ? 'loader-2' : 'rotate-cw'}" class="w-4 h-4 ${retrying ? 'animate-spin' : ''}"></i>
+            ${retrying ? 'Retentando...' : `Retentar ${total} visitor(s)`}
+          </button>` : ''}
+          <button onclick="Actions.closeRdBacklogModal()" class="px-5 py-3 rounded-2xl bg-slate-100 font-black">Fechar</button>
+        </div>
+      </div>
+    </div>`;
+  },
+
   // V34.0.0 Onda 5.b — Bloco do modal de imputação que controla o push pro RD CRM.
   // Mostra checkbox "Também empurrar pro RD CRM" (default ON se crm_pat conectado).
   // Avisa que pipeline RD precisa ter nome EXATO da campanha LJ.
@@ -564,6 +640,7 @@ var LeadsModule = {
               </button>
               <button onclick="Actions.closeImputeCampaignModal()" class="px-5 py-3 rounded-2xl bg-slate-100 font-black">Cancelar</button>
             </div>
+            ${selectedCampaign ? `<button onclick="Actions.openRdBacklogModal(${selectedCampaign.id})" class="mt-2 w-full px-4 py-2.5 rounded-2xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-800 font-black text-sm flex items-center justify-center gap-2"><i data-lucide="alert-circle" class="w-3.5 h-3.5"></i> Ver backlog RD desta campanha (visitors não imputados)</button>` : ''}
           </div>
         `}
       </div>
