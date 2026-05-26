@@ -648,6 +648,18 @@ var LeadsModule = {
   _importBankSelector() {
     const banks = App.state.leadBanksCache?.banks || [];
     const selectedId = App.state.leadImportBankId || null;
+    // V34.6.g hotfix — race recovery: se banks carregaram mas selectedId nunca
+    // foi setado (created via "+ Criar banco" antes do fix do saveLeadBank, ou
+    // race condition de load paralelo), auto-seleciona o default/primeiro.
+    // Deferido pra próximo tick pra não mutar state durante render.
+    if (banks.length && !selectedId && window.Actions?.setLeadImportBank) {
+      setTimeout(() => {
+        if (!App.state.leadImportBankId && App.state.showLeadImportModal) {
+          const fallback = banks.find(b => b.is_default) || banks[0];
+          if (fallback) Actions.setLeadImportBank(fallback.id);
+        }
+      }, 0);
+    }
     if (!banks.length) {
       return `<div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-4">
         <p class="text-sm font-black text-rose-800 mb-1">Nenhum banco de leads encontrado</p>

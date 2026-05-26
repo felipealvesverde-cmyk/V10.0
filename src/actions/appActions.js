@@ -10092,6 +10092,12 @@ Object.assign(Actions, {
       }
       Utils.toast(m.mode === 'edit' ? '✓ Banco atualizado.' : `✓ Banco "${data.bank.name}" criado.`);
       App.state.leadBankEditModal = null;
+      // V34.6.g hotfix — Se modal de Import está aberto e ainda não tem banco
+      // selecionado, auto-seleciona o recém-criado pra desbloquear o botão "Importar".
+      // Antes: <select> mostrava o banco visualmente (default HTML) mas state ficava null.
+      if (m.mode === 'create' && data.bank?.id && App.state.showLeadImportModal && !App.state.leadImportBankId) {
+        App.state.leadImportBankId = Number(data.bank.id);
+      }
       await Actions.loadLeadBanks(); // refetch
     } catch (err) {
       App.state.leadBankEditModal = { ...App.state.leadBankEditModal, saving: false, error: err.message };
