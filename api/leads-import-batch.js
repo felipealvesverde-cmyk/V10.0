@@ -98,7 +98,7 @@ module.exports = async function handler(req, res) {
       let byEmail = null, byPhone = null;
       if (email) {
         const r = await req.tenantDb.query(
-          `SELECT id, lj_visitor_id, bank_id, email, phone, name FROM lj_visitors
+          `SELECT id, lj_visitor_id, bank_id, email, phone, name, external_rd_contact_id FROM lj_visitors
            WHERE user_id = $1 AND LOWER(email) = $2 LIMIT 1`,
           [userId, email]
         );
@@ -106,7 +106,7 @@ module.exports = async function handler(req, res) {
       }
       if (phone) {
         const r = await req.tenantDb.query(
-          `SELECT id, lj_visitor_id, bank_id, email, phone, name FROM lj_visitors
+          `SELECT id, lj_visitor_id, bank_id, email, phone, name, external_rd_contact_id FROM lj_visitors
            WHERE user_id = $1 AND phone = $2 LIMIT 1`,
           [userId, phone]
         );
@@ -126,7 +126,7 @@ module.exports = async function handler(req, res) {
           crossMerged = true;
           // O survivor sobreviveu — re-fetch
           const sr = await req.tenantDb.query(
-            `SELECT id, lj_visitor_id, bank_id, email, phone, name FROM lj_visitors
+            `SELECT id, lj_visitor_id, bank_id, email, phone, name, external_rd_contact_id FROM lj_visitors
              WHERE user_id = $1 AND (LOWER(email) = $2 OR phone = $3) LIMIT 1`,
             [userId, email, phone]
           );
@@ -158,6 +158,18 @@ module.exports = async function handler(req, res) {
           [userId, visitorId, bankId, email, phone, name]
         );
         updated++;
+        // V34.7.a — Se import trouxe info nova E visitor já existe no RD CRM,
+        // marca pra sync de contact. Worker assíncrono empurra depois.
+        const hasNewInfo = (email && !existing.email) || (phone && !existing.phone) || (name && !existing.name);
+        const hasRdContact = Boolean(existing.external_rd_contact_id);
+        if (hasNewInfo && hasRdContact) {
+          try {
+            const { markForSync } = require('../lib/rd-contact-sync-engine');
+            await markForSync(req.tenantDb, userId, visitorId, 'import-diff');
+          } catch (mErr) {
+            console.error('[leads-import-batch] markForSync err:', mErr.message);
+          }
+        }
       } else {
         // INSERT novo visitor
         visitorId = `imp_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
