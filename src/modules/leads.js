@@ -439,24 +439,44 @@ var LeadsModule = {
     </div>`;
   },
 
-  // V34.6.k hotfix — Progress bar do chunking de imputação (2 fases: DB depois RD).
+  // V34.6.s — Progress bar honesto: mostra pushed (sucessos reais), não current
+  // (tentativas). Antes enganava cliente quando tudo dava 502.
   _imputeProgressBar(p) {
-    const pct = Math.min(100, Math.round((p.current / p.total) * 100));
     const isDb = p.phase === 'db';
     const color = isDb ? 'slate' : 'violet';
     const label = isDb ? 'DB (LJ)' : 'RD CRM';
-    return `<div class="bg-${color}-50 border border-${color}-200 rounded-2xl p-3">
+    const total = Number(p.total || 1);
+    const tried = Number(p.current || 0);
+    // DB: cada chunk é confiável, usa current. RD: usa pushed (sucessos).
+    const pushed = isDb ? tried : Number(p.pushed || 0);
+    const already = Number(p.already || 0);
+    const failed = Math.max(0, tried - pushed - already);
+    const pctSuccess = Math.min(100, Math.round((pushed / total) * 100));
+    const pctTried = Math.min(100, Math.round((tried / total) * 100));
+    const failingMostly = !isDb && tried > 5 && (failed / tried) > 0.5;
+    const boxColor = failingMostly ? 'rose' : color;
+    return `<div class="bg-${boxColor}-50 border border-${boxColor}-200 rounded-2xl p-3">
       <div class="flex items-center justify-between gap-2 mb-2">
-        <div class="flex items-center gap-2 text-sm text-${color}-900 font-black">
+        <div class="flex items-center gap-2 text-sm text-${boxColor}-900 font-black">
           <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
-          Fase ${label} · Lote ${p.currentChunk}/${p.totalChunks}
+          ${failingMostly ? `${label} recusando` : `Fase ${label} · Lote ${p.currentChunk}/${p.totalChunks}`}
         </div>
-        <div class="text-xs text-${color}-700 font-bold">${p.current}/${p.total} · ${pct}%</div>
+        <div class="text-xs text-${boxColor}-700 font-bold">
+          ${pushed} ok${already ? ` · ${already} já` : ''}${failed ? ` · ${failed} falhas` : ''} de ${total} · ${pctSuccess}%
+        </div>
       </div>
-      <div class="w-full h-2 rounded-full bg-${color}-100 overflow-hidden">
-        <div class="h-full bg-${color}-500 transition-all" style="width:${pct}%"></div>
+      <div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden relative">
+        <div class="h-full bg-${boxColor}-500 transition-all" style="width:${pctSuccess}%"></div>
+        <div class="absolute top-0 h-full bg-slate-300 opacity-50 transition-all" style="left:${pctSuccess}%; width:${Math.max(0, pctTried - pctSuccess)}%"></div>
       </div>
-      <p class="text-[10px] text-${color}-700 mt-2">${isDb ? 'Imputando no banco do LJ (50 por lote)' : 'Empurrando pro RD CRM (25 por lote, API mais lenta)'}. Não feche o modal.</p>
+      <p class="text-[10px] text-${boxColor}-700 mt-2">
+        ${isDb
+          ? 'Imputando no banco do LJ (50 por lote).'
+          : failingMostly
+            ? '⚠️ Barra colorida = deals reais. Cinza = falhas. Aborto em 5 lotes seguidos falhando.'
+            : 'Barra colorida = deals criados no RD. Cinza = tentativas em curso. 5 por lote, 3 paralelos.'}
+        Não feche o modal.
+      </p>
     </div>`;
   },
 

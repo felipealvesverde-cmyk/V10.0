@@ -10482,10 +10482,10 @@ Object.assign(Actions, {
     if (!visitorIds.length) return Utils.toast('Nenhum visitor pra imputar.');
     if (m.processing) return;
 
-    // V34.6.k+r — chunking. DB=50/chunk (queries internas).
-    // RD=10/chunk (V34.6.r reduziu de 25; backend paraleliza internamente).
+    // V34.6.k+r+s — chunking. DB=50/chunk (queries internas).
+    // RD=5/chunk (s reduziu de 10; backend tem PARALLEL_LIMIT=3 interno).
     const DB_CHUNK = 50;
-    const RD_CHUNK = 10;
+    const RD_CHUNK = 5;
 
     App.state.imputeCampaignModal = {
       ...m,
@@ -10545,10 +10545,23 @@ Object.assign(Actions, {
         let totalRdPushed = 0, totalRdAlready = 0, totalRdSkipped = 0;
         let pipelineMatched = null, pipelineName = null;
 
+        // V34.6.s — abort em cascata de erros 502/timeout (igual mailing RD).
+        let rdConsecutiveFailures = 0;
+        const RD_ABORT_THRESHOLD = 5;
         for (let idx = 0; idx < rdChunks.length; idx++) {
+          // V34.6.s — progress agora carrega pushed/already/skipped (honesto)
           App.state.imputeCampaignModal = {
             ...App.state.imputeCampaignModal,
-            progress: { phase: 'rd', current: idx * RD_CHUNK, total: visitorIds.length, currentChunk: idx + 1, totalChunks: rdChunks.length }
+            progress: {
+              phase: 'rd',
+              current: idx * RD_CHUNK,
+              pushed: totalRdPushed,
+              already: totalRdAlready,
+              skipped: totalRdSkipped,
+              total: visitorIds.length,
+              currentChunk: idx + 1,
+              totalChunks: rdChunks.length
+            }
           };
           App.render();
           try {
@@ -10557,22 +10570,32 @@ Object.assign(Actions, {
               body: JSON.stringify({ campaign_id: campaignId, visitor_ids: rdChunks[idx] })
             });
             if (!rdData.ok) {
-              Utils.toast(`RD lote ${idx + 1}: ${rdData.message}`);
-              // Se pipeline não existe, não adianta continuar nos próximos chunks
+              Utils.toast(`RD lote ${idx + 1}: ${rdData.message || 'erro'}`);
+              rdConsecutiveFailures++;
               if (/pipeline.*não encontrado|pipeline.*not found/i.test(rdData.message || '')) break;
+              if (rdConsecutiveFailures >= RD_ABORT_THRESHOLD) {
+                Utils.toast(`${RD_ABORT_THRESHOLD} lotes RD seguidos falhando. Provider RD com problema — aborto.`);
+                break;
+              }
               continue;
             }
+            rdConsecutiveFailures = 0; // sucesso reseta
             if (pipelineMatched === null) pipelineMatched = rdData.pipelineMatched;
             if (!pipelineName) pipelineName = rdData.pipelineName;
             if (!rdData.pipelineMatched) {
               Utils.toast(`RD: pipeline "${rdData.pipelineName}" não encontrado. Crie no RD com esse nome exato.`);
-              break; // sem pipeline, sem push possível nos próximos chunks
+              break;
             }
             totalRdPushed += rdData.rdPushed || 0;
             totalRdAlready += rdData.rdAlready || 0;
             totalRdSkipped += rdData.rdSkipped || 0;
           } catch (err) {
             Utils.toast(`RD lote ${idx + 1} erro: ${err.message}`);
+            rdConsecutiveFailures++;
+            if (rdConsecutiveFailures >= RD_ABORT_THRESHOLD) {
+              Utils.toast(`${RD_ABORT_THRESHOLD} lotes RD seguidos com erro de rede. Aborto.`);
+              break;
+            }
           }
         }
         if (pipelineMatched) {

@@ -27,25 +27,41 @@ const { getRdCredential } = require('../lib/rd-credentials');
 
 const RD_API_BASE = 'https://api.rd.services/crm/v1';
 
+// V34.6.s — Timeout explícito 8s por call RD via AbortController. Sem isso,
+// uma chamada que demora 30s+ trava o chunk inteiro e o Railway derruba (502).
+const RD_CALL_TIMEOUT_MS = 8000;
+
 async function rdFetch(path, token, options = {}) {
   const url = `${RD_API_BASE}${path}`;
-  const init = {
-    method: options.method || 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...(options.headers || {})
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RD_CALL_TIMEOUT_MS);
+  try {
+    const init = {
+      method: options.method || 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...(options.headers || {})
+      },
+      signal: controller.signal
+    };
+    if (options.body !== undefined) {
+      init.body = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
     }
-  };
-  if (options.body !== undefined) {
-    init.body = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
+    const response = await fetch(url, init);
+    const text = await response.text();
+    let data = null;
+    try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }
+    return { ok: response.ok, status: response.status, data };
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      return { ok: false, status: 408, data: null, error: 'timeout 8s' };
+    }
+    return { ok: false, status: 0, data: null, error: err.message };
+  } finally {
+    clearTimeout(timer);
   }
-  const response = await fetch(url, init);
-  const text = await response.text();
-  let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }
-  return { ok: response.ok, status: response.status, data };
 }
 
 function normName(s) { return String(s || '').trim().toLowerCase(); }
@@ -67,13 +83,13 @@ module.exports = async function handler(req, res) {
   const visitorIds = Array.isArray(body.visitor_ids) ? body.visitor_ids.map(String).filter(Boolean) : [];
   if (!campaignId) return res.status(400).json({ ok: false, message: 'campaign_id obrigatório.' });
   if (!visitorIds.length) return res.status(400).json({ ok: false, message: 'Nenhum visitor pra push.' });
-  // V34.6.r — hard limit 10 visitors/req + paralelização interna.
-  // RD CRM faz 2-3 chamadas API por visitor (~300ms cada). 25 leads serial
-  // estourava timeout Railway (~30s). 10 leads paralelos = ~3-6s.
-  if (visitorIds.length > 10) {
+  // V34.6.s — hard limit 5 visitors/req + paralelização limitada (3 simultâneos).
+  // Antes (V34.6.r): 10 paralelos = 30 calls RD simultâneas estourava rate limit
+  // E uma call lenta travava o chunk inteiro.
+  if (visitorIds.length > 5) {
     return res.status(400).json({
       ok: false,
-      message: `Batch grande demais (${visitorIds.length} visitors). Limite: 10 por request pro RD CRM. Frontend deve fazer chunking.`
+      message: `Batch grande demais (${visitorIds.length} visitors). Limite: 5 por request pro RD CRM.`
     });
   }
 
@@ -217,9 +233,18 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  const results = await Promise.allSettled(visitorIds.map(processOneVisitor));
-  for (let i = 0; i < results.length; i++) {
-    const r = results[i];
+  // V34.6.s — PARALLEL_LIMIT=3: roda no máximo 3 visitors em paralelo por vez.
+  // Reduz pico de chamadas RD (3 × 3 calls = 9 simultâneas) pra evitar rate
+  // limit. Wall-clock 5 visitors / 3 paralelos = 2 sub-batches × ~1.5s = ~3s.
+  const PARALLEL_LIMIT = 3;
+  const allResults = [];
+  for (let i = 0; i < visitorIds.length; i += PARALLEL_LIMIT) {
+    const slice = visitorIds.slice(i, i + PARALLEL_LIMIT);
+    const sliceResults = await Promise.allSettled(slice.map(processOneVisitor));
+    allResults.push(...sliceResults);
+  }
+  for (let i = 0; i < allResults.length; i++) {
+    const r = allResults[i];
     if (r.status === 'fulfilled') {
       const val = r.value;
       if (val.status === 'pushed') rdPushed++;
