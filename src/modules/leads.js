@@ -21,9 +21,9 @@ var LeadsModule = {
     return this.hero(allLeads, 'profile') + subTabs + this._campaignContextChips() + this.profileFinderUI(displayLeads, allLeads.length) + this.importModal() + this.rdMailingModal(displayLeads) + this.list(displayLeads, allLeads.length);
   },
 
-  // V33.0.0-alpha16 (Leonardo) — Hero dark unificado pro menu Leads.
-  // Mesmo DNA do hero de Produtos (Print 1): bg-slate-950 + radial gradient
-  // sutil + badge uppercase + título + grid 2x2 de métricas.
+  // V33.0.0-alpha19 — Hero alinhado ao padrão Produtos + Campanhas:
+  // h2 text-3xl font-black (sem md:text-4xl, sem tracking-tight),
+  // badge "Leads Revenue Intelligence" sem bullet, darkMetric idêntico.
   hero(allLeads, mode) {
     const total = allLeads.length;
     const quentes = allLeads.filter(l => l.temperature === 'Quente').length;
@@ -33,21 +33,22 @@ var LeadsModule = {
       <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
       <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
         <div>
-          <div class="flex items-center gap-2 mb-2"><i data-lucide="users-round" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Leads • Revenue Intelligence</p></div>
-          <h1 class="text-3xl md:text-4xl font-black tracking-tight">Leads</h1>
+          <div class="flex items-center gap-2 mb-2"><i data-lucide="users-round" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Leads Revenue Intelligence</p></div>
+          <h2 class="text-3xl font-black">Leads</h2>
           <p class="text-sm text-slate-300 max-w-3xl mt-2">Base global, buscador de perfil e Journey Pipeline conectados à inteligência RevOps. Aqui você desce do macro pro indivíduo.</p>
         </div>
         <div class="grid grid-cols-2 gap-3">
-          ${this._heroMetric('Leads', total, 'users')}
-          ${this._heroMetric('Quentes', quentes, 'flame')}
-          ${this._heroMetric('Mornos', mornos, 'thermometer')}
-          ${this._heroMetric('Score médio', avgScore, 'gauge')}
+          ${this.darkMetric('Leads', total, 'users')}
+          ${this.darkMetric('Quentes', quentes, 'flame')}
+          ${this.darkMetric('Mornos', mornos, 'thermometer')}
+          ${this.darkMetric('Score médio', avgScore, 'gauge')}
         </div>
       </div>
     </div>`;
   },
 
-  _heroMetric(label, value, icon) {
+  // Helper idêntico ao usado em products.js + campaigns.js + actions.js.
+  darkMetric(label, value, icon) {
     return `<div class="bg-white/10 border border-white/10 rounded-2xl p-4"><div class="flex items-center justify-between"><p class="text-xs font-black text-slate-300">${label}</p><i data-lucide="${icon}" class="w-4 h-4 text-slate-300"></i></div><div class="text-3xl font-black mt-2">${value}</div></div>`;
   },
 

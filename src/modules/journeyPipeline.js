@@ -157,17 +157,18 @@ var JourneyPipelineModule = {
     // empilhar abaixo do hero (mesmo DNA Print 1).
     const subTabs = (opts && opts.subTabs) || '';
     return `<div class="journey-pipeline space-y-5">
-      <!-- V33.0.0-alpha16 — Hero realinhado pra paleta Print 1: bg-slate-950
-           + radial gradient sutil. Substitui o jp-hero custom anterior. -->
+      <!-- V33.0.0-alpha19 — Hero EXATAMENTE no padrão Produtos+Campanhas:
+           bg-slate-950 + radial idêntico + h2 text-3xl + badge sem bullet.
+           Substitui o jp-hero custom. -->
       <div class="bg-slate-950 text-white rounded-[2rem] p-5 shadow-sm overflow-hidden relative">
         <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
         <div class="relative z-10 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_430px] items-center gap-5">
           <div class="min-w-0">
-            <div class="flex items-center gap-2 mb-2"><i data-lucide="activity" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">JourneyScore Labs • Pipeline</p></div>
-            <h1 class="text-3xl md:text-4xl font-black tracking-tight">Journey Pipeline</h1>
-            <p class="text-slate-300 mt-2 max-w-xl text-sm lg:text-base leading-relaxed">A linha viva da receita: marketing, vendas e CS conectados em um fluxo visual de inteligência operacional.</p>
+            <div class="flex items-center gap-2 mb-2"><i data-lucide="activity" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">JourneyScore Labs Pipeline</p></div>
+            <h2 class="text-3xl font-black">Journey Pipeline</h2>
+            <p class="text-sm text-slate-300 max-w-3xl mt-2">A linha viva da receita: marketing, vendas e CS conectados em um fluxo visual de inteligência operacional.</p>
           </div>
-          <div class="w-full max-w-[430px] xl:ml-auto xl:mr-4 grid grid-cols-2 sm:grid-cols-3 gap-2.5">${this.metricCard('Pessoas no fluxo', Utils.escape(this.formatNumber(metrics.people)))}${this.metricCard('Velocidade', metrics.velocity)}${this.metricCard('Score médio', metrics.avgScore)}${this.metricCard('Gargalos', metrics.bottlenecks)}${this.metricCard('Previsão', metrics.forecast)}${this.metricCard('Conversion Rate', metrics.conversionRate)}</div>
+          <div class="w-full max-w-[430px] xl:ml-auto xl:mr-4 grid grid-cols-2 sm:grid-cols-3 gap-2.5">${this.metricCard('Pessoas no fluxo', Utils.escape(this.formatNumber(metrics.people)), 'users')}${this.metricCard('Velocidade', metrics.velocity, 'gauge')}${this.metricCard('Score médio', metrics.avgScore, 'star')}${this.metricCard('Gargalos', metrics.bottlenecks, 'alert-triangle')}${this.metricCard('Previsão', metrics.forecast, 'trending-up')}${this.metricCard('Conversion', metrics.conversionRate, 'arrow-right-left')}</div>
         </div>
       </div>
       ${subTabs}
@@ -181,12 +182,16 @@ var JourneyPipelineModule = {
     </div>`;
   },
 
-  // V33.0.0-alpha16 (Leonardo) — Alinhado ao darkMetric do Print 1: fundo
-  // white/10 + border white/10 + ícone no canto + valor grande embaixo.
-  metricCard(label, value, tone = '') {
+  // V33.0.0-alpha19 — darkMetric idêntico ao usado em products/campaigns/
+  // actions/leads: ícone no canto + label esquerda + valor 3xl embaixo.
+  // 6 cards em grid 3 col precisa text-2xl pra caber, não 3xl como nos 2x2.
+  metricCard(label, value, icon = 'circle') {
     return `<div class="bg-white/10 border border-white/10 rounded-2xl p-3 min-w-0 overflow-hidden">
-      <p class="text-[11px] font-black text-slate-300 truncate">${label}</p>
-      <div class="text-xl lg:text-2xl font-black mt-1 truncate ${tone || 'text-white'}">${value}</div>
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-[11px] font-black text-slate-300 truncate">${label}</p>
+        <i data-lucide="${icon}" class="w-3.5 h-3.5 text-slate-300 shrink-0"></i>
+      </div>
+      <div class="text-2xl font-black mt-1 truncate text-white">${value}</div>
     </div>`;
   },
 
