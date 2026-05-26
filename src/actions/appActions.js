@@ -10482,10 +10482,10 @@ Object.assign(Actions, {
     if (!visitorIds.length) return Utils.toast('Nenhum visitor pra imputar.');
     if (m.processing) return;
 
-    // V34.6.w — chunk RD = 1. Pra diagnose: se cada chunk de 1 também der 502,
-    // problema é INSANO (RD/network). Se funcionar, problema é volume/concurrent.
+    // V34.6.x — chunk RD = 10 (volta config razoável agora que URL está certa).
+    // Problema era api.rd.services/crm/v1 retornando 404, não timeout.
     const DB_CHUNK = 50;
-    const RD_CHUNK = 1;
+    const RD_CHUNK = 10;
 
     App.state.imputeCampaignModal = {
       ...m,
