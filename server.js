@@ -796,6 +796,12 @@ async function runMigrations() {
 }
 
 // V23.0.0 — Middleware: anexa pool + usuário decodificado em req.
+// V33.0.0 Onda Sliding Session — emite refresh token no header X-Auth-Refresh
+// quando o JWT atual está nas últimas 6h de vida. Padrão GitHub/Linear:
+// cliente ativo renova sozinho, cliente inativo >24h cai pro relogin inline.
+const SLIDING_SESSION_TTL = '24h';            // novo JWT vale 24h
+const SLIDING_RENEWAL_WINDOW_MS = 6 * 60 * 60 * 1000;   // renova quando < 6h pra expirar
+
 app.use(async (req, res, next) => {
   req.db = pgPool;
   req.user = null;
@@ -803,7 +809,24 @@ app.use(async (req, res, next) => {
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
     if (token) {
-      try { req.user = jwt.verify(token, JWT_SECRET); } catch (_) { req.user = null; }
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        req.user = decoded;
+        // Sliding Session — se token tá perto de expirar, gera novo e envia no header.
+        // Expor via Access-Control-Expose-Headers pra frontend ler em CORS responses.
+        if (decoded.exp) {
+          const expMs = decoded.exp * 1000;  // exp vem em segundos
+          const msToExpiry = expMs - Date.now();
+          if (msToExpiry > 0 && msToExpiry < SLIDING_RENEWAL_WINDOW_MS) {
+            const { iat, exp, ...payload } = decoded;
+            const renewed = jwt.sign(payload, JWT_SECRET, { expiresIn: SLIDING_SESSION_TTL });
+            res.setHeader('X-Auth-Refresh', renewed);
+            res.setHeader('Access-Control-Expose-Headers', 'X-Auth-Refresh');
+          }
+        }
+      } catch (_) {
+        req.user = null;
+      }
     }
   }
   next();
