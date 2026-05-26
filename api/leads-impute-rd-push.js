@@ -83,13 +83,13 @@ module.exports = async function handler(req, res) {
   const visitorIds = Array.isArray(body.visitor_ids) ? body.visitor_ids.map(String).filter(Boolean) : [];
   if (!campaignId) return res.status(400).json({ ok: false, message: 'campaign_id obrigatório.' });
   if (!visitorIds.length) return res.status(400).json({ ok: false, message: 'Nenhum visitor pra push.' });
-  // V34.6.s — hard limit 5 visitors/req + paralelização limitada (3 simultâneos).
-  // Antes (V34.6.r): 10 paralelos = 30 calls RD simultâneas estourava rate limit
-  // E uma call lenta travava o chunk inteiro.
-  if (visitorIds.length > 5) {
+  // V34.6.t — hard limit 2 visitors/req + SEM paralelização interna.
+  // Felipe ainda reporta 502 com 5+PARALLEL_LIMIT=3. Going ultra-conservativo
+  // pra estabilizar primeiro, otimiza depois quando souber root cause real.
+  if (visitorIds.length > 2) {
     return res.status(400).json({
       ok: false,
-      message: `Batch grande demais (${visitorIds.length} visitors). Limite: 5 por request pro RD CRM.`
+      message: `Batch grande demais (${visitorIds.length} visitors). Limite: 2 por request pro RD CRM.`
     });
   }
 
@@ -233,15 +233,16 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  // V34.6.s — PARALLEL_LIMIT=3: roda no máximo 3 visitors em paralelo por vez.
-  // Reduz pico de chamadas RD (3 × 3 calls = 9 simultâneas) pra evitar rate
-  // limit. Wall-clock 5 visitors / 3 paralelos = 2 sub-batches × ~1.5s = ~3s.
-  const PARALLEL_LIMIT = 3;
+  // V34.6.t — totalmente serial. 2 visitors max × ~3-4s cada = ~6-8s wall-clock.
+  // Bem dentro de qualquer timeout Railway razoável (≥10s).
   const allResults = [];
-  for (let i = 0; i < visitorIds.length; i += PARALLEL_LIMIT) {
-    const slice = visitorIds.slice(i, i + PARALLEL_LIMIT);
-    const sliceResults = await Promise.allSettled(slice.map(processOneVisitor));
-    allResults.push(...sliceResults);
+  for (const vid of visitorIds) {
+    try {
+      const r = await processOneVisitor(vid);
+      allResults.push({ status: 'fulfilled', value: r });
+    } catch (err) {
+      allResults.push({ status: 'rejected', reason: err });
+    }
   }
   for (let i = 0; i < allResults.length; i++) {
     const r = allResults[i];

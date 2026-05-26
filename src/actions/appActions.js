@@ -10482,10 +10482,10 @@ Object.assign(Actions, {
     if (!visitorIds.length) return Utils.toast('Nenhum visitor pra imputar.');
     if (m.processing) return;
 
-    // V34.6.k+r+s — chunking. DB=50/chunk (queries internas).
-    // RD=5/chunk (s reduziu de 10; backend tem PARALLEL_LIMIT=3 interno).
+    // V34.6.t — chunk RD ultra-conservativo enquanto não diagnosticamos timeout
+    // real do Railway. 2 visitors × ~3s cada = ~6s wall-clock.
     const DB_CHUNK = 50;
-    const RD_CHUNK = 5;
+    const RD_CHUNK = 2;
 
     App.state.imputeCampaignModal = {
       ...m,
