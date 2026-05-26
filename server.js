@@ -856,7 +856,9 @@ const PUBLIC_API_ROUTES = new Set([
   // /api/tracker-snippet NÃO é público — só dono do LJ gera snippet (JWT exigido).
   // V33.0.0 Onda 2 — Hotmart webhook (Hotmart POSTa quando alguém compra).
   // Auth: HOTTOK do body é comparado contra hotmart_config.hottok_enc do tenant.
-  '/api/hotmart-webhook'
+  '/api/hotmart-webhook',
+  // V34.6.u — Health check pra diagnose Railway (Felipe acessa via browser).
+  '/api/health-check'
 ]);
 
 // V23.0.0 — Gate de auth: rotas privadas /api/* exigem req.user.
