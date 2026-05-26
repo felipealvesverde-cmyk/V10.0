@@ -10443,10 +10443,33 @@ Object.assign(Actions, {
         mergingKey: null,
         error: null
       };
+      // V34.6.d — Refresh counts (badge no botão) consistente com o modal.
+      Actions.loadPendingCounts();
     } catch (err) {
       App.state.duplicatesModal = { ...App.state.duplicatesModal, loading: false, error: err.message };
     }
     App.render();
+  },
+
+  // V34.0.0 Onda 6.d — Counts leve pra badge no botão Duplicatas + sininho futuro.
+  // Roda em background ao abrir Leads e após cada merge.
+  async loadPendingCounts() {
+    try {
+      const data = await this._trackerFetch('/api/visitors-pending-counts');
+      if (!data.ok) return;
+      App.state.pendingCounts = {
+        duplicateGroupsTotal: Number(data.duplicateGroupsTotal || 0),
+        duplicateGroupsEmail: Number(data.duplicateGroupsEmail || 0),
+        duplicateGroupsPhone: Number(data.duplicateGroupsPhone || 0),
+        recentMerges24h: Number(data.recentMerges24h || 0),
+        lastMergeAt: data.lastMergeAt || null,
+        loadedAt: Date.now()
+      };
+      App.render();
+    } catch (err) {
+      // silencioso — counts são opcionais
+      console.warn('[loadPendingCounts]', err.message);
+    }
   },
 
   closeDuplicatesModal() {

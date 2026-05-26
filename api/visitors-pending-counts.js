@@ -1,0 +1,69 @@
+// V34.0.0 — V34.6.d: Counts agregados de pendências de identity resolution.
+//
+// Consumido pelo "sininho" no menu Leads (badge com count > 0 chama atenção).
+// Lightweight: 2 queries agregadas sem retornar rows, só counts.
+//
+// GET /api/visitors-pending-counts
+// Resposta:
+//   {
+//     ok,
+//     duplicateGroupsEmail: N,    // grupos com mesmo email exato (>1 visitor)
+//     duplicateGroupsPhone: N,    // grupos com mesmo phone digits-only
+//     duplicateGroupsTotal: N,    // soma dos dois (UI mostra esse)
+//     recentMerges24h: N,         // merges nas últimas 24h (atividade)
+//     lastMergeAt: ISO | null     // último merge registrado
+//   }
+
+module.exports = async function handler(req, res) {
+  if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+  if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
+  if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
+
+  const userId = req.user.sub;
+
+  try {
+    const emailDupCount = await req.tenantDb.query(
+      `SELECT COUNT(*) AS c FROM (
+         SELECT LOWER(TRIM(email))
+           FROM lj_visitors
+          WHERE user_id = $1 AND email IS NOT NULL AND email <> ''
+          GROUP BY LOWER(TRIM(email))
+         HAVING COUNT(*) > 1
+       ) sub`,
+      [userId]
+    );
+    const phoneDupCount = await req.tenantDb.query(
+      `SELECT COUNT(*) AS c FROM (
+         SELECT REGEXP_REPLACE(phone, '\\D', '', 'g')
+           FROM lj_visitors
+          WHERE user_id = $1 AND phone IS NOT NULL AND phone <> ''
+          GROUP BY REGEXP_REPLACE(phone, '\\D', '', 'g')
+         HAVING COUNT(*) > 1 AND LENGTH(REGEXP_REPLACE(phone, '\\D', '', 'g')) >= 8
+       ) sub`,
+      [userId]
+    );
+    const recentMerges = await req.tenantDb.query(
+      `SELECT COUNT(*) AS c, MAX(merged_at) AS last_at
+         FROM lj_merges
+        WHERE user_id = $1 AND merged_at > NOW() - INTERVAL '24 hours'`,
+      [userId]
+    );
+
+    const emailGroups = Number(emailDupCount.rows[0]?.c || 0);
+    const phoneGroups = Number(phoneDupCount.rows[0]?.c || 0);
+    const recent = Number(recentMerges.rows[0]?.c || 0);
+    const lastAt = recentMerges.rows[0]?.last_at || null;
+
+    return res.status(200).json({
+      ok: true,
+      duplicateGroupsEmail: emailGroups,
+      duplicateGroupsPhone: phoneGroups,
+      duplicateGroupsTotal: emailGroups + phoneGroups,
+      recentMerges24h: recent,
+      lastMergeAt: lastAt ? new Date(lastAt).toISOString() : null
+    });
+  } catch (err) {
+    console.error('[visitors-pending-counts]', err);
+    return res.status(500).json({ ok: false, message: err?.message || 'Erro interno.' });
+  }
+};

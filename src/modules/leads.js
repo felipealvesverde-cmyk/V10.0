@@ -6,6 +6,14 @@ var LeadsModule = {
     //
     // V34.0.0 Onda 4 — Buscador agora consome visitorSearchResults (tenant DB).
     // Quando loadedAt está setado, usa esses leads; senão, fallback legacy.
+    // V34.0.0 Onda 6.d — Trigger lazy do counts pra badge "Duplicatas".
+    // Só busca se não fez ainda OU se últimas 60s passaram.
+    const pc = App.state.pendingCounts;
+    const staleCounts = !pc?.loadedAt || (Date.now() - pc.loadedAt) > 60000;
+    if (staleCounts && window.Actions?.loadPendingCounts) {
+      // Background, sem await — não bloqueia render
+      setTimeout(() => Actions.loadPendingCounts(), 100);
+    }
     const activeSubTab = App.state.activeLeadSubTab || 'profile';
     const searchResults = App.state.visitorSearchResults || {};
     const usingSearchResults = Boolean(searchResults.loadedAt);
@@ -300,7 +308,14 @@ var LeadsModule = {
     const djowSearching = Boolean(App.state._djowSearchRunning);
     const djowBtn = `<button onclick="Actions.djowSearchProfile()" ${djowSearching ? 'disabled' : ''} class="px-5 py-3 rounded-2xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold text-sm flex items-center gap-1.5" style="color:#fff;" title="Djow é o motor de busca do LeadJourney"><i data-lucide="${djowSearching ? 'loader-2' : 'sparkles'}" class="w-3.5 h-3.5 ${djowSearching ? 'animate-spin' : ''}"></i> ${djowSearching ? 'Pensando…' : 'Buscar'}</button>`;
 
-    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-4"><div class="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-4"><div><div class="flex items-center gap-2 mb-2"><i data-lucide="scan-search" class="w-5 h-5 text-violet-600"></i><h3 class="text-lg font-black">Buscador de Perfil</h3></div><p class="text-sm text-slate-500">Linguagem natural. Ex: <strong>mulheres jovens de SP com alta intenção</strong>.</p></div><div class="flex gap-2"><button onclick="Actions.openDuplicatesModal()" title="Buscar e fundir duplicatas" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 font-black text-sm flex items-center gap-2"><i data-lucide="git-merge" class="w-4 h-4 text-amber-600"></i> Duplicatas</button><button onclick="Actions.openLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Inserir leads</button></div></div>${this._activeBanksStrip()}<div class="flex flex-wrap gap-2 mb-3"><input id="profileInput" value="${Utils.escape(App.state.profileQuery)}" oninput="App.state.profileQuery=this.value; App.save();" onkeydown="if(event.key==='Enter'){event.preventDefault(); Actions.djowSearchProfile();}" placeholder="Ex: mulheres de 30 a 40 anos de SP, #cta, quente..." class="flex-1 min-w-[200px] px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />${djowBtn}${isActive ? `<button onclick="Actions.clearProfile()" class="px-4 py-3 rounded-2xl bg-slate-100 font-bold text-sm hover:bg-slate-200">Limpar</button>` : ''}</div>${refineHtml}${actionPanel}</div>`;
+    const dupTotal = Number(App.state.pendingCounts?.duplicateGroupsTotal || 0);
+    const dupBadge = dupTotal > 0
+      ? `<span class="ml-1 px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black" style="color:#fff!important;">${dupTotal}</span>`
+      : '';
+    const dupBtnClass = dupTotal > 0
+      ? 'px-4 py-3 rounded-2xl bg-amber-50 border-2 border-amber-300 hover:bg-amber-100 font-black text-sm flex items-center gap-2'
+      : 'px-4 py-3 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 font-black text-sm flex items-center gap-2';
+    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-4"><div class="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-4"><div><div class="flex items-center gap-2 mb-2"><i data-lucide="scan-search" class="w-5 h-5 text-violet-600"></i><h3 class="text-lg font-black">Buscador de Perfil</h3></div><p class="text-sm text-slate-500">Linguagem natural. Ex: <strong>mulheres jovens de SP com alta intenção</strong>.</p></div><div class="flex gap-2"><button onclick="Actions.openDuplicatesModal()" title="${dupTotal > 0 ? `${dupTotal} grupo(s) de duplicatas pendente(s)` : 'Buscar e fundir duplicatas'}" class="${dupBtnClass}"><i data-lucide="git-merge" class="w-4 h-4 text-amber-600"></i> Duplicatas${dupBadge}</button><button onclick="Actions.openLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Inserir leads</button></div></div>${this._activeBanksStrip()}<div class="flex flex-wrap gap-2 mb-3"><input id="profileInput" value="${Utils.escape(App.state.profileQuery)}" oninput="App.state.profileQuery=this.value; App.save();" onkeydown="if(event.key==='Enter'){event.preventDefault(); Actions.djowSearchProfile();}" placeholder="Ex: mulheres de 30 a 40 anos de SP, #cta, quente..." class="flex-1 min-w-[200px] px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />${djowBtn}${isActive ? `<button onclick="Actions.clearProfile()" class="px-4 py-3 rounded-2xl bg-slate-100 font-bold text-sm hover:bg-slate-200">Limpar</button>` : ''}</div>${refineHtml}${actionPanel}</div>`;
   },
 
   // V34.0.0 Onda 4 — Modal multi-select de bancos antes da busca.
