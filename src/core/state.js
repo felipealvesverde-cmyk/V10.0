@@ -393,6 +393,10 @@ var State = {
       postScoreSearchCampaignId: null,
       rdEventLog: [],
       rdLastSyncAt: null,
+      // V34.6.p — Cursor do RdCrmLiveSyncEngine pra pull incremental.
+      // Sem isso em initial+normalize, F5 droppava silenciosamente o cursor
+      // (warning State.load campo persistido não mapeado).
+      rdWebhookLastFetchedAt: null,
       rdSyncRunning: false,
       showRevenueScoreCreator: false,
       revenueScoreCreatorCtx: null,
@@ -866,6 +870,8 @@ var State = {
       postScoreSearchCampaignId: null,
       rdEventLog: Array.isArray(raw.rdEventLog) ? raw.rdEventLog.slice(-200) : [],
       rdLastSyncAt: raw.rdLastSyncAt || null,
+      // V34.6.p — Cursor incremental do live sync engine (preserva entre F5)
+      rdWebhookLastFetchedAt: raw.rdWebhookLastFetchedAt || null,
       rdSyncRunning: false,
       showRevenueScoreCreator: false,
       revenueScoreCreatorCtx: null,
