@@ -393,8 +393,9 @@ var LeadsModule = {
           </div>
         ` : ''}
 
-        <div class="flex gap-2 pt-4 mt-3 border-t border-slate-100">
+        <div class="flex gap-2 pt-4 mt-3 border-t border-slate-100 flex-wrap">
           <button onclick="Actions.openDuplicatesModal()" class="px-4 py-2.5 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 font-black text-sm flex items-center gap-2"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Re-escanear</button>
+          ${App.currentUser?.isMaster ? `<button onclick="Actions.triggerRdTagReconcile()" title="Master-only: reconcilia lj_visitor_tags com tags atuais do RD CRM" class="px-4 py-2.5 rounded-2xl bg-white border border-violet-200 hover:bg-violet-50 text-violet-800 font-black text-sm flex items-center gap-2"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i> Reconciliar com RD <span class="text-[10px] text-violet-500">(master)</span></button>` : ''}
           <button onclick="Actions.closeDuplicatesModal()" class="ml-auto px-5 py-2.5 rounded-2xl bg-slate-100 font-black text-sm">Fechar</button>
         </div>
       </div>

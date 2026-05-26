@@ -10451,6 +10451,32 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V34.0.0 Onda 6.e — Dispara reconcile RD ↔ LJ manualmente. Master-only.
+  async triggerRdTagReconcile() {
+    if (!App.currentUser?.isMaster) return Utils.toast('Apenas master pode rodar reconcile manual.');
+    if (!confirm('Reconciliar tags do RD com lj_visitor_tags? Pode demorar 1-2 min (1 chamada RD por visitor).')) return;
+    Utils.toast('Reconciliando... pode demorar.');
+    try {
+      const data = await this._trackerFetch('/api/rd-tag-reconcile', {
+        method: 'POST',
+        body: JSON.stringify({ max_visitors: 100 })
+      });
+      if (!data.ok) {
+        Utils.toast(`Erro: ${data.message}`);
+        return;
+      }
+      const parts = [
+        `✓ ${data.usersProcessed} user(s)`,
+        `${data.visitorsProcessed} visitor(s) verificado(s)`,
+        `+${data.tagsAdded} adicionada(s)`,
+        `-${data.tagsRemoved} removida(s)`
+      ];
+      Utils.toast(parts.join(' · '));
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V34.0.0 Onda 6.d — Counts leve pra badge no botão Duplicatas + sininho futuro.
   // Roda em background ao abrir Leads e após cada merge.
   async loadPendingCounts() {
