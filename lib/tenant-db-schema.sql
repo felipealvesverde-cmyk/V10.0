@@ -387,6 +387,42 @@ ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS hotmart_last_purchase_at TIMEST
 ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS hotmart_purchase_count INT DEFAULT 0;
 
 -- ============================================================================
+-- V34.0.0 ONDA 2 — BANCO DE LEADS (infra)
+-- ============================================================================
+-- Banco de leads é uma lista nomeada de pessoas. Vive SOLTO no tenant
+-- (decisão Felipe 2026-05-26): mesmo banco pode servir N produtos.
+-- Cada visitor pode pertencer a UM banco (FK em lj_visitors.bank_id).
+-- Tag `lj-banco-{slug}` é aplicada pelo motor de import.
+-- Mais detalhes em [[v34-leads-banco-tagueamento]].
+
+CREATE TABLE IF NOT EXISTS lj_lead_banks (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  name VARCHAR(128) NOT NULL,
+  slug VARCHAR(128) NOT NULL,           -- normalizado pra tag (lowercase, hífen, sem acento)
+  description TEXT,
+  is_default BOOLEAN DEFAULT FALSE,     -- só 1 default por user_id (constraint parcial)
+  visitor_count INT DEFAULT 0,          -- denormalizado pra contagem rápida; atualizado on insert/delete em lj_visitors
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT lj_lead_banks_user_name_uniq UNIQUE (user_id, name),
+  CONSTRAINT lj_lead_banks_user_slug_uniq UNIQUE (user_id, slug)
+);
+
+-- Garante NO MÁXIMO 1 banco default por user
+CREATE UNIQUE INDEX IF NOT EXISTS idx_lj_lead_banks_user_default
+  ON lj_lead_banks(user_id) WHERE is_default = TRUE;
+
+-- V34.0.0 — Colunas em lj_visitors:
+-- - bank_id: FK soft pra banco. NULL = visitor do tracker (sem banco)
+-- - global_score: score lifetime do lead (pesado pra mover). [[v34-leads-banco-tagueamento]]
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS bank_id BIGINT;
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS global_score INT DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS idx_lj_visitors_bank ON lj_visitors(user_id, bank_id) WHERE bank_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_lj_visitors_global_score ON lj_visitors(user_id, global_score DESC);
+
+-- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS tenant_schema_meta (
@@ -395,5 +431,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v33.0.0-onda2')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v34.0.0-onda2.a')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
