@@ -163,19 +163,24 @@ var ActionModule = {
       <button onclick="event.stopPropagation(); Actions.openActionEditModal(${action.id})" title="Editar Ação" aria-label="Editar Ação" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm"><i data-lucide="settings" class="w-4 h-4"></i></button>
       <div class="flex flex-col gap-4">
         <div class="lj-entity-card-grid">
-          <div class="lj-entity-copy flex items-start gap-3 pr-12">
-            <div class="w-3 h-3 rounded-full mt-2 ${visual.dotClass}"></div>
-            <div class="min-w-0 flex-1">
-              <p class="text-[10px] font-black uppercase tracking-widest mb-0.5" style="color: ${labelColor};">
-                Ação${areaIsConnected ? ` · ${Utils.escape(action.strategicAreaId === 'cs' ? 'CS' : action.strategicAreaId === 'sales' ? 'Vendas' : 'Marketing')}` : ' · sem área'}
-              </p>
-              <div class="flex items-center gap-2 flex-wrap">
-                <h3 class="font-black text-lg text-slate-900">${Utils.escape(action.name)}</h3>
-                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-black text-slate-700"><i data-lucide="radio" class="w-3 h-3"></i> ${Utils.escape(action.channel)}</span>
+          <!-- V33.0.0-alpha21 (Leonardo) — Label "AÇÃO" agora fora do flex,
+               solto no topo do lj-entity-copy (mesma estrutura do card de
+               campanha). Evita colisão com a engrenagem absoluta no canto. -->
+          <div class="lj-entity-copy pr-14">
+            <p class="text-[10px] font-black uppercase tracking-widest mb-1" style="color: ${labelColor};">
+              Ação${areaIsConnected ? ` · ${Utils.escape(action.strategicAreaId === 'cs' ? 'CS' : action.strategicAreaId === 'sales' ? 'Vendas' : 'Marketing')}` : ' · sem área'}
+            </p>
+            <div class="flex items-start gap-3">
+              <div class="w-3 h-3 rounded-full mt-2 ${visual.dotClass} shrink-0"></div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h3 class="font-black text-lg text-slate-900">${Utils.escape(action.name)}</h3>
+                  <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-black text-slate-700"><i data-lucide="radio" class="w-3 h-3"></i> ${Utils.escape(action.channel)}</span>
+                </div>
+                <p class="text-sm text-slate-500 mt-1">${Utils.escape(action.sector || 'Marketing')} ${Utils.escape(action.funnel || 'MOF')} → ${Utils.escape(action.destinationSector || action.sector || 'Marketing')} ${Utils.escape(action.destinationFunnel || action.funnel || 'MOF')}</p>
+                <p class="text-xs text-slate-400 mt-2 truncate" title="${action.leads.length} leads • score médio ${avgScore} • ${Utils.escape(scorePreset?.name || 'sem score')} • ${flow.path.length} etapas">${action.leads.length} leads • score médio ${avgScore} • ${Utils.escape(scorePreset?.name || 'sem score')} • ${flow.path.length} etapas</p>
+                ${(areaIsConnected && !hasKrLinked) ? `<p class="text-[11px] mt-1 font-bold flex items-center gap-1" style="color: var(--lj-action);"><i data-lucide="alert-triangle" class="w-3 h-3"></i> Nenhum número vinculado — abra o Mapa pra plugar</p>` : ''}
               </div>
-              <p class="text-sm text-slate-500 mt-1">${Utils.escape(action.sector || 'Marketing')} ${Utils.escape(action.funnel || 'MOF')} → ${Utils.escape(action.destinationSector || action.sector || 'Marketing')} ${Utils.escape(action.destinationFunnel || action.funnel || 'MOF')}</p>
-              <p class="text-xs text-slate-400 mt-2 truncate" title="${action.leads.length} leads • score médio ${avgScore} • ${Utils.escape(scorePreset?.name || 'sem score')} • ${flow.path.length} etapas">${action.leads.length} leads • score médio ${avgScore} • ${Utils.escape(scorePreset?.name || 'sem score')} • ${flow.path.length} etapas</p>
-              ${(areaIsConnected && !hasKrLinked) ? `<p class="text-[11px] mt-1 font-bold flex items-center gap-1" style="color: var(--lj-action);"><i data-lucide="alert-triangle" class="w-3 h-3"></i> Nenhum número vinculado — abra o Mapa pra plugar</p>` : ''}
             </div>
           </div>
           <div class="lj-entity-metrics">
