@@ -895,7 +895,11 @@ var State = {
       showRevopsFixedCostsModal: false,
       revopsFixedCostsCategory: null,
       showRevopsAcquisitionModal: false,
-      profileQuery: raw.profileQuery || '', profileFilters: Array.isArray(raw.profileFilters) ? raw.profileFilters : [], profileActive: Boolean(raw.profileActive),
+      // V34.6.q — profileFilters + profileActive viraram VOLÁTEIS. Antes
+      // persistiam entre F5, fazendo cliente cair sempre no path legacy
+      // (chip "Tem email" preservado, getGlobalLeads ativo, modal de bancos
+      // não disparado). Agora reseta toda hora — força fluxo V34 limpo.
+      profileQuery: '', profileFilters: [], profileActive: false,
       leadBaseInputMode: raw.leadBaseInputMode || 'manual',
       showLeadImportModal: Boolean(raw.showLeadImportModal),
       leadManualText: raw.leadManualText || '',

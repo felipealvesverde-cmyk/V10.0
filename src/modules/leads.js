@@ -1,13 +1,17 @@
 var LeadsModule = {
   render() {
-    // V33.0.0-alpha22 (Leonardo) — Hero ÚNICO sempre presente. Elimina a
-    // quebra vertical entre Buscador ↔ Pipeline que existia quando cada
-    // sub-tab tinha hero próprio. Hero+sub-tabs ficam fixos; conteúdo varia.
-    //
-    // V34.0.0 Onda 4 — Buscador agora consome visitorSearchResults (tenant DB).
-    // Quando loadedAt está setado, usa esses leads; senão, fallback legacy.
-    // V34.0.0 Onda 6.d — Trigger lazy do counts pra badge "Duplicatas".
-    // Só busca se não fez ainda OU se últimas 60s passaram.
+    // V33.0.0-alpha22 (Leonardo) — Hero ÚNICO sempre presente.
+    // V34.0.0 Onda 4 — Buscador consome visitorSearchResults (tenant DB).
+    // V34.6.q — Sanitização: se state veio com profileActive=true mas SEM
+    // visitorSearchResults V34, limpa filtros. Força cliente a passar pelo
+    // modal de bancos. Elimina state legacy zumbi (que voltava cada F5
+    // mesmo após normalize resetar — vinha do remote state_sync).
+    if (App.state.profileActive && !App.state.visitorSearchResults?.loadedAt) {
+      App.state.profileActive = false;
+      App.state.profileFilters = [];
+      App.state.profileQuery = '';
+      App.save();
+    }
     const pc = App.state.pendingCounts;
     const staleCounts = !pc?.loadedAt || (Date.now() - pc.loadedAt) > 60000;
     if (staleCounts && window.Actions?.loadPendingCounts) {
