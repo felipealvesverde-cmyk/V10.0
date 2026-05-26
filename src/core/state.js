@@ -301,7 +301,7 @@ var State = {
       // V34.0.0 Onda 5 — Modal de imputar leads em campanha LJ.
       // open=true mostra modal. campaignId = id da campanha alvo. visitorIds = lista
       // pré-selecionada do Buscador. processing = bloqueia UI durante batch.
-      imputeCampaignModal: { open: false, campaignId: null, visitorIds: [], processing: false, error: null },
+      imputeCampaignModal: { open: false, campaignId: null, visitorIds: [], pushToRd: false, processing: false, error: null },
       // Resultados da busca server-side (V34.4). Substitui getGlobalLeads no
       // Buscador quando loadedAt está populado. ProfileFinder roda em cima.
       visitorSearchResults: {
@@ -768,7 +768,7 @@ var State = {
       searchBankSelectionModal: { open: false, selected: null, pendingAction: null },
       visitorSearchResults: { visitors: [], bankIds: null, bankNames: [], loadedAt: null, loading: false, error: null },
       // V34.0.0 Onda 5 — Modal de imputar em campanha (volátil, fecha em F5).
-      imputeCampaignModal: { open: false, campaignId: null, visitorIds: [], processing: false, error: null },
+      imputeCampaignModal: { open: false, campaignId: null, visitorIds: [], pushToRd: false, processing: false, error: null },
       // V32.14.8 — Timestamp da última sync ClickUp persiste.
       clickupLastSyncAt: Number(raw.clickupLastSyncAt) || null,
       // V32.15.0 — Recolher por bloco no Acompanhamento persiste.

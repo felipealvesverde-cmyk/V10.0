@@ -10321,18 +10321,28 @@ Object.assign(Actions, {
     if (!filtered.length) return Utils.toast('Sem leads pra imputar.');
     const visitorIds = filtered.map(l => l.internalId || l.id).filter(Boolean);
     if (!visitorIds.length) return Utils.toast('Leads sem ID de visitor — não consigo imputar.');
+    // V34.5.b — Pre-seta pushToRd=true se crm_pat conectado. UI mostra checkbox.
+    const crmConnected = App.state.rdConnectionStatus?.crm_pat?.status === 'connected';
     App.state.imputeCampaignModal = {
       open: true,
       campaignId: (App.state.campaigns?.[0]?.id) || null,
       visitorIds,
+      pushToRd: crmConnected,
       processing: false,
       error: null
     };
     App.render();
   },
 
+  toggleImputePushToRd() {
+    const m = App.state.imputeCampaignModal;
+    if (!m?.open) return;
+    App.state.imputeCampaignModal = { ...m, pushToRd: !m.pushToRd };
+    App.render();
+  },
+
   closeImputeCampaignModal() {
-    App.state.imputeCampaignModal = { open: false, campaignId: null, visitorIds: [], processing: false, error: null };
+    App.state.imputeCampaignModal = { open: false, campaignId: null, visitorIds: [], pushToRd: false, processing: false, error: null };
     App.render();
   },
 
@@ -10348,12 +10358,14 @@ Object.assign(Actions, {
     if (!m?.open) return;
     const campaignId = Number(m.campaignId || 0);
     const visitorIds = Array.isArray(m.visitorIds) ? m.visitorIds : [];
+    const pushToRd = Boolean(m.pushToRd);
     if (!campaignId) return Utils.toast('Selecione uma campanha.');
     if (!visitorIds.length) return Utils.toast('Nenhum visitor pra imputar.');
     if (m.processing) return;
     App.state.imputeCampaignModal = { ...m, processing: true, error: null };
     App.render();
     try {
+      // Step 1: DB imputation (V34.5.a)
       const data = await this._trackerFetch('/api/leads-impute-to-campaign', {
         method: 'POST',
         body: JSON.stringify({ campaign_id: campaignId, visitor_ids: visitorIds })
@@ -10365,12 +10377,34 @@ Object.assign(Actions, {
         return;
       }
       const { imputed = 0, alreadyIn = 0, skipped = 0 } = data;
-      const parts = [`✓ ${imputed} imputado(s) em "${data.campaign?.name}"`];
-      if (alreadyIn) parts.push(`${alreadyIn} já estava(m) na campanha`);
-      if (skipped) parts.push(`${skipped} ignorado(s)`);
-      Utils.toast(parts.join(' · '));
-      App.state.imputeCampaignModal = { open: false, campaignId: null, visitorIds: [], processing: false, error: null };
-      // Refetch search results pra atualizar tags exibidas (lj-campanha-X aparece agora)
+      const dbParts = [`✓ ${imputed} imputado(s) em "${data.campaign?.name}"`];
+      if (alreadyIn) dbParts.push(`${alreadyIn} já estava(m) na campanha`);
+      if (skipped) dbParts.push(`${skipped} ignorado(s)`);
+      Utils.toast(dbParts.join(' · '));
+
+      // Step 2: RD CRM push (V34.5.b) — só se user marcou checkbox.
+      // Empurra TODOS os visitor_ids do batch (mesmo os que já estavam — backend
+      // deduplica pelo external_rd_deal_id existente).
+      if (pushToRd) {
+        Utils.toast('Empurrando pro RD CRM...');
+        const rdData = await this._trackerFetch('/api/leads-impute-rd-push', {
+          method: 'POST',
+          body: JSON.stringify({ campaign_id: campaignId, visitor_ids: visitorIds })
+        });
+        if (!rdData.ok) {
+          Utils.toast(`RD push falhou: ${rdData.message}`);
+        } else if (!rdData.pipelineMatched) {
+          Utils.toast(`RD: pipeline "${rdData.pipelineName}" não encontrado. Crie no RD com esse nome exato.`);
+        } else {
+          const rdParts = [`✓ RD: ${rdData.rdPushed} push(es) no pipeline "${rdData.pipelineName}"`];
+          if (rdData.rdAlready) rdParts.push(`${rdData.rdAlready} já tinha(m) deal`);
+          if (rdData.rdSkipped) rdParts.push(`${rdData.rdSkipped} pulado(s)`);
+          Utils.toast(rdParts.join(' · '));
+        }
+      }
+
+      App.state.imputeCampaignModal = { open: false, campaignId: null, visitorIds: [], pushToRd: false, processing: false, error: null };
+      // Refetch search results pra atualizar tags + IDs RD exibidos
       const bankIds = App.state.visitorSearchResults?.bankIds;
       await Actions._runVisitorSearch(bankIds);
     } catch (err) {

@@ -345,6 +345,29 @@ var LeadsModule = {
     </div>`;
   },
 
+  // V34.0.0 Onda 5.b — Bloco do modal de imputação que controla o push pro RD CRM.
+  // Mostra checkbox "Também empurrar pro RD CRM" (default ON se crm_pat conectado).
+  // Avisa que pipeline RD precisa ter nome EXATO da campanha LJ.
+  _imputeRdPushBlock(m, selectedCampaign) {
+    const crmStatus = App.state.rdConnectionStatus?.crm_pat?.status || 'unknown';
+    const connected = crmStatus === 'connected';
+    if (!connected) {
+      return `<div class="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-xs">
+        <div class="flex items-center gap-2 font-black text-amber-900 mb-1"><i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>RD CRM não conectado</div>
+        <p class="text-amber-800">A imputação acontece só no LJ. Pra empurrar pro RD CRM, conecte o Token (PAT) em Configurações → RD primeiro.</p>
+      </div>`;
+    }
+    const enabled = Boolean(m.pushToRd);
+    return `<label class="flex items-start gap-3 px-4 py-3 rounded-2xl ${enabled ? 'bg-violet-50 border-violet-300' : 'bg-slate-50 border-slate-200'} border-2 cursor-pointer transition">
+      <input type="checkbox" ${enabled ? 'checked' : ''} onchange="Actions.toggleImputePushToRd()" class="mt-0.5 w-5 h-5 rounded accent-violet-600" />
+      <div class="flex-1">
+        <p class="font-black text-sm text-slate-900">Também empurrar pro RD CRM</p>
+        <p class="text-xs text-slate-600 mt-0.5">Cria contato + deal no RD. O LJ procura o pipeline com nome <b>EXATO</b> da campanha LJ${selectedCampaign ? ` ("${Utils.escape(selectedCampaign.name)}")` : ''}.</p>
+        <p class="text-xs text-slate-500 mt-1">Se não achar, o LJ avisa e a imputação no LJ continua válida — só o RD não recebe.</p>
+      </div>
+    </label>`;
+  },
+
   // V34.0.0 Onda 5 — Modal de imputar leads numa campanha LJ.
   // Cliente confirma os N visitors filtrados + escolhe campanha alvo.
   // Backend cria estado em lj_visitor_campaign_state + tagueia.
@@ -387,8 +410,9 @@ var LeadsModule = {
               ${selectedCampaign ? `<div>• Campanha: <b>${Utils.escape(selectedCampaign.name)}</b></div>` : ''}
               <div>• Score inicial da campanha = <code class="bg-white px-1.5 py-0.5 rounded">round(global_score × 0.5)</code></div>
               <div>• Leads que já estão na campanha são pulados (não duplica)</div>
-              <div>• <span class="text-amber-700 font-black">RD push entra na V34.5.b</span> (esta onda é DB-only)</div>
             </div>
+
+            ${this._imputeRdPushBlock(m, selectedCampaign)}
 
             ${m.error ? `<div class="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-sm font-bold text-rose-800">${Utils.escape(m.error)}</div>` : ''}
 
