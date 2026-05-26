@@ -4,19 +4,51 @@ var LeadsModule = {
     const subTabs = this.subTabs(activeSubTab);
 
     if (activeSubTab === 'pipeline') {
-      return subTabs + JourneyPipelineModule.render();
+      // V33.0.0-alpha16 (Leonardo) — Sub-tabs DEPOIS do hero do Pipeline pra
+      // coerência visual com o resto do app (hero sempre no topo).
+      return JourneyPipelineModule.render({ subTabs });
     }
 
     const allLeads = this.getGlobalLeads();
     const selectedLead = allLeads.find(lead => lead.id === App.state.selectedLeadId) || null;
-    if (selectedLead) return subTabs + this.detail(selectedLead);
+    if (selectedLead) return this.hero(allLeads, 'profile') + subTabs + this.detail(selectedLead);
 
     let displayLeads = allLeads;
     if (App.state.profileActive && App.state.profileFilters.length) {
       displayLeads = ProfileFinder.applyFilters(allLeads, App.state.profileFilters);
     }
 
-    return subTabs + this._campaignContextChips() + this.profileFinderUI(displayLeads, allLeads.length) + this.importModal() + this.rdMailingModal(displayLeads) + this.list(displayLeads, allLeads.length);
+    return this.hero(allLeads, 'profile') + subTabs + this._campaignContextChips() + this.profileFinderUI(displayLeads, allLeads.length) + this.importModal() + this.rdMailingModal(displayLeads) + this.list(displayLeads, allLeads.length);
+  },
+
+  // V33.0.0-alpha16 (Leonardo) — Hero dark unificado pro menu Leads.
+  // Mesmo DNA do hero de Produtos (Print 1): bg-slate-950 + radial gradient
+  // sutil + badge uppercase + título + grid 2x2 de métricas.
+  hero(allLeads, mode) {
+    const total = allLeads.length;
+    const quentes = allLeads.filter(l => l.temperature === 'Quente').length;
+    const mornos = allLeads.filter(l => l.temperature === 'Morno').length;
+    const avgScore = total ? Math.round(allLeads.reduce((sum, l) => sum + Number(l.globalScore || 0), 0) / total) : 0;
+    return `<div class="bg-slate-950 text-white rounded-[2rem] p-5 shadow-sm overflow-hidden relative mb-4">
+      <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
+      <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
+        <div>
+          <div class="flex items-center gap-2 mb-2"><i data-lucide="users-round" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Leads • Revenue Intelligence</p></div>
+          <h1 class="text-3xl md:text-4xl font-black tracking-tight">Leads</h1>
+          <p class="text-sm text-slate-300 max-w-3xl mt-2">Base global, buscador de perfil e Journey Pipeline conectados à inteligência RevOps. Aqui você desce do macro pro indivíduo.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          ${this._heroMetric('Leads', total, 'users')}
+          ${this._heroMetric('Quentes', quentes, 'flame')}
+          ${this._heroMetric('Mornos', mornos, 'thermometer')}
+          ${this._heroMetric('Score médio', avgScore, 'gauge')}
+        </div>
+      </div>
+    </div>`;
+  },
+
+  _heroMetric(label, value, icon) {
+    return `<div class="bg-white/10 border border-white/10 rounded-2xl p-4"><div class="flex items-center justify-between"><p class="text-xs font-black text-slate-300">${label}</p><i data-lucide="${icon}" class="w-4 h-4 text-slate-300"></i></div><div class="text-3xl font-black mt-2">${value}</div></div>`;
   },
 
   // V21 — Context chips: quando o Buscador foi aberto via "Buscar Leads Agora"
@@ -44,11 +76,21 @@ var LeadsModule = {
   },
 
   subTabs(activeSubTab) {
+    // V33.0.0-alpha16 (Leonardo) — Pill switcher dark (alinhado ao DNA Print 1).
+    // Fundo slate-900/60 + selected violet, hover sutil.
     const tabs = [
       { id: 'profile', label: 'Buscador de Perfil', icon: 'scan-search' },
       { id: 'pipeline', label: 'Journey Pipeline', icon: 'workflow' }
     ];
-    return `<div class="bg-white rounded-3xl p-2 shadow-sm border border-slate-100 mb-4 grid md:grid-cols-2 gap-2">${tabs.map(tab => `<button onclick="JourneyPipelineModule.setLeadSubTab('${tab.id}')" class="px-4 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 ${activeSubTab === tab.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}"><i data-lucide="${tab.icon}" class="w-4 h-4"></i> ${tab.label}</button>`).join('')}</div>`;
+    return `<div class="bg-slate-900/80 rounded-3xl p-2 shadow-sm border border-white/10 mb-4 grid md:grid-cols-2 gap-2">${tabs.map(tab => {
+      const isActive = activeSubTab === tab.id;
+      const cls = isActive
+        ? 'bg-white text-slate-900 shadow-md'
+        : 'bg-transparent text-slate-300 hover:bg-white/5 hover:text-white';
+      return `<button onclick="JourneyPipelineModule.setLeadSubTab('${tab.id}')" class="px-4 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition ${cls}">
+        <i data-lucide="${tab.icon}" class="w-4 h-4"></i> ${tab.label}
+      </button>`;
+    }).join('')}</div>`;
   },
 
   getGlobalLeads() {

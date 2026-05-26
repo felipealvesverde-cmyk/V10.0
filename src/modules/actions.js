@@ -39,12 +39,15 @@ var ActionModule = {
     const flows = actions.map(action => FlowResolutionEngine.buildActionFlow(action));
     const converted = flows.reduce((sum, flow) => sum + Number(flow.converted || 0), 0);
     const conversion = leads ? Math.round((converted / leads) * 1000) / 10 : 0;
+    // V33.0.0-alpha16 (Leonardo) — Paleta alinhada ao Print 1 (azul + verde
+    // radial em vez do indigo+sky anterior). Pequeno ajuste de tipografia
+    // (h1 + tracking-tight). Mantém darkMetric do mesmo helper.
     return `<div class="bg-slate-950 text-white rounded-[2rem] p-5 shadow-sm overflow-hidden relative">
-      <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(99,102,241,.22), transparent 28%), radial-gradient(circle at 80% 20%, rgba(14,165,233,.16), transparent 30%);"></div>
+      <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
       <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
         <div>
-          <div class="flex items-center gap-2 mb-2"><i data-lucide="plug" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Action Operational Layer</p></div>
-          <h2 class="text-3xl font-black">Ações da campanha</h2>
+          <div class="flex items-center gap-2 mb-2"><i data-lucide="plug" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Action • Operational Layer</p></div>
+          <h1 class="text-3xl md:text-4xl font-black tracking-tight">Ações da campanha</h1>
           <p class="text-sm text-slate-300 max-w-3xl mt-2">Camada de execução: ações vinculadas à campanha, origem e destino do funil, base de leads, score, conversões e leitura operacional.</p>
           <p class="text-xs text-slate-400 mt-3">Campanha: <b class="text-white">${Utils.escape(selectedCampaign?.name || 'nenhuma selecionada')}</b> • Produto: <b class="text-white">${Utils.escape(product?.name || 'não vinculado')}</b></p>
         </div>
