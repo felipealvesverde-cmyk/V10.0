@@ -294,6 +294,20 @@ var State = {
       leadImportBankId: null,
       // Import em andamento — bloqueia UI durante processamento batch.
       leadImportProcessing: false,
+      // V34.0.0 Onda 4 — Modal multi-select de bancos antes de buscar.
+      // open=true mostra modal. selected = array de bank_ids OR null (= Todos).
+      // pendingAction: 'search' = vai rodar Djow após confirmar.
+      searchBankSelectionModal: { open: false, selected: null, pendingAction: null },
+      // Resultados da busca server-side (V34.4). Substitui getGlobalLeads no
+      // Buscador quando loadedAt está populado. ProfileFinder roda em cima.
+      visitorSearchResults: {
+        visitors: [],
+        bankIds: null,          // null = Todos
+        bankNames: [],          // labels resolvidos pra UI mostrar "Buscando em: A · B"
+        loadedAt: null,
+        loading: false,
+        error: null
+      },
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -746,6 +760,9 @@ var State = {
       // V34.0.0 Onda 3 — Import: banco selecionado + flag de processamento (voláteis).
       leadImportBankId: null,
       leadImportProcessing: false,
+      // V34.0.0 Onda 4 — Modal de seleção de bancos + cache de resultados (voláteis).
+      searchBankSelectionModal: { open: false, selected: null, pendingAction: null },
+      visitorSearchResults: { visitors: [], bankIds: null, bankNames: [], loadedAt: null, loading: false, error: null },
       // V32.14.8 — Timestamp da última sync ClickUp persiste.
       clickupLastSyncAt: Number(raw.clickupLastSyncAt) || null,
       // V32.15.0 — Recolher por bloco no Acompanhamento persiste.

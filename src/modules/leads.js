@@ -3,8 +3,13 @@ var LeadsModule = {
     // V33.0.0-alpha22 (Leonardo) — Hero ÚNICO sempre presente. Elimina a
     // quebra vertical entre Buscador ↔ Pipeline que existia quando cada
     // sub-tab tinha hero próprio. Hero+sub-tabs ficam fixos; conteúdo varia.
+    //
+    // V34.0.0 Onda 4 — Buscador agora consome visitorSearchResults (tenant DB).
+    // Quando loadedAt está setado, usa esses leads; senão, fallback legacy.
     const activeSubTab = App.state.activeLeadSubTab || 'profile';
-    const allLeads = this.getGlobalLeads();
+    const searchResults = App.state.visitorSearchResults || {};
+    const usingSearchResults = Boolean(searchResults.loadedAt);
+    const allLeads = usingSearchResults ? (searchResults.visitors || []) : this.getGlobalLeads();
     const heroAndTabs = this.hero(allLeads) + this.subTabs(activeSubTab);
 
     if (activeSubTab === 'pipeline') {
@@ -19,7 +24,16 @@ var LeadsModule = {
       displayLeads = ProfileFinder.applyFilters(allLeads, App.state.profileFilters);
     }
 
-    return heroAndTabs + this._campaignContextChips() + this.profileFinderUI(displayLeads, allLeads.length) + this.importModal() + this.rdMailingModal(displayLeads) + this.list(displayLeads, allLeads.length);
+    return heroAndTabs
+      + this._campaignContextChips()
+      + this.profileFinderUI(displayLeads, allLeads.length)
+      + this.bankSelectionModal()
+      + this.importModal()
+      + this.rdMailingModal(displayLeads)
+      + (usingSearchResults
+          ? this.searchResultsActionPanel(displayLeads, allLeads.length)
+          : '')
+      + this.list(displayLeads, allLeads.length);
   },
 
   // V33.0.0-alpha19 — Hero alinhado ao padrão Produtos + Campanhas:
@@ -239,6 +253,27 @@ var LeadsModule = {
     }).sort((a, b) => b.globalScore - a.globalScore);
   },
 
+  // V34.0.0 Onda 4 — Strip de bancos ativos no Buscador. Mostra "Buscando em: A · B"
+  // quando há busca server-side carregada, com botões "Trocar bancos" e "Limpar busca".
+  _activeBanksStrip() {
+    const sr = App.state.visitorSearchResults || {};
+    if (!sr.loadedAt) return '';
+    const names = (sr.bankNames || []).join(' · ') || 'Todos';
+    const count = (sr.visitors || []).length;
+    return `<div class="bg-violet-50 border border-violet-200 rounded-2xl p-3 mb-3 flex flex-col md:flex-row md:items-center justify-between gap-2">
+      <div class="flex items-center gap-2 min-w-0 flex-wrap">
+        <i data-lucide="database" class="w-4 h-4 text-violet-700 shrink-0"></i>
+        <span class="text-xs font-black text-violet-900 uppercase tracking-wide">Buscando em:</span>
+        <span class="text-sm font-bold text-violet-900 truncate">${Utils.escape(names)}</span>
+        <span class="text-xs text-violet-700">· ${count} lead(s) na busca</span>
+      </div>
+      <div class="flex gap-2 shrink-0">
+        <button onclick="Actions.openSearchBankSelector('refine')" class="px-3 py-1.5 rounded-xl bg-white border border-violet-300 text-violet-800 font-black text-xs hover:bg-violet-100">Trocar bancos</button>
+        <button onclick="Actions.clearVisitorSearch()" class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-xs hover:bg-slate-100">Limpar busca</button>
+      </div>
+    </div>`;
+  },
+
   profileFinderUI(filteredLeads, totalInBase) {
     const filters = App.state.profileFilters || [];
     const isActive = App.state.profileActive && filters.length > 0;
@@ -250,7 +285,10 @@ var LeadsModule = {
     const mailingBtn = hasMktOAuth
       ? `<button onclick="Actions.openRdMailingModal()" class="px-4 py-2.5 rounded-2xl bg-violet-600 text-white font-bold text-sm hover:bg-violet-700 flex items-center gap-2" style="color:#fff;"><i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar mailing RD</button>`
       : `<button onclick="Utils.toast('Conecte RD Marketing em Configurações → RD primeiro.')" class="px-4 py-2.5 rounded-2xl bg-slate-200 text-slate-500 font-bold text-sm cursor-not-allowed flex items-center gap-2" title="Requer RD Marketing conectado"><i data-lucide="send" class="w-3.5 h-3.5"></i> Enviar mailing RD</button>`;
-    const actionPanel = isActive && filteredLeads.length > 0 ? `<div class="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200"><div class="flex flex-col md:flex-row md:items-center justify-between gap-3"><div><p class="font-black text-sm">${filteredLeads.length} lead(s) no perfil <span class="text-slate-400 font-normal">de ${totalInBase} na base</span></p><p class="text-xs text-slate-500">Aplique uma ação ou campanha a este grupo.</p></div><div class="flex flex-wrap gap-2"><button onclick="Actions.createActionFromProfile()" class="px-4 py-2.5 rounded-2xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 flex items-center gap-2"><i data-lucide="plug" class="w-3.5 h-3.5"></i> Criar ação com este perfil</button><button onclick="Actions.createCampaignFromProfile()" class="px-4 py-2.5 rounded-2xl bg-white border border-slate-200 font-bold text-sm hover:bg-slate-50 flex items-center gap-2"><i data-lucide="megaphone" class="w-3.5 h-3.5"></i> Nova campanha</button>${mailingBtn}</div></div></div>` : '';
+    // V34.0.0 Onda 4 — legacy actionPanel só aparece quando NÃO há busca server-side.
+    // Com busca V34 ativa, o searchResultsActionPanel substitui (CSV + Imputar).
+    const usingV34Search = Boolean(App.state.visitorSearchResults?.loadedAt);
+    const actionPanel = (!usingV34Search && isActive && filteredLeads.length > 0) ? `<div class="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200"><div class="flex flex-col md:flex-row md:items-center justify-between gap-3"><div><p class="font-black text-sm">${filteredLeads.length} lead(s) no perfil <span class="text-slate-400 font-normal">de ${totalInBase} na base</span></p><p class="text-xs text-slate-500">Aplique uma ação ou campanha a este grupo.</p></div><div class="flex flex-wrap gap-2"><button onclick="Actions.createActionFromProfile()" class="px-4 py-2.5 rounded-2xl bg-slate-900 text-white font-bold text-sm hover:bg-slate-800 flex items-center gap-2"><i data-lucide="plug" class="w-3.5 h-3.5"></i> Criar ação com este perfil</button><button onclick="Actions.createCampaignFromProfile()" class="px-4 py-2.5 rounded-2xl bg-white border border-slate-200 font-bold text-sm hover:bg-slate-50 flex items-center gap-2"><i data-lucide="megaphone" class="w-3.5 h-3.5"></i> Nova campanha</button>${mailingBtn}</div></div></div>` : '';
     const refineHtml = filters.length ? `<div class="flex flex-wrap gap-2 mb-3">${filtersHtml}</div><div class="flex gap-2"><input id="refineInput" placeholder="Refinar: cidade, estado, tag, faixa salarial, quente..." onkeydown="if(event.key==='Enter')Actions.refineProfile()" class="flex-1 px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /><button onclick="Actions.refineProfile()" class="px-4 py-3 rounded-2xl bg-slate-200 font-bold text-sm hover:bg-slate-300">Refinar</button></div>` : '';
 
     // V26.1.1 — Djow é o motor único de busca. Removido o botão "Buscar" preto
@@ -260,7 +298,69 @@ var LeadsModule = {
     const djowSearching = Boolean(App.state._djowSearchRunning);
     const djowBtn = `<button onclick="Actions.djowSearchProfile()" ${djowSearching ? 'disabled' : ''} class="px-5 py-3 rounded-2xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold text-sm flex items-center gap-1.5" style="color:#fff;" title="Djow é o motor de busca do LeadJourney"><i data-lucide="${djowSearching ? 'loader-2' : 'sparkles'}" class="w-3.5 h-3.5 ${djowSearching ? 'animate-spin' : ''}"></i> ${djowSearching ? 'Pensando…' : 'Buscar'}</button>`;
 
-    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-4"><div class="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-4"><div><div class="flex items-center gap-2 mb-2"><i data-lucide="scan-search" class="w-5 h-5 text-violet-600"></i><h3 class="text-lg font-black">Buscador de Perfil</h3></div><p class="text-sm text-slate-500">Linguagem natural. Ex: <strong>mulheres jovens de SP com alta intenção</strong>.</p></div><button onclick="Actions.openLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Inserir leads</button></div><div class="flex flex-wrap gap-2 mb-3"><input id="profileInput" value="${Utils.escape(App.state.profileQuery)}" oninput="App.state.profileQuery=this.value; App.save();" onkeydown="if(event.key==='Enter'){event.preventDefault(); Actions.djowSearchProfile();}" placeholder="Ex: mulheres de 30 a 40 anos de SP, #cta, quente..." class="flex-1 min-w-[200px] px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />${djowBtn}${isActive ? `<button onclick="Actions.clearProfile()" class="px-4 py-3 rounded-2xl bg-slate-100 font-bold text-sm hover:bg-slate-200">Limpar</button>` : ''}</div>${refineHtml}${actionPanel}</div>`;
+    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-4"><div class="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-4"><div><div class="flex items-center gap-2 mb-2"><i data-lucide="scan-search" class="w-5 h-5 text-violet-600"></i><h3 class="text-lg font-black">Buscador de Perfil</h3></div><p class="text-sm text-slate-500">Linguagem natural. Ex: <strong>mulheres jovens de SP com alta intenção</strong>.</p></div><button onclick="Actions.openLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Inserir leads</button></div>${this._activeBanksStrip()}<div class="flex flex-wrap gap-2 mb-3"><input id="profileInput" value="${Utils.escape(App.state.profileQuery)}" oninput="App.state.profileQuery=this.value; App.save();" onkeydown="if(event.key==='Enter'){event.preventDefault(); Actions.djowSearchProfile();}" placeholder="Ex: mulheres de 30 a 40 anos de SP, #cta, quente..." class="flex-1 min-w-[200px] px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />${djowBtn}${isActive ? `<button onclick="Actions.clearProfile()" class="px-4 py-3 rounded-2xl bg-slate-100 font-bold text-sm hover:bg-slate-200">Limpar</button>` : ''}</div>${refineHtml}${actionPanel}</div>`;
+  },
+
+  // V34.0.0 Onda 4 — Modal multi-select de bancos antes da busca.
+  // Aparece quando user clica Buscar sem ter rodado busca antes, ou ao
+  // clicar "Trocar bancos" no strip ativo.
+  bankSelectionModal() {
+    const m = App.state.searchBankSelectionModal;
+    if (!m?.open) return '';
+    const banks = App.state.leadBanksCache?.banks || [];
+    const selected = m.selected;
+    const isAll = selected === null;
+    const isSelected = (id) => Array.isArray(selected) && selected.some(s => Number(s) === Number(id));
+    const totalSel = isAll ? banks.length : (Array.isArray(selected) ? selected.length : 0);
+    const banksHtml = banks.map(b => `<label class="flex items-center gap-3 px-4 py-3 rounded-2xl ${isSelected(b.id) ? 'bg-violet-50 border-violet-300' : 'bg-slate-50 border-slate-200'} border-2 cursor-pointer hover:bg-violet-50 transition" ${isAll ? 'style="opacity:0.5;"' : ''}>
+      <input type="checkbox" ${isSelected(b.id) ? 'checked' : ''} ${isAll ? 'disabled' : ''} onchange="Actions.toggleSearchBank(${b.id})" class="w-5 h-5 rounded accent-violet-600" />
+      <div class="flex-1 min-w-0">
+        <p class="font-black text-sm text-slate-900 truncate">${Utils.escape(b.name)}${b.is_default ? ' <span class="text-[10px] font-bold text-violet-600 ml-1">DEFAULT</span>' : ''}</p>
+        <p class="text-xs text-slate-500">${b.visitor_count || 0} lead(s)</p>
+      </div>
+    </label>`).join('');
+    return `<div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div class="bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 w-full max-w-2xl mt-8">
+        <div class="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1"><i data-lucide="database" class="w-5 h-5 text-violet-600"></i><h3 class="text-xl font-black">De qual(is) banco(s) quer buscar?</h3></div>
+            <p class="text-sm text-slate-500">Multi-select. Marque "Todos" pra buscar na base inteira do tenant.</p>
+          </div>
+          <button onclick="Actions.closeSearchBankSelector()" class="w-10 h-10 rounded-2xl bg-slate-100 font-black text-xl shrink-0">×</button>
+        </div>
+        <label class="flex items-center gap-3 px-4 py-3 rounded-2xl ${isAll ? 'bg-violet-600 text-white border-violet-700' : 'bg-slate-50 border-slate-200 text-slate-900'} border-2 cursor-pointer mb-3 transition">
+          <input type="checkbox" ${isAll ? 'checked' : ''} onchange="Actions.toggleAllSearchBanks()" class="w-5 h-5 rounded accent-white" />
+          <div class="flex-1">
+            <p class="font-black text-sm">Todos os bancos</p>
+            <p class="text-xs ${isAll ? 'text-violet-100' : 'text-slate-500'}">Busca em todos os ${banks.length} banco(s) do tenant.</p>
+          </div>
+        </label>
+        <div class="space-y-2 max-h-[40vh] overflow-y-auto">${banksHtml || '<p class="text-sm text-slate-500">Nenhum banco encontrado.</p>'}</div>
+        <div class="flex flex-col md:flex-row gap-2 pt-4 mt-3 border-t border-slate-100">
+          <button onclick="Actions.confirmSearchBankSelection()" class="flex-1 px-5 py-3 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black" style="color:#fff!important;">Buscar em ${totalSel} banco(s)</button>
+          <button onclick="Actions.closeSearchBankSelector()" class="px-5 py-3 rounded-2xl bg-slate-100 font-black">Cancelar</button>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V34.0.0 Onda 4 — Painel de ações em cima dos resultados (quando há busca server-side).
+  // Substitui o "Criar ação/campanha/Mailing RD" pelos outputs novos da V34: CSV + Imputar.
+  searchResultsActionPanel(displayLeads, totalInBase) {
+    const count = displayLeads.length;
+    if (!count) return '';
+    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div>
+          <p class="font-black text-sm">${count} lead(s) no resultado <span class="text-slate-400 font-normal">de ${totalInBase} carregado(s)</span></p>
+          <p class="text-xs text-slate-500">Exporte pra fora do LJ ou imputa em campanha (motor entra na V34.5).</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="Actions.exportSearchResultsCsv()" class="px-4 py-2.5 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 font-black text-sm flex items-center gap-2"><i data-lucide="download" class="w-3.5 h-3.5"></i> Baixar CSV</button>
+          <button onclick="Actions.imputeSearchResultsToCampaignPlaceholder()" class="px-4 py-2.5 rounded-2xl bg-slate-900 text-white hover:bg-slate-800 font-black text-sm flex items-center gap-2" style="color:#fff!important;"><i data-lucide="send" class="w-3.5 h-3.5"></i> Imputar em campanha</button>
+        </div>
+      </div>
+    </div>`;
   },
 
   // V24.1.0 — Modal de criação de mailing RD a partir dos leads filtrados.

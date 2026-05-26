@@ -292,8 +292,13 @@ var Actions = {
         App.state.profileActive = true;
         input.value = '';
         App.save(); App.render();
-        const filtered = ProfileFinder.applyFilters(LeadsModule.getGlobalLeads(), App.state.profileFilters);
-        if (!filtered.length) Utils.searchLog('Refino sem resultado', ProfileFinder.explainNoResults(LeadsModule.getGlobalLeads(), App.state.profileFilters, q), 'warning');
+        // V34.0.0 Onda 4 — Refino opera sobre visitorSearchResults quando há busca
+        // server-side ativa; caso contrário, fallback pro getGlobalLeads legacy.
+        const baseLeads = App.state.visitorSearchResults?.loadedAt
+          ? (App.state.visitorSearchResults.visitors || [])
+          : LeadsModule.getGlobalLeads();
+        const filtered = ProfileFinder.applyFilters(baseLeads, App.state.profileFilters);
+        if (!filtered.length) Utils.searchLog('Refino sem resultado', ProfileFinder.explainNoResults(baseLeads, App.state.profileFilters, q), 'warning');
         else Utils.toast('Perfil refinado.');
       },
       removeProfileFilter(index) {
@@ -3018,6 +3023,11 @@ Object.assign(Actions, {
     if (!query) return Utils.toast('Digite uma query primeiro.');
     if (query.length > 500) return Utils.toast('Query muito longa (max 500 caracteres).');
     if (App.state._djowSearchRunning) return;
+    // V34.0.0 Onda 4 — gating: precisa ter banco(s) selecionado(s) antes.
+    // Se ainda não rodou nenhuma busca, abre modal de seleção primeiro.
+    if (!App.state.visitorSearchResults?.loadedAt) {
+      return Actions.openSearchBankSelector('search');
+    }
     App.state._djowSearchRunning = true;
     App.render();
     try {
@@ -10102,6 +10112,206 @@ Object.assign(Actions, {
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     }
+  },
+
+  // V34.0.0 Onda 4 — Buscador server-side com seleção de bancos.
+  //
+  // Fluxo:
+  //   1. User clica Buscar → openSearchBankSelector() abre modal
+  //   2. User marca bancos OR clica Todos → confirmSearchBankSelection()
+  //   3. Roda _runVisitorSearch() que chama /api/visitors-search
+  //   4. Resultado vira visitorSearchResults, ProfileFinder roda Djow em cima
+  //
+  async openSearchBankSelector(pendingAction = 'search') {
+    if (!App.state.leadBanksCache?.loadedAt) {
+      await Actions.loadLeadBanks();
+    }
+    const banks = App.state.leadBanksCache?.banks || [];
+    if (!banks.length) {
+      Utils.toast('Crie um banco de leads antes de buscar.');
+      return Actions.openLeadBankEditModal();
+    }
+    // Pre-popula seleção: se já existe busca anterior, mantém os bancos dela;
+    // caso contrário, default = Todos (null).
+    const previous = App.state.visitorSearchResults?.bankIds;
+    App.state.searchBankSelectionModal = {
+      open: true,
+      selected: Array.isArray(previous) ? [...previous] : null,
+      pendingAction
+    };
+    App.render();
+  },
+
+  closeSearchBankSelector() {
+    App.state.searchBankSelectionModal = { open: false, selected: null, pendingAction: null };
+    App.render();
+  },
+
+  toggleSearchBank(bankId) {
+    const m = App.state.searchBankSelectionModal;
+    if (!m?.open) return;
+    const id = Number(bankId);
+    const current = Array.isArray(m.selected) ? [...m.selected] : null;
+    if (current === null) {
+      // Saindo de "Todos" → marca só este banco
+      App.state.searchBankSelectionModal = { ...m, selected: [id] };
+    } else if (current.includes(id)) {
+      const next = current.filter(b => b !== id);
+      App.state.searchBankSelectionModal = { ...m, selected: next.length ? next : null };
+    } else {
+      App.state.searchBankSelectionModal = { ...m, selected: [...current, id] };
+    }
+    App.render();
+  },
+
+  toggleAllSearchBanks() {
+    const m = App.state.searchBankSelectionModal;
+    if (!m?.open) return;
+    // Toggle: se não está em "Todos", vai pra "Todos" (null). Se já está, mantém vazio.
+    const goingToAll = m.selected !== null;
+    App.state.searchBankSelectionModal = { ...m, selected: goingToAll ? null : [] };
+    App.render();
+  },
+
+  async confirmSearchBankSelection() {
+    const m = App.state.searchBankSelectionModal;
+    if (!m?.open) return;
+    const selected = m.selected; // null OR array
+    const pendingAction = m.pendingAction;
+    // Validação: array vazio = sem banco escolhido → bloqueia.
+    if (Array.isArray(selected) && selected.length === 0) {
+      Utils.toast('Selecione ao menos um banco ou marque "Todos".');
+      return;
+    }
+    App.state.searchBankSelectionModal = { open: false, selected: null, pendingAction: null };
+    await Actions._runVisitorSearch(selected);
+    if (pendingAction === 'search') {
+      // Roda Djow após resultados carregarem (se há query)
+      const q = String(App.state.profileQuery || '').trim();
+      if (q) await Actions.djowSearchProfile();
+    }
+  },
+
+  async _runVisitorSearch(bankIds) {
+    App.state.visitorSearchResults = {
+      ...App.state.visitorSearchResults,
+      loading: true,
+      error: null
+    };
+    App.render();
+    try {
+      const data = await this._trackerFetch('/api/visitors-search', {
+        method: 'POST',
+        body: JSON.stringify({ bank_ids: bankIds })
+      });
+      if (!data.ok) {
+        App.state.visitorSearchResults = { visitors: [], bankIds, bankNames: [], loadedAt: Date.now(), loading: false, error: data.message };
+        Utils.toast(`Erro: ${data.message}`);
+        App.render();
+        return;
+      }
+      const banks = App.state.leadBanksCache?.banks || [];
+      const bankNames = bankIds
+        ? bankIds.map(id => (banks.find(b => Number(b.id) === Number(id))?.name) || `Banco #${id}`)
+        : ['Todos'];
+      const normalized = (data.visitors || []).map(v => Actions._normalizeVisitorAsLead(v));
+      App.state.visitorSearchResults = {
+        visitors: normalized,
+        bankIds,
+        bankNames,
+        loadedAt: Date.now(),
+        loading: false,
+        error: null
+      };
+      Utils.toast(`${normalized.length} lead(s) carregado(s) ${bankIds ? `de ${bankNames.length} banco(s)` : 'de todos os bancos'}.`);
+    } catch (err) {
+      App.state.visitorSearchResults = { visitors: [], bankIds, bankNames: [], loadedAt: Date.now(), loading: false, error: err.message };
+      Utils.toast(`Erro: ${err.message}`);
+    } finally {
+      App.render();
+    }
+  },
+
+  // Normaliza row de lj_visitors → formato Lead que ProfileFinder/UI consome.
+  // ProfileFinder espera: id, name, email, phone, idade, sexo, estado, cidade,
+  // estadoCivil, faixaSalarial, behaviorTags[], temperature, globalScore.
+  _normalizeVisitorAsLead(v) {
+    const tags = Array.isArray(v.tags) ? v.tags : [];
+    const score = Number(v.global_score || 0);
+    const temp = score >= 70 ? 'Quente' : (score >= 40 ? 'Morno' : 'Frio');
+    return {
+      id: v.lj_visitor_id || String(v.id),
+      internalId: v.lj_visitor_id,
+      name: v.name || '(sem nome)',
+      email: v.email || '',
+      phone: v.phone || '',
+      idade: 0,
+      sexo: '',
+      genero: '',
+      estado: '',
+      cidade: '',
+      estadoCivil: '',
+      faixaSalarial: '',
+      tags: tags.join(' '),
+      behaviorTags: tags,
+      campaigns: [],
+      channels: [],
+      actions: [],
+      interactions: 0,
+      lastChannel: '',
+      lastAction: '',
+      bankId: v.bank_id,
+      bankName: v.bank_name,
+      entityType: v.entity_type,
+      currentStage: v.current_stage,
+      globalScore: score,
+      score: score,
+      temperature: temp,
+      origem: 'tenant-db'
+    };
+  },
+
+  clearVisitorSearch() {
+    App.state.visitorSearchResults = { visitors: [], bankIds: null, bankNames: [], loadedAt: null, loading: false, error: null };
+    App.state.profileQuery = '';
+    App.state.profileFilters = [];
+    App.state.profileActive = false;
+    App.save(); App.render();
+  },
+
+  // V34.0.0 Onda 4 — Export CSV dos leads filtrados pelo Buscador.
+  exportSearchResultsCsv() {
+    const results = App.state.visitorSearchResults?.visitors || [];
+    if (!results.length) return Utils.toast('Sem leads pra exportar.');
+    const filtered = (App.state.profileActive && App.state.profileFilters.length && window.ProfileFinder)
+      ? ProfileFinder.applyFilters(results, App.state.profileFilters)
+      : results;
+    if (!filtered.length) return Utils.toast('Refino zerou os resultados — nada pra exportar.');
+    const header = ['name', 'email', 'phone', 'bank', 'entity_type', 'current_stage', 'global_score', 'tags'];
+    const rows = filtered.map(l => [
+      l.name || '', l.email || '', l.phone || '', l.bankName || '',
+      l.entityType || '', l.currentStage || '', l.globalScore || 0,
+      (l.behaviorTags || []).join('|')
+    ]);
+    const csv = [header, ...rows].map(r => r.map(c => {
+      const s = String(c == null ? '' : c);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `lj-busca-${Date.now()}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    Utils.toast(`${filtered.length} lead(s) exportado(s).`);
+  },
+
+  // V34.0.0 Onda 4 — Placeholder até V34.5 implementar o motor.
+  imputeSearchResultsToCampaignPlaceholder() {
+    Utils.toast('Imputar em campanha entra na V34.5 (motor RD push).');
   },
 
   // V33.0.0-alpha18 — Caminho C: breakdown por LP de uma campanha.
