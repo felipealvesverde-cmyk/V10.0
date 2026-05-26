@@ -1,24 +1,25 @@
 var LeadsModule = {
   render() {
+    // V33.0.0-alpha22 (Leonardo) — Hero ÚNICO sempre presente. Elimina a
+    // quebra vertical entre Buscador ↔ Pipeline que existia quando cada
+    // sub-tab tinha hero próprio. Hero+sub-tabs ficam fixos; conteúdo varia.
     const activeSubTab = App.state.activeLeadSubTab || 'profile';
-    const subTabs = this.subTabs(activeSubTab);
+    const allLeads = this.getGlobalLeads();
+    const heroAndTabs = this.hero(allLeads) + this.subTabs(activeSubTab);
 
     if (activeSubTab === 'pipeline') {
-      // V33.0.0-alpha16 (Leonardo) — Sub-tabs DEPOIS do hero do Pipeline pra
-      // coerência visual com o resto do app (hero sempre no topo).
-      return JourneyPipelineModule.render({ subTabs });
+      return heroAndTabs + JourneyPipelineModule.renderInline();
     }
 
-    const allLeads = this.getGlobalLeads();
     const selectedLead = allLeads.find(lead => lead.id === App.state.selectedLeadId) || null;
-    if (selectedLead) return this.hero(allLeads, 'profile') + subTabs + this.detail(selectedLead);
+    if (selectedLead) return heroAndTabs + this.detail(selectedLead);
 
     let displayLeads = allLeads;
     if (App.state.profileActive && App.state.profileFilters.length) {
       displayLeads = ProfileFinder.applyFilters(allLeads, App.state.profileFilters);
     }
 
-    return this.hero(allLeads, 'profile') + subTabs + this._campaignContextChips() + this.profileFinderUI(displayLeads, allLeads.length) + this.importModal() + this.rdMailingModal(displayLeads) + this.list(displayLeads, allLeads.length);
+    return heroAndTabs + this._campaignContextChips() + this.profileFinderUI(displayLeads, allLeads.length) + this.importModal() + this.rdMailingModal(displayLeads) + this.list(displayLeads, allLeads.length);
   },
 
   // V33.0.0-alpha19 — Hero alinhado ao padrão Produtos + Campanhas:

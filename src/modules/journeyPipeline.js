@@ -149,29 +149,15 @@ var JourneyPipelineModule = {
     };
   },
 
-  render(opts) {
+  // V33.0.0-alpha22 (Leonardo) — Versão chamada por LeadsModule sem hero
+  // próprio. Hero "Leads" vem do pai; aqui rende só o strip de métricas +
+  // Revenue Flow Map + stage panel. Elimina quebra vertical entre sub-tabs.
+  renderInline() {
     this.ensureState();
     const metrics = this.metrics();
     const stage = this.selectedStage();
-    // V33.0.0-alpha16 (Leonardo) — opts.subTabs vem do LeadsModule pra
-    // empilhar abaixo do hero (mesmo DNA Print 1).
-    const subTabs = (opts && opts.subTabs) || '';
     return `<div class="journey-pipeline space-y-5">
-      <!-- V33.0.0-alpha19 — Hero EXATAMENTE no padrão Produtos+Campanhas:
-           bg-slate-950 + radial idêntico + h2 text-3xl + badge sem bullet.
-           Substitui o jp-hero custom. -->
-      <div class="bg-slate-950 text-white rounded-[2rem] p-5 shadow-sm overflow-hidden relative">
-        <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
-        <div class="relative z-10 grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_430px] items-center gap-5">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2 mb-2"><i data-lucide="activity" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">JourneyScore Labs Pipeline</p></div>
-            <h2 class="text-3xl font-black">Journey Pipeline</h2>
-            <p class="text-sm text-slate-300 max-w-3xl mt-2">A linha viva da receita: marketing, vendas e CS conectados em um fluxo visual de inteligência operacional.</p>
-          </div>
-          <div class="w-full max-w-[430px] xl:ml-auto xl:mr-4 grid grid-cols-2 sm:grid-cols-3 gap-2.5">${this.metricCard('Pessoas no fluxo', Utils.escape(this.formatNumber(metrics.people)), 'users')}${this.metricCard('Velocidade', metrics.velocity, 'gauge')}${this.metricCard('Score médio', metrics.avgScore, 'star')}${this.metricCard('Gargalos', metrics.bottlenecks, 'alert-triangle')}${this.metricCard('Previsão', metrics.forecast, 'trending-up')}${this.metricCard('Conversion', metrics.conversionRate, 'arrow-right-left')}</div>
-        </div>
-      </div>
-      ${subTabs}
+      ${this._lightMetricsStrip(metrics)}
       <section class="bg-white rounded-[2rem] p-5 lg:p-8 shadow-sm border border-slate-100 overflow-hidden">
         <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4"><div><h3 class="text-2xl font-black">Revenue Flow Map</h3><p class="text-sm text-slate-500 mt-1">Cada círculo pulsa conforme o volume, a saúde e a intenção média do estágio.</p></div><div class="flex items-center gap-3 text-xs font-black text-slate-500"><span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Saudável</span><span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Atenção</span><span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Gargalo</span></div></div>
         ${this.controls()}
@@ -182,9 +168,39 @@ var JourneyPipelineModule = {
     </div>`;
   },
 
-  // V33.0.0-alpha19 — darkMetric idêntico ao usado em products/campaigns/
-  // actions/leads: ícone no canto + label esquerda + valor 3xl embaixo.
-  // 6 cards em grid 3 col precisa text-2xl pra caber, não 3xl como nos 2x2.
+  // V33.0.0-alpha22 (Leonardo) — Strip CLARO de métricas dentro do conteúdo
+  // do Pipeline (em vez de hero próprio escuro). Mantém continuidade visual
+  // com o hero do Leads acima (escuro) e o Revenue Flow Map abaixo (claro).
+  // 6 mini-cards em fundo branco com border-l colored pra hierarquia visual.
+  _lightMetricsStrip(metrics) {
+    return `<section class="bg-white rounded-[2rem] p-4 lg:p-5 shadow-sm border border-slate-100">
+      <div class="flex items-center gap-2 mb-3">
+        <i data-lucide="activity" class="w-4 h-4 text-slate-700"></i>
+        <p class="text-[10px] font-black text-slate-600 uppercase tracking-widest">JourneyScore Labs · Indicadores</p>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        ${this._lightMetricCard('Pessoas no fluxo', this.formatNumber(metrics.people), 'users', 'sky')}
+        ${this._lightMetricCard('Velocidade', metrics.velocity, 'gauge', 'violet')}
+        ${this._lightMetricCard('Score médio', metrics.avgScore, 'star', 'amber')}
+        ${this._lightMetricCard('Gargalos', metrics.bottlenecks, 'alert-triangle', 'rose')}
+        ${this._lightMetricCard('Previsão', metrics.forecast, 'trending-up', 'emerald')}
+        ${this._lightMetricCard('Conversion', metrics.conversionRate, 'arrow-right-left', 'indigo')}
+      </div>
+    </section>`;
+  },
+
+  _lightMetricCard(label, value, icon, tone) {
+    return `<div class="bg-slate-50 border border-slate-200 border-l-4 border-l-${tone}-500 rounded-2xl p-3 min-w-0 overflow-hidden">
+      <div class="flex items-center justify-between gap-2 mb-1">
+        <p class="text-[9px] font-black text-${tone}-700 uppercase tracking-widest truncate">${label}</p>
+        <i data-lucide="${icon}" class="w-3.5 h-3.5 text-${tone}-600 shrink-0"></i>
+      </div>
+      <div class="text-xl font-black text-slate-900 truncate">${value}</div>
+    </div>`;
+  },
+
+  // V33.0.0-alpha19 — darkMetric mantido pra compat (se algum outro lugar
+  // ainda chama metricCard com fundo escuro). Não usado em renderInline.
   metricCard(label, value, icon = 'circle') {
     return `<div class="bg-white/10 border border-white/10 rounded-2xl p-3 min-w-0 overflow-hidden">
       <div class="flex items-center justify-between gap-2">
