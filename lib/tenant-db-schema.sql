@@ -455,6 +455,30 @@ CREATE TABLE IF NOT EXISTS lj_tag_audit_log (
 CREATE INDEX IF NOT EXISTS idx_tag_audit_visitor ON lj_tag_audit_log(user_id, lj_visitor_id, occurred_at);
 CREATE INDEX IF NOT EXISTS idx_tag_audit_tag ON lj_tag_audit_log(user_id, tag, occurred_at);
 
+-- V34.0.0 — Estado de cada visitor POR campanha LJ.
+-- Stage NÃO é global do lead — é por par (visitor, campanha). [[v34-leads-banco-tagueamento]]
+-- Maria pode estar em BOF-mkt na Campanha A e TOF-mkt na Campanha B simultaneamente.
+-- - current_stage: um dos 9 estágios (marketing-tof, marketing-mof, ..., cs-bof)
+-- - score: por campanha (independente do global_score do visitor)
+-- - entry_stage: registra o estágio de entrada (sempre 'marketing-tof' na V34)
+CREATE TABLE IF NOT EXISTS lj_visitor_campaign_state (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  lj_visitor_id VARCHAR(64) NOT NULL,
+  campaign_id BIGINT NOT NULL,
+  current_stage VARCHAR(32) NOT NULL DEFAULT 'marketing-tof',
+  score INT DEFAULT 0,
+  entry_stage VARCHAR(32) NOT NULL DEFAULT 'marketing-tof',
+  source VARCHAR(32),  -- 'buscador-impute' | 'auto-attribution' | 'manual' | 'rd-webhook'
+  entered_at TIMESTAMPTZ DEFAULT NOW(),
+  last_movement_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT lj_vcs_uniq UNIQUE (user_id, lj_visitor_id, campaign_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_vcs_visitor ON lj_visitor_campaign_state(user_id, lj_visitor_id);
+CREATE INDEX IF NOT EXISTS idx_vcs_campaign ON lj_visitor_campaign_state(user_id, campaign_id);
+CREATE INDEX IF NOT EXISTS idx_vcs_stage ON lj_visitor_campaign_state(user_id, campaign_id, current_stage);
+
 -- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================
@@ -464,5 +488,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v34.0.0-onda3.a')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v34.0.0-onda5.a')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();

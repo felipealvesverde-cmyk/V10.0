@@ -28,6 +28,7 @@ var LeadsModule = {
       + this._campaignContextChips()
       + this.profileFinderUI(displayLeads, allLeads.length)
       + this.bankSelectionModal()
+      + this.imputeCampaignModal()
       + this.importModal()
       + this.rdMailingModal(displayLeads)
       + (usingSearchResults
@@ -344,6 +345,66 @@ var LeadsModule = {
     </div>`;
   },
 
+  // V34.0.0 Onda 5 — Modal de imputar leads numa campanha LJ.
+  // Cliente confirma os N visitors filtrados + escolhe campanha alvo.
+  // Backend cria estado em lj_visitor_campaign_state + tagueia.
+  imputeCampaignModal() {
+    const m = App.state.imputeCampaignModal;
+    if (!m?.open) return '';
+    const campaigns = App.state.campaigns || [];
+    const visitorCount = (m.visitorIds || []).length;
+    const processing = Boolean(m.processing);
+    const canConfirm = !processing && m.campaignId && visitorCount > 0;
+    const selectedCampaign = campaigns.find(c => Number(c.id) === Number(m.campaignId));
+    return `<div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div class="bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 w-full max-w-2xl mt-8">
+        <div class="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1"><i data-lucide="send" class="w-5 h-5 text-slate-900"></i><h3 class="text-xl font-black">Imputar leads em campanha</h3></div>
+            <p class="text-sm text-slate-500">Os ${visitorCount} lead(s) selecionado(s) entram em <b>marketing-tof</b> da campanha escolhida e ganham as tags <code class="bg-slate-100 px-1.5 py-0.5 rounded text-xs">lj-campanha-X</code> + <code class="bg-slate-100 px-1.5 py-0.5 rounded text-xs">lj-stage-marketing-tof</code>.</p>
+          </div>
+          <button onclick="Actions.closeImputeCampaignModal()" class="w-10 h-10 rounded-2xl bg-slate-100 font-black text-xl shrink-0">×</button>
+        </div>
+
+        ${campaigns.length === 0 ? `
+          <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4">
+            <p class="text-sm font-black text-rose-800 mb-1">Nenhuma campanha encontrada</p>
+            <p class="text-xs text-rose-700">Crie uma campanha primeiro em Campanhas.</p>
+          </div>
+        ` : `
+          <div class="space-y-3">
+            <div>
+              <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Campanha de destino</label>
+              <select onchange="Actions.setImputeCampaignId(this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold">
+                <option value="">— Selecione uma campanha —</option>
+                ${campaigns.map(c => `<option value="${c.id}" ${Number(m.campaignId) === Number(c.id) ? 'selected' : ''}>${Utils.escape(c.name)}</option>`).join('')}
+              </select>
+            </div>
+
+            <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 text-xs space-y-1">
+              <div class="font-black text-slate-700 mb-2">Resumo da imputação:</div>
+              <div>• <b>${visitorCount}</b> lead(s) entram em <b>marketing-tof</b> da campanha</div>
+              ${selectedCampaign ? `<div>• Campanha: <b>${Utils.escape(selectedCampaign.name)}</b></div>` : ''}
+              <div>• Score inicial da campanha = <code class="bg-white px-1.5 py-0.5 rounded">round(global_score × 0.5)</code></div>
+              <div>• Leads que já estão na campanha são pulados (não duplica)</div>
+              <div>• <span class="text-amber-700 font-black">RD push entra na V34.5.b</span> (esta onda é DB-only)</div>
+            </div>
+
+            ${m.error ? `<div class="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-sm font-bold text-rose-800">${Utils.escape(m.error)}</div>` : ''}
+
+            <div class="flex flex-col md:flex-row gap-2 pt-2">
+              <button ${canConfirm ? '' : 'disabled'} onclick="Actions.confirmImputeCampaign()" class="flex-1 px-5 py-3 rounded-2xl ${canConfirm ? 'bg-slate-900 text-white hover:bg-slate-800' : 'bg-slate-300 text-slate-500 cursor-not-allowed'} font-black flex items-center justify-center gap-2" ${canConfirm ? 'style="color:#fff!important;"' : ''}>
+                <i data-lucide="${processing ? 'loader-2' : 'send'}" class="w-4 h-4 ${processing ? 'animate-spin' : ''}"></i>
+                ${processing ? 'Imputando...' : `Imputar ${visitorCount} lead(s)`}
+              </button>
+              <button onclick="Actions.closeImputeCampaignModal()" class="px-5 py-3 rounded-2xl bg-slate-100 font-black">Cancelar</button>
+            </div>
+          </div>
+        `}
+      </div>
+    </div>`;
+  },
+
   // V34.0.0 Onda 4 — Painel de ações em cima dos resultados (quando há busca server-side).
   // Substitui o "Criar ação/campanha/Mailing RD" pelos outputs novos da V34: CSV + Imputar.
   searchResultsActionPanel(displayLeads, totalInBase) {
@@ -357,7 +418,7 @@ var LeadsModule = {
         </div>
         <div class="flex flex-wrap gap-2">
           <button onclick="Actions.exportSearchResultsCsv()" class="px-4 py-2.5 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 font-black text-sm flex items-center gap-2"><i data-lucide="download" class="w-3.5 h-3.5"></i> Baixar CSV</button>
-          <button onclick="Actions.imputeSearchResultsToCampaignPlaceholder()" class="px-4 py-2.5 rounded-2xl bg-slate-900 text-white hover:bg-slate-800 font-black text-sm flex items-center gap-2" style="color:#fff!important;"><i data-lucide="send" class="w-3.5 h-3.5"></i> Imputar em campanha</button>
+          <button onclick="Actions.openImputeCampaignModal()" class="px-4 py-2.5 rounded-2xl bg-slate-900 text-white hover:bg-slate-800 font-black text-sm flex items-center gap-2" style="color:#fff!important;"><i data-lucide="send" class="w-3.5 h-3.5"></i> Imputar em campanha</button>
         </div>
       </div>
     </div>`;

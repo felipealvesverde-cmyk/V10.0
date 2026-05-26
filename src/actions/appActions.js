@@ -10309,9 +10309,81 @@ Object.assign(Actions, {
     Utils.toast(`${filtered.length} lead(s) exportado(s).`);
   },
 
-  // V34.0.0 Onda 4 — Placeholder até V34.5 implementar o motor.
+  // V34.0.0 Onda 5 — Modal de imputar leads do Buscador numa campanha LJ.
+  // Pega os leads filtrados (com filters aplicados), abre modal pra escolher
+  // a campanha de destino, e dispara o endpoint que cria estado em
+  // lj_visitor_campaign_state + tagueia + audita.
+  openImputeCampaignModal() {
+    const results = App.state.visitorSearchResults?.visitors || [];
+    const filtered = (App.state.profileActive && App.state.profileFilters.length && window.ProfileFinder)
+      ? ProfileFinder.applyFilters(results, App.state.profileFilters)
+      : results;
+    if (!filtered.length) return Utils.toast('Sem leads pra imputar.');
+    const visitorIds = filtered.map(l => l.internalId || l.id).filter(Boolean);
+    if (!visitorIds.length) return Utils.toast('Leads sem ID de visitor — não consigo imputar.');
+    App.state.imputeCampaignModal = {
+      open: true,
+      campaignId: (App.state.campaigns?.[0]?.id) || null,
+      visitorIds,
+      processing: false,
+      error: null
+    };
+    App.render();
+  },
+
+  closeImputeCampaignModal() {
+    App.state.imputeCampaignModal = { open: false, campaignId: null, visitorIds: [], processing: false, error: null };
+    App.render();
+  },
+
+  setImputeCampaignId(campaignId) {
+    const m = App.state.imputeCampaignModal;
+    if (!m?.open) return;
+    App.state.imputeCampaignModal = { ...m, campaignId: Number(campaignId) || null };
+    App.render();
+  },
+
+  async confirmImputeCampaign() {
+    const m = App.state.imputeCampaignModal;
+    if (!m?.open) return;
+    const campaignId = Number(m.campaignId || 0);
+    const visitorIds = Array.isArray(m.visitorIds) ? m.visitorIds : [];
+    if (!campaignId) return Utils.toast('Selecione uma campanha.');
+    if (!visitorIds.length) return Utils.toast('Nenhum visitor pra imputar.');
+    if (m.processing) return;
+    App.state.imputeCampaignModal = { ...m, processing: true, error: null };
+    App.render();
+    try {
+      const data = await this._trackerFetch('/api/leads-impute-to-campaign', {
+        method: 'POST',
+        body: JSON.stringify({ campaign_id: campaignId, visitor_ids: visitorIds })
+      });
+      if (!data.ok) {
+        App.state.imputeCampaignModal = { ...App.state.imputeCampaignModal, processing: false, error: data.message || 'Erro.' };
+        Utils.toast(`Erro: ${data.message}`);
+        App.render();
+        return;
+      }
+      const { imputed = 0, alreadyIn = 0, skipped = 0 } = data;
+      const parts = [`✓ ${imputed} imputado(s) em "${data.campaign?.name}"`];
+      if (alreadyIn) parts.push(`${alreadyIn} já estava(m) na campanha`);
+      if (skipped) parts.push(`${skipped} ignorado(s)`);
+      Utils.toast(parts.join(' · '));
+      App.state.imputeCampaignModal = { open: false, campaignId: null, visitorIds: [], processing: false, error: null };
+      // Refetch search results pra atualizar tags exibidas (lj-campanha-X aparece agora)
+      const bankIds = App.state.visitorSearchResults?.bankIds;
+      await Actions._runVisitorSearch(bankIds);
+    } catch (err) {
+      App.state.imputeCampaignModal = { ...App.state.imputeCampaignModal, processing: false, error: err.message };
+      Utils.toast(`Erro: ${err.message}`);
+      App.render();
+    }
+  },
+
+  // V34.0.0 Onda 4 — Compat alias antigo (placeholder original chama esse nome).
+  // Mantém pra não quebrar onclick existente; redireciona pro modal real.
   imputeSearchResultsToCampaignPlaceholder() {
-    Utils.toast('Imputar em campanha entra na V34.5 (motor RD push).');
+    return Actions.openImputeCampaignModal();
   },
 
   // V33.0.0-alpha18 — Caminho C: breakdown por LP de uma campanha.
