@@ -196,4 +196,14 @@ async function handleTagSync(controlPlaneDb, userId, entry) {
       console.error('[rd-webhook tag-sync] tag op err:', err.message);
     }
   }
+
+  // V34.7.f.2 — Tag mudou → recalcula score do visitor (R, F, V todos podem
+  // ter mudado: F+1 pelo evento, V mexe via tagSignal+engagementRate).
+  // Em background pra não atrasar a resposta ao RD.
+  try {
+    const { applyEvent } = require('../lib/score-engine');
+    await applyEvent(tenantDb, userId, ljVisitorId, { source: 'rd-webhook', isAdded, isRemoved });
+  } catch (err) {
+    console.warn('[rd-webhook tag-sync] applyEvent score err:', err.message);
+  }
 }

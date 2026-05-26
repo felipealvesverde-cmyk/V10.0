@@ -76,6 +76,7 @@ module.exports = async function handler(req, res) {
 
   let created = 0, updated = 0, skipped = 0, merged = 0;
   const errors = [];
+  const touchedVisitorIds = []; // V34.7.f.2 — track pra recalcular score depois
 
   for (const raw of leads) {
     const email = String(raw.email || '').trim().toLowerCase() || null;
@@ -158,6 +159,7 @@ module.exports = async function handler(req, res) {
           [userId, visitorId, bankId, email, phone, name]
         );
         updated++;
+        touchedVisitorIds.push(visitorId);
         // V34.7.a — Se import trouxe info nova E visitor já existe no RD CRM,
         // marca pra sync de contact. Worker assíncrono empurra depois.
         const hasNewInfo = (email && !existing.email) || (phone && !existing.phone) || (name && !existing.name);
@@ -181,6 +183,7 @@ module.exports = async function handler(req, res) {
           [visitorId, userId, bankId, email, phone, name]
         );
         created++;
+        touchedVisitorIds.push(visitorId);
       }
 
       // Aplica tags: banco + source + tags do CSV (se existirem) + crossed se updateou
@@ -242,6 +245,22 @@ module.exports = async function handler(req, res) {
     );
   } catch (err) {
     console.error('[leads-import-batch] visitor_count update err:', err);
+  }
+
+  // V34.7.f.2 — Recalcula score dos visitors afetados (criados ou
+  // atualizados). PARALLEL=3 pra não saturar DB. Erros logam mas não
+  // falham o request (cron daily recalcula tudo eventualmente).
+  try {
+    const { applyEvent } = require('../lib/score-engine');
+    const PARALLEL = 3;
+    for (let i = 0; i < touchedVisitorIds.length; i += PARALLEL) {
+      const slice = touchedVisitorIds.slice(i, i + PARALLEL);
+      await Promise.allSettled(slice.map(vid =>
+        applyEvent(req.tenantDb, userId, vid, { source: 'import-batch' })
+      ));
+    }
+  } catch (err) {
+    console.error('[leads-import-batch] score recalc err:', err.message);
   }
 
   return res.status(200).json({

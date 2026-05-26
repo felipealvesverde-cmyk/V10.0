@@ -162,6 +162,22 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // V34.7.f.2 — Recalcula score dos visitors imputados em paralelo
+  // (3 visitors por vez pra não saturar DB). Fire-and-forget — não atrasa
+  // resposta ao cliente. Erros logam mas não falham o request.
+  try {
+    const { applyEvent } = require('../lib/score-engine');
+    const PARALLEL = 3;
+    for (let i = 0; i < visitorIds.length; i += PARALLEL) {
+      const slice = visitorIds.slice(i, i + PARALLEL);
+      await Promise.allSettled(slice.map(vid =>
+        applyEvent(req.tenantDb, userId, vid, { source: 'impute', campaignId, movedStage: true })
+      ));
+    }
+  } catch (err) {
+    console.error('[leads-impute-to-campaign] score recalc err:', err.message);
+  }
+
   return res.status(200).json({
     ok: true,
     campaign: { id: campaignId, name: campaignName, slug: campaignSlug },
