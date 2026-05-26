@@ -455,6 +455,55 @@ CREATE TABLE IF NOT EXISTS lj_tag_audit_log (
 CREATE INDEX IF NOT EXISTS idx_tag_audit_visitor ON lj_tag_audit_log(user_id, lj_visitor_id, occurred_at);
 CREATE INDEX IF NOT EXISTS idx_tag_audit_tag ON lj_tag_audit_log(user_id, tag, occurred_at);
 
+-- V34.6.j — externalIntegrationCheck: queue de jobs e audit de matches.
+-- Quando ação LJ é fechada no ClickUp (ou via trigger manual), engine puxa
+-- candidates do provider externo (RD CRM / Google Ads / Meta Ads / Hotmart)
+-- e vincula via match literal OU Djow semantic. Sininho mostra gaps.
+CREATE TABLE IF NOT EXISTS lj_external_check_jobs (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  action_id BIGINT,
+  clickup_task_id VARCHAR(64),
+  provider VARCHAR(32) NOT NULL,           -- 'rd-crm'|'rd-marketing'|'google-ads'|'meta-ads'|'hotmart'|'stripe'
+  resource_kind VARCHAR(32) NOT NULL,      -- 'pipeline'|'deal'|'campaign'|'product'|'list'|...
+  expected_name VARCHAR(255) NOT NULL,
+  status VARCHAR(16) NOT NULL DEFAULT 'pending',  -- 'pending'|'matched'|'gap'|'failed'
+  match_type VARCHAR(16),                  -- 'literal'|'semantic'|'manual'|null
+  matched_external_id VARCHAR(128),
+  matched_external_name VARCHAR(255),
+  confidence NUMERIC(3, 2),
+  djow_reasoning TEXT,
+  attempts INT DEFAULT 0,
+  next_retry_at TIMESTAMPTZ,
+  last_error TEXT,
+  triggered_by VARCHAR(32),                -- 'clickup-webhook'|'manual'|'cron'
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  finished_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_ext_jobs_pending ON lj_external_check_jobs(user_id, status, next_retry_at) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_ext_jobs_action ON lj_external_check_jobs(user_id, action_id);
+CREATE INDEX IF NOT EXISTS idx_ext_jobs_gap ON lj_external_check_jobs(user_id, status) WHERE status = 'gap';
+
+CREATE TABLE IF NOT EXISTS lj_external_matches (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  job_id BIGINT,
+  action_id BIGINT,
+  provider VARCHAR(32) NOT NULL,
+  resource_kind VARCHAR(32) NOT NULL,
+  external_id VARCHAR(128) NOT NULL,
+  external_name VARCHAR(255),
+  match_type VARCHAR(16),
+  confidence NUMERIC(3, 2),
+  djow_reasoning TEXT,
+  matched_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT lj_ext_matches_uniq UNIQUE (user_id, provider, resource_kind, external_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ext_matches_action ON lj_external_matches(user_id, action_id);
+
 -- V34.0.0 — Estado de cada visitor POR campanha LJ.
 -- Stage NÃO é global do lead — é por par (visitor, campanha). [[v34-leads-banco-tagueamento]]
 -- Maria pode estar em BOF-mkt na Campanha A e TOF-mkt na Campanha B simultaneamente.
@@ -507,5 +556,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v34.0.0-onda6.a')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v34.0.0-onda6.j-a')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
