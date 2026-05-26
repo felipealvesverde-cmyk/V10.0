@@ -39,6 +39,10 @@ var LeadsModule = {
       + this.imputeCampaignModal()
       + this.duplicatesModal()
       + this.importModal()
+      // V34.6.f hotfix — Modal "Criar banco" precisa render aqui também.
+      // SettingsModal._leadBankEditModal só roda dentro de Settings; user
+      // dispara via "+ Criar banco" no import modal sem Settings aberto.
+      + (window.SettingsModal?._leadBankEditModal?.() || '')
       + this.rdMailingModal(displayLeads)
       + (usingSearchResults
           ? this.searchResultsActionPanel(displayLeads, allLeads.length)
