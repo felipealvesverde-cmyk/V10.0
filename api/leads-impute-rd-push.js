@@ -27,10 +27,10 @@ const { getRdCredential } = require('../lib/rd-credentials');
 
 const RD_API_BASE = 'https://api.rd.services/crm/v1';
 
-// V34.6.v — Timeout 4s por call (era 8s). Pior caso: 2 visitors × 3 calls × 4s
-// = 24s wall-clock, dentro de qualquer timeout Railway. Plus timing por call
-// retornado no response pra diagnose.
-const RD_CALL_TIMEOUT_MS = 4000;
+// V34.6.w — Timeout 3s por call. Pior caso: 1 visitor × 3 calls × 3s = 9s.
+// Cabe em qualquer Railway timeout razoável. Se RD CRM está bloqueando,
+// timing dos logs vai mostrar 3000ms (= timeout) em cada call.
+const RD_CALL_TIMEOUT_MS = 3000;
 
 async function rdFetch(path, token, options = {}) {
   const url = `${RD_API_BASE}${path}`;
@@ -91,13 +91,13 @@ module.exports = async function handler(req, res) {
   const handlerStartMs = Date.now(); // V34.6.v — diagnose timing total do handler
   if (!campaignId) return res.status(400).json({ ok: false, message: 'campaign_id obrigatório.' });
   if (!visitorIds.length) return res.status(400).json({ ok: false, message: 'Nenhum visitor pra push.' });
-  // V34.6.t — hard limit 2 visitors/req + SEM paralelização interna.
-  // Felipe ainda reporta 502 com 5+PARALLEL_LIMIT=3. Going ultra-conservativo
-  // pra estabilizar primeiro, otimiza depois quando souber root cause real.
-  if (visitorIds.length > 2) {
+  // V34.6.w — hard limit 1 visitor/req. RD CRM parece estar bloqueando
+  // (3000ms timeout em todas calls). Chunk=1 garante <10s wall-clock no
+  // pior caso (3 calls × 3s).
+  if (visitorIds.length > 1) {
     return res.status(400).json({
       ok: false,
-      message: `Batch grande demais (${visitorIds.length} visitors). Limite: 2 por request pro RD CRM.`
+      message: `Batch grande demais (${visitorIds.length} visitors). Limite: 1 por request pro RD CRM (RD bloqueando — diagnose ativo).`
     });
   }
 

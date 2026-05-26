@@ -10482,10 +10482,10 @@ Object.assign(Actions, {
     if (!visitorIds.length) return Utils.toast('Nenhum visitor pra imputar.');
     if (m.processing) return;
 
-    // V34.6.t — chunk RD ultra-conservativo enquanto não diagnosticamos timeout
-    // real do Railway. 2 visitors × ~3s cada = ~6s wall-clock.
+    // V34.6.w — chunk RD = 1. Pra diagnose: se cada chunk de 1 também der 502,
+    // problema é INSANO (RD/network). Se funcionar, problema é volume/concurrent.
     const DB_CHUNK = 50;
-    const RD_CHUNK = 2;
+    const RD_CHUNK = 1;
 
     App.state.imputeCampaignModal = {
       ...m,
