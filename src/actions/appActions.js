@@ -10536,7 +10536,10 @@ Object.assign(Actions, {
       if (totalSkipped) dbParts.push(`${totalSkipped} ignorado(s)`);
       Utils.toast(dbParts.join(' · '));
 
-      // STEP 2 — RD push chunking (só se DB rodou OK e cliente marcou)
+      // STEP 2 — RD push chunking (só se DB rodou OK e cliente marcou).
+      // V34.6.y — delay 500ms entre chunks RD pra dar respiro ao rate limit
+      // do RD CRM (~60 calls/min). Cada chunk faz ~30 calls.
+      const RD_INTER_CHUNK_DELAY_MS = 500;
       if (pushToRd && !abort) {
         const rdChunks = [];
         for (let i = 0; i < visitorIds.length; i += RD_CHUNK) {
@@ -10570,6 +10573,13 @@ Object.assign(Actions, {
               body: JSON.stringify({ campaign_id: campaignId, visitor_ids: rdChunks[idx] })
             });
             if (!rdData.ok) {
+              // V34.6.y — rateLimit é retryable: dorme + tenta de novo o mesmo chunk
+              if (rdData.rateLimit) {
+                Utils.toast(`RD rate limit. Aguardando 5s antes de continuar...`);
+                await new Promise(r => setTimeout(r, 5000));
+                idx--; // re-tenta o mesmo chunk
+                continue;
+              }
               Utils.toast(`RD lote ${idx + 1}: ${rdData.message || 'erro'}`);
               rdConsecutiveFailures++;
               if (/pipeline.*não encontrado|pipeline.*not found/i.test(rdData.message || '')) break;
@@ -10596,6 +10606,10 @@ Object.assign(Actions, {
               Utils.toast(`${RD_ABORT_THRESHOLD} lotes RD seguidos com erro de rede. Aborto.`);
               break;
             }
+          }
+          // V34.6.y — delay entre chunks pra não saturar rate limit RD
+          if (idx < rdChunks.length - 1) {
+            await new Promise(r => setTimeout(r, RD_INTER_CHUNK_DELAY_MS));
           }
         }
         if (pipelineMatched) {
