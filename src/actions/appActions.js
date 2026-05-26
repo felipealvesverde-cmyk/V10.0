@@ -2722,7 +2722,11 @@ Object.assign(Actions, {
     const failures = [];
     const leadIds = [];
     let aborted = false;
-    let consecutive401 = 0;
+    let abortReason = null;
+    let consecutiveFailures = 0;
+    let lastFailStatus = null;
+    let lastFailMessage = null;
+    const ABORT_THRESHOLD = 5; // 5 falhas seguidas = problema sistêmico
 
     try {
       for (let idx = 0; idx < filtered.length; idx++) {
@@ -2744,22 +2748,36 @@ Object.assign(Actions, {
           if (r.ok) {
             pushed += 1;
             leadIds.push(lead.id || lead.email);
-            consecutive401 = 0;
+            consecutiveFailures = 0; // reseta cascata
           } else {
             failed += 1;
+            consecutiveFailures++;
+            lastFailStatus = r.status;
+            lastFailMessage = r.message;
             if (failures.length < 3) failures.push(r.message || 'falha');
-            // Detecta token expirado (cascata 401 que Felipe viu)
-            if (r.status === 401 || r.status === 403) {
-              consecutive401++;
-              if (consecutive401 >= 3) {
-                aborted = true;
-                Utils.toast('Token RD Marketing inválido/expirado. Reconecte em Configurações → RD.');
-                break;
-              }
+            // V34.6.m+ — Log do body do 1º erro pra diagnose
+            if (failed === 1) {
+              console.error('[rd-mailing] primeira falha:', { status: r.status, message: r.message, data: r.data });
+            }
+            // V34.6.n hotfix — Abort após N falhas SEGUIDAS (qualquer 4xx/5xx).
+            // 401/403 = auth. 400 = payload OU token inválido (RD às vezes retorna 400).
+            // 500+ = problema servidor. Em qualquer caso, parar é melhor que cascatear.
+            if (consecutiveFailures >= ABORT_THRESHOLD) {
+              aborted = true;
+              abortReason = `${ABORT_THRESHOLD} falhas seguidas (HTTP ${lastFailStatus || '?'}). ${
+                lastFailStatus === 401 || lastFailStatus === 403
+                  ? 'Token RD Marketing inválido/expirado. Reconecte em Configurações → RD.'
+                  : lastFailStatus === 400
+                  ? 'RD rejeitou o payload. Pode ser token expirado OU formato. Reconecte RD e tente de novo. Detalhe: ' + (lastFailMessage || '')
+                  : 'Provider RD com problema. Tente novamente em alguns minutos.'
+              }`;
+              Utils.toast(abortReason);
+              break;
             }
           }
         } catch (err) {
           failed += 1;
+          consecutiveFailures++;
           if (failures.length < 3) failures.push(err?.message || String(err));
         }
       }
