@@ -23,6 +23,7 @@
 //   - Audit em lj_tag_audit_log pra cada tag aplicada
 
 const crypto = require('crypto');
+const { mergeVisitors } = require('../lib/visitor-merge');
 
 function normalizePhone(s) {
   return String(s || '').replace(/\D/g, '');
@@ -65,7 +66,7 @@ module.exports = async function handler(req, res) {
   const bankTag = `lj-banco-${bankSlug}`;
   const sourceTag = `lj-source-${source.replace(/^lj-source-/, '')}`; // ex: lj-source-mailing-csv
 
-  let created = 0, updated = 0, skipped = 0;
+  let created = 0, updated = 0, skipped = 0, merged = 0;
   const errors = [];
 
   for (const raw of leads) {
@@ -80,23 +81,55 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      // Match por email primeiro, depois phone
-      let existing = null;
+      // V34.6.b — Match cross-signal:
+      // 1. Acha visitor por email
+      // 2. Acha visitor por phone
+      // 3. Se os dois bateram em visitors DIFERENTES → merge antes de updatear
+      //    (mantém o mais antigo via mergeVisitors)
+      // 4. Senão usa o que bateu
+      let byEmail = null, byPhone = null;
       if (email) {
         const r = await req.tenantDb.query(
           `SELECT id, lj_visitor_id, bank_id, email, phone, name FROM lj_visitors
            WHERE user_id = $1 AND LOWER(email) = $2 LIMIT 1`,
           [userId, email]
         );
-        if (r.rows.length) existing = r.rows[0];
+        if (r.rows.length) byEmail = r.rows[0];
       }
-      if (!existing && phone) {
+      if (phone) {
         const r = await req.tenantDb.query(
           `SELECT id, lj_visitor_id, bank_id, email, phone, name FROM lj_visitors
            WHERE user_id = $1 AND phone = $2 LIMIT 1`,
           [userId, phone]
         );
-        if (r.rows.length) existing = r.rows[0];
+        if (r.rows.length) byPhone = r.rows[0];
+      }
+
+      let existing = null;
+      let crossMerged = false;
+      if (byEmail && byPhone && byEmail.lj_visitor_id !== byPhone.lj_visitor_id) {
+        // Cross-signal: cada sinal achou um visitor diferente. Funde antes.
+        try {
+          await mergeVisitors(req.tenantDb, userId, byEmail.lj_visitor_id, byPhone.lj_visitor_id, {
+            matchSignal: 'cross-email-phone',
+            sourceReason: 'import-batch'
+          });
+          merged++;
+          crossMerged = true;
+          // O survivor sobreviveu — re-fetch
+          const sr = await req.tenantDb.query(
+            `SELECT id, lj_visitor_id, bank_id, email, phone, name FROM lj_visitors
+             WHERE user_id = $1 AND (LOWER(email) = $2 OR phone = $3) LIMIT 1`,
+            [userId, email, phone]
+          );
+          if (sr.rows.length) existing = sr.rows[0];
+        } catch (mErr) {
+          console.error('[leads-import-batch] cross-merge falhou:', mErr);
+          // Fallback: usa o byEmail (mais comum como chave única)
+          existing = byEmail;
+        }
+      } else {
+        existing = byEmail || byPhone;
       }
 
       let visitorId;
@@ -130,11 +163,15 @@ module.exports = async function handler(req, res) {
         created++;
       }
 
-      // Aplica tags: banco + source + tags do CSV (se existirem)
+      // Aplica tags: banco + source + tags do CSV (se existirem) + crossed se updateou
       const tagsToApply = [
         { tag: bankTag, source: 'import-csv', category: 'lj-native' },
         { tag: sourceTag, source: 'import-csv', category: 'lj-native' }
       ];
+      // V34.6.b — Update em visitor existente vira "cruzamento": aplica tag de audit visual.
+      if (!isNew) {
+        tagsToApply.push({ tag: 'lj-crossed-import-csv', source: 'lj-motor', category: 'lj-native' });
+      }
       if (Array.isArray(raw.tags)) {
         for (const t of raw.tags) {
           const tagStr = String(t || '').trim();
@@ -192,7 +229,8 @@ module.exports = async function handler(req, res) {
     created,
     updated,
     skipped,
+    merged,                        // V34.6.b — quantos pares cross-signal foram fundidos antes de updatear
     total: leads.length,
-    errors: errors.slice(0, 10) // primeiros 10 erros
+    errors: errors.slice(0, 10)
   });
 };

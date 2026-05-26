@@ -537,8 +537,11 @@ Object.assign(Actions, {
         Utils.toast(`Erro: ${data.message || 'Falha ao importar.'}`);
         return;
       }
-      const { created = 0, updated = 0, skipped = 0 } = data;
-      Utils.toast(`✓ ${created} criado(s), ${updated} atualizado(s)${skipped ? `, ${skipped} ignorado(s)` : ''}.`);
+      const { created = 0, updated = 0, skipped = 0, merged = 0 } = data;
+      const parts = [`✓ ${created} criado(s)`, `${updated} atualizado(s)`];
+      if (merged) parts.push(`${merged} duplicata(s) fundida(s)`);
+      if (skipped) parts.push(`${skipped} ignorado(s)`);
+      Utils.toast(parts.join(', ') + '.');
       if (typeof onSuccess === 'function') onSuccess();
       App.state.showLeadImportModal = false;
       // Refetch dos bancos pra atualizar visitor_count
