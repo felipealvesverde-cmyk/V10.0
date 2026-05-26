@@ -2731,9 +2731,15 @@ Object.assign(Actions, {
     try {
       for (let idx = 0; idx < filtered.length; idx++) {
         const lead = filtered[idx];
-        // Atualiza progress a cada 10 leads (não render a cada lead pra não travar UI)
+        // V34.6.o — Progress agora reflete tentativas + sucessos + falhas separados.
+        // Antes mostrava só "current/total" (idx) o que enganava se TUDO falhava.
         if (idx % 10 === 0) {
-          App.state.rdMailingProgress = { current: idx, total: filtered.length };
+          App.state.rdMailingProgress = {
+            current: idx,
+            pushed,
+            failed,
+            total: filtered.length
+          };
           App.render();
         }
         if (!lead?.email) { failed += 1; continue; }

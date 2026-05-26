@@ -635,19 +635,34 @@ var LeadsModule = {
           ${(() => {
             const p = App.state.rdMailingProgress;
             if (!p || !p.total) return '';
-            const pct = Math.min(100, Math.round((p.current / p.total) * 100));
-            return `<div class="bg-violet-50 border border-violet-200 rounded-2xl p-3">
+            // V34.6.o — barra reflete SUCESSOS reais (pushed), não tentativas.
+            // Tentadas = current (idx). Sucessos = pushed. Falhas = failed.
+            const tried = Number(p.current || 0);
+            const pushed = Number(p.pushed || 0);
+            const failed = Number(p.failed || 0);
+            const total = Number(p.total || 1);
+            const pctSuccess = Math.min(100, Math.round((pushed / total) * 100));
+            const pctTried = Math.min(100, Math.round((tried / total) * 100));
+            const failingMostly = tried > 5 && (failed / tried) > 0.5;
+            return `<div class="${failingMostly ? 'bg-rose-50 border border-rose-200' : 'bg-violet-50 border border-violet-200'} rounded-2xl p-3">
               <div class="flex items-center justify-between gap-2 mb-2">
-                <div class="flex items-center gap-2 text-sm text-violet-900 font-black">
+                <div class="flex items-center gap-2 text-sm ${failingMostly ? 'text-rose-900' : 'text-violet-900'} font-black">
                   <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
-                  Enviando pro RD Marketing
+                  ${failingMostly ? 'RD recusando — aguarde abort' : 'Enviando pro RD Marketing'}
                 </div>
-                <div class="text-xs text-violet-700 font-bold">${p.current}/${p.total} · ${pct}%</div>
+                <div class="text-xs ${failingMostly ? 'text-rose-700' : 'text-violet-700'} font-bold">
+                  ${pushed} ok${failed ? ` · ${failed} falhas` : ''} de ${total} · ${pctSuccess}%
+                </div>
               </div>
-              <div class="w-full h-2 rounded-full bg-violet-100 overflow-hidden">
-                <div class="h-full bg-violet-500 transition-all" style="width:${pct}%"></div>
+              <div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden relative">
+                <div class="h-full ${failingMostly ? 'bg-rose-500' : 'bg-violet-500'} transition-all" style="width:${pctSuccess}%"></div>
+                <div class="absolute top-0 h-full bg-slate-300 opacity-50 transition-all" style="left:${pctSuccess}%; width:${Math.max(0, pctTried - pctSuccess)}%"></div>
               </div>
-              <p class="text-[10px] text-violet-700 mt-2">Se cascatear 401 (token RD expirado), aborto e te aviso.</p>
+              <p class="text-[10px] ${failingMostly ? 'text-rose-700 font-black' : 'text-violet-700'} mt-2">
+                ${failingMostly
+                  ? '⚠️ Roxo/rosa = leads gravados. Cinza = tentativas falhando. Aborto em 5 falhas seguidas.'
+                  : 'Barra colorida = leads de fato gravados no RD. Cinza = tentativas em curso.'}
+              </p>
             </div>`;
           })()}
 
