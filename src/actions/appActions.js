@@ -2710,16 +2710,28 @@ Object.assign(Actions, {
     const mailingTag = `lj_mailing_${slug}`;
     const targetTag = `target_${draft.targetStage}`;
 
+    // V34.6.m hotfix — chunking + abort-on-fail.
+    // Antes: loop serial de 500 leads → bloqueava UI 5+ min OU cascateava 401.
+    // Agora: progress bar visível + para imediatamente se token expirou.
     App.state.rdMailingSending = true;
+    App.state.rdMailingProgress = { current: 0, total: filtered.length };
     App.render();
 
     let pushed = 0;
     let failed = 0;
     const failures = [];
     const leadIds = [];
+    let aborted = false;
+    let consecutive401 = 0;
 
     try {
-      for (const lead of filtered) {
+      for (let idx = 0; idx < filtered.length; idx++) {
+        const lead = filtered[idx];
+        // Atualiza progress a cada 10 leads (não render a cada lead pra não travar UI)
+        if (idx % 10 === 0) {
+          App.state.rdMailingProgress = { current: idx, total: filtered.length };
+          App.render();
+        }
         if (!lead?.email) { failed += 1; continue; }
         try {
           const r = await RdMarketingContactService.upsertContact({
@@ -2732,9 +2744,19 @@ Object.assign(Actions, {
           if (r.ok) {
             pushed += 1;
             leadIds.push(lead.id || lead.email);
+            consecutive401 = 0;
           } else {
             failed += 1;
             if (failures.length < 3) failures.push(r.message || 'falha');
+            // Detecta token expirado (cascata 401 que Felipe viu)
+            if (r.status === 401 || r.status === 403) {
+              consecutive401++;
+              if (consecutive401 >= 3) {
+                aborted = true;
+                Utils.toast('Token RD Marketing inválido/expirado. Reconecte em Configurações → RD.');
+                break;
+              }
+            }
           }
         } catch (err) {
           failed += 1;
@@ -2742,41 +2764,46 @@ Object.assign(Actions, {
         }
       }
 
-      // Salva o mailing no state pra mapear conversões → campanha depois
-      App.state.rdMailings = Array.isArray(App.state.rdMailings) ? App.state.rdMailings : [];
-      const mailing = {
-        id: `mailing_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        name,
-        slug,
-        tag: mailingTag,
-        targetStage: draft.targetStage,
-        responseTag: `#convert_${draft.targetStage}`,
-        campaignId: Number(draft.campaignId),
-        leadCount: pushed,
-        leadIds,
-        createdAt: new Date().toISOString(),
-        lastConversionAt: null
-      };
-      App.state.rdMailings.unshift(mailing);
-      App.state.rdMailings = App.state.rdMailings.slice(0, 100);
+      // V34.6.m — Se abortou (cascata 401), NÃO salva mailing nem fecha modal.
+      // Cliente reconecta RD Marketing e tenta de novo. Mailing só existe quando
+      // pelo menos uma parcela razoável dos contatos foi pushada.
+      if (!aborted && pushed > 0) {
+        // Salva o mailing no state pra mapear conversões → campanha depois
+        App.state.rdMailings = Array.isArray(App.state.rdMailings) ? App.state.rdMailings : [];
+        const mailing = {
+          id: `mailing_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          name,
+          slug,
+          tag: mailingTag,
+          targetStage: draft.targetStage,
+          responseTag: `#convert_${draft.targetStage}`,
+          campaignId: Number(draft.campaignId),
+          leadCount: pushed,
+          leadIds,
+          createdAt: new Date().toISOString(),
+          lastConversionAt: null
+        };
+        App.state.rdMailings.unshift(mailing);
+        App.state.rdMailings = App.state.rdMailings.slice(0, 100);
 
-      // V24.1.0 — Auto-registra webhook WEBHOOK.CONVERTED do RD Marketing
-      // (só na primeira criação de mailing — depois fica ativo)
-      try {
-        await this._ensureMarketingConversionWebhook();
-      } catch (_) {}
+        // V24.1.0 — Auto-registra webhook WEBHOOK.CONVERTED do RD Marketing
+        try {
+          await this._ensureMarketingConversionWebhook();
+        } catch (_) {}
 
-      App.state.showRdMailingModal = false;
-      App.state.rdMailingDraft = { name: '', campaignId: '', targetStage: 'mkt_tof' };
+        App.state.showRdMailingModal = false;
+        App.state.rdMailingDraft = { name: '', campaignId: '', targetStage: 'mkt_tof' };
+      }
     } finally {
       App.state.rdMailingSending = false;
+      App.state.rdMailingProgress = null;
       App.save();
       App.render();
     }
 
-    if (pushed) {
+    if (!aborted && pushed) {
       Utils.toast(`✓ Mailing "${name}" criado · ${pushed} contato(s) no RD${failed ? ` · ${failed} falha(s): ${failures[0] || ''}` : ''}`);
-    } else {
+    } else if (!aborted) {
       Utils.toast(`Falhou: ${failures[0] || 'nenhum contato pushado'}`);
     }
   },

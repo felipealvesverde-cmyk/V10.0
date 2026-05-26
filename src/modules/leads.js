@@ -632,6 +632,25 @@ var LeadsModule = {
             <div>• Quando algum lead converter em LP, ganhará <code>${Utils.escape(responseTag)}</code> e a conversão volta pra campanha <b>${Utils.escape((campaigns.find(c => String(c.id) === String(draft.campaignId)) || {}).name || '—')}</b></div>
           </div>
 
+          ${(() => {
+            const p = App.state.rdMailingProgress;
+            if (!p || !p.total) return '';
+            const pct = Math.min(100, Math.round((p.current / p.total) * 100));
+            return `<div class="bg-violet-50 border border-violet-200 rounded-2xl p-3">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <div class="flex items-center gap-2 text-sm text-violet-900 font-black">
+                  <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
+                  Enviando pro RD Marketing
+                </div>
+                <div class="text-xs text-violet-700 font-bold">${p.current}/${p.total} · ${pct}%</div>
+              </div>
+              <div class="w-full h-2 rounded-full bg-violet-100 overflow-hidden">
+                <div class="h-full bg-violet-500 transition-all" style="width:${pct}%"></div>
+              </div>
+              <p class="text-[10px] text-violet-700 mt-2">Se cascatear 401 (token RD expirado), aborto e te aviso.</p>
+            </div>`;
+          })()}
+
           <div class="flex flex-col md:flex-row gap-2 pt-2">
             <button onclick="Actions.confirmCreateRdMailing()" ${canSend ? '' : 'disabled'} class="flex-1 px-5 py-3 rounded-2xl ${canSend ? 'bg-violet-600 hover:bg-violet-700 text-white' : 'bg-slate-200 text-slate-500 cursor-not-allowed'} font-black flex items-center justify-center gap-2" ${canSend ? 'style="color:#fff;"' : ''}>
               <i data-lucide="${isSending ? 'loader-2' : 'send'}" class="w-4 h-4 ${isSending ? 'animate-spin' : ''}"></i>

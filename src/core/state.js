@@ -959,6 +959,7 @@ var State = {
         ? raw.rdMailingDraft
         : { name: '', campaignId: '', targetStage: 'mkt_tof' },
       rdMailingSending: false, // sempre false no boot
+      rdMailingProgress: null, // V34.6.m — { current, total } durante o envio batch
       // V24.1.0 — Cache + refresh manual (auto-loops desligados)
       rdLastManualRefreshAt: raw.rdLastManualRefreshAt || null,
       rdRefreshing: false, // sempre false no boot
