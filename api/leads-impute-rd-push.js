@@ -67,13 +67,13 @@ module.exports = async function handler(req, res) {
   const visitorIds = Array.isArray(body.visitor_ids) ? body.visitor_ids.map(String).filter(Boolean) : [];
   if (!campaignId) return res.status(400).json({ ok: false, message: 'campaign_id obrigatório.' });
   if (!visitorIds.length) return res.status(400).json({ ok: false, message: 'Nenhum visitor pra push.' });
-  // V34.6.k — hard limit 25 visitors/req. RD CRM faz 2-3 chamadas API por visitor
-  // (lookup + upsert contact + create deal), cada uma ~200-500ms. 25 leads = 50-90s,
-  // dentro da margem do timeout Railway. Frontend chunka em 25.
-  if (visitorIds.length > 25) {
+  // V34.6.r — hard limit 10 visitors/req + paralelização interna.
+  // RD CRM faz 2-3 chamadas API por visitor (~300ms cada). 25 leads serial
+  // estourava timeout Railway (~30s). 10 leads paralelos = ~3-6s.
+  if (visitorIds.length > 10) {
     return res.status(400).json({
       ok: false,
-      message: `Batch grande demais (${visitorIds.length} visitors). Limite: 25 por request pro RD CRM. Frontend deve fazer chunking.`
+      message: `Batch grande demais (${visitorIds.length} visitors). Limite: 10 por request pro RD CRM. Frontend deve fazer chunking.`
     });
   }
 
@@ -153,26 +153,22 @@ module.exports = async function handler(req, res) {
   let rdPushed = 0, rdSkipped = 0, rdAlready = 0;
   const rdErrors = [];
 
-  for (const visitorId of visitorIds) {
+  // V34.6.r — Processa N visitors EM PARALELO. Cada visitor roda suas 2-3
+  // chamadas RD serial (lookup → upsert → create deal), mas os visitors do
+  // mesmo chunk não esperam uns aos outros. 10 visitors × 1.5s = ~1.5s
+  // wall-clock em vez de 15s serial.
+  async function processOneVisitor(visitorId) {
     try {
       const vRes = await req.tenantDb.query(
         `SELECT lj_visitor_id, email, phone, name, external_rd_contact_id, external_rd_deal_id
            FROM lj_visitors WHERE user_id = $1 AND lj_visitor_id = $2 LIMIT 1`,
         [userId, visitorId]
       );
-      if (!vRes.rows.length) { rdSkipped++; rdErrors.push({ visitor_id: visitorId, error: 'visitor não encontrado' }); continue; }
+      if (!vRes.rows.length) return { status: 'skipped', error: 'visitor não encontrado' };
       const v = vRes.rows[0];
-      if (!v.email && !v.phone) { rdSkipped++; continue; }
+      if (!v.email && !v.phone) return { status: 'skipped', error: 'sem email/phone' };
+      if (v.external_rd_deal_id) return { status: 'already' };
 
-      // Idempotência: se já tem deal_id pra esse pipeline, pula. (Refinável: hoje
-      // não cruzamos se o deal anterior está NESTE pipeline ou em outro — mas o
-      // external_rd_deal_id é único por visitor, então skip total é razoável.)
-      if (v.external_rd_deal_id) {
-        rdAlready++;
-        continue;
-      }
-
-      // Upsert contact: busca por email primeiro
       let rdContactId = v.external_rd_contact_id || null;
       if (!rdContactId && v.email) {
         const search = await rdFetch(`/contacts?email=${encodeURIComponent(v.email)}`, token);
@@ -182,22 +178,16 @@ module.exports = async function handler(req, res) {
         }
       }
       if (!rdContactId) {
-        // Cria contato novo
         const createBody = { contact: { name: v.name || 'Lead LJ' } };
         if (v.email) createBody.contact.emails = [{ email: v.email }];
         if (v.phone) createBody.contact.phones = [{ phone: v.phone, type: 'cellphone' }];
         const cr = await rdFetch('/contacts', token, { method: 'POST', body: createBody });
-        if (!cr.ok) {
-          rdErrors.push({ visitor_id: visitorId, error: `criar contact HTTP ${cr.status}` });
-          rdSkipped++;
-          continue;
-        }
+        if (!cr.ok) return { status: 'skipped', error: `criar contact HTTP ${cr.status}` };
         const created = cr.data?.contact || cr.data;
         rdContactId = created?.id || created?._id;
-        if (!rdContactId) { rdErrors.push({ visitor_id: visitorId, error: 'contact sem id retornado' }); rdSkipped++; continue; }
+        if (!rdContactId) return { status: 'skipped', error: 'contact sem id' };
       }
 
-      // Cria deal
       const dealBody = {
         deal: {
           name: `${v.name || v.email || visitorId} — ${campaignName}`.slice(0, 200),
@@ -207,32 +197,37 @@ module.exports = async function handler(req, res) {
         contacts: [{ id: rdContactId }]
       };
       const dr = await rdFetch('/deals', token, { method: 'POST', body: dealBody });
-      if (!dr.ok) {
-        rdErrors.push({ visitor_id: visitorId, error: `criar deal HTTP ${dr.status}: ${JSON.stringify(dr.data).slice(0, 200)}` });
-        rdSkipped++;
-        continue;
-      }
+      if (!dr.ok) return { status: 'skipped', error: `criar deal HTTP ${dr.status}: ${JSON.stringify(dr.data).slice(0, 200)}` };
       const dealData = dr.data?.deal || dr.data;
       const rdDealId = dealData?.id || dealData?._id;
-      if (!rdDealId) { rdErrors.push({ visitor_id: visitorId, error: 'deal sem id retornado' }); rdSkipped++; continue; }
+      if (!rdDealId) return { status: 'skipped', error: 'deal sem id' };
 
-      // Persiste IDs no lj_visitors
       await req.tenantDb.query(
         `UPDATE lj_visitors SET
-           external_rd_contact_id = $3,
-           external_rd_deal_id = $4,
-           external_rd_sync_status = 'synced',
-           external_rd_synced_at = NOW(),
+           external_rd_contact_id = $3, external_rd_deal_id = $4,
+           external_rd_sync_status = 'synced', external_rd_synced_at = NOW(),
            external_rd_sync_error = NULL
          WHERE user_id = $1 AND lj_visitor_id = $2`,
         [userId, visitorId, String(rdContactId), String(rdDealId)]
       );
-
-      rdPushed++;
+      return { status: 'pushed' };
     } catch (err) {
       console.error('[leads-impute-rd-push] visitor err:', err);
+      return { status: 'skipped', error: err.message };
+    }
+  }
+
+  const results = await Promise.allSettled(visitorIds.map(processOneVisitor));
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (r.status === 'fulfilled') {
+      const val = r.value;
+      if (val.status === 'pushed') rdPushed++;
+      else if (val.status === 'already') rdAlready++;
+      else { rdSkipped++; if (val.error) rdErrors.push({ visitor_id: visitorIds[i], error: val.error }); }
+    } else {
       rdSkipped++;
-      rdErrors.push({ visitor_id: visitorId, error: err.message });
+      rdErrors.push({ visitor_id: visitorIds[i], error: r.reason?.message || String(r.reason) });
     }
   }
 

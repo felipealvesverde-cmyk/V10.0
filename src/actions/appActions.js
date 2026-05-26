@@ -10482,9 +10482,10 @@ Object.assign(Actions, {
     if (!visitorIds.length) return Utils.toast('Nenhum visitor pra imputar.');
     if (m.processing) return;
 
-    // V34.6.k hotfix — chunking. DB=50/chunk (queries internas). RD=25/chunk (API externa mais lenta).
+    // V34.6.k+r — chunking. DB=50/chunk (queries internas).
+    // RD=10/chunk (V34.6.r reduziu de 25; backend paraleliza internamente).
     const DB_CHUNK = 50;
-    const RD_CHUNK = 25;
+    const RD_CHUNK = 10;
 
     App.state.imputeCampaignModal = {
       ...m,
