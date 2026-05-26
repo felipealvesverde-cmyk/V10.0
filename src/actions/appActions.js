@@ -9957,6 +9957,98 @@ Object.assign(Actions, {
     }
   },
 
+  // V34.0.0 Onda 2 — Bancos de Leads CRUD frontend.
+  async loadLeadBanks() {
+    if (App.state.leadBanksCache?.loading) return;
+    App.state.leadBanksCache = { ...App.state.leadBanksCache, loading: true };
+    try {
+      const data = await this._trackerFetch('/api/lead-banks');
+      if (data.ok) {
+        App.state.leadBanksCache = { banks: data.banks || [], loadedAt: Date.now(), loading: false };
+      } else {
+        App.state.leadBanksCache = { banks: [], loadedAt: Date.now(), loading: false, error: data.message };
+      }
+    } catch (err) {
+      App.state.leadBanksCache = { ...App.state.leadBanksCache, loading: false, error: err.message };
+    }
+    App.render();
+  },
+
+  openLeadBankEditModal(bankId = null) {
+    if (bankId) {
+      const bank = (App.state.leadBanksCache?.banks || []).find(b => Number(b.id) === Number(bankId));
+      if (!bank) return Utils.toast('Banco não encontrado.');
+      App.state.leadBankEditModal = { mode: 'edit', bank: { ...bank }, saving: false, error: null };
+    } else {
+      App.state.leadBankEditModal = { mode: 'create', bank: { name: '', description: '', is_default: false }, saving: false, error: null };
+    }
+    App.render();
+  },
+
+  closeLeadBankEditModal() {
+    App.state.leadBankEditModal = null;
+    App.render();
+  },
+
+  updateLeadBankDraft(field, value) {
+    if (!App.state.leadBankEditModal) return;
+    const bank = { ...(App.state.leadBankEditModal.bank || {}) };
+    bank[field] = (field === 'is_default') ? Boolean(value) : value;
+    App.state.leadBankEditModal = { ...App.state.leadBankEditModal, bank };
+    // não chama render — perde foco do input
+  },
+
+  async saveLeadBank() {
+    const m = App.state.leadBankEditModal;
+    if (!m) return;
+    const name = String(m.bank?.name || '').trim();
+    if (!name) return Utils.toast('Nome do banco obrigatório.');
+
+    App.state.leadBankEditModal = { ...m, saving: true, error: null };
+    App.render();
+
+    const body = {
+      name,
+      description: String(m.bank?.description || '').trim() || null,
+      is_default: Boolean(m.bank?.is_default)
+    };
+    const method = m.mode === 'edit' ? 'PATCH' : 'POST';
+    const url = m.mode === 'edit' ? `/api/lead-banks?id=${m.bank.id}` : '/api/lead-banks';
+
+    try {
+      const data = await this._trackerFetch(url, { method, body: JSON.stringify(body) });
+      if (!data.ok) {
+        App.state.leadBankEditModal = { ...App.state.leadBankEditModal, saving: false, error: data.message };
+        App.render();
+        return;
+      }
+      Utils.toast(m.mode === 'edit' ? '✓ Banco atualizado.' : `✓ Banco "${data.bank.name}" criado.`);
+      App.state.leadBankEditModal = null;
+      await Actions.loadLeadBanks(); // refetch
+    } catch (err) {
+      App.state.leadBankEditModal = { ...App.state.leadBankEditModal, saving: false, error: err.message };
+      App.render();
+    }
+  },
+
+  async deleteLeadBank(bankId) {
+    const bank = (App.state.leadBanksCache?.banks || []).find(b => Number(b.id) === Number(bankId));
+    if (!bank) return Utils.toast('Banco não encontrado.');
+    const msg = `Apagar o banco "${bank.name}"? Os ${bank.visitor_count || 0} lead(s) dele continuam no sistema (apenas sem banco vinculado).`;
+    if (!confirm(msg)) return;
+    try {
+      const data = await this._trackerFetch(`/api/lead-banks?id=${bankId}`, { method: 'DELETE' });
+      if (data.ok) {
+        Utils.toast(data.message || '✓ Banco removido.');
+        await Actions.loadLeadBanks();
+      } else {
+        Utils.toast(`Erro: ${data.message}`);
+      }
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V33.0.0-alpha18 — Caminho C: breakdown por LP de uma campanha.
   // Backend agrupa visitors por landing_url normalizado (sem ?utm=). UI
   // mostra as N LPs da campanha automaticamente quando há >1 distinta.

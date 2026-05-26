@@ -286,6 +286,10 @@ var State = {
       // V33.0.0-alpha18 — Breakdown por LP de cada campanha (Caminho C).
       // { [campaignId]: { lps, total_visitors, total_leads, total_customers, loadedAt } }
       campaignLpBreakdown: {},
+      // V34.0.0 Onda 2 — Cache de bancos de leads + UI state.
+      leadBanksCache: { banks: [], loadedAt: null, loading: false },
+      // Modal de criar/editar banco (volátil). null = fechado. { mode: 'create'|'edit', bank: {...}|null, saving: bool, error: string|null }
+      leadBankEditModal: null,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -732,6 +736,9 @@ var State = {
       actionAttributionsCache: { byActionId: {}, sinceDays: 30, loadedAt: null, loading: false },
       // V33.0.0-alpha18 — Breakdown por LP volátil (re-fetch ao abrir card de campanha).
       campaignLpBreakdown: {},
+      // V34.0.0 Onda 2 — Cache de bancos + modal de edição (voláteis, re-fetch + fecha em F5).
+      leadBanksCache: { banks: [], loadedAt: null, loading: false },
+      leadBankEditModal: null,
       // V32.14.8 — Timestamp da última sync ClickUp persiste.
       clickupLastSyncAt: Number(raw.clickupLastSyncAt) || null,
       // V32.15.0 — Recolher por bloco no Acompanhamento persiste.
