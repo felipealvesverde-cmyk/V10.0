@@ -10825,12 +10825,74 @@ Object.assign(Actions, {
         duplicateGroupsPhone: Number(data.duplicateGroupsPhone || 0),
         recentMerges24h: Number(data.recentMerges24h || 0),
         lastMergeAt: data.lastMergeAt || null,
+        // V34.7.a.2 — novos counts (enrichment + rd sync)
+        enrichablePending: Number(data.enrichablePending || 0),
+        rdContactSyncPending: Number(data.rdContactSyncPending || 0),
+        enrichedLast24h: Number(data.enrichedLast24h || 0),
+        totalPending: Number(data.totalPending || 0),
         loadedAt: Date.now()
       };
       App.render();
     } catch (err) {
       // silencioso — counts são opcionais
       console.warn('[loadPendingCounts]', err.message);
+    }
+  },
+
+  // V34.7.a.2 — Dispara enriquecimento manualmente do sininho.
+  async triggerEnrichNames() {
+    if (App.state._enrichRunning) return Utils.toast('Já está rodando.');
+    App.state._enrichRunning = true;
+    App.render();
+    Utils.toast('Enriquecendo nomes via heurística + Djow...');
+    try {
+      const data = await this._trackerFetch('/api/visitors-enrich-names', {
+        method: 'POST',
+        body: JSON.stringify({ max_visitors: 100 })
+      });
+      if (!data.ok) {
+        Utils.toast(`Erro: ${data.message}`);
+        return;
+      }
+      const parts = [`✓ ${data.enriched} nome(s) enriquecido(s)`];
+      if (data.byHeuristic) parts.push(`${data.byHeuristic} via heurística`);
+      if (data.byDjow) parts.push(`${data.byDjow} via Djow`);
+      if (data.markedForRdSync) parts.push(`${data.markedForRdSync} marcados pra sync RD`);
+      Utils.toast(parts.join(' · '));
+      await Actions.loadPendingCounts();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    } finally {
+      App.state._enrichRunning = false;
+      App.render();
+    }
+  },
+
+  // V34.7.a.2 — Dispara sync de contatos LJ→RD manualmente do sininho.
+  async triggerRdContactSync() {
+    if (App.state._rdContactSyncRunning) return Utils.toast('Já está rodando.');
+    App.state._rdContactSyncRunning = true;
+    App.render();
+    Utils.toast('Sincronizando contatos com RD CRM...');
+    try {
+      const data = await this._trackerFetch('/api/rd-contact-sync-run', {
+        method: 'POST',
+        body: JSON.stringify({ max_visitors: 50 })
+      });
+      if (!data.ok) {
+        Utils.toast(`Erro: ${data.message}`);
+        return;
+      }
+      const parts = [`✓ ${data.synced} sincronizado(s)`];
+      if (data.failed) parts.push(`${data.failed} falharam`);
+      if (data.rateLimit) parts.push(`${data.rateLimit} rate-limit (tente de novo em 1min)`);
+      Utils.toast(parts.join(' · '));
+      await Actions.loadPendingCounts();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    } finally {
+      App.state._rdContactSyncRunning = false;
+      App.render();
     }
   },
 

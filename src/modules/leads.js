@@ -317,14 +317,45 @@ var LeadsModule = {
     const djowSearching = Boolean(App.state._djowSearchRunning);
     const djowBtn = `<button onclick="Actions.djowSearchProfile()" ${djowSearching ? 'disabled' : ''} class="px-5 py-3 rounded-2xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold text-sm flex items-center gap-1.5" style="color:#fff;" title="Djow é o motor de busca do LeadJourney"><i data-lucide="${djowSearching ? 'loader-2' : 'sparkles'}" class="w-3.5 h-3.5 ${djowSearching ? 'animate-spin' : ''}"></i> ${djowSearching ? 'Pensando…' : 'Buscar'}</button>`;
 
-    const dupTotal = Number(App.state.pendingCounts?.duplicateGroupsTotal || 0);
-    const dupBadge = dupTotal > 0
-      ? `<span class="ml-1 px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-black" style="color:#fff!important;">${dupTotal}</span>`
-      : '';
-    const dupBtnClass = dupTotal > 0
-      ? 'px-4 py-3 rounded-2xl bg-amber-50 border-2 border-amber-300 hover:bg-amber-100 font-black text-sm flex items-center gap-2'
-      : 'px-4 py-3 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 font-black text-sm flex items-center gap-2';
-    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-4"><div class="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-4"><div><div class="flex items-center gap-2 mb-2"><i data-lucide="scan-search" class="w-5 h-5 text-violet-600"></i><h3 class="text-lg font-black">Buscador de Perfil</h3></div><p class="text-sm text-slate-500">Linguagem natural. Ex: <strong>mulheres jovens de SP com alta intenção</strong>.</p></div><div class="flex gap-2"><button onclick="Actions.openDuplicatesModal()" title="${dupTotal > 0 ? `${dupTotal} grupo(s) de duplicatas pendente(s)` : 'Buscar e fundir duplicatas'}" class="${dupBtnClass}"><i data-lucide="git-merge" class="w-4 h-4 text-amber-600"></i> Duplicatas${dupBadge}</button><button onclick="Actions.openLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Inserir leads</button></div></div>${this._activeBanksStrip()}<div class="flex flex-wrap gap-2 mb-3"><input id="profileInput" value="${Utils.escape(App.state.profileQuery)}" oninput="App.state.profileQuery=this.value; App.save();" onkeydown="if(event.key==='Enter'){event.preventDefault(); Actions.djowSearchProfile();}" placeholder="Ex: mulheres de 30 a 40 anos de SP, #cta, quente..." class="flex-1 min-w-[200px] px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />${djowBtn}${isActive ? `<button onclick="Actions.clearProfile()" class="px-4 py-3 rounded-2xl bg-slate-100 font-bold text-sm hover:bg-slate-200">Limpar</button>` : ''}</div>${refineHtml}${actionPanel}</div>`;
+    const pc = App.state.pendingCounts || {};
+    const dupTotal = Number(pc.duplicateGroupsTotal || 0);
+    const enrichTotal = Number(pc.enrichablePending || 0);
+    const syncTotal = Number(pc.rdContactSyncPending || 0);
+    const enrichRunning = Boolean(App.state._enrichRunning);
+    const syncRunning = Boolean(App.state._rdContactSyncRunning);
+
+    // Helper pra montar mini-botão com badge
+    const pendBtn = (label, total, color, icon, onClick, running, title) => {
+      const has = total > 0;
+      const baseClasses = has
+        ? `px-3 py-2 rounded-2xl bg-${color}-50 border-2 border-${color}-300 hover:bg-${color}-100 text-${color}-900 font-black text-xs flex items-center gap-1.5`
+        : `px-3 py-2 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs flex items-center gap-1.5`;
+      const badge = has ? `<span class="ml-0.5 px-1.5 py-0.5 rounded-full bg-${color}-500 text-white text-[10px] font-black" style="color:#fff!important;">${total}</span>` : '';
+      const iconElement = running ? `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>` : `<i data-lucide="${icon}" class="w-3.5 h-3.5 text-${color}-600"></i>`;
+      return `<button ${running ? 'disabled' : ''} onclick="${onClick}" title="${title}" class="${baseClasses} ${running ? 'opacity-60 cursor-wait' : ''}">${iconElement} ${label}${badge}</button>`;
+    };
+
+    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-4">
+      <div class="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-4">
+        <div>
+          <div class="flex items-center gap-2 mb-2"><i data-lucide="scan-search" class="w-5 h-5 text-violet-600"></i><h3 class="text-lg font-black">Buscador de Perfil</h3></div>
+          <p class="text-sm text-slate-500">Linguagem natural. Ex: <strong>mulheres jovens de SP com alta intenção</strong>.</p>
+        </div>
+        <div class="flex gap-2 flex-wrap items-start">
+          ${pendBtn('Duplicatas', dupTotal, 'amber', 'git-merge', 'Actions.openDuplicatesModal()', false, dupTotal > 0 ? `${dupTotal} grupo(s) de duplicatas` : 'Buscar e fundir duplicatas')}
+          ${pendBtn(enrichRunning ? 'Enriquecendo' : 'Enriquecer', enrichTotal, 'violet', 'sparkles', 'Actions.triggerEnrichNames()', enrichRunning, enrichTotal > 0 ? `${enrichTotal} lead(s) sem nome — clique pra rodar Djow agora` : 'Enriquecer nomes via heurística + Djow')}
+          ${pendBtn(syncRunning ? 'Sync RD' : 'Sync RD', syncTotal, 'sky', 'rotate-cw', 'Actions.triggerRdContactSync()', syncRunning, syncTotal > 0 ? `${syncTotal} contato(s) pendente(s) de sync com RD CRM` : 'Sincronizar contatos com RD CRM')}
+          <button onclick="Actions.openLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Inserir leads</button>
+        </div>
+      </div>
+      ${this._activeBanksStrip()}
+      <div class="flex flex-wrap gap-2 mb-3">
+        <input id="profileInput" value="${Utils.escape(App.state.profileQuery)}" oninput="App.state.profileQuery=this.value; App.save();" onkeydown="if(event.key==='Enter'){event.preventDefault(); Actions.djowSearchProfile();}" placeholder="Ex: mulheres de 30 a 40 anos de SP, #cta, quente..." class="flex-1 min-w-[200px] px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />
+        ${djowBtn}
+        ${isActive ? `<button onclick="Actions.clearProfile()" class="px-4 py-3 rounded-2xl bg-slate-100 font-bold text-sm hover:bg-slate-200">Limpar</button>` : ''}
+      </div>
+      ${refineHtml}${actionPanel}
+    </div>`;
   },
 
   // V34.0.0 Onda 4 — Modal multi-select de bancos antes da busca.
@@ -943,13 +974,18 @@ var LeadsModule = {
   detail(lead) {
     const tempClass = lead.temperature === 'Quente' ? 'bg-red-100 text-red-700' : lead.temperature === 'Morno' ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-200 text-slate-700';
     // V33.0.0 — Se o lead foi capturado pelo tracker, mostra botão "Jornada Causal"
-    // que abre TrackerVisitorDetailModal com touchpoints/transitions/events.
     const hasTrackerOrigin = (lead.actions || []).some(a => a.channel === 'tracker');
     const trackerVisitorId = hasTrackerOrigin ? lead.internalId : null;
     const trackerBtn = trackerVisitorId
       ? `<button onclick="Actions.loadVisitorDetail('${Utils.escape(String(trackerVisitorId))}')" class="ml-2 px-4 py-2 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black text-sm inline-flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="user-search" class="w-3.5 h-3.5"></i> Jornada Causal</button>`
       : '';
-    return `<div class="space-y-4"><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="mb-4 flex items-center"><button onclick="App.state.selectedLeadId=null; App.save(); App.render();" class="px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar para Leads</button>${trackerBtn}</div><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5"><div><div class="flex items-center gap-2 mb-2"><h2 class="text-2xl font-black">${Utils.escape(lead.name)}</h2><span class="px-3 py-1 rounded-full text-xs font-black ${tempClass}">${lead.temperature}</span></div><p class="text-sm text-slate-500">${Utils.escape(lead.email || 'sem email')} • ${Utils.escape(lead.phone || 'sem telefone')}</p></div><div class="grid grid-cols-3 gap-2 text-center"><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.globalScore}</div><div class="text-xs text-slate-500">Score Global</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.campaigns.length}</div><div class="text-xs text-slate-500">Campanhas</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.interactions}</div><div class="text-xs text-slate-500">Interações</div></div></div></div><div class="grid lg:grid-cols-3 gap-4"><div class="bg-slate-50 rounded-3xl p-4 border border-slate-100"><h3 class="font-black text-lg mb-3">Dados de perfil</h3><div class="grid grid-cols-2 gap-2 text-xs">${this.profileCell('Sexo', lead.sexo)}${this.profileCell('Idade', lead.idade ? lead.idade + ' anos' : '')}${this.profileCell('Estado', lead.estado)}${this.profileCell('Cidade', lead.cidade)}${this.profileCell('Estado civil', lead.estadoCivil)}${this.profileCell('Faixa salarial', lead.faixaSalarial)}</div></div><div class="lg:col-span-2 bg-slate-50 rounded-3xl p-4 border border-slate-100"><h3 class="font-black text-lg mb-3">Tags comportamentais</h3><div class="flex flex-wrap gap-2">${lead.behaviorTags.map(tag => `<span class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black">${Utils.escape(tag)}</span>`).join('') || '<span class="text-sm text-slate-500">Sem tags comportamentais</span>'}</div></div></div></div><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h3 class="text-xl font-black mb-5">Timeline da Jornada</h3><div class="space-y-3">${lead.actions.map(item => this.timelineItem(item)).join('') || Components.empty('Sem eventos de jornada.')}</div></div></div>`;
+    // V34.7.a.2 — Indicador ✨ se nome foi enriquecido por heurística/Djow
+    const tags = Array.isArray(lead.behaviorTags) ? lead.behaviorTags : [];
+    const enrichedTag = tags.find(t => String(t).startsWith('lj-enriched-'));
+    const enrichedBadge = enrichedTag
+      ? `<span class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 text-[10px] font-black" title="Nome enriquecido via ${enrichedTag === 'lj-enriched-djow' ? 'Djow (Claude)' : 'heurística email→nome'}"><i data-lucide="sparkles" class="w-2.5 h-2.5"></i> enriquecido</span>`
+      : '';
+    return `<div class="space-y-4"><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="mb-4 flex items-center"><button onclick="App.state.selectedLeadId=null; App.save(); App.render();" class="px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar para Leads</button>${trackerBtn}</div><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5"><div><div class="flex items-center gap-2 mb-2"><h2 class="text-2xl font-black">${Utils.escape(lead.name)}</h2><span class="px-3 py-1 rounded-full text-xs font-black ${tempClass}">${lead.temperature}</span>${enrichedBadge}</div><p class="text-sm text-slate-500">${Utils.escape(lead.email || 'sem email')} • ${Utils.escape(lead.phone || 'sem telefone')}</p></div><div class="grid grid-cols-3 gap-2 text-center"><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.globalScore}</div><div class="text-xs text-slate-500">Score Global</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.campaigns.length}</div><div class="text-xs text-slate-500">Campanhas</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.interactions}</div><div class="text-xs text-slate-500">Interações</div></div></div></div><div class="grid lg:grid-cols-3 gap-4"><div class="bg-slate-50 rounded-3xl p-4 border border-slate-100"><h3 class="font-black text-lg mb-3">Dados de perfil</h3><div class="grid grid-cols-2 gap-2 text-xs">${this.profileCell('Sexo', lead.sexo)}${this.profileCell('Idade', lead.idade ? lead.idade + ' anos' : '')}${this.profileCell('Estado', lead.estado)}${this.profileCell('Cidade', lead.cidade)}${this.profileCell('Estado civil', lead.estadoCivil)}${this.profileCell('Faixa salarial', lead.faixaSalarial)}</div></div><div class="lg:col-span-2 bg-slate-50 rounded-3xl p-4 border border-slate-100"><h3 class="font-black text-lg mb-3">Tags comportamentais</h3><div class="flex flex-wrap gap-2">${lead.behaviorTags.map(tag => `<span class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black">${Utils.escape(tag)}</span>`).join('') || '<span class="text-sm text-slate-500">Sem tags comportamentais</span>'}</div></div></div></div><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h3 class="text-xl font-black mb-5">Timeline da Jornada</h3><div class="space-y-3">${lead.actions.map(item => this.timelineItem(item)).join('') || Components.empty('Sem eventos de jornada.')}</div></div></div>`;
   },
 
   profileCell(label, value) {

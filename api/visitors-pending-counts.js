@@ -49,10 +49,36 @@ module.exports = async function handler(req, res) {
       [userId]
     );
 
+    // V34.7.a.2 — counts de enriquecimento + sync RD pra sininho expandido
+    const enrichablePending = await req.tenantDb.query(
+      `SELECT COUNT(*) AS c FROM lj_visitors
+        WHERE user_id = $1
+          AND email IS NOT NULL AND email <> ''
+          AND (name IS NULL OR name = '' OR LOWER(name) = LOWER(email))`,
+      [userId]
+    );
+    const rdSyncPending = await req.tenantDb.query(
+      `SELECT COUNT(*) AS c FROM lj_visitors
+        WHERE user_id = $1
+          AND external_rd_sync_status = 'pending-contact-update'`,
+      [userId]
+    );
+    const enrichedToday = await req.tenantDb.query(
+      `SELECT COUNT(DISTINCT lj_visitor_id) AS c FROM lj_tag_audit_log
+        WHERE user_id = $1
+          AND tag LIKE 'lj-enriched-%'
+          AND action = 'added'
+          AND occurred_at > NOW() - INTERVAL '24 hours'`,
+      [userId]
+    );
+
     const emailGroups = Number(emailDupCount.rows[0]?.c || 0);
     const phoneGroups = Number(phoneDupCount.rows[0]?.c || 0);
     const recent = Number(recentMerges.rows[0]?.c || 0);
     const lastAt = recentMerges.rows[0]?.last_at || null;
+    const enrichable = Number(enrichablePending.rows[0]?.c || 0);
+    const rdSync = Number(rdSyncPending.rows[0]?.c || 0);
+    const enriched24h = Number(enrichedToday.rows[0]?.c || 0);
 
     return res.status(200).json({
       ok: true,
@@ -60,7 +86,13 @@ module.exports = async function handler(req, res) {
       duplicateGroupsPhone: phoneGroups,
       duplicateGroupsTotal: emailGroups + phoneGroups,
       recentMerges24h: recent,
-      lastMergeAt: lastAt ? new Date(lastAt).toISOString() : null
+      lastMergeAt: lastAt ? new Date(lastAt).toISOString() : null,
+      // V34.7.a.2 novos
+      enrichablePending: enrichable,
+      rdContactSyncPending: rdSync,
+      enrichedLast24h: enriched24h,
+      // Total agregado pra badge único
+      totalPending: emailGroups + phoneGroups + enrichable + rdSync
     });
   } catch (err) {
     console.error('[visitors-pending-counts]', err);
