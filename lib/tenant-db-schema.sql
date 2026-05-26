@@ -422,6 +422,39 @@ ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS global_score INT DEFAULT 0;
 CREATE INDEX IF NOT EXISTS idx_lj_visitors_bank ON lj_visitors(user_id, bank_id) WHERE bank_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_lj_visitors_global_score ON lj_visitors(user_id, global_score DESC);
 
+-- V34.0.0 — Tags por visitor. [[vocabulario-tags-definitivo]]
+-- - source: 'lj-motor' | 'rd-webhook' | 'rd-pull-sync' | 'import-csv' | 'user-manual'
+-- - category: 'lj-native' | 'rd-auto' | 'rd-manual' | 'rd-legacy' | 'other'
+CREATE TABLE IF NOT EXISTS lj_visitor_tags (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  lj_visitor_id VARCHAR(64) NOT NULL,
+  tag VARCHAR(128) NOT NULL,
+  source VARCHAR(32),
+  category VARCHAR(32),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT lj_visitor_tags_uniq UNIQUE (user_id, lj_visitor_id, tag)
+);
+
+CREATE INDEX IF NOT EXISTS idx_visitor_tags_visitor ON lj_visitor_tags(user_id, lj_visitor_id);
+CREATE INDEX IF NOT EXISTS idx_visitor_tags_tag ON lj_visitor_tags(user_id, tag);
+CREATE INDEX IF NOT EXISTS idx_visitor_tags_category ON lj_visitor_tags(user_id, category) WHERE category IS NOT NULL;
+
+-- V34.0.0 — Audit log permanente de adições/remoções de tag.
+-- Append-only, nunca deletado. Permite rastrear histórico de cada tag.
+CREATE TABLE IF NOT EXISTS lj_tag_audit_log (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  lj_visitor_id VARCHAR(64) NOT NULL,
+  tag VARCHAR(128) NOT NULL,
+  action VARCHAR(16) NOT NULL,  -- 'added' | 'removed'
+  source VARCHAR(32) NOT NULL,  -- 'rd-webhook' | 'rd-pull-sync' | 'lj-motor' | 'user-manual' | 'import-csv' | 'audit-cleanup'
+  occurred_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_tag_audit_visitor ON lj_tag_audit_log(user_id, lj_visitor_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_tag_audit_tag ON lj_tag_audit_log(user_id, tag, occurred_at);
+
 -- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================
@@ -431,5 +464,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v34.0.0-onda2.a')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v34.0.0-onda3.a')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();

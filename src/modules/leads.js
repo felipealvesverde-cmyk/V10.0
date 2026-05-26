@@ -345,16 +345,58 @@ var LeadsModule = {
   importModal() {
     if (!App.state.showLeadImportModal) return '';
     const mode = App.state.leadBaseInputMode || 'manual';
-    return `<div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto"><div class="bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 w-full max-w-3xl mt-8"><div class="flex items-start justify-between gap-3 mb-4"><div><h3 class="text-xl font-black">Inserir leads na base global</h3><p class="text-sm text-slate-500">Dados de perfil ficam separados das tags comportamentais. Ambos aparecem na busca.</p></div><button onclick="Actions.closeLeadImportModal()" class="w-10 h-10 rounded-2xl bg-slate-100 font-black text-xl">×</button></div><div class="grid grid-cols-2 gap-2 mb-4"><button onclick="Actions.setLeadBaseInputMode('manual')" class="px-4 py-2.5 rounded-2xl font-black text-sm ${mode === 'manual' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}">Manual</button><button onclick="Actions.setLeadBaseInputMode('csv')" class="px-4 py-2.5 rounded-2xl font-black text-sm ${mode === 'csv' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}">CSV</button></div>${mode === 'csv' ? this.csvImportUI() : this.manualImportUI()}</div></div>`;
+    const processing = Boolean(App.state.leadImportProcessing);
+    return `<div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto"><div class="bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 w-full max-w-3xl mt-8">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <h3 class="text-xl font-black">Inserir leads</h3>
+          <p class="text-sm text-slate-500">Os leads são salvos no banco escolhido, com tags automáticas de origem.</p>
+        </div>
+        <button onclick="Actions.closeLeadImportModal()" class="w-10 h-10 rounded-2xl bg-slate-100 font-black text-xl">×</button>
+      </div>
+      ${this._importBankSelector()}
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        <button onclick="Actions.setLeadBaseInputMode('manual')" class="px-4 py-2.5 rounded-2xl font-black text-sm ${mode === 'manual' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}">Manual</button>
+        <button onclick="Actions.setLeadBaseInputMode('csv')" class="px-4 py-2.5 rounded-2xl font-black text-sm ${mode === 'csv' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}">CSV</button>
+      </div>
+      ${processing ? `<div class="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-3 text-sm text-amber-800 font-bold flex items-center gap-2"><span class="inline-block w-3 h-3 rounded-full bg-amber-400 animate-pulse"></span>Processando batch no servidor...</div>` : ''}
+      ${mode === 'csv' ? this.csvImportUI() : this.manualImportUI()}
+    </div></div>`;
+  },
+
+  // V34.0.0 Onda 3 — Seletor de banco no topo do modal. Sem banco selecionado,
+  // import fica bloqueado. Mostra link "+ Criar banco" inline se tenant não tem nenhum.
+  _importBankSelector() {
+    const banks = App.state.leadBanksCache?.banks || [];
+    const selectedId = App.state.leadImportBankId || null;
+    if (!banks.length) {
+      return `<div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 mb-4">
+        <p class="text-sm font-black text-rose-800 mb-1">Nenhum banco de leads encontrado</p>
+        <p class="text-xs text-rose-700 mb-3">Você precisa criar um banco antes de importar. Bancos agrupam leads e podem virar audiência de campanha.</p>
+        <button onclick="Actions.openLeadBankEditModal()" class="px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-sm" style="color:#fff!important;">+ Criar banco</button>
+      </div>`;
+    }
+    const options = banks.map(b => `<option value="${b.id}" ${Number(selectedId) === Number(b.id) ? 'selected' : ''}>${Utils.escape(b.name)}${b.is_default ? ' · default' : ''} · ${b.visitor_count || 0} lead(s)</option>`).join('');
+    return `<div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 mb-4 flex flex-col md:flex-row md:items-center gap-3">
+      <div class="flex-1 min-w-0">
+        <p class="text-xs font-black text-slate-500 mb-1">Banco de destino</p>
+        <select onchange="Actions.setLeadImportBank(this.value)" class="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 font-bold text-sm">${options}</select>
+      </div>
+      <button onclick="Actions.openLeadBankEditModal()" class="px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 font-bold text-xs whitespace-nowrap">+ Criar novo</button>
+    </div>`;
   },
 
   manualImportUI() {
     const placeholder = 'Nome, Telefone, Email, Idade, Estado, Cidade, Estado Civil, Sexo, Faixa Salarial, Tags\nEx: Ana Souza, 11999999999, ana@email.com, 35, São Paulo, São Paulo, Casado(a), Feminino, R$ 5 mil a R$ 10 mil, #open #cta';
-    return `<div class="space-y-3"><textarea oninput="App.state.leadManualText=this.value; App.save();" placeholder="${Utils.escape(placeholder)}" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold min-h-[180px]">${Utils.escape(App.state.leadManualText || '')}</textarea><p class="text-xs text-slate-500">Uma linha por lead. Ordem: Nome, Telefone, Email, Idade, Estado, Cidade, Estado Civil, Sexo, Faixa Salarial, Tags.</p><div class="flex flex-col md:flex-row gap-2"><button onclick="Actions.importManualLeadsFromText()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black">Importar lead(s)</button><button onclick="Actions.closeLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-100 font-black">Cancelar</button></div></div>`;
+    const processing = Boolean(App.state.leadImportProcessing);
+    const disabled = processing || !App.state.leadImportBankId;
+    return `<div class="space-y-3"><textarea ${processing ? 'disabled' : ''} oninput="App.state.leadManualText=this.value; App.save();" placeholder="${Utils.escape(placeholder)}" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold min-h-[180px]">${Utils.escape(App.state.leadManualText || '')}</textarea><p class="text-xs text-slate-500">Uma linha por lead. Ordem: Nome, Telefone, Email, Idade, Estado, Cidade, Estado Civil, Sexo, Faixa Salarial, Tags.</p><div class="flex flex-col md:flex-row gap-2"><button ${disabled ? 'disabled' : ''} onclick="Actions.importManualLeadsFromText()" class="px-5 py-3 rounded-2xl ${disabled ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-slate-900 text-white'} font-black">${processing ? 'Processando...' : 'Importar lead(s)'}</button><button onclick="Actions.closeLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-100 font-black">Cancelar</button></div></div>`;
   },
 
   csvImportUI() {
-    return `<div class="space-y-3"><div class="flex flex-col md:flex-row gap-2"><button onclick="Actions.downloadGlobalLeadCsvTemplate()" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 font-bold text-sm">Baixar modelo CSV</button><label class="px-4 py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm cursor-pointer text-center">Selecionar CSV<input type="file" accept=".csv" class="hidden" onchange="Actions.handleGlobalLeadCSV(event)" /></label></div><textarea oninput="App.state.leadCsvText=this.value; App.save();" placeholder="Nome,Telefone,Email,Idade,Estado,Cidade,Estado Civil,Sexo,Faixa Salarial,Tags" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold min-h-[150px]">${Utils.escape(App.state.leadCsvText || '')}</textarea><p class="text-xs text-slate-500">Colunas aceitas: Nome, Telefone, Email, Idade, Estado, Cidade, Estado Civil, Sexo, Faixa Salarial, Tags. Tags = comportamento.</p><div class="flex flex-col md:flex-row gap-2"><button onclick="Actions.importGlobalLeadsFromCsv()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black">Importar CSV para base global</button><button onclick="Actions.closeLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-100 font-black">Cancelar</button></div></div>`;
+    const processing = Boolean(App.state.leadImportProcessing);
+    const disabled = processing || !App.state.leadImportBankId;
+    return `<div class="space-y-3"><div class="flex flex-col md:flex-row gap-2"><button onclick="Actions.downloadGlobalLeadCsvTemplate()" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 font-bold text-sm">Baixar modelo CSV</button><label class="px-4 py-3 rounded-2xl bg-slate-900 text-white font-bold text-sm cursor-pointer text-center">Selecionar CSV<input type="file" accept=".csv" class="hidden" onchange="Actions.handleGlobalLeadCSV(event)" /></label></div><textarea ${processing ? 'disabled' : ''} oninput="App.state.leadCsvText=this.value; App.save();" placeholder="Nome,Telefone,Email,Idade,Estado,Cidade,Estado Civil,Sexo,Faixa Salarial,Tags" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold min-h-[150px]">${Utils.escape(App.state.leadCsvText || '')}</textarea><p class="text-xs text-slate-500">Colunas aceitas: Nome, Telefone, Email, Idade, Estado, Cidade, Estado Civil, Sexo, Faixa Salarial, Tags. Tags = comportamento.</p><div class="flex flex-col md:flex-row gap-2"><button ${disabled ? 'disabled' : ''} onclick="Actions.importGlobalLeadsFromCsv()" class="px-5 py-3 rounded-2xl ${disabled ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-slate-900 text-white'} font-black">${processing ? 'Processando...' : 'Importar CSV'}</button><button onclick="Actions.closeLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-100 font-black">Cancelar</button></div></div>`;
   },
 
   list(leads) {

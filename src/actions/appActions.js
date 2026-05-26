@@ -181,8 +181,23 @@ var Actions = {
       importFromRDMock() { const list = App.state.actionDraft.rdListName.trim() || 'Lista RD'; App.state.actionDraft.leadsText = [`Lead RD 1, lead1@empresa.com, 48991110001, #rd ${list}`, `Lead RD 2, lead2@empresa.com, 48991110002, #rd ${list}`].join('\n'); App.save(); App.render(); Utils.toast('Modelo de importação RD carregado.'); },
       openDashboardCampaign(id) { App.state.selectedDashboardCampaignId = id; App.save(); App.render(); },
       openLead(id) { App.state.selectedLeadId = id; App.state.activeTab = 'leads'; App.save(); App.render(); },
-      openLeadImportModal() { App.state.showLeadImportModal = true; App.save(); App.render(); },
+      async openLeadImportModal() {
+        // V34.0.0 Onda 3 — pre-popula leadImportBankId com banco default do tenant.
+        // Se não tem banco ainda, força criação inline antes do import.
+        App.state.showLeadImportModal = true;
+        if (!App.state.leadBanksCache?.loadedAt) {
+          await Actions.loadLeadBanks();
+        }
+        const banks = App.state.leadBanksCache?.banks || [];
+        const defaultBank = banks.find(b => b.is_default) || banks[0] || null;
+        App.state.leadImportBankId = defaultBank ? defaultBank.id : null;
+        App.save(); App.render();
+      },
       closeLeadImportModal() { App.state.showLeadImportModal = false; App.save(); App.render(); },
+      setLeadImportBank(bankId) {
+        App.state.leadImportBankId = bankId ? Number(bankId) : null;
+        App.save(); App.render();
+      },
 
       setLeadBaseInputMode(mode) { App.state.leadBaseInputMode = mode; App.save(); App.render(); },
       handleGlobalLeadCSV(event) {
@@ -462,16 +477,14 @@ Object.assign(Actions, {
     App.state.actionDraft = { ...State.initialActionDraft(), campaignId: App.state.selectedCampaignId, scoreId: App.state.scores[0]?.id || 1 };
     App.save(); App.render(); Utils.toast('Ação criada com OKRs e fluxo operacional.');
   },
-  importManualLeadsFromText() {
+  async importManualLeadsFromText() {
+    // V34.0.0 Onda 3 — Manual import agora persiste no tenant DB via banco.
+    if (!App.state.leadImportBankId) return Utils.toast('Selecione um banco antes de importar.');
     const text = String(App.state.leadManualText || '').trim();
     if (!text) return Utils.toast('Digite ao menos um lead para importar.');
-    const leads = LeadParser.parseProfileCsv(text, App.state.scores[0]?.id || 1);
-    if (!leads.length) return Utils.toast('Nenhum lead encontrado. Use: Nome, Telefone, Email, Idade, Estado, Cidade, Estado Civil, Sexo, Faixa Salarial, Tags');
-    const clean = leads.map(({ score, ...lead }) => ({ ...lead, score, origem: 'manual', createdAt: new Date().toISOString() }));
-    App.state.manualLeads = LeadIdentityEngine.mergeMany(App.state.manualLeads || [], clean, 'manual');
-    App.state.leadManualText = '';
-    App.state.showLeadImportModal = false;
-    App.save(); App.render(); Utils.toast(`${clean.length} lead(s) triangulado(s) na base global.`);
+    const parsed = LeadParser.parseProfileCsv(text, App.state.scores[0]?.id || 1);
+    if (!parsed.length) return Utils.toast('Nenhum lead encontrado. Use: Nome, Telefone, Email, Idade, Estado, Cidade, Estado Civil, Sexo, Faixa Salarial, Tags');
+    await Actions._submitImportBatch(parsed, 'mailing-manual', () => { App.state.leadManualText = ''; });
   },
   addManualLead() {
     const d = App.state.leadDraft || {};
@@ -481,14 +494,56 @@ Object.assign(Actions, {
     App.state.leadDraft = { name: '', phone: '', email: '', idade: '', estado: '', cidade: '', estadoCivil: '', sexo: '', faixaSalarial: '', tags: '' };
     App.save(); App.render(); Utils.toast('Lead triangulado na base global.');
   },
-  importGlobalLeadsFromCsv() {
-    const leads = LeadParser.parseProfileCsv(App.state.leadCsvText, App.state.scores[0]?.id || 1);
-    if (!leads.length) return Utils.toast('Nenhum lead encontrado no CSV.');
-    const clean = leads.map(({ score, ...lead }) => ({ ...lead, score, origem: 'csv', createdAt: new Date().toISOString() }));
-    App.state.manualLeads = LeadIdentityEngine.mergeMany(App.state.manualLeads || [], clean, 'csv');
-    App.state.leadCsvText = '';
-    App.state.showLeadImportModal = false;
-    App.save(); App.render(); Utils.toast(`${clean.length} lead(s) triangulado(s) na base global.`);
+  async importGlobalLeadsFromCsv() {
+    // V34.0.0 Onda 3 — CSV import agora persiste no tenant DB via banco.
+    if (!App.state.leadImportBankId) return Utils.toast('Selecione um banco antes de importar.');
+    const parsed = LeadParser.parseProfileCsv(App.state.leadCsvText, App.state.scores[0]?.id || 1);
+    if (!parsed.length) return Utils.toast('Nenhum lead encontrado no CSV.');
+    await Actions._submitImportBatch(parsed, 'mailing-csv', () => { App.state.leadCsvText = ''; });
+  },
+
+  // V34.0.0 Onda 3 — Submit batch de leads pra /api/leads-import-batch.
+  // parsed = output do LeadParser.parseProfileCsv. source = 'mailing-csv' | 'mailing-manual'.
+  // onSuccess = callback pra limpar inputs (leadManualText / leadCsvText) após submit OK.
+  async _submitImportBatch(parsed, source, onSuccess) {
+    const bankId = App.state.leadImportBankId;
+    if (!bankId) return Utils.toast('Banco não selecionado.');
+    if (App.state.leadImportProcessing) return; // dedup
+    App.state.leadImportProcessing = true;
+    App.render();
+    try {
+      const leads = parsed.map(p => ({
+        name: p.name || null,
+        email: p.email || null,
+        phone: p.phone || null,
+        tags: String(p.tags || '').split(/\s+/).map(t => t.replace(/^#/, '').trim()).filter(Boolean),
+        idade: p.idade || null,
+        estado: p.estado || null,
+        cidade: p.cidade || null,
+        estadoCivil: p.estadoCivil || null,
+        sexo: p.sexo || null,
+        faixaSalarial: p.faixaSalarial || null
+      }));
+      const data = await this._trackerFetch('/api/leads-import-batch', {
+        method: 'POST',
+        body: JSON.stringify({ bank_id: bankId, source, leads })
+      });
+      if (!data.ok) {
+        Utils.toast(`Erro: ${data.message || 'Falha ao importar.'}`);
+        return;
+      }
+      const { created = 0, updated = 0, skipped = 0 } = data;
+      Utils.toast(`✓ ${created} criado(s), ${updated} atualizado(s)${skipped ? `, ${skipped} ignorado(s)` : ''}.`);
+      if (typeof onSuccess === 'function') onSuccess();
+      App.state.showLeadImportModal = false;
+      // Refetch dos bancos pra atualizar visitor_count
+      await Actions.loadLeadBanks();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    } finally {
+      App.state.leadImportProcessing = false;
+      App.save(); App.render();
+    }
   },
 
   openCampaignResults(id) { App.state.selectedResultCampaignId = id; App.state.selectedActionId = null; App.state.selectedCampaignId = id; App.state.activeTab = 'results'; App.save(); App.render(); },

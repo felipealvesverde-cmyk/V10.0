@@ -290,6 +290,10 @@ var State = {
       leadBanksCache: { banks: [], loadedAt: null, loading: false },
       // Modal de criar/editar banco (volátil). null = fechado. { mode: 'create'|'edit', bank: {...}|null, saving: bool, error: string|null }
       leadBankEditModal: null,
+      // V34.0.0 Onda 3 — Banco selecionado pro import (volátil, default = bank default do tenant).
+      leadImportBankId: null,
+      // Import em andamento — bloqueia UI durante processamento batch.
+      leadImportProcessing: false,
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -739,6 +743,9 @@ var State = {
       // V34.0.0 Onda 2 — Cache de bancos + modal de edição (voláteis, re-fetch + fecha em F5).
       leadBanksCache: { banks: [], loadedAt: null, loading: false },
       leadBankEditModal: null,
+      // V34.0.0 Onda 3 — Import: banco selecionado + flag de processamento (voláteis).
+      leadImportBankId: null,
+      leadImportProcessing: false,
       // V32.14.8 — Timestamp da última sync ClickUp persiste.
       clickupLastSyncAt: Number(raw.clickupLastSyncAt) || null,
       // V32.15.0 — Recolher por bloco no Acompanhamento persiste.
