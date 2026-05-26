@@ -2677,6 +2677,16 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V34.6.l hotfix — versão silenciosa pra inputs de texto (oninput).
+  // App.render() em oninput recria o DOM e o input perde foco a cada tecla.
+  // Esse helper só salva no state e NÃO re-renderiza. O slug visível no resumo
+  // atualiza no próximo render natural (blur, submit, switch de campo).
+  updateRdMailingDraftSilent(field, value) {
+    App.state.rdMailingDraft = App.state.rdMailingDraft || { name: '', campaignId: '', targetStage: 'mkt_tof' };
+    App.state.rdMailingDraft[field] = value;
+    App.save();
+  },
+
   _slugifyMailingName(name) {
     return String(name || '').trim().toLowerCase()
       .normalize('NFD').replace(/[̀-ͯ]/g, '')

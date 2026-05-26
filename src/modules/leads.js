@@ -604,7 +604,7 @@ var LeadsModule = {
         <div class="space-y-4">
           <div>
             <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Nome do mailing</label>
-            <input value="${Utils.escape(draft.name)}" oninput="Actions.updateRdMailingDraft('name', this.value)" placeholder="Ex: Aquecimento outubro 2026" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />
+            <input value="${Utils.escape(draft.name)}" oninput="Actions.updateRdMailingDraftSilent('name', this.value)" onblur="Actions.updateRdMailingDraft('name', this.value)" placeholder="Ex: Aquecimento outubro 2026" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />
             <p class="text-[11px] text-slate-500 mt-1">Tag aplicada no RD: <code class="text-violet-700 font-mono">${Utils.escape(tag)}</code> (vc usa essa tag no RD pra criar a segmentação do email).</p>
           </div>
 
