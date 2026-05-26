@@ -48,6 +48,14 @@ module.exports = async function handler(req, res) {
 
   if (!bankId) return res.status(400).json({ ok: false, message: 'bank_id obrigatório.' });
   if (!leads.length) return res.status(400).json({ ok: false, message: 'Nenhum lead pra importar.' });
+  // V34.6.h — defense-in-depth: limit dura. Frontend faz chunks de 50.
+  // Se algum cliente bypassa chunking, falha rápido em vez de timeout.
+  if (leads.length > 100) {
+    return res.status(400).json({
+      ok: false,
+      message: `Batch grande demais (${leads.length} leads). Limite: 100 por request. Frontend deve fazer chunking automático.`
+    });
+  }
 
   // Valida banco pertence ao user + pega slug
   let bankSlug = null;

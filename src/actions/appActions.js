@@ -507,49 +507,98 @@ Object.assign(Actions, {
     await Actions._submitImportBatch(parsed, 'mailing-csv', () => { App.state.leadCsvText = ''; });
   },
 
-  // V34.0.0 Onda 3 — Submit batch de leads pra /api/leads-import-batch.
+  // V34.0.0 Onda 3 + V34.6.h hotfix — Submit batch de leads em CHUNKS.
   // parsed = output do LeadParser.parseProfileCsv. source = 'mailing-csv' | 'mailing-manual'.
-  // onSuccess = callback pra limpar inputs (leadManualText / leadCsvText) após submit OK.
+  // onSuccess = callback pra limpar inputs após submit OK.
+  //
+  // Chunking: divide em batches de CHUNK_SIZE (50) leads. Roda sequencial pra
+  // evitar lock contention no DB. Cada chunk = 1 request HTTP. Agrega counts.
+  // Resolve o bug "Processando batch por 5min+" causado por CSV grande estourar
+  // o timeout de 30s do Railway.
   async _submitImportBatch(parsed, source, onSuccess) {
+    const CHUNK_SIZE = 50;
     const bankId = App.state.leadImportBankId;
     if (!bankId) return Utils.toast('Banco não selecionado.');
     if (App.state.leadImportProcessing) return; // dedup
     App.state.leadImportProcessing = true;
+    App.state.leadImportProgress = { current: 0, total: parsed.length, currentChunk: 0, totalChunks: 0 };
     App.render();
+
+    const allLeads = parsed.map(p => ({
+      name: p.name || null,
+      email: p.email || null,
+      phone: p.phone || null,
+      tags: String(p.tags || '').split(/\s+/).map(t => t.replace(/^#/, '').trim()).filter(Boolean),
+      idade: p.idade || null,
+      estado: p.estado || null,
+      cidade: p.cidade || null,
+      estadoCivil: p.estadoCivil || null,
+      sexo: p.sexo || null,
+      faixaSalarial: p.faixaSalarial || null
+    }));
+
+    const chunks = [];
+    for (let i = 0; i < allLeads.length; i += CHUNK_SIZE) {
+      chunks.push(allLeads.slice(i, i + CHUNK_SIZE));
+    }
+    App.state.leadImportProgress.totalChunks = chunks.length;
+
+    let totalCreated = 0, totalUpdated = 0, totalSkipped = 0, totalMerged = 0;
+    const errors = [];
+    let abort = false;
+
     try {
-      const leads = parsed.map(p => ({
-        name: p.name || null,
-        email: p.email || null,
-        phone: p.phone || null,
-        tags: String(p.tags || '').split(/\s+/).map(t => t.replace(/^#/, '').trim()).filter(Boolean),
-        idade: p.idade || null,
-        estado: p.estado || null,
-        cidade: p.cidade || null,
-        estadoCivil: p.estadoCivil || null,
-        sexo: p.sexo || null,
-        faixaSalarial: p.faixaSalarial || null
-      }));
-      const data = await this._trackerFetch('/api/leads-import-batch', {
-        method: 'POST',
-        body: JSON.stringify({ bank_id: bankId, source, leads })
-      });
-      if (!data.ok) {
-        Utils.toast(`Erro: ${data.message || 'Falha ao importar.'}`);
-        return;
+      for (let idx = 0; idx < chunks.length; idx++) {
+        if (abort) break;
+        const chunk = chunks[idx];
+        App.state.leadImportProgress = {
+          current: idx * CHUNK_SIZE,
+          total: parsed.length,
+          currentChunk: idx + 1,
+          totalChunks: chunks.length
+        };
+        App.render();
+        try {
+          const data = await this._trackerFetch('/api/leads-import-batch', {
+            method: 'POST',
+            body: JSON.stringify({ bank_id: bankId, source, leads: chunk })
+          });
+          if (!data.ok) {
+            errors.push(`Lote ${idx + 1}: ${data.message || 'erro'}`);
+            // Pra erros transitórios (404 banco, 503 db) — para tudo.
+            // Pra erros por lead, segue (data.ok pode ser true mesmo com errors[]).
+            if (data.message && /banco|conf|503|tenant/i.test(data.message)) {
+              abort = true;
+              continue;
+            }
+          } else {
+            totalCreated += data.created || 0;
+            totalUpdated += data.updated || 0;
+            totalSkipped += data.skipped || 0;
+            totalMerged += data.merged || 0;
+          }
+        } catch (err) {
+          errors.push(`Lote ${idx + 1}: ${err.message}`);
+          // Timeout/network: para pra não cascatear erros.
+          abort = true;
+        }
       }
-      const { created = 0, updated = 0, skipped = 0, merged = 0 } = data;
-      const parts = [`✓ ${created} criado(s)`, `${updated} atualizado(s)`];
-      if (merged) parts.push(`${merged} duplicata(s) fundida(s)`);
-      if (skipped) parts.push(`${skipped} ignorado(s)`);
+
+      const parts = [`✓ ${totalCreated} criado(s)`, `${totalUpdated} atualizado(s)`];
+      if (totalMerged) parts.push(`${totalMerged} duplicata(s) fundida(s)`);
+      if (totalSkipped) parts.push(`${totalSkipped} ignorado(s)`);
+      if (errors.length) parts.push(`${errors.length} lote(s) com erro`);
       Utils.toast(parts.join(', ') + '.');
-      if (typeof onSuccess === 'function') onSuccess();
-      App.state.showLeadImportModal = false;
-      // Refetch dos bancos pra atualizar visitor_count
+      if (errors.length) console.error('[import-batch errors]', errors);
+
+      if (typeof onSuccess === 'function' && !abort) onSuccess();
+      if (!abort) App.state.showLeadImportModal = false;
       await Actions.loadLeadBanks();
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     } finally {
       App.state.leadImportProcessing = false;
+      App.state.leadImportProgress = null;
       App.save(); App.render();
     }
   },

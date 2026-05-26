@@ -294,6 +294,9 @@ var State = {
       leadImportBankId: null,
       // Import em andamento — bloqueia UI durante processamento batch.
       leadImportProcessing: false,
+      // V34.6.h — Progresso do chunking. null quando idle, { current, total,
+      // currentChunk, totalChunks } durante o batch.
+      leadImportProgress: null,
       // V34.0.0 Onda 4 — Modal multi-select de bancos antes de buscar.
       // open=true mostra modal. selected = array de bank_ids OR null (= Todos).
       // pendingAction: 'search' = vai rodar Djow após confirmar.
@@ -771,6 +774,7 @@ var State = {
       // V34.0.0 Onda 3 — Import: banco selecionado + flag de processamento (voláteis).
       leadImportBankId: null,
       leadImportProcessing: false,
+      leadImportProgress: null,
       // V34.0.0 Onda 4 — Modal de seleção de bancos + cache de resultados (voláteis).
       searchBankSelectionModal: { open: false, selected: null, pendingAction: null },
       visitorSearchResults: { visitors: [], bankIds: null, bankNames: [], loadedAt: null, loading: false, error: null },

@@ -638,9 +638,32 @@ var LeadsModule = {
         <button onclick="Actions.setLeadBaseInputMode('manual')" class="px-4 py-2.5 rounded-2xl font-black text-sm ${mode === 'manual' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}">Manual</button>
         <button onclick="Actions.setLeadBaseInputMode('csv')" class="px-4 py-2.5 rounded-2xl font-black text-sm ${mode === 'csv' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}">CSV</button>
       </div>
-      ${processing ? `<div class="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-3 text-sm text-amber-800 font-bold flex items-center gap-2"><span class="inline-block w-3 h-3 rounded-full bg-amber-400 animate-pulse"></span>Processando batch no servidor...</div>` : ''}
+      ${processing ? this._importProgressBar() : ''}
       ${mode === 'csv' ? this.csvImportUI() : this.manualImportUI()}
     </div></div>`;
+  },
+
+  // V34.6.h — Progress bar do import chunked. Mostra "Lote X/Y · N leads
+  // processado(s) de M". Substitui o "Processando batch" genérico.
+  _importProgressBar() {
+    const p = App.state.leadImportProgress;
+    if (!p || !p.total) {
+      return `<div class="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-3 text-sm text-amber-800 font-bold flex items-center gap-2"><span class="inline-block w-3 h-3 rounded-full bg-amber-400 animate-pulse"></span>Processando batch no servidor...</div>`;
+    }
+    const pct = Math.min(100, Math.round((p.current / p.total) * 100));
+    return `<div class="bg-amber-50 border border-amber-200 rounded-2xl p-3 mb-3">
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <div class="flex items-center gap-2 text-sm text-amber-900 font-black">
+          <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
+          Lote ${p.currentChunk}/${p.totalChunks}
+        </div>
+        <div class="text-xs text-amber-700 font-bold">${p.current}/${p.total} leads · ${pct}%</div>
+      </div>
+      <div class="w-full h-2 rounded-full bg-amber-100 overflow-hidden">
+        <div class="h-full bg-amber-500 transition-all" style="width:${pct}%"></div>
+      </div>
+      <p class="text-[10px] text-amber-700 mt-2">Processando em batches de 50 pra evitar timeout. Não feche o modal.</p>
+    </div>`;
   },
 
   // V34.0.0 Onda 3 — Seletor de banco no topo do modal. Sem banco selecionado,
