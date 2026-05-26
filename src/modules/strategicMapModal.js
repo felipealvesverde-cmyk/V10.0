@@ -827,10 +827,17 @@ window.StrategicMapModal = {
             </div>` : ''}
           </div>
 
-          ${task.external_url ? `<a href="${Utils.escape(task.external_url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-500/15 border border-sky-400/40 text-sky-200 text-[11px] font-black uppercase tracking-wider hover:bg-sky-500/25">
-            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-            Abrir no ${Utils.escape(task.provider || 'provider')}
-          </a>` : ''}
+          ${task.external_url
+            ? `<a href="${Utils.escape(task.external_url)}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-sky-500/15 border border-sky-400/40 text-sky-200 text-[11px] font-black uppercase tracking-wider hover:bg-sky-500/25">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              Abrir no ${Utils.escape(task.provider || 'provider')}
+            </a>`
+            : `<button onclick="Actions.promoteManualTaskToClickup('${task.task_id}')"
+                class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/15 border border-amber-400/40 text-amber-200 text-[11px] font-black uppercase tracking-wider hover:bg-amber-500/25 transition"
+                title="Cria essa task no ClickUp como subtask da ação parent">
+              <i data-lucide="circle-dashed" class="w-3.5 h-3.5"></i>
+              Não listada · Executar no ClickUp
+            </button>`}
         </div>
 
         <!-- FOOTER ACTIONS -->
@@ -3451,7 +3458,9 @@ window.StrategicMapModal = {
             </span>
           </div>
           <p class="text-[12px] font-black text-white leading-snug line-clamp-2" title="${Utils.escape(task.title || '')}">${Utils.escape(task.title || 'Task sem nome')}</p>
-          ${task.external_url ? `<p class="text-[9px] text-sky-400 mt-1 inline-flex items-center gap-1"><i data-lucide="external-link" class="w-2.5 h-2.5"></i> Ver detalhe</p>` : ''}
+          ${task.external_url
+            ? `<p class="text-[9px] text-sky-400 mt-1 inline-flex items-center gap-1"><i data-lucide="external-link" class="w-2.5 h-2.5"></i> Ver detalhe</p>`
+            : `<p class="text-[9px] text-slate-500 mt-1 inline-flex items-center gap-1" title="Esta task ainda não foi criada no provider externo"><i data-lucide="circle-dashed" class="w-2.5 h-2.5"></i> Não listada</p>`}
         </button>
         <!-- V32.14.6 / V32.14.8 — Botões Editar/Duplicar compactos (só ícone).
              Leonardo: economizar largura, evitar 3 elementos volumosos lado a lado. -->

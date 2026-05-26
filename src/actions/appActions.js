@@ -3367,6 +3367,58 @@ Object.assign(Actions, {
     Utils.toast(`✓ Task duplicada: "${newName}" (Em revisão). Clique em Editar pra revisar antes de criar no ClickUp.`);
   },
 
+  // V33.0.0-alpha17 — Promove task LOCAL (manual/duplicada) pra ClickUp.
+  // Felipe alinhou: card "Não listada" no mind-map → click no modal abre
+  // botão "Executar no ClickUp" → cria task real como ramificação da action,
+  // atualiza provider/provider_task_id/external_url, fecha modal.
+  async promoteManualTaskToClickup(taskId) {
+    if (!window.ExecutionTaskStore) return Utils.toast('ExecutionTaskStore indisponível.');
+    const task = ExecutionTaskStore.byId(taskId);
+    if (!task) return Utils.toast('Task não encontrada.');
+    if (task.provider_task_id) return Utils.toast('Esta task já está listada no provider.');
+
+    // Marca pending no modal pra feedback visual
+    App.state.executionTaskDetail = { ...App.state.executionTaskDetail, syncing: true };
+    App.render();
+
+    try {
+      const action = (App.state.actions || []).find(a => Number(a.id) === Number(task.linked_action_id));
+      const campaign = action ? (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId)) : null;
+      const payload = {
+        actionId: task.linked_action_id,
+        name: task.title || 'Task sem nome',
+        description: task.description || `Ação operacional: ${action?.name || ''}. Canal: ${action?.channel || ''}.`,
+        priority: task.priority || 'normal',
+        due_date: task.due_date || null,
+        assignees: task.assignees || []
+      };
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-create-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || data.data?.err || 'Falha desconhecida');
+
+      // Atualiza local pra refletir que agora está no ClickUp
+      ExecutionTaskStore.update(taskId, {
+        provider: 'clickup',
+        provider_task_id: data.providerTaskId,
+        external_url: data.externalUrl,
+        status: 'pending'  // sai de review/manual pra pending no ClickUp
+      });
+
+      App.state.executionTaskDetail = { ...App.state.executionTaskDetail, syncing: false };
+      App.save(); App.render();
+      Utils.toast(`✓ Task agora listada no ClickUp.`);
+    } catch (err) {
+      App.state.executionTaskDetail = { ...App.state.executionTaskDetail, syncing: false };
+      App.render();
+      Utils.toast(`Falhou: ${err.message}`);
+    }
+  },
+
   // V32.13.17 — Auto-sync silencioso de tasks ClickUp ao entrar na Etapa 5.
   // Guard por chave + intervalo mínimo (5min) pra não estourar API e nem
   // chamar a cada re-render. Roda em setTimeout pra não bloquear UI.
