@@ -439,6 +439,27 @@ var LeadsModule = {
     </div>`;
   },
 
+  // V34.6.k hotfix — Progress bar do chunking de imputação (2 fases: DB depois RD).
+  _imputeProgressBar(p) {
+    const pct = Math.min(100, Math.round((p.current / p.total) * 100));
+    const isDb = p.phase === 'db';
+    const color = isDb ? 'slate' : 'violet';
+    const label = isDb ? 'DB (LJ)' : 'RD CRM';
+    return `<div class="bg-${color}-50 border border-${color}-200 rounded-2xl p-3">
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <div class="flex items-center gap-2 text-sm text-${color}-900 font-black">
+          <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
+          Fase ${label} · Lote ${p.currentChunk}/${p.totalChunks}
+        </div>
+        <div class="text-xs text-${color}-700 font-bold">${p.current}/${p.total} · ${pct}%</div>
+      </div>
+      <div class="w-full h-2 rounded-full bg-${color}-100 overflow-hidden">
+        <div class="h-full bg-${color}-500 transition-all" style="width:${pct}%"></div>
+      </div>
+      <p class="text-[10px] text-${color}-700 mt-2">${isDb ? 'Imputando no banco do LJ (50 por lote)' : 'Empurrando pro RD CRM (25 por lote, API mais lenta)'}. Não feche o modal.</p>
+    </div>`;
+  },
+
   // V34.0.0 Onda 5.b — Bloco do modal de imputação que controla o push pro RD CRM.
   // Mostra checkbox "Também empurrar pro RD CRM" (default ON se crm_pat conectado).
   // Avisa que pipeline RD precisa ter nome EXATO da campanha LJ.
@@ -507,6 +528,8 @@ var LeadsModule = {
             </div>
 
             ${this._imputeRdPushBlock(m, selectedCampaign)}
+
+            ${m.progress ? this._imputeProgressBar(m.progress) : ''}
 
             ${m.error ? `<div class="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-sm font-bold text-rose-800">${Utils.escape(m.error)}</div>` : ''}
 

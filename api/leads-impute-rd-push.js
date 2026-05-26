@@ -67,6 +67,15 @@ module.exports = async function handler(req, res) {
   const visitorIds = Array.isArray(body.visitor_ids) ? body.visitor_ids.map(String).filter(Boolean) : [];
   if (!campaignId) return res.status(400).json({ ok: false, message: 'campaign_id obrigatório.' });
   if (!visitorIds.length) return res.status(400).json({ ok: false, message: 'Nenhum visitor pra push.' });
+  // V34.6.k — hard limit 25 visitors/req. RD CRM faz 2-3 chamadas API por visitor
+  // (lookup + upsert contact + create deal), cada uma ~200-500ms. 25 leads = 50-90s,
+  // dentro da margem do timeout Railway. Frontend chunka em 25.
+  if (visitorIds.length > 25) {
+    return res.status(400).json({
+      ok: false,
+      message: `Batch grande demais (${visitorIds.length} visitors). Limite: 25 por request pro RD CRM. Frontend deve fazer chunking.`
+    });
+  }
 
   // 1. Lê crm_pat
   let token = null;

@@ -304,7 +304,7 @@ var State = {
       // V34.0.0 Onda 5 — Modal de imputar leads em campanha LJ.
       // open=true mostra modal. campaignId = id da campanha alvo. visitorIds = lista
       // pré-selecionada do Buscador. processing = bloqueia UI durante batch.
-      imputeCampaignModal: { open: false, campaignId: null, visitorIds: [], pushToRd: false, processing: false, error: null },
+      imputeCampaignModal: { open: false, campaignId: null, visitorIds: [], pushToRd: false, processing: false, progress: null, error: null },
       // V34.0.0 Onda 6 — Modal de identity resolution.
       // open=true mostra revisão de duplicatas. emailGroups/phoneGroups = output do
       // /api/visitors-find-duplicates. mergingKey = grupo em processamento (loading).
@@ -779,7 +779,7 @@ var State = {
       searchBankSelectionModal: { open: false, selected: null, pendingAction: null },
       visitorSearchResults: { visitors: [], bankIds: null, bankNames: [], loadedAt: null, loading: false, error: null },
       // V34.0.0 Onda 5 — Modal de imputar em campanha (volátil, fecha em F5).
-      imputeCampaignModal: { open: false, campaignId: null, visitorIds: [], pushToRd: false, processing: false, error: null },
+      imputeCampaignModal: { open: false, campaignId: null, visitorIds: [], pushToRd: false, processing: false, progress: null, error: null },
       // V34.0.0 Onda 6 — Modal de identity resolution (volátil, fecha em F5).
       duplicatesModal: { open: false, loading: false, emailGroups: [], phoneGroups: [], loadedAt: null, mergingKey: null, error: null },
       // V34.0.0 Onda 6.d — Counts volátil (re-fetch periódico).

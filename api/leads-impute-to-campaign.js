@@ -48,6 +48,14 @@ module.exports = async function handler(req, res) {
 
   if (!campaignId) return res.status(400).json({ ok: false, message: 'campaign_id obrigatório.' });
   if (!visitorIds.length) return res.status(400).json({ ok: false, message: 'Nenhum visitor pra imputar.' });
+  // V34.6.k — hard limit 100 visitors/req. Frontend chunka em 50.
+  // 500+ serial estourava timeout Railway (Felipe reportou 502 com 500 leads).
+  if (visitorIds.length > 100) {
+    return res.status(400).json({
+      ok: false,
+      message: `Batch grande demais (${visitorIds.length} visitors). Limite: 100 por request. Frontend deve fazer chunking.`
+    });
+  }
 
   // Lê nome da campanha do journey_state.state_json (autoridade do user) pra
   // gerar slug. Campanhas vivem em state_json.campaigns no tenant DB.

@@ -10420,53 +10420,112 @@ Object.assign(Actions, {
     if (!campaignId) return Utils.toast('Selecione uma campanha.');
     if (!visitorIds.length) return Utils.toast('Nenhum visitor pra imputar.');
     if (m.processing) return;
-    App.state.imputeCampaignModal = { ...m, processing: true, error: null };
+
+    // V34.6.k hotfix — chunking. DB=50/chunk (queries internas). RD=25/chunk (API externa mais lenta).
+    const DB_CHUNK = 50;
+    const RD_CHUNK = 25;
+
+    App.state.imputeCampaignModal = {
+      ...m,
+      processing: true,
+      error: null,
+      progress: { phase: 'db', current: 0, total: visitorIds.length, currentChunk: 0, totalChunks: Math.ceil(visitorIds.length / DB_CHUNK) }
+    };
     App.render();
+
+    let totalImputed = 0, totalAlreadyIn = 0, totalSkipped = 0;
+    let campaignNameResolved = null;
+    let abort = false;
+
     try {
-      // Step 1: DB imputation (V34.5.a)
-      const data = await this._trackerFetch('/api/leads-impute-to-campaign', {
-        method: 'POST',
-        body: JSON.stringify({ campaign_id: campaignId, visitor_ids: visitorIds })
-      });
-      if (!data.ok) {
-        App.state.imputeCampaignModal = { ...App.state.imputeCampaignModal, processing: false, error: data.message || 'Erro.' };
-        Utils.toast(`Erro: ${data.message}`);
-        App.render();
-        return;
+      // STEP 1 — DB chunking
+      const dbChunks = [];
+      for (let i = 0; i < visitorIds.length; i += DB_CHUNK) {
+        dbChunks.push(visitorIds.slice(i, i + DB_CHUNK));
       }
-      const { imputed = 0, alreadyIn = 0, skipped = 0 } = data;
-      const dbParts = [`✓ ${imputed} imputado(s) em "${data.campaign?.name}"`];
-      if (alreadyIn) dbParts.push(`${alreadyIn} já estava(m) na campanha`);
-      if (skipped) dbParts.push(`${skipped} ignorado(s)`);
+      for (let idx = 0; idx < dbChunks.length; idx++) {
+        if (abort) break;
+        App.state.imputeCampaignModal = {
+          ...App.state.imputeCampaignModal,
+          progress: { phase: 'db', current: idx * DB_CHUNK, total: visitorIds.length, currentChunk: idx + 1, totalChunks: dbChunks.length }
+        };
+        App.render();
+        try {
+          const data = await this._trackerFetch('/api/leads-impute-to-campaign', {
+            method: 'POST',
+            body: JSON.stringify({ campaign_id: campaignId, visitor_ids: dbChunks[idx] })
+          });
+          if (!data.ok) {
+            Utils.toast(`DB lote ${idx + 1}: ${data.message || 'erro'}`);
+            if (/banco|campanha|tenant|503/i.test(data.message || '')) { abort = true; }
+            continue;
+          }
+          totalImputed += data.imputed || 0;
+          totalAlreadyIn += data.alreadyIn || 0;
+          totalSkipped += data.skipped || 0;
+          if (!campaignNameResolved && data.campaign?.name) campaignNameResolved = data.campaign.name;
+        } catch (err) {
+          Utils.toast(`DB lote ${idx + 1} erro: ${err.message}`);
+          abort = true;
+        }
+      }
+      const dbParts = [`✓ ${totalImputed} imputado(s)${campaignNameResolved ? ` em "${campaignNameResolved}"` : ''}`];
+      if (totalAlreadyIn) dbParts.push(`${totalAlreadyIn} já estavam`);
+      if (totalSkipped) dbParts.push(`${totalSkipped} ignorado(s)`);
       Utils.toast(dbParts.join(' · '));
 
-      // Step 2: RD CRM push (V34.5.b) — só se user marcou checkbox.
-      // Empurra TODOS os visitor_ids do batch (mesmo os que já estavam — backend
-      // deduplica pelo external_rd_deal_id existente).
-      if (pushToRd) {
-        Utils.toast('Empurrando pro RD CRM...');
-        const rdData = await this._trackerFetch('/api/leads-impute-rd-push', {
-          method: 'POST',
-          body: JSON.stringify({ campaign_id: campaignId, visitor_ids: visitorIds })
-        });
-        if (!rdData.ok) {
-          Utils.toast(`RD push falhou: ${rdData.message}`);
-        } else if (!rdData.pipelineMatched) {
-          Utils.toast(`RD: pipeline "${rdData.pipelineName}" não encontrado. Crie no RD com esse nome exato.`);
-        } else {
-          const rdParts = [`✓ RD: ${rdData.rdPushed} push(es) no pipeline "${rdData.pipelineName}"`];
-          if (rdData.rdAlready) rdParts.push(`${rdData.rdAlready} já tinha(m) deal`);
-          if (rdData.rdSkipped) rdParts.push(`${rdData.rdSkipped} pulado(s)`);
+      // STEP 2 — RD push chunking (só se DB rodou OK e cliente marcou)
+      if (pushToRd && !abort) {
+        const rdChunks = [];
+        for (let i = 0; i < visitorIds.length; i += RD_CHUNK) {
+          rdChunks.push(visitorIds.slice(i, i + RD_CHUNK));
+        }
+        let totalRdPushed = 0, totalRdAlready = 0, totalRdSkipped = 0;
+        let pipelineMatched = null, pipelineName = null;
+
+        for (let idx = 0; idx < rdChunks.length; idx++) {
+          App.state.imputeCampaignModal = {
+            ...App.state.imputeCampaignModal,
+            progress: { phase: 'rd', current: idx * RD_CHUNK, total: visitorIds.length, currentChunk: idx + 1, totalChunks: rdChunks.length }
+          };
+          App.render();
+          try {
+            const rdData = await this._trackerFetch('/api/leads-impute-rd-push', {
+              method: 'POST',
+              body: JSON.stringify({ campaign_id: campaignId, visitor_ids: rdChunks[idx] })
+            });
+            if (!rdData.ok) {
+              Utils.toast(`RD lote ${idx + 1}: ${rdData.message}`);
+              // Se pipeline não existe, não adianta continuar nos próximos chunks
+              if (/pipeline.*não encontrado|pipeline.*not found/i.test(rdData.message || '')) break;
+              continue;
+            }
+            if (pipelineMatched === null) pipelineMatched = rdData.pipelineMatched;
+            if (!pipelineName) pipelineName = rdData.pipelineName;
+            if (!rdData.pipelineMatched) {
+              Utils.toast(`RD: pipeline "${rdData.pipelineName}" não encontrado. Crie no RD com esse nome exato.`);
+              break; // sem pipeline, sem push possível nos próximos chunks
+            }
+            totalRdPushed += rdData.rdPushed || 0;
+            totalRdAlready += rdData.rdAlready || 0;
+            totalRdSkipped += rdData.rdSkipped || 0;
+          } catch (err) {
+            Utils.toast(`RD lote ${idx + 1} erro: ${err.message}`);
+          }
+        }
+        if (pipelineMatched) {
+          const rdParts = [`✓ RD: ${totalRdPushed} push(es) no pipeline "${pipelineName}"`];
+          if (totalRdAlready) rdParts.push(`${totalRdAlready} já tinham deal`);
+          if (totalRdSkipped) rdParts.push(`${totalRdSkipped} pulado(s)`);
           Utils.toast(rdParts.join(' · '));
         }
       }
 
-      App.state.imputeCampaignModal = { open: false, campaignId: null, visitorIds: [], pushToRd: false, processing: false, error: null };
-      // Refetch search results pra atualizar tags + IDs RD exibidos
+      App.state.imputeCampaignModal = { open: false, campaignId: null, visitorIds: [], pushToRd: false, processing: false, progress: null, error: null };
       const bankIds = App.state.visitorSearchResults?.bankIds;
       await Actions._runVisitorSearch(bankIds);
     } catch (err) {
-      App.state.imputeCampaignModal = { ...App.state.imputeCampaignModal, processing: false, error: err.message };
+      App.state.imputeCampaignModal = { ...App.state.imputeCampaignModal, processing: false, progress: null, error: err.message };
       Utils.toast(`Erro: ${err.message}`);
       App.render();
     }
