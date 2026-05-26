@@ -394,11 +394,6 @@ Object.assign(Actions, {
     }, 80);
   },
 
-  // V31.2.4 — Legado (chamava createProduct + openStrategicMap). Substituído pelo
-  // popup acima em V31.2.5. Mantido pra compat com possíveis chamadas.
-  createProductWithMapa() {
-    Actions.openNewProductWithMapaPopup();
-  },
   createCampaign() {
     const d = App.state.campaignDraft;
     if (!d.name.trim()) return Utils.toast('Digite o nome da campanha.');
@@ -5052,12 +5047,6 @@ Object.assign(Actions, {
 });
 window.Actions = Actions;
 
-// V32.4.0 (Geraldo Item 6) — Bloco V16.4 Railway Database removido inteiro:
-// setRailwayMode, toggleRailwayPassword, parseRailwayDatabaseUrl,
-// composeRailwayDatabaseUrl, testRailwayConnection, generateDatabaseSnapshot,
-// openRailwaySnapshotPrompt, cancelRailwaySnapshotPrompt, confirmRailwayAsPrimary.
-// Eram callers dos panels _railwayPanel + _railwaySnapshotPrompt (também removidos).
-
 // V17 — Revenue Strategic Map
 Object.assign(Actions, {
   // V29.0.0 — Abre Mapa em vista PRODUTO (CEO mode): Visão + KRs-mãe + lista de branches.
@@ -7660,38 +7649,6 @@ Object.assign(Actions, {
     App.state.djowTaskChat = null;
     App.render();
     Utils.toast('✓ Draft aplicado. Revisa e clica em "Criar no ClickUp".');
-  },
-
-  // Djow auto-fill: pede pro Djow gerar nome+description+priority com base no contexto da ação.
-  // Substitui só os campos vazios pra não sobrescrever o que o user já digitou.
-  // V31.2.34 — DEPRECATED: substituído pelo modal de chat openDjowTaskChat. Mantido por compat.
-  async fillTaskDraftWithDjow() {
-    if (!App.state.taskCreationModal) return;
-    const action = (App.state.actions || []).find(a => Number(a.id) === Number(App.state.taskCreationModal.actionId));
-    if (!action) return Utils.toast('Ação não encontrada.');
-    App.state.taskCreationModal = { ...App.state.taskCreationModal, djowLoading: true };
-    App.render();
-    try {
-      // Reusa o flow de auto-generation via Djow Modal (V16.3).
-      // Se DjowModal não estiver disponível, faz heurística local (sem call ao Claude).
-      const draft = App.state.taskCreationModal.draft;
-      const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
-      const heuristicName = `${action.name} — ${campaign?.name || 'campanha'}`;
-      const heuristicDesc = `Ação: ${action.name}\nCampanha: ${campaign?.name || '—'}\nCanal: ${action.channel || '—'}\nTravessia: ${action.originSector || ''} ${action.originFunnel || ''} → ${action.destinationSector || ''} ${action.destinationFunnel || ''}\n\nObjetivo: executar a ação no canal definido e capturar os leads/sinais que ela gera.`;
-      const next = {
-        ...draft,
-        name: draft.name || heuristicName,
-        description: draft.description || heuristicDesc,
-        priority: draft.priority || 'normal'
-      };
-      App.state.taskCreationModal = { ...App.state.taskCreationModal, draft: next, djowLoading: false };
-      App.render();
-      Utils.toast('Djow preencheu os campos. Revisa e ajusta antes de criar.');
-    } catch (err) {
-      App.state.taskCreationModal = { ...App.state.taskCreationModal, djowLoading: false };
-      App.render();
-      Utils.toast(`Djow falhou: ${err.message}`);
-    }
   },
 
   // Submit: valida Normal + envia tudo ao backend.

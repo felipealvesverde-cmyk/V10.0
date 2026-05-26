@@ -455,29 +455,6 @@ var RevopsGovernanceModule = {
         </div>`).join('')}</div>
       </div>` : ''}
     </div>`;
-  },
-
-  // DEPRECATED V29.4.0 — substituído por _strategicMapBlock. Mantido como dead code.
-  _governanceBlock(metrics, config) {
-    const okrs = (App.state.strategicOkrs || []);
-    const kpis = (App.state.operationalKpis || []);
-    const productOkrs = okrs.length;
-    const productKpis = kpis.filter(k => k.scope === 'global' || Number(k.productId) === Number(config.productId)).length;
-    return `<div class="bg-slate-900 text-white rounded-3xl p-5 shadow-sm">
-      <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-3 mb-4">
-        <div>
-          <div class="flex items-center gap-2 mb-2"><i data-lucide="compass" class="w-4 h-4 text-indigo-300"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Governança de OKRs (V14.2 em diante)</p></div>
-          <h3 class="text-xl font-black">Conectando saúde financeira ao atingimento de metas</h3>
-          <p class="text-sm text-slate-300 max-w-3xl mt-1">Esta seção amarra os números do produto à governança operacional. Próximas fases trarão alertas automáticos, cascata de OKRs por área e direcionamento de receita.</p>
-        </div>
-        <div class="grid grid-cols-3 gap-2 text-center">
-          <div class="rounded-2xl bg-white/10 border border-white/10 p-3"><p class="text-xs text-slate-300 font-black">OKRs estratégicos</p><p class="text-2xl font-black mt-1">${productOkrs}</p></div>
-          <div class="rounded-2xl bg-white/10 border border-white/10 p-3"><p class="text-xs text-slate-300 font-black">KPIs operacionais</p><p class="text-2xl font-black mt-1">${productKpis}</p></div>
-          <div class="rounded-2xl bg-white/10 border border-white/10 p-3"><p class="text-xs text-slate-300 font-black">Health do produto</p><p class="text-2xl font-black mt-1">${metrics.health}</p></div>
-        </div>
-      </div>
-      <button onclick="App.setTab('dashboard')" class="px-4 py-2.5 rounded-2xl bg-white/10 border border-white/10 text-white text-xs font-black">Ver workspace de OKR/KPI</button>
-    </div>`;
   }
 };
 window.RevopsGovernanceModule = RevopsGovernanceModule;
