@@ -479,6 +479,25 @@ CREATE INDEX IF NOT EXISTS idx_vcs_visitor ON lj_visitor_campaign_state(user_id,
 CREATE INDEX IF NOT EXISTS idx_vcs_campaign ON lj_visitor_campaign_state(user_id, campaign_id);
 CREATE INDEX IF NOT EXISTS idx_vcs_stage ON lj_visitor_campaign_state(user_id, campaign_id, current_stage);
 
+-- V34.0.0 — Audit log permanente de merges entre visitors.
+-- Append-only. Cada row registra um par (survivor, deleted) com motivo.
+-- Permite rastreabilidade total de identity resolution (cravado V34 plan
+-- "Quando merge acontece... Audit log permanente em lj_merges").
+CREATE TABLE IF NOT EXISTS lj_merges (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  survivor_visitor_id VARCHAR(64) NOT NULL,
+  deleted_visitor_id VARCHAR(64) NOT NULL,
+  match_signal VARCHAR(32) NOT NULL,    -- 'email-exact' | 'phone-exact' | 'lj-visitor-id' | 'manual'
+  source_reason VARCHAR(64),            -- 'find-duplicates' | 'import-batch' | 'rd-webhook' | 'manual-ui'
+  merged_at TIMESTAMPTZ DEFAULT NOW(),
+  details_json JSONB                    -- snapshot dos dados do deleted_visitor pre-merge
+);
+
+CREATE INDEX IF NOT EXISTS idx_lj_merges_survivor ON lj_merges(user_id, survivor_visitor_id);
+CREATE INDEX IF NOT EXISTS idx_lj_merges_deleted ON lj_merges(user_id, deleted_visitor_id);
+CREATE INDEX IF NOT EXISTS idx_lj_merges_when ON lj_merges(user_id, merged_at);
+
 -- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================
@@ -488,5 +507,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v34.0.0-onda5.a')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v34.0.0-onda6.a')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();

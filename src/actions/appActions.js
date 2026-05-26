@@ -10420,6 +10420,79 @@ Object.assign(Actions, {
     return Actions.openImputeCampaignModal();
   },
 
+  // V34.0.0 Onda 6 — Identity Resolution: busca + funde duplicatas do tenant.
+  async openDuplicatesModal() {
+    App.state.duplicatesModal = { open: true, loading: true, emailGroups: [], phoneGroups: [], loadedAt: null, mergingKey: null, error: null };
+    App.render();
+    try {
+      const data = await this._trackerFetch('/api/visitors-find-duplicates');
+      if (!data.ok) {
+        App.state.duplicatesModal = { ...App.state.duplicatesModal, loading: false, error: data.message };
+        App.render();
+        return;
+      }
+      App.state.duplicatesModal = {
+        open: true,
+        loading: false,
+        emailGroups: data.emailGroups || [],
+        phoneGroups: data.phoneGroups || [],
+        loadedAt: Date.now(),
+        mergingKey: null,
+        error: null
+      };
+    } catch (err) {
+      App.state.duplicatesModal = { ...App.state.duplicatesModal, loading: false, error: err.message };
+    }
+    App.render();
+  },
+
+  closeDuplicatesModal() {
+    App.state.duplicatesModal = { open: false, loading: false, emailGroups: [], phoneGroups: [], loadedAt: null, mergingKey: null, error: null };
+    App.render();
+  },
+
+  async mergeDuplicateGroup(matchSignal, groupKey, survivorId) {
+    const m = App.state.duplicatesModal;
+    if (!m?.open || m.mergingKey) return;
+    const groups = matchSignal === 'email-exact' ? m.emailGroups : m.phoneGroups;
+    const group = (groups || []).find(g => g.key === groupKey);
+    if (!group) return Utils.toast('Grupo não encontrado.');
+    const visitorIds = group.visitors.map(v => v.lj_visitor_id);
+    if (visitorIds.length < 2) return Utils.toast('Precisa de pelo menos 2 visitors.');
+
+    App.state.duplicatesModal = { ...m, mergingKey: groupKey };
+    App.render();
+    try {
+      const data = await this._trackerFetch('/api/visitors-merge', {
+        method: 'POST',
+        body: JSON.stringify({
+          survivor_id: survivorId || null,
+          visitor_ids: visitorIds,
+          match_signal: matchSignal,
+          source_reason: 'find-duplicates'
+        })
+      });
+      if (!data.ok) {
+        Utils.toast(`Erro: ${data.message}`);
+        App.state.duplicatesModal = { ...App.state.duplicatesModal, mergingKey: null };
+        App.render();
+        return;
+      }
+      Utils.toast(`✓ ${data.mergedCount} merge(s) → survivor ${data.survivorId}`);
+      // Re-fetch pra remover o grupo concluído
+      await Actions.openDuplicatesModal();
+      // Se Buscador estava aberto, refetch dele também (visitors mudaram)
+      if (App.state.visitorSearchResults?.loadedAt) {
+        const bankIds = App.state.visitorSearchResults.bankIds;
+        await Actions._runVisitorSearch(bankIds);
+      }
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+      App.state.duplicatesModal = { ...App.state.duplicatesModal, mergingKey: null };
+      App.render();
+    }
+  },
+
   // V33.0.0-alpha18 — Caminho C: breakdown por LP de uma campanha.
   // Backend agrupa visitors por landing_url normalizado (sem ?utm=). UI
   // mostra as N LPs da campanha automaticamente quando há >1 distinta.

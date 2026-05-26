@@ -29,6 +29,7 @@ var LeadsModule = {
       + this.profileFinderUI(displayLeads, allLeads.length)
       + this.bankSelectionModal()
       + this.imputeCampaignModal()
+      + this.duplicatesModal()
       + this.importModal()
       + this.rdMailingModal(displayLeads)
       + (usingSearchResults
@@ -299,7 +300,7 @@ var LeadsModule = {
     const djowSearching = Boolean(App.state._djowSearchRunning);
     const djowBtn = `<button onclick="Actions.djowSearchProfile()" ${djowSearching ? 'disabled' : ''} class="px-5 py-3 rounded-2xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 text-white font-bold text-sm flex items-center gap-1.5" style="color:#fff;" title="Djow é o motor de busca do LeadJourney"><i data-lucide="${djowSearching ? 'loader-2' : 'sparkles'}" class="w-3.5 h-3.5 ${djowSearching ? 'animate-spin' : ''}"></i> ${djowSearching ? 'Pensando…' : 'Buscar'}</button>`;
 
-    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-4"><div class="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-4"><div><div class="flex items-center gap-2 mb-2"><i data-lucide="scan-search" class="w-5 h-5 text-violet-600"></i><h3 class="text-lg font-black">Buscador de Perfil</h3></div><p class="text-sm text-slate-500">Linguagem natural. Ex: <strong>mulheres jovens de SP com alta intenção</strong>.</p></div><button onclick="Actions.openLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Inserir leads</button></div>${this._activeBanksStrip()}<div class="flex flex-wrap gap-2 mb-3"><input id="profileInput" value="${Utils.escape(App.state.profileQuery)}" oninput="App.state.profileQuery=this.value; App.save();" onkeydown="if(event.key==='Enter'){event.preventDefault(); Actions.djowSearchProfile();}" placeholder="Ex: mulheres de 30 a 40 anos de SP, #cta, quente..." class="flex-1 min-w-[200px] px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />${djowBtn}${isActive ? `<button onclick="Actions.clearProfile()" class="px-4 py-3 rounded-2xl bg-slate-100 font-bold text-sm hover:bg-slate-200">Limpar</button>` : ''}</div>${refineHtml}${actionPanel}</div>`;
+    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-4"><div class="flex flex-col md:flex-row md:items-start justify-between gap-3 mb-4"><div><div class="flex items-center gap-2 mb-2"><i data-lucide="scan-search" class="w-5 h-5 text-violet-600"></i><h3 class="text-lg font-black">Buscador de Perfil</h3></div><p class="text-sm text-slate-500">Linguagem natural. Ex: <strong>mulheres jovens de SP com alta intenção</strong>.</p></div><div class="flex gap-2"><button onclick="Actions.openDuplicatesModal()" title="Buscar e fundir duplicatas" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 font-black text-sm flex items-center gap-2"><i data-lucide="git-merge" class="w-4 h-4 text-amber-600"></i> Duplicatas</button><button onclick="Actions.openLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Inserir leads</button></div></div>${this._activeBanksStrip()}<div class="flex flex-wrap gap-2 mb-3"><input id="profileInput" value="${Utils.escape(App.state.profileQuery)}" oninput="App.state.profileQuery=this.value; App.save();" onkeydown="if(event.key==='Enter'){event.preventDefault(); Actions.djowSearchProfile();}" placeholder="Ex: mulheres de 30 a 40 anos de SP, #cta, quente..." class="flex-1 min-w-[200px] px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />${djowBtn}${isActive ? `<button onclick="Actions.clearProfile()" class="px-4 py-3 rounded-2xl bg-slate-100 font-bold text-sm hover:bg-slate-200">Limpar</button>` : ''}</div>${refineHtml}${actionPanel}</div>`;
   },
 
   // V34.0.0 Onda 4 — Modal multi-select de bancos antes da busca.
@@ -341,6 +342,79 @@ var LeadsModule = {
           <button onclick="Actions.confirmSearchBankSelection()" class="flex-1 px-5 py-3 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white font-black" style="color:#fff!important;">Buscar em ${totalSel} banco(s)</button>
           <button onclick="Actions.closeSearchBankSelector()" class="px-5 py-3 rounded-2xl bg-slate-100 font-black">Cancelar</button>
         </div>
+      </div>
+    </div>`;
+  },
+
+  // V34.0.0 Onda 6 — Modal de revisão e merge de duplicatas.
+  // Mostra grupos detectados (mesmo email OU mesmo phone) e permite fundir
+  // cada grupo individualmente. UI deixa o cliente escolher manualmente quem
+  // sobrevive ou usar default (mais antigo).
+  duplicatesModal() {
+    const m = App.state.duplicatesModal;
+    if (!m?.open) return '';
+    const total = (m.emailGroups?.length || 0) + (m.phoneGroups?.length || 0);
+    return `<div class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-start justify-center p-4 overflow-y-auto">
+      <div class="bg-white rounded-3xl p-5 shadow-2xl border border-slate-100 w-full max-w-4xl mt-8">
+        <div class="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1"><i data-lucide="git-merge" class="w-5 h-5 text-amber-600"></i><h3 class="text-xl font-black">Identity Resolution · Duplicatas</h3></div>
+            <p class="text-sm text-slate-500">Visitors com mesmo email ou phone exato. Funda pra preservar histórico único do lead.</p>
+          </div>
+          <button onclick="Actions.closeDuplicatesModal()" class="w-10 h-10 rounded-2xl bg-slate-100 font-black text-xl shrink-0">×</button>
+        </div>
+
+        ${m.loading ? `<div class="py-12 text-center text-sm text-slate-500"><i data-lucide="loader-2" class="w-6 h-6 animate-spin inline mb-2"></i><p>Procurando duplicatas...</p></div>` : ''}
+
+        ${m.error ? `<div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-sm font-bold text-rose-800 mb-3">${Utils.escape(m.error)}</div>` : ''}
+
+        ${!m.loading && total === 0 ? `<div class="py-12 text-center"><i data-lucide="check-circle-2" class="w-12 h-12 text-emerald-500 inline mb-2"></i><p class="font-black text-slate-700">Nenhuma duplicata encontrada</p><p class="text-sm text-slate-500 mt-1">Sua base está limpa.</p></div>` : ''}
+
+        ${!m.loading && total > 0 ? `
+          <div class="mb-3 text-xs font-black text-slate-600 uppercase tracking-wider">${total} grupo(s) com duplicatas</div>
+          <div class="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            ${(m.emailGroups || []).map(g => this._duplicateGroupCard(g, 'email-exact', m.mergingKey)).join('')}
+            ${(m.phoneGroups || []).map(g => this._duplicateGroupCard(g, 'phone-exact', m.mergingKey)).join('')}
+          </div>
+        ` : ''}
+
+        <div class="flex gap-2 pt-4 mt-3 border-t border-slate-100">
+          <button onclick="Actions.openDuplicatesModal()" class="px-4 py-2.5 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 font-black text-sm flex items-center gap-2"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Re-escanear</button>
+          <button onclick="Actions.closeDuplicatesModal()" class="ml-auto px-5 py-2.5 rounded-2xl bg-slate-100 font-black text-sm">Fechar</button>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  _duplicateGroupCard(group, signal, mergingKey) {
+    const merging = mergingKey === group.key;
+    const visitors = group.visitors || [];
+    // Sobrevivente default: mais antigo (sorted por first_seen_at asc no backend)
+    const defaultSurvivor = visitors[0]?.lj_visitor_id;
+    const label = signal === 'email-exact' ? `email = "${Utils.escape(group.key)}"` : `phone = ${Utils.escape(group.key)}`;
+    return `<div class="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-1 rounded-lg ${signal === 'email-exact' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'} text-[10px] font-black uppercase tracking-wide">${signal}</span>
+          <code class="text-xs font-mono text-slate-700">${label}</code>
+          <span class="text-xs text-slate-500">· ${visitors.length} visitors</span>
+        </div>
+        <button ${merging ? 'disabled' : ''} onclick="Actions.mergeDuplicateGroup('${signal}', '${Utils.escape(group.key)}', '${Utils.escape(defaultSurvivor || '')}')" class="px-3 py-1.5 rounded-xl ${merging ? 'bg-slate-300 text-slate-500 cursor-wait' : 'bg-amber-600 hover:bg-amber-700 text-white'} font-black text-xs flex items-center gap-1.5" ${merging ? '' : 'style="color:#fff!important;"'}>
+          <i data-lucide="${merging ? 'loader-2' : 'git-merge'}" class="w-3.5 h-3.5 ${merging ? 'animate-spin' : ''}"></i>
+          ${merging ? 'Fundindo...' : `Fundir ${visitors.length}`}
+        </button>
+      </div>
+      <div class="grid gap-2">
+        ${visitors.map((v, i) => `
+          <div class="flex items-center gap-3 px-3 py-2 rounded-xl ${i === 0 ? 'bg-emerald-50 border border-emerald-200' : 'bg-white border border-slate-100'}">
+            ${i === 0 ? '<span class="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black" style="color:#fff!important;">SURVIVOR</span>' : '<span class="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-black">FUNDE</span>'}
+            <div class="flex-1 min-w-0">
+              <p class="font-black text-sm text-slate-900 truncate">${Utils.escape(v.name || '(sem nome)')}</p>
+              <p class="text-xs text-slate-500 truncate">${Utils.escape(v.email || '-')} · ${Utils.escape(v.phone || '-')} · banco: ${Utils.escape(v.bank_name || '-')}</p>
+              <p class="text-[10px] text-slate-400 mt-0.5">id: ${Utils.escape(v.lj_visitor_id)} · primeiro contato: ${v.first_seen_at ? new Date(v.first_seen_at).toLocaleDateString('pt-BR') : '-'} · ${v.tag_count} tag(s) · score ${v.global_score || 0}${v.external_rd_deal_id ? ' · RD✓' : ''}</p>
+            </div>
+          </div>
+        `).join('')}
       </div>
     </div>`;
   },
