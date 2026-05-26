@@ -27,14 +27,16 @@ const { getRdCredential } = require('../lib/rd-credentials');
 
 const RD_API_BASE = 'https://api.rd.services/crm/v1';
 
-// V34.6.s — Timeout explícito 8s por call RD via AbortController. Sem isso,
-// uma chamada que demora 30s+ trava o chunk inteiro e o Railway derruba (502).
-const RD_CALL_TIMEOUT_MS = 8000;
+// V34.6.v — Timeout 4s por call (era 8s). Pior caso: 2 visitors × 3 calls × 4s
+// = 24s wall-clock, dentro de qualquer timeout Railway. Plus timing por call
+// retornado no response pra diagnose.
+const RD_CALL_TIMEOUT_MS = 4000;
 
 async function rdFetch(path, token, options = {}) {
   const url = `${RD_API_BASE}${path}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), RD_CALL_TIMEOUT_MS);
+  const startMs = Date.now();
   try {
     const init = {
       method: options.method || 'GET',
@@ -51,14 +53,19 @@ async function rdFetch(path, token, options = {}) {
     }
     const response = await fetch(url, init);
     const text = await response.text();
+    const elapsedMs = Date.now() - startMs;
+    console.log(`[rdFetch] ${init.method} ${path} → ${response.status} (${elapsedMs}ms)`);
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch (_) { data = text; }
-    return { ok: response.ok, status: response.status, data };
+    return { ok: response.ok, status: response.status, data, elapsedMs };
   } catch (err) {
+    const elapsedMs = Date.now() - startMs;
     if (err.name === 'AbortError') {
-      return { ok: false, status: 408, data: null, error: 'timeout 8s' };
+      console.warn(`[rdFetch] TIMEOUT após ${elapsedMs}ms em ${path}`);
+      return { ok: false, status: 408, data: null, error: `timeout ${RD_CALL_TIMEOUT_MS}ms`, elapsedMs };
     }
-    return { ok: false, status: 0, data: null, error: err.message };
+    console.error(`[rdFetch] ERR ${path}: ${err.message} (${elapsedMs}ms)`);
+    return { ok: false, status: 0, data: null, error: err.message, elapsedMs };
   } finally {
     clearTimeout(timer);
   }
@@ -81,6 +88,7 @@ module.exports = async function handler(req, res) {
 
   const campaignId = Number(body.campaign_id || 0);
   const visitorIds = Array.isArray(body.visitor_ids) ? body.visitor_ids.map(String).filter(Boolean) : [];
+  const handlerStartMs = Date.now(); // V34.6.v — diagnose timing total do handler
   if (!campaignId) return res.status(400).json({ ok: false, message: 'campaign_id obrigatório.' });
   if (!visitorIds.length) return res.status(400).json({ ok: false, message: 'Nenhum visitor pra push.' });
   // V34.6.t — hard limit 2 visitors/req + SEM paralelização interna.
@@ -257,6 +265,8 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  const totalElapsedMs = Date.now() - handlerStartMs;
+  console.log(`[leads-impute-rd-push] ${visitorIds.length} visitors processados em ${totalElapsedMs}ms (pushed=${rdPushed}, already=${rdAlready}, skipped=${rdSkipped})`);
   return res.status(200).json({
     ok: true,
     pipelineMatched: true,
@@ -267,6 +277,7 @@ module.exports = async function handler(req, res) {
     rdPushed,
     rdSkipped,
     rdAlready,
+    elapsedMs: totalElapsedMs,
     rdErrors: rdErrors.slice(0, 10)
   });
 };
