@@ -10465,6 +10465,43 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V34.7.f.3 — Recalcula + carrega breakdown RFV de 1 visitor pro detalhe.
+  async loadVisitorScoreDetail(visitorId) {
+    const vid = String(visitorId || '').trim();
+    if (!vid) return;
+    App.state._visitorScoreLoading = { ...(App.state._visitorScoreLoading || {}), [vid]: true };
+    App.render();
+    try {
+      const data = await this._trackerFetch('/api/score-recalc', {
+        method: 'POST',
+        body: JSON.stringify({ visitor_id: vid })
+      });
+      if (data.ok) {
+        // Resposta inclui { score, R, F, V, breakdown, weights, campaignScores }
+        App.state.visitorScoreDetail = {
+          ...(App.state.visitorScoreDetail || {}),
+          [vid]: {
+            score: data.globalScore || data.score,
+            R: data.R,
+            F: data.F,
+            V: data.V,
+            breakdown: data.breakdown,
+            weights: data.weights,
+            campaignScores: data.campaignScores || []
+          }
+        };
+        Utils.toast(`✓ Score recalculado: ${data.globalScore || data.score}`);
+      } else {
+        Utils.toast(`Erro: ${data.message}`);
+      }
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    } finally {
+      App.state._visitorScoreLoading = { ...(App.state._visitorScoreLoading || {}), [vid]: false };
+      App.render();
+    }
+  },
+
   // V34.6.aa — Carrega counts por stage de uma campanha (lj_visitor_campaign_state)
   // pro Journey Pipeline mostrar números reais em vez de zerado.
   async loadCampaignPipelineCounts(campaignId) {

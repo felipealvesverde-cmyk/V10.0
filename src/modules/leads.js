@@ -941,6 +941,19 @@ var LeadsModule = {
     return all;
   },
 
+  // V34.7.f.3 — Cor do badge de score por faixa (alinhado com hierarquia entity_type):
+  //   0-333: cinza (suspect)
+  //   334-500: amarelo (lead frio/morno)
+  //   501-666: laranja (lead quente)
+  //   667+: verde (customer)
+  _scoreBadgeClasses(score) {
+    const s = Number(score || 0);
+    if (s >= 667) return { box: 'bg-emerald-50 border-emerald-200', text: 'text-emerald-700', label: 'Customer' };
+    if (s >= 501) return { box: 'bg-orange-50 border-orange-200', text: 'text-orange-700', label: 'Quente' };
+    if (s >= 334) return { box: 'bg-amber-50 border-amber-200', text: 'text-amber-700', label: 'Lead' };
+    return { box: 'bg-slate-50 border-slate-200', text: 'text-slate-600', label: 'Frio' };
+  },
+
   card(lead) {
     const tempClass = lead.temperature === 'Quente' ? 'bg-red-100 text-red-700' : lead.temperature === 'Morno' ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-200 text-slate-700';
     const safeId = String(lead.id).replace(/'/g, "\\'");
@@ -961,7 +974,7 @@ var LeadsModule = {
         </div>
         <div class="flex flex-col items-stretch gap-2">
           <div class="grid grid-cols-3 gap-2 text-center">
-            <div class="bg-white rounded-2xl px-3 py-2 border border-slate-100"><div class="font-black text-xl">${lead.globalScore}</div><div class="text-xs text-slate-500">Score</div></div>
+            ${(() => { const sb = this._scoreBadgeClasses(lead.globalScore); return `<div class="${sb.box} rounded-2xl px-3 py-2 border-2"><div class="font-black text-xl ${sb.text}">${lead.globalScore || 0}</div><div class="text-[10px] font-black ${sb.text} uppercase tracking-wide">${sb.label}</div></div>`; })()}
             <div class="bg-white rounded-2xl px-3 py-2 border border-slate-100"><div class="font-black text-sm truncate">${Utils.escape(lead.lastChannel || '-')}</div><div class="text-xs text-slate-500">Canal</div></div>
             <div class="bg-white rounded-2xl px-3 py-2 border border-slate-100"><div class="font-black text-sm truncate">${lead.behaviorTags.length}</div><div class="text-xs text-slate-500">Tags</div></div>
           </div>
@@ -985,7 +998,147 @@ var LeadsModule = {
     const enrichedBadge = enrichedTag
       ? `<span class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 text-[10px] font-black" title="Nome enriquecido via ${enrichedTag === 'lj-enriched-djow' ? 'Djow (Claude)' : 'heurística email→nome'}"><i data-lucide="sparkles" class="w-2.5 h-2.5"></i> enriquecido</span>`
       : '';
-    return `<div class="space-y-4"><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="mb-4 flex items-center"><button onclick="App.state.selectedLeadId=null; App.save(); App.render();" class="px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar para Leads</button>${trackerBtn}</div><div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5"><div><div class="flex items-center gap-2 mb-2"><h2 class="text-2xl font-black">${Utils.escape(lead.name)}</h2><span class="px-3 py-1 rounded-full text-xs font-black ${tempClass}">${lead.temperature}</span>${enrichedBadge}</div><p class="text-sm text-slate-500">${Utils.escape(lead.email || 'sem email')} • ${Utils.escape(lead.phone || 'sem telefone')}</p></div><div class="grid grid-cols-3 gap-2 text-center"><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.globalScore}</div><div class="text-xs text-slate-500">Score Global</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.campaigns.length}</div><div class="text-xs text-slate-500">Campanhas</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.interactions}</div><div class="text-xs text-slate-500">Interações</div></div></div></div><div class="grid lg:grid-cols-3 gap-4"><div class="bg-slate-50 rounded-3xl p-4 border border-slate-100"><h3 class="font-black text-lg mb-3">Dados de perfil</h3><div class="grid grid-cols-2 gap-2 text-xs">${this.profileCell('Sexo', lead.sexo)}${this.profileCell('Idade', lead.idade ? lead.idade + ' anos' : '')}${this.profileCell('Estado', lead.estado)}${this.profileCell('Cidade', lead.cidade)}${this.profileCell('Estado civil', lead.estadoCivil)}${this.profileCell('Faixa salarial', lead.faixaSalarial)}</div></div><div class="lg:col-span-2 bg-slate-50 rounded-3xl p-4 border border-slate-100"><h3 class="font-black text-lg mb-3">Tags comportamentais</h3><div class="flex flex-wrap gap-2">${lead.behaviorTags.map(tag => `<span class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black">${Utils.escape(tag)}</span>`).join('') || '<span class="text-sm text-slate-500">Sem tags comportamentais</span>'}</div></div></div></div><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h3 class="text-xl font-black mb-5">Timeline da Jornada</h3><div class="space-y-3">${lead.actions.map(item => this.timelineItem(item)).join('') || Components.empty('Sem eventos de jornada.')}</div></div></div>`;
+    // V34.7.f.3 — Score badge colorido por faixa + bloco RFV breakdown
+    const sb = this._scoreBadgeClasses(lead.globalScore);
+    const visitorId = String(lead.internalId || lead.id || '');
+    const scoreDetail = App.state.visitorScoreDetail?.[visitorId] || null;
+    const scoreLoading = Boolean(App.state._visitorScoreLoading?.[visitorId]);
+
+    return `<div class="space-y-4">
+      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+        <div class="mb-4 flex items-center"><button onclick="App.state.selectedLeadId=null; App.save(); App.render();" class="px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar para Leads</button>${trackerBtn}</div>
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
+          <div>
+            <div class="flex items-center gap-2 mb-2"><h2 class="text-2xl font-black">${Utils.escape(lead.name)}</h2><span class="px-3 py-1 rounded-full text-xs font-black ${tempClass}">${lead.temperature}</span>${enrichedBadge}</div>
+            <p class="text-sm text-slate-500">${Utils.escape(lead.email || 'sem email')} • ${Utils.escape(lead.phone || 'sem telefone')}</p>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="${sb.box} rounded-2xl px-4 py-3 border-2">
+              <div class="text-2xl font-black ${sb.text}">${lead.globalScore || 0}</div>
+              <div class="text-[10px] font-black ${sb.text} uppercase tracking-wide">${sb.label}</div>
+            </div>
+            <div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.campaigns.length}</div><div class="text-xs text-slate-500">Campanhas</div></div>
+            <div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${lead.interactions}</div><div class="text-xs text-slate-500">Interações</div></div>
+          </div>
+        </div>
+        <div class="grid lg:grid-cols-3 gap-4">
+          <div class="bg-slate-50 rounded-3xl p-4 border border-slate-100"><h3 class="font-black text-lg mb-3">Dados de perfil</h3><div class="grid grid-cols-2 gap-2 text-xs">${this.profileCell('Sexo', lead.sexo)}${this.profileCell('Idade', lead.idade ? lead.idade + ' anos' : '')}${this.profileCell('Estado', lead.estado)}${this.profileCell('Cidade', lead.cidade)}${this.profileCell('Estado civil', lead.estadoCivil)}${this.profileCell('Faixa salarial', lead.faixaSalarial)}</div></div>
+          <div class="lg:col-span-2 bg-slate-50 rounded-3xl p-4 border border-slate-100"><h3 class="font-black text-lg mb-3">Tags comportamentais</h3><div class="flex flex-wrap gap-2">${lead.behaviorTags.map(tag => `<span class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black">${Utils.escape(tag)}</span>`).join('') || '<span class="text-sm text-slate-500">Sem tags comportamentais</span>'}</div></div>
+        </div>
+      </div>
+
+      <!-- V34.7.f.3 — Bloco Score RFV breakdown -->
+      ${this._scoreRfvBlock(visitorId, lead, scoreDetail, scoreLoading)}
+
+      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h3 class="text-xl font-black mb-5">Timeline da Jornada</h3><div class="space-y-3">${lead.actions.map(item => this.timelineItem(item)).join('') || Components.empty('Sem eventos de jornada.')}</div></div>
+    </div>`;
+  },
+
+  // V34.7.f.3 — Bloco "Composição do Score (RFV)" no detalhe do lead.
+  // Mostra R, F, V com barras + breakdown dos 7 subcomponentes do V.
+  _scoreRfvBlock(visitorId, lead, scoreDetail, loading) {
+    if (!visitorId) return '';
+    const hasDetail = scoreDetail && typeof scoreDetail.R === 'number';
+    const bar = (val, color) => {
+      const pct = Math.max(0, Math.min(100, Math.round((val || 0) * 100)));
+      return `<div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full bg-${color}-500 transition-all" style="width:${pct}%"></div></div>`;
+    };
+    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+      <div class="flex items-center justify-between gap-2 mb-4">
+        <div class="flex items-center gap-2">
+          <i data-lucide="gauge" class="w-5 h-5 text-violet-600"></i>
+          <h3 class="text-lg font-black">Composição do Score (RFV)</h3>
+        </div>
+        <button ${loading ? 'disabled' : ''} onclick="Actions.loadVisitorScoreDetail('${Utils.escape(visitorId)}')" class="px-3 py-1.5 rounded-xl ${loading ? 'bg-slate-200 cursor-wait' : 'bg-violet-50 hover:bg-violet-100 text-violet-700'} font-black text-xs flex items-center gap-1.5">
+          <i data-lucide="${loading ? 'loader-2' : 'refresh-cw'}" class="w-3 h-3 ${loading ? 'animate-spin' : ''}"></i>
+          ${loading ? 'Recalculando...' : 'Recalcular'}
+        </button>
+      </div>
+      ${!hasDetail ? `
+        <p class="text-sm text-slate-500">Clique em <b>Recalcular</b> pra ver a composição matemática do score (Recency × Frequency × Value).</p>
+      ` : `
+        <div class="grid grid-cols-3 gap-3 mb-4">
+          <div class="bg-blue-50 border border-blue-200 rounded-2xl p-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-black text-blue-700 uppercase tracking-wider">Recency</span>
+              <span class="text-sm font-black text-blue-900">${Math.round(scoreDetail.R * 100)}%</span>
+            </div>
+            ${bar(scoreDetail.R, 'blue')}
+            <p class="text-[10px] text-blue-600 mt-2">Decay exponencial por tempo de inatividade. Peso: ${Math.round((scoreDetail.weights?.pR || 0.3) * 100)}%</p>
+          </div>
+          <div class="bg-orange-50 border border-orange-200 rounded-2xl p-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-black text-orange-700 uppercase tracking-wider">Frequency</span>
+              <span class="text-sm font-black text-orange-900">${Math.round(scoreDetail.F * 100)}%</span>
+            </div>
+            ${bar(scoreDetail.F, 'orange')}
+            <p class="text-[10px] text-orange-600 mt-2">Logarítmica de eventos. Peso: ${Math.round((scoreDetail.weights?.pF || 0.3) * 100)}%</p>
+          </div>
+          <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-3">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Value</span>
+              <span class="text-sm font-black text-emerald-900">${Math.round(scoreDetail.V * 100)}%</span>
+            </div>
+            ${bar(scoreDetail.V, 'emerald')}
+            <p class="text-[10px] text-emerald-600 mt-2">7 subcomponentes. Peso: ${Math.round((scoreDetail.weights?.pV || 0.4) * 100)}%</p>
+          </div>
+        </div>
+
+        ${scoreDetail.breakdown ? `
+          <details class="bg-slate-50 rounded-2xl p-3 border border-slate-200">
+            <summary class="text-xs font-black text-slate-700 uppercase tracking-wider cursor-pointer">Detalhes do Value (V)</summary>
+            <div class="mt-3 space-y-1 text-xs">
+              ${this._breakdownRow('Completude do perfil', scoreDetail.breakdown.completudePerfil, 'name+email+phone preenchidos')}
+              ${this._breakdownRow('Engagement rate', scoreDetail.breakdown.engagementRate, 'tags positivas / total')}
+              ${this._breakdownRow('Multi-canal bonus', scoreDetail.breakdown.multiCanalBonus, '# canais distintos / 5')}
+              ${this._breakdownRow('Cross-banco bonus', scoreDetail.breakdown.crossBancoBonus, '# bancos do tenant / 3')}
+              ${this._breakdownRow('Tag signal', scoreDetail.breakdown.tagSignal, 'saldo pos vs neg')}
+              ${this._breakdownRow('Burst conversion', scoreDetail.breakdown.burstConversion, '1.0 se customer')}
+              ${this._breakdownRow('Tempo no funil parado', scoreDetail.breakdown.tempoFunilPenalty, 'penalty se >30d parado', true)}
+            </div>
+          </details>
+
+          <div class="mt-3 text-[11px] text-slate-500 font-mono">
+            score = (R × pR + F × pF + V × pV) × hierarquia × 999<br>
+            score = (${scoreDetail.R} × ${scoreDetail.weights?.pR || 0.3} + ${scoreDetail.F} × ${scoreDetail.weights?.pF || 0.3} + ${scoreDetail.V} × ${scoreDetail.weights?.pV || 0.4}) × hierarquia
+            = <b class="text-slate-900">${scoreDetail.score}</b>
+          </div>
+        ` : ''}
+
+        ${scoreDetail.campaignScores && scoreDetail.campaignScores.length ? `
+          <div class="mt-4 pt-3 border-t border-slate-200">
+            <p class="text-xs font-black text-slate-700 uppercase tracking-wider mb-2">Score por campanha</p>
+            <div class="grid gap-1.5">
+              ${scoreDetail.campaignScores.map(cs => {
+                const csSb = this._scoreBadgeClasses(cs.score);
+                return `<div class="flex items-center justify-between px-3 py-2 rounded-xl ${csSb.box} border">
+                  <span class="text-xs font-bold text-slate-700">Campanha #${cs.campaignId}</span>
+                  <span class="text-sm font-black ${csSb.text}">${cs.score} · ${csSb.label}</span>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
+      `}
+    </div>`;
+  },
+
+  _breakdownRow(label, value, hint, isPenalty = false) {
+    const v = Number(value || 0);
+    const pct = isPenalty ? Math.round(Math.abs(v) * 100) : Math.round(v * 100);
+    const color = isPenalty && v < 0 ? 'rose' : v > 0.5 ? 'emerald' : v > 0.2 ? 'amber' : 'slate';
+    return `<div class="flex items-center gap-2">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-700 font-bold">${label}</span>
+          <span class="text-${color}-700 font-black">${isPenalty && v < 0 ? '-' : ''}${pct}%</span>
+        </div>
+        <div class="w-full h-1.5 rounded-full bg-slate-200 overflow-hidden mt-0.5">
+          <div class="h-full bg-${color}-500" style="width:${pct}%"></div>
+        </div>
+        <p class="text-[10px] text-slate-400 mt-0.5">${hint}</p>
+      </div>
+    </div>`;
   },
 
   profileCell(label, value) {
