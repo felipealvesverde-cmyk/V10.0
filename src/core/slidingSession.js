@@ -55,6 +55,20 @@
       } catch (_) {
         // Falha em ler header (CORS bloqueado, etc) — silencioso. Não afeta a request.
       }
+
+      // V34.6.bb — Lei JWT silent failure: detecta 401 em request autenticada
+      // e dispara ReloginInlineModal. Antes só remoteSyncAdapter detectava,
+      // mas qualquer action podia 401 silenciosamente sem aviso.
+      // Idempotente: openReloginInlineModal early-return se modal já aberto.
+      if (response.status === 401) {
+        // Deferido pra não bloquear o resolve da Promise da request original.
+        // A action que disparou o fetch ainda processa a Promise normalmente.
+        setTimeout(() => {
+          if (window.Actions?.openReloginInlineModal) {
+            window.Actions.openReloginInlineModal();
+          }
+        }, 0);
+      }
     }
 
     return response;
