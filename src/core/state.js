@@ -311,6 +311,9 @@ var State = {
       duplicatesModal: { open: false, loading: false, emailGroups: [], phoneGroups: [], loadedAt: null, mergingKey: null, error: null },
       // V34.6.z — Modal de backlog RD push (visitors imputados mas que não entraram no RD).
       rdBacklogModal: { open: false, loading: false, campaignId: null, total: 0, byReason: {}, visitors: [], retrying: false, error: null },
+      // V34.6.aa — Counts por stage de cada campanha (lj_visitor_campaign_state).
+      // Map campaignId → { counts: {'marketing-tof': N, ...}, total, loadedAt }
+      campaignPipelineCounts: {},
       // V34.0.0 Onda 6.d — Counts agregados pra "sininho" no menu Leads.
       // duplicateGroupsTotal>0 destaca botão Duplicatas com badge âmbar.
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
@@ -790,6 +793,9 @@ var State = {
       duplicatesModal: { open: false, loading: false, emailGroups: [], phoneGroups: [], loadedAt: null, mergingKey: null, error: null },
       // V34.6.z — Modal de backlog RD push (volátil).
       rdBacklogModal: { open: false, loading: false, campaignId: null, total: 0, byReason: {}, visitors: [], retrying: false, error: null },
+      // V34.6.aa — Counts por stage de cada campanha (lj_visitor_campaign_state).
+      // Map campaignId → { counts: {'marketing-tof': N, ...}, total, loadedAt }
+      campaignPipelineCounts: {},
       // V34.0.0 Onda 6.d — Counts volátil (re-fetch periódico).
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
       // V32.14.8 — Timestamp da última sync ClickUp persiste.

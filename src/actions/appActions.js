@@ -10465,6 +10465,25 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V34.6.aa — Carrega counts por stage de uma campanha (lj_visitor_campaign_state)
+  // pro Journey Pipeline mostrar números reais em vez de zerado.
+  async loadCampaignPipelineCounts(campaignId) {
+    const cId = Number(campaignId || 0);
+    if (!cId) return;
+    try {
+      const data = await this._trackerFetch(`/api/campaign-pipeline-counts?campaign_id=${cId}`);
+      if (data.ok) {
+        App.state.campaignPipelineCounts = {
+          ...(App.state.campaignPipelineCounts || {}),
+          [cId]: { counts: data.counts || {}, total: data.total || 0, loadedAt: Date.now() }
+        };
+        App.render();
+      }
+    } catch (err) {
+      console.warn('[loadCampaignPipelineCounts]', err.message);
+    }
+  },
+
   // V34.6.z — Backlog RD push: visitors imputados mas que não entraram no RD CRM.
   async openRdBacklogModal(campaignId) {
     const cId = Number(campaignId || 0);

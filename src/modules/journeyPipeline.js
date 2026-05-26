@@ -59,12 +59,23 @@ var JourneyPipelineModule = {
     this.ensureState();
     const base = App.state.pipelineStages || [];
 
-    // V33.0.0 — Fonte primária: trackerVisitorsCache.counts (vindos do tenant DB
-    // via /api/visitors-list?counts_only=true). Auto-fetch silencioso 1x por
-    // render quando ainda não tem cache. Fallback pro OperationalAggregationEngine
-    // (legado) se não houver dados de tracker pra esse stage.
+    // V34.6.aa — Fonte PRIMÁRIA quando uma campanha LJ está selecionada:
+    // counts de lj_visitor_campaign_state pra essa campanha. Antes Felipe
+    // imputava 500 leads e Journey Pipeline mostrava 0 PESSOAS.
+    const selectedCampaignId = App.state.selectedPipelineCampaignId;
+    const useCampaignDb = selectedCampaignId && selectedCampaignId !== 'all';
+    const campaignCounts = useCampaignDb
+      ? App.state.campaignPipelineCounts?.[selectedCampaignId]?.counts || null
+      : null;
+    // Auto-fetch counts da campanha se ainda não tem (silencioso, 1x por render)
+    if (useCampaignDb && !campaignCounts && window.Actions?.loadCampaignPipelineCounts) {
+      setTimeout(() => Actions.loadCampaignPipelineCounts(selectedCampaignId), 0);
+    }
+
+    // V33.0.0 — Fonte secundária: trackerVisitorsCache.counts (cross-campanha,
+    // do tracker). Quando NÃO há campanha selecionada ("all"), usa essa.
     const trackerCounts = App.state.trackerVisitorsCache?.counts?.byStage || null;
-    if (!trackerCounts && !App.state.trackerVisitorsCache?.loadedAt && !App.state.trackerVisitorsCache?.loading) {
+    if (!useCampaignDb && !trackerCounts && !App.state.trackerVisitorsCache?.loadedAt && !App.state.trackerVisitorsCache?.loading) {
       if (window.Actions?.loadVisitorCounts) {
         setTimeout(() => Actions.loadVisitorCounts(), 0);
       }
@@ -75,7 +86,25 @@ var JourneyPipelineModule = {
     const agg = window.OperationalAggregationEngine ? OperationalAggregationEngine.aggregate(selectedActions) : {};
 
     return base.map(stage => {
-      // 1ª prioridade: count REAL do tracker (visitors no estágio)
+      // 1ª prioridade (V34.6.aa): counts de lj_visitor_campaign_state da campanha selecionada
+      const campaignVolume = campaignCounts ? Number(campaignCounts[stage.id] || 0) : 0;
+      if (campaignVolume > 0) {
+        const health = campaignVolume >= 100 ? 'Saudável' : campaignVolume >= 25 ? 'Atenção' : 'Gargalo';
+        const gravity = Math.min(90, Math.max(30, Math.round(20 + Math.log10(campaignVolume + 1) * 25)));
+        return {
+          ...stage,
+          volume: campaignVolume,
+          conversion: stage.conversion,
+          intent: stage.intent,
+          health,
+          gravity,
+          insight: `${campaignVolume} pessoa(s) em ${stage.area} ${stage.label} desta campanha.`,
+          action: 'Crie ações pra mover esses leads pro próximo estágio.',
+          risk: stage.risk
+        };
+      }
+
+      // 2ª prioridade: count REAL do tracker (visitors no estágio, cross-campanha)
       const trackerVolume = trackerCounts ? Number(trackerCounts[stage.id] || 0) : 0;
       if (trackerVolume > 0) {
         const health = trackerVolume >= 100 ? 'Saudável' : trackerVolume >= 25 ? 'Atenção' : 'Gargalo';
