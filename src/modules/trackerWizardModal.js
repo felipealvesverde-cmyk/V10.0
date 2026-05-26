@@ -165,6 +165,19 @@
       const total = status?.totalVisitors || 0;
 
       return `<div class="space-y-4">
+        <!-- V33.0.0-alpha18 (Caminho C) — Microcopy multi-LP: o snippet vale
+             pra todas as LPs dessa campanha. LJ distingue automaticamente. -->
+        <div class="rounded-2xl bg-violet-500/10 border border-violet-400/30 p-3 flex items-start gap-2">
+          <i data-lucide="layers" class="w-4 h-4 text-violet-300 mt-0.5 shrink-0"></i>
+          <div>
+            <p class="text-[11px] font-black text-violet-200 uppercase tracking-widest mb-0.5">Várias LPs? Mesmo snippet</p>
+            <p class="text-[11px] text-violet-100">
+              Cole esse mesmo snippet em <b>quantas LPs quiser</b> dessa campanha (LP /promo, LP /webinar, etc).
+              O LJ identifica cada LP automaticamente pelo caminho da URL e mostra performance separada no card da campanha.
+            </p>
+          </div>
+        </div>
+
         <div class="rounded-2xl bg-slate-800/40 border border-white/10 p-4 space-y-3">
           <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest inline-flex items-center gap-1.5">
             <i data-lucide="list-ordered" class="w-3.5 h-3.5"></i> Onde colar
@@ -174,6 +187,7 @@
             <li>Procure pela tag <b class="font-mono text-violet-300">&lt;head&gt;</b> no topo do arquivo HTML.</li>
             <li>Cole o snippet copiado <b>dentro</b> da tag <b class="font-mono text-violet-300">&lt;head&gt;</b>, antes do fechamento <b class="font-mono text-violet-300">&lt;/head&gt;</b>.</li>
             <li>Salve e publique a LP.</li>
+            <li>Repita pra cada LP dessa campanha (mesmo snippet).</li>
             <li>Volte aqui e clique em <b>Testar conexão</b>.</li>
           </ol>
         </div>

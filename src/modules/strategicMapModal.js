@@ -2815,6 +2815,15 @@ window.StrategicMapModal = {
     const trackerConnected = !!trackerStatus?.connected;
     const trackerCounts = trackerStatus?.byEntityType || { suspect: 0, lead: 0, customer: 0 };
 
+    // V33.0.0-alpha18 — Breakdown por LP (Caminho C). Auto-fetch quando há
+    // tracker conectado (faz sentido só se já tem visitors).
+    const lpBreakdown = App.state.campaignLpBreakdown?.[branch.campaignId];
+    if (trackerConnected && !lpBreakdown && window.Actions?.loadCampaignLpBreakdown) {
+      setTimeout(() => Actions.loadCampaignLpBreakdown(branch.campaignId), 0);
+    }
+    const lpCount = lpBreakdown?.lp_count || 0;
+    const showLpList = lpCount > 1; // só expõe lista se há >1 LP distinta
+
     return `<div class="rounded-2xl bg-white/[0.05] border ${isActive ? 'border-violet-400/60 ring-2 ring-violet-400/20' : `border-${statusInfo.color}-400/30`} p-3 space-y-2">
       <div class="flex items-center justify-between gap-3">
         <div class="min-w-0 flex-1">
@@ -2840,9 +2849,29 @@ window.StrategicMapModal = {
         <button onclick="Actions.openTrackerWizard(${branch.campaignId})" title="${trackerConnected ? 'Ver/editar snippet da LP' : 'Conectar landing page desta campanha'}"
           class="px-2.5 py-1 rounded-lg ${trackerConnected ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-200' : 'bg-sky-500/15 border-sky-400/40 text-sky-200'} border text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1 shrink-0">
           <i data-lucide="${trackerConnected ? 'check-circle-2' : 'plug'}" class="w-3 h-3"></i>
-          ${trackerConnected ? 'LP conectada' : 'Conectar LP'}
+          ${trackerConnected ? `LP conectada${showLpList ? ` · ${lpCount} LPs` : ''}` : 'Conectar LP'}
         </button>
       </div>
+
+      <!-- V33.0.0-alpha18 (Caminho C) — Lista de LPs distintas dessa campanha.
+           Só aparece quando há >1 LP detectada via landing_url do touchpoint. -->
+      ${showLpList ? `<div class="pt-2 mt-2 border-t border-white/5 space-y-1">
+        <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest inline-flex items-center gap-1.5">
+          <i data-lucide="layers" class="w-3 h-3"></i> LPs detectadas (${lpCount})
+        </p>
+        ${lpBreakdown.lps.slice(0, 5).map(lp => {
+          const path = String(lp.landing_url).replace(/^https?:\/\//, '').slice(0, 50);
+          return `<div class="flex items-center justify-between gap-2 text-[10px] py-1">
+            <span class="text-slate-300 truncate font-mono" title="${Utils.escape(lp.landing_url)}">${Utils.escape(path)}</span>
+            <span class="flex items-center gap-1 shrink-0">
+              <span class="px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-200 font-black">${lp.visitors}</span>
+              ${lp.leads > 0 ? `<span class="px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-200 font-black">${lp.leads}L</span>` : ''}
+              ${lp.customers > 0 ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-200 font-black">${lp.customers}C</span>` : ''}
+            </span>
+          </div>`;
+        }).join('')}
+        ${lpCount > 5 ? `<p class="text-[9px] text-slate-500 italic">+${lpCount - 5} outras</p>` : ''}
+      </div>` : ''}
     </div>`;
   },
 

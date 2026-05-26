@@ -283,6 +283,9 @@ var State = {
       // V33.0.0 Onda 3 — Atribuição causal: cache de aggregação por action.
       // { byActionId: { [id]: {transitions, leads, customers, lastAttributedAt} }, sinceDays, loadedAt, loading }
       actionAttributionsCache: { byActionId: {}, sinceDays: 30, loadedAt: null, loading: false },
+      // V33.0.0-alpha18 — Breakdown por LP de cada campanha (Caminho C).
+      // { [campaignId]: { lps, total_visitors, total_leads, total_customers, loadedAt } }
+      campaignLpBreakdown: {},
       customChannels: [],
       customActionTypes: [],
       executionConfig: window.ExecutionProviderRegistry?.defaultConfig?.() || { defaultProvider: 'manual', providers: {} },
@@ -727,6 +730,8 @@ var State = {
       hotmartWizardOpen: null,
       // V33.0.0 Onda 3 — Cache de atribuição volátil (re-fetch ao abrir Mapa/Resultados).
       actionAttributionsCache: { byActionId: {}, sinceDays: 30, loadedAt: null, loading: false },
+      // V33.0.0-alpha18 — Breakdown por LP volátil (re-fetch ao abrir card de campanha).
+      campaignLpBreakdown: {},
       // V32.14.8 — Timestamp da última sync ClickUp persiste.
       clickupLastSyncAt: Number(raw.clickupLastSyncAt) || null,
       // V32.15.0 — Recolher por bloco no Acompanhamento persiste.

@@ -9957,6 +9957,25 @@ Object.assign(Actions, {
     }
   },
 
+  // V33.0.0-alpha18 — Caminho C: breakdown por LP de uma campanha.
+  // Backend agrupa visitors por landing_url normalizado (sem ?utm=). UI
+  // mostra as N LPs da campanha automaticamente quando há >1 distinta.
+  async loadCampaignLpBreakdown(campaignId) {
+    if (!campaignId) return;
+    try {
+      const data = await this._trackerFetch(`/api/campaign-lp-breakdown?campaign_id=${campaignId}`);
+      if (data.ok) {
+        App.state.campaignLpBreakdown = {
+          ...App.state.campaignLpBreakdown,
+          [campaignId]: { ...data, loadedAt: Date.now() }
+        };
+        App.render();
+      }
+    } catch (err) {
+      console.error('[loadCampaignLpBreakdown]', err);
+    }
+  },
+
   // V33.0.0 Onda 3 — Carrega atribuições agregadas por action.
   async loadActionAttributions(sinceDays = 30) {
     const cache = App.state.actionAttributionsCache || {};
