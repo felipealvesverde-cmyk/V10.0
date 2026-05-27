@@ -5861,14 +5861,53 @@ Object.assign(Actions, {
 
   updateLeadField(leadKey, field, value) {
     const target = String(leadKey).toLowerCase().trim();
+    let targetEmail = null;
     App.state.actions = (App.state.actions || []).map(action => ({
       ...action,
       leads: (action.leads || []).map(lead => {
         const k = String(lead?.email || lead?.id || lead?.name || '').toLowerCase().trim();
-        return k === target ? { ...lead, [field]: value } : lead;
+        if (k !== target) return lead;
+        if (lead?.email) targetEmail = String(lead.email).toLowerCase().trim();
+        return { ...lead, [field]: value };
       })
     }));
     App.save();
+
+    // V34.7.h.9 — Persiste no lj_visitors via /api/visitors-update (debounced).
+    // Só pra campos que existem no DB (name, phone). Outros (idade, sexo, etc.)
+    // continuam só no state legacy. Sem email → não dá pra resolver visitor.
+    if (!targetEmail || !['name', 'phone'].includes(field)) return;
+    this._scheduleVisitorPersist(targetEmail, field, value);
+  },
+
+  // V34.7.h.9 — Debounce 1.2s por (email,field). Cada edit reinicia o timer;
+  // após pausa, faz POST /api/visitors-update. Falhas viram warn no console
+  // (não interrompem digitação — UX prevalece, RD pega no próximo cron).
+  _scheduleVisitorPersist(email, field, value) {
+    if (!this._visitorPersistTimers) this._visitorPersistTimers = {};
+    const key = `${email}::${field}`;
+    if (this._visitorPersistTimers[key]) clearTimeout(this._visitorPersistTimers[key]);
+    this._visitorPersistTimers[key] = setTimeout(async () => {
+      try {
+        const token = localStorage.getItem('lj_jwt');
+        if (!token) return;
+        const res = await fetch('/api/visitors-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ email, [field]: value })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.ok) {
+          console.warn('[visitors-update] falhou:', data.message || res.status);
+          return;
+        }
+        if (data.markedForRdSync) {
+          console.log(`[visitors-update] ${email} ${field}="${value}" → pending no RD CRM`);
+        }
+      } catch (err) {
+        console.warn('[visitors-update] erro:', err.message);
+      }
+    }, 1200);
   },
 
   addLeadTagFromInput(leadKey) {
