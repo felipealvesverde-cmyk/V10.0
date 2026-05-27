@@ -563,7 +563,7 @@ CREATE INDEX IF NOT EXISTS idx_lj_merges_when ON lj_merges(user_id, merged_at);
 CREATE TABLE IF NOT EXISTS lj_transition_rules (
   id SERIAL PRIMARY KEY,
   user_id INT NOT NULL,
-  campaign_id INT NOT NULL,
+  campaign_id BIGINT NOT NULL,
   is_master BOOLEAN NOT NULL DEFAULT FALSE,
   from_stage VARCHAR(32),               -- NULL pra Master (qualquer estágio)
   to_stage VARCHAR(32) NOT NULL,        -- 9 estágios OR 'EXIT' (sair da campanha)
@@ -580,6 +580,10 @@ CREATE INDEX IF NOT EXISTS idx_transition_rules_campaign
 CREATE INDEX IF NOT EXISTS idx_transition_rules_lookup
   ON lj_transition_rules(user_id, campaign_id, trigger_type, is_active)
   WHERE is_active = TRUE;
+
+-- V34.9.3.1 — Tenants que rodaram schema antes do bump pra BIGINT continuam
+-- com campaign_id INT. ALTER COLUMN TYPE BIGINT é seguro (aumentar precisão).
+ALTER TABLE lj_transition_rules ALTER COLUMN campaign_id TYPE BIGINT;
 
 -- Referência da rule que disparou a transition (debug "por que esse lead moveu?")
 ALTER TABLE lj_transitions ADD COLUMN IF NOT EXISTS triggered_by_rule_id INT;
