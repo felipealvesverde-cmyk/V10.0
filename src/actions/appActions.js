@@ -11224,14 +11224,16 @@ Object.assign(Actions, {
       }
 
       const p = data.pull || {};
+      const push = data.push || {};
       const o = data.orphans || {};
       const parts = [];
       parts.push(`✓ ${p.pulled || 0} contatos checados no RD`);
       if (p.applied) parts.push(`${p.applied} atualizados no LJ`);
-      if (p.ljWon) parts.push(`${p.ljWon} pendente(s) pro RD`);
+      if (push.synced) parts.push(`${push.synced} nomes/dados enviados ao RD`);
+      if (push.failed) parts.push(`${push.failed} falha(s) ao enviar`);
       if (p.alerts) parts.push(`${p.alerts} conflito(s) — veja o sininho`);
       if (o.created) parts.push(`${o.created} órfão(s) criado(s) no RD`);
-      if (o.failed) parts.push(`${o.failed} falha(s)`);
+      if (o.failed) parts.push(`${o.failed} órfão(s) falharam`);
       const ms = data.elapsedMs ? `${(data.elapsedMs / 1000).toFixed(1)}s` : '';
       Utils.toast(`${parts.join(' · ')}${ms ? ` (${ms})` : ''}`);
 
