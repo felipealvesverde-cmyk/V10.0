@@ -263,6 +263,12 @@ var JourneyPipelineModule = {
         <i data-lucide="zap" class="w-4 h-4"></i>
         Triggers
       </button>
+      <button onclick="Actions.openScoreConfigModal(${hasCampaign ? selectedId : 'null'})"
+              title="Equalização do Score Engine (R/F/V, faixas, hierarquia)"
+              class="px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm flex items-center justify-center gap-2">
+        <i data-lucide="gauge" class="w-4 h-4"></i>
+        Score
+      </button>
     </div>`;
   },
 

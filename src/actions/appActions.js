@@ -6022,6 +6022,30 @@ Object.assign(Actions, {
     }
   },
 
+  // V34.9.5 — Painel de equalização do Score Engine.
+  openScoreConfigModal(campaignId) {
+    const cid = campaignId && campaignId !== 'all' ? Number(campaignId) : null;
+    App.state.scoreConfigModal = {
+      open: true,
+      campaignId: cid,
+      activeTab: cid ? 'general' : 'general' // sempre começa em Geral
+    };
+    App.render();
+  },
+
+  closeScoreConfigModal() {
+    App.state.scoreConfigModal = { ...(App.state.scoreConfigModal || {}), open: false };
+    App.render();
+  },
+
+  setScoreConfigTab(tab) {
+    App.state.scoreConfigModal = {
+      ...(App.state.scoreConfigModal || {}),
+      activeTab: tab === 'campaign' ? 'campaign' : 'general'
+    };
+    App.render();
+  },
+
   // V34.9.3 — Triggers Engine: CRUD da modal de triggers do Flow Map.
   async openTriggersModal(campaignId) {
     const cid = Number(campaignId);

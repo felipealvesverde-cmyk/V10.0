@@ -344,6 +344,13 @@ var State = {
         editingId: null,
         mirroringFromId: null
       },
+      // V34.9.5 — Painel de equalização do Score Engine (read-only por hora,
+      // edição vai sendo destravada conforme Felipe pedir).
+      scoreConfigModal: {
+        open: false,
+        campaignId: null,
+        activeTab: 'general' // 'general' | 'campaign'
+      },
       // V34.0.0 Onda 6.d — Counts agregados pra "sininho" no menu Leads.
       // duplicateGroupsTotal>0 destaca botão Duplicatas com badge âmbar.
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
@@ -855,6 +862,13 @@ var State = {
         draft: null,        // { from_stage, to_stage, trigger_type, ... } durante criação
         editingId: null,
         mirroringFromId: null
+      },
+      // V34.9.5 — Painel de equalização do Score Engine (read-only por hora,
+      // edição vai sendo destravada conforme Felipe pedir).
+      scoreConfigModal: {
+        open: false,
+        campaignId: null,
+        activeTab: 'general' // 'general' | 'campaign'
       },
       // V34.0.0 Onda 6.d — Counts volátil (re-fetch periódico).
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
