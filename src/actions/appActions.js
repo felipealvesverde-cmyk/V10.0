@@ -6022,6 +6022,47 @@ Object.assign(Actions, {
     }
   },
 
+  // V34.9.6 — Modal "Score Breakdown" item por item.
+  async openScoreBreakdownModal(visitorId) {
+    const vid = String(visitorId || '').trim();
+    if (!vid) return Utils.toast('visitor_id obrigatório.');
+    App.state.scoreBreakdownModal = {
+      open: true,
+      visitorId: vid,
+      loading: true,
+      data: null
+    };
+    App.render();
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch(`/api/visitor-score-breakdown?visitor_id=${encodeURIComponent(vid)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        Utils.toast(`Erro: ${data.message}`);
+        App.state.scoreBreakdownModal.loading = false;
+        App.render();
+        return;
+      }
+      App.state.scoreBreakdownModal = {
+        ...App.state.scoreBreakdownModal,
+        data,
+        loading: false
+      };
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+      App.state.scoreBreakdownModal.loading = false;
+      App.render();
+    }
+  },
+
+  closeScoreBreakdownModal() {
+    App.state.scoreBreakdownModal = { open: false, visitorId: null, loading: false, data: null };
+    App.render();
+  },
+
   // V34.9.5 — Painel de equalização do Score Engine.
   openScoreConfigModal(campaignId) {
     const cid = campaignId && campaignId !== 'all' ? Number(campaignId) : null;

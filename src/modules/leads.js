@@ -1120,7 +1120,15 @@ var LeadsModule = {
         </div>
         <div class="flex flex-col items-stretch gap-2">
           <div class="grid grid-cols-3 gap-2 text-center">
-            ${(() => { const sb = this._scoreBadgeClasses(lead.globalScore); return `<div class="${sb.box} rounded-2xl px-3 py-2 border-2"><div class="font-black text-xl ${sb.text}">${lead.globalScore || 0}</div><div class="text-[10px] font-black ${sb.text} uppercase tracking-wide">${sb.label}</div></div>`; })()}
+            ${(() => {
+              const sb = this._scoreBadgeClasses(lead.globalScore);
+              // V34.9.6 — Badge clicável abre modal "Score Breakdown".
+              const vid = lead.internalId || lead.lj_visitor_id || lead.id || '';
+              const clickable = Boolean(vid);
+              const onClick = clickable ? `onclick="event.stopPropagation(); Actions.openScoreBreakdownModal('${String(vid).replace(/'/g, "\\'")}')"` : '';
+              const cursorCls = clickable ? 'cursor-pointer hover:brightness-110 transition' : '';
+              return `<div ${onClick} class="${sb.box} ${cursorCls} rounded-2xl px-3 py-2 border-2" title="${clickable ? 'Clique pra ver detalhamento item por item' : ''}"><div class="font-black text-xl ${sb.text}">${lead.globalScore || 0}</div><div class="text-[10px] font-black ${sb.text} uppercase tracking-wide">${sb.label}</div></div>`;
+            })()}
             <div class="bg-white rounded-2xl px-3 py-2 border border-slate-100"><div class="font-black text-sm truncate">${Utils.escape(lead.lastChannel || '-')}</div><div class="text-xs text-slate-500">Canal</div></div>
             <div class="bg-white rounded-2xl px-3 py-2 border border-slate-100"><div class="font-black text-sm truncate">${lead.behaviorTags.length}</div><div class="text-xs text-slate-500">Tags</div></div>
           </div>
