@@ -11195,7 +11195,64 @@ Object.assign(Actions, {
     }
   },
 
-  // V34.7.h.6 — Sync RD em loop com barra de progresso (mesmo padrão do enrich).
+  // V34.8.2 — Dispara o motor de conciliação RD↔LJ bidirecional pro próprio user.
+  // Substitui o botão "Sync RD" antigo. O motor cuida de:
+  //   - Puxar updates do RD (campo a campo com decisão automática)
+  //   - Empurrar órfãos do LJ (cria contato no RD + grava ponte)
+  //   - Empurrar pending-contact-update (LJ tem update mais novo)
+  //   - Detectar conflitos → alerts no sininho
+  async triggerReconciliation() {
+    if (App.state._reconciliationRunning) return Utils.toast('Conciliação já está rodando.');
+    App.state._reconciliationRunning = true;
+    App.state.reconciliationRunProgress = { running: true, phase: 'Conectando ao RD CRM…', stats: null };
+    App.render();
+
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      App.state.reconciliationRunProgress.phase = 'Conciliando LJ ↔ RD (pode demorar 30–60s)…';
+      App.render();
+
+      const res = await fetch('/api/reconciliation-trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        Utils.toast(`Erro: ${data.message}`);
+        return;
+      }
+
+      const p = data.pull || {};
+      const o = data.orphans || {};
+      const parts = [];
+      parts.push(`✓ ${p.pulled || 0} contatos checados no RD`);
+      if (p.applied) parts.push(`${p.applied} atualizados no LJ`);
+      if (p.ljWon) parts.push(`${p.ljWon} pendente(s) pro RD`);
+      if (p.alerts) parts.push(`${p.alerts} conflito(s) — veja o sininho`);
+      if (o.created) parts.push(`${o.created} órfão(s) criado(s) no RD`);
+      if (o.failed) parts.push(`${o.failed} falha(s)`);
+      const ms = data.elapsedMs ? `${(data.elapsedMs / 1000).toFixed(1)}s` : '';
+      Utils.toast(`${parts.join(' · ')}${ms ? ` (${ms})` : ''}`);
+
+      // Recarrega sininho + busca ativa (pra mostrar nomes/dados atualizados)
+      await Actions.loadReconciliationAlerts();
+      const sr = App.state.visitorSearchResults;
+      if (sr?.loadedAt) {
+        try { await Actions._runVisitorSearch(sr.bankIds); } catch (_) {}
+      }
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    } finally {
+      App.state._reconciliationRunning = false;
+      App.state.reconciliationRunProgress = { running: false, phase: '', stats: null };
+      App.render();
+    }
+  },
+
+  // V34.7.h.6 — [DEPRECATED] Sync RD em loop com barra de progresso.
+  // Mantido por compat — não tem botão chamando mais. Substituído pelo motor
+  // de conciliação bidirecional (triggerReconciliation). Remover em onda futura.
   // Cada batch processa max 50 visitors pendentes; loop até pendingRemaining=0.
   async triggerRdContactSync() {
     if (App.state._rdContactSyncRunning) return Utils.toast('Já está rodando.');
