@@ -11225,12 +11225,16 @@ Object.assign(Actions, {
 
       const p = data.pull || {};
       const push = data.push || {};
+      const deals = data.deals || {};
       const o = data.orphans || {};
       const parts = [];
       parts.push(`✓ ${p.pulled || 0} contatos checados no RD`);
       if (p.applied) parts.push(`${p.applied} atualizados no LJ`);
-      if (push.synced) parts.push(`${push.synced} nomes/dados enviados ao RD`);
-      if (push.failed) parts.push(`${push.failed} falha(s) ao enviar`);
+      if (push.synced) parts.push(`${push.synced} contatos atualizados no RD`);
+      if (push.failed) parts.push(`${push.failed} falha(s) ao atualizar contato`);
+      if (deals.linked) parts.push(`${deals.linked} deal(s) linkado(s) ao contato`);
+      if (deals.renamed) parts.push(`${deals.renamed} deal(s) renomeado(s)`);
+      if (deals.failed) parts.push(`${deals.failed} deal(s) falharam`);
       if (p.alerts) parts.push(`${p.alerts} conflito(s) — veja o sininho`);
       if (o.created) parts.push(`${o.created} órfão(s) criado(s) no RD`);
       if (o.failed) parts.push(`${o.failed} órfão(s) falharam`);

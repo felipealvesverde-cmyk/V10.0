@@ -261,6 +261,12 @@ ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_sync_error TEXT;
 -- V34.8.8 — Expand pra caber 'pending-contact-update' (22 chars). Idempotente:
 -- ALTER COLUMN TYPE VARCHAR(maior) é seguro mesmo se já está no tamanho.
 ALTER TABLE lj_visitors ALTER COLUMN external_rd_sync_status TYPE VARCHAR(64);
+-- V34.9.0 — Deal enrichment: timestamps quando o motor de conciliação
+-- (a) vinculou o contato ao deal no RD (POST /deals/{id}/contacts)
+-- (b) atualizou o nome do deal (PATCH /deals/{id} { deal: { name } })
+-- NULL = ainda não rodou; setado = OK; falha grava em external_rd_sync_error.
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_deal_linked_at TIMESTAMPTZ;
+ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_deal_renamed_at TIMESTAMPTZ;
 ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_synced_at TIMESTAMPTZ;
 ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_hotmart_purchase_id VARCHAR(128);  -- preenchido em Onda 2
 
