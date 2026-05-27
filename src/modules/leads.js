@@ -302,6 +302,24 @@ var LeadsModule = {
     </div>`;
   },
 
+  // V34.8.2 — Indicador "rodando" pra motor de conciliação. Não tem barra de %
+  // porque o motor mistura GET paginado RD + POST batch órfãos — duração varia.
+  // Mostra spinner + fase atual.
+  _reconciliationRunBar() {
+    const p = App.state.reconciliationRunProgress;
+    if (!p || !p.running) return '';
+    const phase = p.phase || 'Conciliando…';
+    return `<div class="bg-sky-50 border-2 border-sky-200 rounded-2xl p-4 mb-3">
+      <div class="flex items-center gap-3">
+        <i data-lucide="refresh-ccw" class="w-5 h-5 text-sky-700 animate-spin shrink-0"></i>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-black text-sky-900">Conciliando LJ ↔ RD CRM</p>
+          <p class="text-xs text-sky-700">${Utils.escape(phase)}</p>
+        </div>
+      </div>
+    </div>`;
+  },
+
   // V34.7.h.6 — Barra de progresso do Sync RD em loop (azul/sky pra diferenciar do enrich).
   _rdSyncProgressBar() {
     const p = App.state.rdSyncProgress;
@@ -400,13 +418,19 @@ var LeadsModule = {
         <div class="flex gap-2 flex-wrap items-start">
           ${pendBtn('Duplicatas', dupTotal, 'amber', 'git-merge', 'Actions.openDuplicatesModal()', false, dupTotal > 0 ? `${dupTotal} grupo(s) de duplicatas` : 'Buscar e fundir duplicatas')}
           ${pendBtn(enrichRunning ? 'Enriquecendo' : 'Enriquecer', enrichTotal, 'violet', 'sparkles', 'Actions.triggerEnrichNames()', enrichRunning, enrichTotal > 0 ? `${enrichTotal} lead(s) sem nome — clique pra rodar Djow agora` : 'Enriquecer nomes via heurística + Djow')}
-          ${pendBtn(syncRunning ? 'Sync RD' : 'Sync RD', syncTotal, 'sky', 'rotate-cw', 'Actions.triggerRdContactSync()', syncRunning, syncTotal > 0 ? `${syncTotal} contato(s) pendente(s) de sync com RD CRM` : 'Sincronizar contatos com RD CRM')}
+          ${(() => {
+            // V34.8.2 — Botão "Conciliar" substitui "Sync RD". Dispara motor
+            // bidirecional (pull + push + alertas). Estado: state.reconciliationRunProgress.running.
+            const running = Boolean(App.state.reconciliationRunProgress?.running);
+            return pendBtn(running ? 'Conciliando' : 'Conciliar', 0, 'sky', 'refresh-ccw', 'Actions.triggerReconciliation()', running, 'Roda o motor de conciliação RD↔LJ: puxa updates, empurra órfãos, marca conflitos no sininho.');
+          })()}
           <button onclick="Actions.openLeadImportModal()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Inserir leads</button>
         </div>
       </div>
       ${this._activeBanksStrip()}
       ${this._enrichProgressBar()}
       ${this._rdSyncProgressBar()}
+      ${this._reconciliationRunBar()}
       <div class="flex flex-wrap gap-2 mb-3">
         <input id="profileInput" value="${Utils.escape(App.state.profileQuery)}" oninput="App.state.profileQuery=this.value; App.save();" onkeydown="if(event.key==='Enter'){event.preventDefault(); Actions.djowSearchProfile();}" placeholder="Ex: mulheres de 30 a 40 anos de SP, #cta, quente..." class="flex-1 min-w-[200px] px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />
         ${djowBtn}

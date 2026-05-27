@@ -329,6 +329,8 @@ var State = {
       // V34.8.0 — Conciliação RD↔LJ. Sininho conta alerts não resolvidos.
       reconciliationModal: { open: false, loading: false, alerts: [], loadedAt: null, resolvingId: null },
       pendingReconciliationCount: 0,
+      // V34.8.2 — Estado do botão "Conciliar" (rodar motor bidirecional sob demanda)
+      reconciliationRunProgress: { running: false, phase: '', stats: null },
       // V34.0.0 Onda 6.d — Counts agregados pra "sininho" no menu Leads.
       // duplicateGroupsTotal>0 destaca botão Duplicatas com badge âmbar.
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
@@ -826,6 +828,8 @@ var State = {
       // V34.8.0 — Conciliação RD↔LJ. Sininho conta alerts não resolvidos.
       reconciliationModal: { open: false, loading: false, alerts: [], loadedAt: null, resolvingId: null },
       pendingReconciliationCount: 0,
+      // V34.8.2 — Estado do botão "Conciliar" (rodar motor bidirecional sob demanda)
+      reconciliationRunProgress: { running: false, phase: '', stats: null },
       // V34.0.0 Onda 6.d — Counts volátil (re-fetch periódico).
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
       // V32.14.8 — Timestamp da última sync ClickUp persiste.
