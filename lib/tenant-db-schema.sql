@@ -611,6 +611,14 @@ CREATE INDEX IF NOT EXISTS idx_reconciliation_user_unresolved
   ON lj_reconciliation_alerts(user_id, resolved_at)
   WHERE resolved_at IS NULL;
 
+-- V34.9.4 — Sinining notification model:
+--   - read_at: usuário "viu" no sininho (sai do badge unread count)
+--   - resolved_at já existia (separação útil: lida ≠ resolvida)
+ALTER TABLE lj_reconciliation_alerts ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_reconciliation_user_unread
+  ON lj_reconciliation_alerts(user_id, read_at)
+  WHERE read_at IS NULL;
+
 -- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================

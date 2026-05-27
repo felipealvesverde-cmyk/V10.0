@@ -5910,9 +5910,9 @@ Object.assign(Actions, {
     }, 1200);
   },
 
-  // V34.8.0 — Carrega lista de alertas de conciliação RD↔LJ.
-  // Chamado no boot, no clique do sininho e após resolver um alerta.
-  async loadReconciliationAlerts() {
+  // V34.9.4 — Sininho agrega 3 tipos de notificação. Counts-only modo rápido
+  // pra badge; lists modo completo pra modal.
+  async loadReconciliationCounts() {
     const token = localStorage.getItem('lj_jwt');
     if (!token) return;
     try {
@@ -5921,10 +5921,33 @@ Object.assign(Actions, {
       });
       const data = await res.json();
       if (!data.ok) return;
-      App.state.pendingReconciliationCount = data.count || 0;
+      const counts = data.counts || {};
+      App.state.pendingReconciliationCount = counts.totalUnread || 0;
+      App.state.reconciliationCounts = counts;
+      App.save(); App.render();
+    } catch (err) {
+      console.warn('[loadReconciliationCounts]', err.message);
+    }
+  },
+
+  async loadReconciliationAlerts() {
+    // Compat: continua chamado mas usa o endpoint novo com listas
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return;
+    try {
+      const res = await fetch('/api/reconciliation-alerts?include=lists', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.ok) return;
+      const counts = data.counts || {};
+      App.state.pendingReconciliationCount = counts.totalUnread || 0;
+      App.state.reconciliationCounts = counts;
       App.state.reconciliationModal = {
         ...(App.state.reconciliationModal || {}),
         alerts: data.alerts || [],
+        stagePending: data.stagePending || [],
+        dealPending: data.dealPending || [],
         loadedAt: Date.now(),
         loading: false
       };
@@ -5934,14 +5957,27 @@ Object.assign(Actions, {
     }
   },
 
+  // V34.9.4 — Quando o modal abre, marca conflitos como lidos (sai do badge).
+  async markReconciliationAlertsRead() {
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return;
+    try {
+      await fetch('/api/reconciliation-alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'mark_read' })
+      });
+    } catch (_) {}
+  },
+
   openReconciliationModal() {
     App.state.reconciliationModal = {
-      ...(App.state.reconciliationModal || { alerts: [] }),
+      ...(App.state.reconciliationModal || { alerts: [], stagePending: [], dealPending: [] }),
       open: true,
       loading: true
     };
     App.render();
-    this.loadReconciliationAlerts();
+    this.loadReconciliationAlerts().then(() => this.markReconciliationAlertsRead()).then(() => this.loadReconciliationCounts());
   },
 
   closeReconciliationModal() {
