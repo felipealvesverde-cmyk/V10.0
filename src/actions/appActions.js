@@ -5986,6 +5986,176 @@ Object.assign(Actions, {
     }
   },
 
+  // V34.9.3 — Triggers Engine: CRUD da modal de triggers do Flow Map.
+  async openTriggersModal(campaignId) {
+    const cid = Number(campaignId);
+    if (!cid) return Utils.toast('Selecione uma campanha primeiro.');
+    App.state.triggersModal = {
+      ...(App.state.triggersModal || {}),
+      open: true,
+      loading: true,
+      campaignId: cid,
+      triggers: [],
+      draft: null,
+      editingId: null
+    };
+    App.render();
+    await this.loadTriggers(cid);
+  },
+
+  closeTriggersModal() {
+    App.state.triggersModal = { ...(App.state.triggersModal || {}), open: false, loading: false, draft: null, editingId: null };
+    App.render();
+  },
+
+  async loadTriggers(campaignId) {
+    const cid = Number(campaignId || App.state.triggersModal?.campaignId);
+    if (!cid) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const [tRes, sRes] = await Promise.all([
+        fetch(`/api/triggers?campaign_id=${cid}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/transitions-summary?campaign_id=${cid}`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      const tData = await tRes.json();
+      const sData = await sRes.json().catch(() => ({}));
+      if (!tData.ok) {
+        Utils.toast(`Falha: ${tData.message}`);
+        return;
+      }
+      App.state.triggersModal = {
+        ...(App.state.triggersModal || {}),
+        triggers: tData.triggers || [],
+        transitionCounts: sData.ok ? (sData.counts || {}) : {},
+        loading: false
+      };
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // Inicia rascunho de novo trigger pra um par específico (ou Master se isMaster=true).
+  startTriggerDraft(fromStage, toStage, isMaster = false) {
+    App.state.triggersModal = {
+      ...(App.state.triggersModal || {}),
+      draft: {
+        is_master: Boolean(isMaster),
+        from_stage: isMaster ? null : fromStage,
+        to_stage: toStage,
+        trigger_type: 'cta',
+        trigger_param: '',
+        trigger_value_int: null
+      }
+    };
+    App.render();
+  },
+
+  cancelTriggerDraft() {
+    App.state.triggersModal = { ...(App.state.triggersModal || {}), draft: null };
+    App.render();
+  },
+
+  updateTriggerDraft(field, value) {
+    const d = App.state.triggersModal?.draft;
+    if (!d) return;
+    App.state.triggersModal.draft = { ...d, [field]: value };
+    // não chama App.render — evita perder foco do input
+  },
+
+  async saveTriggerDraft() {
+    const m = App.state.triggersModal;
+    if (!m?.draft || !m.campaignId) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/triggers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ campaign_id: m.campaignId, ...m.draft })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ Trigger criado.');
+      App.state.triggersModal.draft = null;
+      await this.loadTriggers(m.campaignId);
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async toggleTriggerActive(triggerId, isActive) {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/triggers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: triggerId, is_active: Boolean(isActive) })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      await this.loadTriggers();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async updateTriggerField(triggerId, field, value) {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/triggers', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: triggerId, [field]: value })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      await this.loadTriggers();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async deleteTrigger(triggerId) {
+    if (!confirm('Remover este trigger? Esta ação não pode ser desfeita.')) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/triggers', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: triggerId })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ Trigger removido.');
+      await this.loadTriggers();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async mirrorTriggersFrom(sourceCampaignId) {
+    const targetId = App.state.triggersModal?.campaignId;
+    if (!targetId || !sourceCampaignId) return;
+    if (Number(sourceCampaignId) === Number(targetId)) {
+      return Utils.toast('Origem e destino são a mesma campanha.');
+    }
+    if (!confirm('Espelhar triggers desta campanha origem? Triggers já existentes serão preservados.')) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/triggers-mirror', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ source_campaign_id: Number(sourceCampaignId), target_campaign_id: targetId })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast(`✓ ${data.copied} trigger(s) copiado(s) · ${data.skipped} já existiam`);
+      await this.loadTriggers();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   addLeadTagFromInput(leadKey) {
     const el = document.getElementById('leadTagInput');
     if (!el) return;

@@ -193,7 +193,10 @@ var JourneyPipelineModule = {
     return `<div class="journey-pipeline space-y-5">
       ${this._lightMetricsStrip(metrics)}
       <section class="bg-white rounded-[2rem] p-5 lg:p-8 shadow-sm border border-slate-100 overflow-hidden">
-        <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4"><div><h3 class="text-2xl font-black">Revenue Flow Map</h3><p class="text-sm text-slate-500 mt-1">Cada círculo pulsa conforme o volume, a saúde e a intenção média do estágio.</p></div><div class="flex items-center gap-3 text-xs font-black text-slate-500"><span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Saudável</span><span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Atenção</span><span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Gargalo</span></div></div>
+        <div class="mb-4">
+          <h3 class="text-2xl font-black">Revenue Flow Map</h3>
+          <p class="text-sm text-slate-500 mt-1">Cada círculo pulsa conforme o volume, a saúde e a intenção média do estágio.</p>
+        </div>
         ${this.controls()}
         ${this.map()}
       </section>
@@ -245,22 +248,21 @@ var JourneyPipelineModule = {
     </div>`;
   },
 
+  // V34.9.3 — Controls: dropdown Campanha + botão Triggers (gatilhos da campanha).
+  // Removidos em V34.9.2: dropdown Banco, dropdown Ações, "Editar fase", "Ativar/Desativar".
   controls() {
     const campaignOptions = [`<option value="all">Todas as campanhas</option>`, ...App.state.campaigns.map(c => `<option value="${c.id}" ${String(App.state.selectedPipelineCampaignId) === String(c.id) ? 'selected' : ''}>${Utils.escape(c.name)}</option>`)].join('');
-    const actionOptions = [`<option value="all">Todas as ações</option>`, ...this.selectableActions().map(a => `<option value="${a.id}" ${String(App.state.selectedPipelineActionId) === String(a.id) ? 'selected' : ''}>${Utils.escape(a.name)}</option>`)].join('');
-    // V34.7.g — dropdown de banco (cross-filter campanha × banco).
-    const banks = App.state.leadBanksCache?.banks || [];
-    const selectedBankId = App.state.selectedPipelineBankId;
-    const bankOptions = [
-      `<option value="">Todos os bancos</option>`,
-      ...banks.map(b => `<option value="${b.id}" ${String(selectedBankId) === String(b.id) ? 'selected' : ''}>${Utils.escape(b.name)} · ${b.visitor_count || 0} lead(s)</option>`)
-    ].join('');
-    return `<div class="grid md:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_auto_auto] gap-2 w-full mb-6">
-      <select onchange="JourneyPipelineModule.changeCampaign(this.value)" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm">${campaignOptions}</select>
-      <select onchange="Actions.setPipelineBankFilter(this.value)" class="px-4 py-3 rounded-2xl bg-white border-2 border-amber-200 text-slate-800 font-black text-sm" title="Filtra leads do pipeline por banco de origem">${bankOptions}</select>
-      <select onchange="JourneyPipelineModule.changeAction(this.value)" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm">${actionOptions}</select>
-      <button onclick="JourneyPipelineModule.openStageModal()" class="px-4 py-3 rounded-2xl bg-slate-950 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="settings-2" class="w-4 h-4"></i> Editar fase</button>
-      <button onclick="JourneyPipelineModule.toggleSelectedStageActive()" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm flex items-center justify-center gap-2"><i data-lucide="power" class="w-4 h-4"></i> Ativar/Desativar</button>
+    const selectedId = App.state.selectedPipelineCampaignId;
+    const hasCampaign = selectedId && selectedId !== 'all';
+    return `<div class="w-full mb-6 flex flex-col md:flex-row gap-2">
+      <select onchange="JourneyPipelineModule.changeCampaign(this.value)" class="flex-1 px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm">${campaignOptions}</select>
+      <button onclick="Actions.openTriggersModal(${hasCampaign ? selectedId : 'null'})"
+              ${!hasCampaign ? 'disabled' : ''}
+              title="${hasCampaign ? 'Configura o que faz seu lead trocar de etapa nos funis' : 'Selecione uma campanha primeiro'}"
+              class="px-4 py-3 rounded-2xl ${hasCampaign ? 'bg-slate-950 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'} font-black text-sm flex items-center justify-center gap-2">
+        <i data-lucide="zap" class="w-4 h-4"></i>
+        Triggers
+      </button>
     </div>`;
   },
 
