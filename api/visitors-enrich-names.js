@@ -264,6 +264,28 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // V34.7.h.5 — eligibleRemaining: quantos ainda têm depois deste batch.
+  // Frontend loopa enquanto > 0 pra mostrar barra de progresso.
+  let eligibleRemaining = 0;
+  try {
+    const r = await req.tenantDb.query(
+      `SELECT COUNT(*)::int AS c
+         FROM lj_visitors
+        WHERE user_id = $1
+          AND email IS NOT NULL AND email <> ''
+          AND (
+                name IS NULL
+                OR name = ''
+                OR LOWER(name) = LOWER(email)
+                OR LOWER(TRIM(name)) IN ('lead sem nome', 'sem nome', '(sem nome)', 'lead', '-')
+              )`,
+      [scopeUserId]
+    );
+    eligibleRemaining = r.rows[0]?.c || 0;
+  } catch (err) {
+    console.warn('[enrich-names] eligibleRemaining count falhou:', err.message);
+  }
+
   return res.status(200).json({
     ok: true,
     processed: enrichments.length,
@@ -272,6 +294,7 @@ module.exports = async function handler(req, res) {
     byDjow,
     skipped,
     markedForRdSync,
+    eligibleRemaining,
     triggeredBy: auth.source
   });
 };

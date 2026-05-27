@@ -274,6 +274,34 @@ var LeadsModule = {
     }).sort((a, b) => b.globalScore - a.globalScore);
   },
 
+  // V34.7.h.5 — Barra de progresso do enriquecimento em loop.
+  // Só renderiza enquanto App.state.enrichProgress.running. Mostra %, batch,
+  // total e contagem done/total. Não pode ser cancelado (loop bloqueante).
+  _enrichProgressBar() {
+    const p = App.state.enrichProgress;
+    if (!p || !p.running) return '';
+    const total = Math.max(p.total || 0, 1);
+    const done = Math.min(p.done || 0, total);
+    const pct = Math.min(100, Math.round((done / total) * 100));
+    const batchLabel = p.currentBatch ? `Lote ${p.currentBatch}` : 'Iniciando';
+    return `<div class="bg-violet-50 border-2 border-violet-200 rounded-2xl p-4 mb-3">
+      <div class="flex items-center justify-between mb-2 gap-3">
+        <div class="flex items-center gap-2 min-w-0">
+          <i data-lucide="sparkles" class="w-4 h-4 text-violet-700 shrink-0 animate-pulse"></i>
+          <span class="text-sm font-black text-violet-900">Enriquecendo nomes via Djow…</span>
+          <span class="text-xs font-bold text-violet-700">· ${batchLabel}</span>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="text-sm font-black text-violet-900">${pct}%</span>
+          <span class="text-xs text-violet-700">(${done} / ${total})</span>
+        </div>
+      </div>
+      <div class="w-full h-2.5 bg-white rounded-full overflow-hidden border border-violet-200">
+        <div class="h-full bg-violet-600 transition-all duration-300" style="width: ${pct}%;"></div>
+      </div>
+    </div>`;
+  },
+
   // V34.0.0 Onda 4 — Strip de bancos ativos no Buscador. Mostra "Buscando em: A · B"
   // quando há busca server-side carregada, com botões "Trocar bancos" e "Limpar busca".
   _activeBanksStrip() {
@@ -351,6 +379,7 @@ var LeadsModule = {
         </div>
       </div>
       ${this._activeBanksStrip()}
+      ${this._enrichProgressBar()}
       <div class="flex flex-wrap gap-2 mb-3">
         <input id="profileInput" value="${Utils.escape(App.state.profileQuery)}" oninput="App.state.profileQuery=this.value; App.save();" onkeydown="if(event.key==='Enter'){event.preventDefault(); Actions.djowSearchProfile();}" placeholder="Ex: mulheres de 30 a 40 anos de SP, #cta, quente..." class="flex-1 min-w-[200px] px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />
         ${djowBtn}
