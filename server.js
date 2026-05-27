@@ -348,6 +348,35 @@ async function runMigrations() {
         updated_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
+    // V34.8.0 — Motor de conciliação RD↔LJ bidirecional.
+    // last_rd_pull_at: marca quando o cron pegou updates do RD pela última vez.
+    // Próximo pull pede só contatos com updated_at > last_rd_pull_at.
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_rd_pull_at TIMESTAMPTZ;
+    `);
+    // Alertas de conciliação: gravados quando RD e LJ têm valores diferentes
+    // pra mesmo campo, sem hierarquia clara (timestamps muito próximos OU
+    // ambos editados desde o último pull). Sininho mostra count(unresolved).
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS lj_reconciliation_alerts (
+        id SERIAL PRIMARY KEY,
+        user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        lj_visitor_id VARCHAR(64) NOT NULL,
+        field VARCHAR(32) NOT NULL,
+        lj_value TEXT,
+        rd_value TEXT,
+        lj_updated_at TIMESTAMPTZ,
+        rd_updated_at TIMESTAMPTZ,
+        detected_at TIMESTAMPTZ DEFAULT NOW(),
+        resolved_at TIMESTAMPTZ,
+        resolution VARCHAR(16)
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_reconciliation_user_unresolved
+        ON lj_reconciliation_alerts(user_id, resolved_at)
+        WHERE resolved_at IS NULL;
+    `);
     // Seed master user se ainda não existe e env vars disponíveis.
     if (MASTER_USERNAME && MASTER_PASSWORD) {
       if (!MASTER_PASSWORD_HASH) {

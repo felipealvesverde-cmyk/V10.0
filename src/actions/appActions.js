@@ -5910,6 +5910,82 @@ Object.assign(Actions, {
     }, 1200);
   },
 
+  // V34.8.0 — Carrega lista de alertas de conciliação RD↔LJ.
+  // Chamado no boot, no clique do sininho e após resolver um alerta.
+  async loadReconciliationAlerts() {
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return;
+    try {
+      const res = await fetch('/api/reconciliation-alerts', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.ok) return;
+      App.state.pendingReconciliationCount = data.count || 0;
+      App.state.reconciliationModal = {
+        ...(App.state.reconciliationModal || {}),
+        alerts: data.alerts || [],
+        loadedAt: Date.now(),
+        loading: false
+      };
+      App.save(); App.render();
+    } catch (err) {
+      console.warn('[loadReconciliationAlerts]', err.message);
+    }
+  },
+
+  openReconciliationModal() {
+    App.state.reconciliationModal = {
+      ...(App.state.reconciliationModal || { alerts: [] }),
+      open: true,
+      loading: true
+    };
+    App.render();
+    this.loadReconciliationAlerts();
+  },
+
+  closeReconciliationModal() {
+    App.state.reconciliationModal = {
+      ...(App.state.reconciliationModal || {}),
+      open: false,
+      loading: false,
+      resolvingId: null
+    };
+    App.render();
+  },
+
+  // resolution: 'keep_lj' | 'keep_rd' | 'dismiss'
+  async resolveReconciliationAlert(alertId, resolution) {
+    const m = App.state.reconciliationModal;
+    if (!m || m.resolvingId) return;
+    App.state.reconciliationModal = { ...m, resolvingId: alertId };
+    App.render();
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/reconciliation-alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ alert_id: alertId, resolution })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        Utils.toast(`Falha: ${data.message}`);
+        App.state.reconciliationModal = { ...App.state.reconciliationModal, resolvingId: null };
+        App.render();
+        return;
+      }
+      const label = resolution === 'keep_lj' ? 'mantido LJ (vai pro RD)'
+                  : resolution === 'keep_rd' ? 'aplicado valor do RD'
+                  : 'descartado';
+      Utils.toast(`✓ Alerta resolvido — ${label}`);
+      await this.loadReconciliationAlerts();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+      App.state.reconciliationModal = { ...App.state.reconciliationModal, resolvingId: null };
+      App.render();
+    }
+  },
+
   addLeadTagFromInput(leadKey) {
     const el = document.getElementById('leadTagInput');
     if (!el) return;
