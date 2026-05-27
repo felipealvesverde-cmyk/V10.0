@@ -21,6 +21,7 @@ module.exports = async function handler(req, res) {
   body = body || {};
   const maxPullPages = Math.min(Number(body.max_pull_pages || 10), 20);
   const maxOrphans = Math.min(Number(body.max_orphans || 50), 200);
+  const forceFull = Boolean(body.force_full);
 
   // Token RD CRM do user
   let token = null;
@@ -33,7 +34,7 @@ module.exports = async function handler(req, res) {
   if (!token) return res.status(400).json({ ok: false, message: 'crm_pat sem access_token. Conecte o RD CRM em Configurações.' });
 
   try {
-    const result = await runReconciliation(req.db, req.tenantDb, userId, token, { maxPullPages, maxOrphans });
+    const result = await runReconciliation(req.db, req.tenantDb, userId, token, { maxPullPages, maxOrphans, forceFull });
     return res.status(200).json({ ...result, triggeredBy: 'user' });
   } catch (err) {
     console.error('[reconciliation-trigger]', err);
