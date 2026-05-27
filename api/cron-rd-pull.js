@@ -88,13 +88,66 @@ module.exports = async function handler(req, res) {
       continue;
     }
 
+    // V34.9.3.3 — Loop interno até zerar pendências OU bater timeout.
+    // Razão: cada chamada a runReconciliation processa só maxOrphans (50) por rodada.
+    // Pra base grande (500+ leads no Sansone) precisaria de 10+ disparos do cron
+    // externo. Loop interno faz tudo em uma execução, respeitando limite serverless.
+    const USER_TIMEOUT_MS = 4 * 60 * 1000; // 4 min por user
+    const GLOBAL_TIMEOUT_MS = 4.5 * 60 * 1000; // 4.5 min total (margem pra serverless 5min)
+    const MAX_INNER_ITER = 50;
     try {
-      const r = await runReconciliation(req.db, tenantDb, uid, token, { maxPullPages, maxOrphans });
-      totalPulled += r.pull?.pulled || 0;
-      totalApplied += r.pull?.applied || 0;
-      totalAlerts += r.pull?.alerts || 0;
-      totalOrphansCreated += r.orphans?.created || 0;
-      perUser.push({ userId: uid, ...r });
+      const userStart = Date.now();
+      let iter = 0;
+      let userPulled = 0, userApplied = 0, userAlerts = 0;
+      let userPushSynced = 0, userDealsLinked = 0, userDealsRenamed = 0;
+      let userOrphansCreated = 0, userOrphansFailed = 0;
+      let lastResult = null;
+
+      while (iter < MAX_INNER_ITER) {
+        iter++;
+        // Safety: para se passou do timeout global ou do user
+        if (Date.now() - startedAt > GLOBAL_TIMEOUT_MS) break;
+        if (Date.now() - userStart > USER_TIMEOUT_MS) break;
+
+        // Só a 1ª iteração força pull total (limpa cursor podre)
+        const r = await runReconciliation(req.db, tenantDb, uid, token, {
+          maxPullPages, maxOrphans, forceFull: iter === 1
+        });
+        lastResult = r;
+
+        userPulled += r.pull?.pulled || 0;
+        userApplied += r.pull?.applied || 0;
+        userAlerts += r.pull?.alerts || 0;
+        userPushSynced += r.push?.synced || 0;
+        userDealsLinked += r.deals?.linked || 0;
+        userDealsRenamed += r.deals?.renamed || 0;
+        userOrphansCreated += r.orphans?.created || 0;
+        userOrphansFailed += r.orphans?.failed || 0;
+
+        const remaining = r.remaining || { deals: 0, orphans: 0, pending: 0 };
+        const remainingTotal = (remaining.deals || 0) + (remaining.orphans || 0) + (remaining.pending || 0);
+        if (remainingTotal === 0) break;
+
+        const didNothing =
+          (r.push?.synced || 0) + (r.deals?.linked || 0) +
+          (r.deals?.renamed || 0) + (r.orphans?.created || 0) === 0;
+        if (didNothing) break;
+      }
+
+      totalPulled += userPulled;
+      totalApplied += userApplied;
+      totalAlerts += userAlerts;
+      totalOrphansCreated += userOrphansCreated;
+      perUser.push({
+        userId: uid,
+        iterations: iter,
+        pull: { pulled: userPulled, applied: userApplied, alerts: userAlerts },
+        push: { synced: userPushSynced },
+        deals: { linked: userDealsLinked, renamed: userDealsRenamed },
+        orphans: { created: userOrphansCreated, failed: userOrphansFailed },
+        remaining: lastResult?.remaining || null,
+        elapsedMs: Date.now() - userStart
+      });
     } catch (err) {
       perUser.push({ userId: uid, error: err.message });
     }

@@ -11421,12 +11421,15 @@ Object.assign(Actions, {
         agg.orphansFailed += o.failed || 0;
         agg.elapsedMs += data.elapsedMs || 0;
 
-        const remaining = data.remaining || { deals: 0, orphans: 0 };
-        const remainingTotal = (remaining.deals || 0) + (remaining.orphans || 0);
+        const remaining = data.remaining || { deals: 0, orphans: 0, pending: 0 };
+        // V34.9.3.2 — inclui pending (visitors com pending-contact-update) no
+        // total restante. Sem isso o loop podia parar com push em fila.
+        const remainingTotal = (remaining.deals || 0) + (remaining.orphans || 0) + (remaining.pending || 0);
 
         // Primeira iteração descobre o total inicial (já incluindo o que esse batch fez)
         if (iteration === 1) {
-          const processedThis = (deals.linked || 0) + (deals.renamed || 0) + (o.created || 0);
+          // V34.9.3.2 — inclui push.synced no processedThis
+          const processedThis = (push.synced || 0) + (deals.linked || 0) + (deals.renamed || 0) + (o.created || 0);
           totalInitial = remainingTotal + processedThis;
           App.state.reconciliationRunProgress.total = totalInitial;
         }
@@ -11435,7 +11438,10 @@ Object.assign(Actions, {
 
         // Stop conditions
         if (remainingTotal === 0) break;
-        const didNothingThisBatch = (deals.linked || 0) + (deals.renamed || 0) + (o.created || 0) === 0;
+        // V34.9.3.2 — inclui push.synced em didNothing. Sem isso, rodada que só
+        // empurrou pending pro RD era considerada "vazia" e quebrava o loop.
+        const didNothingThisBatch =
+          (push.synced || 0) + (deals.linked || 0) + (deals.renamed || 0) + (o.created || 0) === 0;
         if (didNothingThisBatch) break;
       }
 
