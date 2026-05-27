@@ -89,7 +89,7 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-      const r = await runReconciliation(tenantDb, uid, token, { maxPullPages, maxOrphans });
+      const r = await runReconciliation(req.db, tenantDb, uid, token, { maxPullPages, maxOrphans });
       totalPulled += r.pull?.pulled || 0;
       totalApplied += r.pull?.applied || 0;
       totalAlerts += r.pull?.alerts || 0;

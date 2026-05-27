@@ -548,6 +548,30 @@ CREATE INDEX IF NOT EXISTS idx_lj_merges_deleted ON lj_merges(user_id, deleted_v
 CREATE INDEX IF NOT EXISTS idx_lj_merges_when ON lj_merges(user_id, merged_at);
 
 -- ============================================================================
+-- V34.8.0 — Conciliação RD↔LJ (alertas por campo quando há conflito)
+-- ============================================================================
+-- Alertas gravados quando RD e LJ têm valores diferentes pra mesmo campo,
+-- sem hierarquia clara (timestamps muito próximos OU ambos editados desde
+-- o último pull). Sininho do header mostra count(unresolved).
+CREATE TABLE IF NOT EXISTS lj_reconciliation_alerts (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  lj_visitor_id VARCHAR(64) NOT NULL,
+  field VARCHAR(32) NOT NULL,
+  lj_value TEXT,
+  rd_value TEXT,
+  lj_updated_at TIMESTAMPTZ,
+  rd_updated_at TIMESTAMPTZ,
+  detected_at TIMESTAMPTZ DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ,
+  resolution VARCHAR(16)
+);
+
+CREATE INDEX IF NOT EXISTS idx_reconciliation_user_unresolved
+  ON lj_reconciliation_alerts(user_id, resolved_at)
+  WHERE resolved_at IS NULL;
+
+-- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS tenant_schema_meta (
@@ -556,5 +580,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v34.0.0-onda6.j-a')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v34.8.0-reconciliation')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
