@@ -160,6 +160,13 @@ window.HomeModule = {
   _greetingBar() {
     const name = this._userFirstName();
     const greeting = this._greeting();
+    // V34.8.0 — Dispara hidratação do count de conciliação em background na
+    // primeira renderização (e renova após 60s pra refletir cron 15min do back).
+    const lastRecon = App.state._reconciliationLastLoadedAt || 0;
+    if ((Date.now() - lastRecon) > 60000 && window.Actions?.loadReconciliationAlerts) {
+      App.state._reconciliationLastLoadedAt = Date.now();
+      setTimeout(() => Actions.loadReconciliationAlerts(), 200);
+    }
     return `<div class="lj-home-greeting">
       <div>
         <h1 class="lj-home-title">${greeting}, ${Utils.escape(name)} <span class="lj-home-wave">👋</span></h1>
@@ -167,10 +174,17 @@ window.HomeModule = {
       </div>
       <div class="lj-home-meta">
         <button class="lj-home-icon-btn" title="Buscar"><i data-lucide="search" class="w-4 h-4"></i></button>
-        <button class="lj-home-icon-btn lj-home-bell" title="Notificações">
-          <i data-lucide="bell" class="w-4 h-4"></i>
-          <span class="lj-home-bell-badge">3</span>
-        </button>
+        ${(() => {
+          // V34.8.0 — Sininho funcional: count = alertas de conciliação RD↔LJ.
+          const count = Number(App.state.pendingReconciliationCount || 0);
+          const title = count > 0
+            ? `${count} conciliação(ões) pendente(s) entre LJ e RD — clique pra resolver`
+            : 'Nenhuma notificação pendente';
+          return `<button onclick="Actions.openReconciliationModal()" class="lj-home-icon-btn lj-home-bell" title="${title}">
+            <i data-lucide="bell" class="w-4 h-4"></i>
+            ${count > 0 ? `<span class="lj-home-bell-badge">${count > 99 ? '99+' : count}</span>` : ''}
+          </button>`;
+        })()}
         <div class="lj-home-date">
           <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
           <span>${Utils.escape(this._today())}</span>
