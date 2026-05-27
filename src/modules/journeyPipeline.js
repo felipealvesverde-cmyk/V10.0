@@ -59,17 +59,18 @@ var JourneyPipelineModule = {
     this.ensureState();
     const base = App.state.pipelineStages || [];
 
-    // V34.6.aa — Fonte PRIMÁRIA quando uma campanha LJ está selecionada:
-    // counts de lj_visitor_campaign_state pra essa campanha. Antes Felipe
-    // imputava 500 leads e Journey Pipeline mostrava 0 PESSOAS.
+    // V34.6.aa + V34.7.g — Fonte PRIMÁRIA: counts da campanha selecionada,
+    // opcionalmente cross-filtrados por banco selecionado.
     const selectedCampaignId = App.state.selectedPipelineCampaignId;
+    const selectedBankId = App.state.selectedPipelineBankId;
     const useCampaignDb = selectedCampaignId && selectedCampaignId !== 'all';
+    const cacheKey = useCampaignDb ? `${selectedCampaignId}${selectedBankId ? `::${selectedBankId}` : ''}` : null;
     const campaignCounts = useCampaignDb
-      ? App.state.campaignPipelineCounts?.[selectedCampaignId]?.counts || null
+      ? App.state.campaignPipelineCounts?.[cacheKey]?.counts || null
       : null;
-    // Auto-fetch counts da campanha se ainda não tem (silencioso, 1x por render)
+    // Auto-fetch counts (com bank filter se aplicável) se ainda não tem
     if (useCampaignDb && !campaignCounts && window.Actions?.loadCampaignPipelineCounts) {
-      setTimeout(() => Actions.loadCampaignPipelineCounts(selectedCampaignId), 0);
+      setTimeout(() => Actions.loadCampaignPipelineCounts(selectedCampaignId, selectedBankId), 0);
     }
 
     // V33.0.0 — Fonte secundária: trackerVisitorsCache.counts (cross-campanha,
@@ -183,6 +184,10 @@ var JourneyPipelineModule = {
   // Revenue Flow Map + stage panel. Elimina quebra vertical entre sub-tabs.
   renderInline() {
     this.ensureState();
+    // V34.7.g — Auto-fetch banks pra popular dropdown de filtro (silencioso, 1x)
+    if (!App.state.leadBanksCache?.loadedAt && window.Actions?.loadLeadBanks) {
+      setTimeout(() => Actions.loadLeadBanks(), 0);
+    }
     const metrics = this.metrics();
     const stage = this.selectedStage();
     return `<div class="journey-pipeline space-y-5">
@@ -243,7 +248,20 @@ var JourneyPipelineModule = {
   controls() {
     const campaignOptions = [`<option value="all">Todas as campanhas</option>`, ...App.state.campaigns.map(c => `<option value="${c.id}" ${String(App.state.selectedPipelineCampaignId) === String(c.id) ? 'selected' : ''}>${Utils.escape(c.name)}</option>`)].join('');
     const actionOptions = [`<option value="all">Todas as ações</option>`, ...this.selectableActions().map(a => `<option value="${a.id}" ${String(App.state.selectedPipelineActionId) === String(a.id) ? 'selected' : ''}>${Utils.escape(a.name)}</option>`)].join('');
-    return `<div class="grid md:grid-cols-2 lg:grid-cols-[1fr_1fr_auto_auto] gap-2 w-full mb-6"><select onchange="JourneyPipelineModule.changeCampaign(this.value)" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm">${campaignOptions}</select><select onchange="JourneyPipelineModule.changeAction(this.value)" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm">${actionOptions}</select><button onclick="JourneyPipelineModule.openStageModal()" class="px-4 py-3 rounded-2xl bg-slate-950 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="settings-2" class="w-4 h-4"></i> Editar fase</button><button onclick="JourneyPipelineModule.toggleSelectedStageActive()" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm flex items-center justify-center gap-2"><i data-lucide="power" class="w-4 h-4"></i> Ativar/Desativar</button></div>`;
+    // V34.7.g — dropdown de banco (cross-filter campanha × banco).
+    const banks = App.state.leadBanksCache?.banks || [];
+    const selectedBankId = App.state.selectedPipelineBankId;
+    const bankOptions = [
+      `<option value="">Todos os bancos</option>`,
+      ...banks.map(b => `<option value="${b.id}" ${String(selectedBankId) === String(b.id) ? 'selected' : ''}>${Utils.escape(b.name)} · ${b.visitor_count || 0} lead(s)</option>`)
+    ].join('');
+    return `<div class="grid md:grid-cols-3 lg:grid-cols-[1fr_1fr_1fr_auto_auto] gap-2 w-full mb-6">
+      <select onchange="JourneyPipelineModule.changeCampaign(this.value)" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm">${campaignOptions}</select>
+      <select onchange="Actions.setPipelineBankFilter(this.value)" class="px-4 py-3 rounded-2xl bg-white border-2 border-amber-200 text-slate-800 font-black text-sm" title="Filtra leads do pipeline por banco de origem">${bankOptions}</select>
+      <select onchange="JourneyPipelineModule.changeAction(this.value)" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm">${actionOptions}</select>
+      <button onclick="JourneyPipelineModule.openStageModal()" class="px-4 py-3 rounded-2xl bg-slate-950 text-white font-black text-sm flex items-center justify-center gap-2"><i data-lucide="settings-2" class="w-4 h-4"></i> Editar fase</button>
+      <button onclick="JourneyPipelineModule.toggleSelectedStageActive()" class="px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm flex items-center justify-center gap-2"><i data-lucide="power" class="w-4 h-4"></i> Ativar/Desativar</button>
+    </div>`;
   },
 
   map() {

@@ -1,13 +1,9 @@
 // V34.6.aa — Counts por stage de uma campanha LJ no tenant DB.
+// V34.7.g — Opcionalmente filtra por bank_id (cross-filter banco × campanha).
 //
-// Journey Pipeline mostrava 0 PESSOAS em todos estágios mesmo após Felipe
-// imputar 500 leads em MVP. Causa: lia de App.state.actions (legado),
-// não de lj_visitor_campaign_state. Este endpoint fecha esse gap.
-//
-// GET /api/campaign-pipeline-counts?campaign_id=X
+// GET /api/campaign-pipeline-counts?campaign_id=X&bank_id=Y
 // Resposta:
-//   { ok, campaignId, total, counts: { 'marketing-tof': N, 'marketing-mof': N,
-//     'marketing-bof': N, 'vendas-tof': N, ..., 'cs-bof': N } }
+//   { ok, campaignId, bankId, total, counts: { 'marketing-tof': N, ... } }
 
 module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
@@ -16,16 +12,28 @@ module.exports = async function handler(req, res) {
 
   const userId = req.user.sub;
   const campaignId = Number(req.query?.campaign_id || 0);
+  const bankId = req.query?.bank_id ? Number(req.query.bank_id) : null;
   if (!campaignId) return res.status(400).json({ ok: false, message: 'campaign_id obrigatório.' });
 
   try {
-    const r = await req.tenantDb.query(
-      `SELECT current_stage, COUNT(*) AS c
-         FROM lj_visitor_campaign_state
-        WHERE user_id = $1 AND campaign_id = $2
-        GROUP BY current_stage`,
-      [userId, campaignId]
-    );
+    // V34.7.g — INNER JOIN com lj_visitors quando bankId presente (filtra cross)
+    const params = [userId, campaignId];
+    let sql;
+    if (bankId) {
+      sql = `SELECT vcs.current_stage, COUNT(*) AS c
+               FROM lj_visitor_campaign_state vcs
+              INNER JOIN lj_visitors v
+                ON v.user_id = vcs.user_id AND v.lj_visitor_id = vcs.lj_visitor_id
+              WHERE vcs.user_id = $1 AND vcs.campaign_id = $2 AND v.bank_id = $3
+              GROUP BY vcs.current_stage`;
+      params.push(bankId);
+    } else {
+      sql = `SELECT current_stage, COUNT(*) AS c
+               FROM lj_visitor_campaign_state
+              WHERE user_id = $1 AND campaign_id = $2
+              GROUP BY current_stage`;
+    }
+    const r = await req.tenantDb.query(sql, params);
 
     // Estágios canônicos do V33+ (9 estágios)
     const counts = {
@@ -41,7 +49,7 @@ module.exports = async function handler(req, res) {
       total += c;
     }
 
-    return res.status(200).json({ ok: true, campaignId, total, counts });
+    return res.status(200).json({ ok: true, campaignId, bankId, total, counts });
   } catch (err) {
     console.error('[campaign-pipeline-counts]', err);
     return res.status(500).json({ ok: false, message: err?.message || 'Erro interno.' });

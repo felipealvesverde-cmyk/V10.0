@@ -60,8 +60,9 @@ var LeadsModule = {
   // badge "Leads Revenue Intelligence" sem bullet, darkMetric idêntico.
   hero(allLeads, mode) {
     const total = allLeads.length;
-    const quentes = allLeads.filter(l => l.temperature === 'Quente').length;
-    const mornos = allLeads.filter(l => l.temperature === 'Morno').length;
+    // V34.7.g — temperatura unificada via globalScore V34 (alinhado com _scoreBadgeClasses)
+    const quentes = allLeads.filter(l => Number(l.globalScore || 0) >= 501).length;
+    const mornos = allLeads.filter(l => { const s = Number(l.globalScore || 0); return s >= 334 && s < 501; }).length;
     const avgScore = total ? Math.round(allLeads.reduce((sum, l) => sum + Number(l.globalScore || 0), 0) / total) : 0;
     return `<div class="bg-slate-950 text-white rounded-[2rem] p-5 shadow-sm overflow-hidden relative mb-4">
       <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
@@ -905,7 +906,9 @@ var LeadsModule = {
   list(leads) {
     const avg = Math.round(leads.reduce((sum, lead) => sum + lead.globalScore, 0) / Math.max(leads.length, 1));
     const isProfile = App.state.profileActive && App.state.profileFilters.length > 0;
-    return `<div class="space-y-4"><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5"><div><h2 class="text-2xl font-black">${isProfile ? 'Perfil Filtrado' : 'Leads Globais'}</h2><p class="text-sm text-slate-500">${isProfile ? 'Resultado do perfil buscado.' : 'Base global consolidada de leads e presença comportamental.'}</p></div><div class="grid grid-cols-3 gap-2 text-center"><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${leads.length}</div><div class="text-xs text-slate-500">Leads</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${leads.filter(l => l.temperature === 'Quente').length}</div><div class="text-xs text-slate-500">Quentes</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${avg}</div><div class="text-xs text-slate-500">Score médio</div></div></div></div>${this._bulkLinkBar(leads)}<div class="grid gap-3">${leads.map(lead => this.card(lead)).join('') || Components.empty('Nenhum lead encontrado.')}</div></div></div>`;
+    // V34.7.g — Quentes contado por globalScore >= 501 (V34 RFV) não temperature legacy
+    const quentes = leads.filter(l => Number(l.globalScore || 0) >= 501).length;
+    return `<div class="space-y-4"><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5"><div><h2 class="text-2xl font-black">${isProfile ? 'Perfil Filtrado' : 'Leads Globais'}</h2><p class="text-sm text-slate-500">${isProfile ? 'Resultado do perfil buscado.' : 'Base global consolidada de leads e presença comportamental.'}</p></div><div class="grid grid-cols-3 gap-2 text-center"><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${leads.length}</div><div class="text-xs text-slate-500">Leads</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${quentes}</div><div class="text-xs text-slate-500">Quentes</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${avg}</div><div class="text-xs text-slate-500">Score médio</div></div></div></div>${this._bulkLinkBar(leads)}<div class="grid gap-3">${leads.map(lead => this.card(lead)).join('') || Components.empty('Nenhum lead encontrado.')}</div></div></div>`;
   },
 
   // V21.3 — Faixa de bulk-link visível quando há contexto de campanha. Mostra
@@ -954,8 +957,20 @@ var LeadsModule = {
     return { box: 'bg-slate-50 border-slate-200', text: 'text-slate-600', label: 'Frio' };
   },
 
+  // V34.7.g — temperature UNIFICADA com globalScore V34 (substitui lead.temperature
+  // legacy do ScoreEngine V11). Casa com _scoreBadgeClasses.
+  _temperatureFromScore(score) {
+    const s = Number(score || 0);
+    if (s >= 667) return 'Customer';
+    if (s >= 501) return 'Quente';
+    if (s >= 334) return 'Morno';
+    return 'Frio';
+  },
+
   card(lead) {
-    const tempClass = lead.temperature === 'Quente' ? 'bg-red-100 text-red-700' : lead.temperature === 'Morno' ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-200 text-slate-700';
+    // V34.7.g — temperatura unificada via globalScore V34
+    const temperature = this._temperatureFromScore(lead.globalScore);
+    const tempClass = temperature === 'Customer' ? 'bg-emerald-100 text-emerald-700' : temperature === 'Quente' ? 'bg-red-100 text-red-700' : temperature === 'Morno' ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-200 text-slate-700';
     const safeId = String(lead.id).replace(/'/g, "\\'");
     // V21 — quando há contexto de campanha ativo, mostra botão de vincular
     const campaignId = App.state.profileCampaignContext;
@@ -968,7 +983,7 @@ var LeadsModule = {
     return `<div class="p-4 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition">
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div onclick="Actions.openLead('${safeId}')" class="cursor-pointer min-w-0 flex-1">
-          <div class="flex items-center gap-2 mb-1"><h3 class="font-black text-lg">${Utils.escape(lead.name)}</h3><span class="px-3 py-1 rounded-full text-xs font-black ${tempClass}">${lead.temperature}</span></div>
+          <div class="flex items-center gap-2 mb-1"><h3 class="font-black text-lg">${Utils.escape(lead.name)}</h3><span class="px-3 py-1 rounded-full text-xs font-black ${tempClass}">${temperature}</span></div>
           <p class="text-sm text-slate-500">${Utils.escape(lead.email || 'sem email')} • ${Utils.escape(lead.phone || 'sem telefone')}</p>
           <p class="text-xs text-slate-400 mt-1">${Utils.escape([lead.sexo, lead.idade ? lead.idade + ' anos' : '', lead.cidade, lead.estado].filter(Boolean).join(' • ') || 'sem dados de perfil')}</p>
         </div>
@@ -985,7 +1000,9 @@ var LeadsModule = {
   },
 
   detail(lead) {
-    const tempClass = lead.temperature === 'Quente' ? 'bg-red-100 text-red-700' : lead.temperature === 'Morno' ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-200 text-slate-700';
+    // V34.7.g — temperatura unificada via globalScore V34
+    const temperature = this._temperatureFromScore(lead.globalScore);
+    const tempClass = temperature === 'Customer' ? 'bg-emerald-100 text-emerald-700' : temperature === 'Quente' ? 'bg-red-100 text-red-700' : temperature === 'Morno' ? 'bg-yellow-100 text-yellow-700' : 'bg-slate-200 text-slate-700';
     // V33.0.0 — Se o lead foi capturado pelo tracker, mostra botão "Jornada Causal"
     const hasTrackerOrigin = (lead.actions || []).some(a => a.channel === 'tracker');
     const trackerVisitorId = hasTrackerOrigin ? lead.internalId : null;
@@ -1009,7 +1026,7 @@ var LeadsModule = {
         <div class="mb-4 flex items-center"><button onclick="App.state.selectedLeadId=null; App.save(); App.render();" class="px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar para Leads</button>${trackerBtn}</div>
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-5">
           <div>
-            <div class="flex items-center gap-2 mb-2"><h2 class="text-2xl font-black">${Utils.escape(lead.name)}</h2><span class="px-3 py-1 rounded-full text-xs font-black ${tempClass}">${lead.temperature}</span>${enrichedBadge}</div>
+            <div class="flex items-center gap-2 mb-2"><h2 class="text-2xl font-black">${Utils.escape(lead.name)}</h2><span class="px-3 py-1 rounded-full text-xs font-black ${tempClass}">${temperature}</span>${enrichedBadge}</div>
             <p class="text-sm text-slate-500">${Utils.escape(lead.email || 'sem email')} • ${Utils.escape(lead.phone || 'sem telefone')}</p>
           </div>
           <div class="grid grid-cols-3 gap-2 text-center">

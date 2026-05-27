@@ -10502,23 +10502,33 @@ Object.assign(Actions, {
     }
   },
 
-  // V34.6.aa — Carrega counts por stage de uma campanha (lj_visitor_campaign_state)
-  // pro Journey Pipeline mostrar números reais em vez de zerado.
-  async loadCampaignPipelineCounts(campaignId) {
+  // V34.6.aa + V34.7.g — Carrega counts por stage de uma campanha (com filtro opcional de banco).
+  // Cache por chave campaignId::bankId pra suportar cross-filter.
+  async loadCampaignPipelineCounts(campaignId, bankId = null) {
     const cId = Number(campaignId || 0);
     if (!cId) return;
+    const bId = bankId ? Number(bankId) : null;
+    const cacheKey = `${cId}${bId ? `::${bId}` : ''}`;
     try {
-      const data = await this._trackerFetch(`/api/campaign-pipeline-counts?campaign_id=${cId}`);
+      let url = `/api/campaign-pipeline-counts?campaign_id=${cId}`;
+      if (bId) url += `&bank_id=${bId}`;
+      const data = await this._trackerFetch(url);
       if (data.ok) {
         App.state.campaignPipelineCounts = {
           ...(App.state.campaignPipelineCounts || {}),
-          [cId]: { counts: data.counts || {}, total: data.total || 0, loadedAt: Date.now() }
+          [cacheKey]: { counts: data.counts || {}, total: data.total || 0, bankId: bId, loadedAt: Date.now() }
         };
         App.render();
       }
     } catch (err) {
       console.warn('[loadCampaignPipelineCounts]', err.message);
     }
+  },
+
+  // V34.7.g — Setter pro banco selecionado no Journey Pipeline (cross-filter).
+  setPipelineBankFilter(bankId) {
+    App.state.selectedPipelineBankId = bankId ? Number(bankId) : null;
+    App.save(); App.render();
   },
 
   // V34.6.z — Backlog RD push: visitors imputados mas que não entraram no RD CRM.
