@@ -11195,53 +11195,94 @@ Object.assign(Actions, {
     }
   },
 
-  // V34.8.2 — Dispara o motor de conciliação RD↔LJ bidirecional pro próprio user.
-  // Substitui o botão "Sync RD" antigo. O motor cuida de:
-  //   - Puxar updates do RD (campo a campo com decisão automática)
-  //   - Empurrar órfãos do LJ (cria contato no RD + grava ponte)
-  //   - Empurrar pending-contact-update (LJ tem update mais novo)
-  //   - Detectar conflitos → alerts no sininho
+  // V34.9.1 — Motor de conciliação em loop até zerar pendências.
+  // Cada iteração: 1 POST pro /api/reconciliation-trigger (pull + push +
+  // deals + orphans). Continua até remaining.deals + remaining.orphans = 0
+  // OU rodada não fez nada (defesa) OU max iterations atingido.
   async triggerReconciliation() {
     if (App.state._reconciliationRunning) return Utils.toast('Conciliação já está rodando.');
     App.state._reconciliationRunning = true;
-    App.state.reconciliationRunProgress = { running: true, phase: 'Conectando ao RD CRM…', stats: null };
+    App.state.reconciliationRunProgress = { running: true, phase: 'Conectando ao RD CRM…', total: 0, done: 0, currentBatch: 0 };
     App.render();
 
-    try {
-      const token = localStorage.getItem('lj_jwt');
-      App.state.reconciliationRunProgress.phase = 'Conciliando LJ ↔ RD (pode demorar 30–60s)…';
-      App.render();
+    const MAX_ITERATIONS = 30; // 30 * 100 = até 3000 deals/órfãos
+    const token = localStorage.getItem('lj_jwt');
+    let iteration = 0;
+    let totalInitial = 0;
+    let agg = {
+      pulled: 0, applied: 0, alerts: 0,
+      pushSynced: 0, pushFailed: 0,
+      dealsLinked: 0, dealsRenamed: 0, dealsFailed: 0,
+      orphansCreated: 0, orphansFailed: 0,
+      elapsedMs: 0
+    };
 
-      const res = await fetch('/api/reconciliation-trigger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({})
-      });
-      const data = await res.json();
-      if (!data.ok) {
-        Utils.toast(`Erro: ${data.message}`);
-        return;
+    try {
+      while (iteration < MAX_ITERATIONS) {
+        iteration++;
+        App.state.reconciliationRunProgress.currentBatch = iteration;
+        App.state.reconciliationRunProgress.phase = `Lote ${iteration} — pull RD + push + deals + órfãos…`;
+        App.render();
+
+        // Primeira iteração força pull total (force_full); seguintes incremental
+        const body = iteration === 1 ? { force_full: true } : {};
+        const res = await fetch('/api/reconciliation-trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          Utils.toast(`Erro no lote ${iteration}: ${data.message}`);
+          break;
+        }
+
+        // Agrega
+        const p = data.pull || {}, push = data.push || {}, deals = data.deals || {}, o = data.orphans || {};
+        agg.pulled += p.pulled || 0;
+        agg.applied += p.applied || 0;
+        agg.alerts += p.alerts || 0;
+        agg.pushSynced += push.synced || 0;
+        agg.pushFailed += push.failed || 0;
+        agg.dealsLinked += deals.linked || 0;
+        agg.dealsRenamed += deals.renamed || 0;
+        agg.dealsFailed += deals.failed || 0;
+        agg.orphansCreated += o.created || 0;
+        agg.orphansFailed += o.failed || 0;
+        agg.elapsedMs += data.elapsedMs || 0;
+
+        const remaining = data.remaining || { deals: 0, orphans: 0 };
+        const remainingTotal = (remaining.deals || 0) + (remaining.orphans || 0);
+
+        // Primeira iteração descobre o total inicial (já incluindo o que esse batch fez)
+        if (iteration === 1) {
+          const processedThis = (deals.linked || 0) + (deals.renamed || 0) + (o.created || 0);
+          totalInitial = remainingTotal + processedThis;
+          App.state.reconciliationRunProgress.total = totalInitial;
+        }
+        App.state.reconciliationRunProgress.done = Math.max(0, totalInitial - remainingTotal);
+        App.render();
+
+        // Stop conditions
+        if (remainingTotal === 0) break;
+        const didNothingThisBatch = (deals.linked || 0) + (deals.renamed || 0) + (o.created || 0) === 0;
+        if (didNothingThisBatch) break;
       }
 
-      const p = data.pull || {};
-      const push = data.push || {};
-      const deals = data.deals || {};
-      const o = data.orphans || {};
+      // Toast final agregado
       const parts = [];
-      parts.push(`✓ ${p.pulled || 0} contatos checados no RD`);
-      if (p.applied) parts.push(`${p.applied} atualizados no LJ`);
-      if (push.synced) parts.push(`${push.synced} contatos atualizados no RD`);
-      if (push.failed) parts.push(`${push.failed} falha(s) ao atualizar contato`);
-      if (deals.linked) parts.push(`${deals.linked} deal(s) linkado(s) ao contato`);
-      if (deals.renamed) parts.push(`${deals.renamed} deal(s) renomeado(s)`);
-      if (deals.failed) parts.push(`${deals.failed} deal(s) falharam`);
-      if (p.alerts) parts.push(`${p.alerts} conflito(s) — veja o sininho`);
-      if (o.created) parts.push(`${o.created} órfão(s) criado(s) no RD`);
-      if (o.failed) parts.push(`${o.failed} órfão(s) falharam`);
-      const ms = data.elapsedMs ? `${(data.elapsedMs / 1000).toFixed(1)}s` : '';
-      Utils.toast(`${parts.join(' · ')}${ms ? ` (${ms})` : ''}`);
+      if (agg.pulled) parts.push(`${agg.pulled} contatos checados no RD`);
+      if (agg.applied) parts.push(`${agg.applied} atualizados no LJ`);
+      if (agg.pushSynced) parts.push(`${agg.pushSynced} contatos atualizados no RD`);
+      if (agg.dealsLinked) parts.push(`${agg.dealsLinked} deal(s) linkado(s)`);
+      if (agg.dealsRenamed) parts.push(`${agg.dealsRenamed} deal(s) renomeado(s)`);
+      if (agg.dealsFailed) parts.push(`${agg.dealsFailed} deal(s) falharam`);
+      if (agg.orphansCreated) parts.push(`${agg.orphansCreated} órfão(s) criado(s) no RD`);
+      if (agg.alerts) parts.push(`${agg.alerts} conflito(s) no sininho`);
+      const sec = (agg.elapsedMs / 1000).toFixed(1);
+      const lotes = iteration > 1 ? ` · ${iteration} lotes` : '';
+      Utils.toast(parts.length ? `✓ ${parts.join(' · ')}${lotes} (${sec}s)` : `Nada novo a conciliar (${sec}s)`);
 
-      // Recarrega sininho + busca ativa (pra mostrar nomes/dados atualizados)
       await Actions.loadReconciliationAlerts();
       const sr = App.state.visitorSearchResults;
       if (sr?.loadedAt) {
@@ -11251,7 +11292,7 @@ Object.assign(Actions, {
       Utils.toast(`Erro: ${err.message}`);
     } finally {
       App.state._reconciliationRunning = false;
-      App.state.reconciliationRunProgress = { running: false, phase: '', stats: null };
+      App.state.reconciliationRunProgress = { running: false, phase: '', total: 0, done: 0, currentBatch: 0 };
       App.render();
     }
   },

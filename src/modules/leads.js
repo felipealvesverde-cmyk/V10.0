@@ -302,21 +302,30 @@ var LeadsModule = {
     </div>`;
   },
 
-  // V34.8.2 — Indicador "rodando" pra motor de conciliação. Não tem barra de %
-  // porque o motor mistura GET paginado RD + POST batch órfãos — duração varia.
-  // Mostra spinner + fase atual.
+  // V34.9.1 — Barra de progresso do motor com %, lote atual e done/total.
   _reconciliationRunBar() {
     const p = App.state.reconciliationRunProgress;
     if (!p || !p.running) return '';
     const phase = p.phase || 'Conciliando…';
+    const total = Math.max(p.total || 0, 0);
+    const done = Math.min(p.done || 0, total);
+    const showBar = total > 0;
+    const pct = showBar ? Math.min(100, Math.round((done / total) * 100)) : 0;
     return `<div class="bg-sky-50 border-2 border-sky-200 rounded-2xl p-4 mb-3">
-      <div class="flex items-center gap-3">
-        <i data-lucide="refresh-ccw" class="w-5 h-5 text-sky-700 animate-spin shrink-0"></i>
-        <div class="min-w-0 flex-1">
-          <p class="text-sm font-black text-sky-900">Conciliando LJ ↔ RD CRM</p>
-          <p class="text-xs text-sky-700">${Utils.escape(phase)}</p>
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <i data-lucide="refresh-ccw" class="w-4 h-4 text-sky-700 animate-spin shrink-0"></i>
+          <span class="text-sm font-black text-sky-900">Conciliando LJ ↔ RD CRM</span>
+          <span class="text-xs font-bold text-sky-700 truncate">· ${Utils.escape(phase)}</span>
         </div>
+        ${showBar ? `<div class="flex items-center gap-2 shrink-0">
+          <span class="text-sm font-black text-sky-900">${pct}%</span>
+          <span class="text-xs text-sky-700">(${done} / ${total})</span>
+        </div>` : ''}
       </div>
+      ${showBar ? `<div class="w-full h-2.5 bg-white rounded-full overflow-hidden border border-sky-200">
+        <div class="h-full bg-sky-600 transition-all duration-300" style="width: ${pct}%;"></div>
+      </div>` : ''}
     </div>`;
   },
 
