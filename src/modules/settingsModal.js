@@ -1064,6 +1064,10 @@ var SettingsModal = {
             <button onclick="Actions.approveUser(${u.id}, 'sandbox')" class="px-3 py-1.5 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-black">Aprovar (sandbox)</button>
             <button onclick="Actions.approveUser(${u.id}, 'production')" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black" style="color:#fff;">Aprovar (produção)</button>
           ` : `
+            <label title="Permitir que este usuário use a Anthropic API Key do LJ (saldo master). Senão ele precisa plugar a chave dele em Configurações → IA." class="inline-flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white border border-slate-200 cursor-pointer">
+              <input type="checkbox" ${u.master_ai_enabled ? 'checked' : ''} onchange="Actions.setUserMasterAi(${u.id}, this.checked)" class="rounded">
+              <span class="text-[10px] font-black ${u.master_ai_enabled ? 'text-violet-700' : 'text-slate-500'}">IA master</span>
+            </label>
             <select onchange="Actions.setUserMode(${u.id}, this.value)" class="px-2 py-1 rounded-xl bg-white border border-slate-200 text-xs font-black">
               <option value="sandbox" ${u.mode === 'sandbox' ? 'selected' : ''}>sandbox</option>
               <option value="production" ${u.mode === 'production' ? 'selected' : ''}>produção</option>
@@ -1073,6 +1077,95 @@ var SettingsModal = {
           `}
         </div>
       `}
+    </div>`;
+  },
+
+  // V34.7.h — Painel "IA". Cliente pluga própria chave Anthropic OU vê que o
+  // master já liberou o saldo dele. Master vê estado puramente informativo
+  // (ele usa env ANTHROPIC_API_KEY do Railway).
+  aiPanel() {
+    const cache = App.state._userAiConfigCache;
+    const isMaster = Boolean(App.currentUser?.isMaster);
+
+    // Hidrata 1x se ainda não foi carregado
+    if (!cache && !App._userAiConfigHydrated) {
+      App._userAiConfigHydrated = true;
+      setTimeout(() => Actions.loadUserAiConfig(), 50);
+      return `<div class="rounded-3xl bg-white border border-slate-100 p-6 shadow-sm">
+        <p class="text-sm text-slate-500">Carregando configuração de IA...</p>
+      </div>`;
+    }
+
+    const c = cache || { configured: false, masterEnabled: false, source: null, provider: null, updatedAt: null };
+
+    // Status card no topo: explica origem da IA em uso (ou ausência)
+    let statusCard = '';
+    if (isMaster) {
+      statusCard = `<div class="rounded-3xl bg-violet-50 border-2 border-violet-200 p-5">
+        <h4 class="font-black text-violet-900 flex items-center gap-2 mb-1"><i data-lucide="shield-check" class="w-4 h-4"></i>Você é master</h4>
+        <p class="text-sm text-violet-900">Usa o saldo Anthropic do Railway (env <code class="bg-white/60 px-1 rounded">ANTHROPIC_API_KEY</code>). Pode liberar esse saldo pra clientes específicos em <strong>Configurações → Usuários</strong>, toggle <strong>IA master</strong>.</p>
+      </div>`;
+    } else if (c.source === 'master-shared') {
+      statusCard = `<div class="rounded-3xl bg-emerald-50 border-2 border-emerald-200 p-5">
+        <h4 class="font-black text-emerald-900 flex items-center gap-2 mb-1"><i data-lucide="check-circle-2" class="w-4 h-4"></i>IA liberada pelo admin</h4>
+        <p class="text-sm text-emerald-900">O admin do LeadJourney liberou o saldo Anthropic dele pra você usar. Djow, Enriquecer e Sync RD já funcionam. Você não precisa plugar sua própria chave — mas pode (cai como fallback se o admin revogar).</p>
+      </div>`;
+    } else if (c.source === 'user') {
+      statusCard = `<div class="rounded-3xl bg-sky-50 border-2 border-sky-200 p-5">
+        <h4 class="font-black text-sky-900 flex items-center gap-2 mb-1"><i data-lucide="key" class="w-4 h-4"></i>Sua chave Anthropic está ativa</h4>
+        <p class="text-sm text-sky-900">As chamadas de IA (Djow, Enriquecer, etc.) usam sua chave própria. O custo cai na sua conta Anthropic.${c.updatedAt ? ` Atualizada em ${new Date(c.updatedAt).toLocaleString('pt-BR')}.` : ''}</p>
+      </div>`;
+    } else {
+      statusCard = `<div class="rounded-3xl bg-amber-50 border-2 border-amber-200 p-5">
+        <h4 class="font-black text-amber-900 flex items-center gap-2 mb-1"><i data-lucide="alert-triangle" class="w-4 h-4"></i>IA não configurada</h4>
+        <p class="text-sm text-amber-900">Você ainda não tem acesso à IA. Caminhos: <strong>(a)</strong> pedir liberação ao admin (ele habilita o toggle "IA master" no seu usuário) ou <strong>(b)</strong> plugar sua própria chave Anthropic abaixo.</p>
+      </div>`;
+    }
+
+    // Bloco de configuração da chave própria — sempre disponível pra cliente
+    const keyDraft = App.state._userAiKeyDraft || '';
+    const formCard = isMaster ? '' : `<div class="rounded-3xl bg-white border border-slate-100 p-6 shadow-sm space-y-4">
+        <div>
+          <h4 class="text-lg font-black text-slate-900 flex items-center gap-2"><i data-lucide="key" class="w-4 h-4"></i>Sua chave Anthropic (Claude)</h4>
+          <p class="text-xs text-slate-500 mt-1">Gere uma chave em <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" class="text-violet-700 font-black underline">console.anthropic.com</a> e cole aqui. Ela fica criptografada no servidor (AES-256-GCM) e nunca é exibida depois de salva.</p>
+        </div>
+
+        <div class="space-y-2">
+          <label class="text-[11px] font-black text-slate-700 uppercase tracking-widest">API Key</label>
+          <input type="password" placeholder="sk-ant-api03-..."
+                 value="${Utils.escape(keyDraft)}"
+                 oninput="Actions.updateUserAiKeyDraft(this.value)"
+                 class="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-sm font-mono focus:outline-none focus:border-violet-400">
+          <p class="text-[11px] text-slate-500">Formato esperado: começa com <code>sk-ant-</code>.</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="Actions.saveUserAiKey()" class="px-4 py-2.5 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-black flex items-center gap-2" style="color:#fff;">
+            <i data-lucide="save" class="w-4 h-4"></i>
+            ${c.configured ? 'Atualizar chave' : 'Salvar chave'}
+          </button>
+          ${c.configured ? `<button onclick="Actions.deleteUserAiKey()" class="px-4 py-2.5 rounded-2xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-sm font-black flex items-center gap-2">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>Remover chave
+          </button>` : ''}
+        </div>
+      </div>
+
+      <div class="rounded-3xl bg-slate-50 border border-slate-200 p-5">
+        <h5 class="text-sm font-black text-slate-800 mb-2 flex items-center gap-2"><i data-lucide="info" class="w-4 h-4"></i>Como o LeadJourney decide qual IA usar</h5>
+        <ol class="text-xs text-slate-600 space-y-1 list-decimal list-inside">
+          <li>Se o admin liberou o saldo dele pra você → usa o saldo do admin (custo do LeadJourney).</li>
+          <li>Senão, se você plugou sua chave aqui → usa a sua (custo da sua conta Anthropic).</li>
+          <li>Senão → IA bloqueada. Botões Djow/Enriquecer/etc avisam que precisa configurar.</li>
+        </ol>
+      </div>`;
+
+    return `<div class="space-y-5">
+      <div>
+        <h3 class="text-2xl font-black text-slate-950">IA (Anthropic / Claude)</h3>
+        <p class="text-sm text-slate-500">Origem da inteligência usada por Djow, Enriquecer nomes e demais features de IA. GPT (OpenAI) chega numa onda futura.</p>
+      </div>
+      ${statusCard}
+      ${formCard}
     </div>`;
   },
 
@@ -4086,7 +4179,7 @@ var SettingsModal = {
     // Mantemos o alias 'rdCrm' redirecionando p/ 'rd' por compat de bookmarks/links.
     const resolvedActive = active === 'rdCrm' ? 'rd' : active;
     // V32.4.0 (Geraldo Item 6) — 'database' (legacy V11) removida. Default agora 'myAccount'.
-    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários', admin: 'Administrar Lead Journey', tenants: 'Tenants (Global Mode)', myDb: 'Meu Banco', myAccount: 'Minha Conta' };
+    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários', admin: 'Administrar Lead Journey', tenants: 'Tenants (Global Mode)', myDb: 'Meu Banco', myAccount: 'Minha Conta', ai: 'IA' };
     const subtitleMap = {
       rd: 'Token CRM, pipelines por campanha, sincronização de leads e (opcional) RD Marketing — tudo em um lugar.',
       backup: 'Prepare snapshots, restauração e segurança dos dados.',
@@ -4097,7 +4190,8 @@ var SettingsModal = {
       admin: 'V31.2.1 — Ações administrativas críticas. Cuidado: aqui você apaga dados em cascata sem volta.',
       tenants: 'V32.0.12 — Multi-tenant SaaS. Cada cliente tem um tenant; pode opcionalmente ter Postgres próprio plugado.',
       myDb: 'V32.1.1 — Plug seu próprio Postgres pra isolar 100% seus dados. Connection string fica criptografada no servidor.',
-      myAccount: 'V32.1.2 — Personalize seu nome de exibição. Login (e-mail) e tenant são imutáveis aqui.'
+      myAccount: 'V32.1.2 — Personalize seu nome de exibição. Login (e-mail) e tenant são imutáveis aqui.',
+      ai: 'V34.7.h — Configure sua própria chave Anthropic (Claude). Se o master liberou o saldo dele pra você, esta seção é informativa — você já pode usar Djow, Enriquecer e Sync RD.'
     };
     const title = titleMap[resolvedActive] || titleMap.myAccount;
     const subtitle = subtitleMap[resolvedActive] || subtitleMap.myAccount;
@@ -4114,6 +4208,7 @@ var SettingsModal = {
       : resolvedActive === 'admin' ? this.adminPanel()
       : resolvedActive === 'tenants' ? this.tenantsPanel()
       : resolvedActive === 'myDb' ? this.myDbPanel()
+      : resolvedActive === 'ai' ? this.aiPanel()
       : this.myAccountPanel();
 
     return `<div id="settingsModalBackdrop" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm p-4 overflow-auto">
@@ -4144,6 +4239,7 @@ var SettingsModal = {
                 "Configurar" no banner do provider). */ ''}
             ${this.sectionButton('integrations','Integrações','link')}
             ${this.sectionButton('agents','Agentes Externos','cpu')}
+            ${this.sectionButton('ai','IA','sparkles')}
             ${this.sectionButton('backup','Backup','archive')}
             ${App.currentUser?.isMaster ? `<div class="border-t border-slate-200 my-3"></div>${this.sectionButton('admin','Administrar Lead Journey','shield-alert')}${this.sectionButton('tenants','Tenants (Global Mode)','layers')}` : ''}
           </aside>

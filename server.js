@@ -332,6 +332,22 @@ async function runMigrations() {
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(128);
     `);
+    // V34.7.h — master_ai_enabled: master pode autorizar cliente X a usar a
+    // ANTHROPIC_API_KEY do LJ (saldo do master). Default false — cliente que
+    // quer IA sem essa permissão pluga API key própria em user_ai_credentials.
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS master_ai_enabled BOOLEAN DEFAULT FALSE;
+    `);
+    // V34.7.h — API key do cliente (Anthropic agora; OpenAI numa onda futura).
+    // Criptografada via ENCRYPTION_KEY (lib/clickup-crypto.js helpers).
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_ai_credentials (
+        user_id INT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        provider VARCHAR(16) NOT NULL DEFAULT 'anthropic',
+        api_key_enc TEXT NOT NULL,
+        updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
     // Seed master user se ainda não existe e env vars disponíveis.
     if (MASTER_USERNAME && MASTER_PASSWORD) {
       if (!MASTER_PASSWORD_HASH) {

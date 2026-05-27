@@ -1978,6 +1978,104 @@ Object.assign(Actions, {
     }
   },
 
+  // V34.7.h — Master habilita ou desabilita uso do saldo Anthropic do LJ
+  // pra um cliente específico. Cliente desligado pode plugar API key própria
+  // em Configurações → IA.
+  async setUserMasterAi(userId, enabled) {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/users-toggle-master-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ userId, enabled: Boolean(enabled) })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        Utils.toast(`Falha: ${data.message}`);
+        this.loadUsersList(); // recarrega pra desfazer o toggle visual
+        return;
+      }
+      Utils.toast(`✓ IA master ${data.user.master_ai_enabled ? 'liberada' : 'revogada'} pra "${data.user.username}".`);
+      this.loadUsersList();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+      this.loadUsersList();
+    }
+  },
+
+  // V34.7.h — Cliente: lê estado da própria config de IA.
+  // Retorna { configured, masterEnabled, source, provider, updatedAt }.
+  async loadUserAiConfig() {
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return;
+    try {
+      const res = await fetch('/api/user-ai-config', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.ok) {
+        App.state._userAiConfigCache = {
+          configured: Boolean(data.configured),
+          masterEnabled: Boolean(data.masterEnabled),
+          source: data.source || null,
+          provider: data.provider || null,
+          updatedAt: data.updatedAt || null,
+          loadedAt: Date.now()
+        };
+        App.save();
+        App.render();
+      }
+    } catch (err) {
+      console.warn('[loadUserAiConfig]', err.message);
+    }
+  },
+
+  // V34.7.h — Cliente: salva própria API key Anthropic.
+  async saveUserAiKey() {
+    const draft = App.state._userAiKeyDraft || '';
+    const apiKey = String(draft || '').trim();
+    if (!apiKey) return Utils.toast('Cole sua API key Anthropic primeiro.');
+    if (!/^sk-ant-/.test(apiKey)) return Utils.toast('Chave Anthropic deve começar com sk-ant-.');
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/user-ai-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ provider: 'anthropic', api_key: apiKey })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ Chave Anthropic salva. Agora você pode usar Djow e Enriquecer.');
+      App.state._userAiKeyDraft = '';
+      await this.loadUserAiConfig();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V34.7.h — Atualiza o draft do input da chave (sem re-render pra não perder foco).
+  updateUserAiKeyDraft(value) {
+    App.state._userAiKeyDraft = String(value || '');
+  },
+
+  // V34.7.h — Cliente: remove própria API key.
+  async deleteUserAiKey() {
+    if (!confirm('Remover sua chave Anthropic? Você não vai conseguir usar Djow/Enriquecer até plugar outra (ou pedir liberação ao master).')) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/user-ai-config', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ Chave removida.');
+      await this.loadUserAiConfig();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V32.0.16 — Execution credentials novo padrão (encrypted DB).
   async loadExecutionCredentials() {
     const token = localStorage.getItem('lj_jwt');
