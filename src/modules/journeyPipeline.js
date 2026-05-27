@@ -248,13 +248,21 @@ var JourneyPipelineModule = {
     </div>`;
   },
 
-  // V34.9.2 — Controls simplificados: só dropdown de Campanha.
-  // Removidos: Banco (será derivado da campanha quando vínculo existir),
-  // Ações, botão "Editar fase", botão "Ativar/Desativar".
+  // V34.9.3 — Controls: dropdown Campanha + botão Triggers (gatilhos da campanha).
+  // Removidos em V34.9.2: dropdown Banco, dropdown Ações, "Editar fase", "Ativar/Desativar".
   controls() {
     const campaignOptions = [`<option value="all">Todas as campanhas</option>`, ...App.state.campaigns.map(c => `<option value="${c.id}" ${String(App.state.selectedPipelineCampaignId) === String(c.id) ? 'selected' : ''}>${Utils.escape(c.name)}</option>`)].join('');
-    return `<div class="w-full mb-6">
-      <select onchange="JourneyPipelineModule.changeCampaign(this.value)" class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm">${campaignOptions}</select>
+    const selectedId = App.state.selectedPipelineCampaignId;
+    const hasCampaign = selectedId && selectedId !== 'all';
+    return `<div class="w-full mb-6 flex flex-col md:flex-row gap-2">
+      <select onchange="JourneyPipelineModule.changeCampaign(this.value)" class="flex-1 px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-800 font-black text-sm">${campaignOptions}</select>
+      <button onclick="Actions.openTriggersModal(${hasCampaign ? selectedId : 'null'})"
+              ${!hasCampaign ? 'disabled' : ''}
+              title="${hasCampaign ? 'Configura o que faz seu lead trocar de etapa nos funis' : 'Selecione uma campanha primeiro'}"
+              class="px-4 py-3 rounded-2xl ${hasCampaign ? 'bg-slate-950 text-white' : 'bg-slate-200 text-slate-400 cursor-not-allowed'} font-black text-sm flex items-center justify-center gap-2">
+        <i data-lucide="zap" class="w-4 h-4"></i>
+        Triggers
+      </button>
     </div>`;
   },
 

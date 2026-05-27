@@ -557,6 +557,33 @@ CREATE INDEX IF NOT EXISTS idx_lj_merges_deleted ON lj_merges(user_id, deleted_v
 CREATE INDEX IF NOT EXISTS idx_lj_merges_when ON lj_merges(user_id, merged_at);
 
 -- ============================================================================
+-- V34.9.3 — Triggers Engine: regras de transição declarativas, configuráveis
+-- por cliente master via UI. Substitui o array hardcoded em lj-promotion-rules.js.
+-- Scope: (user_id, campaign_id). Triggers Master têm is_master=TRUE e from_stage=NULL.
+CREATE TABLE IF NOT EXISTS lj_transition_rules (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  campaign_id INT NOT NULL,
+  is_master BOOLEAN NOT NULL DEFAULT FALSE,
+  from_stage VARCHAR(32),               -- NULL pra Master (qualquer estágio)
+  to_stage VARCHAR(32) NOT NULL,        -- 9 estágios OR 'EXIT' (sair da campanha)
+  trigger_type VARCHAR(16) NOT NULL,    -- cta|form|pageview|tag|payment|time|score
+  trigger_param TEXT,                   -- URL, tag name, etc — interpretado por tipo
+  trigger_value_int INT,                -- usado por Tempo (dias) e Score (valor)
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_via VARCHAR(16) DEFAULT 'ui', -- ui | mirror | seed
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_transition_rules_campaign
+  ON lj_transition_rules(user_id, campaign_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_transition_rules_lookup
+  ON lj_transition_rules(user_id, campaign_id, trigger_type, is_active)
+  WHERE is_active = TRUE;
+
+-- Referência da rule que disparou a transition (debug "por que esse lead moveu?")
+ALTER TABLE lj_transitions ADD COLUMN IF NOT EXISTS triggered_by_rule_id INT;
+
 -- V34.8.0 — Conciliação RD↔LJ (alertas por campo quando há conflito)
 -- ============================================================================
 -- Alertas gravados quando RD e LJ têm valores diferentes pra mesmo campo,
