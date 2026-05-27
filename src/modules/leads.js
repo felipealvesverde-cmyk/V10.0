@@ -302,6 +302,32 @@ var LeadsModule = {
     </div>`;
   },
 
+  // V34.7.h.6 — Barra de progresso do Sync RD em loop (azul/sky pra diferenciar do enrich).
+  _rdSyncProgressBar() {
+    const p = App.state.rdSyncProgress;
+    if (!p || !p.running) return '';
+    const total = Math.max(p.total || 0, 1);
+    const done = Math.min(p.done || 0, total);
+    const pct = Math.min(100, Math.round((done / total) * 100));
+    const batchLabel = p.currentBatch ? `Lote ${p.currentBatch}` : 'Iniciando';
+    return `<div class="bg-sky-50 border-2 border-sky-200 rounded-2xl p-4 mb-3">
+      <div class="flex items-center justify-between mb-2 gap-3">
+        <div class="flex items-center gap-2 min-w-0">
+          <i data-lucide="rotate-cw" class="w-4 h-4 text-sky-700 shrink-0 animate-spin"></i>
+          <span class="text-sm font-black text-sky-900">Sincronizando contatos com RD CRM…</span>
+          <span class="text-xs font-bold text-sky-700">· ${batchLabel}</span>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="text-sm font-black text-sky-900">${pct}%</span>
+          <span class="text-xs text-sky-700">(${done} / ${total})</span>
+        </div>
+      </div>
+      <div class="w-full h-2.5 bg-white rounded-full overflow-hidden border border-sky-200">
+        <div class="h-full bg-sky-600 transition-all duration-300" style="width: ${pct}%;"></div>
+      </div>
+    </div>`;
+  },
+
   // V34.0.0 Onda 4 — Strip de bancos ativos no Buscador. Mostra "Buscando em: A · B"
   // quando há busca server-side carregada, com botões "Trocar bancos" e "Limpar busca".
   _activeBanksStrip() {
@@ -380,6 +406,7 @@ var LeadsModule = {
       </div>
       ${this._activeBanksStrip()}
       ${this._enrichProgressBar()}
+      ${this._rdSyncProgressBar()}
       <div class="flex flex-wrap gap-2 mb-3">
         <input id="profileInput" value="${Utils.escape(App.state.profileQuery)}" oninput="App.state.profileQuery=this.value; App.save();" onkeydown="if(event.key==='Enter'){event.preventDefault(); Actions.djowSearchProfile();}" placeholder="Ex: mulheres de 30 a 40 anos de SP, #cta, quente..." class="flex-1 min-w-[200px] px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />
         ${djowBtn}

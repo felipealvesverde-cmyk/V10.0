@@ -11080,30 +11080,75 @@ Object.assign(Actions, {
     }
   },
 
-  // V34.7.a.2 — Dispara sync de contatos LJ→RD manualmente do sininho.
+  // V34.7.h.6 — Sync RD em loop com barra de progresso (mesmo padrão do enrich).
+  // Cada batch processa max 50 visitors pendentes; loop até pendingRemaining=0.
   async triggerRdContactSync() {
     if (App.state._rdContactSyncRunning) return Utils.toast('Já está rodando.');
     App.state._rdContactSyncRunning = true;
+    App.state.rdSyncProgress = { running: true, total: 0, done: 0, currentBatch: 0 };
     App.render();
-    Utils.toast('Sincronizando contatos com RD CRM...');
+
+    let totalSynced = 0;
+    let totalFailed = 0;
+    let totalRateLimit = 0;
+    let totalInitial = 0;
+    let iteration = 0;
+    const MAX_ITERATIONS = 50; // 50 * 50 = 2500 contatos
+    const BATCH_SIZE = 50;
+
     try {
-      const data = await this._trackerFetch('/api/rd-contact-sync-run', {
-        method: 'POST',
-        body: JSON.stringify({ max_visitors: 50 })
-      });
-      if (!data.ok) {
-        Utils.toast(`Erro: ${data.message}`);
-        return;
+      while (iteration < MAX_ITERATIONS) {
+        iteration++;
+        App.state.rdSyncProgress.currentBatch = iteration;
+        App.render();
+
+        const data = await this._trackerFetch('/api/rd-contact-sync-run', {
+          method: 'POST',
+          body: JSON.stringify({ max_visitors: BATCH_SIZE })
+        });
+
+        if (!data.ok) {
+          Utils.toast(`Erro no batch ${iteration}: ${data.message}`);
+          break;
+        }
+
+        if (iteration === 1) {
+          totalInitial = (data.processed || 0) + (data.pendingRemaining || 0);
+          App.state.rdSyncProgress.total = totalInitial;
+        }
+
+        totalSynced += data.synced || 0;
+        totalFailed += data.failed || 0;
+        totalRateLimit += data.rateLimit || 0;
+
+        App.state.rdSyncProgress.done = totalInitial - (data.pendingRemaining || 0);
+        App.render();
+
+        if ((data.pendingRemaining || 0) === 0) break;
+        if ((data.processed || 0) === 0) break;
+        // Se ficou rate-limited muito, para e avisa
+        if (totalRateLimit > 10) {
+          Utils.toast(`Pausando: ${totalRateLimit} rate-limit do RD CRM. Tente de novo em 1-2min.`);
+          break;
+        }
       }
-      const parts = [`✓ ${data.synced} sincronizado(s)`];
-      if (data.failed) parts.push(`${data.failed} falharam`);
-      if (data.rateLimit) parts.push(`${data.rateLimit} rate-limit (tente de novo em 1min)`);
-      Utils.toast(parts.join(' · '));
+
+      if (totalInitial === 0) {
+        Utils.toast('Nenhum contato pendente de sync com RD CRM.');
+      } else {
+        const parts = [`✓ ${totalSynced} de ${totalInitial} sincronizado(s)`];
+        if (totalFailed) parts.push(`${totalFailed} falharam`);
+        if (totalRateLimit) parts.push(`${totalRateLimit} rate-limit`);
+        if (iteration > 1) parts.push(`em ${iteration} lotes`);
+        Utils.toast(parts.join(' · '));
+      }
+
       await Actions.loadPendingCounts();
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     } finally {
       App.state._rdContactSyncRunning = false;
+      App.state.rdSyncProgress = { running: false, total: 0, done: 0, currentBatch: 0 };
       App.render();
     }
   },
