@@ -10,6 +10,7 @@ module.exports = async function handler(req, res) {
   try {
     const result = await req.db.query(
       `SELECT id, username, email, is_master, is_approved, mode,
+              master_ai_enabled,
               created_at, last_login_at
        FROM users
        ORDER BY is_approved ASC, created_at DESC`

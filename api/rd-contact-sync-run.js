@@ -2,7 +2,9 @@
 // 'pending-contact-update' e empurra PATCH /contacts/{id} pro RD CRM.
 //
 // POST /api/rd-contact-sync-run
-// Auth: master JWT OR X-Cron-Token
+// Auth (V34.7.h): JWT autenticado (qualquer user) OR X-Cron-Token.
+// Não usa Anthropic — só PATCH /contacts/{id} no RD CRM com o token CRM do
+// próprio user. Por isso não passa pelo ai-resolver.
 // Body: { user_id?, max_visitors? = 50, dry_run? }
 //
 // Trigger normal: cron diário OU clique manual no sininho ("Sincronizar agora").
@@ -10,8 +12,12 @@
 const { getRdCredential } = require('../lib/rd-credentials');
 const { runBatch } = require('../lib/rd-contact-sync-engine');
 
+// V34.7.h — aceita qualquer JWT autenticado OU cron token. Master continua
+// passando (tem req.user). RD CRM já é per-user (token vem de getRdCredential).
 function authorize(req) {
-  if (req.user?.isMaster) return { ok: true, source: 'master' };
+  if (req.user?.sub || req.user?.id) {
+    return { ok: true, source: req.user.isMaster ? 'master' : 'user' };
+  }
   const cronToken = process.env.CRON_RECONCILE_TOKEN;
   if (cronToken) {
     const provided = req.headers['x-cron-token'] || req.query?.cron_token;

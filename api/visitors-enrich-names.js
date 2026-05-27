@@ -4,7 +4,9 @@
 // OU dispara manualmente via "Enriquecer agora" no sininho.
 //
 // POST /api/visitors-enrich-names
-// Auth: master JWT OR X-Cron-Token (igual rd-tag-reconcile V34.6.e)
+// Auth (V34.7.h): JWT autenticado (qualquer user) OR X-Cron-Token.
+// Anthropic key resolvida via lib/ai-resolver — master env, master-shared
+// (users.master_ai_enabled), ou user_ai_credentials (key própria do cliente).
 // Body: { user_id?, max_visitors? = 100, dry_run? }
 //
 // Algoritmo:
@@ -23,8 +25,12 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 const ENRICH_MODEL = 'claude-haiku-4-5-20251001'; // mais barato pra heurísticas simples
 
+// V34.7.h — authorize aceita qualquer JWT autenticado OU cron token.
+// Master continua passando (tem req.user). Chave Anthropic vem do resolver.
 function authorize(req) {
-  if (req.user?.isMaster) return { ok: true, source: 'master' };
+  if (req.user?.sub || req.user?.id) {
+    return { ok: true, source: req.user.isMaster ? 'master' : 'user' };
+  }
   const cronToken = process.env.CRON_RECONCILE_TOKEN;
   if (cronToken) {
     const provided = req.headers['x-cron-token'] || req.query?.cron_token;
@@ -32,6 +38,8 @@ function authorize(req) {
   }
   return { ok: false };
 }
+
+const { resolveAnthropicKey } = require('../lib/ai-resolver');
 
 // Capitaliza primeira letra de cada palavra
 function titleCase(s) {
@@ -130,7 +138,21 @@ module.exports = async function handler(req, res) {
   if (!scopeUserId) return res.status(400).json({ ok: false, message: 'user_id obrigatório (ou JWT autenticado).' });
   const max = Math.min(Number(body.max_visitors || 100), 500);
   const dryRun = Boolean(body.dry_run);
-  const apiKey = process.env.ANTHROPIC_API_KEY || '';
+
+  // V34.7.h — Resolve key Anthropic. Cron sem JWT cai aqui também: usa master env.
+  let apiKey = '';
+  if (req.user?.sub || req.user?.id) {
+    const resolved = await resolveAnthropicKey(req.db, {
+      id: Number(req.user.sub || req.user.id),
+      isMaster: Boolean(req.user.isMaster)
+    });
+    if (resolved.ok) apiKey = resolved.apiKey;
+    else if (!dryRun) {
+      return res.status(402).json({ ok: false, message: resolved.message || 'IA não configurada.' });
+    }
+  } else {
+    apiKey = process.env.ANTHROPIC_API_KEY || '';
+  }
 
   // Lista visitors sem nome (name = NULL OR name = email)
   let visitors = [];
