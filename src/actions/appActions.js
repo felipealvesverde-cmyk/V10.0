@@ -10993,38 +10993,75 @@ Object.assign(Actions, {
     }
   },
 
-  // V34.7.a.2 — Dispara enriquecimento manualmente do sininho.
+  // V34.7.h.5 — Enriquece TODOS os leads elegíveis em loop, com barra de progresso.
+  // Cada POST processa max 100. Backend devolve eligibleRemaining; loop até zerar.
   async triggerEnrichNames() {
     if (App.state._enrichRunning) return Utils.toast('Já está rodando.');
     App.state._enrichRunning = true;
+    App.state.enrichProgress = { running: true, total: 0, done: 0, currentBatch: 0 };
     App.render();
-    Utils.toast('Enriquecendo nomes via heurística + Djow...');
+
+    let totalEnriched = 0;
+    let totalProcessed = 0;
+    let sumByHeuristic = 0;
+    let sumByDjow = 0;
+    let sumMarkedForRd = 0;
+    let totalInitial = 0;
+    let iteration = 0;
+    const MAX_ITERATIONS = 50; // safety: 50 * 100 = 5000 leads
+    const BATCH_SIZE = 100;
+
     try {
-      const data = await this._trackerFetch('/api/visitors-enrich-names', {
-        method: 'POST',
-        body: JSON.stringify({ max_visitors: 100 })
-      });
-      if (!data.ok) {
-        Utils.toast(`Erro: ${data.message}`);
-        return;
+      while (iteration < MAX_ITERATIONS) {
+        iteration++;
+        App.state.enrichProgress.currentBatch = iteration;
+        App.render();
+
+        const data = await this._trackerFetch('/api/visitors-enrich-names', {
+          method: 'POST',
+          body: JSON.stringify({ max_visitors: BATCH_SIZE })
+        });
+
+        if (!data.ok) {
+          Utils.toast(`Erro no batch ${iteration}: ${data.message}`);
+          break;
+        }
+
+        // Primeira iteração descobre o total elegível (processed + remaining)
+        if (iteration === 1) {
+          totalInitial = (data.processed || 0) + (data.eligibleRemaining || 0);
+          App.state.enrichProgress.total = totalInitial;
+        }
+
+        totalProcessed += data.processed || 0;
+        totalEnriched += data.enriched || 0;
+        sumByHeuristic += data.byHeuristic || 0;
+        sumByDjow += data.byDjow || 0;
+        sumMarkedForRd += data.markedForRdSync || 0;
+
+        App.state.enrichProgress.done = totalInitial - (data.eligibleRemaining || 0);
+        App.render();
+
+        // Acabou: nada mais elegível OU o batch não processou nada (defesa)
+        if ((data.eligibleRemaining || 0) === 0) break;
+        if ((data.processed || 0) === 0) break;
       }
-      if (!data.processed) {
+
+      if (totalInitial === 0) {
         Utils.toast('Nenhum lead precisava de enriquecimento (todos já têm nome real).');
-        await Actions.loadPendingCounts();
-        return;
+      } else {
+        const parts = [`✓ ${totalEnriched} de ${totalInitial} nome(s) enriquecido(s)`];
+        if (sumByHeuristic) parts.push(`${sumByHeuristic} via heurística`);
+        if (sumByDjow) parts.push(`${sumByDjow} via Djow`);
+        if (sumMarkedForRd) parts.push(`${sumMarkedForRd} marcados pra sync RD`);
+        if (iteration > 1) parts.push(`em ${iteration} lotes`);
+        Utils.toast(parts.join(' · '));
       }
-      const parts = [`✓ ${data.enriched} nome(s) enriquecido(s) de ${data.processed} candidato(s)`];
-      if (data.byHeuristic) parts.push(`${data.byHeuristic} via heurística`);
-      if (data.byDjow) parts.push(`${data.byDjow} via Djow`);
-      if (data.markedForRdSync) parts.push(`${data.markedForRdSync} marcados pra sync RD`);
-      Utils.toast(parts.join(' · '));
+
       await Actions.loadPendingCounts();
 
-      // V34.7.h.4 — UI dos Leads não reflete os novos nomes porque o enrich
-      // atualizou só lj_visitors no DB. Re-fetcha as fontes pertinentes:
-      //  - Se há visitorSearchResults ativo (Buscador V34), re-roda a busca.
-      //  - Se há campaignPipelineCounts (Journey Pipeline), repuxa pra refletir.
-      if (data.enriched > 0) {
+      // V34.7.h.4 — Force refresh do Buscador se ativo
+      if (totalEnriched > 0) {
         try {
           const sr = App.state.visitorSearchResults;
           if (sr?.loadedAt) {
@@ -11033,14 +11070,12 @@ Object.assign(Actions, {
         } catch (refreshErr) {
           console.warn('[triggerEnrichNames] refresh falhou:', refreshErr.message);
         }
-        // Para o caminho legacy "Leads Globais" (App.state.manualLeads), o
-        // refresh real exige F5. Aviso o user sutilmente no próximo render.
-        Utils.toast('Dica: se algum nome antigo ainda aparecer, recarregue (F5) — o DB já foi atualizado.', { duration: 6000 });
       }
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     } finally {
       App.state._enrichRunning = false;
+      App.state.enrichProgress = { running: false, total: 0, done: 0, currentBatch: 0 };
       App.render();
     }
   },
