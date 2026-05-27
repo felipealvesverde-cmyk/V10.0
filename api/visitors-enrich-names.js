@@ -158,11 +158,19 @@ module.exports = async function handler(req, res) {
   let visitors = [];
   try {
     const r = await req.tenantDb.query(
+      // V34.7.h.3 — Inclui placeholders gravados por lj-rd-lead-sync ("Lead sem
+      // nome") e leadParser (idem). LOWER(TRIM(...)) tolera variações de caixa
+      // ("Lead sem Nome", "  lead sem nome  ", etc).
       `SELECT lj_visitor_id, email, phone, name, external_rd_contact_id
          FROM lj_visitors
         WHERE user_id = $1
           AND email IS NOT NULL AND email <> ''
-          AND (name IS NULL OR name = '' OR LOWER(name) = LOWER(email))
+          AND (
+                name IS NULL
+                OR name = ''
+                OR LOWER(name) = LOWER(email)
+                OR LOWER(TRIM(name)) IN ('lead sem nome', 'sem nome', '(sem nome)', 'lead', '-')
+              )
         ORDER BY first_seen_at DESC NULLS LAST
         LIMIT $2`,
       [scopeUserId, max]

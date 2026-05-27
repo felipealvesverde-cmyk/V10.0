@@ -11008,7 +11008,12 @@ Object.assign(Actions, {
         Utils.toast(`Erro: ${data.message}`);
         return;
       }
-      const parts = [`✓ ${data.enriched} nome(s) enriquecido(s)`];
+      if (!data.processed) {
+        Utils.toast('Nenhum lead precisava de enriquecimento (todos já têm nome real).');
+        await Actions.loadPendingCounts();
+        return;
+      }
+      const parts = [`✓ ${data.enriched} nome(s) enriquecido(s) de ${data.processed} candidato(s)`];
       if (data.byHeuristic) parts.push(`${data.byHeuristic} via heurística`);
       if (data.byDjow) parts.push(`${data.byDjow} via Djow`);
       if (data.markedForRdSync) parts.push(`${data.markedForRdSync} marcados pra sync RD`);
