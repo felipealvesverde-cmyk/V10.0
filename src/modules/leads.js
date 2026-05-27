@@ -908,7 +908,27 @@ var LeadsModule = {
     const isProfile = App.state.profileActive && App.state.profileFilters.length > 0;
     // V34.7.g — Quentes contado por globalScore >= 501 (V34 RFV) não temperature legacy
     const quentes = leads.filter(l => Number(l.globalScore || 0) >= 501).length;
-    return `<div class="space-y-4"><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5"><div><h2 class="text-2xl font-black">${isProfile ? 'Perfil Filtrado' : 'Leads Globais'}</h2><p class="text-sm text-slate-500">${isProfile ? 'Resultado do perfil buscado.' : 'Base global consolidada de leads e presença comportamental.'}</p></div><div class="grid grid-cols-3 gap-2 text-center"><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${leads.length}</div><div class="text-xs text-slate-500">Leads</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${quentes}</div><div class="text-xs text-slate-500">Quentes</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${avg}</div><div class="text-xs text-slate-500">Score médio</div></div></div></div>${this._bulkLinkBar(leads)}<div class="grid gap-3">${leads.map(lead => this.card(lead)).join('') || Components.empty('Nenhum lead encontrado.')}</div></div></div>`;
+
+    // V34.7.g.3 — Dropdown de banco rápido (quando NÃO há busca V34 ativa)
+    const hasV34Search = Boolean(App.state.visitorSearchResults?.loadedAt);
+    const banks = App.state.leadBanksCache?.banks || [];
+    // Auto-fetch banks se vazio
+    if (!banks.length && !App.state.leadBanksCache?.loadedAt && window.Actions?.loadLeadBanks) {
+      setTimeout(() => Actions.loadLeadBanks(), 0);
+    }
+    const bankSelector = (!hasV34Search && banks.length > 0) ? `
+      <div class="bg-violet-50 border-2 border-violet-200 rounded-2xl p-3 mb-4 flex items-center gap-3">
+        <i data-lucide="database" class="w-4 h-4 text-violet-700 shrink-0"></i>
+        <span class="text-xs font-black text-violet-900 uppercase tracking-wide">Ver leads do banco:</span>
+        <select onchange="Actions.quickPickBuscadorBank(this.value)" class="flex-1 px-3 py-2 rounded-xl bg-white border border-violet-300 font-bold text-sm">
+          <option value="">— Selecione um banco —</option>
+          ${banks.map(b => `<option value="${b.id}">${Utils.escape(b.name)}${b.is_default ? ' · default' : ''} · ${b.visitor_count || 0} lead(s)</option>`).join('')}
+        </select>
+        <span class="text-[10px] text-violet-700 hidden md:block">ou clique <b>Buscar</b> acima pra abrir modal multi-banco</span>
+      </div>
+    ` : '';
+
+    return `<div class="space-y-4"><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5"><div><h2 class="text-2xl font-black">${isProfile ? 'Perfil Filtrado' : 'Leads Globais'}</h2><p class="text-sm text-slate-500">${isProfile ? 'Resultado do perfil buscado.' : 'Base global consolidada de leads e presença comportamental.'}</p></div><div class="grid grid-cols-3 gap-2 text-center"><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${leads.length}</div><div class="text-xs text-slate-500">Leads</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${quentes}</div><div class="text-xs text-slate-500">Quentes</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${avg}</div><div class="text-xs text-slate-500">Score médio</div></div></div></div>${bankSelector}${this._bulkLinkBar(leads)}<div class="grid gap-3">${leads.map(lead => this.card(lead)).join('') || Components.empty('Nenhum lead encontrado.')}</div></div></div>`;
   },
 
   // V21.3 — Faixa de bulk-link visível quando há contexto de campanha. Mostra

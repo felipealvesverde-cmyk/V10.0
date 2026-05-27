@@ -10531,6 +10531,15 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V34.7.g.3 — Dropdown rápido de banco no Buscador (Leads Globais view).
+  // Atalho que dispara busca server-side V34 sem precisar abrir modal.
+  async quickPickBuscadorBank(bankIdRaw) {
+    const bankId = Number(bankIdRaw || 0);
+    if (!bankId) return;
+    // Dispara busca server-side com esse banco (mesmo caminho que o modal)
+    await Actions._runVisitorSearch([bankId]);
+  },
+
   // V34.6.z — Backlog RD push: visitors imputados mas que não entraram no RD CRM.
   async openRdBacklogModal(campaignId) {
     const cId = Number(campaignId || 0);
