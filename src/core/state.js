@@ -324,6 +324,8 @@ var State = {
       _userAiKeyDraft: '',
       // V34.7.h.5 — Progresso do enrich em loop (barra 0..100%)
       enrichProgress: { running: false, total: 0, done: 0, currentBatch: 0 },
+      // V34.7.h.6 — Progresso do Sync RD em loop (barra 0..100%)
+      rdSyncProgress: { running: false, total: 0, done: 0, currentBatch: 0 },
       // V34.0.0 Onda 6.d — Counts agregados pra "sininho" no menu Leads.
       // duplicateGroupsTotal>0 destaca botão Duplicatas com badge âmbar.
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
@@ -816,6 +818,8 @@ var State = {
       _userAiKeyDraft: '',
       // V34.7.h.5 — Progresso do enrich em loop (barra 0..100%)
       enrichProgress: { running: false, total: 0, done: 0, currentBatch: 0 },
+      // V34.7.h.6 — Progresso do Sync RD em loop (barra 0..100%)
+      rdSyncProgress: { running: false, total: 0, done: 0, currentBatch: 0 },
       // V34.0.0 Onda 6.d — Counts volátil (re-fetch periódico).
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
       // V32.14.8 — Timestamp da última sync ClickUp persiste.

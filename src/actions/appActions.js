@@ -5861,14 +5861,53 @@ Object.assign(Actions, {
 
   updateLeadField(leadKey, field, value) {
     const target = String(leadKey).toLowerCase().trim();
+    let targetEmail = null;
     App.state.actions = (App.state.actions || []).map(action => ({
       ...action,
       leads: (action.leads || []).map(lead => {
         const k = String(lead?.email || lead?.id || lead?.name || '').toLowerCase().trim();
-        return k === target ? { ...lead, [field]: value } : lead;
+        if (k !== target) return lead;
+        if (lead?.email) targetEmail = String(lead.email).toLowerCase().trim();
+        return { ...lead, [field]: value };
       })
     }));
     App.save();
+
+    // V34.7.h.9 — Persiste no lj_visitors via /api/visitors-update (debounced).
+    // Só pra campos que existem no DB (name, phone). Outros (idade, sexo, etc.)
+    // continuam só no state legacy. Sem email → não dá pra resolver visitor.
+    if (!targetEmail || !['name', 'phone'].includes(field)) return;
+    this._scheduleVisitorPersist(targetEmail, field, value);
+  },
+
+  // V34.7.h.9 — Debounce 1.2s por (email,field). Cada edit reinicia o timer;
+  // após pausa, faz POST /api/visitors-update. Falhas viram warn no console
+  // (não interrompem digitação — UX prevalece, RD pega no próximo cron).
+  _scheduleVisitorPersist(email, field, value) {
+    if (!this._visitorPersistTimers) this._visitorPersistTimers = {};
+    const key = `${email}::${field}`;
+    if (this._visitorPersistTimers[key]) clearTimeout(this._visitorPersistTimers[key]);
+    this._visitorPersistTimers[key] = setTimeout(async () => {
+      try {
+        const token = localStorage.getItem('lj_jwt');
+        if (!token) return;
+        const res = await fetch('/api/visitors-update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ email, [field]: value })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.ok) {
+          console.warn('[visitors-update] falhou:', data.message || res.status);
+          return;
+        }
+        if (data.markedForRdSync) {
+          console.log(`[visitors-update] ${email} ${field}="${value}" → pending no RD CRM`);
+        }
+      } catch (err) {
+        console.warn('[visitors-update] erro:', err.message);
+      }
+    }, 1200);
   },
 
   addLeadTagFromInput(leadKey) {
@@ -11080,30 +11119,75 @@ Object.assign(Actions, {
     }
   },
 
-  // V34.7.a.2 — Dispara sync de contatos LJ→RD manualmente do sininho.
+  // V34.7.h.6 — Sync RD em loop com barra de progresso (mesmo padrão do enrich).
+  // Cada batch processa max 50 visitors pendentes; loop até pendingRemaining=0.
   async triggerRdContactSync() {
     if (App.state._rdContactSyncRunning) return Utils.toast('Já está rodando.');
     App.state._rdContactSyncRunning = true;
+    App.state.rdSyncProgress = { running: true, total: 0, done: 0, currentBatch: 0 };
     App.render();
-    Utils.toast('Sincronizando contatos com RD CRM...');
+
+    let totalSynced = 0;
+    let totalFailed = 0;
+    let totalRateLimit = 0;
+    let totalInitial = 0;
+    let iteration = 0;
+    const MAX_ITERATIONS = 50; // 50 * 50 = 2500 contatos
+    const BATCH_SIZE = 50;
+
     try {
-      const data = await this._trackerFetch('/api/rd-contact-sync-run', {
-        method: 'POST',
-        body: JSON.stringify({ max_visitors: 50 })
-      });
-      if (!data.ok) {
-        Utils.toast(`Erro: ${data.message}`);
-        return;
+      while (iteration < MAX_ITERATIONS) {
+        iteration++;
+        App.state.rdSyncProgress.currentBatch = iteration;
+        App.render();
+
+        const data = await this._trackerFetch('/api/rd-contact-sync-run', {
+          method: 'POST',
+          body: JSON.stringify({ max_visitors: BATCH_SIZE })
+        });
+
+        if (!data.ok) {
+          Utils.toast(`Erro no batch ${iteration}: ${data.message}`);
+          break;
+        }
+
+        if (iteration === 1) {
+          totalInitial = (data.processed || 0) + (data.pendingRemaining || 0);
+          App.state.rdSyncProgress.total = totalInitial;
+        }
+
+        totalSynced += data.synced || 0;
+        totalFailed += data.failed || 0;
+        totalRateLimit += data.rateLimit || 0;
+
+        App.state.rdSyncProgress.done = totalInitial - (data.pendingRemaining || 0);
+        App.render();
+
+        if ((data.pendingRemaining || 0) === 0) break;
+        if ((data.processed || 0) === 0) break;
+        // Se ficou rate-limited muito, para e avisa
+        if (totalRateLimit > 10) {
+          Utils.toast(`Pausando: ${totalRateLimit} rate-limit do RD CRM. Tente de novo em 1-2min.`);
+          break;
+        }
       }
-      const parts = [`✓ ${data.synced} sincronizado(s)`];
-      if (data.failed) parts.push(`${data.failed} falharam`);
-      if (data.rateLimit) parts.push(`${data.rateLimit} rate-limit (tente de novo em 1min)`);
-      Utils.toast(parts.join(' · '));
+
+      if (totalInitial === 0) {
+        Utils.toast('Nenhum contato pendente de sync com RD CRM.');
+      } else {
+        const parts = [`✓ ${totalSynced} de ${totalInitial} sincronizado(s)`];
+        if (totalFailed) parts.push(`${totalFailed} falharam`);
+        if (totalRateLimit) parts.push(`${totalRateLimit} rate-limit`);
+        if (iteration > 1) parts.push(`em ${iteration} lotes`);
+        Utils.toast(parts.join(' · '));
+      }
+
       await Actions.loadPendingCounts();
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     } finally {
       App.state._rdContactSyncRunning = false;
+      App.state.rdSyncProgress = { running: false, total: 0, done: 0, currentBatch: 0 };
       App.render();
     }
   },
