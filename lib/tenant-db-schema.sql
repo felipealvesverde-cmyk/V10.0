@@ -258,6 +258,9 @@ ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_contact_id VARCHAR(
 ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_deal_id VARCHAR(64);
 ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_sync_status VARCHAR(16);  -- 'pending'|'synced'|'error'|'skipped'
 ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_sync_error TEXT;
+-- V34.8.8 — Expand pra caber 'pending-contact-update' (22 chars). Idempotente:
+-- ALTER COLUMN TYPE VARCHAR(maior) é seguro mesmo se já está no tamanho.
+ALTER TABLE lj_visitors ALTER COLUMN external_rd_sync_status TYPE VARCHAR(64);
 ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_rd_synced_at TIMESTAMPTZ;
 ALTER TABLE lj_visitors ADD COLUMN IF NOT EXISTS external_hotmart_purchase_id VARCHAR(128);  -- preenchido em Onda 2
 
