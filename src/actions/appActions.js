@@ -11019,6 +11019,24 @@ Object.assign(Actions, {
       if (data.markedForRdSync) parts.push(`${data.markedForRdSync} marcados pra sync RD`);
       Utils.toast(parts.join(' · '));
       await Actions.loadPendingCounts();
+
+      // V34.7.h.4 — UI dos Leads não reflete os novos nomes porque o enrich
+      // atualizou só lj_visitors no DB. Re-fetcha as fontes pertinentes:
+      //  - Se há visitorSearchResults ativo (Buscador V34), re-roda a busca.
+      //  - Se há campaignPipelineCounts (Journey Pipeline), repuxa pra refletir.
+      if (data.enriched > 0) {
+        try {
+          const sr = App.state.visitorSearchResults;
+          if (sr?.loadedAt) {
+            await Actions._runVisitorSearch(sr.bankIds);
+          }
+        } catch (refreshErr) {
+          console.warn('[triggerEnrichNames] refresh falhou:', refreshErr.message);
+        }
+        // Para o caminho legacy "Leads Globais" (App.state.manualLeads), o
+        // refresh real exige F5. Aviso o user sutilmente no próximo render.
+        Utils.toast('Dica: se algum nome antigo ainda aparecer, recarregue (F5) — o DB já foi atualizado.', { duration: 6000 });
+      }
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     } finally {
