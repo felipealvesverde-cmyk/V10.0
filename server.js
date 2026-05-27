@@ -403,53 +403,11 @@ async function runMigrations() {
       console.error('[migrations] V31 multi-tenancy FALHOU (continuando assim mesmo):', err.message);
     }
 
-    // V31.0.10 — Demo seed isolado em try-catch + logging detalhado.
-    // Se algo falhar, NÃO bloqueia as migrations principais.
-    try {
-      console.log('[demo-seed] Começando...');
-      const DEMO_USERNAME = 'demo@leadjourney.app';
-      const DEMO_PASSWORD = 'lj-demo-2026';
-      const demoHash = await bcrypt.hash(DEMO_PASSWORD, 10);
-      await client.query(`
-        INSERT INTO users (username, email, password_hash, is_master, is_approved, mode)
-        VALUES ($1, $1, $2, FALSE, TRUE, 'demo')
-        ON CONFLICT (username) DO UPDATE SET is_approved = TRUE, mode = 'demo'
-      `, [DEMO_USERNAME, demoHash]);
-      console.log('[demo-seed] User demo upsertado.');
-
-      const { buildEngenhoNorteState, DEMO_SEED_VERSION } = require('./scripts/seed-demo-engenho-norte');
-      console.log(`[demo-seed] DEMO_SEED_VERSION alvo: ${DEMO_SEED_VERSION}`);
-      const demoUserRow = await client.query('SELECT id FROM users WHERE username = $1', [DEMO_USERNAME]);
-      const demoUserId = demoUserRow.rows[0]?.id;
-      console.log(`[demo-seed] demoUserId: ${demoUserId}`);
-      if (demoUserId) {
-        const existing = await client.query('SELECT state_json FROM journey_state WHERE user_id = $1', [demoUserId]);
-        const existingVersion = existing.rows[0]?.state_json?.__demoSeed || null;
-        const needsSeed = !existing.rows.length || existingVersion !== DEMO_SEED_VERSION;
-        console.log(`[demo-seed] Existing version: ${existingVersion || '<nenhuma>'} · Precisa re-seedar: ${needsSeed}`);
-        if (needsSeed) {
-          const seedState = buildEngenhoNorteState();
-          await client.query(
-            `INSERT INTO journey_state (user_id, state_json, updated_at, updated_by_user_id)
-             VALUES ($1, $2, NOW(), $1)
-             ON CONFLICT (user_id) DO UPDATE SET
-               state_json = EXCLUDED.state_json,
-               updated_at = NOW(),
-               updated_by_user_id = EXCLUDED.updated_by_user_id`,
-            [demoUserId, seedState]
-          );
-          const reason = !existing.rows.length ? 'novo' : `re-seed (${existingVersion} → ${DEMO_SEED_VERSION})`;
-          console.log(`[demo-seed] ✓ Engenho Norte aplicado pro user demo (id=${demoUserId}, ${reason}).`);
-        } else {
-          console.log(`[demo-seed] ✓ State já está em ${DEMO_SEED_VERSION} — seed pulado.`);
-        }
-      } else {
-        console.warn('[demo-seed] User demo não encontrado após upsert — seed pulado.');
-      }
-    } catch (err) {
-      console.error('[demo-seed] FALHOU:', err.message);
-      console.error('[demo-seed] Stack:', err.stack);
-    }
+    // V34.7.h.2 — Demo seed automático REMOVIDO (Felipe revogou demo@leadjourney.app).
+    // Se algum dia voltar a precisar de conta de demonstração, recriar via
+    // /api/admin-reseed-demo (endpoint manual) em vez de seedar no startup.
+    // Histórico antigo: bcrypt('lj-demo-2026') + state Engenho Norte. Ver
+    // scripts/seed-demo-engenho-norte.js — preservado mas não é mais chamado.
 
     // V32.0.2 — Global Mode tenant seed (REVISADO).
     // Modelo correto de quem-é-quem:
