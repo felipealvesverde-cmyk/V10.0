@@ -88,6 +88,8 @@ window.SubStageFunnelModal = {
   _row(sub, idx, total, color, isSaving) {
     const widthPct = 100 - (idx / Math.max(total - 1, 1)) * 35;  // 100 → 65
     const isDefault = idx === 0;
+    const hasError = Boolean(sub._tagError);
+    const tagInputClasses = `flex-1 px-2 py-1 rounded-lg bg-slate-50 border text-xs font-bold text-slate-800 focus:bg-white focus:border-slate-400 outline-none ${hasError ? 'border-red-400' : 'border-slate-200'}`;
     return `<div class="relative mx-auto" style="width:${widthPct}%;">
       <div class="rounded-2xl bg-white border-2 p-3 shadow-sm" style="border-color:${color.hex}30;">
         ${isDefault ? `<span class="absolute -top-2 right-3 px-2 py-0.5 rounded-full bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest" style="color:#fff;">Entrada padrão</span>` : ''}
@@ -111,17 +113,50 @@ window.SubStageFunnelModal = {
                 value="${Utils.escape(sub.tag_trigger || '')}"
                 placeholder="${isDefault ? 'nenhuma (entrada padrão)' : 'ex: proposta-enviada'}"
                 oninput="Actions.updateSubStageLocal(${sub.id}, 'tag_trigger', this.value.toLowerCase())"
-                class="flex-1 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:bg-white focus:border-slate-400 outline-none"
+                data-substage-tag-input="${sub.id}"
+                class="${tagInputClasses}"
               />
               ${isSaving ? `<span class="text-[10px] text-emerald-600 font-black">salvando…</span>` : ''}
             </div>
+            <p id="substage-tag-err-${sub.id}" class="text-[10px] text-red-600 font-black ${hasError ? '' : 'hidden'}">${Utils.escape(sub._tagError || '')}</p>
           </div>
           <div class="shrink-0 flex flex-col gap-1">
+            <button onclick="Actions.toggleSubStageLeads(${sub.id})" title="${sub._expanded ? 'Esconder leads' : 'Ver leads neste sub-stage'}" class="p-1.5 rounded-lg hover:bg-slate-100" style="color:${color.hex};">
+              <i data-lucide="${sub._expanded ? 'chevron-up' : 'users'}" class="w-3.5 h-3.5"></i>
+            </button>
             <button onclick="Actions.deleteSubStage(${sub.id})" title="Remover sub-stage" class="p-1.5 rounded-lg text-red-500 hover:bg-red-50">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
           </div>
         </div>
+        ${sub._expanded ? this._leadsList(sub, color) : ''}
+      </div>
+    </div>`;
+  },
+
+  // V34.9.21 — Painel expansível com leads daquele sub-stage.
+  _leadsList(sub, color) {
+    if (sub._leads === null || sub._leads === undefined) {
+      return `<div class="mt-3 pt-3 border-t border-slate-100">
+        <p class="text-[11px] text-slate-500 text-center py-2">Carregando leads…</p>
+      </div>`;
+    }
+    if (!sub._leads.length) {
+      return `<div class="mt-3 pt-3 border-t border-slate-100">
+        <p class="text-[11px] text-slate-500 italic text-center py-2">Nenhum lead neste sub-stage ainda.</p>
+      </div>`;
+    }
+    return `<div class="mt-3 pt-3 border-t border-slate-100">
+      <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">${sub._leads.length} lead(s) aqui</p>
+      <div class="space-y-1 max-h-48 overflow-y-auto">
+        ${sub._leads.map(lead => `<div class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-100 text-xs hover:bg-white transition">
+          <div class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${color.hex};"></div>
+          <div class="min-w-0 flex-1">
+            <p class="font-black text-slate-900 truncate">${Utils.escape(lead.name || lead.email || lead.lj_visitor_id || 'Sem nome')}</p>
+            <p class="text-[10px] text-slate-500 truncate">${Utils.escape(lead.email || '')}${lead.phone ? ' · ' + Utils.escape(lead.phone) : ''}</p>
+          </div>
+          <span class="text-[10px] font-black text-slate-600 shrink-0">${lead.global_score || 0}</span>
+        </div>`).join('')}
       </div>
     </div>`;
   }
