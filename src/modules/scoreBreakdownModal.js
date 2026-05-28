@@ -53,8 +53,11 @@ window.ScoreBreakdownModal = {
   },
 
   _body(d) {
+    const model = d.activeModel || 'rfv';
     return `
-      ${this._componentsCard(d.components, d.weights)}
+      ${this._modelBadge(model)}
+      ${model === 'rfv' ? this._componentsCard(d.components, d.weights) : ''}
+      ${(model === 'criteria' || model === 'hybrid') ? this._criteriaCard(d.criteria) : ''}
       ${this._scoreFlowCard(d.score, d.visitor)}
       ${this._countsCard(d.counts)}
       ${this._tagsCard(d.items.tags || [])}
@@ -63,6 +66,42 @@ window.ScoreBreakdownModal = {
       ${this._transitionsCard(d.items.transitions || [])}
       ${this._campaignScoresCard(d.campaignScores || [])}
     `;
+  },
+
+  // V34.9.10.4 — Badge no topo identificando qual modelo está ativo
+  _modelBadge(model) {
+    const map = {
+      rfv: { label: 'Modelo RFV', desc: 'Recência × Frequência × Volume', color: 'violet' },
+      criteria: { label: 'Modelo Critérios', desc: 'Soma de pontos por regra', color: 'amber' },
+      hybrid: { label: 'Modelo Híbrido', desc: 'Média RFV + Critérios', color: 'emerald' }
+    };
+    const m = map[model] || map.rfv;
+    return `<div class="rounded-2xl bg-${m.color}-50 border-2 border-${m.color}-200 p-3 flex items-center gap-2">
+      <i data-lucide="gauge" class="w-4 h-4 text-${m.color}-700"></i>
+      <span class="text-sm font-black text-${m.color}-900">${m.label}</span>
+      <span class="text-xs text-${m.color}-700">· ${m.desc}</span>
+    </div>`;
+  },
+
+  // V34.9.10.4 — Card do modelo Critérios: lista de regras que dispararam
+  _criteriaCard(c) {
+    if (!c) return '';
+    return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
+      <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest mb-3">Cálculo Critérios</h4>
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-black text-slate-700">Regras que dispararam: ${c.hits || 0}</span>
+        <span class="text-sm font-black text-amber-700">${c.totalPoints >= 0 ? '+' : ''}${c.totalPoints || 0} pts</span>
+      </div>
+      ${Array.isArray(c.breakdown) && c.breakdown.length ? `
+        <div class="space-y-1.5 max-h-48 overflow-y-auto">
+          ${c.breakdown.map(b => `<div class="flex items-center gap-2 p-2 rounded-lg bg-amber-50 border border-amber-100 text-xs">
+            <span class="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black">${Utils.escape(b.type)}</span>
+            <span class="font-bold text-slate-700 truncate flex-1">${Utils.escape(b.param || '(qualquer)')}</span>
+            <span class="font-black text-amber-700">${b.points >= 0 ? '+' : ''}${b.points}</span>
+          </div>`).join('')}
+        </div>
+      ` : '<p class="text-xs text-slate-500 italic">Nenhuma regra disparou para esse lead.</p>'}
+    </div>`;
   },
 
   _tier(score) {

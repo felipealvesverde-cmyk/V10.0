@@ -6127,8 +6127,20 @@ Object.assign(Actions, {
       const data = await res.json();
       if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
       App.state.scoreConfigModal = { ...(App.state.scoreConfigModal || {}), activeModel: data.model };
-      Utils.toast(`✓ Modelo de score: ${data.model}`);
+      Utils.toast(`✓ Modelo de score: ${data.model}. Recalculando todos os leads…`);
       App.render();
+      // V34.9.10.4 — Dispara recálculo em batch pra refletir nos scores existentes
+      try {
+        const r = await fetch('/api/score-recalc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ batch_decay: true, max_visitors: 1000 })
+        });
+        const rd = await r.json();
+        if (rd.ok) {
+          Utils.toast(`✓ ${rd.processed || 0} lead(s) recalculados com modelo ${data.model}.`);
+        }
+      } catch (_) {}
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     }
