@@ -368,6 +368,17 @@ var State = {
         loading: false,
         data: null
       },
+      // V34.9.20 — Modal Sub-Funil: ao clicar numa bolinha do Revenue Flow Map
+      // (com campanha selecionada), abre editor do mini-funil daquela bolinha
+      // naquela campanha. Cada linha = um sub-stage (nome + tag + contagem).
+      subStageFunnelModal: {
+        open: false,
+        campaignId: null,
+        parentStage: null,
+        substages: [],
+        loading: false,
+        savingId: null
+      },
       // V34.0.0 Onda 6.d — Counts agregados pra "sininho" no menu Leads.
       // duplicateGroupsTotal>0 destaca botão Duplicatas com badge âmbar.
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
@@ -903,6 +914,17 @@ var State = {
         visitorId: null,
         loading: false,
         data: null
+      },
+      // V34.9.20 — Modal Sub-Funil: ao clicar numa bolinha do Revenue Flow Map
+      // (com campanha selecionada), abre editor do mini-funil daquela bolinha
+      // naquela campanha. Cada linha = um sub-stage (nome + tag + contagem).
+      subStageFunnelModal: {
+        open: false,
+        campaignId: null,
+        parentStage: null,
+        substages: [],
+        loading: false,
+        savingId: null
       },
       // V34.0.0 Onda 6.d — Counts volátil (re-fetch periódico).
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },

@@ -537,6 +537,29 @@ CREATE INDEX IF NOT EXISTS idx_vcs_visitor ON lj_visitor_campaign_state(user_id,
 CREATE INDEX IF NOT EXISTS idx_vcs_campaign ON lj_visitor_campaign_state(user_id, campaign_id);
 CREATE INDEX IF NOT EXISTS idx_vcs_stage ON lj_visitor_campaign_state(user_id, campaign_id, current_stage);
 
+-- V34.9.20 — Sub-stages (mini-funil editável por (campanha × bolinha do Revenue Flow Map)).
+-- Cada campanha pode definir N sub-stages dentro de cada um dos 9 estágios fixos
+-- (marketing-tof, marketing-mof, ..., cs-bof). Sub-stage 1 (order_idx = 0) é a
+-- "entrada padrão" — lead sem tag de sub-stage cai aqui. Avança quando ganha tag
+-- de sub-stage com order_idx maior. Não retrocede por tag. Tag macro vence.
+CREATE TABLE IF NOT EXISTS lj_substages (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  campaign_id BIGINT NOT NULL,
+  parent_stage VARCHAR(32) NOT NULL,    -- 'marketing-tof' | 'vendas-bof' | etc
+  order_idx INT NOT NULL DEFAULT 0,
+  name VARCHAR(120) NOT NULL,
+  tag_trigger VARCHAR(120),             -- tag que move lead pra esse sub-stage (nullable no order_idx 0)
+  color VARCHAR(16),                    -- override opcional (default herda cor da bolinha pai)
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  CONSTRAINT lj_substages_uniq_tag UNIQUE (user_id, campaign_id, parent_stage, tag_trigger)
+);
+CREATE INDEX IF NOT EXISTS idx_substages_lookup ON lj_substages(user_id, campaign_id, parent_stage);
+CREATE INDEX IF NOT EXISTS idx_substages_tag ON lj_substages(user_id, tag_trigger);
+ALTER TABLE lj_visitor_campaign_state ADD COLUMN IF NOT EXISTS substage_id BIGINT;
+CREATE INDEX IF NOT EXISTS idx_vcs_substage ON lj_visitor_campaign_state(user_id, campaign_id, substage_id);
+
 -- V34.0.0 — Audit log permanente de merges entre visitors.
 -- Append-only. Cada row registra um par (survivor, deleted) com motivo.
 -- Permite rastreabilidade total de identity resolution (cravado V34 plan
