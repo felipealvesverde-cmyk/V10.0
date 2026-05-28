@@ -171,7 +171,7 @@ module.exports = async function handler(req, res) {
     for (let i = 0; i < visitorIds.length; i += PARALLEL) {
       const slice = visitorIds.slice(i, i + PARALLEL);
       await Promise.allSettled(slice.map(vid =>
-        applyEvent(req.tenantDb, userId, vid, { source: 'impute', campaignId, movedStage: true })
+        applyEvent(req.tenantDb, userId, vid, { source: 'impute', campaignId, movedStage: true }, { masterDb: req.db })
       ));
     }
   } catch (err) {

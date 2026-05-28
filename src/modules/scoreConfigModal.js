@@ -97,7 +97,7 @@ window.ScoreConfigModal = {
     return `<button onclick="Actions.setScoreSubTab('${value}')" class="flex-1 px-4 py-2 rounded-xl text-xs font-black ${isActive ? 'bg-slate-900 text-white' : 'bg-transparent text-slate-700 hover:bg-slate-100'}">${label}</button>`;
   },
 
-  // V34.9.10 — Aba Settings: seleção de modelo + regras (modo Critérios)
+  // V34.9.10.2 — Aba Settings: pílula horizontal de modelos + botão Editar amarelo
   _renderSettingsTab() {
     const m = App.state.scoreConfigModal;
     const model = m.activeModel || 'rfv';
@@ -107,12 +107,9 @@ window.ScoreConfigModal = {
     return `<div class="space-y-4">
       <div class="rounded-2xl bg-white border border-slate-200 p-5">
         <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest mb-3">Modelo de Score Ativo</h4>
-        <p class="text-xs text-slate-500 mb-3">Define como o score do lead é calculado. Mudança requer master.</p>
-        <div class="space-y-2">
-          ${this._modelOption('rfv', 'RFV (Recência, Frequência, Volume)', 'Fórmula estatística automática. Não exige configuração. Detecta engajamento natural.', model)}
-          ${this._modelOption('criteria', 'Critérios (HubSpot-style)', 'Cliente define regras "tag X = +20 pontos". Somatório de pontos. Mais controle, mais configuração.', model)}
-          ${this._modelOption('hybrid', 'Híbrido (em construção)', 'Combinação dos dois com pesos editáveis.', model, true)}
-        </div>
+        <p class="text-xs text-slate-500 mb-3">Quando você ativa um modelo, ele passa a valer pra base global E pra todas as campanhas. Substitui o mecanismo de soma anterior.</p>
+        ${this._modelPill(model)}
+        ${this._activeModelDescription(model)}
       </div>
 
       ${model === 'rfv' ? this._renderRfvSettingsCard() : ''}
@@ -120,20 +117,41 @@ window.ScoreConfigModal = {
     </div>`;
   },
 
-  _modelOption(value, label, desc, active, disabled = false) {
-    const isActive = value === active;
-    const cls = disabled ? 'opacity-60 cursor-not-allowed'
-              : isActive ? 'border-violet-500 bg-violet-50'
-              : 'border-slate-200 hover:border-slate-300 cursor-pointer';
-    const onClick = disabled ? '' : `onclick="Actions.setActiveScoreModel('${value}')"`;
-    return `<div ${onClick} class="rounded-2xl border-2 ${cls} p-3 transition">
-      <div class="flex items-center gap-2 mb-1">
-        <span class="w-4 h-4 rounded-full border-2 ${isActive ? 'border-violet-600 bg-violet-600' : 'border-slate-300'}"></span>
-        <span class="text-sm font-black text-slate-900">${label}</span>
-        ${disabled ? `<span class="ml-auto text-[10px] text-amber-700 font-black">EM CONSTRUÇÃO</span>` : ''}
-      </div>
-      <p class="text-xs text-slate-600 ml-6">${desc}</p>
+  // Pílula segmentada com 3 modelos + botão "Editar" amarelo na ponta
+  _modelPill(active) {
+    const segments = [
+      { value: 'rfv',      label: 'RFV',       disabled: false },
+      { value: 'criteria', label: 'Critérios', disabled: false },
+      { value: 'hybrid',   label: 'Híbrido',   disabled: true }
+    ];
+    return `<div class="flex items-stretch rounded-full bg-slate-100 border border-slate-200 p-1 overflow-hidden">
+      ${segments.map(s => {
+        const isActive = s.value === active;
+        const baseCls = 'flex-1 px-4 py-2 text-xs font-black text-center transition rounded-full';
+        if (s.disabled) {
+          return `<div class="${baseCls} text-slate-400 cursor-not-allowed" title="Em construção">${s.label}</div>`;
+        }
+        if (isActive) {
+          return `<div class="${baseCls} bg-slate-900 text-white" style="color:#fff;">${s.label}</div>`;
+        }
+        return `<button onclick="Actions.setActiveScoreModel('${s.value}')" class="${baseCls} text-slate-700 hover:bg-slate-200">${s.label}</button>`;
+      }).join('')}
+      <button onclick="Actions.setScoreConfigTab('settings'); document.querySelector('.score-rules-section')?.scrollIntoView({behavior:'smooth'})"
+              class="px-4 py-2 ml-1 rounded-full bg-amber-400 hover:bg-amber-500 text-amber-900 text-xs font-black flex items-center gap-1"
+              title="Configurar regras">
+        <i data-lucide="edit-3" class="w-3 h-3"></i>
+        Editar
+      </button>
     </div>`;
+  },
+
+  _activeModelDescription(model) {
+    const desc = {
+      rfv: 'Fórmula estatística automática (Recência × Frequência × Volume). Não exige configuração — detecta engajamento natural dos sinais agregados.',
+      criteria: 'Você define regras explícitas ("tag X = +20", "form Y = +50", "tag perdido = -100"). Score é a soma de todos os pontos disparados.',
+      hybrid: 'Combina RFV + Critérios com pesos editáveis. EM CONSTRUÇÃO.'
+    };
+    return `<p class="text-xs text-slate-600 mt-3">${desc[model] || ''}</p>`;
   },
 
   _renderRfvSettingsCard() {
@@ -165,7 +183,7 @@ window.ScoreConfigModal = {
       { value: 'intent', label: 'Intenção' }
     ];
 
-    return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
+    return `<div class="rounded-2xl bg-white border border-slate-200 p-5 score-rules-section">
       <div class="flex items-center justify-between mb-3">
         <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">Regras de Pontuação</h4>
         ${!draft ? `<button onclick="Actions.startScoreRuleDraft()" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff;"><i data-lucide="plus" class="w-3 h-3"></i> Adicionar regra</button>` : ''}

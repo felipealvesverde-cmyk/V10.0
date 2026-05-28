@@ -202,7 +202,7 @@ async function handleTagSync(controlPlaneDb, userId, entry) {
   // Em background pra não atrasar a resposta ao RD.
   try {
     const { applyEvent } = require('../lib/score-engine');
-    await applyEvent(tenantDb, userId, ljVisitorId, { source: 'rd-webhook', isAdded, isRemoved });
+    await applyEvent(tenantDb, userId, ljVisitorId, { source: 'rd-webhook', isAdded, isRemoved }, { masterDb: controlPlaneDb });
   } catch (err) {
     console.warn('[rd-webhook tag-sync] applyEvent score err:', err.message);
   }
