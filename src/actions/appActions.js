@@ -528,7 +528,9 @@ Object.assign(Actions, {
       name: p.name || null,
       email: p.email || null,
       phone: p.phone || null,
-      tags: String(p.tags || '').split(/\s+/).map(t => t.replace(/^#/, '').trim()).filter(Boolean),
+      // V34.9.8.2 — Split por vírgula/ponto-e-vírgula (não whitespace).
+      // Antes: split(/\s+/) quebrava tags com espaço tipo "email ativo" em duas.
+      tags: String(p.tags || '').split(/[,;]/).map(t => t.replace(/^#/, '').trim()).filter(Boolean),
       idade: p.idade || null,
       estado: p.estado || null,
       cidade: p.cidade || null,

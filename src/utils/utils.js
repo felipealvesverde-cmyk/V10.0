@@ -78,7 +78,8 @@ var Utils = {
         const n = Number(value) || 0;
         return 'R$ ' + this.formatCents(n);
       },
-      splitCsvLine(line) {
+      // V34.9.9 — Aceita separador customizado (default = vírgula). Use TAB pra TSV.
+      splitCsvLine(line, separator = ',') {
         const result = [];
         let current = '';
         let inQuotes = false;
@@ -87,11 +88,19 @@ var Utils = {
           const nextChar = line[i + 1];
           if (char === '"' && inQuotes && nextChar === '"') { current += '"'; i++; }
           else if (char === '"') inQuotes = !inQuotes;
-          else if (char === ',' && !inQuotes) { result.push(current); current = ''; }
+          else if (char === separator && !inQuotes) { result.push(current); current = ''; }
           else current += char;
         }
         result.push(current);
         return result;
+      },
+      // V34.9.9 — Detecta automaticamente o separador (CSV vs TSV).
+      // Olha a primeira linha não-vazia: se tem mais TABs que vírgulas → TSV.
+      detectCsvSeparator(text) {
+        const firstLine = String(text || '').split(/\r?\n/).map(l => l.trim()).find(Boolean) || '';
+        const tabCount = (firstLine.match(/\t/g) || []).length;
+        const commaCount = (firstLine.match(/,/g) || []).length;
+        return tabCount > commaCount ? '\t' : ',';
       }
     };
 window.Utils = Utils;
