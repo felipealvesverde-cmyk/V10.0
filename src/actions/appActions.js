@@ -6269,12 +6269,23 @@ Object.assign(Actions, {
   // Estrutura: icpDraft.tier_rules_json = { tier_1: [[cond, cond], [cond]], tier_2: [...], tier_3: [...] }
   // Cada tier tem grupos AND (OR entre grupos).
 
+  // V34.9.14 — Preserva scroll do modal entre renders pra evitar pulos visuais.
+  _renderPreservingScroll() {
+    const backdrop = document.getElementById('scoreConfigBackdrop');
+    const scrollTop = backdrop?.scrollTop || 0;
+    App.render();
+    requestAnimationFrame(() => {
+      const newBackdrop = document.getElementById('scoreConfigBackdrop');
+      if (newBackdrop) newBackdrop.scrollTop = scrollTop;
+    });
+  },
+
   setIcpDraftTierMethod(method) {
     const d = App.state.scoreConfigModal?.icpDraft;
     if (!d) return;
     d.tier_method = (method === 'rules') ? 'rules' : 'percentage';
     if (!d.tier_rules_json) d.tier_rules_json = { tier_1: [], tier_2: [], tier_3: [] };
-    App.render();
+    Actions._renderPreservingScroll();
   },
 
   _ensureTierRules(d) {
@@ -6290,7 +6301,7 @@ Object.assign(Actions, {
     if (!d) return;
     const rules = Actions._ensureTierRules(d);
     rules[`tier_${tier}`].push([{ field: 'estado', op: '=', value: '' }]);
-    App.render();
+    Actions._renderPreservingScroll();
   },
 
   removeTierRuleGroup(tier, groupIndex) {
@@ -6298,7 +6309,7 @@ Object.assign(Actions, {
     if (!d) return;
     const rules = Actions._ensureTierRules(d);
     rules[`tier_${tier}`].splice(groupIndex, 1);
-    App.render();
+    Actions._renderPreservingScroll();
   },
 
   addTierRuleCondition(tier, groupIndex) {
@@ -6308,7 +6319,7 @@ Object.assign(Actions, {
     const group = rules[`tier_${tier}`][groupIndex];
     if (!group) return;
     group.push({ field: 'estado', op: '=', value: '' });
-    App.render();
+    Actions._renderPreservingScroll();
   },
 
   removeTierRuleCondition(tier, groupIndex, condIndex) {
@@ -6319,7 +6330,7 @@ Object.assign(Actions, {
     if (!group) return;
     group.splice(condIndex, 1);
     if (group.length === 0) rules[`tier_${tier}`].splice(groupIndex, 1);
-    App.render();
+    Actions._renderPreservingScroll();
   },
 
   updateTierRuleCondition(tier, groupIndex, condIndex, key, value) {
@@ -6336,7 +6347,7 @@ Object.assign(Actions, {
       cond[key] = value;
     }
     // Render só em mudança de operador/campo (não em valor — perderia foco)
-    if (key !== 'value') App.render();
+    if (key !== 'value') Actions._renderPreservingScroll();
   },
 
   async saveIcpDraft() {
