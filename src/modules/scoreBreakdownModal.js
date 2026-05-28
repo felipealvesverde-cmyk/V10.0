@@ -83,20 +83,38 @@ window.ScoreBreakdownModal = {
     </div>`;
   },
 
-  // V34.9.10.4 — Card do modelo Critérios: lista de regras que dispararam
+  // V34.9.10.6 — Card do modelo Critérios HubSpot puro:
+  // pontos diretos + subtotais por categoria + lista de regras disparadas
   _criteriaCard(c) {
     if (!c) return '';
+    const cat = c.byCategory || {};
+    const catLabels = { engagement: 'Engajamento', fit: 'Fit (ICP)', intent: 'Intenção', uncategorized: 'Sem categoria' };
+    const catColors = { engagement: 'sky', fit: 'violet', intent: 'emerald', uncategorized: 'slate' };
     return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
-      <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest mb-3">Cálculo Critérios</h4>
-      <div class="flex items-center justify-between mb-2">
-        <span class="text-xs font-black text-slate-700">Regras que dispararam: ${c.hits || 0}</span>
-        <span class="text-sm font-black text-amber-700">${c.totalPoints >= 0 ? '+' : ''}${c.totalPoints || 0} pts</span>
+      <div class="flex items-center justify-between mb-3">
+        <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">Cálculo Critérios</h4>
+        <div class="text-right">
+          <p class="text-2xl font-black text-amber-700">${c.totalPoints >= 0 ? '+' : ''}${c.totalPoints || 0} pts</p>
+          <p class="text-[10px] text-slate-500">${c.hits || 0} regra(s) disparou</p>
+        </div>
       </div>
+
+      ${Object.keys(cat).some(k => cat[k]) ? `
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+          ${['engagement', 'fit', 'intent', 'uncategorized'].filter(k => cat[k]).map(k => `<div class="rounded-xl bg-${catColors[k]}-50 border border-${catColors[k]}-200 p-2 text-center">
+            <p class="text-[9px] font-black text-${catColors[k]}-700 uppercase tracking-widest">${catLabels[k]}</p>
+            <p class="text-lg font-black text-${catColors[k]}-900">${cat[k] >= 0 ? '+' : ''}${cat[k]}</p>
+          </div>`).join('')}
+        </div>
+      ` : ''}
+
       ${Array.isArray(c.breakdown) && c.breakdown.length ? `
+        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Regras disparadas:</p>
         <div class="space-y-1.5 max-h-48 overflow-y-auto">
           ${c.breakdown.map(b => `<div class="flex items-center gap-2 p-2 rounded-lg bg-amber-50 border border-amber-100 text-xs">
             <span class="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-black">${Utils.escape(b.type)}</span>
             <span class="font-bold text-slate-700 truncate flex-1">${Utils.escape(b.param || '(qualquer)')}</span>
+            ${b.category ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-${catColors[b.category] || 'slate'}-100 text-${catColors[b.category] || 'slate'}-700 font-black">${catLabels[b.category]}</span>` : ''}
             <span class="font-black text-amber-700">${b.points >= 0 ? '+' : ''}${b.points}</span>
           </div>`).join('')}
         </div>
@@ -143,11 +161,20 @@ window.ScoreBreakdownModal = {
 
   _scoreFlowCard(s, v) {
     if (!s) return '';
-    // V34.9.10.5 — Mostra fórmula adequada baseado no modelo
     const model = s.model || 'rfv';
-    const formulaLabel = model === 'criteria' ? 'Soma de pontos ÷ 1000 ='
-                       : model === 'hybrid'    ? '(RFV + Critérios) ÷ 2 ='
-                       : 'R×pR + F×pF + V×pV =';
+    // V34.9.10.6 — Modo Critérios: HubSpot puro, mostra só pontos diretos.
+    if (model === 'criteria') {
+      return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
+        <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest mb-3">Score Final</h4>
+        <div class="flex items-center justify-between">
+          <span class="text-slate-700 font-black">Total de pontos:</span>
+          <strong class="text-3xl font-black text-amber-700">${s.final >= 0 ? '+' : ''}${s.final} pts</strong>
+        </div>
+        <p class="text-[11px] text-slate-500 mt-2">Modelo Critérios (HubSpot): pontos diretos, sem normalização nem hierarquia.</p>
+      </div>`;
+    }
+    // RFV e Hybrid mantêm normalização + clamp
+    const formulaLabel = model === 'hybrid' ? '(RFV + Critérios) ÷ 2 =' : 'R×pR + F×pF + V×pV =';
     return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
       <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest mb-3">Cálculo final do score</h4>
       <div class="space-y-2 text-sm font-mono">
