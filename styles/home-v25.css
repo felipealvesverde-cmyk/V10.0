@@ -387,6 +387,58 @@
 @media (max-width: 900px) {
   .lj-home-cards { grid-template-columns: 1fr; }
 }
+
+/* V34.9.15 — Fileira RevOps: 4 cards (CAC / Previsto×Realizado / TM / %Breakeven) */
+.lj-home-revops-cards {
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 14px;
+}
+@media (max-width: 1200px) {
+  .lj-home-revops-cards { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .lj-home-revops-cards { grid-template-columns: 1fr; }
+}
+.lj-revops-metric {
+  font-size: 26px;
+  font-weight: 900;
+  color: #f8fafc;
+  margin-top: 8px;
+  letter-spacing: -0.5px;
+}
+.lj-revops-metric-sub {
+  font-size: 11px;
+  color: rgba(148,163,184,.7);
+  margin-top: 4px;
+}
+.lj-revops-pct-ok    { color: #34d399; }
+.lj-revops-pct-bad   { color: #f87171; }
+.lj-revops-pct-neutral { color: #cbd5e1; }
+.lj-revops-pair {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.lj-revops-pair-col { flex: 1; min-width: 0; }
+.lj-revops-pair-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: rgba(148,163,184,.8);
+}
+.lj-revops-pair-value {
+  font-size: 22px;
+  font-weight: 900;
+  color: #f8fafc;
+  margin-top: 2px;
+}
+.lj-revops-pair-sep {
+  font-size: 18px;
+  font-weight: 900;
+  color: rgba(148,163,184,.5);
+}
 .lj-home-card {
   background: linear-gradient(135deg, rgba(30,41,59,.92), rgba(15,23,42,.96));
   border: 1px solid rgba(148,163,184,.16);
