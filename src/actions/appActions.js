@@ -6231,7 +6231,7 @@ Object.assign(Actions, {
 
   startIcpDraft() {
     const m = App.state.scoreConfigModal || {};
-    const profile = m.icpProfile || { fields_json: {}, scoring_method: 'multiplier', fit_max_bonus: 100 };
+    const profile = m.icpProfile || { fields_json: {} };
     App.state.scoreConfigModal = {
       ...m,
       icpDraft: JSON.parse(JSON.stringify(profile))
@@ -6257,19 +6257,6 @@ Object.assign(Actions, {
       fields[key] = value;
     }
     App.state.scoreConfigModal.icpDraft.fields_json = fields;
-  },
-
-  updateIcpDraftMethod(method) {
-    const d = App.state.scoreConfigModal?.icpDraft;
-    if (!d) return;
-    d.scoring_method = method;
-    App.render();
-  },
-
-  updateIcpDraftMaxBonus(value) {
-    const d = App.state.scoreConfigModal?.icpDraft;
-    if (!d) return;
-    d.fit_max_bonus = Number(value) || 100;
   },
 
   async saveIcpDraft() {

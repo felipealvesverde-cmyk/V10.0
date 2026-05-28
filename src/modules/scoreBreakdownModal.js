@@ -60,7 +60,6 @@ window.ScoreBreakdownModal = {
       ${model === 'rfv' ? this._componentsCard(d.components, d.weights) : ''}
       ${(model === 'criteria' || model === 'hybrid') ? this._criteriaCard(d.criteria) : ''}
       ${(model === 'criteria' || model === 'hybrid') ? this._fitCard(d.criteria?.fit) : ''}
-      ${(model === 'criteria' || model === 'hybrid') ? this._compositionCard(d.criteria) : ''}
       ${this._scoreFlowCard(d.score, d.visitor)}
       ${this._countsCard(d.counts)}
       ${this._tagsCard(d.items.tags || [])}
@@ -71,23 +70,34 @@ window.ScoreBreakdownModal = {
     `;
   },
 
-  // V34.9.11 — Card do ICP Fit (% de match do visitor com perfil ideal)
+  // V34.9.12 — Card do ICP Fit HubSpot-puro: TIER (1/2/3) em destaque,
+  // % é só metadata. Engagement Score e Fit ficam SEPARADOS — sem fórmula.
   _fitCard(fit) {
     if (!fit || fit.totalFields === 0) return '';
     const pct = Number(fit.fit_percentage || 0);
+    const tier = fit.tier || (pct >= 80 ? 1 : pct >= 50 ? 2 : 3);
     const matched = Number(fit.matchedFields || 0);
     const total = Number(fit.totalFields || 0);
-    const color = pct >= 70 ? 'violet' : pct >= 40 ? 'amber' : 'slate';
+    const tierMap = {
+      1: { label: 'Tier 1', sublabel: 'Best fit', color: 'emerald', icon: 'crown' },
+      2: { label: 'Tier 2', sublabel: 'Medium fit', color: 'amber', icon: 'medal' },
+      3: { label: 'Tier 3', sublabel: 'Low fit', color: 'slate', icon: 'circle-dashed' }
+    };
+    const t = tierMap[tier] || tierMap[3];
     return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">ICP Fit Score</h4>
+      <div class="flex items-center justify-between mb-4">
+        <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">ICP Fit</h4>
         <div class="text-right">
-          <p class="text-2xl font-black text-${color}-700">${pct}%</p>
-          <p class="text-[10px] text-slate-500">${matched} / ${total} campo(s) batem</p>
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-${t.color}-100 border-2 border-${t.color}-300">
+            <i data-lucide="${t.icon}" class="w-4 h-4 text-${t.color}-700"></i>
+            <span class="text-lg font-black text-${t.color}-900">${t.label}</span>
+            <span class="text-[10px] font-bold text-${t.color}-700">· ${t.sublabel}</span>
+          </div>
+          <p class="text-[10px] text-slate-500 mt-1">${pct}% · ${matched} / ${total} campo(s) batem</p>
         </div>
       </div>
       <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
-        <div class="h-full bg-${color}-500" style="width: ${pct}%"></div>
+        <div class="h-full bg-${t.color}-500" style="width: ${pct}%"></div>
       </div>
       ${Array.isArray(fit.breakdown) && fit.breakdown.length ? `
         <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Comparação campo a campo:</p>
@@ -101,39 +111,7 @@ window.ScoreBreakdownModal = {
           </div>`).join('')}
         </div>
       ` : ''}
-      <p class="text-[10px] text-slate-500 mt-2 italic">Método: ${Utils.escape(fit.scoring_method || 'multiplier')}${fit.scoring_method === 'sum' ? ` · bônus máx ${fit.fit_max_bonus || 100} pts` : ''}</p>
-    </div>`;
-  },
-
-  // V34.9.11 — Card de composição: Engagement + Fit Bonus = Final
-  _compositionCard(c) {
-    if (!c) return '';
-    const engagement = Number(c.engagement || 0);
-    const fitBonus = Number(c.fitBonus || 0);
-    const total = Number(c.totalPoints || 0);
-    const method = c.fit?.scoring_method || 'multiplier';
-    const methodLabel = method === 'multiplier'
-      ? `Engagement × (1 + Fit%) = ${engagement} × (1 + ${c.fit?.fit_percentage || 0}/100)`
-      : method === 'sum'
-      ? `Engagement + (Fit% × bônus máx) = ${engagement} + ${fitBonus}`
-      : `Engagement (sem fit)`;
-    return `<div class="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5">
-      <h4 class="text-xs font-black uppercase tracking-widest text-slate-300 mb-3">Composição do Score Final</h4>
-      <div class="grid grid-cols-3 gap-2 mb-3">
-        <div class="rounded-xl bg-white/10 p-3 text-center">
-          <p class="text-[10px] font-black text-sky-300 uppercase tracking-widest">Engagement</p>
-          <p class="text-2xl font-black text-white">${engagement >= 0 ? '+' : ''}${engagement}</p>
-        </div>
-        <div class="rounded-xl bg-white/10 p-3 text-center">
-          <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest">Fit Bonus</p>
-          <p class="text-2xl font-black text-white">${fitBonus >= 0 ? '+' : ''}${fitBonus}</p>
-        </div>
-        <div class="rounded-xl bg-amber-500/20 border border-amber-400/40 p-3 text-center">
-          <p class="text-[10px] font-black text-amber-300 uppercase tracking-widest">Total</p>
-          <p class="text-2xl font-black text-amber-200">${total >= 0 ? '+' : ''}${total}</p>
-        </div>
-      </div>
-      <p class="text-[11px] text-slate-300 font-mono">${Utils.escape(methodLabel)} = <strong class="text-amber-200">${total}</strong></p>
+      <p class="text-[10px] text-slate-500 mt-3 italic">Tier é indicador paralelo ao score — não soma nem multiplica pontos (HubSpot-style).</p>
     </div>`;
   },
 
