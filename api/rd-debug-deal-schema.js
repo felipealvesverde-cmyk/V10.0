@@ -44,20 +44,23 @@ module.exports = async function handler(req, res) {
   const firstStage = Array.isArray(stages) && stages[0] ? (stages[0].id || stages[0]._id) : '';
   if (!firstStage) return res.status(400).json({ ok: false, message: 'Pipeline sem stages.' });
 
-  // VARIANTE O: contacts com estrutura EXATA do schema (emails como array de objects)
+  // VARIANTE P: passa id + dados (RD pode respeitar id e não duplicar).
+  // contact_id opcional no body — se vier, inclui no contacts[0].
+  const contactExistingId = String(body.contact_id || '').trim();
+  const contactBlock = {
+    name: name || 'Sem nome',
+    emails: [{ email }],
+    ...(phone ? { phones: [{ phone, type: 'cellphone' }] } : {})
+  };
+  if (contactExistingId) contactBlock.id = contactExistingId;
+
   const dealBody = {
     deal: {
       name: prefix,
       user_id: rdUserId,
       deal_stage_id: firstStage
     },
-    contacts: [
-      {
-        name: name || 'Sem nome',
-        emails: [{ email }],
-        ...(phone ? { phones: [{ phone, type: 'cellphone' }] } : {})
-      }
-    ]
+    contacts: [contactBlock]
   };
 
   const create = await rdFetch('/deals', token, { method: 'POST', body: dealBody });
