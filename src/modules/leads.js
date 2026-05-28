@@ -38,6 +38,7 @@ var LeadsModule = {
 
     return heroAndTabs
       + this._campaignContextChips()
+      + this._subStageActiveBanner()
       + this.profileFinderUI(displayLeads, allLeads.length)
       + this.bankSelectionModal()
       + this.imputeCampaignModal()
@@ -91,6 +92,49 @@ var LeadsModule = {
   // V21 — Context chips: quando o Buscador foi aberto via "Buscar Leads Agora"
   // pós-criação de Revenue Score, mostra qual campanha/ICP está em foco e
   // permite limpar contexto. Sem contexto = Buscador normal.
+  // V35.0.0 — Banner do filtro ativo por sub-stage. Aparece quando user
+  // clica "Abrir no Buscador" no modal do sub-funil. Mostra lista de leads
+  // daquele sub-stage e botão pra remover o filtro.
+  _subStageActiveBanner() {
+    const f = App.state.subStageActiveFilter;
+    if (!f) return '';
+    const stageMap = {
+      'marketing-tof': 'Marketing TOF', 'marketing-mof': 'Marketing MOF', 'marketing-bof': 'Marketing BOF',
+      'vendas-tof': 'Vendas TOF', 'vendas-mof': 'Vendas MOF', 'vendas-bof': 'Vendas BOF',
+      'cs-tof': 'CS TOF', 'cs-mof': 'CS MOF', 'cs-bof': 'CS BOF'
+    };
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(f.campaignId));
+    const campName = campaign?.name || `Campanha ${f.campaignId}`;
+    const stageName = stageMap[f.parentStage] || f.parentStage;
+    return `<div class="bg-violet-50 border-2 border-violet-300 rounded-2xl p-4 mb-4">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 mb-1">
+            <i data-lucide="filter" class="w-4 h-4 text-violet-700"></i>
+            <span class="text-[10px] font-black text-violet-700 uppercase tracking-widest">Filtrado por sub-stage</span>
+          </div>
+          <p class="text-sm font-black text-slate-900">${Utils.escape(f.substageName)} <span class="text-slate-500 font-normal">· ${Utils.escape(stageName)} · ${Utils.escape(campName)}</span></p>
+          <p class="text-xs text-slate-600 mt-1">${f.loading ? 'Carregando…' : `${(f.leads || []).length} lead(s) neste sub-stage`}</p>
+        </div>
+        <button onclick="Actions.clearSubStageActiveFilter()" class="px-3 py-2 rounded-xl bg-white border-2 border-violet-300 hover:bg-violet-100 text-xs font-black text-violet-700 flex items-center gap-1.5">
+          <i data-lucide="x" class="w-3 h-3"></i>
+          Remover filtro
+        </button>
+      </div>
+      ${!f.loading && (f.leads || []).length ? `
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 max-h-72 overflow-y-auto">
+          ${f.leads.map(lead => `<div class="flex items-center gap-2 p-2 rounded-lg bg-white border border-violet-100 text-xs">
+            <div class="min-w-0 flex-1">
+              <p class="font-black text-slate-900 truncate">${Utils.escape(lead.name || lead.email || lead.lj_visitor_id || 'Sem nome')}</p>
+              <p class="text-[10px] text-slate-500 truncate">${Utils.escape(lead.email || '')}${lead.phone ? ' · ' + Utils.escape(lead.phone) : ''}</p>
+            </div>
+            <span class="text-[10px] font-black text-violet-700 shrink-0">${lead.global_score || 0}</span>
+          </div>`).join('')}
+        </div>
+      ` : ''}
+    </div>`;
+  },
+
   _campaignContextChips() {
     const campaignId = App.state.profileCampaignContext;
     if (!campaignId) return '';

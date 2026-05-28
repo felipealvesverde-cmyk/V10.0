@@ -560,6 +560,23 @@ CREATE INDEX IF NOT EXISTS idx_substages_tag ON lj_substages(user_id, tag_trigge
 ALTER TABLE lj_visitor_campaign_state ADD COLUMN IF NOT EXISTS substage_id BIGINT;
 CREATE INDEX IF NOT EXISTS idx_vcs_substage ON lj_visitor_campaign_state(user_id, campaign_id, substage_id);
 
+-- V35.0.0 — Histórico de movimentação entre sub-stages.
+-- Registrado quando o cache (substage_id) muda. Permite responder
+-- "quando esse lead entrou em Negociação?".
+CREATE TABLE IF NOT EXISTS lj_substage_transitions (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  lj_visitor_id VARCHAR(64) NOT NULL,
+  campaign_id BIGINT NOT NULL,
+  parent_stage VARCHAR(32) NOT NULL,
+  from_substage_id BIGINT,
+  to_substage_id BIGINT,
+  source VARCHAR(32) DEFAULT 'cache-sync',  -- 'cache-sync' | 'trigger-rule' | 'manual'
+  occurred_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_substage_trans_visitor ON lj_substage_transitions(user_id, lj_visitor_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_substage_trans_campaign ON lj_substage_transitions(user_id, campaign_id, parent_stage, occurred_at);
+
 -- V34.0.0 — Audit log permanente de merges entre visitors.
 -- Append-only. Cada row registra um par (survivor, deleted) com motivo.
 -- Permite rastreabilidade total de identity resolution (cravado V34 plan
@@ -607,6 +624,12 @@ CREATE INDEX IF NOT EXISTS idx_transition_rules_lookup
 -- V34.9.3.1 — Tenants que rodaram schema antes do bump pra BIGINT continuam
 -- com campaign_id INT. ALTER COLUMN TYPE BIGINT é seguro (aumentar precisão).
 ALTER TABLE lj_transition_rules ALTER COLUMN campaign_id TYPE BIGINT;
+
+-- V35.0.0 — Triggers podem disparar movimento pra sub-stage específico (não só
+-- estágio macro). Quando setada, depois de aplicar to_stage, o engine ajusta
+-- o cache lj_visitor_campaign_state.substage_id direto (sem depender de tag).
+-- to_substage_id deve pertencer ao mesmo (campaign_id × to_stage).
+ALTER TABLE lj_transition_rules ADD COLUMN IF NOT EXISTS to_substage_id BIGINT;
 
 -- Referência da rule que disparou a transition (debug "por que esse lead moveu?")
 ALTER TABLE lj_transitions ADD COLUMN IF NOT EXISTS triggered_by_rule_id INT;

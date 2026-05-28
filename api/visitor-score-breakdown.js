@@ -4,6 +4,7 @@
 // V34.9.11: inclui ICP Fit Score + composição engagement+fitBonus no modo Critérios.
 
 const { computeR, computeF, computeV, applyHierarchy, DEFAULT_WEIGHTS, computeCriteriaScore, readActiveScoreModel } = require('../lib/score-engine');
+const { resolveCurrentSubstageId } = require('../lib/substage-engine');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -78,7 +79,7 @@ module.exports = async function handler(req, res) {
       transitions = r.rows;
     } catch (_) {}
 
-    // 6) Score por campanha
+    // 6) Score por campanha + sub-stage atual em cada uma (V35.0.0)
     let campaignScores = [];
     try {
       const r = await req.tenantDb.query(
@@ -89,6 +90,21 @@ module.exports = async function handler(req, res) {
         [userId, visitorId]
       );
       campaignScores = r.rows;
+      // V35.0.0 — Resolve sub-stage atual + nome de cada (campanha × current_stage)
+      for (const cs of campaignScores) {
+        try {
+          const subId = await resolveCurrentSubstageId(req.tenantDb, userId, visitorId, Number(cs.campaign_id), cs.current_stage);
+          cs.substage_id = subId;
+          if (subId) {
+            const sr = await req.tenantDb.query(
+              `SELECT name, order_idx FROM lj_substages WHERE id = $1`,
+              [subId]
+            );
+            cs.substage_name = sr.rows[0]?.name || null;
+            cs.substage_order = sr.rows[0]?.order_idx ?? null;
+          }
+        } catch (_) {}
+      }
     } catch (_) {}
 
     // ===== Cálculo do score (espelha score-engine.js#computeScore) =====

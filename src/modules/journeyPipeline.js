@@ -289,7 +289,7 @@ var JourneyPipelineModule = {
       const inactive = stage.active === false;
       const pulse = stage.health === 'Gargalo' ? '1.15s' : stage.health === 'Atenção' ? '1.75s' : '2.55s';
       const leftPct = (stage.x / 1300 * 100).toFixed(3);
-      return `<button onclick="JourneyPipelineModule.handleStageClick('${stage.id}')" title="Abrir sub-funil de ${Utils.escape(stage.label)}" class="jp-stage-node absolute flex flex-col items-center gap-3 text-center ${inactive ? 'opacity-40 grayscale' : ''}" style="left:${leftPct}%; top:${stage.y}px; transform: translate(-50%, -50%); animation-delay:${index * 80}ms"><div class="jp-stage-aura" style="background:${stage.color};"></div><div class="jp-stage-core" style="width:${stage.size}px; height:${stage.size}px; background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.38), transparent 28%), ${stage.color}; animation-duration:${pulse}"><div><div class="text-xl font-black">${this.formatNumber(stage.volume)}</div><div class="text-[10px] uppercase tracking-wide opacity-80">pessoas</div></div></div><div><p class="font-black text-sm mt-1">${Utils.escape(stage.label)}</p><p class="text-xs text-slate-500">${Utils.escape(stage.area)}</p><div class="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/80 border border-slate-100 text-[10px] font-black text-slate-600"><span class="jp-health-dot w-2 h-2 rounded-full" style="background:${stage.color}"></span>${inactive ? 'Inativa' : Utils.escape(stage.health)}</div></div></button>`;
+      return `<button onclick="JourneyPipelineModule.handleStageClick('${stage.id}')" onmouseenter="JourneyPipelineModule.handleStageHover('${stage.id}')" title="Abrir sub-funil de ${Utils.escape(stage.label)}" class="jp-stage-node absolute flex flex-col items-center gap-3 text-center group ${inactive ? 'opacity-40 grayscale' : ''}" style="left:${leftPct}%; top:${stage.y}px; transform: translate(-50%, -50%); animation-delay:${index * 80}ms"><div class="jp-stage-aura" style="background:${stage.color};"></div><div class="jp-stage-core" style="width:${stage.size}px; height:${stage.size}px; background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.38), transparent 28%), ${stage.color}; animation-duration:${pulse}"><div><div class="text-xl font-black">${this.formatNumber(stage.volume)}</div><div class="text-[10px] uppercase tracking-wide opacity-80">pessoas</div></div></div><div><p class="font-black text-sm mt-1">${Utils.escape(stage.label)}</p><p class="text-xs text-slate-500">${Utils.escape(stage.area)}</p><div class="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/80 border border-slate-100 text-[10px] font-black text-slate-600"><span class="jp-health-dot w-2 h-2 rounded-full" style="background:${stage.color}"></span>${inactive ? 'Inativa' : Utils.escape(stage.health)}</div></div><div data-substage-tooltip="${stage.id}" class="jp-stage-tooltip">${this._stageTooltipContent(stage.id)}</div></button>`;
     }).join('');
   },
 
@@ -330,6 +330,42 @@ var JourneyPipelineModule = {
     }
     App.save(); App.render();
     if (camp === 'all') Utils.toast('Selecione uma campanha pra abrir o sub-funil.');
+  },
+
+  // V35.0.0 — Hover na bolinha: preview com sub-stages configurados.
+  // Lazy fetch — cache por (campaignId × parentStage).
+  async handleStageHover(stageId) {
+    const camp = App.state.selectedPipelineCampaignId;
+    if (!camp || camp === 'all') return;
+    const key = `${camp}-${stageId}`;
+    App.state._subStagePreviewCache = App.state._subStagePreviewCache || {};
+    if (App.state._subStagePreviewCache[key]) return; // já carregado
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(`/api/substages?campaign_id=${camp}&parent_stage=${encodeURIComponent(stageId)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      App.state._subStagePreviewCache[key] = data.ok && Array.isArray(data.substages) ? data.substages : [];
+      // Re-render o tooltip se ainda em hover
+      const tooltipEl = document.querySelector(`[data-substage-tooltip="${stageId}"]`);
+      if (tooltipEl) {
+        tooltipEl.innerHTML = JourneyPipelineModule._stageTooltipContent(stageId);
+      }
+    } catch (_) {}
+  },
+
+  _stageTooltipContent(stageId) {
+    const camp = App.state.selectedPipelineCampaignId;
+    if (!camp || camp === 'all') return '<p class="text-[10px] text-slate-400 italic">Selecione uma campanha</p>';
+    const key = `${camp}-${stageId}`;
+    const subs = App.state._subStagePreviewCache?.[key];
+    if (!subs) return '<p class="text-[10px] text-slate-400 italic">Carregando…</p>';
+    if (!subs.length) return '<p class="text-[10px] text-slate-400 italic">Sem sub-stages. Clique pra criar.</p>';
+    return subs.slice(0, 5).map(s => `<div class="flex items-center justify-between gap-2 text-[10px]">
+      <span class="font-bold text-slate-700 truncate">${Utils.escape(s.name)}</span>
+      <span class="font-black text-slate-900">${s.leadCount || 0}</span>
+    </div>`).join('') + (subs.length > 5 ? `<p class="text-[9px] text-slate-400 italic mt-1">+${subs.length - 5} mais</p>` : '');
   },
   changeCampaign(id) { App.state.selectedPipelineCampaignId = id; App.state.selectedPipelineActionId = 'all'; App.save(); App.render(); },
   changeAction(id) { App.state.selectedPipelineActionId = id; App.save(); App.render(); },

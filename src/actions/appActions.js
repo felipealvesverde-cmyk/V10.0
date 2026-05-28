@@ -6387,17 +6387,22 @@ Object.assign(Actions, {
       campaignId: Number(campaignId),
       parentStage: String(parentStage),
       substages: [],
+      knownTags: App.state._knownTagsCache || [],
       loading: true,
       savingId: null
     };
     App.render();
     try {
       const token = localStorage.getItem('lj_jwt');
-      const r = await fetch(`/api/substages?campaign_id=${campaignId}&parent_stage=${encodeURIComponent(parentStage)}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await r.json();
+      const [subsRes, tagsRes] = await Promise.all([
+        fetch(`/api/substages?campaign_id=${campaignId}&parent_stage=${encodeURIComponent(parentStage)}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch('/api/known-tags', { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      const data = await subsRes.json();
+      const tagsData = await tagsRes.json();
       App.state.subStageFunnelModal.substages = data.ok && Array.isArray(data.substages) ? data.substages : [];
+      App.state.subStageFunnelModal.knownTags = tagsData.ok && Array.isArray(tagsData.tags) ? tagsData.tags : [];
+      App.state._knownTagsCache = App.state.subStageFunnelModal.knownTags;
       App.state.subStageFunnelModal.loading = false;
       App.render();
     } catch (err) {
@@ -6517,6 +6522,47 @@ Object.assign(Actions, {
     } catch (err) { Utils.toast(`Erro: ${err.message}`); }
   },
 
+  // V35.0.0 — Abre Buscador com filtro de sub-stage ativo. Fecha o modal sub-funil
+  // e navega pra tab Leads.
+  async openBuscadorWithSubStageFilter(substageId) {
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return;
+    const sub = m.substages.find(s => Number(s.id) === Number(substageId));
+    if (!sub) return;
+    App.state.subStageActiveFilter = {
+      campaignId: m.campaignId,
+      parentStage: m.parentStage,
+      substageId: Number(substageId),
+      substageName: sub.name || `Sub-stage ${sub.order_idx + 1}`,
+      leads: [],
+      loading: true
+    };
+    Actions.closeSubStageFunnelModal();
+    App.state.activeTab = 'leads';
+    App.save();
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(`/api/substage-leads?campaign_id=${m.campaignId}&parent_stage=${encodeURIComponent(m.parentStage)}&substage_id=${substageId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      App.state.subStageActiveFilter.leads = data.ok && Array.isArray(data.leads) ? data.leads : [];
+      App.state.subStageActiveFilter.loading = false;
+      App.render();
+    } catch (err) {
+      App.state.subStageActiveFilter.loading = false;
+      App.render();
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  clearSubStageActiveFilter() {
+    App.state.subStageActiveFilter = null;
+    App.save();
+    App.render();
+  },
+
   // V34.9.21 — Expande/recolhe lista de leads do sub-stage. Lazy-load.
   async toggleSubStageLeads(substageId) {
     const m = App.state.subStageFunnelModal;
@@ -6573,6 +6619,107 @@ Object.assign(Actions, {
       }
       App.render();
     } catch (_) {}
+  },
+
+  // V35.0.0 — Drag-and-drop pra reordenar sub-stages.
+  // HTML5 native drag, sem libs. dataTransfer guarda o id da fonte.
+  subStageDragStart(event, id) {
+    try { event.dataTransfer.setData('text/substage-id', String(id)); event.dataTransfer.effectAllowed = 'move'; } catch (_) {}
+    const target = event.currentTarget;
+    if (target?.classList) target.classList.add('opacity-50');
+  },
+  subStageDragOver(event) {
+    event.preventDefault();
+    try { event.dataTransfer.dropEffect = 'move'; } catch (_) {}
+  },
+  subStageDragEnd(event) {
+    const target = event.currentTarget;
+    if (target?.classList) target.classList.remove('opacity-50');
+  },
+  async subStageDrop(event, targetId) {
+    event.preventDefault();
+    const sourceId = Number(event.dataTransfer.getData('text/substage-id'));
+    if (!sourceId || sourceId === Number(targetId)) return;
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return;
+    const arr = m.substages;
+    const srcIdx = arr.findIndex(s => Number(s.id) === sourceId);
+    const tgtIdx = arr.findIndex(s => Number(s.id) === Number(targetId));
+    if (srcIdx < 0 || tgtIdx < 0) return;
+    const [moved] = arr.splice(srcIdx, 1);
+    arr.splice(tgtIdx, 0, moved);
+    // Recalcula order_idx local
+    arr.forEach((s, i) => { s.order_idx = i; });
+    App.render();
+    // Persiste no backend
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch('/api/substages-reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          campaign_id: m.campaignId,
+          parent_stage: m.parentStage,
+          ordered_ids: arr.map(s => s.id)
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) Utils.toast(`Falha ao reordenar: ${data.message}`);
+      else Actions._refetchSubStageCounts();
+    } catch (err) { Utils.toast(`Erro: ${err.message}`); }
+  },
+
+  // V35.0.0 — Color picker.
+  toggleSubStageColorPicker(id) {
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return;
+    const sub = m.substages.find(s => Number(s.id) === Number(id));
+    if (!sub) return;
+    sub._colorOpen = !sub._colorOpen;
+    App.render();
+  },
+  async setSubStageColor(id, color) {
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return;
+    const sub = m.substages.find(s => Number(s.id) === Number(id));
+    if (!sub) return;
+    sub.color = color;
+    sub._colorOpen = false;
+    App.render();
+    Actions._scheduleSubStageSave(id);
+  },
+
+  // V35.0.0 — Confirm delete via modal genérico (no lugar do confirm() nativo).
+  requestDeleteSubStage(id) {
+    const m = App.state.subStageFunnelModal;
+    const sub = m?.substages?.find(s => Number(s.id) === Number(id));
+    const name = sub?.name || 'este sub-stage';
+    Actions.openConfirmModal({
+      title: 'Remover sub-stage',
+      message: `Tem certeza que quer remover "${name}"? Os leads que estavam nele recairão na entrada padrão (sub-stage 1).`,
+      confirmLabel: 'Remover',
+      confirmTone: 'red',
+      onConfirm: () => Actions.deleteSubStage(id)
+    });
+  },
+
+  // ===== Confirm Modal genérico =====
+  openConfirmModal({ title, message, confirmLabel = 'Confirmar', cancelLabel = 'Cancelar', confirmTone = 'slate', onConfirm = null }) {
+    App.state.confirmModal = {
+      open: true,
+      title, message, confirmLabel, cancelLabel, confirmTone,
+      _onConfirm: onConfirm
+    };
+    App.render();
+  },
+  closeConfirmModal() {
+    App.state.confirmModal = { open: false };
+    App.render();
+  },
+  runConfirmModal() {
+    const cb = App.state.confirmModal?._onConfirm;
+    Actions.closeConfirmModal();
+    if (typeof cb === 'function') cb();
   },
 
   // V34.9.21 — Valida tag_trigger no front antes de persistir (UNIQUE no banco).

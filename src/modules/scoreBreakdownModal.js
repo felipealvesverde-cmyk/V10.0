@@ -345,9 +345,14 @@ window.ScoreBreakdownModal = {
           const c = (App.state.campaigns || []).find(x => Number(x.id) === Number(cs.campaign_id));
           const name = c?.name || `Campanha ${cs.campaign_id}`;
           const tier = this._tier(cs.score || 0);
+          // V35.0.0 — Mostra sub-stage atual quando disponível
+          const subBadge = cs.substage_id && cs.substage_name
+            ? `<span class="px-1.5 py-0.5 rounded bg-violet-100 text-violet-800 text-[9px] font-black uppercase tracking-widest" title="Sub-stage atual">${Utils.escape(cs.substage_name)}</span>`
+            : '';
           return `<div class="flex items-center gap-2 p-2 rounded-lg bg-${tier.color}-50 border border-${tier.color}-200 text-xs">
             <span class="font-black text-slate-900 truncate flex-1">${Utils.escape(name)}</span>
             <span class="text-[10px] text-slate-600">${Utils.escape(cs.current_stage || '—')}</span>
+            ${subBadge}
             <span class="px-2 py-0.5 rounded-full bg-${tier.color}-100 text-${tier.color}-900 font-black">${cs.score || 0}</span>
           </div>`;
         }).join('')}
