@@ -6379,6 +6379,130 @@ Object.assign(Actions, {
     }
   },
 
+  // ===== V34.9.20 — Sub-Funil Modal (mini-funil por bolinha × campanha) =====
+
+  async openSubStageFunnelModal(campaignId, parentStage) {
+    App.state.subStageFunnelModal = {
+      open: true,
+      campaignId: Number(campaignId),
+      parentStage: String(parentStage),
+      substages: [],
+      loading: true,
+      savingId: null
+    };
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(`/api/substages?campaign_id=${campaignId}&parent_stage=${encodeURIComponent(parentStage)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      App.state.subStageFunnelModal.substages = data.ok && Array.isArray(data.substages) ? data.substages : [];
+      App.state.subStageFunnelModal.loading = false;
+      App.render();
+    } catch (err) {
+      App.state.subStageFunnelModal.loading = false;
+      App.render();
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  closeSubStageFunnelModal() {
+    App.state.subStageFunnelModal = { open: false, campaignId: null, parentStage: null, substages: [], loading: false, savingId: null };
+    App.render();
+  },
+
+  async addSubStage() {
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return;
+    const token = localStorage.getItem('lj_jwt');
+    const orderIdx = m.substages.length; // próxima posição
+    const nextName = `Sub-stage ${orderIdx + 1}`;
+    try {
+      const r = await fetch('/api/substages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          campaign_id: m.campaignId,
+          parent_stage: m.parentStage,
+          order_idx: orderIdx,
+          name: nextName,
+          tag_trigger: null
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      m.substages.push({ ...data.substage, leadCount: 0 });
+      App.render();
+    } catch (err) { Utils.toast(`Erro: ${err.message}`); }
+  },
+
+  // V34.9.20 — Atualização local de campo (preserva foco do input).
+  // Persiste em background sem App.render.
+  updateSubStageLocal(id, field, value) {
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return;
+    const sub = m.substages.find(s => Number(s.id) === Number(id));
+    if (!sub) return;
+    sub[field] = value;
+    Actions._scheduleSubStageSave(id);
+  },
+
+  _subStageSaveTimers: {},
+  _scheduleSubStageSave(id) {
+    clearTimeout(Actions._subStageSaveTimers[id]);
+    Actions._subStageSaveTimers[id] = setTimeout(() => Actions.persistSubStage(id), 600);
+  },
+
+  async persistSubStage(id) {
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return;
+    const sub = m.substages.find(s => Number(s.id) === Number(id));
+    if (!sub) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      m.savingId = id;
+      // Não chama render aqui pra não perder foco
+      const r = await fetch('/api/substages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          id: sub.id,
+          campaign_id: m.campaignId,
+          parent_stage: m.parentStage,
+          order_idx: sub.order_idx,
+          name: sub.name || `Sub-stage ${sub.order_idx + 1}`,
+          tag_trigger: sub.tag_trigger || null,
+          color: sub.color || null
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) Utils.toast(`Falha: ${data.message}`);
+      m.savingId = null;
+    } catch (err) {
+      m.savingId = null;
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async deleteSubStage(id) {
+    if (!confirm('Remover este sub-stage? Leads vão recair na entrada padrão.')) return;
+    const token = localStorage.getItem('lj_jwt');
+    const m = App.state.subStageFunnelModal;
+    try {
+      const r = await fetch(`/api/substages?id=${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      if (m?.open) {
+        m.substages = m.substages.filter(s => Number(s.id) !== Number(id));
+        App.render();
+      }
+    } catch (err) { Utils.toast(`Erro: ${err.message}`); }
+  },
+
   async deleteScoreRule(ruleId) {
     if (!confirm('Remover esta regra? Esta ação não pode ser desfeita.')) return;
     const token = localStorage.getItem('lj_jwt');

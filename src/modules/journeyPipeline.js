@@ -289,7 +289,7 @@ var JourneyPipelineModule = {
       const inactive = stage.active === false;
       const pulse = stage.health === 'Gargalo' ? '1.15s' : stage.health === 'Atenção' ? '1.75s' : '2.55s';
       const leftPct = (stage.x / 1300 * 100).toFixed(3);
-      return `<button onclick="JourneyPipelineModule.selectStage('${stage.id}')" class="jp-stage-node absolute flex flex-col items-center gap-3 text-center ${inactive ? 'opacity-40 grayscale' : ''}" style="left:${leftPct}%; top:${stage.y}px; transform: translate(-50%, -50%); animation-delay:${index * 80}ms"><div class="jp-stage-aura" style="background:${stage.color};"></div><div class="jp-stage-core" style="width:${stage.size}px; height:${stage.size}px; background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.38), transparent 28%), ${stage.color}; animation-duration:${pulse}"><div><div class="text-xl font-black">${this.formatNumber(stage.volume)}</div><div class="text-[10px] uppercase tracking-wide opacity-80">pessoas</div></div></div><div><p class="font-black text-sm mt-1">${Utils.escape(stage.label)}</p><p class="text-xs text-slate-500">${Utils.escape(stage.area)}</p><div class="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/80 border border-slate-100 text-[10px] font-black text-slate-600"><span class="jp-health-dot w-2 h-2 rounded-full" style="background:${stage.color}"></span>${inactive ? 'Inativa' : Utils.escape(stage.health)}</div></div></button>`;
+      return `<button onclick="JourneyPipelineModule.handleStageClick('${stage.id}')" title="Abrir sub-funil de ${Utils.escape(stage.label)}" class="jp-stage-node absolute flex flex-col items-center gap-3 text-center ${inactive ? 'opacity-40 grayscale' : ''}" style="left:${leftPct}%; top:${stage.y}px; transform: translate(-50%, -50%); animation-delay:${index * 80}ms"><div class="jp-stage-aura" style="background:${stage.color};"></div><div class="jp-stage-core" style="width:${stage.size}px; height:${stage.size}px; background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.38), transparent 28%), ${stage.color}; animation-duration:${pulse}"><div><div class="text-xl font-black">${this.formatNumber(stage.volume)}</div><div class="text-[10px] uppercase tracking-wide opacity-80">pessoas</div></div></div><div><p class="font-black text-sm mt-1">${Utils.escape(stage.label)}</p><p class="text-xs text-slate-500">${Utils.escape(stage.area)}</p><div class="mt-2 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/80 border border-slate-100 text-[10px] font-black text-slate-600"><span class="jp-health-dot w-2 h-2 rounded-full" style="background:${stage.color}"></span>${inactive ? 'Inativa' : Utils.escape(stage.health)}</div></div></button>`;
     }).join('');
   },
 
@@ -317,6 +317,20 @@ var JourneyPipelineModule = {
 
   setLeadSubTab(tab) { App.state.activeLeadSubTab = tab; App.state.selectedLeadId = null; App.save(); App.render(); },
   selectStage(id) { App.state.selectedPipelineStageId = id; App.save(); App.render(); },
+
+  // V34.9.20 — Click na bolinha: seleciona + abre modal de sub-funil se há campanha.
+  // Quando 'Todas as campanhas' está selecionado, só seleciona (sub-funil precisa
+  // de campanha específica pra contextualizar).
+  handleStageClick(id) {
+    App.state.selectedPipelineStageId = id;
+    const camp = App.state.selectedPipelineCampaignId;
+    if (camp && camp !== 'all' && window.Actions?.openSubStageFunnelModal) {
+      Actions.openSubStageFunnelModal(Number(camp), id);
+      return;
+    }
+    App.save(); App.render();
+    if (camp === 'all') Utils.toast('Selecione uma campanha pra abrir o sub-funil.');
+  },
   changeCampaign(id) { App.state.selectedPipelineCampaignId = id; App.state.selectedPipelineActionId = 'all'; App.save(); App.render(); },
   changeAction(id) { App.state.selectedPipelineActionId = id; App.save(); App.render(); },
   openStageModal() { App.state.showPipelineStageModal = true; App.save(); App.render(); },
