@@ -65,15 +65,17 @@ var LeadParser = {
     const skipRegex = this._headerSkipRegex;
     const rows = [];
     const lines = String(text || '').split(/\r?\n/);
+    // V34.9.9 — Auto-detect separador (CSV vs TSV)
+    const separator = Utils.detectCsvSeparator(text);
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line || skipRegex.test(line)) continue;
-      const parts = Utils.splitCsvLine(line).map(part => part.trim());
+      const parts = Utils.splitCsvLine(line, separator).map(part => part.trim());
       rows.push(this.normalizeLead({
         name: parts[0] || '',
         email: parts[1] || '',
         phone: parts[2] || '',
-        tags: parts.slice(3).join(' ') || ''
+        tags: parts.slice(3).join(',') || ''
       }, rows.length, scoreId));
     }
     return rows;
@@ -87,7 +89,10 @@ var LeadParser = {
 
     if (!lines.length) return [];
 
-    const first = Utils.splitCsvLine(lines[0]).map(item => this.normalizeHeader(item));
+    // V34.9.9 — Auto-detecta CSV (,) vs TSV (\t) na primeira linha.
+    const separator = Utils.detectCsvSeparator(text);
+
+    const first = Utils.splitCsvLine(lines[0], separator).map(item => this.normalizeHeader(item));
     const headerKeySet = new Set(this._headerKeys);
     const hasHeader = first.some(h => headerKeySet.has(h));
     const headers = hasHeader ? first : this._defaultHeaders;
@@ -96,7 +101,7 @@ var LeadParser = {
     const keys = headers.map(header => alias[header] || header);
 
     return dataLines.map((line, index) => {
-      const values = Utils.splitCsvLine(line).map(item => item.trim());
+      const values = Utils.splitCsvLine(line, separator).map(item => item.trim());
       const raw = {};
       for (let i = 0; i < keys.length; i++) raw[keys[i]] = values[i] || '';
       return this.normalizeLead(raw, index, scoreId);
