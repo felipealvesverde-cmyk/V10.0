@@ -356,7 +356,7 @@ var State = {
         scoreRules: [],
         ruleDraft: null,
         // V34.9.11 — ICP Profile editável
-        icpProfile: { fields_json: {}, scoring_method: 'multiplier', fit_max_bonus: 100 },
+        icpProfile: { fields_json: {} },
         icpDraft: null
       },
       // V34.9.6 — Modal "Score Breakdown": ao clicar no badge de score do
@@ -892,7 +892,7 @@ var State = {
         scoreRules: [],
         ruleDraft: null,
         // V34.9.11 — ICP Profile editável
-        icpProfile: { fields_json: {}, scoring_method: 'multiplier', fit_max_bonus: 100 },
+        icpProfile: { fields_json: {} },
         icpDraft: null
       },
       // V34.9.6 — Modal "Score Breakdown": ao clicar no badge de score do

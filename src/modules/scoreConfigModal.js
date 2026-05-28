@@ -121,7 +121,7 @@ window.ScoreConfigModal = {
   // V34.9.11 — UI ICP Profile (editável)
   _renderIcpSettings() {
     const m = App.state.scoreConfigModal;
-    const profile = m.icpProfile || { fields_json: {}, scoring_method: 'multiplier', fit_max_bonus: 100 };
+    const profile = m.icpProfile || { fields_json: {} };
     const draft = m.icpDraft;
     if (!draft) {
       return this._renderIcpView(profile);
@@ -131,13 +131,6 @@ window.ScoreConfigModal = {
 
   _renderIcpView(p) {
     const f = p.fields_json || {};
-    const method = p.scoring_method || 'multiplier';
-    const fitMax = p.fit_max_bonus || 100;
-    const methodLabel = {
-      multiplier: `Multiplicador: Engagement × (1 + Fit/100)`,
-      sum: `Soma: Engagement + (Fit% × ${fitMax}pts)`,
-      simple: 'Apenas Engagement (Fit ignorado)'
-    };
     const fields = Object.entries(f).filter(([k]) => f[k] !== null && f[k] !== '' && f[k] !== undefined);
     return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
       <div class="flex items-center justify-between mb-3">
@@ -147,7 +140,7 @@ window.ScoreConfigModal = {
           Editar
         </button>
       </div>
-      <p class="text-xs text-slate-500 mb-3">Quando um lead bate com seu ICP, recebe bonus de pontos. ${methodLabel[method]}</p>
+      <p class="text-xs text-slate-500 mb-3">Define o cliente ideal. O lead recebe um <strong>Tier</strong> (1 / 2 / 3) baseado em quantos campos batem — indicador paralelo ao score, sem somar pontos. <span class="text-[10px] text-slate-400">Tier 1 ≥ 80% · Tier 2 ≥ 50% · Tier 3 &lt; 50%</span></p>
       ${fields.length === 0 ? `<p class="text-xs text-slate-400 italic">Nenhum critério de ICP cadastrado. Clique em Editar pra começar.</p>` : `
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           ${fields.map(([k, v]) => `<div class="p-2 rounded-xl bg-violet-50 border border-violet-200">
@@ -161,8 +154,6 @@ window.ScoreConfigModal = {
 
   _renderIcpEditor(d) {
     const f = d.fields_json || {};
-    const method = d.scoring_method || 'multiplier';
-    const fitMax = d.fit_max_bonus || 100;
     return `<div class="rounded-2xl bg-violet-50 border-2 border-violet-300 p-5">
       <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest mb-3">Editar ICP</h4>
 
@@ -181,17 +172,16 @@ window.ScoreConfigModal = {
         <input type="number" placeholder="máxima" value="${f.idade_max || ''}" oninput="Actions.updateIcpDraftField('idade_max', Number(this.value) || null)" class="flex-1 px-2 py-1.5 rounded-lg bg-white border border-violet-200 text-xs font-bold" />
       </div>
 
-      <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mt-4 mb-2">Como combinar Engagement com Fit</p>
-      <div class="space-y-2 mb-3">
-        ${this._icpMethodOption('multiplier', 'Multiplicador', 'Lead engajado + ICP perfeito vira super-quente. Engagement × (1 + Fit/100)', method)}
-        ${this._icpMethodOption('sum', 'Soma com peso', `Engagement + (Fit% × ${fitMax}pts). Bonus controlado.`, method)}
-        ${this._icpMethodOption('simple', 'Apenas Engagement', 'Ignora Fit. Lead pontua só por comportamento.', method)}
+      <div class="rounded-xl bg-white border border-violet-200 p-3 mb-3">
+        <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1">Como o Tier é calculado</p>
+        <p class="text-[11px] text-slate-600">Comparamos os campos do lead com este perfil e classificamos:</p>
+        <ul class="text-[11px] text-slate-700 mt-1 space-y-0.5">
+          <li>🥇 <strong>Tier 1</strong> — 80%+ dos campos batem (best fit)</li>
+          <li>🥈 <strong>Tier 2</strong> — 50% a 79% batem (medium fit)</li>
+          <li>🥉 <strong>Tier 3</strong> — abaixo de 50% (low fit)</li>
+        </ul>
+        <p class="text-[10px] text-slate-500 mt-1.5 italic">O Tier aparece como indicador no breakdown — não soma pontos ao score.</p>
       </div>
-
-      ${method === 'sum' ? `<div class="mb-3">
-        <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1">Bonus máximo do Fit (pontos)</p>
-        <input type="number" value="${fitMax}" oninput="Actions.updateIcpDraftMaxBonus(this.value)" class="w-32 px-2 py-1.5 rounded-lg bg-white border border-violet-200 text-xs font-bold" />
-      </div>` : ''}
 
       <div class="flex gap-2 mt-3">
         <button onclick="Actions.saveIcpDraft()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black" style="color:#fff;">Salvar ICP</button>
@@ -205,17 +195,6 @@ window.ScoreConfigModal = {
     return `<div class="mb-2">
       <label class="text-[10px] font-black text-slate-700 uppercase tracking-widest block mb-1">${Utils.escape(label)}</label>
       <input type="text" placeholder="ex.: opção 1, opção 2" value="${Utils.escape(val)}" oninput="Actions.updateIcpDraftField('${key}', this.value)" class="w-full px-2 py-1.5 rounded-lg bg-white border border-violet-200 text-xs font-bold" />
-    </div>`;
-  },
-
-  _icpMethodOption(value, label, desc, active) {
-    const isActive = value === active;
-    return `<div onclick="Actions.updateIcpDraftMethod('${value}')" class="rounded-xl border-2 ${isActive ? 'border-violet-500 bg-white' : 'border-slate-200 bg-white hover:border-slate-300'} p-2 cursor-pointer transition">
-      <div class="flex items-center gap-2">
-        <span class="w-3 h-3 rounded-full border-2 ${isActive ? 'border-violet-600 bg-violet-600' : 'border-slate-300'}"></span>
-        <span class="text-xs font-black text-slate-900">${label}</span>
-      </div>
-      <p class="text-[11px] text-slate-600 ml-5">${desc}</p>
     </div>`;
   },
 
