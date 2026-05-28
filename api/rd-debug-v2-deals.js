@@ -70,10 +70,17 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, message: 'contact_id e pipeline_id obrigatórios.' });
   }
 
-  // GET stage da pipeline (legacy mesmo pra esse lookup)
-  const stagesGet = await tryV2('query', pat, `/deal_stages?deal_pipeline_id=${encodeURIComponent(pipelineId)}`);
-  const stages = stagesGet.data?.deal_stages || stagesGet.data?.data || stagesGet.data || [];
-  const firstStage = Array.isArray(stages) && stages[0] ? (stages[0].id || stages[0]._id) : null;
+  // Stage: aceita do body direto OU busca na LEGACY (v2 não tem esse endpoint)
+  let firstStage = String(body.deal_stage_id || '').trim() || null;
+  if (!firstStage) {
+    // Fallback: tenta legacy v1 com PAT
+    try {
+      const legacyResp = await fetch(`https://crm.rdstation.com/api/v1/deal_stages?deal_pipeline_id=${encodeURIComponent(pipelineId)}&token=${encodeURIComponent(pat)}`, { headers: { Accept: 'application/json' } });
+      const legacyData = await legacyResp.json();
+      const stages = legacyData?.deal_stages || legacyData?.data || legacyData || [];
+      firstStage = Array.isArray(stages) && stages[0] ? (stages[0].id || stages[0]._id) : null;
+    } catch (_) {}
+  }
 
   const dealBody = {
     deal: {
@@ -86,8 +93,6 @@ module.exports = async function handler(req, res) {
 
   // Tenta criar com cada método de auth
   const results = {
-    stagesGet_status: stagesGet.status,
-    stagesGet_ok: stagesGet.ok,
     firstStage,
     patPresent: Boolean(pat),
     oauthPresent: Boolean(oauth),
