@@ -34,7 +34,7 @@ window.ScoreConfigModal = {
   render() {
     const m = App.state.scoreConfigModal;
     if (!m || !m.open) return '';
-    const tab = m.activeTab || 'general';
+    const tab = m.activeTab || 'score';
     const campaignName = this._campaignName(m.campaignId);
 
     return `<div id="scoreConfigBackdrop" class="fixed inset-0 z-[60] bg-slate-950/70 backdrop-blur-sm p-4 overflow-auto" onclick="if(event.target===this) Actions.closeScoreConfigModal()">
@@ -46,7 +46,7 @@ window.ScoreConfigModal = {
               SCORE ENGINE
             </div>
             <h2 class="text-3xl font-black">Equalização do Score</h2>
-            <p class="text-slate-300 mt-2 text-sm">Visualização da mecânica do scoring. Cada elemento bloqueado pode virar editável — me peça quando quiser destravar.</p>
+            <p class="text-slate-300 mt-2 text-sm">Visualização e configuração da mecânica do scoring.</p>
           </div>
           <button onclick="Actions.closeScoreConfigModal()" class="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/15 font-black flex items-center gap-2">
             <i data-lucide="x" class="w-4 h-4"></i>
@@ -55,12 +55,12 @@ window.ScoreConfigModal = {
         </header>
 
         <nav class="bg-white border-b border-slate-200 px-6 pt-4 flex gap-2">
-          ${this._tabBtn('general', 'Score Geral', tab)}
-          ${m.campaignId ? this._tabBtn('campaign', `Score Campanha · ${Utils.escape(campaignName)}`, tab) : ''}
+          ${this._tabBtn('score', 'Score', tab)}
+          ${this._tabBtn('settings', 'Settings', tab)}
         </nav>
 
         <main class="p-5 lg:p-6 max-h-[70vh] overflow-y-auto space-y-4">
-          ${tab === 'general' ? this._renderGeneralTab() : this._renderCampaignTab(m.campaignId, campaignName)}
+          ${tab === 'settings' ? this._renderSettingsTab() : this._renderScoreTab(campaignName)}
         </main>
       </section>
     </div>`;
@@ -69,6 +69,154 @@ window.ScoreConfigModal = {
   _tabBtn(value, label, active) {
     const isActive = value === active;
     return `<button onclick="Actions.setScoreConfigTab('${value}')" class="px-4 py-2.5 rounded-t-xl text-sm font-black ${isActive ? 'bg-slate-50 text-slate-900 border-t border-x border-slate-200' : 'text-slate-500 hover:text-slate-700'}">${label}</button>`;
+  },
+
+  // V34.9.10 — Aba "Score" com sub-tabs (Geral / Campanha)
+  _renderScoreTab(campaignName) {
+    const m = App.state.scoreConfigModal;
+    const sub = m.scoreSubTab || 'general';
+    const campaigns = App.state.campaigns || [];
+    return `<div class="space-y-3">
+      <div class="bg-white rounded-2xl border border-slate-200 p-2 flex gap-1">
+        ${this._subTabBtn('general', 'Score Geral', sub)}
+        ${this._subTabBtn('campaign', 'Score Campanha', sub)}
+      </div>
+      ${sub === 'campaign' ? `<div class="bg-white rounded-2xl border border-slate-200 p-3 flex items-center gap-3">
+        <span class="text-xs font-black text-slate-700">Campanha:</span>
+        <select onchange="App.state.scoreConfigModal.campaignId = Number(this.value); App.render();" class="flex-1 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-black">
+          <option value="">— escolha —</option>
+          ${campaigns.map(c => `<option value="${c.id}" ${Number(m.campaignId) === Number(c.id) ? 'selected' : ''}>${Utils.escape(c.name)}</option>`).join('')}
+        </select>
+      </div>` : ''}
+      ${sub === 'general' ? this._renderGeneralTab() : (m.campaignId ? this._renderCampaignTab(m.campaignId, campaignName) : `<p class="text-sm text-slate-500 italic p-4">Escolha uma campanha acima.</p>`)}
+    </div>`;
+  },
+
+  _subTabBtn(value, label, active) {
+    const isActive = value === active;
+    return `<button onclick="Actions.setScoreSubTab('${value}')" class="flex-1 px-4 py-2 rounded-xl text-xs font-black ${isActive ? 'bg-slate-900 text-white' : 'bg-transparent text-slate-700 hover:bg-slate-100'}">${label}</button>`;
+  },
+
+  // V34.9.10 — Aba Settings: seleção de modelo + regras (modo Critérios)
+  _renderSettingsTab() {
+    const m = App.state.scoreConfigModal;
+    const model = m.activeModel || 'rfv';
+    const rules = m.scoreRules || [];
+    const draft = m.ruleDraft;
+
+    return `<div class="space-y-4">
+      <div class="rounded-2xl bg-white border border-slate-200 p-5">
+        <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest mb-3">Modelo de Score Ativo</h4>
+        <p class="text-xs text-slate-500 mb-3">Define como o score do lead é calculado. Mudança requer master.</p>
+        <div class="space-y-2">
+          ${this._modelOption('rfv', 'RFV (Recência, Frequência, Volume)', 'Fórmula estatística automática. Não exige configuração. Detecta engajamento natural.', model)}
+          ${this._modelOption('criteria', 'Critérios (HubSpot-style)', 'Cliente define regras "tag X = +20 pontos". Somatório de pontos. Mais controle, mais configuração.', model)}
+          ${this._modelOption('hybrid', 'Híbrido (em construção)', 'Combinação dos dois com pesos editáveis.', model, true)}
+        </div>
+      </div>
+
+      ${model === 'rfv' ? this._renderRfvSettingsCard() : ''}
+      ${(model === 'criteria' || model === 'hybrid') ? this._renderCriteriaSettings(rules, draft) : ''}
+    </div>`;
+  },
+
+  _modelOption(value, label, desc, active, disabled = false) {
+    const isActive = value === active;
+    const cls = disabled ? 'opacity-60 cursor-not-allowed'
+              : isActive ? 'border-violet-500 bg-violet-50'
+              : 'border-slate-200 hover:border-slate-300 cursor-pointer';
+    const onClick = disabled ? '' : `onclick="Actions.setActiveScoreModel('${value}')"`;
+    return `<div ${onClick} class="rounded-2xl border-2 ${cls} p-3 transition">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="w-4 h-4 rounded-full border-2 ${isActive ? 'border-violet-600 bg-violet-600' : 'border-slate-300'}"></span>
+        <span class="text-sm font-black text-slate-900">${label}</span>
+        ${disabled ? `<span class="ml-auto text-[10px] text-amber-700 font-black">EM CONSTRUÇÃO</span>` : ''}
+      </div>
+      <p class="text-xs text-slate-600 ml-6">${desc}</p>
+    </div>`;
+  },
+
+  _renderRfvSettingsCard() {
+    return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
+      <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest mb-3">Configuração RFV</h4>
+      <p class="text-xs text-slate-500 mb-2">Pesos atuais (read-only por hora):</p>
+      <ul class="text-xs space-y-1 text-slate-700">
+        <li>• R (Recência) = 30%</li>
+        <li>• F (Frequência) = 30%</li>
+        <li>• V (Volume) = 40%</li>
+      </ul>
+      <p class="text-[11px] text-slate-500 mt-2">Pra detalhes da fórmula, abra a aba "Score" → "Score Geral".</p>
+    </div>`;
+  },
+
+  _renderCriteriaSettings(rules, draft) {
+    const TYPES = [
+      { value: 'tag', label: 'Tag adicionada' },
+      { value: 'pageview', label: 'Visitou página' },
+      { value: 'form', label: 'Preencheu form' },
+      { value: 'cta', label: 'Clicou CTA' },
+      { value: 'payment', label: 'Pagamento aprovado' },
+      { value: 'event', label: 'Qualquer evento' },
+      { value: 'score', label: 'Atingiu score X' }
+    ];
+    const CATEGORIES = [
+      { value: 'engagement', label: 'Engajamento' },
+      { value: 'fit', label: 'Fit (ICP)' },
+      { value: 'intent', label: 'Intenção' }
+    ];
+
+    return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">Regras de Pontuação</h4>
+        ${!draft ? `<button onclick="Actions.startScoreRuleDraft()" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff;"><i data-lucide="plus" class="w-3 h-3"></i> Adicionar regra</button>` : ''}
+      </div>
+      <p class="text-xs text-slate-500 mb-3">Cada regra soma (ou subtrai) pontos no score do lead quando o gatilho dispara. Pontos negativos penalizam (ex.: tag "perdido" = -50).</p>
+
+      <div class="space-y-2">
+        ${rules.length === 0 && !draft ? `<p class="text-xs text-slate-400 italic">Nenhuma regra cadastrada ainda.</p>` : ''}
+        ${rules.map(r => this._ruleRow(r, TYPES, CATEGORIES)).join('')}
+        ${draft ? this._ruleDraftRow(draft, TYPES, CATEGORIES) : ''}
+      </div>
+    </div>`;
+  },
+
+  _ruleRow(r, types, cats) {
+    const typeLabel = types.find(t => t.value === r.trigger_type)?.label || r.trigger_type;
+    const catLabel = cats.find(c => c.value === r.category)?.label || '';
+    const isPos = (r.points || 0) >= 0;
+    return `<div class="flex items-center gap-2 p-2.5 rounded-xl ${r.is_active ? 'bg-slate-50' : 'bg-slate-100 opacity-60'} border border-slate-200">
+      <span class="px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 text-[10px] font-black">${Utils.escape(typeLabel)}</span>
+      <span class="text-xs font-bold text-slate-700 truncate flex-1">${Utils.escape(r.trigger_param || '(qualquer)')}</span>
+      ${catLabel ? `<span class="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-700 font-black">${Utils.escape(catLabel)}</span>` : ''}
+      <span class="font-black text-sm ${isPos ? 'text-emerald-700' : 'text-red-700'}">${isPos ? '+' : ''}${r.points} pts</span>
+      <label class="inline-flex items-center gap-1 cursor-pointer">
+        <input type="checkbox" ${r.is_active ? 'checked' : ''} onchange="Actions.toggleScoreRuleActive(${r.id}, this.checked)" />
+        <span class="text-[10px] font-black ${r.is_active ? 'text-emerald-700' : 'text-slate-500'}">${r.is_active ? 'ATIVO' : 'PAUSADO'}</span>
+      </label>
+      <button onclick="Actions.deleteScoreRule(${r.id})" class="px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 text-[10px] font-black" title="Remover">
+        <i data-lucide="trash-2" class="w-3 h-3"></i>
+      </button>
+    </div>`;
+  },
+
+  _ruleDraftRow(d, types, cats) {
+    return `<div class="p-3 rounded-xl bg-violet-50 border-2 border-violet-300">
+      <div class="flex flex-wrap items-center gap-2 mb-2">
+        <select onchange="Actions.updateScoreRuleDraft('trigger_type', this.value)" class="px-2 py-1.5 rounded-lg bg-white border border-violet-200 text-xs font-black text-slate-700">
+          ${types.map(t => `<option value="${t.value}" ${t.value === d.trigger_type ? 'selected' : ''}>${Utils.escape(t.label)}</option>`).join('')}
+        </select>
+        <input type="text" placeholder="parâmetro (ex.: lj-quente, /checkout)" value="${Utils.escape(d.trigger_param || '')}" oninput="Actions.updateScoreRuleDraft('trigger_param', this.value)" class="flex-1 min-w-[160px] px-2 py-1.5 rounded-lg bg-white border border-violet-200 text-xs font-bold" />
+        <input type="number" placeholder="pontos (+/-)" value="${d.points || ''}" oninput="Actions.updateScoreRuleDraft('points', this.value)" class="w-24 px-2 py-1.5 rounded-lg bg-white border border-violet-200 text-xs font-bold" />
+        <select onchange="Actions.updateScoreRuleDraft('category', this.value)" class="px-2 py-1.5 rounded-lg bg-white border border-violet-200 text-xs font-black text-slate-700">
+          <option value="">— categoria —</option>
+          ${cats.map(c => `<option value="${c.value}" ${c.value === d.category ? 'selected' : ''}>${Utils.escape(c.label)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="Actions.saveScoreRuleDraft()" class="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black" style="color:#fff;">Salvar</button>
+        <button onclick="Actions.cancelScoreRuleDraft()" class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-black">Cancelar</button>
+      </div>
+    </div>`;
   },
 
   _campaignName(campaignId) {

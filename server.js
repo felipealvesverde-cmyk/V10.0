@@ -338,6 +338,11 @@ async function runMigrations() {
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS master_ai_enabled BOOLEAN DEFAULT FALSE;
     `);
+    // V34.9.10 — Score model toggle por user (rfv | criteria | hybrid).
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS active_score_model VARCHAR(16) DEFAULT 'rfv';
+    `);
+
     // V34.7.h — API key do cliente (Anthropic agora; OpenAI numa onda futura).
     // Criptografada via ENCRYPTION_KEY (lib/clickup-crypto.js helpers).
     await client.query(`

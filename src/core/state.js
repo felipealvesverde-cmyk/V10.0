@@ -344,12 +344,17 @@ var State = {
         editingId: null,
         mirroringFromId: null
       },
-      // V34.9.5 — Painel de equalização do Score Engine (read-only por hora,
-      // edição vai sendo destravada conforme Felipe pedir).
+      // V34.9.5 / V34.9.10 — Painel Score Engine.
+      // Aba 'score' (visualização) tem sub-tabs ('general' | 'campaign').
+      // Aba 'settings' (configuração) seleciona modelo + regras.
       scoreConfigModal: {
         open: false,
         campaignId: null,
-        activeTab: 'general' // 'general' | 'campaign'
+        activeTab: 'score',       // 'score' | 'settings'
+        scoreSubTab: 'general',   // 'general' | 'campaign'
+        activeModel: 'rfv',       // 'rfv' | 'criteria' | 'hybrid'
+        scoreRules: [],
+        ruleDraft: null
       },
       // V34.9.6 — Modal "Score Breakdown": ao clicar no badge de score do
       // lead, abre detalhamento item por item (tags, touchpoints, eventos,
@@ -872,12 +877,17 @@ var State = {
         editingId: null,
         mirroringFromId: null
       },
-      // V34.9.5 — Painel de equalização do Score Engine (read-only por hora,
-      // edição vai sendo destravada conforme Felipe pedir).
+      // V34.9.5 / V34.9.10 — Painel Score Engine.
+      // Aba 'score' (visualização) tem sub-tabs ('general' | 'campaign').
+      // Aba 'settings' (configuração) seleciona modelo + regras.
       scoreConfigModal: {
         open: false,
         campaignId: null,
-        activeTab: 'general' // 'general' | 'campaign'
+        activeTab: 'score',       // 'score' | 'settings'
+        scoreSubTab: 'general',   // 'general' | 'campaign'
+        activeModel: 'rfv',       // 'rfv' | 'criteria' | 'hybrid'
+        scoreRules: [],
+        ruleDraft: null
       },
       // V34.9.6 — Modal "Score Breakdown": ao clicar no badge de score do
       // lead, abre detalhamento item por item (tags, touchpoints, eventos,

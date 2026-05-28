@@ -6065,15 +6065,21 @@ Object.assign(Actions, {
     App.render();
   },
 
-  // V34.9.5 — Painel de equalização do Score Engine.
-  openScoreConfigModal(campaignId) {
+  // V34.9.5 / V34.9.10 — Painel Score Engine.
+  async openScoreConfigModal(campaignId) {
     const cid = campaignId && campaignId !== 'all' ? Number(campaignId) : null;
     App.state.scoreConfigModal = {
+      ...(App.state.scoreConfigModal || {}),
       open: true,
       campaignId: cid,
-      activeTab: cid ? 'general' : 'general' // sempre começa em Geral
+      activeTab: 'score',
+      scoreSubTab: 'general',
+      ruleDraft: null
     };
     App.render();
+    // Carrega modelo ativo + regras em background
+    this.loadScoreModel();
+    this.loadScoreRules();
   },
 
   closeScoreConfigModal() {
@@ -6084,9 +6090,133 @@ Object.assign(Actions, {
   setScoreConfigTab(tab) {
     App.state.scoreConfigModal = {
       ...(App.state.scoreConfigModal || {}),
-      activeTab: tab === 'campaign' ? 'campaign' : 'general'
+      activeTab: tab === 'settings' ? 'settings' : 'score'
     };
     App.render();
+  },
+
+  setScoreSubTab(sub) {
+    App.state.scoreConfigModal = {
+      ...(App.state.scoreConfigModal || {}),
+      scoreSubTab: sub === 'campaign' ? 'campaign' : 'general'
+    };
+    App.render();
+  },
+
+  // V34.9.10 — Modelo ativo de scoring
+  async loadScoreModel() {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/score-model', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.ok) {
+        App.state.scoreConfigModal = { ...(App.state.scoreConfigModal || {}), activeModel: data.model };
+        App.render();
+      }
+    } catch (_) {}
+  },
+
+  async setActiveScoreModel(model) {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/score-model', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ model })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      App.state.scoreConfigModal = { ...(App.state.scoreConfigModal || {}), activeModel: data.model };
+      Utils.toast(`✓ Modelo de score: ${data.model}`);
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V34.9.10 — Score Rules (modelo Critérios)
+  async loadScoreRules() {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/score-rules', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.ok) {
+        App.state.scoreConfigModal = { ...(App.state.scoreConfigModal || {}), scoreRules: data.rules || [] };
+        App.render();
+      }
+    } catch (_) {}
+  },
+
+  startScoreRuleDraft() {
+    App.state.scoreConfigModal = {
+      ...(App.state.scoreConfigModal || {}),
+      ruleDraft: { trigger_type: 'tag', trigger_param: '', points: 10, category: 'engagement' }
+    };
+    App.render();
+  },
+
+  cancelScoreRuleDraft() {
+    App.state.scoreConfigModal = { ...(App.state.scoreConfigModal || {}), ruleDraft: null };
+    App.render();
+  },
+
+  updateScoreRuleDraft(field, value) {
+    const d = App.state.scoreConfigModal?.ruleDraft;
+    if (!d) return;
+    const next = { ...d };
+    if (field === 'points') next.points = Number(value) || 0;
+    else next[field] = value;
+    App.state.scoreConfigModal.ruleDraft = next;
+  },
+
+  async saveScoreRuleDraft() {
+    const draft = App.state.scoreConfigModal?.ruleDraft;
+    if (!draft) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/score-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(draft)
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ Regra criada.');
+      App.state.scoreConfigModal.ruleDraft = null;
+      await this.loadScoreRules();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async toggleScoreRuleActive(ruleId, isActive) {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/score-rules', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: ruleId, is_active: Boolean(isActive) })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      await this.loadScoreRules();
+    } catch (err) { Utils.toast(`Erro: ${err.message}`); }
+  },
+
+  async deleteScoreRule(ruleId) {
+    if (!confirm('Remover esta regra? Esta ação não pode ser desfeita.')) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/score-rules', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id: ruleId })
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ Regra removida.');
+      await this.loadScoreRules();
+    } catch (err) { Utils.toast(`Erro: ${err.message}`); }
   },
 
   // V34.9.3 — Triggers Engine: CRUD da modal de triggers do Flow Map.
