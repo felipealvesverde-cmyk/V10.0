@@ -28,14 +28,16 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      if (!req.user.isMaster) return res.status(403).json({ ok: false, message: 'Apenas master pode mudar modelo de score.' });
+      // V34.9.10.3 — Qualquer user autenticado pode mudar próprio modelo.
+      // Master pode passar user_id pra setar modelo de outro user.
       let body = req.body;
       if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
       const model = String(body?.model || '').toLowerCase();
       if (!ALLOWED_MODELS.includes(model)) {
         return res.status(400).json({ ok: false, message: `model deve ser ${ALLOWED_MODELS.join('|')}.` });
       }
-      const userIdParam = body?.user_id ? Number(body.user_id) : myId;
+      // Cliente comum sempre opera no próprio escopo
+      const userIdParam = req.user.isMaster && body?.user_id ? Number(body.user_id) : myId;
       await req.db.query(
         `UPDATE users SET active_score_model = $2 WHERE id = $1`,
         [userIdParam, model]
