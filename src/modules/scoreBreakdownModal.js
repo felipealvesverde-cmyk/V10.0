@@ -143,10 +143,15 @@ window.ScoreBreakdownModal = {
 
   _scoreFlowCard(s, v) {
     if (!s) return '';
+    // V34.9.10.5 — Mostra fórmula adequada baseado no modelo
+    const model = s.model || 'rfv';
+    const formulaLabel = model === 'criteria' ? 'Soma de pontos ÷ 1000 ='
+                       : model === 'hybrid'    ? '(RFV + Critérios) ÷ 2 ='
+                       : 'R×pR + F×pF + V×pV =';
     return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
       <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest mb-3">Cálculo final do score</h4>
       <div class="space-y-2 text-sm font-mono">
-        <div class="flex justify-between"><span class="text-slate-600">R×pR + F×pF + V×pV =</span><strong>${s.raw01}</strong></div>
+        <div class="flex justify-between"><span class="text-slate-600">${formulaLabel}</span><strong>${s.raw01}</strong></div>
         <div class="flex justify-between"><span class="text-slate-600">Hierarquia clamp aplicada (${Utils.escape(s.appliedClamp)}) →</span><strong>${s.afterHierarchy}</strong></div>
         <div class="flex justify-between text-base"><span class="text-slate-700 font-black">× 999 → Score final:</span><strong class="text-violet-700">${s.final}</strong></div>
       </div>
