@@ -16,21 +16,25 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
-  if (!req.user.isMaster) return res.status(403).json({ ok: false, message: 'Apenas master pode purgar deals.' });
-
+  // V34.9.8.1 — Permite qualquer user autenticado purgar SEUS PRÓPRIOS deals.
+  // Master pode passar user_id pra inspecionar outros tenants. Cliente comum
+  // sempre opera no próprio escopo (ignora body.user_id).
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
   body = body || {};
 
   const pipelineId = String(body.pipeline_id || '').trim();
   const confirm = String(body.confirm || '').trim();
-  const scopeUserId = Number(body.user_id || req.user.sub || req.user.id);
+  const myId = Number(req.user.sub || req.user.id);
+  const scopeUserId = req.user.isMaster && body.user_id
+    ? Number(body.user_id)
+    : myId;
 
   if (!pipelineId) return res.status(400).json({ ok: false, message: 'pipeline_id obrigatório.' });
   if (confirm !== 'DELETAR DEALS') {
     return res.status(400).json({ ok: false, message: 'confirm: "DELETAR DEALS" obrigatório no body (proteção contra rodar por acidente).' });
   }
-  if (!scopeUserId) return res.status(400).json({ ok: false, message: 'user_id obrigatório (master).' });
+  if (!scopeUserId) return res.status(400).json({ ok: false, message: 'JWT sem user id.' });
 
   // Pega token RD CRM do user scope
   let token = null;
