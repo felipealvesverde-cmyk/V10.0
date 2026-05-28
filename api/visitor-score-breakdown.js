@@ -138,13 +138,21 @@ module.exports = async function handler(req, res) {
       criteriaData = await computeCriteriaScore(req.tenantDb, userId, visitor, signals);
     }
 
-    let raw01;
-    if (activeModel === 'criteria') raw01 = criteriaData ? criteriaData.raw01 : 0;
-    else if (activeModel === 'hybrid') raw01 = (raw01Rfv + (criteriaData?.raw01 || 0)) / 2;
-    else raw01 = raw01Rfv;
-
-    const clamped01 = applyHierarchy(raw01, visitor.entity_type);
-    const finalScore = Math.round(clamped01 * 999);
+    // V34.9.10.6 — Modelo Critérios = HubSpot puro (pontos diretos, sem clamp/normalização)
+    let raw01, clamped01, finalScore;
+    if (activeModel === 'criteria') {
+      raw01 = criteriaData ? criteriaData.totalPoints : 0;
+      clamped01 = raw01;
+      finalScore = criteriaData ? criteriaData.totalPoints : 0;
+    } else if (activeModel === 'hybrid') {
+      raw01 = (raw01Rfv + ((criteriaData?.totalPoints || 0) / 1000)) / 2;
+      clamped01 = applyHierarchy(raw01, visitor.entity_type);
+      finalScore = Math.round(clamped01 * 999);
+    } else {
+      raw01 = raw01Rfv;
+      clamped01 = applyHierarchy(raw01, visitor.entity_type);
+      finalScore = Math.round(clamped01 * 999);
+    }
 
     return res.status(200).json({
       ok: true,
@@ -170,7 +178,8 @@ module.exports = async function handler(req, res) {
       criteria: criteriaData ? {
         totalPoints: criteriaData.totalPoints,
         hits: criteriaData.hits,
-        breakdown: criteriaData.breakdown
+        breakdown: criteriaData.breakdown,
+        byCategory: criteriaData.byCategory
       } : null,
       score: {
         raw01: Number(raw01.toFixed(4)),
