@@ -2,7 +2,7 @@
 // Retorna detalhamento ITEM POR ITEM do score de 1 visitor.
 // Read-only — não recalcula nem grava nada.
 
-const { computeR, computeF, computeV, applyHierarchy, DEFAULT_WEIGHTS } = require('../lib/score-engine');
+const { computeR, computeF, computeV, applyHierarchy, DEFAULT_WEIGHTS, computeCriteriaScore, readActiveScoreModel } = require('../lib/score-engine');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -123,17 +123,32 @@ module.exports = async function handler(req, res) {
       hasName: Boolean(visitor.name)
     };
 
+    // V34.9.10.4 — Lê modelo ativo do user (master DB) e calcula breakdown adequado
+    const activeModel = await readActiveScoreModel(req.db, userId);
+
     const R = computeR(daysSinceLastEvent);
     const F = computeF(totalEvents);
     const { V, breakdown: Vbreakdown } = computeV(visitor, null, signals);
-
     const w = DEFAULT_WEIGHTS;
-    const raw01 = R * w.pR + F * w.pF + V * w.pV;
+    const raw01Rfv = R * w.pR + F * w.pF + V * w.pV;
+
+    // V34.9.10.4 — Critérios (HubSpot-style): soma de pontos das regras ativas
+    let criteriaData = null;
+    if (activeModel === 'criteria' || activeModel === 'hybrid') {
+      criteriaData = await computeCriteriaScore(req.tenantDb, userId, visitor, signals);
+    }
+
+    let raw01;
+    if (activeModel === 'criteria') raw01 = criteriaData ? criteriaData.raw01 : 0;
+    else if (activeModel === 'hybrid') raw01 = (raw01Rfv + (criteriaData?.raw01 || 0)) / 2;
+    else raw01 = raw01Rfv;
+
     const clamped01 = applyHierarchy(raw01, visitor.entity_type);
     const finalScore = Math.round(clamped01 * 999);
 
     return res.status(200).json({
       ok: true,
+      activeModel,
       visitor: {
         lj_visitor_id: visitor.lj_visitor_id,
         name: visitor.name,
@@ -152,11 +167,17 @@ module.exports = async function handler(req, res) {
         F: { value: Number(F.toFixed(4)), weight: w.pF, contribution: Number((F * w.pF).toFixed(4)), totalEvents, saturation: 100 },
         V: { value: Number(V.toFixed(4)), weight: w.pV, contribution: Number((V * w.pV).toFixed(4)), breakdown: Vbreakdown }
       },
+      criteria: criteriaData ? {
+        totalPoints: criteriaData.totalPoints,
+        hits: criteriaData.hits,
+        breakdown: criteriaData.breakdown
+      } : null,
       score: {
         raw01: Number(raw01.toFixed(4)),
         afterHierarchy: Number(clamped01.toFixed(4)),
         final: finalScore,
-        appliedClamp: visitor.entity_type
+        appliedClamp: visitor.entity_type,
+        model: activeModel
       },
       counts: {
         tags: tags.length,
