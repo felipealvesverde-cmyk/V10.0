@@ -15,14 +15,9 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
+  // V34.9.10.3 — Qualquer user autenticado opera no próprio escopo.
+  // (Antes: requireMaster bloqueava cliente comum de cadastrar regras.)
   const userId = Number(req.user.sub || req.user.id);
-  const requireMaster = () => {
-    if (!req.user.isMaster) {
-      res.status(403).json({ ok: false, message: 'Apenas master pode editar regras de score.' });
-      return false;
-    }
-    return true;
-  };
 
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
@@ -39,7 +34,6 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      if (!requireMaster()) return;
       const triggerType = String(body.trigger_type || '').toLowerCase();
       if (!ALLOWED_TYPES.includes(triggerType)) {
         return res.status(400).json({ ok: false, message: `trigger_type inválido (use ${ALLOWED_TYPES.join('|')}).` });
@@ -67,7 +61,6 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'PATCH') {
-      if (!requireMaster()) return;
       const id = Number(body.id);
       if (!id) return res.status(400).json({ ok: false, message: 'id obrigatório.' });
       const sets = [];
@@ -92,7 +85,6 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
-      if (!requireMaster()) return;
       const id = Number(body.id || req.query?.id);
       if (!id) return res.status(400).json({ ok: false, message: 'id obrigatório.' });
       const r = await req.tenantDb.query(
