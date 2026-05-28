@@ -44,7 +44,7 @@ module.exports = async function handler(req, res) {
 
   try {
     if (visitorId) {
-      const r = await applyEvent(req.tenantDb, userId, visitorId);
+      const r = await applyEvent(req.tenantDb, userId, visitorId, {}, { masterDb: req.db });
       return res.status(200).json({ ...r, triggeredBy: auth.source });
     }
 
@@ -58,7 +58,7 @@ module.exports = async function handler(req, res) {
       const errors = [];
       for (const row of lst.rows) {
         try {
-          await applyEvent(req.tenantDb, userId, row.lj_visitor_id);
+          await applyEvent(req.tenantDb, userId, row.lj_visitor_id, {}, { masterDb: req.db });
           processed++;
         } catch (err) {
           if (errors.length < 5) errors.push({ visitor: row.lj_visitor_id, error: err.message });
