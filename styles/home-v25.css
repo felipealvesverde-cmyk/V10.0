@@ -117,6 +117,12 @@
 .lj-kpi-sky { --lj-kpi-glow: rgba(56,189,248,.22); }
 .lj-kpi-emerald { --lj-kpi-glow: rgba(16,185,129,.22); }
 .lj-kpi-amber { --lj-kpi-glow: rgba(251,191,36,.22); }
+/* V34.9.16 — Variantes semânticas oficiais (paleta LJ) */
+.lj-kpi-marketing { --lj-kpi-glow: rgba(244,114,182,.22); }
+.lj-kpi-sales     { --lj-kpi-glow: rgba(0,203,204,.22); }
+.lj-kpi-cs        { --lj-kpi-glow: rgba(107,190,249,.22); }
+.lj-kpi-revenue   { --lj-kpi-glow: rgba(246,219,92,.22); }
+.lj-kpi-revops    { --lj-kpi-glow: rgba(171,62,216,.22); }
 .lj-kpi-header {
   display: flex;
   align-items: center;
@@ -139,6 +145,12 @@
 .lj-kpi-sky .lj-kpi-icon { color: #7DD3FC; background: rgba(56,189,248,.10); border-color: rgba(56,189,248,.20); }
 .lj-kpi-emerald .lj-kpi-icon { color: #6EE7B7; background: rgba(16,185,129,.10); border-color: rgba(16,185,129,.20); }
 .lj-kpi-amber .lj-kpi-icon { color: #FCD34D; background: rgba(251,191,36,.10); border-color: rgba(251,191,36,.20); }
+/* V34.9.16 — Ícones semânticos LJ */
+.lj-kpi-marketing .lj-kpi-icon { color: var(--lj-marketing-soft); background: rgba(244,114,182,.10); border-color: rgba(244,114,182,.22); }
+.lj-kpi-sales     .lj-kpi-icon { color: var(--lj-sales-soft);     background: rgba(0,203,204,.10);   border-color: rgba(0,203,204,.22); }
+.lj-kpi-cs        .lj-kpi-icon { color: var(--lj-cs-soft);        background: rgba(107,190,249,.10); border-color: rgba(107,190,249,.22); }
+.lj-kpi-revenue   .lj-kpi-icon { color: var(--lj-revenue-soft);   background: rgba(246,219,92,.10);  border-color: rgba(246,219,92,.25); }
+.lj-kpi-revops    .lj-kpi-icon { color: var(--lj-revops-soft);    background: rgba(171,62,216,.10);  border-color: rgba(171,62,216,.22); }
 .lj-kpi-label {
   font-size: 10px;
   font-weight: 950;
@@ -411,9 +423,13 @@
   color: rgba(148,163,184,.7);
   margin-top: 4px;
 }
-.lj-revops-pct-ok    { color: #34d399; }
-.lj-revops-pct-bad   { color: #f87171; }
-.lj-revops-pct-neutral { color: #cbd5e1; }
+/* Sobrepõe variantes semânticas — pct é estado condicional, vence sempre */
+.lj-revops-metric.lj-revops-pct-ok,
+.lj-home-card .lj-revops-metric.lj-revops-pct-ok    { color: #34d399; }
+.lj-revops-metric.lj-revops-pct-bad,
+.lj-home-card .lj-revops-metric.lj-revops-pct-bad   { color: #f87171; }
+.lj-revops-metric.lj-revops-pct-neutral,
+.lj-home-card .lj-revops-metric.lj-revops-pct-neutral { color: #cbd5e1; }
 .lj-revops-pair {
   display: flex;
   align-items: center;
@@ -448,7 +464,39 @@
   flex-direction: column;
   gap: 12px;
   min-height: 220px;
+  position: relative;
+  overflow: hidden;
 }
+/* V34.9.16 — Glow sutil na variante semântica (mesma técnica dos KPIs) */
+.lj-home-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 80% at 100% 0%, var(--lj-home-card-glow, transparent) 0%, transparent 60%);
+  pointer-events: none;
+}
+.lj-home-card > * { position: relative; z-index: 1; }
+.lj-home-card-marketing { --lj-home-card-glow: rgba(244,114,182,.16); }
+.lj-home-card-sales     { --lj-home-card-glow: rgba(0,203,204,.16); }
+.lj-home-card-cs        { --lj-home-card-glow: rgba(107,190,249,.16); }
+.lj-home-card-revenue   { --lj-home-card-glow: rgba(246,219,92,.18); }
+.lj-home-card-revops    { --lj-home-card-glow: rgba(171,62,216,.18); }
+/* Cor do ícone + count alinhados à frente */
+.lj-home-card-marketing .lj-home-card-title i { color: var(--lj-marketing-soft); }
+.lj-home-card-sales     .lj-home-card-title i { color: var(--lj-sales-soft); }
+.lj-home-card-cs        .lj-home-card-title i { color: var(--lj-cs-soft); }
+.lj-home-card-revenue   .lj-home-card-title i { color: var(--lj-revenue-soft); }
+.lj-home-card-revops    .lj-home-card-title i { color: var(--lj-revops-soft); }
+.lj-home-card-marketing .lj-home-card-count { color: var(--lj-marketing-soft); }
+.lj-home-card-sales     .lj-home-card-count { color: var(--lj-sales-soft); }
+.lj-home-card-cs        .lj-home-card-count { color: var(--lj-cs-soft); }
+.lj-home-card-revenue   .lj-home-card-count { color: var(--lj-revenue-soft); }
+.lj-home-card-revops    .lj-home-card-count { color: var(--lj-revops-soft); }
+/* RevOps metric value adota cor da frente quando classe é aplicada */
+.lj-home-card-revops    .lj-revops-metric { color: var(--lj-revops-soft); }
+.lj-home-card-revenue   .lj-revops-metric { color: var(--lj-revenue-soft); }
+.lj-home-card-sales     .lj-revops-metric { color: var(--lj-sales-soft); }
+.lj-home-card-sales     .lj-revops-pair-value { color: var(--lj-sales-soft); }
 .lj-home-card-header {
   display: flex;
   align-items: center;

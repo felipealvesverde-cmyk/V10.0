@@ -195,11 +195,12 @@ window.HomeModule = {
 
   _kpiSlots() {
     // V25.0.0 — Slots zerados. Vão receber KPIs configuráveis em V25.x.
+    // V34.9.16 — Accents alinhados à paleta semântica oficial (Leo).
     const slots = [
-      { label: 'KPI 1', icon: 'users-round', value: '0', delta: '— vs ontem', accent: 'violet' },
-      { label: 'KPI 2', icon: 'target', value: '0', delta: '—', accent: 'sky' },
-      { label: 'KPI 3', icon: 'filter', value: '0', delta: '— vs ontem', accent: 'emerald' },
-      { label: 'KPI 4', icon: 'dollar-sign', value: 'R$ 0', delta: '— vs mês anterior', accent: 'amber' }
+      { label: 'KPI 1', icon: 'users-round', value: '0', delta: '— vs ontem',        accent: 'marketing' },
+      { label: 'KPI 2', icon: 'target',      value: '0', delta: '—',                 accent: 'sales' },
+      { label: 'KPI 3', icon: 'filter',      value: '0', delta: '— vs ontem',        accent: 'cs' },
+      { label: 'KPI 4', icon: 'dollar-sign', value: 'R$ 0', delta: '— vs mês anterior', accent: 'revenue' }
     ];
     return `<div class="lj-home-kpis">
       ${slots.map(s => `<div class="lj-kpi-card lj-kpi-${s.accent}">
@@ -301,7 +302,7 @@ window.HomeModule = {
     const product = this._currentProduct();
     const m = this._productMetrics(product);
 
-    const campaignCard = `<div class="lj-home-card">
+    const campaignCard = `<div class="lj-home-card lj-home-card-marketing">
       <div class="lj-home-card-header">
         <div class="lj-home-card-title"><i data-lucide="megaphone" class="w-4 h-4"></i>Campanhas</div>
         <span class="lj-home-card-count">${m.campaigns}</span>
@@ -316,7 +317,7 @@ window.HomeModule = {
       `).join('')}${m.campaigns > 4 ? `<div class="lj-home-card-more">+ ${m.campaigns - 4} outras</div>` : ''}</div>`}
     </div>`;
 
-    const actionCard = `<div class="lj-home-card">
+    const actionCard = `<div class="lj-home-card lj-home-card-sales">
       <div class="lj-home-card-header">
         <div class="lj-home-card-title"><i data-lucide="plug" class="w-4 h-4"></i>Ações</div>
         <span class="lj-home-card-count">${m.actions}</span>
@@ -331,7 +332,7 @@ window.HomeModule = {
       `).join('')}${m.actions > 4 ? `<div class="lj-home-card-more">+ ${m.actions - 4} outras</div>` : ''}</div>`}
     </div>`;
 
-    const execCard = `<div class="lj-home-card">
+    const execCard = `<div class="lj-home-card lj-home-card-cs">
       <div class="lj-home-card-header">
         <div class="lj-home-card-title"><i data-lucide="check-square" class="w-4 h-4"></i>Execuções</div>
         <span class="lj-home-card-count">${m.executions}</span>
@@ -384,7 +385,7 @@ window.HomeModule = {
       : 'breakeven não calculado';
 
     return `<div class="lj-home-cards lj-home-revops-cards">
-      <div class="lj-home-card">
+      <div class="lj-home-card lj-home-card-revops">
         <div class="lj-home-card-header">
           <div class="lj-home-card-title"><i data-lucide="hand-coins" class="w-4 h-4"></i>CAC</div>
         </div>
@@ -392,7 +393,7 @@ window.HomeModule = {
         <div class="lj-revops-metric-sub">Custo por aquisição · RevOps</div>
       </div>
 
-      <div class="lj-home-card">
+      <div class="lj-home-card lj-home-card-sales">
         <div class="lj-home-card-header">
           <div class="lj-home-card-title"><i data-lucide="target" class="w-4 h-4"></i>Previsto × Realizado</div>
         </div>
@@ -410,7 +411,7 @@ window.HomeModule = {
         <div class="lj-revops-metric-sub">vendas no período</div>
       </div>
 
-      <div class="lj-home-card">
+      <div class="lj-home-card lj-home-card-revenue">
         <div class="lj-home-card-header">
           <div class="lj-home-card-title"><i data-lucide="receipt" class="w-4 h-4"></i>TM</div>
         </div>
@@ -418,7 +419,7 @@ window.HomeModule = {
         <div class="lj-revops-metric-sub">Ticket médio · RevOps</div>
       </div>
 
-      <div class="lj-home-card">
+      <div class="lj-home-card lj-home-card-revops">
         <div class="lj-home-card-header">
           <div class="lj-home-card-title"><i data-lucide="trending-up" class="w-4 h-4"></i>% para Breakeven</div>
         </div>
