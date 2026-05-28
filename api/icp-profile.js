@@ -1,11 +1,12 @@
-// V34.9.11 — CRUD do ICP Profile (Ideal Customer Profile) por user.
+// V34.9.13 — CRUD do ICP Profile (Ideal Customer Profile) por user.
 //
-// GET → retorna { fields_json, scoring_method, fit_max_bonus } do user
-// POST → upsert
+// GET → retorna { fields_json, tier_method, tier_rules_json } do user
+// POST → upsert (aceita tier_method 'percentage' | 'rules', e tier_rules_json)
 //
 // Permissão: qualquer user autenticado (self-scope).
 
-const ALLOWED_METHODS = ['multiplier', 'sum', 'simple'];
+const ALLOWED_TIER_METHODS = ['percentage', 'rules'];
+const EMPTY_TIER_RULES = { tier_1: [], tier_2: [], tier_3: [] };
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -17,14 +18,14 @@ module.exports = async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const r = await req.tenantDb.query(
-        `SELECT user_id, fields_json, scoring_method, fit_max_bonus, updated_at
+        `SELECT user_id, fields_json, tier_method, tier_rules_json, updated_at
            FROM lj_icp_profile WHERE user_id = $1`,
         [userId]
       );
       if (!r.rows.length) {
         return res.status(200).json({
           ok: true,
-          profile: { fields_json: {}, scoring_method: 'multiplier', fit_max_bonus: 100 }
+          profile: { fields_json: {}, tier_method: 'percentage', tier_rules_json: EMPTY_TIER_RULES }
         });
       }
       return res.status(200).json({ ok: true, profile: r.rows[0] });
@@ -36,25 +37,28 @@ module.exports = async function handler(req, res) {
       body = body || {};
 
       const fields = body.fields_json && typeof body.fields_json === 'object' ? body.fields_json : {};
-      const method = String(body.scoring_method || 'multiplier').toLowerCase();
-      if (!ALLOWED_METHODS.includes(method)) {
-        return res.status(400).json({ ok: false, message: `scoring_method deve ser ${ALLOWED_METHODS.join('|')}.` });
+      const tierMethod = String(body.tier_method || 'percentage').toLowerCase();
+      if (!ALLOWED_TIER_METHODS.includes(tierMethod)) {
+        return res.status(400).json({ ok: false, message: `tier_method deve ser ${ALLOWED_TIER_METHODS.join('|')}.` });
       }
-      const maxBonus = Number(body.fit_max_bonus);
-      const fitMaxBonus = Number.isFinite(maxBonus) ? Math.max(0, Math.min(10000, Math.round(maxBonus))) : 100;
+      const tierRules = body.tier_rules_json && typeof body.tier_rules_json === 'object'
+        ? { tier_1: Array.isArray(body.tier_rules_json.tier_1) ? body.tier_rules_json.tier_1 : [],
+            tier_2: Array.isArray(body.tier_rules_json.tier_2) ? body.tier_rules_json.tier_2 : [],
+            tier_3: Array.isArray(body.tier_rules_json.tier_3) ? body.tier_rules_json.tier_3 : [] }
+        : EMPTY_TIER_RULES;
 
       await req.tenantDb.query(
-        `INSERT INTO lj_icp_profile (user_id, fields_json, scoring_method, fit_max_bonus, updated_at)
-           VALUES ($1, $2::jsonb, $3, $4, NOW())
+        `INSERT INTO lj_icp_profile (user_id, fields_json, tier_method, tier_rules_json, updated_at)
+           VALUES ($1, $2::jsonb, $3, $4::jsonb, NOW())
          ON CONFLICT (user_id) DO UPDATE SET
            fields_json = EXCLUDED.fields_json,
-           scoring_method = EXCLUDED.scoring_method,
-           fit_max_bonus = EXCLUDED.fit_max_bonus,
+           tier_method = EXCLUDED.tier_method,
+           tier_rules_json = EXCLUDED.tier_rules_json,
            updated_at = NOW()`,
-        [userId, JSON.stringify(fields), method, fitMaxBonus]
+        [userId, JSON.stringify(fields), tierMethod, JSON.stringify(tierRules)]
       );
 
-      return res.status(200).json({ ok: true, profile: { fields_json: fields, scoring_method: method, fit_max_bonus: fitMaxBonus } });
+      return res.status(200).json({ ok: true, profile: { fields_json: fields, tier_method: tierMethod, tier_rules_json: tierRules } });
     }
 
     return res.status(405).json({ ok: false, message: 'Use GET ou POST.' });

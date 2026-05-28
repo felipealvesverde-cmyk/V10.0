@@ -121,7 +121,7 @@ window.ScoreConfigModal = {
   // V34.9.11 — UI ICP Profile (editável)
   _renderIcpSettings() {
     const m = App.state.scoreConfigModal;
-    const profile = m.icpProfile || { fields_json: {} };
+    const profile = m.icpProfile || { fields_json: {}, tier_method: 'percentage', tier_rules_json: { tier_1: [], tier_2: [], tier_3: [] } };
     const draft = m.icpDraft;
     if (!draft) {
       return this._renderIcpView(profile);
@@ -131,32 +131,94 @@ window.ScoreConfigModal = {
 
   _renderIcpView(p) {
     const f = p.fields_json || {};
+    const method = p.tier_method || 'percentage';
+    const rules = p.tier_rules_json || { tier_1: [], tier_2: [], tier_3: [] };
     const fields = Object.entries(f).filter(([k]) => f[k] !== null && f[k] !== '' && f[k] !== undefined);
+    const totalRuleGroups = (rules.tier_1?.length || 0) + (rules.tier_2?.length || 0) + (rules.tier_3?.length || 0);
     return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
       <div class="flex items-center justify-between mb-3">
-        <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">ICP — Perfil do Cliente Ideal</h4>
+        <div>
+          <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">ICP — Perfil do Cliente Ideal</h4>
+          <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 text-[10px] font-black">
+            <i data-lucide="${method === 'rules' ? 'shield-check' : 'percent'}" class="w-3 h-3"></i>
+            ${method === 'rules' ? 'Modo: Por regras (HubSpot)' : 'Modo: Por % de match'}
+          </span>
+        </div>
         <button onclick="Actions.startIcpDraft()" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff;">
           <i data-lucide="edit-3" class="w-3 h-3"></i>
           Editar
         </button>
       </div>
-      <p class="text-xs text-slate-500 mb-3">Define o cliente ideal. O lead recebe um <strong>Tier</strong> (1 / 2 / 3) baseado em quantos campos batem — indicador paralelo ao score, sem somar pontos. <span class="text-[10px] text-slate-400">Tier 1 ≥ 80% · Tier 2 ≥ 50% · Tier 3 &lt; 50%</span></p>
-      ${fields.length === 0 ? `<p class="text-xs text-slate-400 italic">Nenhum critério de ICP cadastrado. Clique em Editar pra começar.</p>` : `
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          ${fields.map(([k, v]) => `<div class="p-2 rounded-xl bg-violet-50 border border-violet-200">
-            <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">${Utils.escape(this._icpFieldLabel(k))}</p>
-            <p class="text-xs font-bold text-violet-900">${Utils.escape(Array.isArray(v) ? v.join(', ') : String(v))}</p>
-          </div>`).join('')}
-        </div>
+      ${method === 'rules' ? `
+        <p class="text-xs text-slate-500 mb-3">Tier definido por condições explícitas. Avaliação: Tier 1 → 2 → 3, primeiro que casar vence.</p>
+        ${totalRuleGroups === 0 ? `<p class="text-xs text-slate-400 italic">Nenhuma regra cadastrada. Clique em Editar pra montar.</p>` : `
+          <div class="grid grid-cols-3 gap-2">
+            ${[1, 2, 3].map(t => {
+              const color = t === 1 ? 'emerald' : t === 2 ? 'amber' : 'slate';
+              const groupCount = rules[`tier_${t}`]?.length || 0;
+              return `<div class="rounded-xl bg-${color}-50 border border-${color}-200 p-2 text-center">
+                <p class="text-[10px] font-black text-${color}-700 uppercase tracking-widest">Tier ${t}</p>
+                <p class="text-lg font-black text-${color}-900">${groupCount} grupo(s)</p>
+              </div>`;
+            }).join('')}
+          </div>
+        `}
+      ` : `
+        <p class="text-xs text-slate-500 mb-3">Tier definido por % de match com perfil. <span class="text-[10px] text-slate-400">Tier 1 ≥ 80% · Tier 2 ≥ 50% · Tier 3 &lt; 50%</span></p>
+        ${fields.length === 0 ? `<p class="text-xs text-slate-400 italic">Nenhum critério de ICP cadastrado. Clique em Editar pra começar.</p>` : `
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            ${fields.map(([k, v]) => `<div class="p-2 rounded-xl bg-violet-50 border border-violet-200">
+              <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">${Utils.escape(this._icpFieldLabel(k))}</p>
+              <p class="text-xs font-bold text-violet-900">${Utils.escape(Array.isArray(v) ? v.join(', ') : String(v))}</p>
+            </div>`).join('')}
+          </div>
+        `}
       `}
     </div>`;
   },
 
   _renderIcpEditor(d) {
-    const f = d.fields_json || {};
+    const method = d.tier_method || 'percentage';
     return `<div class="rounded-2xl bg-violet-50 border-2 border-violet-300 p-5">
       <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest mb-3">Editar ICP</h4>
 
+      ${this._tierMethodToggle(method)}
+
+      ${method === 'percentage' ? this._renderPercentageEditor(d) : this._renderRulesEditor(d)}
+
+      <div class="flex gap-2 mt-3">
+        <button onclick="Actions.saveIcpDraft()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black" style="color:#fff;">Salvar ICP</button>
+        <button onclick="Actions.cancelIcpDraft()" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-black">Cancelar</button>
+      </div>
+    </div>`;
+  },
+
+  // V34.9.13 — Toggle entre 'percentage' (proxy) e 'rules' (HubSpot puro)
+  _tierMethodToggle(active) {
+    return `<div class="mb-4">
+      <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-2">Como definir o Tier do lead</p>
+      <div class="flex items-stretch rounded-full bg-white border-2 border-violet-200 p-1 overflow-hidden">
+        ${[
+          { value: 'percentage', label: 'Por % de match', desc: 'Faixas fixas 80/50' },
+          { value: 'rules', label: 'Por regras', desc: 'Condições explícitas (HubSpot)' }
+        ].map(opt => {
+          const isActive = opt.value === active;
+          if (isActive) {
+            return `<div class="flex-1 px-4 py-2.5 text-xs font-black text-center bg-violet-600 text-white rounded-full" style="color:#fff;">
+              ${opt.label}<br><span class="text-[9px] font-normal opacity-80">${opt.desc}</span>
+            </div>`;
+          }
+          return `<button onclick="Actions.setIcpDraftTierMethod('${opt.value}')" class="flex-1 px-4 py-2.5 text-xs font-black text-slate-700 hover:bg-violet-100 rounded-full">
+            ${opt.label}<br><span class="text-[9px] font-normal text-slate-500">${opt.desc}</span>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  },
+
+  _renderPercentageEditor(d) {
+    const f = d.fields_json || {};
+    return `<div>
       <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-2">Campos do perfil ideal</p>
       <p class="text-xs text-slate-500 mb-3">Várias opções: separe por vírgula. Ex.: cidade "São Paulo, Rio de Janeiro"</p>
 
@@ -176,17 +238,97 @@ window.ScoreConfigModal = {
         <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1">Como o Tier é calculado</p>
         <p class="text-[11px] text-slate-600">Comparamos os campos do lead com este perfil e classificamos:</p>
         <ul class="text-[11px] text-slate-700 mt-1 space-y-0.5">
-          <li>🥇 <strong>Tier 1</strong> — 80%+ dos campos batem (best fit)</li>
-          <li>🥈 <strong>Tier 2</strong> — 50% a 79% batem (medium fit)</li>
-          <li>🥉 <strong>Tier 3</strong> — abaixo de 50% (low fit)</li>
+          <li>🥇 <strong>Tier 1</strong> — 80%+ dos campos batem</li>
+          <li>🥈 <strong>Tier 2</strong> — 50% a 79% batem</li>
+          <li>🥉 <strong>Tier 3</strong> — abaixo de 50%</li>
         </ul>
-        <p class="text-[10px] text-slate-500 mt-1.5 italic">O Tier aparece como indicador no breakdown — não soma pontos ao score.</p>
+        <p class="text-[10px] text-slate-500 mt-1.5 italic">Modo aproximado — funciona com qualquer perfil cadastrado. Pra critério exato, use o modo Por regras.</p>
       </div>
+    </div>`;
+  },
 
-      <div class="flex gap-2 mt-3">
-        <button onclick="Actions.saveIcpDraft()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black" style="color:#fff;">Salvar ICP</button>
-        <button onclick="Actions.cancelIcpDraft()" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-black">Cancelar</button>
+  // V34.9.13 — Builder de regras HubSpot puro: 3 cards Tier 1/2/3, cada um com grupos AND
+  _renderRulesEditor(d) {
+    const rules = d.tier_rules_json || { tier_1: [], tier_2: [], tier_3: [] };
+    const tierColors = { 1: 'emerald', 2: 'amber', 3: 'slate' };
+    const tierIcons = { 1: 'crown', 2: 'medal', 3: 'circle-dashed' };
+    const tierLabels = { 1: 'Tier 1 — Best fit', 2: 'Tier 2 — Medium fit', 3: 'Tier 3 — Low fit' };
+
+    return `<div class="space-y-3">
+      <div class="rounded-xl bg-white border border-violet-200 p-3 mb-2">
+        <p class="text-[11px] text-slate-700">Modo <strong>HubSpot puro</strong>. Defina condições explícitas por tier. Avaliação em ordem Tier 1 → 2 → 3 — primeiro que casar vence. Dentro de cada tier, vários <strong>grupos</strong> contam como "OU"; condições dentro do grupo contam como "E".</p>
       </div>
+      ${[1, 2, 3].map(t => {
+        const color = tierColors[t];
+        const groups = rules[`tier_${t}`] || [];
+        return `<div class="rounded-2xl bg-white border-2 border-${color}-300 p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <i data-lucide="${tierIcons[t]}" class="w-4 h-4 text-${color}-700"></i>
+              <span class="text-sm font-black text-${color}-900">${tierLabels[t]}</span>
+            </div>
+            <button onclick="Actions.addTierRuleGroup(${t})" class="px-3 py-1.5 rounded-xl bg-${color}-600 hover:bg-${color}-700 text-white text-[11px] font-black flex items-center gap-1.5" style="color:#fff;">
+              <i data-lucide="plus" class="w-3 h-3"></i>
+              Adicionar grupo
+            </button>
+          </div>
+          ${groups.length === 0 ? `<p class="text-[11px] text-slate-400 italic">Nenhum grupo definido. Lead não cai automaticamente em Tier ${t}.</p>` : groups.map((group, gi) => this._renderTierGroup(t, gi, group, color)).join('<p class="text-[10px] text-center text-slate-400 font-black my-1">OU</p>')}
+        </div>`;
+      }).join('')}
+    </div>`;
+  },
+
+  _renderTierGroup(tier, groupIndex, group, color) {
+    return `<div class="rounded-xl bg-${color}-50 border border-${color}-200 p-3 mb-1.5">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[10px] font-black text-${color}-700 uppercase tracking-widest">Grupo ${groupIndex + 1} (todas condições E)</span>
+        <button onclick="Actions.removeTierRuleGroup(${tier}, ${groupIndex})" class="text-[10px] text-red-600 hover:text-red-700 font-black">× Remover grupo</button>
+      </div>
+      <div class="space-y-1.5">
+        ${group.map((cond, ci) => this._renderCondition(tier, groupIndex, ci, cond, color)).join('')}
+      </div>
+      <button onclick="Actions.addTierRuleCondition(${tier}, ${groupIndex})" class="mt-2 px-2 py-1 rounded-lg bg-white border border-${color}-300 text-[10px] font-black text-${color}-700 hover:bg-${color}-100 flex items-center gap-1">
+        <i data-lucide="plus" class="w-3 h-3"></i>
+        Adicionar condição (E)
+      </button>
+    </div>`;
+  },
+
+  _renderCondition(tier, groupIndex, condIndex, cond, color) {
+    const fields = [
+      { value: 'sexo', label: 'Sexo' },
+      { value: 'cidade', label: 'Cidade' },
+      { value: 'estado', label: 'Estado/UF' },
+      { value: 'estadoCivil', label: 'Estado civil' },
+      { value: 'faixaSalarial', label: 'Faixa salarial' },
+      { value: 'idade', label: 'Idade' }
+    ];
+    const ops = [
+      { value: '=', label: 'igual a' },
+      { value: '!=', label: 'diferente de' },
+      { value: 'in', label: 'está em (lista)' },
+      { value: 'not_in', label: 'não está em (lista)' },
+      { value: '>', label: 'maior que' },
+      { value: '<', label: 'menor que' },
+      { value: '>=', label: 'maior ou igual' },
+      { value: '<=', label: 'menor ou igual' },
+      { value: 'between', label: 'entre (faixa)' }
+    ];
+    const valStr = Array.isArray(cond.value) ? cond.value.join(', ') : String(cond.value ?? '');
+    const placeholder = cond.op === 'in' || cond.op === 'not_in' ? 'opção 1, opção 2'
+                      : cond.op === 'between' ? 'mín, máx'
+                      : 'valor';
+    return `<div class="flex gap-1.5 items-center">
+      <select onchange="Actions.updateTierRuleCondition(${tier}, ${groupIndex}, ${condIndex}, 'field', this.value)" class="px-2 py-1 rounded-lg bg-white border border-${color}-200 text-[11px] font-bold">
+        ${fields.map(f => `<option value="${f.value}" ${cond.field === f.value ? 'selected' : ''}>${f.label}</option>`).join('')}
+      </select>
+      <select onchange="Actions.updateTierRuleCondition(${tier}, ${groupIndex}, ${condIndex}, 'op', this.value)" class="px-2 py-1 rounded-lg bg-white border border-${color}-200 text-[11px] font-bold">
+        ${ops.map(o => `<option value="${o.value}" ${cond.op === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+      </select>
+      <input type="text" placeholder="${placeholder}" value="${Utils.escape(valStr)}"
+        oninput="Actions.updateTierRuleCondition(${tier}, ${groupIndex}, ${condIndex}, 'value', this.value)"
+        class="flex-1 px-2 py-1 rounded-lg bg-white border border-${color}-200 text-[11px] font-bold" />
+      <button onclick="Actions.removeTierRuleCondition(${tier}, ${groupIndex}, ${condIndex})" class="px-1.5 py-1 rounded-lg text-red-500 hover:bg-red-50 text-xs" title="Remover condição">×</button>
     </div>`;
   },
 

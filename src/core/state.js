@@ -356,7 +356,7 @@ var State = {
         scoreRules: [],
         ruleDraft: null,
         // V34.9.11 — ICP Profile editável
-        icpProfile: { fields_json: {} },
+        icpProfile: { fields_json: {}, tier_method: 'percentage', tier_rules_json: { tier_1: [], tier_2: [], tier_3: [] } },
         icpDraft: null
       },
       // V34.9.6 — Modal "Score Breakdown": ao clicar no badge de score do
@@ -892,7 +892,7 @@ var State = {
         scoreRules: [],
         ruleDraft: null,
         // V34.9.11 — ICP Profile editável
-        icpProfile: { fields_json: {} },
+        icpProfile: { fields_json: {}, tier_method: 'percentage', tier_rules_json: { tier_1: [], tier_2: [], tier_3: [] } },
         icpDraft: null
       },
       // V34.9.6 — Modal "Score Breakdown": ao clicar no badge de score do

@@ -617,10 +617,15 @@ CREATE INDEX IF NOT EXISTS idx_reconciliation_user_unresolved
 CREATE TABLE IF NOT EXISTS lj_icp_profile (
   user_id INT PRIMARY KEY,
   fields_json JSONB NOT NULL DEFAULT '{}',     -- { cidade: ['SP','RJ'], sexo: ['F'], idade_min: 25, idade_max: 50, ... }
-  scoring_method VARCHAR(16) NOT NULL DEFAULT 'multiplier', -- multiplier | sum | simple
-  fit_max_bonus INT NOT NULL DEFAULT 100,      -- pontos máximos do Fit
+  scoring_method VARCHAR(16) NOT NULL DEFAULT 'multiplier', -- LEGACY (V34.9.11 não usado mais)
+  fit_max_bonus INT NOT NULL DEFAULT 100,      -- LEGACY (V34.9.11 não usado mais)
+  tier_method VARCHAR(16) NOT NULL DEFAULT 'percentage', -- V34.9.13: 'percentage' (faixas fixas) | 'rules' (regras HubSpot)
+  tier_rules_json JSONB NOT NULL DEFAULT '{"tier_1":[],"tier_2":[],"tier_3":[]}', -- V34.9.13: { tier_1: [[{field,op,value}, ...], ...], tier_2: [...], tier_3: [...] }
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- V34.9.13: ALTER pra schemas pré-existentes
+ALTER TABLE lj_icp_profile ADD COLUMN IF NOT EXISTS tier_method VARCHAR(16) NOT NULL DEFAULT 'percentage';
+ALTER TABLE lj_icp_profile ADD COLUMN IF NOT EXISTS tier_rules_json JSONB NOT NULL DEFAULT '{"tier_1":[],"tier_2":[],"tier_3":[]}';
 
 -- V34.9.10 — Modelo Critérios do Score Engine (HubSpot-style).
 -- Cliente cadastra regras "trigger_type=tag, trigger_param=lj-quente, points=20"

@@ -6232,10 +6232,16 @@ Object.assign(Actions, {
   startIcpDraft() {
     const m = App.state.scoreConfigModal || {};
     const profile = m.icpProfile || { fields_json: {} };
-    App.state.scoreConfigModal = {
-      ...m,
-      icpDraft: JSON.parse(JSON.stringify(profile))
-    };
+    const draft = JSON.parse(JSON.stringify(profile));
+    // V34.9.13: garante defaults dos campos de regras
+    if (!draft.tier_method) draft.tier_method = 'percentage';
+    if (!draft.tier_rules_json || typeof draft.tier_rules_json !== 'object') {
+      draft.tier_rules_json = { tier_1: [], tier_2: [], tier_3: [] };
+    }
+    ['tier_1', 'tier_2', 'tier_3'].forEach(k => {
+      if (!Array.isArray(draft.tier_rules_json[k])) draft.tier_rules_json[k] = [];
+    });
+    App.state.scoreConfigModal = { ...m, icpDraft: draft };
     App.render();
   },
 
@@ -6257,6 +6263,80 @@ Object.assign(Actions, {
       fields[key] = value;
     }
     App.state.scoreConfigModal.icpDraft.fields_json = fields;
+  },
+
+  // V34.9.13 — Builder de regras de tier (modo HubSpot puro).
+  // Estrutura: icpDraft.tier_rules_json = { tier_1: [[cond, cond], [cond]], tier_2: [...], tier_3: [...] }
+  // Cada tier tem grupos AND (OR entre grupos).
+
+  setIcpDraftTierMethod(method) {
+    const d = App.state.scoreConfigModal?.icpDraft;
+    if (!d) return;
+    d.tier_method = (method === 'rules') ? 'rules' : 'percentage';
+    if (!d.tier_rules_json) d.tier_rules_json = { tier_1: [], tier_2: [], tier_3: [] };
+    App.render();
+  },
+
+  _ensureTierRules(d) {
+    if (!d.tier_rules_json) d.tier_rules_json = { tier_1: [], tier_2: [], tier_3: [] };
+    ['tier_1', 'tier_2', 'tier_3'].forEach(k => {
+      if (!Array.isArray(d.tier_rules_json[k])) d.tier_rules_json[k] = [];
+    });
+    return d.tier_rules_json;
+  },
+
+  addTierRuleGroup(tier) {
+    const d = App.state.scoreConfigModal?.icpDraft;
+    if (!d) return;
+    const rules = Actions._ensureTierRules(d);
+    rules[`tier_${tier}`].push([{ field: 'estado', op: '=', value: '' }]);
+    App.render();
+  },
+
+  removeTierRuleGroup(tier, groupIndex) {
+    const d = App.state.scoreConfigModal?.icpDraft;
+    if (!d) return;
+    const rules = Actions._ensureTierRules(d);
+    rules[`tier_${tier}`].splice(groupIndex, 1);
+    App.render();
+  },
+
+  addTierRuleCondition(tier, groupIndex) {
+    const d = App.state.scoreConfigModal?.icpDraft;
+    if (!d) return;
+    const rules = Actions._ensureTierRules(d);
+    const group = rules[`tier_${tier}`][groupIndex];
+    if (!group) return;
+    group.push({ field: 'estado', op: '=', value: '' });
+    App.render();
+  },
+
+  removeTierRuleCondition(tier, groupIndex, condIndex) {
+    const d = App.state.scoreConfigModal?.icpDraft;
+    if (!d) return;
+    const rules = Actions._ensureTierRules(d);
+    const group = rules[`tier_${tier}`][groupIndex];
+    if (!group) return;
+    group.splice(condIndex, 1);
+    if (group.length === 0) rules[`tier_${tier}`].splice(groupIndex, 1);
+    App.render();
+  },
+
+  updateTierRuleCondition(tier, groupIndex, condIndex, key, value) {
+    const d = App.state.scoreConfigModal?.icpDraft;
+    if (!d) return;
+    const rules = Actions._ensureTierRules(d);
+    const cond = rules[`tier_${tier}`]?.[groupIndex]?.[condIndex];
+    if (!cond) return;
+    if (key === 'value' && typeof value === 'string' && value.includes(',')) {
+      cond.value = value.split(',').map(v => v.trim()).filter(Boolean);
+    } else if (key === 'value' && (cond.op === '>' || cond.op === '<' || cond.op === '>=' || cond.op === '<=')) {
+      cond.value = Number(value) || 0;
+    } else {
+      cond[key] = value;
+    }
+    // Render só em mudança de operador/campo (não em valor — perderia foco)
+    if (key !== 'value') App.render();
   },
 
   async saveIcpDraft() {

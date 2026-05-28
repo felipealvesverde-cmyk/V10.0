@@ -178,18 +178,17 @@ module.exports = async function handler(req, res) {
       },
       criteria: criteriaData ? {
         totalPoints: criteriaData.totalPoints,
-        engagement: criteriaData.engagement,
-        fitBonus: criteriaData.fitBonus,
         hits: criteriaData.hits,
         breakdown: criteriaData.breakdown,
         byCategory: criteriaData.byCategory,
         fit: criteriaData.fit ? {
           fit_percentage: criteriaData.fit.fit_percentage,
+          tier: criteriaData.fit.tier,
+          tierMethod: criteriaData.fit.tierMethod,
           matchedFields: criteriaData.fit.matchedFields,
           totalFields: criteriaData.fit.totalFields,
           breakdown: criteriaData.fit.breakdown,
-          scoring_method: criteriaData.fit.profile?.scoring_method || null,
-          fit_max_bonus: criteriaData.fit.profile?.fit_max_bonus || null
+          rulesTrace: criteriaData.fit.rulesTrace
         } : null
       } : null,
       score: {

@@ -70,36 +70,44 @@ window.ScoreBreakdownModal = {
     `;
   },
 
-  // V34.9.12 — Card do ICP Fit HubSpot-puro: TIER (1/2/3) em destaque,
-  // % é só metadata. Engagement Score e Fit ficam SEPARADOS — sem fórmula.
+  // V34.9.13 — Card do ICP Fit HubSpot-puro: TIER (1/2/3) em destaque.
+  // 2 modos: 'percentage' (% match → tier) ou 'rules' (regras explícitas).
   _fitCard(fit) {
-    if (!fit || fit.totalFields === 0) return '';
+    if (!fit || (fit.totalFields === 0 && !fit.rulesTrace)) return '';
     const pct = Number(fit.fit_percentage || 0);
-    const tier = fit.tier || (pct >= 80 ? 1 : pct >= 50 ? 2 : 3);
+    const tier = fit.tier;
     const matched = Number(fit.matchedFields || 0);
     const total = Number(fit.totalFields || 0);
+    const tierMethod = fit.tierMethod || 'percentage';
     const tierMap = {
       1: { label: 'Tier 1', sublabel: 'Best fit', color: 'emerald', icon: 'crown' },
       2: { label: 'Tier 2', sublabel: 'Medium fit', color: 'amber', icon: 'medal' },
       3: { label: 'Tier 3', sublabel: 'Low fit', color: 'slate', icon: 'circle-dashed' }
     };
-    const t = tierMap[tier] || tierMap[3];
+    const t = tier ? tierMap[tier] : { label: 'Sem tier', sublabel: 'Nenhuma regra casou', color: 'slate', icon: 'circle-off' };
     return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
       <div class="flex items-center justify-between mb-4">
-        <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">ICP Fit</h4>
+        <div>
+          <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">ICP Fit</h4>
+          <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-violet-100 text-violet-800 text-[9px] font-black">
+            <i data-lucide="${tierMethod === 'rules' ? 'shield-check' : 'percent'}" class="w-2.5 h-2.5"></i>
+            ${tierMethod === 'rules' ? 'Por regras' : 'Por % match'}
+          </span>
+        </div>
         <div class="text-right">
           <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-${t.color}-100 border-2 border-${t.color}-300">
             <i data-lucide="${t.icon}" class="w-4 h-4 text-${t.color}-700"></i>
             <span class="text-lg font-black text-${t.color}-900">${t.label}</span>
             <span class="text-[10px] font-bold text-${t.color}-700">· ${t.sublabel}</span>
           </div>
-          <p class="text-[10px] text-slate-500 mt-1">${pct}% · ${matched} / ${total} campo(s) batem</p>
+          ${total > 0 ? `<p class="text-[10px] text-slate-500 mt-1">${pct}% · ${matched} / ${total} campo(s) batem</p>` : ''}
         </div>
       </div>
-      <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
+      ${total > 0 ? `<div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
         <div class="h-full bg-${t.color}-500" style="width: ${pct}%"></div>
-      </div>
-      ${Array.isArray(fit.breakdown) && fit.breakdown.length ? `
+      </div>` : ''}
+      ${tierMethod === 'rules' && fit.rulesTrace ? this._rulesTraceBlock(fit.rulesTrace) : ''}
+      ${tierMethod === 'percentage' && Array.isArray(fit.breakdown) && fit.breakdown.length ? `
         <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Comparação campo a campo:</p>
         <div class="space-y-1.5 max-h-48 overflow-y-auto">
           ${fit.breakdown.map(b => `<div class="flex items-center gap-2 p-2 rounded-lg ${b.match ? 'bg-emerald-50 border border-emerald-100' : 'bg-slate-50 border border-slate-200'} text-xs">
@@ -112,6 +120,24 @@ window.ScoreBreakdownModal = {
         </div>
       ` : ''}
       <p class="text-[10px] text-slate-500 mt-3 italic">Tier é indicador paralelo ao score — não soma nem multiplica pontos (HubSpot-style).</p>
+    </div>`;
+  },
+
+  _rulesTraceBlock(trace) {
+    if (!trace) return '';
+    if (trace.reason === 'sem_regras' || trace.reason === 'nenhuma_regra_casou') {
+      return `<div class="rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-slate-600 italic">${trace.reason === 'sem_regras' ? 'Nenhuma regra de tier cadastrada.' : 'Nenhuma regra casou com este lead.'}</div>`;
+    }
+    return `<div class="rounded-xl bg-emerald-50 border border-emerald-200 p-3 mb-2">
+      <p class="text-[10px] font-black text-emerald-800 uppercase tracking-widest mb-1.5">Tier ${trace.matchedTier} casou no grupo ${trace.matchedGroupIndex + 1}</p>
+      <div class="space-y-1">
+        ${(trace.conditions || []).map(c => `<div class="text-xs flex items-center gap-1.5 ${c.match ? 'text-emerald-900' : 'text-slate-500'}">
+          <i data-lucide="${c.match ? 'check' : 'x'}" class="w-3 h-3"></i>
+          <span class="font-bold">${Utils.escape(String(c.cond.field))}</span>
+          <span class="text-[10px]">${Utils.escape(String(c.cond.op))}</span>
+          <span class="font-mono text-[10px]">${Utils.escape(Array.isArray(c.cond.value) ? c.cond.value.join(', ') : String(c.cond.value ?? ''))}</span>
+        </div>`).join('')}
+      </div>
     </div>`;
   },
 
