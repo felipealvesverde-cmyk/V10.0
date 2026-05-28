@@ -6077,9 +6077,10 @@ Object.assign(Actions, {
       ruleDraft: null
     };
     App.render();
-    // Carrega modelo ativo + regras em background
+    // Carrega modelo ativo + regras + ICP em background
     this.loadScoreModel();
     this.loadScoreRules();
+    this.loadIcpProfile();
   },
 
   closeScoreConfigModal() {
@@ -6213,6 +6214,91 @@ Object.assign(Actions, {
       if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
       await this.loadScoreRules();
     } catch (err) { Utils.toast(`Erro: ${err.message}`); }
+  },
+
+  // V34.9.11 — ICP Profile
+  async loadIcpProfile() {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/icp-profile', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.ok) {
+        App.state.scoreConfigModal = { ...(App.state.scoreConfigModal || {}), icpProfile: data.profile };
+        App.render();
+      }
+    } catch (_) {}
+  },
+
+  startIcpDraft() {
+    const m = App.state.scoreConfigModal || {};
+    const profile = m.icpProfile || { fields_json: {}, scoring_method: 'multiplier', fit_max_bonus: 100 };
+    App.state.scoreConfigModal = {
+      ...m,
+      icpDraft: JSON.parse(JSON.stringify(profile))
+    };
+    App.render();
+  },
+
+  cancelIcpDraft() {
+    App.state.scoreConfigModal = { ...(App.state.scoreConfigModal || {}), icpDraft: null };
+    App.render();
+  },
+
+  updateIcpDraftField(key, value) {
+    const m = App.state.scoreConfigModal;
+    if (!m?.icpDraft) return;
+    const fields = { ...(m.icpDraft.fields_json || {}) };
+    if (value === '' || value === null || value === undefined) {
+      delete fields[key];
+    } else if (typeof value === 'string' && value.includes(',')) {
+      // Lista de valores separados por vírgula → array
+      fields[key] = value.split(',').map(v => v.trim()).filter(Boolean);
+    } else {
+      fields[key] = value;
+    }
+    App.state.scoreConfigModal.icpDraft.fields_json = fields;
+  },
+
+  updateIcpDraftMethod(method) {
+    const d = App.state.scoreConfigModal?.icpDraft;
+    if (!d) return;
+    d.scoring_method = method;
+    App.render();
+  },
+
+  updateIcpDraftMaxBonus(value) {
+    const d = App.state.scoreConfigModal?.icpDraft;
+    if (!d) return;
+    d.fit_max_bonus = Number(value) || 100;
+  },
+
+  async saveIcpDraft() {
+    const draft = App.state.scoreConfigModal?.icpDraft;
+    if (!draft) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const res = await fetch('/api/icp-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(draft)
+      });
+      const data = await res.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ ICP salvo. Recalculando leads…');
+      App.state.scoreConfigModal.icpProfile = data.profile;
+      App.state.scoreConfigModal.icpDraft = null;
+      App.render();
+      // Dispara recálculo em batch (fit afeta scores)
+      try {
+        await fetch('/api/score-recalc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ batch_decay: true, max_visitors: 1000 })
+        });
+      } catch (_) {}
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
   },
 
   async deleteScoreRule(ruleId) {

@@ -350,11 +350,14 @@ var State = {
       scoreConfigModal: {
         open: false,
         campaignId: null,
-        activeTab: 'score',       // 'score' | 'settings'
-        scoreSubTab: 'general',   // 'general' | 'campaign'
-        activeModel: 'rfv',       // 'rfv' | 'criteria' | 'hybrid'
+        activeTab: 'score',
+        scoreSubTab: 'general',
+        activeModel: 'rfv',
         scoreRules: [],
-        ruleDraft: null
+        ruleDraft: null,
+        // V34.9.11 — ICP Profile editável
+        icpProfile: { fields_json: {}, scoring_method: 'multiplier', fit_max_bonus: 100 },
+        icpDraft: null
       },
       // V34.9.6 — Modal "Score Breakdown": ao clicar no badge de score do
       // lead, abre detalhamento item por item (tags, touchpoints, eventos,
@@ -883,11 +886,14 @@ var State = {
       scoreConfigModal: {
         open: false,
         campaignId: null,
-        activeTab: 'score',       // 'score' | 'settings'
-        scoreSubTab: 'general',   // 'general' | 'campaign'
-        activeModel: 'rfv',       // 'rfv' | 'criteria' | 'hybrid'
+        activeTab: 'score',
+        scoreSubTab: 'general',
+        activeModel: 'rfv',
         scoreRules: [],
-        ruleDraft: null
+        ruleDraft: null,
+        // V34.9.11 — ICP Profile editável
+        icpProfile: { fields_json: {}, scoring_method: 'multiplier', fit_max_bonus: 100 },
+        icpDraft: null
       },
       // V34.9.6 — Modal "Score Breakdown": ao clicar no badge de score do
       // lead, abre detalhamento item por item (tags, touchpoints, eventos,

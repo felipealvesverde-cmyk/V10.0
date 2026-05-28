@@ -1,8 +1,9 @@
-// V34.9.6 — Modal "Score Breakdown" item por item.
+// V34.9.11 — Modal "Score Breakdown" item por item.
 //
 // Abre ao clicar no badge de score de um lead. Mostra:
 //   - Header: nome/email do visitor + score atual + entity + faixa
-//   - Componentes R/F/V com valores e cálculo
+//   - Componentes R/F/V com valores e cálculo (RFV)
+//   - Critérios disparados + ICP Fit + composição Engagement+Bonus (Critérios/Híbrido)
 //   - Lista de tags (cada uma + timestamp + source + categoria positiva/negativa)
 //   - Lista de touchpoints (canal, source_type, occurred_at)
 //   - Lista de eventos custom
@@ -58,6 +59,8 @@ window.ScoreBreakdownModal = {
       ${this._modelBadge(model)}
       ${model === 'rfv' ? this._componentsCard(d.components, d.weights) : ''}
       ${(model === 'criteria' || model === 'hybrid') ? this._criteriaCard(d.criteria) : ''}
+      ${(model === 'criteria' || model === 'hybrid') ? this._fitCard(d.criteria?.fit) : ''}
+      ${(model === 'criteria' || model === 'hybrid') ? this._compositionCard(d.criteria) : ''}
       ${this._scoreFlowCard(d.score, d.visitor)}
       ${this._countsCard(d.counts)}
       ${this._tagsCard(d.items.tags || [])}
@@ -66,6 +69,72 @@ window.ScoreBreakdownModal = {
       ${this._transitionsCard(d.items.transitions || [])}
       ${this._campaignScoresCard(d.campaignScores || [])}
     `;
+  },
+
+  // V34.9.11 — Card do ICP Fit (% de match do visitor com perfil ideal)
+  _fitCard(fit) {
+    if (!fit || fit.totalFields === 0) return '';
+    const pct = Number(fit.fit_percentage || 0);
+    const matched = Number(fit.matchedFields || 0);
+    const total = Number(fit.totalFields || 0);
+    const color = pct >= 70 ? 'violet' : pct >= 40 ? 'amber' : 'slate';
+    return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">ICP Fit Score</h4>
+        <div class="text-right">
+          <p class="text-2xl font-black text-${color}-700">${pct}%</p>
+          <p class="text-[10px] text-slate-500">${matched} / ${total} campo(s) batem</p>
+        </div>
+      </div>
+      <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
+        <div class="h-full bg-${color}-500" style="width: ${pct}%"></div>
+      </div>
+      ${Array.isArray(fit.breakdown) && fit.breakdown.length ? `
+        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Comparação campo a campo:</p>
+        <div class="space-y-1.5 max-h-48 overflow-y-auto">
+          ${fit.breakdown.map(b => `<div class="flex items-center gap-2 p-2 rounded-lg ${b.match ? 'bg-emerald-50 border border-emerald-100' : 'bg-slate-50 border border-slate-200'} text-xs">
+            <i data-lucide="${b.match ? 'check-circle-2' : 'circle'}" class="w-3.5 h-3.5 ${b.match ? 'text-emerald-600' : 'text-slate-400'}"></i>
+            <span class="font-black text-slate-900 capitalize">${Utils.escape(String(b.field))}</span>
+            <span class="text-[10px] text-slate-500">Esperado:</span>
+            <span class="text-[10px] font-bold text-slate-700 truncate">${Utils.escape(Array.isArray(b.expected) ? b.expected.join(', ') : String(b.expected))}</span>
+            <span class="text-[10px] text-slate-400 ml-auto">Atual: ${Utils.escape(String(b.actual ?? '—'))}</span>
+          </div>`).join('')}
+        </div>
+      ` : ''}
+      <p class="text-[10px] text-slate-500 mt-2 italic">Método: ${Utils.escape(fit.scoring_method || 'multiplier')}${fit.scoring_method === 'sum' ? ` · bônus máx ${fit.fit_max_bonus || 100} pts` : ''}</p>
+    </div>`;
+  },
+
+  // V34.9.11 — Card de composição: Engagement + Fit Bonus = Final
+  _compositionCard(c) {
+    if (!c) return '';
+    const engagement = Number(c.engagement || 0);
+    const fitBonus = Number(c.fitBonus || 0);
+    const total = Number(c.totalPoints || 0);
+    const method = c.fit?.scoring_method || 'multiplier';
+    const methodLabel = method === 'multiplier'
+      ? `Engagement × (1 + Fit%) = ${engagement} × (1 + ${c.fit?.fit_percentage || 0}/100)`
+      : method === 'sum'
+      ? `Engagement + (Fit% × bônus máx) = ${engagement} + ${fitBonus}`
+      : `Engagement (sem fit)`;
+    return `<div class="rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white p-5">
+      <h4 class="text-xs font-black uppercase tracking-widest text-slate-300 mb-3">Composição do Score Final</h4>
+      <div class="grid grid-cols-3 gap-2 mb-3">
+        <div class="rounded-xl bg-white/10 p-3 text-center">
+          <p class="text-[10px] font-black text-sky-300 uppercase tracking-widest">Engagement</p>
+          <p class="text-2xl font-black text-white">${engagement >= 0 ? '+' : ''}${engagement}</p>
+        </div>
+        <div class="rounded-xl bg-white/10 p-3 text-center">
+          <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest">Fit Bonus</p>
+          <p class="text-2xl font-black text-white">${fitBonus >= 0 ? '+' : ''}${fitBonus}</p>
+        </div>
+        <div class="rounded-xl bg-amber-500/20 border border-amber-400/40 p-3 text-center">
+          <p class="text-[10px] font-black text-amber-300 uppercase tracking-widest">Total</p>
+          <p class="text-2xl font-black text-amber-200">${total >= 0 ? '+' : ''}${total}</p>
+        </div>
+      </div>
+      <p class="text-[11px] text-slate-300 font-mono">${Utils.escape(methodLabel)} = <strong class="text-amber-200">${total}</strong></p>
+    </div>`;
   },
 
   // V34.9.10.4 — Badge no topo identificando qual modelo está ativo

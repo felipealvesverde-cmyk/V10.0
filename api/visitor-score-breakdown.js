@@ -1,6 +1,7 @@
-// V34.9.6 — GET /api/visitor-score-breakdown?visitor_id=X
+// V34.9.11 — GET /api/visitor-score-breakdown?visitor_id=X
 // Retorna detalhamento ITEM POR ITEM do score de 1 visitor.
 // Read-only — não recalcula nem grava nada.
+// V34.9.11: inclui ICP Fit Score + composição engagement+fitBonus no modo Critérios.
 
 const { computeR, computeF, computeV, applyHierarchy, DEFAULT_WEIGHTS, computeCriteriaScore, readActiveScoreModel } = require('../lib/score-engine');
 
@@ -177,9 +178,19 @@ module.exports = async function handler(req, res) {
       },
       criteria: criteriaData ? {
         totalPoints: criteriaData.totalPoints,
+        engagement: criteriaData.engagement,
+        fitBonus: criteriaData.fitBonus,
         hits: criteriaData.hits,
         breakdown: criteriaData.breakdown,
-        byCategory: criteriaData.byCategory
+        byCategory: criteriaData.byCategory,
+        fit: criteriaData.fit ? {
+          fit_percentage: criteriaData.fit.fit_percentage,
+          matchedFields: criteriaData.fit.matchedFields,
+          totalFields: criteriaData.fit.totalFields,
+          breakdown: criteriaData.fit.breakdown,
+          scoring_method: criteriaData.fit.profile?.scoring_method || null,
+          fit_max_bonus: criteriaData.fit.profile?.fit_max_bonus || null
+        } : null
       } : null,
       score: {
         raw01: Number(raw01.toFixed(4)),
