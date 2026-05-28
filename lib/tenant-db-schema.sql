@@ -611,6 +611,17 @@ CREATE INDEX IF NOT EXISTS idx_reconciliation_user_unresolved
   ON lj_reconciliation_alerts(user_id, resolved_at)
   WHERE resolved_at IS NULL;
 
+-- V34.9.11 — ICP Profile (Ideal Customer Profile): cliente define perfil
+-- ideal por campo (cidade, idade, sexo, faixa salarial, etc.) + método de
+-- pontuação que combina Engagement (regras) com Fit (% match com ICP).
+CREATE TABLE IF NOT EXISTS lj_icp_profile (
+  user_id INT PRIMARY KEY,
+  fields_json JSONB NOT NULL DEFAULT '{}',     -- { cidade: ['SP','RJ'], sexo: ['F'], idade_min: 25, idade_max: 50, ... }
+  scoring_method VARCHAR(16) NOT NULL DEFAULT 'multiplier', -- multiplier | sum | simple
+  fit_max_bonus INT NOT NULL DEFAULT 100,      -- pontos máximos do Fit
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- V34.9.10 — Modelo Critérios do Score Engine (HubSpot-style).
 -- Cliente cadastra regras "trigger_type=tag, trigger_param=lj-quente, points=20"
 -- que somam (ou subtraem) pontos. Modo 'criteria' usa só essas regras.

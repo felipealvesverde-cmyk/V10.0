@@ -114,7 +114,118 @@ window.ScoreConfigModal = {
 
       ${model === 'rfv' ? this._renderRfvSettingsCard() : ''}
       ${(model === 'criteria' || model === 'hybrid') ? this._renderCriteriaSettings(rules, draft) : ''}
+      ${(model === 'criteria' || model === 'hybrid') ? this._renderIcpSettings() : ''}
     </div>`;
+  },
+
+  // V34.9.11 — UI ICP Profile (editável)
+  _renderIcpSettings() {
+    const m = App.state.scoreConfigModal;
+    const profile = m.icpProfile || { fields_json: {}, scoring_method: 'multiplier', fit_max_bonus: 100 };
+    const draft = m.icpDraft;
+    if (!draft) {
+      return this._renderIcpView(profile);
+    }
+    return this._renderIcpEditor(draft);
+  },
+
+  _renderIcpView(p) {
+    const f = p.fields_json || {};
+    const method = p.scoring_method || 'multiplier';
+    const fitMax = p.fit_max_bonus || 100;
+    const methodLabel = {
+      multiplier: `Multiplicador: Engagement × (1 + Fit/100)`,
+      sum: `Soma: Engagement + (Fit% × ${fitMax}pts)`,
+      simple: 'Apenas Engagement (Fit ignorado)'
+    };
+    const fields = Object.entries(f).filter(([k]) => f[k] !== null && f[k] !== '' && f[k] !== undefined);
+    return `<div class="rounded-2xl bg-white border border-slate-200 p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest">ICP — Perfil do Cliente Ideal</h4>
+        <button onclick="Actions.startIcpDraft()" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff;">
+          <i data-lucide="edit-3" class="w-3 h-3"></i>
+          Editar
+        </button>
+      </div>
+      <p class="text-xs text-slate-500 mb-3">Quando um lead bate com seu ICP, recebe bonus de pontos. ${methodLabel[method]}</p>
+      ${fields.length === 0 ? `<p class="text-xs text-slate-400 italic">Nenhum critério de ICP cadastrado. Clique em Editar pra começar.</p>` : `
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          ${fields.map(([k, v]) => `<div class="p-2 rounded-xl bg-violet-50 border border-violet-200">
+            <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">${Utils.escape(this._icpFieldLabel(k))}</p>
+            <p class="text-xs font-bold text-violet-900">${Utils.escape(Array.isArray(v) ? v.join(', ') : String(v))}</p>
+          </div>`).join('')}
+        </div>
+      `}
+    </div>`;
+  },
+
+  _renderIcpEditor(d) {
+    const f = d.fields_json || {};
+    const method = d.scoring_method || 'multiplier';
+    const fitMax = d.fit_max_bonus || 100;
+    return `<div class="rounded-2xl bg-violet-50 border-2 border-violet-300 p-5">
+      <h4 class="text-sm font-black text-slate-900 uppercase tracking-widest mb-3">Editar ICP</h4>
+
+      <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-2">Campos do perfil ideal</p>
+      <p class="text-xs text-slate-500 mb-3">Várias opções: separe por vírgula. Ex.: cidade "São Paulo, Rio de Janeiro"</p>
+
+      ${this._icpFieldInput('sexo', 'Sexo', f.sexo || '')}
+      ${this._icpFieldInput('cidade', 'Cidade', f.cidade || '')}
+      ${this._icpFieldInput('estado', 'Estado/UF', f.estado || '')}
+      ${this._icpFieldInput('estadoCivil', 'Estado civil', f.estadoCivil || '')}
+      ${this._icpFieldInput('faixaSalarial', 'Faixa salarial', f.faixaSalarial || '')}
+
+      <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mt-3 mb-2">Idade (faixa)</p>
+      <div class="flex gap-2 mb-3">
+        <input type="number" placeholder="mínima" value="${f.idade_min || ''}" oninput="Actions.updateIcpDraftField('idade_min', Number(this.value) || null)" class="flex-1 px-2 py-1.5 rounded-lg bg-white border border-violet-200 text-xs font-bold" />
+        <input type="number" placeholder="máxima" value="${f.idade_max || ''}" oninput="Actions.updateIcpDraftField('idade_max', Number(this.value) || null)" class="flex-1 px-2 py-1.5 rounded-lg bg-white border border-violet-200 text-xs font-bold" />
+      </div>
+
+      <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mt-4 mb-2">Como combinar Engagement com Fit</p>
+      <div class="space-y-2 mb-3">
+        ${this._icpMethodOption('multiplier', 'Multiplicador', 'Lead engajado + ICP perfeito vira super-quente. Engagement × (1 + Fit/100)', method)}
+        ${this._icpMethodOption('sum', 'Soma com peso', `Engagement + (Fit% × ${fitMax}pts). Bonus controlado.`, method)}
+        ${this._icpMethodOption('simple', 'Apenas Engagement', 'Ignora Fit. Lead pontua só por comportamento.', method)}
+      </div>
+
+      ${method === 'sum' ? `<div class="mb-3">
+        <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-1">Bonus máximo do Fit (pontos)</p>
+        <input type="number" value="${fitMax}" oninput="Actions.updateIcpDraftMaxBonus(this.value)" class="w-32 px-2 py-1.5 rounded-lg bg-white border border-violet-200 text-xs font-bold" />
+      </div>` : ''}
+
+      <div class="flex gap-2 mt-3">
+        <button onclick="Actions.saveIcpDraft()" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black" style="color:#fff;">Salvar ICP</button>
+        <button onclick="Actions.cancelIcpDraft()" class="px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-black">Cancelar</button>
+      </div>
+    </div>`;
+  },
+
+  _icpFieldInput(key, label, value) {
+    const val = Array.isArray(value) ? value.join(', ') : String(value || '');
+    return `<div class="mb-2">
+      <label class="text-[10px] font-black text-slate-700 uppercase tracking-widest block mb-1">${Utils.escape(label)}</label>
+      <input type="text" placeholder="ex.: opção 1, opção 2" value="${Utils.escape(val)}" oninput="Actions.updateIcpDraftField('${key}', this.value)" class="w-full px-2 py-1.5 rounded-lg bg-white border border-violet-200 text-xs font-bold" />
+    </div>`;
+  },
+
+  _icpMethodOption(value, label, desc, active) {
+    const isActive = value === active;
+    return `<div onclick="Actions.updateIcpDraftMethod('${value}')" class="rounded-xl border-2 ${isActive ? 'border-violet-500 bg-white' : 'border-slate-200 bg-white hover:border-slate-300'} p-2 cursor-pointer transition">
+      <div class="flex items-center gap-2">
+        <span class="w-3 h-3 rounded-full border-2 ${isActive ? 'border-violet-600 bg-violet-600' : 'border-slate-300'}"></span>
+        <span class="text-xs font-black text-slate-900">${label}</span>
+      </div>
+      <p class="text-[11px] text-slate-600 ml-5">${desc}</p>
+    </div>`;
+  },
+
+  _icpFieldLabel(k) {
+    const map = {
+      sexo: 'Sexo', cidade: 'Cidade', estado: 'Estado',
+      estadoCivil: 'Estado civil', faixaSalarial: 'Faixa salarial',
+      idade_min: 'Idade mínima', idade_max: 'Idade máxima'
+    };
+    return map[k] || k;
   },
 
   // Pílula segmentada com 3 modelos + botão "Editar" amarelo na ponta
