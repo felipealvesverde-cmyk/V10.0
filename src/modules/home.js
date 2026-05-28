@@ -589,12 +589,25 @@ window.HomeModule = {
       }
     });
     if (items.length === 0) return '<div class="lj-home-alerts-empty">Nenhum alerta no momento.</div>';
-    return items.slice(0, 8).map(it => `<button onclick="${it.onclick}" class="w-full flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 text-left transition" title="${it.hint}">
-      <span class="w-1.5 h-1.5 rounded-full bg-${it.severity}-500 mt-1.5 shrink-0"></span>
-      <div class="min-w-0 flex-1">
-        <p class="text-[11px] font-black text-slate-800 truncate">${it.label}</p>
-        <p class="text-[10px] text-${it.severity}-700">${it.hint}</p>
-      </div>
-    </button>`).join('') + (items.length > 8 ? `<p class="text-[10px] text-slate-500 italic text-center pt-1">+${items.length - 8} alerta(s) mais</p>` : '');
+    // V34.9.18 — Cores claras pra ficar legível no fundo escuro do card.
+    const hintToneMap = {
+      red:    'text-red-300',
+      amber:  'text-amber-300',
+      orange: 'text-orange-300',
+      yellow: 'text-yellow-300',
+      sky:    'text-sky-300',
+      emerald:'text-emerald-300',
+      violet: 'text-violet-300'
+    };
+    return items.slice(0, 8).map(it => {
+      const hintTone = hintToneMap[it.severity] || 'text-slate-300';
+      return `<button onclick="${it.onclick}" class="w-full flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 text-left transition" title="${it.hint}">
+        <span class="w-1.5 h-1.5 rounded-full bg-${it.severity}-400 mt-1.5 shrink-0"></span>
+        <div class="min-w-0 flex-1">
+          <p class="text-[11px] font-black text-slate-100 truncate">${it.label}</p>
+          <p class="text-[10px] ${hintTone}">${it.hint}</p>
+        </div>
+      </button>`;
+    }).join('') + (items.length > 8 ? `<p class="text-[10px] text-slate-400 italic text-center pt-1">+${items.length - 8} alerta(s) mais</p>` : '');
   }
 };
