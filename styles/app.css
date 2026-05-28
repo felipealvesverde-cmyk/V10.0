@@ -69,6 +69,36 @@
 }
 .journey-pipeline .jp-stage-node:hover { filter: saturate(1.08); }
 .journey-pipeline .jp-stage-node:hover .jp-stage-core { transform: scale(1.08); }
+/* V35.0.0 — Tooltip de preview do sub-funil ao hover. CSS-only show/hide. */
+.journey-pipeline .jp-stage-tooltip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  margin-top: 6px;
+  min-width: 180px;
+  max-width: 260px;
+  background: rgba(15,23,42,.96);
+  color: #fff;
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+}
+.journey-pipeline .jp-stage-node:hover .jp-stage-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.journey-pipeline .jp-stage-tooltip > div {
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.journey-pipeline .jp-stage-tooltip > div:last-child { border-bottom: none; }
 .journey-pipeline .jp-stage-core {
   border-radius: 999px;
   display: grid;

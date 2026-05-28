@@ -6,7 +6,7 @@
 //
 // Self-scope: user vê/edita só seus próprios sub-stages.
 
-const { listSubstagesWithCounts } = require('../lib/substage-engine');
+const { listSubstagesWithCounts, syncSubstageCacheForBolinha } = require('../lib/substage-engine');
 
 const FIXED_STAGES = new Set([
   'marketing-tof', 'marketing-mof', 'marketing-bof',
@@ -60,7 +60,10 @@ module.exports = async function handler(req, res) {
           [id, name, tagTrigger, color, orderIdx, userId]
         );
         if (!r.rows.length) return res.status(404).json({ ok: false, message: 'Sub-stage não encontrado.' });
-        return res.status(200).json({ ok: true, substage: r.rows[0] });
+        // V35.0.0 — Sincroniza cache em background (mudança de tag → leads se redistribuem)
+        const updated = r.rows[0];
+        syncSubstageCacheForBolinha(req.tenantDb, userId, Number(updated.campaign_id), updated.parent_stage).catch(() => {});
+        return res.status(200).json({ ok: true, substage: updated });
       }
 
       // INSERT — order_idx auto se não vier
@@ -80,19 +83,29 @@ module.exports = async function handler(req, res) {
          RETURNING id, order_idx, name, tag_trigger, color, parent_stage, campaign_id`,
         [userId, campaignId, parentStage, finalOrder, name, tagTrigger, color]
       );
+      // V35.0.0 — Sincroniza cache em background (não bloqueia resposta)
+      syncSubstageCacheForBolinha(req.tenantDb, userId, campaignId, parentStage).catch(() => {});
       return res.status(200).json({ ok: true, substage: r.rows[0] });
     }
 
     if (req.method === 'DELETE') {
       const id = Number(req.query?.id || 0);
       if (!id) return res.status(400).json({ ok: false, message: 'id obrigatório.' });
-      // Não bloqueia se tem leads — o resolveCurrentSubstageId vai recolocar
-      // automaticamente no sub-stage 1 (entrada padrão).
+      // Lê parent_stage + campaign_id antes do delete pra sincronizar cache depois
+      const beforeR = await req.tenantDb.query(
+        `SELECT campaign_id, parent_stage FROM lj_substages WHERE id = $1 AND user_id = $2`,
+        [id, userId]
+      );
       const r = await req.tenantDb.query(
         `DELETE FROM lj_substages WHERE id = $1 AND user_id = $2 RETURNING id`,
         [id, userId]
       );
       if (!r.rows.length) return res.status(404).json({ ok: false, message: 'Sub-stage não encontrado.' });
+      // V35.0.0 — Sincroniza cache em background
+      if (beforeR.rows.length) {
+        const b = beforeR.rows[0];
+        syncSubstageCacheForBolinha(req.tenantDb, userId, Number(b.campaign_id), b.parent_stage).catch(() => {});
+      }
       return res.status(200).json({ ok: true, deletedId: r.rows[0].id });
     }
 

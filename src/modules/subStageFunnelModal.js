@@ -1,11 +1,20 @@
-// V34.9.20 — Modal Sub-Funil.
+// V35.0.0 — Modal Sub-Funil (versão completa).
 //
 // Abre ao clicar numa bolinha do Revenue Flow Map (com campanha selecionada).
 // Mostra mini-funil editável: cada linha = um sub-stage (nome + tag + contagem).
 // Autosave por debounce. Funil decorativo afunilado nas bordas; números honestos
 // dentro de cada faixa.
+//
+// V35.0.0 adiciona: drag-and-drop pra reordenar, datalist com tags conhecidas
+// (vocabulário derivado de lj_visitor_tags), color picker por sub-stage,
+// confirm delete via modal próprio (não confirm() nativo).
+
+// Paleta predefinida pro color picker — combina com a paleta semântica oficial
+SubStageFunnelModal_COLORS = ['#F472B6', '#00CBCC', '#6BBEF9', '#F6DB5C', '#AB3ED8', '#FB923C', '#34D399', '#94A3B8'];
 
 window.SubStageFunnelModal = {
+  _palette: SubStageFunnelModal_COLORS,
+
   // Cor da bolinha pai (paleta semântica LJ — coerência cromática Leo)
   _parentColor(parentStage) {
     if (parentStage?.startsWith('marketing')) return { hex: '#F472B6', soft: '#F9A8D4', name: 'Marketing' };
@@ -64,7 +73,7 @@ window.SubStageFunnelModal = {
   _funnel(m, color) {
     const subs = m.substages || [];
     if (!subs.length) {
-      return `<div class="rounded-2xl bg-white border border-slate-200 p-6 text-center">
+      return `${this._tagsDatalist(m)}<div class="rounded-2xl bg-white border border-slate-200 p-6 text-center">
         <i data-lucide="layers" class="w-10 h-10 text-slate-300 mx-auto mb-2"></i>
         <p class="text-sm text-slate-600 font-black mb-1">Sem sub-stages configurados.</p>
         <p class="text-xs text-slate-500 mb-4">Lead que entra fica em <strong>Entrada padrão</strong> até você criar a primeira camada.</p>
@@ -72,7 +81,8 @@ window.SubStageFunnelModal = {
       </div>`;
     }
     return `
-      <div class="space-y-2">
+      ${this._tagsDatalist(m)}
+      <div class="space-y-2" id="substage-funnel-list">
         ${subs.map((s, idx) => this._row(s, idx, subs.length, color, m.savingId === s.id)).join('')}
       </div>
       <button onclick="Actions.addSubStage()" class="w-full mt-3 px-4 py-3 rounded-xl border-2 border-dashed text-xs font-black hover:bg-white transition flex items-center justify-center gap-2"
@@ -83,19 +93,37 @@ window.SubStageFunnelModal = {
     `;
   },
 
-  // Cada linha do funil — borda decorativa afunilada via clip-path, conteúdo limpo dentro.
-  // Largura externa decresce do 100% pro 60% ao longo das linhas.
+  // V35.0.0 — Datalist com tags já usadas no tenant (vocabulário derivado).
+  // HTML5 datalist faz autocomplete nativo do navegador. Sem dependência externa.
+  _tagsDatalist(m) {
+    const tags = Array.isArray(m.knownTags) ? m.knownTags : [];
+    if (!tags.length) return '';
+    return `<datalist id="lj-known-tags-list">${tags.map(t => `<option value="${Utils.escape(t.tag)}">${t.uses} uso(s)</option>`).join('')}</datalist>`;
+  },
+
+  // Cada linha do funil — borda decorativa afunilada, drag handle no canto esquerdo.
+  // Largura externa decresce do 100% pro 65% ao longo das linhas.
   _row(sub, idx, total, color, isSaving) {
-    const widthPct = 100 - (idx / Math.max(total - 1, 1)) * 35;  // 100 → 65
+    const widthPct = 100 - (idx / Math.max(total - 1, 1)) * 35;
     const isDefault = idx === 0;
     const hasError = Boolean(sub._tagError);
     const tagInputClasses = `flex-1 px-2 py-1 rounded-lg bg-slate-50 border text-xs font-bold text-slate-800 focus:bg-white focus:border-slate-400 outline-none ${hasError ? 'border-red-400' : 'border-slate-200'}`;
-    return `<div class="relative mx-auto" style="width:${widthPct}%;">
-      <div class="rounded-2xl bg-white border-2 p-3 shadow-sm" style="border-color:${color.hex}30;">
+    const stageColor = sub.color || color.hex;
+    return `<div class="relative mx-auto" style="width:${widthPct}%;"
+      draggable="true"
+      data-substage-id="${sub.id}"
+      ondragstart="Actions.subStageDragStart(event, ${sub.id})"
+      ondragover="Actions.subStageDragOver(event)"
+      ondrop="Actions.subStageDrop(event, ${sub.id})"
+      ondragend="Actions.subStageDragEnd(event)">
+      <div class="rounded-2xl bg-white border-2 p-3 shadow-sm transition" style="border-color:${stageColor}30;">
         ${isDefault ? `<span class="absolute -top-2 right-3 px-2 py-0.5 rounded-full bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest" style="color:#fff;">Entrada padrão</span>` : ''}
-        <div class="flex items-start gap-3">
-          <div class="shrink-0 flex flex-col items-center justify-center w-12 h-16 rounded-xl" style="background:${color.hex}15;">
-            <span class="text-2xl font-black" style="color:${color.hex};">${sub.leadCount || 0}</span>
+        <div class="flex items-start gap-2">
+          <div class="shrink-0 flex flex-col items-center justify-center self-stretch text-slate-300 hover:text-slate-500 cursor-grab active:cursor-grabbing" title="Arraste pra reordenar">
+            <i data-lucide="grip-vertical" class="w-4 h-4"></i>
+          </div>
+          <div class="shrink-0 flex flex-col items-center justify-center w-12 h-16 rounded-xl" style="background:${stageColor}15;">
+            <span class="text-2xl font-black" style="color:${stageColor};">${sub.leadCount || 0}</span>
             <span class="text-[9px] font-black uppercase tracking-widest text-slate-500">leads</span>
           </div>
           <div class="flex-1 min-w-0 space-y-1.5">
@@ -110,6 +138,7 @@ window.SubStageFunnelModal = {
               <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tag:</span>
               <input
                 type="text"
+                list="lj-known-tags-list"
                 value="${Utils.escape(sub.tag_trigger || '')}"
                 placeholder="${isDefault ? 'nenhuma (entrada padrão)' : 'ex: proposta-enviada'}"
                 oninput="Actions.updateSubStageLocal(${sub.id}, 'tag_trigger', this.value.toLowerCase())"
@@ -119,18 +148,41 @@ window.SubStageFunnelModal = {
               ${isSaving ? `<span class="text-[10px] text-emerald-600 font-black">salvando…</span>` : ''}
             </div>
             <p id="substage-tag-err-${sub.id}" class="text-[10px] text-red-600 font-black ${hasError ? '' : 'hidden'}">${Utils.escape(sub._tagError || '')}</p>
+            ${this._colorPicker(sub, stageColor)}
           </div>
           <div class="shrink-0 flex flex-col gap-1">
-            <button onclick="Actions.toggleSubStageLeads(${sub.id})" title="${sub._expanded ? 'Esconder leads' : 'Ver leads neste sub-stage'}" class="p-1.5 rounded-lg hover:bg-slate-100" style="color:${color.hex};">
+            <button onclick="Actions.toggleSubStageLeads(${sub.id})" title="${sub._expanded ? 'Esconder leads' : 'Ver leads neste sub-stage'}" class="p-1.5 rounded-lg hover:bg-slate-100" style="color:${stageColor};">
               <i data-lucide="${sub._expanded ? 'chevron-up' : 'users'}" class="w-3.5 h-3.5"></i>
             </button>
-            <button onclick="Actions.deleteSubStage(${sub.id})" title="Remover sub-stage" class="p-1.5 rounded-lg text-red-500 hover:bg-red-50">
+            <button onclick="Actions.requestDeleteSubStage(${sub.id})" title="Remover sub-stage" class="p-1.5 rounded-lg text-red-500 hover:bg-red-50">
               <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
             </button>
           </div>
         </div>
         ${sub._expanded ? this._leadsList(sub, color) : ''}
       </div>
+    </div>`;
+  },
+
+  // V35.0.0 — Color picker (paleta predefinida). Mostra dot atual + chevron;
+  // click expande row de cores. Pra economizar pixel, fica colapsado por default.
+  _colorPicker(sub, current) {
+    if (!sub._colorOpen) {
+      return `<div class="flex items-center gap-1">
+        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cor:</span>
+        <button onclick="Actions.toggleSubStageColorPicker(${sub.id})" class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md hover:bg-slate-100">
+          <span class="w-3 h-3 rounded-full ring-2 ring-white shadow" style="background:${current}"></span>
+          <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
+        </button>
+      </div>`;
+    }
+    return `<div class="flex items-center gap-1.5 flex-wrap">
+      <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Cor:</span>
+      ${this._palette.map(c => `<button onclick="Actions.setSubStageColor(${sub.id}, '${c}')" title="${c}" class="w-4 h-4 rounded-full ring-2 transition ${current === c ? 'ring-slate-900' : 'ring-white hover:ring-slate-300'}" style="background:${c}"></button>`).join('')}
+      <button onclick="Actions.setSubStageColor(${sub.id}, null)" title="Herdar cor da bolinha" class="px-1.5 py-0.5 rounded text-[9px] font-black text-slate-500 hover:bg-slate-100">resetar</button>
+      <button onclick="Actions.toggleSubStageColorPicker(${sub.id})" class="ml-auto p-0.5 text-slate-400 hover:text-slate-600">
+        <i data-lucide="chevron-up" class="w-3 h-3"></i>
+      </button>
     </div>`;
   },
 
@@ -147,7 +199,13 @@ window.SubStageFunnelModal = {
       </div>`;
     }
     return `<div class="mt-3 pt-3 border-t border-slate-100">
-      <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2">${sub._leads.length} lead(s) aqui</p>
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">${sub._leads.length} lead(s) aqui</p>
+        <button onclick="Actions.openBuscadorWithSubStageFilter(${sub.id})" class="text-[10px] font-black flex items-center gap-1 hover:underline" style="color:${color.hex};">
+          Abrir no Buscador
+          <i data-lucide="arrow-up-right" class="w-3 h-3"></i>
+        </button>
+      </div>
       <div class="space-y-1 max-h-48 overflow-y-auto">
         ${sub._leads.map(lead => `<div class="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-100 text-xs hover:bg-white transition">
           <div class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${color.hex};"></div>
