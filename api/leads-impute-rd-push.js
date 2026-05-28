@@ -282,31 +282,19 @@ module.exports = async function handler(req, res) {
       }
       if (v.external_rd_deal_id) return { status: 'already' };
 
-      let rdContactId = v.external_rd_contact_id || null;
-      if (!rdContactId && v.email) {
-        const search = await rdFetch(`/contacts?email=${encodeURIComponent(v.email)}`, token);
-        if (search.ok) {
-          const contacts = Array.isArray(search.data) ? search.data : (search.data?.contacts || search.data?.data || []);
-          if (contacts.length) rdContactId = contacts[0].id || contacts[0]._id;
-        }
-      }
-      if (!rdContactId) {
-        const createBody = { contact: { name: v.name || 'Lead LJ' } };
-        if (v.email) createBody.contact.emails = [{ email: v.email }];
-        if (v.phone) createBody.contact.phones = [{ phone: v.phone, type: 'cellphone' }];
-        const cr = await rdFetch('/contacts', token, { method: 'POST', body: createBody });
-        if (!cr.ok) {
-          const errMsg = `criar contact HTTP ${cr.status}`;
-          await persistFailure(visitorId, errMsg);
-          return { status: 'skipped', error: errMsg };
-        }
-        const created = cr.data?.contact || cr.data;
-        rdContactId = created?.id || created?._id;
-        if (!rdContactId) {
-          await persistFailure(visitorId, 'contact sem id');
-          return { status: 'skipped', error: 'contact sem id' };
-        }
-      }
+      // V34.9.8 — Variante O: 1 chamada POST /deals com contacts no body.
+      // RD CRM legacy NÃO permite vincular contato existente por id na API
+      // (testamos 15+ variantes e doc oficial confirma). Solução: sempre
+      // passar dados completos do contato no array — RD cria contato novo e
+      // já vincula ao deal. Pra evitar duplicação, Felipe purga contatos
+      // manualmente antes de re-imputar.
+      const contactBlock = {
+        name: v.name || 'Lead LJ',
+        emails: v.email ? [{ email: v.email }] : undefined,
+        phones: v.phone ? [{ phone: v.phone, type: 'cellphone' }] : undefined
+      };
+      // Remove undefined keys (RD pode reclamar)
+      Object.keys(contactBlock).forEach(k => contactBlock[k] === undefined && delete contactBlock[k]);
 
       const dealBody = {
         deal: {
@@ -314,7 +302,7 @@ module.exports = async function handler(req, res) {
           deal_stage_id: firstStageId,
           deal_pipeline_id: pipelineId
         },
-        contacts: [{ id: rdContactId }]
+        contacts: [contactBlock]
       };
       const dr = await rdFetch('/deals', token, { method: 'POST', body: dealBody });
       if (!dr.ok) {
@@ -329,13 +317,27 @@ module.exports = async function handler(req, res) {
         return { status: 'skipped', error: 'deal sem id' };
       }
 
+      // V34.9.8 — Pega external_rd_contact_id via GET /deals/{id}/contacts
+      // (RD não retorna no response do POST /deals). Best-effort, não bloqueia.
+      let rdContactId = null;
+      try {
+        const cResp = await rdFetch(`/deals/${encodeURIComponent(rdDealId)}/contacts`, token);
+        if (cResp.ok) {
+          const cs = cResp.data?.contacts || cResp.data?.data || [];
+          if (Array.isArray(cs) && cs.length) {
+            rdContactId = cs[0].id || cs[0]._id || null;
+          }
+        }
+      } catch (_) { /* ignora — pode ser refeito depois */ }
+
       await req.tenantDb.query(
         `UPDATE lj_visitors SET
-           external_rd_contact_id = $3, external_rd_deal_id = $4,
+           external_rd_contact_id = COALESCE($3, external_rd_contact_id),
+           external_rd_deal_id = $4,
            external_rd_sync_status = 'synced', external_rd_synced_at = NOW(),
            external_rd_sync_error = NULL
          WHERE user_id = $1 AND lj_visitor_id = $2`,
-        [userId, visitorId, String(rdContactId), String(rdDealId)]
+        [userId, visitorId, rdContactId ? String(rdContactId) : null, String(rdDealId)]
       );
       return { status: 'pushed' };
     } catch (err) {
