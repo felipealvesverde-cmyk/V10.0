@@ -169,7 +169,7 @@ window.HomeModule = {
     }
     return `<div class="lj-home-greeting">
       <div>
-        <h1 class="lj-home-title">${greeting}, ${Utils.escape(name)} <span class="lj-home-wave">👋</span></h1>
+        <h1 class="lj-home-title">${greeting}, ${Utils.escape(name)} <span class="lj-home-wave"><i data-lucide="hand" class="lj-home-wave-icon"></i></span></h1>
         <p class="lj-home-subtitle">Sua operação está ativa e sua receita está em movimento.</p>
       </div>
       <div class="lj-home-meta">

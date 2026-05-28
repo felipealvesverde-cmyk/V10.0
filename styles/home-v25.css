@@ -27,9 +27,18 @@
   line-height: 1.1;
 }
 .lj-home-wave {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: -4px;
   animation: lj-wave 2.4s ease-in-out infinite;
   transform-origin: 70% 70%;
+  color: var(--lj-revenue-soft, #FDE68A);
+}
+/* V34.9.17 — Ícone lucide no lugar do emoji 👋, mesma família visual da página */
+.lj-home-wave-icon {
+  width: 26px;
+  height: 26px;
+  stroke-width: 2;
 }
 @keyframes lj-wave {
   0%, 60%, 100% { transform: rotate(0deg); }
