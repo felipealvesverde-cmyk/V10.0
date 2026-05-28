@@ -6445,6 +6445,16 @@ Object.assign(Actions, {
     const sub = m.substages.find(s => Number(s.id) === Number(id));
     if (!sub) return;
     sub[field] = value;
+    // V34.9.21 — Valida tag_trigger inline + render leve só do estado de erro
+    if (field === 'tag_trigger') {
+      const ok = Actions._validateSubStageTag(sub);
+      // Atualiza o status visual do erro sem perder foco (busca o elemento direto)
+      const errEl = document.getElementById(`substage-tag-err-${id}`);
+      if (errEl) errEl.textContent = sub._tagError || '';
+      const inputEl = document.querySelector(`[data-substage-tag-input="${id}"]`);
+      if (inputEl) inputEl.classList.toggle('border-red-400', !!sub._tagError);
+      if (!ok) return; // não persiste se duplicado
+    }
     Actions._scheduleSubStageSave(id);
   },
 
@@ -6459,10 +6469,11 @@ Object.assign(Actions, {
     if (!m?.open) return;
     const sub = m.substages.find(s => Number(s.id) === Number(id));
     if (!sub) return;
+    // V34.9.21 — Não persiste se há erro de tag duplicada
+    if (sub._tagError) return;
     const token = localStorage.getItem('lj_jwt');
     try {
       m.savingId = id;
-      // Não chama render aqui pra não perder foco
       const r = await fetch('/api/substages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -6479,6 +6490,8 @@ Object.assign(Actions, {
       const data = await r.json();
       if (!data.ok) Utils.toast(`Falha: ${data.message}`);
       m.savingId = null;
+      // V34.9.21 — Refetch contagens pra refletir redistribuição dos leads pela nova tag
+      if (data.ok) Actions._refetchSubStageCounts();
     } catch (err) {
       m.savingId = null;
       Utils.toast(`Erro: ${err.message}`);
@@ -6499,8 +6512,85 @@ Object.assign(Actions, {
       if (m?.open) {
         m.substages = m.substages.filter(s => Number(s.id) !== Number(id));
         App.render();
+        Actions._refetchSubStageCounts();
       }
     } catch (err) { Utils.toast(`Erro: ${err.message}`); }
+  },
+
+  // V34.9.21 — Expande/recolhe lista de leads do sub-stage. Lazy-load.
+  async toggleSubStageLeads(substageId) {
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return;
+    const sub = m.substages.find(s => Number(s.id) === Number(substageId));
+    if (!sub) return;
+    if (sub._expanded) {
+      sub._expanded = false;
+      App.render();
+      return;
+    }
+    sub._expanded = true;
+    sub._leads = null; // sinaliza loading
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(`/api/substage-leads?campaign_id=${m.campaignId}&parent_stage=${encodeURIComponent(m.parentStage)}&substage_id=${substageId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      sub._leads = data.ok && Array.isArray(data.leads) ? data.leads : [];
+      App.render();
+    } catch (err) {
+      sub._leads = [];
+      App.render();
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V34.9.21 — Refetch contagem sem perder edição em curso.
+  // Preserva _expanded/_leads dos sub-stages abertos.
+  async _refetchSubStageCounts() {
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(`/api/substages?campaign_id=${m.campaignId}&parent_stage=${encodeURIComponent(m.parentStage)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (!data.ok || !Array.isArray(data.substages)) return;
+      // Atualiza leadCount preservando campos editáveis e estado expandido
+      for (const fresh of data.substages) {
+        const existing = m.substages.find(s => Number(s.id) === Number(fresh.id));
+        if (existing) {
+          existing.leadCount = fresh.leadCount;
+          if (existing._expanded) {
+            // Recarrega leads expandidos pra refletir mudança
+            existing._leads = null;
+            Actions.toggleSubStageLeads(existing.id);
+            existing._expanded = true;
+          }
+        }
+      }
+      App.render();
+    } catch (_) {}
+  },
+
+  // V34.9.21 — Valida tag_trigger no front antes de persistir (UNIQUE no banco).
+  // Marca o sub-stage com _tagError pra UI mostrar feedback visual.
+  _validateSubStageTag(sub) {
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return true;
+    const tag = String(sub.tag_trigger || '').trim().toLowerCase();
+    if (!tag) {
+      sub._tagError = null;
+      return true;
+    }
+    const conflict = m.substages.find(s =>
+      Number(s.id) !== Number(sub.id) &&
+      String(s.tag_trigger || '').trim().toLowerCase() === tag
+    );
+    sub._tagError = conflict ? `Tag já usada em "${conflict.name || `Sub-stage ${conflict.order_idx + 1}`}"` : null;
+    return !conflict;
   },
 
   async deleteScoreRule(ruleId) {
