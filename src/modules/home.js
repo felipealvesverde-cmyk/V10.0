@@ -351,6 +351,83 @@ window.HomeModule = {
     </div>`;
   },
 
+  // V34.9.15 — 4 cards RevOps abaixo do bloco Campanhas/Ações/Execuções.
+  // Consome revopsFinanceEngine.computeDashboard(config) do produto vigente.
+  _revopsCards() {
+    const product = this._currentProduct();
+    if (!product || !window.RevopsFinanceEngine) return '';
+
+    const config = (App.state.revopsFinance || {})[product.id] || { productId: product.id };
+    let dash;
+    try { dash = RevopsFinanceEngine.computeDashboard(config); }
+    catch (_) { return ''; }
+
+    const fmtMoney = v => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+    const cac = fmtMoney(dash.cac);
+    const tm  = fmtMoney(dash.ticket);
+    const previsto = Number(dash.sales || 0);
+    const realizado = Number(dash.realSales || 0);
+    const breakevenSales = dash.breakevenSales;
+    const pctBreakeven = breakevenSales && breakevenSales > 0
+      ? Math.round((realizado / breakevenSales) * 100)
+      : null;
+
+    // Cor: ≥100% verde escalonado, <100% vermelho.
+    let pctColor = 'lj-revops-pct-neutral';
+    if (pctBreakeven !== null) {
+      if (pctBreakeven >= 100) pctColor = 'lj-revops-pct-ok';
+      else pctColor = 'lj-revops-pct-bad';
+    }
+    const pctLabel = pctBreakeven === null ? '—' : `${pctBreakeven}%`;
+    const pctSub = breakevenSales
+      ? (pctBreakeven >= 100 ? 'acima do breakeven' : `faltam ${Math.max(0, breakevenSales - realizado)} venda(s)`)
+      : 'breakeven não calculado';
+
+    return `<div class="lj-home-cards lj-home-revops-cards">
+      <div class="lj-home-card">
+        <div class="lj-home-card-header">
+          <div class="lj-home-card-title"><i data-lucide="hand-coins" class="w-4 h-4"></i>CAC</div>
+        </div>
+        <div class="lj-revops-metric">${cac}</div>
+        <div class="lj-revops-metric-sub">Custo por aquisição · RevOps</div>
+      </div>
+
+      <div class="lj-home-card">
+        <div class="lj-home-card-header">
+          <div class="lj-home-card-title"><i data-lucide="target" class="w-4 h-4"></i>Previsto × Realizado</div>
+        </div>
+        <div class="lj-revops-pair">
+          <div class="lj-revops-pair-col">
+            <div class="lj-revops-pair-label">Previsto</div>
+            <div class="lj-revops-pair-value">${previsto.toLocaleString('pt-BR')}</div>
+          </div>
+          <div class="lj-revops-pair-sep">×</div>
+          <div class="lj-revops-pair-col">
+            <div class="lj-revops-pair-label">Realizado</div>
+            <div class="lj-revops-pair-value">${realizado.toLocaleString('pt-BR')}</div>
+          </div>
+        </div>
+        <div class="lj-revops-metric-sub">vendas no período</div>
+      </div>
+
+      <div class="lj-home-card">
+        <div class="lj-home-card-header">
+          <div class="lj-home-card-title"><i data-lucide="receipt" class="w-4 h-4"></i>TM</div>
+        </div>
+        <div class="lj-revops-metric">${tm}</div>
+        <div class="lj-revops-metric-sub">Ticket médio · RevOps</div>
+      </div>
+
+      <div class="lj-home-card">
+        <div class="lj-home-card-header">
+          <div class="lj-home-card-title"><i data-lucide="trending-up" class="w-4 h-4"></i>% para Breakeven</div>
+        </div>
+        <div class="lj-revops-metric ${pctColor}">${pctLabel}</div>
+        <div class="lj-revops-metric-sub">${pctSub}</div>
+      </div>
+    </div>`;
+  },
+
   _sideStack() {
     // V25.0.2 — Avatar do Djow é uma carinha de robô SVG (era ícone genérico).
     const djowAvatar = `<div class="lj-home-djow-avatar">
@@ -478,6 +555,7 @@ window.HomeModule = {
         <div class="lj-home-main-col">
           ${this._pulsoBlock()}
           ${this._bottomCards()}
+          ${this._revopsCards()}
         </div>
         ${this._sideStack()}
       </div>
