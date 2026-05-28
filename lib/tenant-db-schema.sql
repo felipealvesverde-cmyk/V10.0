@@ -611,6 +611,25 @@ CREATE INDEX IF NOT EXISTS idx_reconciliation_user_unresolved
   ON lj_reconciliation_alerts(user_id, resolved_at)
   WHERE resolved_at IS NULL;
 
+-- V34.9.10 — Modelo Critérios do Score Engine (HubSpot-style).
+-- Cliente cadastra regras "trigger_type=tag, trigger_param=lj-quente, points=20"
+-- que somam (ou subtraem) pontos. Modo 'criteria' usa só essas regras.
+-- Modo 'hybrid' soma com RFV (peso configurável).
+CREATE TABLE IF NOT EXISTS lj_score_rules (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  trigger_type VARCHAR(32) NOT NULL,    -- 'tag' | 'pageview' | 'form' | 'cta' | 'payment' | 'event'
+  trigger_param TEXT,                   -- nome da tag, URL, etc
+  points INT NOT NULL DEFAULT 10,       -- pode ser negativo (penalidade)
+  category VARCHAR(32),                 -- 'engagement' | 'fit' | 'intent' (HubSpot-style grouping)
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_score_rules_user_active
+  ON lj_score_rules(user_id, is_active);
+
 -- V34.9.4 — Sinining notification model:
 --   - read_at: usuário "viu" no sininho (sai do badge unread count)
 --   - resolved_at já existia (separação útil: lida ≠ resolvida)
