@@ -53,10 +53,18 @@ module.exports = async function handler(req, res) {
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
   const contactId = String(body.contact_id || '').trim();
   const pipelineId = String(body.pipeline_id || '').trim();
-  const dealStageId = String(body.deal_stage_id || '').trim();
   const prefix = String(body.name_prefix || 'TEST').trim();
-  if (!contactId || !pipelineId || !dealStageId) {
-    return res.status(400).json({ ok: false, message: 'contact_id, pipeline_id, deal_stage_id obrigatórios.' });
+  if (!contactId || !pipelineId) {
+    return res.status(400).json({ ok: false, message: 'contact_id e pipeline_id obrigatórios.' });
+  }
+
+  // V34.9.7.1 — Busca primeiro stage da pipeline pra usar como deal_stage_id
+  const stagesResp = await rdFetch(`/deal_stages?deal_pipeline_id=${encodeURIComponent(pipelineId)}`, token);
+  const stages = stagesResp.data?.deal_stages || stagesResp.data?.data || stagesResp.data || [];
+  const firstStage = Array.isArray(stages) ? stages[0] : null;
+  const dealStageId = firstStage ? (firstStage.id || firstStage._id) : '';
+  if (!dealStageId) {
+    return res.status(400).json({ ok: false, message: `Pipeline ${pipelineId} sem stages.`, stagesResp });
   }
 
   // 5 variantes
