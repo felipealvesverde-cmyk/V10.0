@@ -453,9 +453,10 @@ var App = {
         const mainNav = document.getElementById('mainNav');
         if (mainNav) {
           // V32.3.0 — Onda 1 Leonardo. Separadores sutis antes de Produtos
-          // (cockpit → operação), Score (operação → inteligência) e RevOps
+          // (cockpit → operação), Dashboard (operação → inteligência) e RevOps
           // (inteligência → governança). Gestalt cura sem títulos de seção.
-          const dividerBefore = new Set(['products', 'scores', 'revops']);
+          // V34.9.19 — Divisor antes de 'scores' migrou pra 'dashboard'.
+          const dividerBefore = new Set(['products', 'dashboard', 'revops']);
           mainNav.innerHTML = Config.tabs.map(tab => {
             const sep = dividerBefore.has(tab.id) ? '<div class="lj-nav-divider" aria-hidden="true"></div>' : '';
             return sep + `
