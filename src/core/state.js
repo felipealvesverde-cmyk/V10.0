@@ -384,6 +384,18 @@ var State = {
       confirmModal: { open: false },
       // V35.0.0 — Filtro ativo de sub-stage no Buscador.
       subStageActiveFilter: null,
+      // V35.1.0 — Tab ativa do Dashboard (overview | checkout) e estado da tab Checkout.
+      activeDashboardTab: 'overview',
+      checkoutDashboard: {
+        loadedAt: null,
+        activeSubTab: 'all',           // 'all' | productIdHotmart
+        period: { days: 30 },
+        products: [],
+        kpis: {},
+        transactions: [],
+        series: [],
+        pagination: { limit: 50, offset: 0, total: 0 }
+      },
       // V34.0.0 Onda 6.d — Counts agregados pra "sininho" no menu Leads.
       // duplicateGroupsTotal>0 destaca botão Duplicatas com badge âmbar.
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
@@ -936,6 +948,18 @@ var State = {
       confirmModal: { open: false },
       // V35.0.0 — Filtro ativo de sub-stage no Buscador.
       subStageActiveFilter: null,
+      // V35.1.0 — Tab ativa do Dashboard (overview | checkout) e estado da tab Checkout.
+      activeDashboardTab: 'overview',
+      checkoutDashboard: {
+        loadedAt: null,
+        activeSubTab: 'all',           // 'all' | productIdHotmart
+        period: { days: 30 },
+        products: [],
+        kpis: {},
+        transactions: [],
+        series: [],
+        pagination: { limit: 50, offset: 0, total: 0 }
+      },
       // V34.0.0 Onda 6.d — Counts volátil (re-fetch periódico).
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
       // V32.14.8 — Timestamp da última sync ClickUp persiste.

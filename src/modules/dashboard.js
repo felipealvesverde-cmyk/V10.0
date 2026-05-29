@@ -1,7 +1,33 @@
 var DashboardModule = {
+      // V35.1.0 — Dashboard ganha tabs no topo: "Visão Geral" (default, comportamento
+      // legado) e "Checkout" (nova — agrega Hotmart + futuros Eduzz/Kiwify).
       render() {
-        const selected = App.state.campaigns.find(campaign => campaign.id === App.state.selectedDashboardCampaignId) || null;
-        return selected ? this.campaignDetail(selected) : this.overview();
+        const activeTab = App.state.activeDashboardTab || 'overview';
+        let body;
+        if (activeTab === 'checkout') {
+          body = (window.CheckoutDashboard ? CheckoutDashboard.render() : '<p class="p-6 text-slate-500">CheckoutDashboard não carregado.</p>');
+        } else {
+          const selected = App.state.campaigns.find(campaign => campaign.id === App.state.selectedDashboardCampaignId) || null;
+          body = selected ? this.campaignDetail(selected) : this.overview();
+        }
+        return this._tabs(activeTab) + body;
+      },
+      _tabs(active) {
+        const tabs = [
+          { id: 'overview', label: 'Visão Geral', icon: 'layout-dashboard' },
+          { id: 'checkout', label: 'Checkout',    icon: 'shopping-cart' }
+        ];
+        return `<div class="px-2 pt-2">
+          <div class="inline-flex rounded-2xl bg-slate-100 border border-slate-200 p-1 gap-1 mb-4">
+            ${tabs.map(t => {
+              const isActive = active === t.id;
+              return `<button onclick="Actions.setDashboardTab('${t.id}')" class="px-4 py-2 rounded-xl text-sm font-black flex items-center gap-2 transition ${isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-white'}" ${isActive ? 'style="color:#fff;"' : ''}>
+                <i data-lucide="${t.icon}" class="w-3.5 h-3.5"></i>
+                ${t.label}
+              </button>`;
+            }).join('')}
+          </div>
+        </div>`;
       },
       // V21 — Top 10 tags acumuladas (lê tagCounters de todos os leads via LeadBaseService)
       _topTagsWidget() {
