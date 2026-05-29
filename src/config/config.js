@@ -16,12 +16,14 @@ var Config = {
         // V25.0.0 — Página inicial (home cockpit). Primeira do menu.
         // V34.9.19 — Score removido do menu (vive como botão dentro do Mapa da Receita).
         //            Leads movido pra ANTES de Dashboard.
+        // V35.3.0 — Área de Alunos placeholder (Club API standby).
         { id: 'home', label: 'Início', icon: 'home' },
         { id: 'products', label: 'Produtos', icon: 'package' },
         { id: 'campaigns', label: 'Campanhas', icon: 'megaphone' },
         { id: 'actions', label: 'Ações da campanha', icon: 'plug' },
         { id: 'results', label: 'Resultados', icon: 'bar-chart-3' },
         { id: 'leads', label: 'Leads', icon: 'users-round' },
+        { id: 'alunos', label: 'Área de Alunos', icon: 'graduation-cap' },
         { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
         { id: 'revops', label: 'RevOps & Governança', icon: 'landmark' }
       ],
