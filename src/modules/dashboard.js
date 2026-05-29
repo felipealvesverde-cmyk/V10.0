@@ -1,27 +1,50 @@
 var DashboardModule = {
-      // V35.1.0 — Dashboard ganha tabs no topo: "Visão Geral" (default, comportamento
-      // legado) e "Checkout" (nova — agrega Hotmart + futuros Eduzz/Kiwify).
+      // V35.3.4 — Dashboard ganha 5 tabs paralelas no topo:
+      // Visão Geral (legacy) | Checkout (Hotmart) | Meus Alunos | Meta Ads | Google Ads.
+      // Cada uma renderiza seu próprio módulo. Produtos Hotmart ficam SÓ
+      // como sub-tabs dentro de Checkout.
       render() {
         const activeTab = App.state.activeDashboardTab || 'overview';
-        let body;
-        if (activeTab === 'checkout') {
-          body = (window.CheckoutDashboard ? CheckoutDashboard.render() : '<p class="p-6 text-slate-500">CheckoutDashboard não carregado.</p>');
-        } else {
-          const selected = App.state.campaigns.find(campaign => campaign.id === App.state.selectedDashboardCampaignId) || null;
-          body = selected ? this.campaignDetail(selected) : this.overview();
-        }
+        const renderers = {
+          overview:     () => {
+            const selected = App.state.campaigns.find(c => c.id === App.state.selectedDashboardCampaignId) || null;
+            return selected ? this.campaignDetail(selected) : this.overview();
+          },
+          checkout:     () => window.CheckoutDashboard   ? CheckoutDashboard.render()   : '<p class="p-6 text-slate-500">CheckoutDashboard não carregado.</p>',
+          alunos:       () => window.AlunosModule        ? `<div class="p-2 lg:p-4">${AlunosModule.render()}</div>`        : '<p class="p-6 text-slate-500">AlunosModule não carregado.</p>',
+          'meta-ads':   () => window.MetaAdsDashboard    ? `<div class="p-2 lg:p-4">${MetaAdsDashboard.render()}</div>`    : '<p class="p-6 text-slate-500">MetaAdsDashboard não carregado.</p>',
+          'google-ads': () => window.GoogleAdsDashboard  ? `<div class="p-2 lg:p-4">${GoogleAdsDashboard.render()}</div>`  : '<p class="p-6 text-slate-500">GoogleAdsDashboard não carregado.</p>'
+        };
+        const body = (renderers[activeTab] || renderers.overview)();
         return this._tabs(activeTab) + body;
       },
       _tabs(active) {
+        // V35.3.4 — 5 tabs paralelas. Separador visual entre "Checkout" e
+        // os dashs externos (Alunos / Meta Ads / Google Ads) pra agrupar.
         const tabs = [
-          { id: 'overview', label: 'Visão Geral', icon: 'layout-dashboard' },
-          { id: 'checkout', label: 'Checkout',    icon: 'shopping-cart' }
+          { id: 'overview',    label: 'Visão Geral',  icon: 'layout-dashboard', semantic: null },
+          { id: 'checkout',    label: 'Checkout',     icon: 'shopping-cart',    semantic: null },
+          { sep: true },
+          { id: 'alunos',      label: 'Meus Alunos',  icon: 'graduation-cap',   semantic: 'cs',        color: '#6BBEF9' },
+          { id: 'meta-ads',    label: 'Meta Ads',     icon: 'facebook',         semantic: 'marketing', color: '#F472B6' },
+          { id: 'google-ads',  label: 'Google Ads',   icon: 'search',           semantic: 'marketing', color: '#F472B6' }
         ];
         return `<div class="px-2 pt-2">
-          <div class="inline-flex rounded-2xl bg-slate-100 border border-slate-200 p-1 gap-1 mb-4">
+          <div class="inline-flex rounded-2xl bg-slate-100 border border-slate-200 p-1 gap-1 mb-4 flex-wrap items-center">
             ${tabs.map(t => {
+              if (t.sep) return '<span class="w-px h-6 bg-slate-300 mx-1"></span>';
               const isActive = active === t.id;
-              return `<button onclick="Actions.setDashboardTab('${t.id}')" class="px-4 py-2 rounded-xl text-sm font-black flex items-center gap-2 transition ${isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-white'}" ${isActive ? 'style="color:#fff;"' : ''}>
+              const baseCls = 'px-4 py-2 rounded-xl text-sm font-black flex items-center gap-2 transition';
+              if (t.color) {
+                const style = isActive
+                  ? `background: ${t.color}; color: #fff;`
+                  : `background: ${t.color}1A; color: ${t.color};`;
+                return `<button onclick="Actions.setDashboardTab('${t.id}')" class="${baseCls}" style="${style}">
+                  <i data-lucide="${t.icon}" class="w-3.5 h-3.5"></i>
+                  ${t.label}
+                </button>`;
+              }
+              return `<button onclick="Actions.setDashboardTab('${t.id}')" class="${baseCls} ${isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-white'}" ${isActive ? 'style="color:#fff;"' : ''}>
                 <i data-lucide="${t.icon}" class="w-3.5 h-3.5"></i>
                 ${t.label}
               </button>`;
