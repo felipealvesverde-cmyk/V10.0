@@ -10830,6 +10830,20 @@ Prioridade: ${d.priority}
   //   - 0 campanhas do produto → modal criar nova
   //   - 1 campanha (plugada ou não) → assume essa, ativa Mapa se preciso, abre direto
   //   - 2+ campanhas → popup pra escolher qual
+  // V35.3.5 — Abre o popup de criar nova campanha, independente de quantas
+  // já existem no produto. Botão "+ Criar nova campanha" no hub de campanhas
+  // deve sempre criar uma nova (semantic da copy), não reabrir a existente.
+  openCreateNewCampaignPopup() {
+    const productId = App.state.strategicMapProductId;
+    if (!productId) return;
+    App.state.strategicCreateCampaignPopup = { newName: '' };
+    App.render();
+    setTimeout(() => {
+      const c = document.getElementById('strategicMapScrollContainer');
+      if (c) c.scrollTop = 0;
+    }, 50);
+  },
+
   unlockCeoAsGestor() {
     const productId = App.state.strategicMapProductId;
     if (!productId || !window.StrategicMapEngine) return;
