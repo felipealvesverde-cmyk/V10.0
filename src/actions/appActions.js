@@ -6563,6 +6563,80 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // ===== V35.1.0 — Dashboard Checkout =====
+  setDashboardTab(tab) {
+    App.state.activeDashboardTab = tab === 'checkout' ? 'checkout' : 'overview';
+    App.save();
+    App.render();
+  },
+
+  setCheckoutSubTab(productIdOrAll) {
+    const c = App.state.checkoutDashboard || {};
+    c.activeSubTab = String(productIdOrAll);
+    c.loadedAt = null; // força refetch
+    App.render();
+    Actions.loadCheckoutDashboard();
+  },
+
+  setCheckoutPeriod(days) {
+    const c = App.state.checkoutDashboard || {};
+    c.period = { days };
+    c.loadedAt = null;
+    App.render();
+    Actions.loadCheckoutDashboard();
+  },
+
+  async loadCheckoutDashboard() {
+    const c = App.state.checkoutDashboard || {};
+    const days = c.period?.days || 30;
+    const sub = c.activeSubTab || 'all';
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch(`/api/hotmart-dashboard-metrics?product_id_hotmart=${encodeURIComponent(sub)}&days=${days}&limit=50`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        Utils.toast(`Erro: ${data.message || 'falha ao carregar checkout'}`);
+        return;
+      }
+      App.state.checkoutDashboard = {
+        ...c,
+        loadedAt: Date.now(),
+        period: data.period,
+        products: data.products || [],
+        kpis: data.kpis || {},
+        transactions: data.transactions || [],
+        series: data.series || [],
+        pagination: data.pagination || { limit: 50, offset: 0, total: 0 }
+      };
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async syncHotmartHistory(windowDays = null) {
+    const token = localStorage.getItem('lj_jwt');
+    Utils.toast('Sincronizando histórico Hotmart…');
+    try {
+      const r = await fetch('/api/hotmart-sync-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(windowDays ? { window_days: windowDays } : {})
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        Utils.toast(`Falha: ${data.message || data.fatal || 'erro desconhecido'}`);
+        return;
+      }
+      Utils.toast(`✓ Sync ok: ${data.processed || 0} processada(s), ${data.promoted || 0} promovida(s)`);
+      Actions.loadCheckoutDashboard();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V34.9.21 — Expande/recolhe lista de leads do sub-stage. Lazy-load.
   async toggleSubStageLeads(substageId) {
     const m = App.state.subStageFunnelModal;
@@ -11244,7 +11318,8 @@ Object.assign(Actions, {
     const draft = { ...(App.state.hotmartWizardOpen.draft || {}) };
     draft[field] = value;
     App.state.hotmartWizardOpen = { ...App.state.hotmartWizardOpen, draft };
-    // Não re-render — input perde foco se eu rerender em cada keystroke
+    // V35.1.0 — toggles e seletor de janela precisam render; inputs de texto não
+    if (field === 'oauthExpanded' || field === 'syncWindowDays') App.render();
   },
 
   async saveHotmartConfig() {
@@ -11253,12 +11328,18 @@ Object.assign(Actions, {
     App.state.hotmartWizardOpen = { ...w, saving: true, error: null };
     App.render();
     try {
+      // V35.1.0 — Envia OAuth + janela quando preenchidos (todos opcionais)
+      const body = {
+        hottok: w.draft.hottok.trim(),
+        productMappings: w.draft.productMappings || {}
+      };
+      if (w.draft.clientId)      body.clientId      = String(w.draft.clientId).trim();
+      if (w.draft.clientSecret)  body.clientSecret  = String(w.draft.clientSecret).trim();
+      if (w.draft.syncWindowDays) body.syncWindowDays = Number(w.draft.syncWindowDays);
+
       const data = await this._trackerFetch('/api/hotmart-config', {
         method: 'POST',
-        body: JSON.stringify({
-          hottok: w.draft.hottok.trim(),
-          productMappings: w.draft.productMappings || {}
-        })
+        body: JSON.stringify(body)
       });
       if (!data.ok) {
         App.state.hotmartWizardOpen = { ...App.state.hotmartWizardOpen, saving: false, error: data.message };
@@ -11267,9 +11348,12 @@ Object.assign(Actions, {
       }
       Utils.toast('✓ Hotmart conectado.');
       await Actions.loadHotmartStatus();
-      // Avança pro passo 3 (instruções webhook URL)
       App.state.hotmartWizardOpen = { ...App.state.hotmartWizardOpen, saving: false, error: null, step: 3 };
       App.render();
+      // V35.1.0 — Se OAuth foi configurado, dispara sync inicial em background
+      if (body.clientId && body.clientSecret) {
+        Actions.syncHotmartHistory(body.syncWindowDays || 90);
+      }
     } catch (err) {
       App.state.hotmartWizardOpen = { ...App.state.hotmartWizardOpen, saving: false, error: err.message };
       App.render();

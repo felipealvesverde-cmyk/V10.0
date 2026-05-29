@@ -355,6 +355,16 @@ CREATE TABLE IF NOT EXISTS hotmart_config (
   connected_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+-- V35.1.0 — OAuth opcional pra Sales API (puxa histórico + reconciliação).
+-- Cliente cria credencial em "Tools > Developer Credentials" no painel Hotmart
+-- e cola client_id + client_secret no wizard LJ. Token é cacheado ~5h.
+ALTER TABLE hotmart_config ADD COLUMN IF NOT EXISTS client_id_enc TEXT;
+ALTER TABLE hotmart_config ADD COLUMN IF NOT EXISTS client_secret_enc TEXT;
+ALTER TABLE hotmart_config ADD COLUMN IF NOT EXISTS oauth_token_cache_enc TEXT;
+ALTER TABLE hotmart_config ADD COLUMN IF NOT EXISTS oauth_token_expires_at TIMESTAMPTZ;
+ALTER TABLE hotmart_config ADD COLUMN IF NOT EXISTS sync_window_days INT DEFAULT 90;  -- 90 | 180 | 365
+ALTER TABLE hotmart_config ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMPTZ;
+ALTER TABLE hotmart_config ADD COLUMN IF NOT EXISTS last_sync_result JSONB;
 
 -- Purchases — audit log permanente de toda transação Hotmart capturada.
 -- transaction_id é unique pra dedup (Hotmart retry envia o mesmo webhook).
