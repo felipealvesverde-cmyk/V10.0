@@ -12,11 +12,16 @@ window.CheckoutDashboard = {
     const m = App.state.checkoutDashboard || {};
     const activeSubTab = m.activeSubTab || 'all';
 
-    // V35.3.2 — Sub-tab "Meus Alunos" renderiza AlunosModule no lugar dos
-    // componentes de transação. Painel Djow esconde porque não tem dado
-    // pra resumir (Club API standby).
-    if (activeSubTab === 'alunos') {
-      // Mesmo na sub-tab Alunos precisamos da lista de products pra renderizar tabs
+    // V35.3.2 / V35.3.3 — Sub-tabs especiais renderizam módulos próprios no
+    // lugar dos componentes de transação. Painel Djow esconde porque não tem
+    // dado pra resumir (APIs externas em standby).
+    const specialSubTabs = {
+      alunos:       { module: window.AlunosModule,         label: 'Alunos' },
+      'meta-ads':   { module: window.MetaAdsDashboard,     label: 'Meta Ads' },
+      'google-ads': { module: window.GoogleAdsDashboard,   label: 'Google Ads' }
+    };
+    if (specialSubTabs[activeSubTab]) {
+      const meta = specialSubTabs[activeSubTab];
       const productsForTabs = (m.products && m.products.length)
         ? m.products
         : (m.loadedAt ? [] : null);
@@ -25,7 +30,7 @@ window.CheckoutDashboard = {
       }
       return `<div class="p-2 lg:p-4 space-y-4">
         ${this._subTabs(productsForTabs || [], activeSubTab)}
-        ${window.AlunosModule ? AlunosModule.render() : '<p class="text-sm text-slate-500 p-6">Módulo Alunos não carregado.</p>'}
+        ${meta.module ? meta.module.render() : `<p class="text-sm text-slate-500 p-6">Módulo ${meta.label} não carregado.</p>`}
       </div>`;
     }
 
@@ -138,9 +143,20 @@ window.CheckoutDashboard = {
   },
 
   _subTabs(products, active) {
-    const alunosActive = active === 'alunos';
-    // V35.3.2 — Sub-tab "Meus Alunos" fixa, com separador visual antes dela
-    // (diferente das sub-tabs de produto que são dinâmicas)
+    // V35.3.2 / V35.3.3 — Sub-tabs especiais (Alunos CS, Meta+Google Marketing)
+    // ficam depois de um separador visual, distinguindo das sub-tabs dinâmicas
+    // de produto Hotmart.
+    const specials = [
+      { id: 'alunos',     label: 'Meus Alunos', icon: 'graduation-cap', semantic: 'cs',
+        activeBg: '#6BBEF9', restBg: 'rgba(107,190,249,.10)', restBorder: 'rgba(107,190,249,.40)', restText: '#2563eb',
+        title: 'Engajamento pós-venda (Club API)' },
+      { id: 'meta-ads',   label: 'Meta Ads',    icon: 'facebook',       semantic: 'marketing',
+        activeBg: '#F472B6', restBg: 'rgba(244,114,182,.10)', restBorder: 'rgba(244,114,182,.40)', restText: '#be185d',
+        title: 'Facebook + Instagram + WhatsApp Ads (Meta Marketing API)' },
+      { id: 'google-ads', label: 'Google Ads',  icon: 'search',         semantic: 'marketing',
+        activeBg: '#F472B6', restBg: 'rgba(244,114,182,.10)', restBorder: 'rgba(244,114,182,.40)', restText: '#be185d',
+        title: 'Search + Display + YouTube + Performance Max (Google Ads API)' }
+    ];
     return `<div class="flex flex-wrap gap-1.5 mb-2 items-center">
       <button onclick="Actions.setCheckoutSubTab('all')" class="px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 ${active === 'all' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'}" ${active === 'all' ? 'style="color:#fff;"' : ''}>
         <i data-lucide="layers" class="w-3 h-3"></i>
@@ -154,13 +170,19 @@ window.CheckoutDashboard = {
         </button>`;
       }).join('')}
       <span class="w-px h-6 bg-slate-300 mx-1"></span>
-      <button onclick="Actions.setCheckoutSubTab('alunos')"
-              class="px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition"
-              style="${alunosActive ? 'background: #6BBEF9; color: #fff;' : 'background: rgba(107,190,249,.10); border: 1px solid rgba(107,190,249,.40); color: #2563eb;'}"
-              title="Engajamento pós-venda (Club API)">
-        <i data-lucide="graduation-cap" class="w-3 h-3"></i>
-        Meus Alunos
-      </button>
+      ${specials.map(s => {
+        const isActive = active === s.id;
+        const style = isActive
+          ? `background: ${s.activeBg}; color: #fff;`
+          : `background: ${s.restBg}; border: 1px solid ${s.restBorder}; color: ${s.restText};`;
+        return `<button onclick="Actions.setCheckoutSubTab('${s.id}')"
+                class="px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-1.5 transition"
+                style="${style}"
+                title="${Utils.escape(s.title)}">
+          <i data-lucide="${s.icon}" class="w-3 h-3"></i>
+          ${s.label}
+        </button>`;
+      }).join('')}
     </div>`;
   },
 
