@@ -1438,17 +1438,28 @@ window.StrategicMapModal = {
 
   // V29.1.4 — Popup pra criar campanha nova quando CEO destrava sem ter
   // nenhuma branch ainda. Cria + ativa Mapa + abre como gestor.
+  // V35.3.6 — Copy dinâmico: distingue "primeira campanha do produto" vs
+  // "campanha adicional" baseado em quantas já existem.
   _createCampaignPopup() {
     const draft = App.state.strategicCreateCampaignPopup || {};
     const productId = App.state.strategicMapProductId;
     const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
+    const existingCampaigns = (App.state.campaigns || []).filter(c => Number(c.productId) === Number(productId));
+    const isFirst = existingCampaigns.length === 0;
+    const eyebrow = isFirst ? 'Criar primeira campanha' : 'Criar nova campanha';
+    const title  = isFirst
+      ? 'Nenhuma campanha plugada ainda — vamos criar a primeira?'
+      : `Vamos plugar mais uma campanha em ${Utils.escape(product?.name || 'seu produto')}?`;
+    const subtitle = isFirst
+      ? `Você não tem campanha plugada no produto <b>${Utils.escape(product?.name || '...')}</b> ainda. Pra continuar como gestor, vamos criar uma agora. Ela já vai entrar com o Mapa ativado.`
+      : `Este produto já tem <b>${existingCampaigns.length} campanha${existingCampaigns.length > 1 ? 's' : ''}</b> plugada${existingCampaigns.length > 1 ? 's' : ''}. A nova vai entrar com o Mapa ativado e você cai direto nela como gestor.`;
     return `<div class="fixed inset-0 z-[95] bg-slate-950/90 backdrop-blur-sm p-4 grid place-items-center overflow-auto">
       <div class="rounded-3xl shadow-2xl text-white max-w-xl w-full" style="background:radial-gradient(circle at 0% 0%, rgba(34,197,94,.22), transparent 35%), #0b1428;">
         <div class="p-6 space-y-4">
           <div>
-            <div class="flex items-center gap-2 mb-1.5"><i data-lucide="folder-plus" class="w-4 h-4 text-emerald-300"></i><p class="text-[11px] font-black text-emerald-200 uppercase tracking-wider">Criar primeira campanha</p></div>
-            <h3 class="text-xl font-black leading-tight">Nenhuma campanha plugada ainda — vamos criar a primeira?</h3>
-            <p class="text-[12px] text-slate-300 mt-1.5 leading-relaxed">Você não tem campanha plugada no produto <b>${Utils.escape(product?.name || '...')}</b> ainda. Pra continuar como gestor, vamos criar uma agora. Ela já vai entrar com o Mapa ativado.</p>
+            <div class="flex items-center gap-2 mb-1.5"><i data-lucide="folder-plus" class="w-4 h-4 text-emerald-300"></i><p class="text-[11px] font-black text-emerald-200 uppercase tracking-wider">${eyebrow}</p></div>
+            <h3 class="text-xl font-black leading-tight">${title}</h3>
+            <p class="text-[12px] text-slate-300 mt-1.5 leading-relaxed">${subtitle}</p>
           </div>
           <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-3 space-y-2">
             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Nome da campanha</label>
@@ -1456,7 +1467,7 @@ window.StrategicMapModal = {
           </div>
           <div class="flex flex-col sm:flex-row gap-2 justify-end pt-1">
             <button onclick="Actions.dismissStrategicCreateCampaignPopup()" class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-xs font-black">Cancelar</button>
-            <button onclick="Actions.createCampaignAndUnlockAsGestor()" class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-2" style="color:#fff!important;"><i data-lucide="rocket" class="w-3.5 h-3.5"></i> Criar campanha e editar como Gestor</button>
+            <button onclick="Actions.createCampaignAndUnlockAsGestor()" class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-2" style="color:#fff!important;"><i data-lucide="rocket" class="w-3.5 h-3.5"></i> ${isFirst ? 'Criar campanha e editar como Gestor' : 'Criar e abrir como Gestor'}</button>
           </div>
         </div>
       </div>
