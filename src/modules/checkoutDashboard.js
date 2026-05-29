@@ -11,19 +11,24 @@ window.CheckoutDashboard = {
   render() {
     const m = App.state.checkoutDashboard || {};
     if (!m.loadedAt) {
-      // Auto-load 1x quando entra na tab
       setTimeout(() => Actions.loadCheckoutDashboard(), 0);
       return `<div class="p-6"><p class="text-sm text-slate-500">Carregando Checkout…</p></div>`;
     }
     const products = m.products || [];
     const activeSubTab = m.activeSubTab || 'all';
 
-    return `<div class="p-2 lg:p-4 space-y-4">
-      ${this._subTabs(products, activeSubTab)}
-      ${this._headerStrip(m)}
-      ${this._kpiGrid(m)}
-      ${this._chart(m)}
-      ${this._transactionsTable(m)}
+    // V35.1.1 — grid 2 cols: main + Djow lateral sticky (em telas grandes)
+    return `<div class="p-2 lg:p-4">
+      <div class="lj-checkout-grid">
+        <div class="space-y-4 min-w-0">
+          ${this._subTabs(products, activeSubTab)}
+          ${this._headerStrip(m)}
+          ${this._kpiGrid(m)}
+          ${this._chart(m)}
+          ${this._transactionsTable(m)}
+        </div>
+        ${window.DjowCheckoutPanel ? DjowCheckoutPanel.render() : ''}
+      </div>
     </div>`;
   },
 

@@ -69,6 +69,143 @@
 }
 .journey-pipeline .jp-stage-node:hover { filter: saturate(1.08); }
 .journey-pipeline .jp-stage-node:hover .jp-stage-core { transform: scale(1.08); }
+/* V35.1.1 — Painel Djow lateral da Tab Checkout */
+.lj-checkout-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+@media (min-width: 1100px) {
+  .lj-checkout-grid {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    align-items: start;
+  }
+  .lj-djow-checkout-panel {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+}
+.lj-djow-checkout-panel {
+  background: linear-gradient(180deg, rgba(171,62,216,.06), rgba(15,23,42,.92));
+  border: 1px solid rgba(171,62,216,.22);
+  border-radius: 18px;
+  padding: 14px;
+  color: #E2E8F0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lj-djow-cp-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lj-djow-cp-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.lj-djow-cp-avatar svg { width: 100%; height: 100%; }
+.lj-djow-cp-title { font-size: 12px; font-weight: 900; color: #fff; margin: 0; }
+.lj-djow-cp-subtitle { font-size: 10px; color: #94A3B8; margin: 1px 0 0; }
+.lj-djow-cp-summary {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 12px;
+  padding: 10px;
+}
+.lj-djow-cp-summary-label {
+  font-size: 9px; font-weight: 900; color: #C084FC;
+  text-transform: uppercase; letter-spacing: .12em;
+  margin: 0 0 6px;
+}
+.lj-djow-cp-summary-text { font-size: 12px; color: #E2E8F0; line-height: 1.45; margin: 0; }
+.lj-djow-cp-loading p { font-size: 11px; color: #94A3B8; font-style: italic; margin: 0; }
+.lj-djow-cp-empty p { font-size: 11px; color: #94A3B8; margin: 0; }
+.lj-djow-cp-shimmer {
+  display: block; height: 2px; width: 100%;
+  background: linear-gradient(90deg, transparent, #C084FC, transparent);
+  margin-bottom: 8px;
+  animation: lj-djow-cp-shimmer 1.5s ease-in-out infinite;
+}
+@keyframes lj-djow-cp-shimmer { 0%,100% { opacity: .2; } 50% { opacity: 1; } }
+.lj-djow-cp-questions-label {
+  font-size: 9px; font-weight: 900; color: #94A3B8;
+  text-transform: uppercase; letter-spacing: .12em;
+  margin: 0 0 6px;
+}
+.lj-djow-cp-questions-list { display: flex; flex-direction: column; gap: 5px; }
+.lj-djow-cp-question-chip {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: #E2E8F0;
+  background: rgba(171,62,216,.10);
+  border: 1px solid rgba(171,62,216,.22);
+  border-radius: 9px;
+  padding: 6px 9px;
+  cursor: pointer;
+  transition: background .12s ease, transform .12s ease;
+}
+.lj-djow-cp-question-chip:hover { background: rgba(171,62,216,.22); transform: translateX(2px); }
+.lj-djow-cp-suggestions-loading { font-size: 10px; color: #94A3B8; font-style: italic; margin: 6px 0 0; }
+.lj-djow-cp-history {
+  display: flex; flex-direction: column; gap: 8px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  padding-top: 10px;
+}
+.lj-djow-cp-msg {
+  background: rgba(255,255,255,.04);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.lj-djow-cp-msg-user { background: rgba(0,203,204,.10); border: 1px solid rgba(0,203,204,.20); }
+.lj-djow-cp-msg-role {
+  font-size: 9px; font-weight: 900;
+  text-transform: uppercase; letter-spacing: .1em;
+  color: #94A3B8;
+  margin: 0 0 3px;
+}
+.lj-djow-cp-msg-user .lj-djow-cp-msg-role { color: #5EEAD4; }
+.lj-djow-cp-msg-text { font-size: 12px; color: #E2E8F0; line-height: 1.45; margin: 0; white-space: pre-wrap; }
+.lj-djow-cp-typing { color: #94A3B8; font-style: italic; }
+.lj-djow-cp-input-wrap {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  border-top: 1px solid rgba(255,255,255,.06);
+  padding-top: 10px;
+}
+.lj-djow-cp-input {
+  flex: 1;
+  background: rgba(15,23,42,.7);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 10px;
+  padding: 7px 10px;
+  color: #fff;
+  font-size: 12px;
+  outline: none;
+}
+.lj-djow-cp-input:focus { border-color: rgba(171,62,216,.6); }
+.lj-djow-cp-submit {
+  background: linear-gradient(135deg, #AB3ED8, #6BBEF9);
+  border: none;
+  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.lj-djow-cp-submit:disabled { opacity: .5; cursor: not-allowed; }
+
 /* V35.0.0 — Tooltip de preview do sub-funil ao hover. CSS-only show/hide. */
 .journey-pipeline .jp-stage-tooltip {
   position: absolute;

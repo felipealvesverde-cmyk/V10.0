@@ -6616,6 +6616,121 @@ Object.assign(Actions, {
     }
   },
 
+  // ===== V35.1.1 — Djow Checkout (painel lateral IA) =====
+  // Hash do contexto pra saber quando regenerar resumo/sugestões.
+  _djowContextHash() {
+    const c = App.state.checkoutDashboard || {};
+    return `${c.activeSubTab || 'all'}|${c.period?.days || 30}|${c.kpis?.totalCount || 0}`;
+  },
+
+  _djowContextPayload() {
+    const c = App.state.checkoutDashboard || {};
+    return {
+      activeSubTab: c.activeSubTab,
+      period: c.period,
+      kpis: c.kpis,
+      products: c.products,
+      transactions: c.transactions,
+      series: c.series
+    };
+  },
+
+  // Roda resumo + sugestões quando o contexto muda. Idempotente — cacheia por hash.
+  async ensureDjowCheckout() {
+    const d = App.state.djowCheckout;
+    if (!d) return;
+    const hash = Actions._djowContextHash();
+    if (d.loadedFor === hash && d.summary) return;
+    if (d.summaryLoading) return;
+    // Reset (fresh por sessão — nova hash zera mensagens também)
+    App.state.djowCheckout = {
+      ...d,
+      loadedFor: hash,
+      summary: null,
+      summaryLoading: true,
+      suggestions: [],
+      suggestionsLoading: true,
+      messages: []
+    };
+    App.render();
+
+    const token = localStorage.getItem('lj_jwt');
+    const context = Actions._djowContextPayload();
+    try {
+      const [summaryRes, suggestRes] = await Promise.all([
+        fetch('/api/djow-checkout-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ action: 'summary', context })
+        }).then(r => r.json()),
+        fetch('/api/djow-checkout-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ action: 'suggestions', context })
+        }).then(r => r.json())
+      ]);
+      App.state.djowCheckout = {
+        ...App.state.djowCheckout,
+        summaryLoading: false,
+        suggestionsLoading: false,
+        summary: summaryRes.ok ? summaryRes.text : (summaryRes.message || 'IA indisponível'),
+        suggestions: suggestRes.ok ? (suggestRes.suggestions || []) : []
+      };
+      App.render();
+    } catch (err) {
+      App.state.djowCheckout = {
+        ...App.state.djowCheckout,
+        summaryLoading: false,
+        suggestionsLoading: false,
+        summary: `Erro: ${err.message}`
+      };
+      App.render();
+    }
+  },
+
+  updateDjowCheckoutInput(value) {
+    App.state.djowCheckout = { ...(App.state.djowCheckout || {}), input: value };
+    // Sem render — preserva foco do input
+  },
+
+  async askDjowCheckout(presetQuestion = null) {
+    const d = App.state.djowCheckout || {};
+    const question = String(presetQuestion || d.input || '').trim();
+    if (!question || d.asking) return;
+    App.state.djowCheckout = {
+      ...d,
+      asking: true,
+      input: '',
+      messages: [...(d.messages || []), { role: 'user', text: question, ts: Date.now() }]
+    };
+    App.render();
+    const token = localStorage.getItem('lj_jwt');
+    const context = Actions._djowContextPayload();
+    const history = App.state.djowCheckout.messages.slice(0, -1); // sem a mensagem atual
+    try {
+      const r = await fetch('/api/djow-checkout-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'ask', context, question, history })
+      });
+      const data = await r.json();
+      const text = data.ok ? data.text : (data.message || 'Erro IA');
+      App.state.djowCheckout = {
+        ...App.state.djowCheckout,
+        asking: false,
+        messages: [...App.state.djowCheckout.messages, { role: 'assistant', text, ts: Date.now() }]
+      };
+      App.render();
+    } catch (err) {
+      App.state.djowCheckout = {
+        ...App.state.djowCheckout,
+        asking: false,
+        messages: [...App.state.djowCheckout.messages, { role: 'assistant', text: `Erro: ${err.message}`, ts: Date.now() }]
+      };
+      App.render();
+    }
+  },
+
   async syncHotmartHistory(windowDays = null) {
     const token = localStorage.getItem('lj_jwt');
     Utils.toast('Sincronizando histórico Hotmart…');
