@@ -2787,7 +2787,7 @@ window.StrategicMapModal = {
 
       <div class="rounded-2xl border border-dashed border-emerald-400/30 bg-emerald-500/5 p-3 flex items-center justify-between gap-2">
         <p class="text-[12px] text-emerald-200"><b>+</b> Quer rodar uma campanha nova pra cobrir esses números?</p>
-        <button onclick="Actions.unlockCeoAsGestor()" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black" style="color:#fff!important;">+ Criar nova campanha</button>
+        <button onclick="Actions.openCreateNewCampaignPopup()" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-black" style="color:#fff!important;">+ Criar nova campanha</button>
       </div>
 
       ${/* V32.5.2 (Leonardo) — Guia visual quando user procura "Próximo passo"
