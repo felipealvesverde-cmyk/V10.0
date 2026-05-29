@@ -5,6 +5,10 @@
 //   product_id_hotmart  (opcional — filtra por produto; 'all' = agrega)
 //   limit, offset       (paginação da lista de transações)
 //   from_date, to_date  (opcional — filtra janela; default 30 dias)
+//   reason              (V35.2.1 opcional — filtra transações por
+//                        cancellation_reason quando ativo no breakdown)
+
+const { REASON_MAP, REASON_OTHERS } = require('../lib/lj-hotmart-service');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -14,6 +18,7 @@ module.exports = async function handler(req, res) {
 
   const userId = Number(req.user.sub || req.user.id);
   const productFilter = String(req.query?.product_id_hotmart || 'all').trim();
+  const reasonFilter = String(req.query?.reason || '').trim().toUpperCase();
   const limit = Math.min(Number(req.query?.limit || 50), 500);
   const offset = Math.max(Number(req.query?.offset || 0), 0);
   const days = Math.min(Number(req.query?.days || 30), 365);
@@ -62,14 +67,25 @@ module.exports = async function handler(req, res) {
       [userId]
     );
 
-    // 3. Lista paginada de transações (no período + filtro)
-    const txParams = [userId, fromDate, toDate, ...productParam, limit, offset];
+    // 3. Lista paginada de transações (no período + filtro de produto + filtro de reason)
+    // V35.2.1 — quando reason está setado, filtra cancelamentos com o motivo
+    const reasonWhere = reasonFilter
+      ? (reasonFilter === 'OTHERS'
+         ? `AND purchase_status = 'canceled' AND (cancellation_reason IS NULL OR cancellation_reason NOT IN (${Object.keys(REASON_MAP).map((_, i) => `$${productParam.length + 4 + i}`).join(', ')}))`
+         : `AND purchase_status = 'canceled' AND cancellation_reason = $${productParam.length + 4}`)
+      : '';
+    const reasonParams = reasonFilter
+      ? (reasonFilter === 'OTHERS' ? Object.keys(REASON_MAP) : [reasonFilter])
+      : [];
+    const txParams = [userId, fromDate, toDate, ...productParam, ...reasonParams, limit, offset];
+    const limitIdx  = productParam.length + reasonParams.length + 4;
+    const offsetIdx = limitIdx + 1;
     const txR = await req.tenantDb.query(
       `SELECT
           transaction_id, product_id_hotmart, product_id_lj,
           buyer_email, buyer_name, buyer_phone,
           purchase_status, transaction_value_cents, commission_cents, currency,
-          is_recurring, recurrence_number, occurred_at,
+          is_recurring, recurrence_number, occurred_at, cancellation_reason,
           raw_payload->'data'->'product'->>'name' AS product_name,
           raw_payload->'data'->'purchase'->'payment'->>'type' AS payment_method,
           raw_payload->'data'->'purchase'->'payment'->>'installments_number' AS installments
@@ -78,11 +94,54 @@ module.exports = async function handler(req, res) {
           AND occurred_at >= $2::date
           AND occurred_at <= ($3::date + INTERVAL '1 day')
           ${productWhere}
+          ${reasonWhere}
         ORDER BY occurred_at DESC
-        LIMIT $${productParam.length + 4}
-        OFFSET $${productParam.length + 5}`,
+        LIMIT $${limitIdx}
+        OFFSET $${offsetIdx}`,
       txParams
     );
+
+    // 3.1. V35.2.1 — Agregado de motivos de recusa no período (sempre, sem filtro de reason)
+    const reasonsR = await req.tenantDb.query(
+      `SELECT cancellation_reason, COUNT(*) AS count
+         FROM lj_hotmart_purchases
+        WHERE user_id = $1
+          AND purchase_status = 'canceled'
+          AND occurred_at >= $2::date
+          AND occurred_at <= ($3::date + INTERVAL '1 day')
+          ${productWhere}
+        GROUP BY cancellation_reason
+        ORDER BY count DESC`,
+      [userId, fromDate, toDate, ...productParam]
+    );
+    const knownReasons = new Set(Object.keys(REASON_MAP));
+    const reasons = [];
+    let othersCount = 0;
+    const othersList = [];
+    for (const row of reasonsR.rows) {
+      const reason = row.cancellation_reason;
+      const count = Number(row.count);
+      if (reason && knownReasons.has(reason)) {
+        reasons.push({
+          code: reason,
+          label: REASON_MAP[reason].label,
+          tag: REASON_MAP[reason].tag,
+          count
+        });
+      } else {
+        othersCount += count;
+        if (reason) othersList.push({ code: reason, count });
+      }
+    }
+    if (othersCount > 0) {
+      reasons.push({
+        code: 'OTHERS',
+        label: REASON_OTHERS.label,
+        tag: REASON_OTHERS.tag,
+        count: othersCount,
+        details: othersList
+      });
+    }
 
     // 4. Série temporal por dia (pro gráfico)
     const seriesR = await req.tenantDb.query(
@@ -105,6 +164,7 @@ module.exports = async function handler(req, res) {
       ok: true,
       period: { fromDate, toDate, days },
       productFilter,
+      reasonFilter: reasonFilter || null,
       kpis: {
         approvedCount:   Number(kpis.approved_count || 0),
         refundedCount:   Number(kpis.refunded_count || 0),
@@ -116,6 +176,7 @@ module.exports = async function handler(req, res) {
         totalCommissionCents: Number(kpis.total_commission_cents || 0),
         avgTicketCents:       Number(kpis.avg_ticket_cents || 0)
       },
+      cancellationReasons: reasons,  // V35.2.1 — alimenta breakdown
       products: productsR.rows.map(p => ({
         productIdHotmart: p.product_id_hotmart,
         productName: p.product_name,

@@ -6644,9 +6644,10 @@ Object.assign(Actions, {
     const c = App.state.checkoutDashboard || {};
     const days = c.period?.days || 30;
     const sub = c.activeSubTab || 'all';
+    const reasonParam = c.reasonFilter ? `&reason=${encodeURIComponent(c.reasonFilter)}` : '';
     const token = localStorage.getItem('lj_jwt');
     try {
-      const r = await fetch(`/api/hotmart-dashboard-metrics?product_id_hotmart=${encodeURIComponent(sub)}&days=${days}&limit=50`, {
+      const r = await fetch(`/api/hotmart-dashboard-metrics?product_id_hotmart=${encodeURIComponent(sub)}&days=${days}&limit=50${reasonParam}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await r.json();
@@ -6662,12 +6663,36 @@ Object.assign(Actions, {
         kpis: data.kpis || {},
         transactions: data.transactions || [],
         series: data.series || [],
-        pagination: data.pagination || { limit: 50, offset: 0, total: 0 }
+        pagination: data.pagination || { limit: 50, offset: 0, total: 0 },
+        cancellationReasons: data.cancellationReasons || []
       };
       App.render();
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     }
+  },
+
+  // V35.2.1 — Filtra a tabela de transações pelo motivo de recusa
+  setCheckoutReasonFilter(reasonCode) {
+    const c = App.state.checkoutDashboard || {};
+    c.reasonFilter = reasonCode === c.reasonFilter ? null : reasonCode; // toggle
+    c.loadedAt = null;
+    App.render();
+    Actions.loadCheckoutDashboard();
+  },
+
+  clearCheckoutReasonFilter() {
+    const c = App.state.checkoutDashboard || {};
+    c.reasonFilter = null;
+    c.loadedAt = null;
+    App.render();
+    Actions.loadCheckoutDashboard();
+  },
+
+  toggleCheckoutOthersModal() {
+    const c = App.state.checkoutDashboard || {};
+    c.othersModalOpen = !c.othersModalOpen;
+    App.render();
   },
 
   // ===== V35.1.1 — Djow Checkout (painel lateral IA) =====

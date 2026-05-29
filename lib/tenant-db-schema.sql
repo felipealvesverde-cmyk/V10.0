@@ -392,6 +392,14 @@ CREATE TABLE IF NOT EXISTS lj_hotmart_purchases (
 
 CREATE INDEX IF NOT EXISTS idx_lj_hotmart_purchases_user_status
   ON lj_hotmart_purchases(user_id, purchase_status, occurred_at);
+
+-- V35.2.1 — Motivo granular de cancelamento (cartão vencido, sem saldo, etc).
+-- Alimenta breakdown no Checkout Dashboard + tags granulares + sugestões
+-- automáticas no sub-funil quando volume passa do threshold.
+ALTER TABLE lj_hotmart_purchases ADD COLUMN IF NOT EXISTS cancellation_reason VARCHAR(64);
+CREATE INDEX IF NOT EXISTS idx_lj_hotmart_purchases_reason
+  ON lj_hotmart_purchases(user_id, cancellation_reason, occurred_at)
+  WHERE cancellation_reason IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_lj_hotmart_purchases_visitor
   ON lj_hotmart_purchases(user_id, lj_visitor_id) WHERE lj_visitor_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_lj_hotmart_purchases_email
