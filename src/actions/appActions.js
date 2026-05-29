@@ -6417,6 +6417,60 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V35.2.0 — Carrega sugestões Hotmart pra bolinha atual e expõe na UI.
+  async loadHotmartSuggestions() {
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch(`/api/hotmart-event-suggestions?parent_stage=${encodeURIComponent(m.parentStage)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      m.hotmartSuggestions = data.ok ? (data.suggestions || []) : [];
+      m.hotmartSuggestionsOpen = true;
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  hideHotmartSuggestions() {
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return;
+    m.hotmartSuggestionsOpen = false;
+    App.render();
+  },
+
+  // V35.2.0 — Cria sub-stage a partir de sugestão Hotmart (nome + tag pré-preenchidos).
+  async createSubStageFromSuggestion(tag, name) {
+    const m = App.state.subStageFunnelModal;
+    if (!m?.open) return;
+    const orderIdx = (m.substages || []).length;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch('/api/substages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          campaign_id: m.campaignId,
+          parent_stage: m.parentStage,
+          order_idx: orderIdx,
+          name: name,
+          tag_trigger: tag
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      m.substages.push({ ...data.substage, leadCount: 0 });
+      Utils.toast(`✓ "${name}" criado`);
+      App.render();
+      Actions._refetchSubStageCounts();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   async addSubStage() {
     const m = App.state.subStageFunnelModal;
     if (!m?.open) return;
