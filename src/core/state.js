@@ -396,6 +396,17 @@ var State = {
         series: [],
         pagination: { limit: 50, offset: 0, total: 0 }
       },
+      // V35.1.1 — Painel Djow Checkout (fresh por sessão, não persiste em DB)
+      djowCheckout: {
+        loadedFor: null,
+        summary: null,
+        summaryLoading: false,
+        suggestions: [],
+        suggestionsLoading: false,
+        messages: [],
+        asking: false,
+        input: ''
+      },
       // V34.0.0 Onda 6.d — Counts agregados pra "sininho" no menu Leads.
       // duplicateGroupsTotal>0 destaca botão Duplicatas com badge âmbar.
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
@@ -959,6 +970,17 @@ var State = {
         transactions: [],
         series: [],
         pagination: { limit: 50, offset: 0, total: 0 }
+      },
+      // V35.1.1 — Painel Djow Checkout (fresh por sessão, não persiste em DB)
+      djowCheckout: {
+        loadedFor: null,
+        summary: null,
+        summaryLoading: false,
+        suggestions: [],
+        suggestionsLoading: false,
+        messages: [],
+        asking: false,
+        input: ''
       },
       // V34.0.0 Onda 6.d — Counts volátil (re-fetch periódico).
       pendingCounts: { duplicateGroupsTotal: 0, duplicateGroupsEmail: 0, duplicateGroupsPhone: 0, recentMerges24h: 0, lastMergeAt: null, loadedAt: null },
