@@ -444,6 +444,10 @@ var App = {
             title: 'Leads',
             subtitle: 'Base global, buscador de perfil e Journey Pipeline conectados à inteligência RevOps.'
           },
+          alunos: {
+            title: 'Área de Alunos',
+            subtitle: 'Acompanhamento de progresso pós-venda via Hotmart Club API (em construção).'
+          },
           revops: {
             title: 'RevOps & Governança',
             subtitle: 'Visão macro do produto: engenharia financeira (custos, ticket médio, EBITDA, breakeven) e governança operacional dos OKRs.'
@@ -524,7 +528,7 @@ var App = {
 
         const app = document.getElementById('app');
         // V25.0.0 — Adicionada aba "home" (HomeModule).
-        const screens = { home: window.HomeModule, products: ProductsModule, campaigns: CampaignModule, actions: ActionModule, results: ResultModule, scores: ScoreModule, dashboard: DashboardModule, leads: LeadsModule, revops: window.RevopsGovernanceModule };
+        const screens = { home: window.HomeModule, products: ProductsModule, campaigns: CampaignModule, actions: ActionModule, results: ResultModule, scores: ScoreModule, dashboard: DashboardModule, leads: LeadsModule, alunos: window.AlunosModule, revops: window.RevopsGovernanceModule };
         app.innerHTML = (screens[this.state.activeTab]?.render() || (window.HomeModule ? HomeModule.render() : ProductsModule.render())) + (window.SettingsModal ? SettingsModal.render() : '') + (window.CreateClickupTaskModal ? CreateClickupTaskModal.render() : '') + (window.ConnectActionWizardModal ? ConnectActionWizardModal.render() : '') + (window.ReloginInlineModal ? ReloginInlineModal.render() : '') + (window.TrackerWizardModal ? TrackerWizardModal.render() : '') + (window.TrackerVisitorDetailModal ? TrackerVisitorDetailModal.render() : '') + (window.HotmartWizardModal ? HotmartWizardModal.render() : '') + (window.ReconciliationModal ? ReconciliationModal.render() : '') + (window.TriggersModal ? TriggersModal.render() : '') + (window.ScoreConfigModal ? ScoreConfigModal.render() : '') + (window.ScoreBreakdownModal ? ScoreBreakdownModal.render() : '') + (window.SubStageFunnelModal ? SubStageFunnelModal.render() : '') + (window.ConfirmModal ? ConfirmModal.render() : '');
         // V26.0.4 — Modal Djow agora em root separado (#djowModalRoot fora de #app)
         // pra que position:fixed funcione corretamente (parent #app tem transform
