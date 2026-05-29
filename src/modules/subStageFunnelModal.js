@@ -90,7 +90,64 @@ window.SubStageFunnelModal = {
         <i data-lucide="plus" class="w-4 h-4"></i>
         Adicionar sub-stage
       </button>
+      ${this._hotmartSuggestionsBlock(m, color)}
     `;
+  },
+
+  // V35.2.0 — Bloco de sugestões Hotmart. Aparece quando há tags Hotmart
+  // mapeadas pra esta bolinha (semantic = parentStage no EVENT_MAP).
+  // Cliente clica e cria sub-stage pré-preenchido. Sem auto-criação —
+  // soberania do workspace.
+  _hotmartSuggestionsBlock(m, color) {
+    const sugs = Array.isArray(m.hotmartSuggestions) ? m.hotmartSuggestions : null;
+    const open = !!m.hotmartSuggestionsOpen;
+    const existingTags = new Set((m.substages || []).map(s => String(s.tag_trigger || '').toLowerCase()));
+
+    if (!open) {
+      return `<button onclick="Actions.loadHotmartSuggestions()" class="w-full mt-3 px-4 py-2.5 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-xs font-black text-orange-900 flex items-center justify-center gap-2">
+        <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+        Ver sugestões Hotmart pra esta bolinha
+      </button>`;
+    }
+    if (!sugs) {
+      return `<div class="w-full mt-3 px-4 py-3 rounded-xl bg-orange-50 border border-orange-200 text-xs text-orange-700 italic text-center">
+        Carregando sugestões…
+      </div>`;
+    }
+    if (!sugs.length) {
+      return `<div class="w-full mt-3 px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500 italic text-center">
+        Hotmart não tem eventos mapeados pra esta bolinha.
+      </div>`;
+    }
+    return `<div class="w-full mt-3 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 p-4">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-[11px] font-black text-orange-900 uppercase tracking-widest flex items-center gap-1.5">
+          <i data-lucide="zap" class="w-3 h-3"></i>
+          Sugestões Hotmart (${sugs.length})
+        </p>
+        <button onclick="Actions.hideHotmartSuggestions()" class="text-orange-700 hover:text-orange-900">
+          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+      <p class="text-[11px] text-slate-600 mb-3">Tags que o LJ aplica quando recebe eventos Hotmart. Clique pra criar o sub-stage correspondente.</p>
+      <div class="space-y-1.5">
+        ${sugs.map(s => {
+          const exists = existingTags.has(String(s.tag).toLowerCase());
+          if (exists) {
+            return `<div class="flex items-center gap-2 p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs opacity-70">
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
+              <span class="font-black text-emerald-900 truncate flex-1">${Utils.escape(s.name)}</span>
+              <span class="text-[10px] text-emerald-700 font-mono">${Utils.escape(s.tag)}</span>
+            </div>`;
+          }
+          return `<button onclick="Actions.createSubStageFromSuggestion('${Utils.escape(s.tag).replace(/'/g,"\\'")}', '${Utils.escape(s.name).replace(/'/g,"\\'")}')" class="w-full flex items-center gap-2 p-2 rounded-lg bg-white border border-orange-200 hover:border-orange-400 hover:bg-orange-50 text-xs transition text-left">
+            <i data-lucide="plus-circle" class="w-3.5 h-3.5 text-orange-600 shrink-0"></i>
+            <span class="font-black text-slate-900 truncate flex-1">${Utils.escape(s.name)}</span>
+            <span class="text-[10px] text-slate-500 font-mono">${Utils.escape(s.tag)}</span>
+          </button>`;
+        }).join('')}
+      </div>
+    </div>`;
   },
 
   // V35.0.0 — Datalist com tags já usadas no tenant (vocabulário derivado).
