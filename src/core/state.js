@@ -394,7 +394,11 @@ var State = {
         kpis: {},
         transactions: [],
         series: [],
-        pagination: { limit: 50, offset: 0, total: 0 }
+        pagination: { limit: 50, offset: 0, total: 0 },
+        // V35.2.1 — agregado de motivos de recusa + filtro ativo
+        cancellationReasons: [],
+        reasonFilter: null,
+        othersModalOpen: false
       },
       // V35.1.1 — Painel Djow Checkout (fresh por sessão, não persiste em DB)
       djowCheckout: {
@@ -969,7 +973,11 @@ var State = {
         kpis: {},
         transactions: [],
         series: [],
-        pagination: { limit: 50, offset: 0, total: 0 }
+        pagination: { limit: 50, offset: 0, total: 0 },
+        // V35.2.1 — agregado de motivos de recusa + filtro ativo
+        cancellationReasons: [],
+        reasonFilter: null,
+        othersModalOpen: false
       },
       // V35.1.1 — Painel Djow Checkout (fresh por sessão, não persiste em DB)
       djowCheckout: {
