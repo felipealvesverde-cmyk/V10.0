@@ -6618,8 +6618,10 @@ Object.assign(Actions, {
   },
 
   // ===== V35.1.0 — Dashboard Checkout =====
+  // V35.3.4 — aceita 5 tabs paralelas (overview | checkout | alunos | meta-ads | google-ads)
   setDashboardTab(tab) {
-    App.state.activeDashboardTab = tab === 'checkout' ? 'checkout' : 'overview';
+    const valid = ['overview', 'checkout', 'alunos', 'meta-ads', 'google-ads'];
+    App.state.activeDashboardTab = valid.includes(tab) ? tab : 'overview';
     App.save();
     App.render();
   },
