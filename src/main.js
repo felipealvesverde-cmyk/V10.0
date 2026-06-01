@@ -567,7 +567,7 @@ var App = {
         console.assert(Boolean(SettingsModal.render), 'SettingsModal render existe');
         console.assert(Boolean(DashboardModule.render), 'DashboardModule render existe');
         console.assert(Boolean(LeadsModule.render), 'LeadsModule render existe');
-        console.assert(Boolean(JourneyPipelineModule.render), 'JourneyPipelineModule render existe');
+        console.assert(Boolean(JourneyPipelineModule.renderInline), 'JourneyPipelineModule renderInline existe');
         console.assert(JourneyPipelineModule.defaultStages().length === 9, 'JourneyPipelineModule fases padrão');
         console.assert(ProfileFinder.parseQuery('mulher, 50 a 60 anos').length === 2, 'ProfileFinder: genero + idade');
         console.assert(ProfileFinder.parseQuery('com e-mail e telefone').length === 2, 'ProfileFinder: email + phone');

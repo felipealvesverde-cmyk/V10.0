@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.4.1',
+    date: '2026-06-01',
+    title: 'Fix: 5 campos do state agora carregam corretamente no F5',
+    bullets: [
+      'Campos do Lead Import Wizard, notificações e versão vista no sininho não estavam sendo recuperados após reload.',
+      'Assertion antiga do JourneyPipelineModule corrigida — testava método inexistente.'
+    ]
+  },
+  {
     version: 'V35.4.0',
     date: '2026-06-01',
     title: 'Onda de Hardening — segurança fortalecida em 5 frentes',
