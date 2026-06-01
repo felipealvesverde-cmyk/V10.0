@@ -471,22 +471,31 @@ var Actions = {
         w.result = { running: true, processed: 0, total: w.rows.length };
         App.render();
 
-        // Converte rows em objetos LJ usando o mapping
+        // V35.3.9 — Fix: quando 2+ colunas mapeiam pro MESMO campo:
+        //   - 'name' concatena (já era assim)
+        //   - 'tags' agora ACUMULA tags de todas as colunas (era sobrescrever)
+        //   - 'phone' / qualquer outro: usa o PRIMEIRO não-vazio (era sobrescrever)
         const ljLeads = [];
         for (const row of w.rows) {
           const obj = {};
           w.headers.forEach((h, i) => {
             const dest = w.mapping[h];
             if (!dest || dest === 'skip') return;
-            if (dest === 'name' && obj.name) {
-              obj.name = (obj.name + ' ' + (row[i] || '')).trim();
+            const val = row[i] || '';
+            if (dest === 'name') {
+              obj.name = obj.name ? (obj.name + ' ' + val).trim() : String(val).trim();
             } else if (dest === 'tags') {
-              const raw = String(row[i] || '');
-              if (raw) obj.tags = raw.split(/[,;]/).map(t => t.trim()).filter(Boolean);
+              const newTags = String(val).split(/[,;]/).map(t => t.trim()).filter(Boolean);
+              if (newTags.length) {
+                obj.tags = Array.isArray(obj.tags) ? [...obj.tags, ...newTags] : newTags;
+              }
             } else {
-              obj[dest] = row[i] || '';
+              // First-non-empty wins (preserva valor da 1ª coluna mapeada pro campo)
+              if (!obj[dest] && val) obj[dest] = val;
             }
           });
+          // Dedup tags do mesmo lead
+          if (Array.isArray(obj.tags)) obj.tags = [...new Set(obj.tags)];
           if (obj.email || obj.phone) ljLeads.push(obj);
         }
 
