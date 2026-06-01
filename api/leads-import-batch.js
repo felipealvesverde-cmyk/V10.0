@@ -45,6 +45,11 @@ module.exports = async function handler(req, res) {
   const bankId = Number(body.bank_id || 0);
   const source = String(body.source || 'mailing-manual'); // 'mailing-csv' | 'mailing-manual'
   const leads = Array.isArray(body.leads) ? body.leads : [];
+  // V35.3.7 — Wizard envia dedup_behavior ('update' | 'skip') e origin_tag opcional
+  const dedupBehavior = body.dedup_behavior === 'skip' ? 'skip' : 'update';
+  const originTag = typeof body.origin_tag === 'string' && body.origin_tag.trim()
+    ? String(body.origin_tag).trim().toLowerCase().replace(/^lj-/, '').replace(/[^a-z0-9-]/g, '-').slice(0, 64)
+    : null;
 
   if (!bankId) return res.status(400).json({ ok: false, message: 'bank_id obrigatório.' });
   if (!leads.length) return res.status(400).json({ ok: false, message: 'Nenhum lead pra importar.' });
@@ -143,6 +148,11 @@ module.exports = async function handler(req, res) {
 
       let visitorId;
       let isNew = false;
+      // V35.3.7 — Quando wizard pede skip, lead existente é pulado
+      if (existing && dedupBehavior === 'skip') {
+        skipped++;
+        continue;
+      }
       if (existing) {
         // UPDATE — atualiza bank_id + dados que estão null
         visitorId = existing.lj_visitor_id;
@@ -191,6 +201,10 @@ module.exports = async function handler(req, res) {
         { tag: bankTag, source: 'import-csv', category: 'lj-native' },
         { tag: sourceTag, source: 'import-csv', category: 'lj-native' }
       ];
+      // V35.3.7 — Tag de origem do wizard (input do cliente, ex: "import-2026-06-01-banco-x")
+      if (originTag) {
+        tagsToApply.push({ tag: originTag, source: 'import-csv', category: 'lj-native' });
+      }
       // V34.6.b — Update em visitor existente vira "cruzamento": aplica tag de audit visual.
       if (!isNew) {
         tagsToApply.push({ tag: 'lj-crossed-import-csv', source: 'lj-motor', category: 'lj-native' });

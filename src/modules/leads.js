@@ -44,7 +44,7 @@ var LeadsModule = {
       + this.imputeCampaignModal()
       + this.duplicatesModal()
       + this.rdBacklogModal()
-      + this.importModal()
+      + (window.LeadImportWizard ? LeadImportWizard.render() : '')
       // V34.6.f hotfix — Modal "Criar banco" precisa render aqui também.
       // SettingsModal._leadBankEditModal só roda dentro de Settings; user
       // dispara via "+ Criar banco" no import modal sem Settings aberto.

@@ -69,6 +69,76 @@
 }
 .journey-pipeline .jp-stage-node:hover { filter: saturate(1.08); }
 .journey-pipeline .jp-stage-node:hover .jp-stage-core { transform: scale(1.08); }
+/* V35.3.7 — Cafezinho Loader (xícara animada + vapor subindo) */
+.lj-cafezinho {
+  position: relative;
+  width: 80px;
+  height: 90px;
+}
+.lj-cafezinho-cup {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  width: 52px;
+  height: 44px;
+  background: linear-gradient(180deg, #fff 0%, #f3f4f6 100%);
+  border: 3px solid #1e293b;
+  border-radius: 0 0 22px 22px;
+  overflow: hidden;
+}
+.lj-cafezinho-brew {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  right: 4px;
+  height: 8px;
+  background: linear-gradient(180deg, #6b3410 0%, #4a2009 100%);
+  border-radius: 50% 50% 4px 4px;
+  animation: lj-cafezinho-brew 2s ease-in-out infinite;
+}
+@keyframes lj-cafezinho-brew {
+  0%, 100% { transform: scaleX(1); }
+  50% { transform: scaleX(0.92); }
+}
+.lj-cafezinho-handle {
+  position: absolute;
+  right: -10px;
+  top: 8px;
+  width: 12px;
+  height: 18px;
+  border: 3px solid #1e293b;
+  border-left: none;
+  border-radius: 0 12px 12px 0;
+}
+.lj-cafezinho-saucer {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  width: 64px;
+  height: 6px;
+  background: #1e293b;
+  border-radius: 50%;
+}
+.lj-cafezinho-steam {
+  position: absolute;
+  top: 0;
+  width: 4px;
+  height: 18px;
+  background: linear-gradient(180deg, transparent, rgba(148,163,184,0.55), transparent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: lj-cafezinho-steam 2.2s ease-in-out infinite;
+}
+.lj-cafezinho-steam-1 { left: 26px; animation-delay: 0s; }
+.lj-cafezinho-steam-2 { left: 38px; animation-delay: 0.4s; }
+.lj-cafezinho-steam-3 { left: 50px; animation-delay: 0.8s; }
+@keyframes lj-cafezinho-steam {
+  0% { transform: translateY(8px) scale(0.6); opacity: 0; }
+  30% { opacity: 0.9; }
+  70% { opacity: 0.5; }
+  100% { transform: translateY(-12px) scale(1.2); opacity: 0; }
+}
+
 /* V35.1.1 — Painel Djow lateral da Tab Checkout */
 .lj-checkout-grid {
   display: grid;

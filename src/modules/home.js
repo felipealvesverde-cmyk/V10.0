@@ -175,12 +175,19 @@ window.HomeModule = {
       <div class="lj-home-meta">
         <button class="lj-home-icon-btn" title="Buscar"><i data-lucide="search" class="w-4 h-4"></i></button>
         ${(() => {
-          // V34.8.0 — Sininho funcional: count = alertas de conciliação RD↔LJ.
-          const count = Number(App.state.pendingReconciliationCount || 0);
-          const title = count > 0
-            ? `${count} conciliação(ões) pendente(s) entre LJ e RD — clique pra resolver`
-            : 'Nenhuma notificação pendente';
-          return `<button onclick="Actions.openReconciliationModal()" class="lj-home-icon-btn lj-home-bell" title="${title}">
+          // V35.3.7 — Sininho agrega: conciliação RD + relatórios de import wizard
+          const reconCount = Number(App.state.pendingReconciliationCount || 0);
+          const importCount = Number(App.state.pendingLeadImportReports || 0);
+          const count = reconCount + importCount;
+          const titleParts = [];
+          if (reconCount) titleParts.push(`${reconCount} conciliação(ões) RD`);
+          if (importCount) titleParts.push(`${importCount} relatório(s) de import`);
+          const title = count > 0 ? titleParts.join(' · ') + ' — clique pra ver' : 'Nenhuma notificação pendente';
+          // Quando só tem import (sem conciliação), abre direto o modal de import reports
+          const onclick = importCount && !reconCount
+            ? 'Actions.openImportReportsModal()'
+            : 'Actions.openReconciliationModal()';
+          return `<button onclick="${onclick}" class="lj-home-icon-btn lj-home-bell" title="${title}">
             <i data-lucide="bell" class="w-4 h-4"></i>
             ${count > 0 ? `<span class="lj-home-bell-badge">${count > 99 ? '99+' : count}</span>` : ''}
           </button>`;
