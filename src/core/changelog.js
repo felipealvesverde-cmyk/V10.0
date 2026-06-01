@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.4.0',
+    date: '2026-06-01',
+    title: 'Onda de Hardening — segurança fortalecida em 5 frentes',
+    bullets: [
+      'Audit log: cada acesso registrado por 90 dias (consultável pelo master).',
+      'Rate limit por usuário: 1000 req/min (master sem limite).',
+      'Chave de criptografia derivada por cliente (HKDF) — vazar uma não compromete as outras.',
+      'Logs mascaram automaticamente emails, telefones, CPF e tokens.',
+      'JWT secret pode rotacionar sem invalidar tokens em circulação.'
+    ]
+  },
+  {
     version: 'V35.3.10',
     date: '2026-06-01',
     title: 'Fix sininho: modal abre em qualquer tela + badge correto',

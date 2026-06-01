@@ -54,6 +54,28 @@ console.log(`[server] ENV CHECK: MASTER_PASSWORD=${MASTER_PASSWORD ? '<set, leng
 console.log(`[server] ENV CHECK: JWT_SECRET=${JWT_SECRET ? '<set, length=' + JWT_SECRET.length + '>' : '<empty>'}`);
 console.log(`[server] ENV CHECK: DATABASE_URL=${process.env.DATABASE_URL ? '<set>' : '<empty>'}`);
 console.log(`[server] ENV CHECK: ENCRYPTION_KEY=${process.env.ENCRYPTION_KEY ? '<set, length=' + process.env.ENCRYPTION_KEY.length + '>' : '<empty>'}`);
+console.log(`[server] ENV CHECK: REDIS_URL=${process.env.REDIS_URL ? '<set>' : '<empty>'}`);
+console.log(`[server] ENV CHECK: JWT_SECRET_PREVIOUS=${process.env.JWT_SECRET_PREVIOUS ? '<set>' : '<empty>'}`);
+
+// V35.4.0 — Redis client pra rate limiter. Falha silenciosamente se REDIS_URL
+// ausente — o rate limiter usa fallback em memória.
+let redisClient = null;
+(async () => {
+  if (!process.env.REDIS_URL) {
+    console.warn('[server] REDIS_URL ausente — rate limit usando fallback em memória.');
+    return;
+  }
+  try {
+    const redis = require('redis');
+    redisClient = redis.createClient({ url: process.env.REDIS_URL });
+    redisClient.on('error', (err) => console.warn('[server] redis err:', err.message));
+    await redisClient.connect();
+    console.log('[server] Redis conectado.');
+  } catch (err) {
+    console.warn('[server] Falha ao conectar Redis:', err.message);
+    redisClient = null;
+  }
+})();
 
 // V23.0.0 — Migrations automáticas. Roda uma vez no startup.
 async function runMigrations() {
@@ -114,6 +136,26 @@ async function runMigrations() {
     `);
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_djow_messages_conv ON djow_messages(conversation_id, created_at);
+    `);
+    // V35.4.0 — Audit log: registra acessos autenticados pra forense e LGPD.
+    // Lifecycle: append-only, mantém 90 dias (job de limpeza fica em background).
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS lj_audit_log (
+        id BIGSERIAL PRIMARY KEY,
+        user_id INT,
+        username VARCHAR(128),
+        is_master BOOLEAN DEFAULT FALSE,
+        method VARCHAR(8),
+        path VARCHAR(255),
+        status_code INT,
+        ip VARCHAR(64),
+        user_agent VARCHAR(512),
+        latency_ms INT,
+        occurred_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_audit_user_time ON lj_audit_log(user_id, occurred_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_audit_time ON lj_audit_log(occurred_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_audit_path ON lj_audit_log(path, occurred_at DESC);
     `);
     // V30.0.0 — Integração ClickUp. clickup_config guarda OAuth App credentials
     // (client_id/secret) do user. clickup_credentials guarda tokens após OAuth.
@@ -792,6 +834,8 @@ async function runMigrations() {
 const SLIDING_SESSION_TTL = '24h';            // novo JWT vale 24h
 const SLIDING_RENEWAL_WINDOW_MS = 6 * 60 * 60 * 1000;   // renova quando < 6h pra expirar
 
+// V35.4.0 — JWT verification com suporte a rotação (JWT_SECRET + JWT_SECRET_PREVIOUS).
+const { verifyWithRotation, signWithCurrent } = require('./lib/jwt-rotation');
 app.use(async (req, res, next) => {
   req.db = pgPool;
   req.user = null;
@@ -799,22 +843,25 @@ app.use(async (req, res, next) => {
     const auth = req.headers.authorization || '';
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
     if (token) {
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET);
+      const v = verifyWithRotation(token);
+      if (v.ok) {
+        const decoded = v.payload;
         req.user = decoded;
-        // Sliding Session — se token tá perto de expirar, gera novo e envia no header.
-        // Expor via Access-Control-Expose-Headers pra frontend ler em CORS responses.
+        // Sliding Session + V35.4.0 — re-emite com SECRET ATUAL (não previous).
+        // Se o token foi verificado com previous, gera renew com current pra
+        // forçar transição gradual durante rotação.
         if (decoded.exp) {
-          const expMs = decoded.exp * 1000;  // exp vem em segundos
+          const expMs = decoded.exp * 1000;
           const msToExpiry = expMs - Date.now();
-          if (msToExpiry > 0 && msToExpiry < SLIDING_RENEWAL_WINDOW_MS) {
+          const needsRenew = (msToExpiry > 0 && msToExpiry < SLIDING_RENEWAL_WINDOW_MS) || v.usedPrevious;
+          if (needsRenew) {
             const { iat, exp, ...payload } = decoded;
-            const renewed = jwt.sign(payload, JWT_SECRET, { expiresIn: SLIDING_SESSION_TTL });
+            const renewed = signWithCurrent(payload, { expiresIn: SLIDING_SESSION_TTL });
             res.setHeader('X-Auth-Refresh', renewed);
             res.setHeader('Access-Control-Expose-Headers', 'X-Auth-Refresh');
           }
         }
-      } catch (_) {
+      } else {
         req.user = null;
       }
     }
@@ -858,6 +905,34 @@ app.use((req, res, next) => {
   if (req.user) return next();
   return res.status(401).json({ ok: false, message: 'Não autenticado.' });
 });
+
+// V35.4.0 — Rate limit por tenant (1000 req/min). Aplicado nas rotas /api/*.
+// Master sem limite. Fail-open se Redis cair.
+// Wrapper de middleware pra resolver redisClient EM RUNTIME (foi conectado
+// async, então no boot ainda é null — getter dinâmico resolve).
+const { createRateLimiter } = require('./lib/rate-limit');
+app.use('/api', (() => {
+  let cachedLimiter = null;
+  let lastClient = null;
+  return (req, res, next) => {
+    if (lastClient !== redisClient) {
+      lastClient = redisClient;
+      cachedLimiter = createRateLimiter({
+        redisClient: redisClient,
+        windowMs: 60 * 1000,
+        max: 1000,
+        skipMaster: true
+      });
+    }
+    return cachedLimiter(req, res, next);
+  };
+})());
+
+// V35.4.0 — Audit log: registra cada request autenticada na lj_audit_log.
+const { auditMiddleware, cleanupOldAuditLogs } = require('./lib/audit-log');
+app.use(auditMiddleware());
+// Job de limpeza: roda 1×/hora. Remove logs > 90 dias.
+setInterval(() => cleanupOldAuditLogs(pgPool, 90), 60 * 60 * 1000);
 
 // V31.0.0 — Gate demo: users com mode='demo' são read-only. Bloqueia
 // POST/PUT/DELETE/PATCH em qualquer rota /api/* (exceto auth e leitura).
