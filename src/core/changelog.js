@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.4.2',
+    date: '2026-06-01',
+    title: 'Fix: campos runtime do state silenciam warning do console',
+    bullets: [
+      'Campos internos (_reconciliationLastLoadedAt, _knownTagsCache, etc) marcados como runtime — não tentam mais persistir.',
+      'Warning "Campos persistidos NÃO mapeados" some.'
+    ]
+  },
+  {
     version: 'V35.4.1',
     date: '2026-06-01',
     title: 'Fix: 5 campos do state agora carregam corretamente no F5',

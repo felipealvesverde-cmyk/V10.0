@@ -1407,7 +1407,11 @@ var State = {
         'actionsListFilter','flowBuilderStartFilter','flowBuilderZoom','flowBuilderConnectionArm','flowDisconnectConfirm','flowBuilderShowHelp',
         'showRevopsSimulationModal','revopsSimulationDraft','revopsSimulationLoadedScenarioId',
         'showRevopsScenariosModal','showRevopsScenarioNameModal','showRevopsOkrModal','revopsOkrDraft',
-        'showRevopsFixedCostsModal','revopsFixedCostsCategory','showRevopsAcquisitionModal'
+        'showRevopsFixedCostsModal','revopsFixedCostsCategory','showRevopsAcquisitionModal',
+        // V35.4.2 — Runtime-only (não persiste). Prefix '_' indica internal.
+        '_reconciliationLastLoadedAt','_knownTagsCache','_subStagePreviewCache',
+        '_djowShortcutBound','_djowSearchRunning','_enrichRunning','_rdContactSyncRunning',
+        '_subStageSaveTimers'
       ]);
       const lost = [];
       for (const key of Object.keys(raw)) {
