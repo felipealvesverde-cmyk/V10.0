@@ -175,16 +175,20 @@ window.HomeModule = {
       <div class="lj-home-meta">
         <button class="lj-home-icon-btn" title="Buscar"><i data-lucide="search" class="w-4 h-4"></i></button>
         ${(() => {
-          // V35.3.7 — Sininho agrega: conciliação RD + relatórios de import wizard
+          // V35.3.8 — Sininho agrega 3 canais: conciliação RD + import reports + releases
           const reconCount = Number(App.state.pendingReconciliationCount || 0);
           const importCount = Number(App.state.pendingLeadImportReports || 0);
-          const count = reconCount + importCount;
+          const unseenReleases = (window.Actions?._getUnseenReleases?.() || []);
+          const releaseCount = unseenReleases.length;
+          const count = reconCount + importCount + releaseCount;
           const titleParts = [];
           if (reconCount) titleParts.push(`${reconCount} conciliação(ões) RD`);
           if (importCount) titleParts.push(`${importCount} relatório(s) de import`);
+          if (releaseCount) titleParts.push(`${releaseCount} atualização(ões) do LJ`);
           const title = count > 0 ? titleParts.join(' · ') + ' — clique pra ver' : 'Nenhuma notificação pendente';
-          // Quando só tem import (sem conciliação), abre direto o modal de import reports
-          const onclick = importCount && !reconCount
+          // Notificações de import ou release abrem o modal de notificações;
+          // só conciliação RD abre o modal próprio dela
+          const onclick = (importCount || releaseCount) && !reconCount
             ? 'Actions.openImportReportsModal()'
             : 'Actions.openReconciliationModal()';
           return `<button onclick="${onclick}" class="lj-home-icon-btn lj-home-bell" title="${title}">

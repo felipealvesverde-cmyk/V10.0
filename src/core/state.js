@@ -531,6 +531,9 @@ var State = {
       // Substitui o modo Manual (vira sub-modo do Step 1 "colar texto"). Persiste
       // entre saves pra que F5 no meio do fluxo recupere o progresso.
       leadImportWizard: null,
+      // V35.3.8 — Última versão vista pelo usuário (compara com window.LJVersion
+      // pra mostrar release notes não vistas no sininho da Home).
+      lastSeenVersion: null,
       leadDraft: { name: '', phone: '', email: '', idade: '', estado: '', cidade: '', estadoCivil: '', sexo: '', faixaSalarial: '', tags: '' },
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' },

@@ -554,7 +554,9 @@ var Actions = {
 
       openImportReportsModal() {
         App.state.importReportsModalOpen = true;
-        App.state.pendingLeadImportReports = 0; // zera badge ao abrir
+        App.state.pendingLeadImportReports = 0;
+        // V35.3.8 — Ao abrir, marca todas as releases como vistas
+        if (window.LJVersion) App.state.lastSeenVersion = window.LJVersion;
         App.save(); App.render();
       },
       closeImportReportsModal() {
@@ -565,6 +567,37 @@ var Actions = {
         App.state.leadImportReports = [];
         App.state.pendingLeadImportReports = 0;
         App.save(); App.render();
+      },
+
+      // V35.3.8 — Compara duas versões "Vmaj.med.peq.tiny" sem dependência.
+      // Retorna >0 se a>b, <0 se a<b, 0 se igual.
+      _compareLJVersion(a, b) {
+        if (!a || !b) return a === b ? 0 : (a ? 1 : -1);
+        const parse = v => String(v).replace(/^[Vv]/, '').split(/[.-]/).map(p => parseInt(p, 10) || 0);
+        const pa = parse(a), pb = parse(b);
+        const len = Math.max(pa.length, pb.length);
+        for (let i = 0; i < len; i++) {
+          const da = pa[i] || 0, db = pb[i] || 0;
+          if (da !== db) return da - db;
+        }
+        return 0;
+      },
+
+      // V35.3.8 — Lista releases ainda não vistas pelo usuário.
+      _getUnseenReleases() {
+        const all = window.LJChangelog || [];
+        const lastSeen = App.state.lastSeenVersion;
+        if (!lastSeen) return all; // primeira vez vê tudo
+        return all.filter(r => Actions._compareLJVersion(r.version, lastSeen) > 0);
+      },
+
+      // V35.3.8 — Marca uma única release específica como vista (botão "OK").
+      markReleaseAsSeen(version) {
+        const current = App.state.lastSeenVersion;
+        if (!current || Actions._compareLJVersion(version, current) > 0) {
+          App.state.lastSeenVersion = version;
+          App.save(); App.render();
+        }
       },
       setLeadImportBank(bankId) {
         App.state.leadImportBankId = bankId ? Number(bankId) : null;
