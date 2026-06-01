@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.3.10',
+    date: '2026-06-01',
+    title: 'Fix sininho: modal abre em qualquer tela + badge correto',
+    bullets: [
+      'Antes: clicar no sininho na Home não abria o modal de notificações (só funcionava na tela de Leads).',
+      'Antes: primeiro acesso mostrava badge "14" porque contava releases antigas.',
+      'Agora: badge mostra só atualizações que entraram desde sua última visita.'
+    ]
+  },
+  {
     version: 'V35.3.9',
     date: '2026-06-01',
     title: 'Fix import: várias colunas pro mesmo campo agora acumulam',
