@@ -73,6 +73,13 @@ var App = {
         // V23.0.0 — Carrega state remoto se em produção; fallback pra localStorage.
         await this._loadStateWithRemoteFallback();
         this.ensureRuntimeStateV1301();
+        // V35.3.10 — Primeira vez que o user vê este sistema de changelog?
+        // Marca todas as releases existentes como "vistas" pra evitar badge
+        // 14 no primeiro acesso (releases retroativas populadas em V35.3.8).
+        // A partir daqui, qualquer release nova entra como "não vista".
+        if (this.state.lastSeenVersion === null || this.state.lastSeenVersion === undefined) {
+          this.state.lastSeenVersion = window.LJVersion || 'V35.3.10';
+        }
         // V25.0.2 — "Sempre que abrir o LJ, a página inicial é Início."
         // Sobrescreve activeTab no boot (não persiste navegação entre reloads).
         this.state.activeTab = 'home';
@@ -525,7 +532,7 @@ var App = {
         const app = document.getElementById('app');
         // V25.0.0 — Adicionada aba "home" (HomeModule).
         const screens = { home: window.HomeModule, products: ProductsModule, campaigns: CampaignModule, actions: ActionModule, results: ResultModule, scores: ScoreModule, dashboard: DashboardModule, leads: LeadsModule, revops: window.RevopsGovernanceModule };
-        app.innerHTML = (screens[this.state.activeTab]?.render() || (window.HomeModule ? HomeModule.render() : ProductsModule.render())) + (window.SettingsModal ? SettingsModal.render() : '') + (window.CreateClickupTaskModal ? CreateClickupTaskModal.render() : '') + (window.ConnectActionWizardModal ? ConnectActionWizardModal.render() : '') + (window.ReloginInlineModal ? ReloginInlineModal.render() : '') + (window.TrackerWizardModal ? TrackerWizardModal.render() : '') + (window.TrackerVisitorDetailModal ? TrackerVisitorDetailModal.render() : '') + (window.HotmartWizardModal ? HotmartWizardModal.render() : '') + (window.ReconciliationModal ? ReconciliationModal.render() : '') + (window.TriggersModal ? TriggersModal.render() : '') + (window.ScoreConfigModal ? ScoreConfigModal.render() : '') + (window.ScoreBreakdownModal ? ScoreBreakdownModal.render() : '') + (window.SubStageFunnelModal ? SubStageFunnelModal.render() : '') + (window.ConfirmModal ? ConfirmModal.render() : '');
+        app.innerHTML = (screens[this.state.activeTab]?.render() || (window.HomeModule ? HomeModule.render() : ProductsModule.render())) + (window.SettingsModal ? SettingsModal.render() : '') + (window.CreateClickupTaskModal ? CreateClickupTaskModal.render() : '') + (window.ConnectActionWizardModal ? ConnectActionWizardModal.render() : '') + (window.ReloginInlineModal ? ReloginInlineModal.render() : '') + (window.TrackerWizardModal ? TrackerWizardModal.render() : '') + (window.TrackerVisitorDetailModal ? TrackerVisitorDetailModal.render() : '') + (window.HotmartWizardModal ? HotmartWizardModal.render() : '') + (window.ReconciliationModal ? ReconciliationModal.render() : '') + (window.TriggersModal ? TriggersModal.render() : '') + (window.ScoreConfigModal ? ScoreConfigModal.render() : '') + (window.ScoreBreakdownModal ? ScoreBreakdownModal.render() : '') + (window.SubStageFunnelModal ? SubStageFunnelModal.render() : '') + (window.ConfirmModal ? ConfirmModal.render() : '') + (window.LeadImportWizard ? LeadImportWizard.render() : '');
         // V26.0.4 — Modal Djow agora em root separado (#djowModalRoot fora de #app)
         // pra que position:fixed funcione corretamente (parent #app tem transform
         // via card-enter, que cria novo containing block e quebra position:fixed).

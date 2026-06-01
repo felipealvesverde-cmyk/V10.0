@@ -44,7 +44,8 @@ var LeadsModule = {
       + this.imputeCampaignModal()
       + this.duplicatesModal()
       + this.rdBacklogModal()
-      + (window.LeadImportWizard ? LeadImportWizard.render() : '')
+      // V35.3.10 — LeadImportWizard movido pra main.js (modal global). Antes
+      // só renderizava aqui, e o sininho da Home não conseguia abrir.
       // V34.6.f hotfix — Modal "Criar banco" precisa render aqui também.
       // SettingsModal._leadBankEditModal só roda dentro de Settings; user
       // dispara via "+ Criar banco" no import modal sem Settings aberto.
