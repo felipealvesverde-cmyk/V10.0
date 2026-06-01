@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.3.9',
+    date: '2026-06-01',
+    title: 'Fix import: várias colunas pro mesmo campo agora acumulam',
+    bullets: [
+      'Se 2 colunas mapeiam pra Telefone (ex: "Telefone" + "Celular"), o LJ usa o primeiro valor preenchido em vez de sobrescrever.',
+      'Se várias colunas mapeiam pra Tags (ex: "Tags" + "Habitualidades" + "Profissão"), tudo vira tag — sem perder dado.',
+      'Tags duplicadas no mesmo lead são removidas automaticamente.'
+    ]
+  },
+  {
     version: 'V35.3.8',
     date: '2026-06-01',
     title: 'Notificações de atualização no sininho',
