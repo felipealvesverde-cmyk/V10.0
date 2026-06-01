@@ -181,19 +181,391 @@ var Actions = {
       importFromRDMock() { const list = App.state.actionDraft.rdListName.trim() || 'Lista RD'; App.state.actionDraft.leadsText = [`Lead RD 1, lead1@empresa.com, 48991110001, #rd ${list}`, `Lead RD 2, lead2@empresa.com, 48991110002, #rd ${list}`].join('\n'); App.save(); App.render(); Utils.toast('Modelo de importação RD carregado.'); },
       openDashboardCampaign(id) { App.state.selectedDashboardCampaignId = id; App.save(); App.render(); },
       openLead(id) { App.state.selectedLeadId = id; App.state.activeTab = 'leads'; App.save(); App.render(); },
+      // V35.3.7 — Lead Import Wizard substitui o modal único antigo.
+      // 4 steps: Upload → Mapear → Revisar → Importar.
       async openLeadImportModal() {
-        // V34.0.0 Onda 3 — pre-popula leadImportBankId com banco default do tenant.
-        // Se não tem banco ainda, força criação inline antes do import.
-        App.state.showLeadImportModal = true;
         if (!App.state.leadBanksCache?.loadedAt) {
           await Actions.loadLeadBanks();
         }
         const banks = App.state.leadBanksCache?.banks || [];
         const defaultBank = banks.find(b => b.is_default) || banks[0] || null;
-        App.state.leadImportBankId = defaultBank ? defaultBank.id : null;
+        App.state.leadImportWizard = {
+          open: true,
+          step: 1,
+          bankId: defaultBank?.id || null,
+          inputMode: 'file',
+          rawText: '',
+          fileName: null,
+          separator: null,
+          encoding: 'utf-8',
+          headers: [],
+          rows: [],
+          preview: [],
+          mapping: {},
+          parseError: null,
+          dedupPreview: null,
+          dedupBehavior: 'update',
+          applyOriginTag: true,
+          originTag: defaultBank ? `import-${new Date().toISOString().slice(0,10)}-${defaultBank.name.toLowerCase().replace(/\s+/g,'-').slice(0,20)}` : `import-${new Date().toISOString().slice(0,10)}`,
+          result: null
+        };
+        // Pra compat: mantém showLeadImportModal=true caso outro caller dependa
+        App.state.showLeadImportModal = true;
         App.save(); App.render();
       },
-      closeLeadImportModal() { App.state.showLeadImportModal = false; App.save(); App.render(); },
+      closeLeadImportModal() {
+        App.state.showLeadImportModal = false;
+        App.state.leadImportWizard = null;
+        App.save(); App.render();
+      },
+
+      // ===== V35.3.7 — Lead Import Wizard actions =====
+
+      setLeadWizardStep(n) {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        w.step = Math.max(1, Math.min(4, Number(n)));
+        App.save(); App.render();
+      },
+
+      setLeadWizardBank(bankId) {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        w.bankId = bankId ? Number(bankId) : null;
+        const bank = (App.state.leadBanksCache?.banks || []).find(b => b.id === w.bankId);
+        if (bank && w.originTag.startsWith('import-')) {
+          w.originTag = `import-${new Date().toISOString().slice(0,10)}-${bank.name.toLowerCase().replace(/\s+/g,'-').slice(0,20)}`;
+        }
+        App.save(); App.render();
+      },
+
+      setLeadWizardInputMode(mode) {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        w.inputMode = mode === 'paste' ? 'paste' : 'file';
+        App.render();
+      },
+
+      // V35.3.7 — Helpers internos
+      _detectCsvSeparator(text) {
+        const first = String(text || '').split(/\r?\n/)[0] || '';
+        const counts = { ',': (first.match(/,/g)||[]).length, ';': (first.match(/;/g)||[]).length, '\t': (first.match(/\t/g)||[]).length };
+        let best = ',', max = 0;
+        for (const sep of Object.keys(counts)) {
+          if (counts[sep] > max) { max = counts[sep]; best = sep; }
+        }
+        return max === 0 ? ',' : best;
+      },
+
+      _parseCsvRow(line, sep) {
+        // Simple CSV parser com suporte a aspas
+        const out = []; let cur = ''; let inQ = false;
+        for (let i = 0; i < line.length; i++) {
+          const c = line[i];
+          if (inQ) {
+            if (c === '"' && line[i+1] === '"') { cur += '"'; i++; }
+            else if (c === '"') { inQ = false; }
+            else { cur += c; }
+          } else {
+            if (c === '"') { inQ = true; }
+            else if (c === sep) { out.push(cur); cur = ''; }
+            else { cur += c; }
+          }
+        }
+        out.push(cur);
+        return out.map(s => s.trim());
+      },
+
+      _parseCsvFull(text, sep) {
+        const lines = String(text || '').split(/\r?\n/).filter(l => l.trim());
+        if (!lines.length) return { headers: [], rows: [] };
+        const headers = Actions._parseCsvRow(lines[0], sep);
+        const rows = lines.slice(1).map(l => Actions._parseCsvRow(l, sep));
+        return { headers, rows };
+      },
+
+      // V35.3.7 — Heurística de auto-mapping. Reduz cliques no Step 2.
+      _autoMapHeaders(headers) {
+        const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+        const map = {};
+        for (const h of headers) {
+          const n = norm(h);
+          if (/^(e[-_ ]?mail|email|email[-_ ]?address|correo)$/i.test(n)) map[h] = 'email';
+          else if (/^(nome|name|nome[-_ ]?completo|full[-_ ]?name|nombre|first[-_ ]?name)$/i.test(n)) map[h] = 'name';
+          else if (/^(sobrenome|last[-_ ]?name|surname)$/i.test(n)) map[h] = 'name';
+          else if (/^(telefone|phone|celular|whatsapp|tel|mobile|contact)$/i.test(n)) map[h] = 'phone';
+          else if (/^(idade|age|anos)$/i.test(n)) map[h] = 'idade';
+          else if (/^(estado|state|uf)$/i.test(n)) map[h] = 'estado';
+          else if (/^(cidade|city)$/i.test(n)) map[h] = 'cidade';
+          else if (/^(estado[-_ ]?civil|marital)$/i.test(n)) map[h] = 'estadoCivil';
+          else if (/^(sexo|gender|genero)$/i.test(n)) map[h] = 'sexo';
+          else if (/^(faixa[-_ ]?salarial|renda|income|salary)$/i.test(n)) map[h] = 'faixaSalarial';
+          else if (/^(tags?|labels?|etiquetas)$/i.test(n)) map[h] = 'tags';
+          else map[h] = 'skip';
+        }
+        return map;
+      },
+
+      handleLeadWizardFile(event) {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => {
+          const text = String(e.target.result || '');
+          Actions._ingestWizardText(text, file.name);
+        };
+        reader.readAsText(file, 'utf-8');
+        event.target.value = '';
+      },
+
+      handleLeadWizardPaste(text) {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        w.rawText = text;
+        App.save(); // não render — preserva foco
+      },
+
+      submitLeadWizardPaste() {
+        const w = App.state.leadImportWizard;
+        if (!w || !w.rawText.trim()) {
+          return Utils.toast('Cole o conteúdo CSV antes de continuar.');
+        }
+        Actions._ingestWizardText(w.rawText, null);
+      },
+
+      _ingestWizardText(text, fileName) {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        const sep = Actions._detectCsvSeparator(text);
+        const parsed = Actions._parseCsvFull(text, sep);
+        if (!parsed.headers.length || parsed.headers.every(h => !h)) {
+          w.parseError = 'Não consegui detectar cabeçalho. CSV está vazio ou mal-formado.';
+          App.render();
+          return;
+        }
+        if (parsed.headers.length < 2 && !parsed.rows.length) {
+          w.parseError = 'CSV tem só 1 coluna ou nenhum dado. Confirme o separador.';
+          App.render();
+          return;
+        }
+        w.rawText = text;
+        w.fileName = fileName;
+        w.separator = sep;
+        w.headers = parsed.headers;
+        w.rows = parsed.rows;
+        w.preview = parsed.rows.slice(0, 5);
+        w.mapping = Actions._autoMapHeaders(parsed.headers);
+        w.parseError = null;
+        w.step = 2;
+        App.save(); App.render();
+      },
+
+      setLeadWizardMapping(csvCol, ljField) {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        w.mapping[csvCol] = ljField;
+        App.render();
+      },
+
+      _validateMapping(mapping) {
+        const used = Object.values(mapping || {});
+        if (!used.includes('email') && !used.includes('phone')) {
+          return { ok: false, error: 'Mapeie ao menos uma coluna pra Email OU Telefone — sem isso o lead não pode ser identificado.' };
+        }
+        return { ok: true };
+      },
+
+      async goToWizardReview() {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        const v = Actions._validateMapping(w.mapping);
+        if (!v.ok) return Utils.toast(v.error);
+        w.step = 3;
+        App.render();
+        // Dispara dedup preview conforme regra de volume
+        Actions._loadWizardDedupPreview();
+      },
+
+      async _loadWizardDedupPreview() {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        const total = w.rows.length;
+        // V35.3.7 — Regras de volume cravadas com Felipe:
+        //   ≤ 20k  → preview com cafezinho loader
+        //   ≤ 50k  → preview com aviso "vai demorar mas dá certo"
+        //   > 50k  → sugere lotes de 20k, sem preview (risco de quebrar)
+        if (total > 50000) {
+          w.dedupPreview = { skipped: true, reason: 'volume-high', total };
+          App.render();
+          return;
+        }
+        w.dedupPreview = {
+          loading: true,
+          warnSlow: total > 20000,
+          total
+        };
+        App.render();
+        // Extrai emails e phones do CSV mapeados
+        const emailCol = Object.keys(w.mapping).find(c => w.mapping[c] === 'email');
+        const phoneCol = Object.keys(w.mapping).find(c => w.mapping[c] === 'phone');
+        const emails = []; const phones = [];
+        for (const row of w.rows) {
+          const obj = {};
+          w.headers.forEach((h, i) => { obj[h] = row[i]; });
+          if (emailCol && obj[emailCol]) emails.push(String(obj[emailCol]).toLowerCase().trim());
+          if (phoneCol && obj[phoneCol]) phones.push(String(obj[phoneCol]).replace(/\D/g, ''));
+        }
+        try {
+          const token = localStorage.getItem('lj_jwt');
+          const r = await fetch('/api/leads-dedup-preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ emails, phones, bank_id: w.bankId })
+          });
+          const data = await r.json();
+          if (data.ok) {
+            w.dedupPreview = {
+              loading: false,
+              warnSlow: total > 20000,
+              total,
+              duplicateEmails: Number(data.duplicateEmails || 0),
+              duplicatePhones: Number(data.duplicatePhones || 0)
+            };
+          } else {
+            w.dedupPreview = { loading: false, error: data.message || 'Falha no preview' };
+          }
+          App.render();
+        } catch (err) {
+          w.dedupPreview = { loading: false, error: err.message };
+          App.render();
+        }
+      },
+
+      setLeadWizardDedupBehavior(behavior) {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        w.dedupBehavior = behavior === 'skip' ? 'skip' : 'update';
+        App.render();
+      },
+
+      toggleLeadWizardOriginTag() {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        w.applyOriginTag = !w.applyOriginTag;
+        App.render();
+      },
+
+      setLeadWizardOriginTag(text) {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        w.originTag = String(text || '').trim();
+        // sem render — preserva foco
+      },
+
+      async executeLeadWizardImport() {
+        const w = App.state.leadImportWizard;
+        if (!w) return;
+        w.step = 4;
+        w.result = { running: true, processed: 0, total: w.rows.length };
+        App.render();
+
+        // Converte rows em objetos LJ usando o mapping
+        const ljLeads = [];
+        for (const row of w.rows) {
+          const obj = {};
+          w.headers.forEach((h, i) => {
+            const dest = w.mapping[h];
+            if (!dest || dest === 'skip') return;
+            if (dest === 'name' && obj.name) {
+              obj.name = (obj.name + ' ' + (row[i] || '')).trim();
+            } else if (dest === 'tags') {
+              const raw = String(row[i] || '');
+              if (raw) obj.tags = raw.split(/[,;]/).map(t => t.trim()).filter(Boolean);
+            } else {
+              obj[dest] = row[i] || '';
+            }
+          });
+          if (obj.email || obj.phone) ljLeads.push(obj);
+        }
+
+        // V35.3.7 — Chunking de 100 em 100 (limite hard do endpoint).
+        const CHUNK_SIZE = 100;
+        const token = localStorage.getItem('lj_jwt');
+        let totalCreated = 0, totalUpdated = 0, totalSkipped = 0, totalErrors = 0;
+
+        for (let i = 0; i < ljLeads.length; i += CHUNK_SIZE) {
+          const chunk = ljLeads.slice(i, i + CHUNK_SIZE);
+          try {
+            const r = await fetch('/api/leads-import-batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                bank_id: w.bankId,
+                source: 'mailing-csv',
+                leads: chunk,
+                dedup_behavior: w.dedupBehavior,
+                origin_tag: w.applyOriginTag ? w.originTag : null
+              })
+            });
+            const data = await r.json();
+            if (data.ok) {
+              totalCreated += Number(data.created || 0);
+              totalUpdated += Number(data.updated || 0);
+              totalSkipped += Number(data.skipped || 0);
+              totalErrors  += Array.isArray(data.errors) ? data.errors.length : Number(data.errors || 0);
+            } else {
+              totalErrors += chunk.length;
+            }
+          } catch (err) {
+            totalErrors += chunk.length;
+          }
+          // Atualiza progress
+          w.result = {
+            running: i + CHUNK_SIZE < ljLeads.length,
+            total: ljLeads.length,
+            processed: Math.min(i + CHUNK_SIZE, ljLeads.length),
+            created: totalCreated,
+            updated: totalUpdated,
+            skipped: totalSkipped,
+            errors: totalErrors
+          };
+          App.render();
+        }
+
+        w.result.running = false;
+        Actions._notifyHomeBellImportReport(w.result);
+        App.save(); App.render();
+      },
+
+      // V35.3.7 — Pendura relatório do import no sininho da Home.
+      _notifyHomeBellImportReport(result) {
+        App.state.leadImportReports = Array.isArray(App.state.leadImportReports) ? App.state.leadImportReports : [];
+        App.state.leadImportReports.unshift({
+          id: Date.now(),
+          when: new Date().toISOString(),
+          ...result
+        });
+        App.state.leadImportReports = App.state.leadImportReports.slice(0, 10);
+        App.state.pendingLeadImportReports = (App.state.pendingLeadImportReports || 0) + 1;
+        App.save();
+      },
+
+      openImportReportsModal() {
+        App.state.importReportsModalOpen = true;
+        App.state.pendingLeadImportReports = 0; // zera badge ao abrir
+        App.save(); App.render();
+      },
+      closeImportReportsModal() {
+        App.state.importReportsModalOpen = false;
+        App.save(); App.render();
+      },
+      clearImportReports() {
+        App.state.leadImportReports = [];
+        App.state.pendingLeadImportReports = 0;
+        App.save(); App.render();
+      },
       setLeadImportBank(bankId) {
         App.state.leadImportBankId = bankId ? Number(bankId) : null;
         App.save(); App.render();

@@ -527,6 +527,10 @@ var State = {
       showLeadImportModal: false,
       leadManualText: '',
       leadCsvText: '',
+      // V35.3.7 — Lead Import Wizard (4 steps: Upload → Mapear → Revisar → Importar)
+      // Substitui o modo Manual (vira sub-modo do Step 1 "colar texto"). Persiste
+      // entre saves pra que F5 no meio do fluxo recupere o progresso.
+      leadImportWizard: null,
       leadDraft: { name: '', phone: '', email: '', idade: '', estado: '', cidade: '', estadoCivil: '', sexo: '', faixaSalarial: '', tags: '' },
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' },
