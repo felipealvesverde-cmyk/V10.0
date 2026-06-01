@@ -41,9 +41,12 @@ window.LeadImportWizard = {
     return wizardHtml + reportsHtml;
   },
 
-  // V35.3.7 — Modal histórico de relatórios de import. Aberto pelo sininho da Home.
+  // V35.3.8 — Modal de Notificações: 2 seções (Atualizações do LJ + Imports).
+  // Aberto pelo sininho da Home. Ao abrir, marca releases como vistas.
   _reportsModal() {
     const reports = App.state.leadImportReports || [];
+    const unseenReleases = window.Actions?._getUnseenReleases?.() || [];
+    const allReleases = window.LJChangelog || [];
     return `<div class="fixed inset-0 z-[75] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
               onclick="if(event.target===this) Actions.closeImportReportsModal()">
       <section class="bg-white rounded-3xl shadow-2xl border border-white/20 max-w-2xl w-full mt-6 overflow-hidden">
@@ -52,37 +55,83 @@ window.LeadImportWizard = {
             <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest mb-1">
               <i data-lucide="bell" class="w-3 h-3 inline"></i> Notificações
             </p>
-            <h2 class="text-xl font-black">Relatórios de import</h2>
-            <p class="text-[12px] text-slate-300 mt-1">${reports.length} relatório(s) recente(s)</p>
+            <h2 class="text-xl font-black">Tudo que rolou</h2>
+            <p class="text-[12px] text-slate-300 mt-1">${unseenReleases.length} atualização(ões) nova(s) · ${reports.length} relatório(s) de import</p>
           </div>
           <button onclick="Actions.closeImportReportsModal()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 grid place-items-center" style="color:#fff;">
             <i data-lucide="x" class="w-4 h-4"></i>
           </button>
         </header>
-        <main class="p-5 max-h-[60vh] overflow-y-auto space-y-2">
-          ${reports.length === 0
-            ? `<p class="text-center text-sm text-slate-500 italic py-8">Sem relatórios ainda. Eles aparecem aqui sempre que você importa leads.</p>`
-            : reports.map(r => `<div class="rounded-2xl border border-slate-200 p-3 bg-slate-50">
-                <div class="flex items-center justify-between gap-2 mb-2">
-                  <p class="text-[11px] font-black text-slate-700">${new Date(r.when).toLocaleString('pt-BR')}</p>
-                  ${r.error ? '<span class="text-[10px] font-black text-rose-700">Erro</span>' : '<span class="text-[10px] font-black text-emerald-700">✓ Concluído</span>'}
-                </div>
-                ${r.error
-                  ? `<p class="text-xs text-rose-700">${Utils.escape(r.error)}</p>`
-                  : `<div class="grid grid-cols-4 gap-2 text-center">
-                      <div><p class="text-[9px] font-black text-emerald-700 uppercase">Criados</p><p class="text-lg font-black text-slate-900">${r.created || 0}</p></div>
-                      <div><p class="text-[9px] font-black text-sky-700 uppercase">Atualizados</p><p class="text-lg font-black text-slate-900">${r.updated || 0}</p></div>
-                      <div><p class="text-[9px] font-black text-slate-700 uppercase">Pulados</p><p class="text-lg font-black text-slate-900">${r.skipped || 0}</p></div>
-                      <div><p class="text-[9px] font-black text-rose-700 uppercase">Erros</p><p class="text-lg font-black text-slate-900">${r.errors || 0}</p></div>
-                    </div>`
-                }
-              </div>`).join('')
-          }
+        <main class="p-5 max-h-[60vh] overflow-y-auto space-y-5">
+          ${this._releasesSection(allReleases, unseenReleases)}
+          ${this._importReportsSection(reports)}
         </main>
         ${reports.length > 0 ? `<footer class="border-t border-slate-200 p-3 flex justify-end">
-          <button onclick="Actions.clearImportReports()" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-black text-slate-700">Limpar histórico</button>
+          <button onclick="Actions.clearImportReports()" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-black text-slate-700">Limpar histórico de imports</button>
         </footer>` : ''}
       </section>
+    </div>`;
+  },
+
+  _releasesSection(all, unseen) {
+    if (!all.length) return '';
+    const unseenSet = new Set(unseen.map(r => r.version));
+    return `<div>
+      <div class="flex items-center gap-2 mb-3">
+        <i data-lucide="sparkles" class="w-4 h-4 text-violet-600"></i>
+        <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">Atualizações do LJ</h3>
+        ${unseen.length > 0 ? `<span class="text-[10px] font-black bg-violet-100 text-violet-800 px-2 py-0.5 rounded-full">${unseen.length} nova(s)</span>` : ''}
+      </div>
+      <div class="space-y-2">
+        ${all.slice(0, 20).map(r => {
+          const isNew = unseenSet.has(r.version);
+          return `<div class="rounded-2xl border-2 ${isNew ? 'border-violet-300 bg-violet-50' : 'border-slate-200 bg-slate-50'} p-3">
+            <div class="flex items-start justify-between gap-2 mb-1.5">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="text-[10px] font-black ${isNew ? 'text-violet-700' : 'text-slate-500'} font-mono">${Utils.escape(r.version)}</span>
+                  ${isNew ? '<span class="text-[9px] font-black bg-violet-600 text-white px-1.5 py-0.5 rounded-full" style="color:#fff;">NOVO</span>' : ''}
+                  <span class="text-[10px] text-slate-500">${Utils.escape(r.date)}</span>
+                </div>
+                <p class="text-sm font-black text-slate-900">${Utils.escape(r.title)}</p>
+              </div>
+            </div>
+            ${r.bullets && r.bullets.length ? `<ul class="text-xs text-slate-700 space-y-0.5 mt-2 ml-1">
+              ${r.bullets.map(b => `<li class="flex items-start gap-1.5"><span class="text-violet-500 mt-1">•</span><span>${Utils.escape(b)}</span></li>`).join('')}
+            </ul>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  },
+
+  _importReportsSection(reports) {
+    return `<div>
+      <div class="flex items-center gap-2 mb-3">
+        <i data-lucide="file-up" class="w-4 h-4 text-emerald-600"></i>
+        <h3 class="text-sm font-black text-slate-900 uppercase tracking-widest">Importações de leads</h3>
+        ${reports.length > 0 ? `<span class="text-[10px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">${reports.length} recente(s)</span>` : ''}
+      </div>
+      <div class="space-y-2">
+        ${reports.length === 0
+          ? `<p class="text-center text-xs text-slate-500 italic py-4">Sem relatórios ainda. Eles aparecem aqui sempre que você importa leads.</p>`
+          : reports.map(r => `<div class="rounded-2xl border border-slate-200 p-3 bg-slate-50">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <p class="text-[11px] font-black text-slate-700">${new Date(r.when).toLocaleString('pt-BR')}</p>
+                ${r.error ? '<span class="text-[10px] font-black text-rose-700">Erro</span>' : '<span class="text-[10px] font-black text-emerald-700">✓ Concluído</span>'}
+              </div>
+              ${r.error
+                ? `<p class="text-xs text-rose-700">${Utils.escape(r.error)}</p>`
+                : `<div class="grid grid-cols-4 gap-2 text-center">
+                    <div><p class="text-[9px] font-black text-emerald-700 uppercase">Criados</p><p class="text-lg font-black text-slate-900">${r.created || 0}</p></div>
+                    <div><p class="text-[9px] font-black text-sky-700 uppercase">Atualizados</p><p class="text-lg font-black text-slate-900">${r.updated || 0}</p></div>
+                    <div><p class="text-[9px] font-black text-slate-700 uppercase">Pulados</p><p class="text-lg font-black text-slate-900">${r.skipped || 0}</p></div>
+                    <div><p class="text-[9px] font-black text-rose-700 uppercase">Erros</p><p class="text-lg font-black text-slate-900">${r.errors || 0}</p></div>
+                  </div>`
+              }
+            </div>`).join('')
+        }
+      </div>
     </div>`;
   },
 
