@@ -1115,6 +1115,13 @@ var State = {
       showLeadImportModal: Boolean(raw.showLeadImportModal),
       leadManualText: raw.leadManualText || '',
       leadCsvText: raw.leadCsvText || '',
+      // V35.3.7+ — Wizard de import + sininho de notificações.
+      // Regra: todo App.state.X novo precisa entrar em initial() E normalize().
+      leadImportWizard: raw.leadImportWizard || null,
+      lastSeenVersion: raw.lastSeenVersion || null,
+      leadImportReports: Array.isArray(raw.leadImportReports) ? raw.leadImportReports : [],
+      pendingLeadImportReports: Number(raw.pendingLeadImportReports) || 0,
+      importReportsModalOpen: Boolean(raw.importReportsModalOpen),
       leadDraft: { ...base.leadDraft, ...(raw.leadDraft || {}) },
       manualLeads: Array.isArray(raw.manualLeads) ? LeadIdentityEngine.mergeMany([], raw.manualLeads.map((lead, index) => {
         const normalized = LeadParser.normalizeLead(lead, index, fallbackScoreId);
