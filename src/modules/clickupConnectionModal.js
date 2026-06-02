@@ -79,39 +79,17 @@ window.ClickupConnectionModal = {
             badges,
             lastValidationLabel,
             secondaryButtons: connected ? [
-              { label: 'Testar conexão', icon: 'activity', action: "Actions.openSettingsModal('clickup')" },
               ...(tokenType === 'pat' ? [{ label: 'Revelar PAT', icon: 'eye', action: 'Actions.revealClickupPat()' }] : []),
               { label: 'ClickUp + LeadJourney', icon: 'book-open', action: "Actions.openIntegrationDeepDive('clickup')" }
             ] : [],
             helpAction: "Actions.openIntegrationDeepDive('clickup')"
           })}
 
-          ${connected ? `
-          <!-- 2 SUB-CARDS -->
-          <div class="grid md:grid-cols-2 gap-3">
-            ${this._subCard({
-              title: 'Workspace + Raiz',
-              desc: rootLabel ? `${rootLabel} "${Utils.escape(rootName || status.rootId || '?')}" definido como raiz LJ.` : 'Raiz ainda não definida — rode o setup wizard.',
-              icon: 'folder-tree',
-              status: rootLabel ? 'ok' : 'pending',
-              action: "Actions.openSettingsModal('clickup')"
-            })}
-            ${this._subCard({
-              title: 'Sincronização de Tarefas',
-              desc: writeEnabled ? 'Tasks criadas/atualizadas no LJ propagam automaticamente.' : 'Modo somente-leitura — nenhuma task é escrita no ClickUp.',
-              icon: writeEnabled ? 'refresh-cw' : 'pause-circle',
-              status: writeEnabled ? 'ok' : 'pending',
-              action: "Actions.openSettingsModal('clickup')"
-            })}
-          </div>
-          ` : ''}
-
-          <!-- FOOTER ACTION -->
-          <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/10">
-            <p class="text-[11px] text-slate-300">${connected ? 'A configuração detalhada (OAuth/PAT, raiz, mirror) vive em Configurações enquanto migramos.' : 'Conecte o ClickUp escolhendo OAuth (recomendado) ou Personal API Token.'}</p>
-            <button onclick="Actions.openSettingsModal('clickup')" class="px-4 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-600 text-white text-xs font-black inline-flex items-center gap-2" style="color:#fff;">
-              <i data-lucide="${connected ? 'settings' : 'plug'}" class="w-4 h-4"></i> ${connected ? 'Configuração avançada' : 'Conectar ClickUp'}
-            </button>
+          <!-- V35.6.1 — Painel completo de configuração ClickUp embedado.
+               Conteúdo herda layout claro do SettingsModal.clickupPanel()
+               com wrapper branco pra contrastar com fundo Iterar. -->
+          <div class="rounded-2xl bg-white shadow-xl overflow-hidden">
+            ${(window.SettingsModal?.clickupPanel) ? SettingsModal.clickupPanel() : '<div class="p-6 text-slate-700">Painel ClickUp indisponível.</div>'}
           </div>
 
         </div>

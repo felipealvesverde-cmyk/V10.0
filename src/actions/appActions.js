@@ -1457,6 +1457,18 @@ window.Actions = Actions;
 // Database settings and connection patch.
 Object.assign(Actions, {
   openSettingsModal(section) {
+    // V35.6.1 — Deep-links pras sections legacy 'rd' e 'clickup' agora abrem
+    // os modais próprios (que embedam os painéis legacy internamente).
+    // Mantém compatibilidade com callers antigos sem expor mais a section
+    // como rota pública do SettingsModal.
+    if (section === 'rd') {
+      Actions.openRdConnectionModal();
+      return;
+    }
+    if (section === 'clickup') {
+      Actions.openClickupConnectionModal();
+      return;
+    }
     App.state.showSettingsModal = true;
     // V32.4.0 (Geraldo Item 6) — default agora 'myAccount' (V11 'database' removida)
     // V32.12.1 — aceita section opcional pra deep-link (ex: 'integrations' via

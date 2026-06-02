@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.1',
+    date: '2026-06-02',
+    title: 'Integrações IPI completa — config completa de RD e ClickUp dentro dos modais',
+    bullets: [
+      'Toda a configuração de RD Station (Token, Tempo Real, Marketing) e ClickUp (OAuth/PAT, raiz, mirror, advanced) agora vive dentro dos modais próprios.',
+      'Ao clicar em RD ou ClickUp em Iterar, você vê o status card no topo + painel completo de configuração abaixo — sem precisar pular pra Settings.',
+      'Bloco antigo de RD e ClickUp em Configurações deixou de ter rota direta.',
+      'Backend continua exatamente igual — Sansone e demais clientes mantêm conexões ativas intactas.'
+    ]
+  },
+  {
     version: 'V35.6.0',
     date: '2026-06-02',
     title: 'Integrações IPI — área inteira repaginada com Injetar, Propagar e Iterar',

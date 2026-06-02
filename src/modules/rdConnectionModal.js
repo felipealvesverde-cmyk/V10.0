@@ -73,37 +73,12 @@ window.RdConnectionModal = {
             helpAction: "Actions.openIntegrationDeepDive('rd')"
           })}
 
-          <!-- 3 SUB-CARDS -->
-          <div class="grid md:grid-cols-3 gap-3">
-            ${this._subCard({
-              title: 'Token do CRM',
-              desc: 'Acesso a deals, contatos e funis via Personal API Token.',
-              icon: 'key',
-              status: sub.crmPat,
-              action: "Actions.openSettingsModal('rd')"
-            })}
-            ${this._subCard({
-              title: 'Tempo Real do CRM',
-              desc: 'Webhook OAuth que escuta crm_deal_* em tempo real.',
-              icon: 'zap',
-              status: sub.crmOauth,
-              action: "Actions.openSettingsModal('rd')"
-            })}
-            ${this._subCard({
-              title: 'RD Marketing',
-              desc: 'Captura de leads via LP e segmentação Marketing.',
-              icon: 'mail',
-              status: sub.marketingOauth,
-              action: "Actions.openSettingsModal('rd')"
-            })}
-          </div>
-
-          <!-- FOOTER ACTION -->
-          <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-white/10">
-            <p class="text-[11px] text-slate-300">A configuração detalhada (tokens, webhooks, OAuth) vive em Configurações enquanto migramos.</p>
-            <button onclick="Actions.openSettingsModal('rd')" class="px-4 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-xs font-black inline-flex items-center gap-2" style="color:#fff;">
-              <i data-lucide="settings" class="w-4 h-4"></i> Configuração avançada
-            </button>
+          <!-- V35.6.1 — Painel completo de configuração das 3 conexões RD,
+               embedado dentro do modal próprio. Conteúdo herda layout claro
+               do SettingsModal.rdConnectionPanel() — wrapper branco mantém
+               legibilidade dentro do fundo Iterar azul royal. -->
+          <div class="rounded-2xl bg-white shadow-xl overflow-hidden">
+            ${(window.SettingsModal?.rdConnectionPanel) ? SettingsModal.rdConnectionPanel() : '<div class="p-6 text-slate-700">Painel RD indisponível.</div>'}
           </div>
 
         </div>
