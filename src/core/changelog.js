@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.0-alpha4',
+    date: '2026-06-02',
+    title: 'Modais próprios pra RD e ClickUp + Status Card padrão',
+    bullets: [
+      'RD Station agora tem modal próprio com fundo Iterar (#1565C0 royal blue) e accent pink (cor brand RD).',
+      'ClickUp idem — fundo Iterar + accent violet (cor brand ClickUp).',
+      'Componente Connection Status Card padrão estilo print 3 do RD: identificação, badges, última validação, botões secundários, ícone de ajuda.',
+      'RD mostra 3 sub-cards (Token CRM / Tempo Real / RD Marketing); ClickUp mostra 2 (Workspace+Raiz / Sincronização).',
+      'Configuração avançada de cada integração ainda abre Settings legacy — sairá na alpha final.'
+    ]
+  },
+  {
     version: 'V35.6.0-alpha3',
     date: '2026-06-02',
     title: 'Modais de integração herdam a cor da aba IPI a que pertencem',

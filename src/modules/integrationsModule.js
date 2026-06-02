@@ -177,7 +177,7 @@ const IntegrationsModule = {
         icon: 'zap',
         tone: 'pink',
         status: rdConnected ? 'connected' : 'disconnected',
-        action: "Actions.openSettingsModal('rd')",
+        action: 'Actions.openRdConnectionModal()',
         actionLabel: rdConnected ? 'Gerenciar' : 'Conectar',
         actionIcon: rdConnected ? 'settings' : 'plug'
       },
@@ -190,7 +190,7 @@ const IntegrationsModule = {
         icon: 'check-square',
         tone: 'violet',
         status: cuConnected ? 'connected' : 'disconnected',
-        action: "Actions.openSettingsModal('clickup')",
+        action: 'Actions.openClickupConnectionModal()',
         actionLabel: cuConnected ? 'Gerenciar' : 'Conectar',
         actionIcon: cuConnected ? 'settings' : 'plug'
       }

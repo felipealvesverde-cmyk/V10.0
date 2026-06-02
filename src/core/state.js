@@ -543,6 +543,9 @@ var State = {
       googleAdsStatus: null,
       // V35.6.0 — Integrações IPI: aba ativa na nova página Integrações.
       integrationsTab: 'injetar',
+      // V35.6.0-alpha4 — Modais próprios de RD e ClickUp dentro de Integrações.
+      rdConnectionModalOpen: false,
+      clickupConnectionModalOpen: false,
       leadDraft: { name: '', phone: '', email: '', idade: '', estado: '', cidade: '', estadoCivil: '', sexo: '', faixaSalarial: '', tags: '' },
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' },
@@ -1137,6 +1140,9 @@ var State = {
       googleAdsStatus: raw.googleAdsStatus || null,
       // V35.6.0 — Integrações IPI
       integrationsTab: (typeof raw.integrationsTab === 'string' && ['injetar','propagar','iterar'].includes(raw.integrationsTab)) ? raw.integrationsTab : 'injetar',
+      // V35.6.0-alpha4 — modais Iterar (não persistem aberto entre sessões)
+      rdConnectionModalOpen: false,
+      clickupConnectionModalOpen: false,
       leadDraft: { ...base.leadDraft, ...(raw.leadDraft || {}) },
       manualLeads: Array.isArray(raw.manualLeads) ? LeadIdentityEngine.mergeMany([], raw.manualLeads.map((lead, index) => {
         const normalized = LeadParser.normalizeLead(lead, index, fallbackScoreId);

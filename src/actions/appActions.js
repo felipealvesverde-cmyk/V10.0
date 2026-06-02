@@ -7056,6 +7056,32 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V35.6.0-alpha4 — Modal próprio RD (aba Iterar).
+  openRdConnectionModal() {
+    App.state.rdConnectionModalOpen = true;
+    if (window.Actions?.loadRdConnectionStatus) {
+      setTimeout(() => Actions.loadRdConnectionStatus?.(), 0);
+    }
+    App.render();
+  },
+  closeRdConnectionModal() {
+    App.state.rdConnectionModalOpen = false;
+    App.render();
+  },
+
+  // V35.6.0-alpha4 — Modal próprio ClickUp (aba Iterar).
+  openClickupConnectionModal() {
+    App.state.clickupConnectionModalOpen = true;
+    if (window.Actions?.loadClickupStatus) {
+      setTimeout(() => Actions.loadClickupStatus(), 0);
+    }
+    App.render();
+  },
+  closeClickupConnectionModal() {
+    App.state.clickupConnectionModalOpen = false;
+    App.render();
+  },
+
   setCheckoutSubTab(productIdOrAll) {
     const c = App.state.checkoutDashboard || {};
     c.activeSubTab = String(productIdOrAll);
