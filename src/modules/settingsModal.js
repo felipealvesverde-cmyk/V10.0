@@ -3105,6 +3105,12 @@ var SettingsModal = {
   // (Meta Ads / Google Ads / Stripe). V32.12.1 = esqueleto visual (botões
   // placeholder). Backend OAuth chega em V32.12.2 (Meta), .3 (Google), .4 (Stripe).
   _performanceIntegrationsBlock() {
+    // V35.5.0 — Google Ads agora é funcional. Meta/Stripe seguem em breve.
+    const gAds = App.state.googleAdsStatus || {};
+    const gAdsConnected = Boolean(gAds.configured && gAds.oauthCompleted);
+    if (!App.state.googleAdsStatus && window.Actions?.loadGoogleAdsStatus) {
+      setTimeout(() => Actions.loadGoogleAdsStatus(), 0);
+    }
     const cards = [
       {
         id: 'meta',
@@ -3112,15 +3118,20 @@ var SettingsModal = {
         desc: 'Investimento, conversões e CAC por campanha (Facebook + Instagram).',
         icon: 'megaphone',
         tone: 'sky',
-        status: 'soon'  // 'soon' | 'connected' | 'disconnected'
+        status: 'soon'
       },
       {
         id: 'google',
         name: 'Google Ads',
-        desc: 'Search, Display e YouTube por campanha. Imports diários.',
+        desc: gAdsConnected
+          ? `Conectado · Customer ${gAds.selectedCustomerId || '?'}`
+          : 'Search, Display e YouTube por campanha. Imports diários.',
         icon: 'search',
         tone: 'amber',
-        status: 'soon'
+        status: gAdsConnected ? 'connected' : 'disconnected',
+        action: gAdsConnected ? 'Actions.disconnectGoogleAds()' : 'Actions.openGoogleAdsWizard()',
+        actionLabel: gAdsConnected ? 'Desconectar' : 'Conectar',
+        actionIcon: gAdsConnected ? 'unplug' : 'plug'
       },
       {
         id: 'stripe',
@@ -3162,10 +3173,14 @@ var SettingsModal = {
               <p class="text-[10px] font-black ${t.pill} uppercase tracking-widest">${c.name}</p>
               <p class="text-[11px] text-slate-600 leading-snug mt-1">${c.desc}</p>
             </div>
-            <button ${isSoon ? 'disabled' : ''} title="${isSoon ? 'Disponível em breve (V32.12.x)' : 'Conectar agora'}" class="mt-1 px-3 py-1.5 rounded-lg ${isSoon ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-violet-600 hover:bg-violet-700 text-white'} text-[10px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5" ${isSoon ? '' : 'style="color:#fff!important;"'}>
-              <i data-lucide="${isSoon ? 'clock' : 'plug'}" class="w-3 h-3"></i>
-              ${isSoon ? 'Em breve' : 'Conectar'}
-            </button>
+            ${isSoon
+              ? `<button disabled title="Disponível em breve" class="mt-1 px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed text-[10px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5">
+                  <i data-lucide="clock" class="w-3 h-3"></i> Em breve
+                </button>`
+              : `<button onclick="${c.action || ''}" title="${c.actionLabel || 'Conectar'}" class="mt-1 px-3 py-1.5 rounded-lg ${c.status === 'connected' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-violet-600 hover:bg-violet-700'} text-white text-[10px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5" style="color:#fff!important;">
+                  <i data-lucide="${c.actionIcon || 'plug'}" class="w-3 h-3"></i> ${c.actionLabel || 'Conectar'}
+                </button>`
+            }
           </div>`;
         }).join('')}
       </div>

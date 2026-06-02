@@ -538,6 +538,9 @@ var State = {
       // Modal bloqueante atual fica só pra WRITES. Banner pede pra reentrar
       // sem travar reads.
       sessionExpired: false,
+      // V35.5.0 — Google Ads wizard (4 steps) + status atual.
+      googleAdsWizard: null,
+      googleAdsStatus: null,
       leadDraft: { name: '', phone: '', email: '', idade: '', estado: '', cidade: '', estadoCivil: '', sexo: '', faixaSalarial: '', tags: '' },
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' },
@@ -1127,6 +1130,9 @@ var State = {
       pendingLeadImportReports: Number(raw.pendingLeadImportReports) || 0,
       importReportsModalOpen: Boolean(raw.importReportsModalOpen),
       sessionExpired: Boolean(raw.sessionExpired),
+      // V35.5.0 — Google Ads
+      googleAdsWizard: raw.googleAdsWizard || null,
+      googleAdsStatus: raw.googleAdsStatus || null,
       leadDraft: { ...base.leadDraft, ...(raw.leadDraft || {}) },
       manualLeads: Array.isArray(raw.manualLeads) ? LeadIdentityEngine.mergeMany([], raw.manualLeads.map((lead, index) => {
         const normalized = LeadParser.normalizeLead(lead, index, fallbackScoreId);

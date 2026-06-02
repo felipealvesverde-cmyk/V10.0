@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.5.0',
+    date: '2026-06-02',
+    title: 'Integração Google Ads — conecte sua conta em 4 passos',
+    bullets: [
+      'Novo card Google Ads em Configurações → Integrações → Performance (era "Em breve").',
+      'Wizard de 4 passos: credenciais (Client ID/Secret/Developer Token) → autorizar → escolher conta → pronto.',
+      'Cada cliente conecta sua própria conta Google Ads — multi-tenant nativo.',
+      'Refresh token salvo criptografado por tenant (AES-256-GCM); access token renovado automaticamente.',
+      'Botão "Desconectar" zera tudo e remove credenciais do banco.'
+    ]
+  },
+  {
     version: 'V35.4.3',
     date: '2026-06-01',
     title: 'Sessão expirada agora aparece como banner discreto — sem bloquear',

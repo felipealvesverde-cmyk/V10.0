@@ -347,6 +347,31 @@ CREATE INDEX IF NOT EXISTS idx_lj_transitions_user_action
 -- Customer e grava purchase no audit log permanente.
 
 -- Config do Hotmart por tenant (HOTTOK + mapping produto Hotmart → LJ).
+-- V35.5.0 — Google Ads OAuth + Developer Token + MCC (Manager Account) config.
+-- Cliente cadastra Client ID/Secret (do Google Cloud Console) + Developer Token
+-- (do Google Ads API Center). Após OAuth, guardamos refresh_token (vida longa,
+-- pra gerar access_tokens sob demanda). login_customer_id = MCC se gerencia
+-- várias contas; selected_customer_id = conta operacional escolhida pra ler.
+CREATE TABLE IF NOT EXISTS lj_google_ads_config (
+  user_id INT PRIMARY KEY,
+  client_id_enc TEXT,
+  client_secret_enc TEXT,
+  developer_token_enc TEXT,
+  login_customer_id VARCHAR(20),         -- MCC ID (sem traços)
+  selected_customer_id VARCHAR(20),      -- conta operacional escolhida
+  refresh_token_enc TEXT,
+  access_token_cache_enc TEXT,
+  access_token_expires_at TIMESTAMPTZ,
+  account_descriptive_name VARCHAR(255), -- nome da conta selecionada
+  connected_at TIMESTAMPTZ,
+  last_sync_at TIMESTAMPTZ,
+  last_sync_result JSONB,
+  oauth_state_token VARCHAR(64),         -- CSRF protection no OAuth flow
+  oauth_state_expires_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_google_ads_oauth_state ON lj_google_ads_config(oauth_state_token) WHERE oauth_state_token IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS hotmart_config (
   user_id INT PRIMARY KEY,
   hottok_enc TEXT NOT NULL,                  -- HOTTOK do produto, criptografado
