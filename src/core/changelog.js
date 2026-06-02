@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.4.3',
+    date: '2026-06-01',
+    title: 'Sessão expirada agora aparece como banner discreto — sem bloquear',
+    bullets: [
+      'Quando a sessão expira, banner âmbar aparece no topo em vez do modal vermelho bloqueante.',
+      'Você pode continuar navegando, vendo seus dados e dashboards.',
+      'Pra salvar algo (criar campanha, editar lead, etc), o modal pede pra reentrar.',
+      'Modelo seguido por HubSpot, Linear, Asana — moderno e menos invasivo.'
+    ]
+  },
+  {
     version: 'V35.4.2',
     date: '2026-06-01',
     title: 'Fix: campos runtime do state silenciam warning do console',

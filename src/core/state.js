@@ -534,6 +534,10 @@ var State = {
       // V35.3.8 — Última versão vista pelo usuário (compara com window.LJVersion
       // pra mostrar release notes não vistas no sininho da Home).
       lastSeenVersion: null,
+      // V35.4.3 — A3 relogin: 401 em GET seta flag (banner discreto, não modal).
+      // Modal bloqueante atual fica só pra WRITES. Banner pede pra reentrar
+      // sem travar reads.
+      sessionExpired: false,
       leadDraft: { name: '', phone: '', email: '', idade: '', estado: '', cidade: '', estadoCivil: '', sexo: '', faixaSalarial: '', tags: '' },
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' },
@@ -1122,6 +1126,7 @@ var State = {
       leadImportReports: Array.isArray(raw.leadImportReports) ? raw.leadImportReports : [],
       pendingLeadImportReports: Number(raw.pendingLeadImportReports) || 0,
       importReportsModalOpen: Boolean(raw.importReportsModalOpen),
+      sessionExpired: Boolean(raw.sessionExpired),
       leadDraft: { ...base.leadDraft, ...(raw.leadDraft || {}) },
       manualLeads: Array.isArray(raw.manualLeads) ? LeadIdentityEngine.mergeMany([], raw.manualLeads.map((lead, index) => {
         const normalized = LeadParser.normalizeLead(lead, index, fallbackScoreId);

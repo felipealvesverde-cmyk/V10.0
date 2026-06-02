@@ -2240,6 +2240,11 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V35.4.3 — Banner discreto dispara reabertura do modal completo.
+  openReloginFromBanner() {
+    Actions.openReloginInlineModal();
+  },
+
   closeReloginInlineModal() {
     App.state.reloginInlineModal = { open: false, error: null, loading: false };
     App.render();
@@ -2295,6 +2300,8 @@ Object.assign(Actions, {
       try {
         if (window.RemoteSyncAdapter?.flushNow) await RemoteSyncAdapter.flushNow();
       } catch (_) {}
+      // V35.4.3 — Limpa banner de sessão expirada (A3).
+      App.state.sessionExpired = false;
       // Fecha modal.
       App.state.reloginInlineModal = { open: false, error: null, loading: false };
       App.render();

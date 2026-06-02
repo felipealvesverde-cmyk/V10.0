@@ -56,15 +56,21 @@
         // Falha em ler header (CORS bloqueado, etc) — silencioso. Não afeta a request.
       }
 
-      // V34.6.bb — Lei JWT silent failure: detecta 401 em request autenticada
-      // e dispara ReloginInlineModal. Antes só remoteSyncAdapter detectava,
-      // mas qualquer action podia 401 silenciosamente sem aviso.
-      // Idempotente: openReloginInlineModal early-return se modal já aberto.
+      // V35.4.3 — A3 (banner discreto pra READs, modal só pra WRITEs).
+      // GET 401 → seta sessionExpired flag (banner aparece, não bloqueia).
+      // POST/PUT/DELETE/PATCH 401 → modal inline (write precisa de auth válida).
+      // Original V34.6.bb: TODO 401 abria modal bloqueante.
       if (response.status === 401) {
-        // Deferido pra não bloquear o resolve da Promise da request original.
-        // A action que disparou o fetch ainda processa a Promise normalmente.
+        const method = (init?.method || 'GET').toUpperCase();
+        const isWrite = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
         setTimeout(() => {
-          if (window.Actions?.openReloginInlineModal) {
+          // Sempre marca sessão como expirada (banner aparece)
+          if (window.App?.state && !window.App.state.sessionExpired) {
+            window.App.state.sessionExpired = true;
+            if (window.App.render) window.App.render();
+          }
+          // Writes ainda abrem o modal inline (operação destrutiva precisa confirmação)
+          if (isWrite && window.Actions?.openReloginInlineModal) {
             window.Actions.openReloginInlineModal();
           }
         }, 0);
