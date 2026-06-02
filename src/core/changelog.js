@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.4',
+    date: '2026-06-02',
+    title: 'Modal de relogin pelo banner agora é tranquilo, não mais vermelho dramático',
+    bullets: [
+      'Quando você clica no banner âmbar pra reentrar, abre modal violet/neutro — não mais o vermelho de "alerta urgente".',
+      'O modal vermelho continua aparecendo só quando você tenta salvar algo com sessão expirada (cenário de perda de trabalho).',
+      'Texto e botões adaptam ao contexto: "Entrar" (tranquilo) vs "Reentrar e Salvar" (urgente).'
+    ]
+  },
+  {
     version: 'V35.6.3',
     date: '2026-06-02',
     title: 'Modal vermelho de sessão expirada não aparece mais sem o usuário ter clicado em nada',
