@@ -7153,43 +7153,110 @@ Object.assign(Actions, {
     Utils.toast(`✓ ${campaignExternalIds.length} campanha(s) Ads vinculada(s) a "${lj.name}".`);
   },
 
-  // V35.7.0-alpha1 — Stub do wizard de associação. Implementação real na
-  // alpha2. Por ora abre toast e (atalho) permite vincular numa única
-  // Campanha LJ se houver exatamente 1 disponível — pra Felipe poder
-  // testar o consolidado visual da alpha1.
+  // V35.7.0-alpha2 — Wizard de associação (4 steps).
   openAdsAssociationWizard(platform, externalIdsArg) {
-    const externalIds = Array.isArray(externalIdsArg) ? externalIdsArg : [];
+    const externalIds = Array.isArray(externalIdsArg) ? externalIdsArg.map(String) : [];
     if (platform !== 'google-ads') {
       Utils.toast('Por enquanto só Google Ads. Meta/GA4 chegam em release futura.');
       return;
     }
-    // Atalho temporário: se cliente só tem 1 Campanha LJ, vincula direto.
+    const allAds = Array.isArray(App.state.googleAdsCampaignsCache) ? App.state.googleAdsCampaignsCache : [];
     const ljCampaigns = Array.isArray(App.state.campaigns) ? App.state.campaigns : [];
-    if (!ljCampaigns.length) {
-      Utils.toast('Crie uma Campanha LJ primeiro pra poder vincular Ads.');
-      return;
+    const linkedSet = new Set();
+    ljCampaigns.forEach(c => (c.externalLinks?.googleAds || []).forEach(id => linkedSet.add(String(id))));
+    // Se preSelected vazio, marca TODAS as órfãs (CTA "Associar todas").
+    const startSelection = externalIds.length
+      ? externalIds
+      : allAds.filter(a => !linkedSet.has(String(a.campaign_id))).map(a => String(a.campaign_id));
+
+    App.state.adsAssociationWizard = {
+      open: true,
+      platform: 'google-ads',
+      step: 1,
+      selectedExternalIds: startSelection,
+      selectedLjId: null,
+      creatingNewLj: false,
+      newLjDraft: { name: '', objective: '', owner: '', sector: 'Marketing', productId: null }
+    };
+    App.render();
+  },
+
+  closeAdsAssociationWizard() {
+    App.state.adsAssociationWizard = null;
+    App.render();
+  },
+
+  adsWizardSetStep(step) {
+    if (!App.state.adsAssociationWizard) return;
+    App.state.adsAssociationWizard.step = Math.max(1, Math.min(4, Number(step) || 1));
+    App.render();
+  },
+
+  adsWizardToggleExternal(externalId) {
+    const w = App.state.adsAssociationWizard;
+    if (!w) return;
+    const id = String(externalId);
+    const set = new Set((w.selectedExternalIds || []).map(String));
+    if (set.has(id)) set.delete(id); else set.add(id);
+    w.selectedExternalIds = Array.from(set);
+    App.render();
+  },
+
+  adsWizardSetLjId(ljId) {
+    if (!App.state.adsAssociationWizard) return;
+    App.state.adsAssociationWizard.selectedLjId = ljId ? Number(ljId) : null;
+    App.state.adsAssociationWizard.creatingNewLj = false;
+    App.render();
+  },
+
+  adsWizardToggleCreateForm() {
+    const w = App.state.adsAssociationWizard;
+    if (!w) return;
+    w.creatingNewLj = !w.creatingNewLj;
+    if (w.creatingNewLj) w.selectedLjId = null;
+    App.render();
+  },
+
+  adsWizardUpdateDraft(field, value) {
+    const w = App.state.adsAssociationWizard;
+    if (!w) return;
+    if (!w.newLjDraft) w.newLjDraft = { name: '', objective: '', owner: '', sector: 'Marketing', productId: null };
+    w.newLjDraft[field] = (field === 'productId') ? (value ? Number(value) : null) : String(value || '');
+    // Não chama render — evita perder foco do input enquanto digita.
+  },
+
+  // V35.7.0-alpha2 — Confirma: cria nova Campanha LJ (se for o caso) e
+  // amarra as Ads selecionadas.
+  confirmAdsAssociation() {
+    const w = App.state.adsAssociationWizard;
+    if (!w) return;
+    let ljId = w.selectedLjId;
+    if (w.creatingNewLj) {
+      const d = w.newLjDraft || {};
+      if (!String(d.name || '').trim()) return Utils.toast('Dê um nome à Campanha LJ nova.');
+      if (!d.productId) return Utils.toast('Escolha o produto da Campanha LJ nova.');
+      const campaign = {
+        id: Date.now(),
+        productId: Number(d.productId),
+        name: String(d.name).trim(),
+        objective: String(d.objective || '').trim(),
+        owner: String(d.owner || '').trim(),
+        sector: d.sector || 'Marketing',
+        status: 'Ativa',
+        mediaInvestment: 0,
+        okrs: [],
+        createdAt: new Date().toISOString(),
+        externalLinks: { googleAds: [], metaAds: [], ga4: { sessionCampaignNames: [] } }
+      };
+      if (!Array.isArray(App.state.campaigns)) App.state.campaigns = [];
+      App.state.campaigns.unshift(campaign);
+      ljId = campaign.id;
     }
-    if (externalIds.length === 0) {
-      // "Associar todas" — pega TODAS as órfãs.
-      const allAds = Array.isArray(App.state.googleAdsCampaignsCache) ? App.state.googleAdsCampaignsCache : [];
-      const linkedSet = new Set();
-      ljCampaigns.forEach(c => (c.externalLinks?.googleAds || []).forEach(id => linkedSet.add(String(id))));
-      externalIds.push(...allAds.filter(a => !linkedSet.has(String(a.campaign_id))).map(a => String(a.campaign_id)));
-    }
-    if (!externalIds.length) {
-      Utils.toast('Nenhuma campanha Ads órfã pra associar.');
-      return;
-    }
-    // Atalho V35.7.0-alpha1: prompt nativo pra escolher Campanha LJ.
-    const options = ljCampaigns.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
-    const idxStr = window.prompt(`Vincular ${externalIds.length} campanha(s) Ads a qual Campanha LJ?\n\n${options}\n\nDigite o número:`);
-    if (!idxStr) return;
-    const idx = parseInt(idxStr, 10) - 1;
-    if (isNaN(idx) || idx < 0 || idx >= ljCampaigns.length) {
-      Utils.toast('Número inválido. Tente de novo.');
-      return;
-    }
-    Actions.linkGoogleAdsCampaignsToLj(ljCampaigns[idx].id, externalIds);
+    if (!ljId) return Utils.toast('Escolha uma Campanha LJ.');
+    Actions.linkGoogleAdsCampaignsToLj(ljId, w.selectedExternalIds || []);
+    // Vai pro step 4 (Pronto)
+    App.state.adsAssociationWizard.step = 4;
+    App.render();
   },
 
   // V35.7.0-alpha1 — Desvincula 1 campanha externa de Google Ads de qualquer
