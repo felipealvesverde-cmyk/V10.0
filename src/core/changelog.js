@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.7.0-alpha1',
+    date: '2026-06-02',
+    title: 'Dashboard Google Ads ganha dados (de exemplo) + sub-aba "Não associadas"',
+    bullets: [
+      'Dashboard > Google Ads agora mostra 4 campanhas Ads de exemplo (Black Friday Search, YouTube, Display e Performance Max) com gasto, ROAS, CPL e conversões.',
+      'Nova sub-aba "Não associadas" lista campanhas Ads ainda sem vínculo com Campanha LJ — cada uma com botão "Associar".',
+      'Vinculação N:1 — uma Campanha LJ pode receber várias campanhas Ads (ex: 3 BF Ads → 1 BF LJ consolidada).',
+      'Métricas se consolidam automaticamente por Campanha LJ na sub-aba "Visão geral" — gasto + ROAS + CPL + CTR agregados.',
+      'Dados de exemplo: ficam até o sync real (em release futura) trazer dados verdadeiros — aí são sobrescritos automaticamente.',
+      'Wizard guiado de associação (4 steps espelho do CSV) chega na próxima alpha — por agora, atalho simples via prompt.'
+    ]
+  },
+  {
     version: 'V35.6.6',
     date: '2026-06-02',
     title: 'Google Analytics 4 entra como card "Em breve" em Integrações > Injetar',
