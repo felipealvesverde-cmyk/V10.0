@@ -7195,6 +7195,38 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V35.7.2 — Filtros multi-select da Visão Geral.
+  toggleGoogleAdsOverviewProduct(productId) {
+    const id = Number(productId);
+    const set = new Set((App.state.googleAdsOverviewSelectedProducts || []).map(Number));
+    if (set.has(id)) set.delete(id); else set.add(id);
+    App.state.googleAdsOverviewSelectedProducts = Array.from(set);
+    App.save(); App.render();
+  },
+  toggleGoogleAdsOverviewLjCampaign(ljCampaignId) {
+    const id = Number(ljCampaignId);
+    const set = new Set((App.state.googleAdsOverviewSelectedLjCampaigns || []).map(Number));
+    if (set.has(id)) set.delete(id); else set.add(id);
+    App.state.googleAdsOverviewSelectedLjCampaigns = Array.from(set);
+    App.save(); App.render();
+  },
+  clearGoogleAdsOverviewFilters() {
+    App.state.googleAdsOverviewSelectedProducts = [];
+    App.state.googleAdsOverviewSelectedLjCampaigns = [];
+    App.save(); App.render();
+  },
+
+  // V35.7.2 — KPI help modal compartilhado.
+  openKpiHelp(key) {
+    if (!key) return;
+    App.state.kpiHelpModalKey = String(key);
+    App.render();
+  },
+  closeKpiHelp() {
+    App.state.kpiHelpModalKey = null;
+    App.render();
+  },
+
   // V35.7.0-alpha1 — Vincula 1 ou mais campanhas externas (Google Ads) a
   // uma Campanha LJ. campaignExternalIds: array de strings (campaign_id da
   // plataforma). ljCampaignId: id da Campanha LJ destino.

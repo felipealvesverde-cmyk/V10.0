@@ -564,6 +564,12 @@ var State = {
       googleAdsExpandedAds: [],
       // V35.7.1 — campaign_id aberto no modal "Avançados" (25 indicadores). null = fechado.
       googleAdsAdvancedModalCampaignId: null,
+      // V35.7.2 — Filtros multi-select da Visão Geral.
+      // Vazio = todos. Senão = filtro restritivo (AND entre os 2 grupos).
+      googleAdsOverviewSelectedProducts: [],     // array de productIds
+      googleAdsOverviewSelectedLjCampaigns: [],  // array de ljCampaignIds
+      // V35.7.2 — KPI help modal: chave do KpiHelpDictionary atualmente aberta. null = fechado.
+      kpiHelpModalKey: null,
       // V35.7.0-alpha2 — Wizard de associação Ads ↔ Campanha LJ.
       // null quando fechado; objeto quando aberto.
       adsAssociationWizard: null,
@@ -1189,6 +1195,10 @@ var State = {
       googleAdsOverviewIncludeOrphans: Boolean(raw.googleAdsOverviewIncludeOrphans),
       googleAdsExpandedAds: Array.isArray(raw.googleAdsExpandedAds) ? raw.googleAdsExpandedAds.map(String) : [],
       googleAdsAdvancedModalCampaignId: null,    // modal nunca persiste aberto
+      // V35.7.2 — Filtros + help modal
+      googleAdsOverviewSelectedProducts: Array.isArray(raw.googleAdsOverviewSelectedProducts) ? raw.googleAdsOverviewSelectedProducts.map(Number).filter(Boolean) : [],
+      googleAdsOverviewSelectedLjCampaigns: Array.isArray(raw.googleAdsOverviewSelectedLjCampaigns) ? raw.googleAdsOverviewSelectedLjCampaigns.map(Number).filter(Boolean) : [],
+      kpiHelpModalKey: null,                       // help nunca persiste aberto
       // V35.7.0-alpha2 — wizard fica fechado entre sessões.
       adsAssociationWizard: null,
       // V35.7.0-alpha3 — Cooldown do sininho de ads órfãs persiste entre sessões.

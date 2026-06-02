@@ -96,43 +96,72 @@ window.GoogleAdsDashboard = {
   // ============================ VISÃO GERAL (NOVA) ============================
   _renderOverview(linked, orphans) {
     const includeOrphans = Boolean(App.state.googleAdsOverviewIncludeOrphans);
-    const universe = includeOrphans ? [...linked, ...orphans] : linked;
+    const selectedProductIds = (App.state.googleAdsOverviewSelectedProducts || []).map(Number);
+    const selectedLjIds = (App.state.googleAdsOverviewSelectedLjCampaigns || []).map(Number);
+    const ljCampaigns = Array.isArray(App.state.campaigns) ? App.state.campaigns : [];
 
-    if (!linked.length && !includeOrphans) {
-      return `<div class="rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 p-12 text-center">
-        <i data-lucide="layout-dashboard" class="w-10 h-10 text-slate-400 mx-auto mb-3"></i>
-        <p class="text-sm font-black text-slate-700">Nenhuma campanha Ads vinculada ainda.</p>
-        <p class="text-[12px] text-slate-500 mt-1 max-w-md mx-auto">Visão Geral mostra o consolidado das ads vinculadas. ${orphans.length > 0 ? `Você tem ${orphans.length} órfã${orphans.length > 1 ? 's' : ''} — vincule na aba "Não associadas" OU ative o toggle abaixo pra ver tudo:` : 'Quando vincular ads, o panorama aparece aqui.'}</p>
-        ${orphans.length > 0 ? `<button onclick="Actions.toggleGoogleAdsOverviewIncludeOrphans()" class="mt-4 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
-          <i data-lucide="eye" class="w-3.5 h-3.5"></i> Incluir não associadas no consolidado
-        </button>` : ''}
+    // V35.7.2 — Aplicar filtros (Produto + Campanha LJ) sobre as vinculadas.
+    // Lookup ad → Campanha LJ.
+    const adToLj = new Map();
+    linked.forEach(ad => {
+      const lj = ljCampaigns.find(c => (c.externalLinks?.googleAds || []).map(String).includes(String(ad.campaign_id)));
+      if (lj) adToLj.set(String(ad.campaign_id), lj);
+    });
+
+    let filteredLinked = linked;
+    if (selectedProductIds.length) {
+      filteredLinked = filteredLinked.filter(ad => {
+        const lj = adToLj.get(String(ad.campaign_id));
+        return lj && selectedProductIds.includes(Number(lj.productId));
+      });
+    }
+    if (selectedLjIds.length) {
+      filteredLinked = filteredLinked.filter(ad => {
+        const lj = adToLj.get(String(ad.campaign_id));
+        return lj && selectedLjIds.includes(Number(lj.id));
+      });
+    }
+
+    // Órfãs não têm Campanha LJ → filtros não se aplicam, ou aplicam todos out.
+    // V35.7.2: se há filtro de Produto/Campanha selecionado, órfãs ficam fora
+    // mesmo com toggle ativo — não faz sentido somar órfãs num filtro restritivo.
+    const orphansApplicable = (selectedProductIds.length === 0 && selectedLjIds.length === 0);
+    const universe = (includeOrphans && orphansApplicable) ? [...filteredLinked, ...orphans] : filteredLinked;
+
+    if (!universe.length) {
+      return `<div class="space-y-4">
+        ${this._overviewFilters(linked, orphans, ljCampaigns, includeOrphans)}
+        <div class="rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 p-12 text-center">
+          <i data-lucide="layout-dashboard" class="w-10 h-10 text-slate-400 mx-auto mb-3"></i>
+          <p class="text-sm font-black text-slate-700">Nenhuma campanha Ads no recorte selecionado.</p>
+          <p class="text-[12px] text-slate-500 mt-1 max-w-md mx-auto">Tente limpar os filtros acima ou vincular ads na aba "Não associadas".</p>
+        </div>
       </div>`;
     }
 
-    // Agregação
     const agg = this._aggregate(universe);
 
     return `<div class="space-y-4">
-      ${this._overviewToggleBar(linked.length, orphans.length, includeOrphans)}
+      ${this._overviewFilters(linked, orphans, ljCampaigns, includeOrphans)}
 
       <!-- Grupo 1: KPIs principais -->
       ${this._kpiGrid([
-        { label: 'Gasto 30d',         value: `R$ ${this._fmtMoney(agg.cost_brl)}`,   tone: 'pink' },
-        { label: 'ROAS',              value: `${agg.roas.toFixed(2)}x`,              tone: agg.roas >= 3 ? 'emerald' : agg.roas >= 1 ? 'amber' : 'rose' },
-        { label: 'CPL',               value: `R$ ${this._fmtMoney(agg.cpl)}`,        tone: 'slate' },
-        { label: 'CTR',               value: `${agg.ctr.toFixed(2)}%`,               tone: 'slate' }
+        { label: 'Gasto 30d',         value: `R$ ${this._fmtMoney(agg.cost_brl)}`,   tone: 'pink',    helpKey: 'gads.cost_30d' },
+        { label: 'ROAS',              value: `${agg.roas.toFixed(2)}x`,              tone: agg.roas >= 3 ? 'emerald' : agg.roas >= 1 ? 'amber' : 'rose', helpKey: 'gads.roas' },
+        { label: 'CPL',               value: `R$ ${this._fmtMoney(agg.cpl)}`,        tone: 'slate',   helpKey: 'gads.cpl' },
+        { label: 'CTR',               value: `${agg.ctr.toFixed(2)}%`,               tone: 'slate',   helpKey: 'gads.ctr' }
       ])}
 
       <!-- Grupo 2: Volume + Conversão -->
       ${this._kpiGrid([
-        { label: 'Impressões',        value: this._fmtInt(agg.impressions),          tone: 'slate' },
-        { label: 'Cliques',           value: this._fmtInt(agg.clicks),               tone: 'slate' },
-        { label: 'CPC médio',         value: `R$ ${this._fmtMoney(agg.cpc)}`,        tone: 'slate' },
-        { label: 'CPM médio',         value: `R$ ${this._fmtMoney(agg.cpm)}`,        tone: 'slate' },
-        { label: 'Conversões',        value: this._fmtInt(agg.conversions),          tone: 'pink' },
-        { label: 'Receita atribuída', value: `R$ ${this._fmtMoney(agg.conversions_value)}`, tone: 'emerald' },
-        { label: 'Campanhas ativas',  value: this._fmtInt(universe.length),          tone: 'slate' },
-        { label: 'Ticket médio',      value: `R$ ${this._fmtMoney(agg.ticket)}`,     tone: 'slate' }
+        { label: 'Impressões',        value: this._fmtInt(agg.impressions),          tone: 'slate',   helpKey: 'gads.impressions' },
+        { label: 'Cliques',           value: this._fmtInt(agg.clicks),               tone: 'slate',   helpKey: 'gads.clicks' },
+        { label: 'CPC médio',         value: `R$ ${this._fmtMoney(agg.cpc)}`,        tone: 'slate',   helpKey: 'gads.cpc' },
+        { label: 'CPM médio',         value: `R$ ${this._fmtMoney(agg.cpm)}`,        tone: 'slate',   helpKey: 'gads.cpm' },
+        { label: 'Conversões',        value: this._fmtInt(agg.conversions),          tone: 'pink',    helpKey: 'gads.conversions' },
+        { label: 'Receita atribuída', value: `R$ ${this._fmtMoney(agg.conversions_value)}`, tone: 'emerald', helpKey: 'gads.conversions_value' },
+        { label: 'Campanhas ativas',  value: this._fmtInt(universe.length),          tone: 'slate',   helpKey: 'gads.active_campaigns' },
+        { label: 'Ticket médio',      value: `R$ ${this._fmtMoney(agg.ticket)}`,     tone: 'slate',   helpKey: 'gads.ticket' }
       ])}
 
       <!-- Grupo 3: Avançados (expansível) -->
@@ -140,23 +169,103 @@ window.GoogleAdsDashboard = {
     </div>`;
   },
 
-  _overviewToggleBar(linkedCount, orphansCount, includeOrphans) {
+  // V35.7.2 — Barra de filtros com 2 dropdowns multi-select (Produto + Campanha LJ)
+  // + toggle "Incluir não associadas".
+  _overviewFilters(linked, orphans, ljCampaigns, includeOrphans) {
+    const selectedProducts = (App.state.googleAdsOverviewSelectedProducts || []).map(Number);
+    const selectedLjs = (App.state.googleAdsOverviewSelectedLjCampaigns || []).map(Number);
+    const products = Array.isArray(App.state.products) ? App.state.products : [];
+    const hasFilter = selectedProducts.length > 0 || selectedLjs.length > 0;
+
+    // Só campanhas LJ que têm pelo menos uma ads vinculada aparecem no filtro
+    const ljWithAds = ljCampaigns.filter(c => (c.externalLinks?.googleAds || []).length > 0);
+
+    // Labels resumo
+    const productsLabel = selectedProducts.length === 0
+      ? 'Todos os produtos'
+      : selectedProducts.length === 1
+        ? Utils.escape(products.find(p => Number(p.id) === selectedProducts[0])?.name || '?')
+        : `${selectedProducts.length} produtos`;
+    const ljLabel = selectedLjs.length === 0
+      ? 'Todas as campanhas LJ'
+      : selectedLjs.length === 1
+        ? Utils.escape(ljCampaigns.find(c => Number(c.id) === selectedLjs[0])?.name || '?')
+        : `${selectedLjs.length} campanhas LJ`;
+
+    const orphansApplicable = !hasFilter;
+    const summaryCount = linked.length;
+
     return `<div class="rounded-2xl bg-white border border-slate-200 p-3 flex items-center justify-between gap-3 flex-wrap">
-      <div class="flex items-center gap-2 text-[12px] text-slate-700">
-        <i data-lucide="filter" class="w-3.5 h-3.5 text-slate-500"></i>
-        <span>Mostrando consolidado de <b>${linkedCount} associada${linkedCount !== 1 ? 's' : ''}</b>${includeOrphans ? ` <b>+ ${orphansCount} não associada${orphansCount !== 1 ? 's' : ''}</b>` : ''}.</span>
+      <div class="flex items-center gap-2 flex-wrap">
+        <i data-lucide="filter" class="w-3.5 h-3.5 text-slate-500 shrink-0"></i>
+
+        <!-- Filtro Produto -->
+        <details class="relative">
+          <summary class="cursor-pointer px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-[11px] font-black text-slate-700 inline-flex items-center gap-1.5 list-none">
+            <i data-lucide="package" class="w-3 h-3"></i>
+            <span>${productsLabel}</span>
+            <i data-lucide="chevron-down" class="w-3 h-3"></i>
+          </summary>
+          <div class="absolute top-full left-0 mt-1 z-10 w-64 max-h-72 overflow-y-auto rounded-xl bg-white border border-slate-200 shadow-xl p-2 space-y-1">
+            ${products.length === 0 ? '<p class="text-[11px] text-slate-500 p-2 italic">Sem produtos cadastrados.</p>'
+              : products.map(p => {
+                const checked = selectedProducts.includes(Number(p.id));
+                return `<label class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                  <input type="checkbox" ${checked ? 'checked' : ''}
+                    onchange="Actions.toggleGoogleAdsOverviewProduct('${p.id}')"
+                    class="w-3.5 h-3.5 accent-pink-600">
+                  <span class="text-[12px] font-bold text-slate-800 truncate">${Utils.escape(p.name)}</span>
+                </label>`;
+              }).join('')}
+          </div>
+        </details>
+
+        <!-- Filtro Campanha LJ -->
+        <details class="relative">
+          <summary class="cursor-pointer px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 hover:bg-slate-100 text-[11px] font-black text-slate-700 inline-flex items-center gap-1.5 list-none">
+            <i data-lucide="layers" class="w-3 h-3"></i>
+            <span>${ljLabel}</span>
+            <i data-lucide="chevron-down" class="w-3 h-3"></i>
+          </summary>
+          <div class="absolute top-full left-0 mt-1 z-10 w-72 max-h-72 overflow-y-auto rounded-xl bg-white border border-slate-200 shadow-xl p-2 space-y-1">
+            ${ljWithAds.length === 0 ? '<p class="text-[11px] text-slate-500 p-2 italic">Nenhuma Campanha LJ com Ads vinculada ainda.</p>'
+              : ljWithAds.map(c => {
+                const checked = selectedLjs.includes(Number(c.id));
+                const product = products.find(p => Number(p.id) === Number(c.productId));
+                return `<label class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                  <input type="checkbox" ${checked ? 'checked' : ''}
+                    onchange="Actions.toggleGoogleAdsOverviewLjCampaign('${c.id}')"
+                    class="w-3.5 h-3.5 accent-pink-600">
+                  <div class="min-w-0">
+                    <p class="text-[12px] font-bold text-slate-800 truncate">${Utils.escape(c.name)}</p>
+                    ${product ? `<p class="text-[10px] text-slate-500 truncate">${Utils.escape(product.name)}</p>` : ''}
+                  </div>
+                </label>`;
+              }).join('')}
+          </div>
+        </details>
+
+        ${hasFilter ? `<button onclick="Actions.clearGoogleAdsOverviewFilters()"
+          class="px-2 py-1.5 rounded-lg bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 text-[10px] font-black inline-flex items-center gap-1">
+          <i data-lucide="x" class="w-3 h-3"></i> Limpar
+        </button>` : ''}
+
+        <span class="text-[11px] text-slate-500 ml-2">${summaryCount} associada${summaryCount !== 1 ? 's' : ''}${includeOrphans && orphansApplicable ? ` + ${orphans.length} não associada${orphans.length !== 1 ? 's' : ''}` : ''}</span>
       </div>
-      <label class="flex items-center gap-2 cursor-pointer text-[12px] font-black text-slate-700">
+
+      <label class="flex items-center gap-2 cursor-pointer text-[12px] font-black ${orphansApplicable ? 'text-slate-700' : 'text-slate-400'}" title="${orphansApplicable ? 'Inclui órfãs no consolidado' : 'Disponível só quando não há filtro de Produto/Campanha aplicado'}">
         <span>Incluir não associadas</span>
-        <button onclick="Actions.toggleGoogleAdsOverviewIncludeOrphans()" type="button"
-          class="relative inline-flex h-5 w-9 items-center rounded-full transition ${includeOrphans ? 'bg-pink-600' : 'bg-slate-300'}"
+        <button onclick="Actions.toggleGoogleAdsOverviewIncludeOrphans()" type="button" ${orphansApplicable ? '' : 'disabled'}
+          class="relative inline-flex h-5 w-9 items-center rounded-full transition ${(includeOrphans && orphansApplicable) ? 'bg-pink-600' : 'bg-slate-300'} ${orphansApplicable ? '' : 'opacity-40 cursor-not-allowed'}"
           aria-checked="${includeOrphans}" role="switch">
-          <span class="inline-block w-3.5 h-3.5 transform rounded-full bg-white shadow transition ${includeOrphans ? 'translate-x-5' : 'translate-x-0.5'}"></span>
+          <span class="inline-block w-3.5 h-3.5 transform rounded-full bg-white shadow transition ${(includeOrphans && orphansApplicable) ? 'translate-x-5' : 'translate-x-0.5'}"></span>
         </button>
       </label>
     </div>`;
   },
 
+  // V35.7.2 — Aceita `helpKey` em cada item; renderiza botão (?) no canto
+  // superior direito que abre KpiHelpModal com a explicação + fórmula.
   _kpiGrid(items) {
     const toneCls = {
       pink:    'border-pink-200 bg-pink-50 text-pink-900',
@@ -166,7 +275,12 @@ window.GoogleAdsDashboard = {
       slate:   'border-slate-200 bg-white text-slate-900'
     };
     return `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-      ${items.map(k => `<div class="rounded-2xl border ${toneCls[k.tone] || toneCls.slate} p-3 text-center">
+      ${items.map(k => `<div class="relative rounded-2xl border ${toneCls[k.tone] || toneCls.slate} p-3 text-center">
+        ${k.helpKey ? `<button onclick="Actions.openKpiHelp('${Utils.escape(k.helpKey)}')"
+          title="Como este KPI é calculado"
+          class="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-white/70 hover:bg-white border border-slate-200 text-slate-500 hover:text-slate-700 grid place-items-center transition">
+          <i data-lucide="help-circle" class="w-3 h-3"></i>
+        </button>` : ''}
         <p class="text-[9px] font-black uppercase tracking-widest opacity-70">${Utils.escape(k.label)}</p>
         <p class="text-lg font-black mt-1">${k.value}</p>
       </div>`).join('')}
@@ -185,14 +299,14 @@ window.GoogleAdsDashboard = {
       </summary>
       <div class="px-4 pb-4">
         ${this._kpiGrid([
-          { label: 'Todas conversões',         value: this._fmtInt(agg.all_conversions),                tone: 'slate' },
-          { label: 'Receita (todas conv.)',    value: `R$ ${this._fmtMoney(agg.all_conversions_value)}`, tone: 'slate' },
-          { label: 'Custo por todas conv.',    value: `R$ ${this._fmtMoney(agg.cost_per_all_conv)}`,    tone: 'slate' },
-          { label: 'Receita por todas conv.',  value: `R$ ${this._fmtMoney(agg.value_per_all_conv)}`,   tone: 'slate' },
-          { label: 'View-through conv.',       value: this._fmtInt(agg.view_through_conversions),       tone: 'slate' },
-          { label: 'Conv. por interação',      value: `${(agg.conv_from_interaction_rate * 100).toFixed(2)}%`, tone: 'slate' },
-          { label: 'Search impression share',  value: agg.search_impression_share != null ? `${agg.search_impression_share.toFixed(1)}%` : '—', tone: 'slate' },
-          { label: 'Search top impression sh.', value: agg.search_top_impression_share != null ? `${agg.search_top_impression_share.toFixed(1)}%` : '—', tone: 'slate' }
+          { label: 'Todas conversões',         value: this._fmtInt(agg.all_conversions),                tone: 'slate', helpKey: 'gads.all_conversions' },
+          { label: 'Receita (todas conv.)',    value: `R$ ${this._fmtMoney(agg.all_conversions_value)}`, tone: 'slate', helpKey: 'gads.all_conversions_value' },
+          { label: 'Custo por todas conv.',    value: `R$ ${this._fmtMoney(agg.cost_per_all_conv)}`,    tone: 'slate', helpKey: 'gads.cost_per_all_conv' },
+          { label: 'Receita por todas conv.',  value: `R$ ${this._fmtMoney(agg.value_per_all_conv)}`,   tone: 'slate', helpKey: 'gads.value_per_all_conv' },
+          { label: 'View-through conv.',       value: this._fmtInt(agg.view_through_conversions),       tone: 'slate', helpKey: 'gads.view_through' },
+          { label: 'Conv. por interação',      value: `${(agg.conv_from_interaction_rate * 100).toFixed(2)}%`, tone: 'slate', helpKey: 'gads.conv_rate' },
+          { label: 'Search impression share',  value: agg.search_impression_share != null ? `${agg.search_impression_share.toFixed(1)}%` : '—', tone: 'slate', helpKey: 'gads.search_imp_share' },
+          { label: 'Search top impression sh.', value: agg.search_top_impression_share != null ? `${agg.search_top_impression_share.toFixed(1)}%` : '—', tone: 'slate', helpKey: 'gads.search_top_imp_share' }
         ])}
         <p class="text-[10px] text-slate-500 mt-3 italic">All conversions inclui primárias + secundárias + view-through. Impression share só vale pra Search/Shopping (vídeos e PMax não expõem direto).</p>
       </div>
