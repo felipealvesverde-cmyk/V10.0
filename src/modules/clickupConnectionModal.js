@@ -81,9 +81,9 @@ window.ClickupConnectionModal = {
             secondaryButtons: connected ? [
               { label: 'Testar conexão', icon: 'activity', action: "Actions.openSettingsModal('clickup')" },
               ...(tokenType === 'pat' ? [{ label: 'Revelar PAT', icon: 'eye', action: 'Actions.revealClickupPat()' }] : []),
-              { label: 'ClickUp + LeadJourney', icon: 'book-open', action: "Actions.openSettingsModal('clickup')" }
+              { label: 'ClickUp + LeadJourney', icon: 'book-open', action: "Actions.openIntegrationDeepDive('clickup')" }
             ] : [],
-            helpAction: "Actions.openSettingsModal('clickup')"
+            helpAction: "Actions.openIntegrationDeepDive('clickup')"
           })}
 
           ${connected ? `

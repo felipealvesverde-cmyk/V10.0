@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.0-alpha5',
+    date: '2026-06-02',
+    title: 'Modal "X + LeadJourney" — entenda o fluxo de dados de cada integração',
+    bullets: [
+      'Clica no ícone (?) dentro do modal de qualquer integração e abre um modal nested explicando o fluxo de dados real.',
+      'Mostra o que entra no LJ, o que sai do LJ, e a frequência de cada troca.',
+      'Explica passo-a-passo como funciona o loop de cada integração.',
+      'Lista os pré-requisitos pra cada integração funcionar (tokens, OAuth, etc).',
+      'Conteúdo já preparado para RD, ClickUp, Google Ads, Hotmart, Meta Ads e Stripe.'
+    ]
+  },
+  {
     version: 'V35.6.0-alpha4',
     date: '2026-06-02',
     title: 'Modais próprios pra RD e ClickUp + Status Card padrão',

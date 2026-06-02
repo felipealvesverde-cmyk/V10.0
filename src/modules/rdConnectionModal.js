@@ -68,9 +68,9 @@ window.RdConnectionModal = {
             lastValidationLabel,
             secondaryButtons: [
               { label: 'Testar conexão', icon: 'activity', action: 'Actions.testRdConnections()' },
-              { label: 'RD + LeadJourney', icon: 'book-open', action: "Actions.openSettingsModal('rd')" }
+              { label: 'RD + LeadJourney', icon: 'book-open', action: "Actions.openIntegrationDeepDive('rd')" }
             ],
-            helpAction: "Actions.openSettingsModal('rd')"
+            helpAction: "Actions.openIntegrationDeepDive('rd')"
           })}
 
           <!-- 3 SUB-CARDS -->

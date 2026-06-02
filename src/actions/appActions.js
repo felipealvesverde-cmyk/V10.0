@@ -7082,6 +7082,19 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V35.6.0-alpha5 — Modal nested "X + LeadJourney" (deep-dive do fluxo de dados).
+  openIntegrationDeepDive(integrationId) {
+    const validIds = window.IntegrationDeepDiveModal?.CONTENT
+      ? Object.keys(IntegrationDeepDiveModal.CONTENT)
+      : ['rd', 'clickup', 'google-ads', 'hotmart', 'meta-ads', 'stripe'];
+    App.state.integrationDeepDiveOpen = validIds.includes(String(integrationId)) ? String(integrationId) : null;
+    App.render();
+  },
+  closeIntegrationDeepDive() {
+    App.state.integrationDeepDiveOpen = null;
+    App.render();
+  },
+
   setCheckoutSubTab(productIdOrAll) {
     const c = App.state.checkoutDashboard || {};
     c.activeSubTab = String(productIdOrAll);
