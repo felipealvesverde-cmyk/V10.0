@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.0-alpha1',
+    date: '2026-06-02',
+    title: 'Nova área Integrações com navegação IPI (Injetar / Propagar / Iterar)',
+    bullets: [
+      'Novo menu "Integrações" no nível principal do app (ao lado de Dashboard).',
+      'Três abas com a mecânica do Journey — Injetar (alimentam dados), Propagar (executam comando), Iterar (dialogam em loop).',
+      'Cada aba tem descritivo educativo explicando o conceito IPI no contexto LJ.',
+      'Cards de Google Ads, Hotmart já funcionais nesta versão; Meta Ads e Stripe seguem "Em breve".',
+      'RD Station e ClickUp aparecem em Iterar (ainda gerenciados via Configurações nesta alpha — modais próprios em V35.6.x).',
+      'Bloco antigo em Configurações → Integrações continua vivo até V35.6.0 final.'
+    ]
+  },
+  {
     version: 'V35.5.0',
     date: '2026-06-02',
     title: 'Integração Google Ads — conecte sua conta em 4 passos',

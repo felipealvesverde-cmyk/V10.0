@@ -7047,6 +7047,14 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V35.6.0 — Integrações IPI: troca aba ativa (Injetar/Propagar/Iterar).
+  setIntegrationsTab(tab) {
+    const valid = ['injetar', 'propagar', 'iterar'];
+    App.state.integrationsTab = valid.includes(tab) ? tab : 'injetar';
+    App.save();
+    App.render();
+  },
+
   setCheckoutSubTab(productIdOrAll) {
     const c = App.state.checkoutDashboard || {};
     c.activeSubTab = String(productIdOrAll);

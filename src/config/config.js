@@ -25,6 +25,7 @@ var Config = {
         { id: 'results', label: 'Resultados', icon: 'bar-chart-3' },
         { id: 'leads', label: 'Leads', icon: 'users-round' },
         { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
+        { id: 'integrations', label: 'Integrações', icon: 'link' },
         { id: 'revops', label: 'RevOps & Governança', icon: 'landmark' }
       ],
       emptyOkrs: [
