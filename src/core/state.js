@@ -560,6 +560,11 @@ var State = {
       // V35.7.0-alpha2 — Wizard de associação Ads ↔ Campanha LJ.
       // null quando fechado; objeto quando aberto.
       adsAssociationWizard: null,
+      // V35.7.0-alpha3 — Cooldown global do sininho de ads órfãs.
+      // dismissedAt = ms quando user clicou (bolinha some por 10min). null = nunca dispensou.
+      // snapshot = IDs órfãos no momento do dismiss (pra detectar bypass).
+      googleAdsOrphanBellDismissedAt: null,
+      googleAdsOrphanBellSnapshot: [],
       leadDraft: { name: '', phone: '', email: '', idade: '', estado: '', cidade: '', estadoCivil: '', sexo: '', faixaSalarial: '', tags: '' },
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' },
@@ -1175,6 +1180,9 @@ var State = {
       googleAdsDashboardSubTab: (typeof raw.googleAdsDashboardSubTab === 'string' && ['overview','orphans'].includes(raw.googleAdsDashboardSubTab)) ? raw.googleAdsDashboardSubTab : 'overview',
       // V35.7.0-alpha2 — wizard fica fechado entre sessões.
       adsAssociationWizard: null,
+      // V35.7.0-alpha3 — Cooldown do sininho de ads órfãs persiste entre sessões.
+      googleAdsOrphanBellDismissedAt: (typeof raw.googleAdsOrphanBellDismissedAt === 'number') ? raw.googleAdsOrphanBellDismissedAt : null,
+      googleAdsOrphanBellSnapshot: Array.isArray(raw.googleAdsOrphanBellSnapshot) ? raw.googleAdsOrphanBellSnapshot.map(String) : [],
       leadDraft: { ...base.leadDraft, ...(raw.leadDraft || {}) },
       manualLeads: Array.isArray(raw.manualLeads) ? LeadIdentityEngine.mergeMany([], raw.manualLeads.map((lead, index) => {
         const normalized = LeadParser.normalizeLead(lead, index, fallbackScoreId);

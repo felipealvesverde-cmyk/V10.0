@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.7.0-alpha3',
+    date: '2026-06-02',
+    title: 'Sininho avisa quando tem campanha Ads sem vínculo (com cooldown inteligente)',
+    bullets: [
+      'O sininho da Home agora sinaliza campanhas Google Ads ainda não vinculadas a nenhuma Campanha LJ.',
+      'Click no sininho leva direto pra sub-aba "Não associadas" do Dashboard Google Ads.',
+      'Cooldown de 10 minutos: clicou e dispensou, bolinha some por 10min mesmo se ainda tem pendência.',
+      'Bypass automático: se chegar uma campanha Ads nova durante o cooldown, bolinha volta imediatamente.',
+      'Quando a campanha é associada de verdade, notificação some permanentemente.'
+    ]
+  },
+  {
     version: 'V35.7.0-alpha2',
     date: '2026-06-02',
     title: 'Wizard guiado de associação Ads → Campanha LJ',
