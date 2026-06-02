@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.7.0-alpha4',
+    date: '2026-06-02',
+    title: 'Sync real Google Ads — dados de exemplo são substituídos pelos reais',
+    bullets: [
+      'Quem conectou Google Ads vê um botão "Sincronizar agora" no Dashboard — roda a query oficial GAQL e traz dados reais dos últimos 30 dias.',
+      'Os dados ficam salvos no seu banco (criptografados, isolados por tenant) e agregados por campanha automaticamente.',
+      'Quando há dados reais, o badge "Dados de exemplo" some — você passa a ver gasto, ROAS, CPL e conversões da sua conta de verdade.',
+      'Conta nova ainda sem sync ou sem campanhas no período: você continua vendo dados de exemplo até a primeira sincronização rolar.',
+      'Próxima evolução: cron diário automático (em vez de precisar clicar em "Sincronizar agora").'
+    ]
+  },
+  {
     version: 'V35.7.0-alpha3',
     date: '2026-06-02',
     title: 'Sininho avisa quando tem campanha Ads sem vínculo (com cooldown inteligente)',

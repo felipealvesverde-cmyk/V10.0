@@ -44,6 +44,15 @@ window.GoogleAdsDashboard = {
     const orphanBadge = orphansCount > 0
       ? `<span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md bg-rose-100 border border-rose-300 text-rose-800">${orphansCount} não associada${orphansCount > 1 ? 's' : ''}</span>`
       : '';
+    // V35.7.0-alpha4 — Botão "Sincronizar agora" quando OAuth conectado.
+    const oauthDone = Boolean(App.state.googleAdsStatus?.oauthCompleted);
+    const syncBtn = oauthDone
+      ? `<button onclick="Actions.triggerGoogleAdsSync()"
+          class="shrink-0 px-3 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-xs font-black inline-flex items-center gap-1.5"
+          style="color:#fff!important;">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar agora
+        </button>`
+      : '';
     return `<div class="rounded-3xl p-6 lg:p-8" style="background: linear-gradient(135deg, rgba(244,114,182,.18), rgba(249,168,212,.10)); border: 1px solid rgba(244,114,182,.30);">
       <div class="flex items-start gap-4">
         <div class="shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center" style="background: rgba(244,114,182,.20); border: 1px solid rgba(244,114,182,.40);">
@@ -54,6 +63,7 @@ window.GoogleAdsDashboard = {
           <h2 class="text-2xl lg:text-3xl font-black text-slate-900 flex items-center flex-wrap gap-2">Google Ads ${mockBadge}${orphanBadge}</h2>
           <p class="text-sm text-slate-600 mt-2">Search, Display, YouTube, Performance Max. Vincule cada campanha Ads a uma Campanha LJ pra consolidar gasto, ROAS e conversões por iniciativa.</p>
         </div>
+        ${syncBtn}
       </div>
     </div>`;
   },
