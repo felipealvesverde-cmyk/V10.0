@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.3',
+    date: '2026-06-02',
+    title: 'Modal vermelho de sessão expirada não aparece mais sem o usuário ter clicado em nada',
+    bullets: [
+      'Sincronização automática em background não interrompe mais com modal bloqueante — agora mostra apenas o banner âmbar discreto.',
+      'O modal completo de relogin continua aparecendo quando você tenta criar, editar ou salvar algo com a sessão expirada (pra não perder seu trabalho).',
+      'Promessa V35.4.3 cumprida — moderno como HubSpot, Linear, Asana.'
+    ]
+  },
+  {
     version: 'V35.6.2',
     date: '2026-06-02',
     title: 'Hotfix Integrações IPI — sem duplicação de header e toast acima dos modais',
