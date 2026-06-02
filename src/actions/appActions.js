@@ -7108,17 +7108,55 @@ Object.assign(Actions, {
     App.render();
   },
 
-  // V35.7.0-alpha1 — Carrega campanhas Google Ads. Por enquanto, sempre
-  // mock (dados fictícios estáveis). Quando a alpha4 trouxer sync real,
-  // este endpoint passa a tentar real primeiro e cair pra mock só se
-  // OAuth não conectado ou sem dados.
+  // V35.7.0-alpha1 — Carrega campanhas Google Ads.
+  // V35.7.0-alpha4 — Tenta dados reais (endpoint /api/google-ads-campaigns-list)
+  // primeiro. Se vier vazio (sync nunca rodou ou conta nova) OU 401/erro,
+  // cai pro mock. Quando há dados reais, isMock=false e o badge "Dados de
+  // exemplo" some.
   async loadGoogleAdsCampaigns() {
-    // Mock determinístico (mesmos números sempre).
-    const mocks = window.GoogleAdsMockCampaigns?.list() || [];
-    App.state.googleAdsCampaignsCache = mocks;
-    App.state.googleAdsCampaignsLoadedAt = new Date().toISOString();
-    App.state.googleAdsCampaignsAreMock = true;
-    App.render();
+    let usedReal = false;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/google-ads-campaigns-list', { headers: { Authorization: `Bearer ${token}` } });
+      if (r.ok) {
+        const data = await r.json();
+        if (data.ok && Array.isArray(data.campaigns) && data.campaigns.length > 0) {
+          App.state.googleAdsCampaignsCache = data.campaigns;
+          App.state.googleAdsCampaignsLoadedAt = new Date().toISOString();
+          App.state.googleAdsCampaignsAreMock = false;
+          usedReal = true;
+          App.render();
+        }
+      }
+    } catch (_) { /* fallback */ }
+    if (!usedReal) {
+      const mocks = window.GoogleAdsMockCampaigns?.list() || [];
+      App.state.googleAdsCampaignsCache = mocks;
+      App.state.googleAdsCampaignsLoadedAt = new Date().toISOString();
+      App.state.googleAdsCampaignsAreMock = true;
+      App.render();
+    }
+  },
+
+  // V35.7.0-alpha4 — Trigger manual de sync. Chama /api/google-ads-sync-trigger
+  // (roda GAQL + UPSERT no DB) e em seguida recarrega cache.
+  async triggerGoogleAdsSync() {
+    const status = App.state.googleAdsStatus || {};
+    if (!status.oauthCompleted) return Utils.toast('Conecte o Google Ads primeiro.');
+    Utils.toast('⏳ Sincronizando Google Ads…');
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/google-ads-sync-trigger', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) {
+        Utils.toast(`Erro: ${data.error || data.message || 'falha no sync'}`);
+        return;
+      }
+      Utils.toast(`✓ Sync OK — ${data.rowsUpserted} linhas atualizadas.`);
+      await Actions.loadGoogleAdsCampaigns();
+    } catch (err) {
+      Utils.toast(`Erro de rede: ${err.message}`);
+    }
   },
 
   // V35.7.0-alpha1 — Sub-aba do Dashboard Google Ads.

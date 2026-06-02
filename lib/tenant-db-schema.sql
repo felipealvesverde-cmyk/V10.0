@@ -744,6 +744,31 @@ CREATE INDEX IF NOT EXISTS idx_reconciliation_user_unread
   WHERE read_at IS NULL;
 
 -- ============================================================================
+-- V35.7.0 — Google Ads campanhas (sync diário). 1 linha por (user, campaign, date).
+-- UPSERT pela PK; janela de 30 dias rolante. Quando user desconecta, mantém
+-- registros (pra histórico) — só para de receber updates novos.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS lj_google_ads_campaigns_daily (
+  user_id INT NOT NULL,
+  campaign_id VARCHAR(50) NOT NULL,
+  date DATE NOT NULL,
+  campaign_name VARCHAR(255),
+  status VARCHAR(50),
+  advertising_channel_type VARCHAR(50),
+  cost_micros BIGINT,
+  impressions BIGINT,
+  clicks BIGINT,
+  ctr DECIMAL(10,4),
+  average_cpc DECIMAL(10,4),
+  conversions DECIMAL(10,2),
+  conversions_value DECIMAL(15,2),
+  cost_per_conversion DECIMAL(10,2),
+  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, campaign_id, date)
+);
+CREATE INDEX IF NOT EXISTS idx_gads_daily_user_date ON lj_google_ads_campaigns_daily(user_id, date DESC);
+
+-- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS tenant_schema_meta (
@@ -752,5 +777,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v34.8.0-reconciliation')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v35.7.0-google-ads-sync')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
