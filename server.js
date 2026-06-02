@@ -885,6 +885,7 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/rd-webhook',
   '/api/rd-events-fetch',
   '/api/clickup-oauth-callback',  // V30.0.0 — ClickUp redireciona aqui sem JWT
+  '/api/google-ads-oauth-callback', // V35.5.0 — Google redireciona aqui sem JWT (state CSRF protege)
   '/api/env-info',  // V32.0.13 — frontend identifica staging × produção mesmo no login
   // V33.0.0 — Tracker endpoints chamados pelo snippet JS no site do cliente.
   // Sem JWT (browser anônimo). Auth via tracker_token opaco no body (HMAC-encrypted).

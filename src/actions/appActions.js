@@ -1457,6 +1457,18 @@ window.Actions = Actions;
 // Database settings and connection patch.
 Object.assign(Actions, {
   openSettingsModal(section) {
+    // V35.6.1 — Deep-links pras sections legacy 'rd' e 'clickup' agora abrem
+    // os modais próprios (que embedam os painéis legacy internamente).
+    // Mantém compatibilidade com callers antigos sem expor mais a section
+    // como rota pública do SettingsModal.
+    if (section === 'rd') {
+      Actions.openRdConnectionModal();
+      return;
+    }
+    if (section === 'clickup') {
+      Actions.openClickupConnectionModal();
+      return;
+    }
     App.state.showSettingsModal = true;
     // V32.4.0 (Geraldo Item 6) — default agora 'myAccount' (V11 'database' removida)
     // V32.12.1 — aceita section opcional pra deep-link (ex: 'integrations' via
@@ -2652,7 +2664,8 @@ Object.assign(Actions, {
   // V32.5.7 — Sub-abas em Configurações → Minha Conta:
   // 'identity' (perfil) e 'products' (gerenciamento de produtos).
   setMyAccountTab(tab) {
-    App.state.myAccountTab = (tab === 'products') ? 'products' : 'identity';
+    const valid = ['identity', 'products', 'mailing'];
+    App.state.myAccountTab = valid.includes(tab) ? tab : 'identity';
     App.save(); App.render();
   },
 
@@ -7044,6 +7057,61 @@ Object.assign(Actions, {
     const valid = ['overview', 'checkout', 'alunos', 'meta-ads', 'google-ads'];
     App.state.activeDashboardTab = valid.includes(tab) ? tab : 'overview';
     App.save();
+    App.render();
+  },
+
+  // V35.6.0 — Integrações IPI: troca aba ativa (Injetar/Propagar/Iterar).
+  setIntegrationsTab(tab) {
+    const valid = ['injetar', 'propagar', 'iterar'];
+    App.state.integrationsTab = valid.includes(tab) ? tab : 'injetar';
+    App.save();
+    App.render();
+  },
+
+  // V35.6.0-alpha4 — Modal próprio RD (aba Iterar).
+  openRdConnectionModal() {
+    App.state.rdConnectionModalOpen = true;
+    if (window.Actions?.loadRdConnectionStatus) {
+      setTimeout(() => Actions.loadRdConnectionStatus?.(), 0);
+    }
+    App.render();
+  },
+  closeRdConnectionModal() {
+    App.state.rdConnectionModalOpen = false;
+    App.render();
+  },
+
+  // V35.6.0-alpha4 — Modal próprio ClickUp (aba Iterar).
+  openClickupConnectionModal() {
+    App.state.clickupConnectionModalOpen = true;
+    if (window.Actions?.loadClickupStatus) {
+      setTimeout(() => Actions.loadClickupStatus(), 0);
+    }
+    App.render();
+  },
+  closeClickupConnectionModal() {
+    App.state.clickupConnectionModalOpen = false;
+    App.render();
+  },
+
+  // V35.6.0-alpha6 — Sai do modo manage Google Ads e entra no wizard de update.
+  switchGoogleAdsToWizard() {
+    if (!App.state.googleAdsWizard) return;
+    App.state.googleAdsWizard.mode = 'wizard';
+    App.state.googleAdsWizard.step = 1;
+    App.render();
+  },
+
+  // V35.6.0-alpha5 — Modal nested "X + LeadJourney" (deep-dive do fluxo de dados).
+  openIntegrationDeepDive(integrationId) {
+    const validIds = window.IntegrationDeepDiveModal?.CONTENT
+      ? Object.keys(IntegrationDeepDiveModal.CONTENT)
+      : ['rd', 'clickup', 'google-ads', 'hotmart', 'meta-ads', 'stripe'];
+    App.state.integrationDeepDiveOpen = validIds.includes(String(integrationId)) ? String(integrationId) : null;
+    App.render();
+  },
+  closeIntegrationDeepDive() {
+    App.state.integrationDeepDiveOpen = null;
     App.render();
   },
 
@@ -11922,20 +11990,250 @@ Object.assign(Actions, {
   },
 
   openHotmartWizard() {
+    // V35.6.0-alpha6 — Detecta status existente. Se conectado, abre em modo
+    // 'manage' (status card + botões). Se não, abre wizard normal step 1.
+    const connected = Boolean(App.state.hotmartStatus?.configured);
     App.state.hotmartWizardOpen = {
       step: 1,
+      mode: connected ? 'manage' : 'wizard',
       draft: { hottok: '', productMappings: {} },
       saving: false,
       error: null
     };
-    // Garante que status tá carregado pro wizard mostrar "já conectado" se for o caso
     if (!App.state.hotmartStatus) Actions.loadHotmartStatus();
+    App.render();
+  },
+
+  // V35.6.0-alpha6 — Sai do modo manage e entra no wizard de update (step 2 — atualizar HOTTOK).
+  switchHotmartToWizard() {
+    if (!App.state.hotmartWizardOpen) return;
+    App.state.hotmartWizardOpen.mode = 'wizard';
+    App.state.hotmartWizardOpen.step = 2;
     App.render();
   },
 
   closeHotmartWizard() {
     App.state.hotmartWizardOpen = null;
     App.render();
+  },
+
+  // ===== V35.5.0 — Google Ads wizard =====
+
+  async loadGoogleAdsStatus() {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch('/api/google-ads-config', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      App.state.googleAdsStatus = data;
+      App.render();
+    } catch (_) {}
+  },
+
+  openGoogleAdsWizard() {
+    // V35.6.0-alpha6 — Detecta status existente. Se conectado (OAuth completo),
+    // abre em modo 'manage'. Se não, abre wizard normal step 1.
+    const s = App.state.googleAdsStatus || {};
+    const connected = Boolean(s.configured && s.oauthCompleted);
+    App.state.googleAdsWizard = {
+      step: 1,
+      mode: connected ? 'manage' : 'wizard',
+      draft: {
+        clientId: '',
+        clientSecret: '',
+        developerToken: '',
+        loginCustomerId: ''
+      },
+      saving: false,
+      authorizing: false,
+      accounts: [],
+      selectedCustomerId: null,
+      accountSearch: '',
+      error: null
+    };
+    if (!App.state.googleAdsStatus) Actions.loadGoogleAdsStatus();
+    App.render();
+    // V35.5.0 — Escuta postMessage do popup OAuth pra detectar sucesso/erro
+    if (!window._googleAdsOAuthListener) {
+      window._googleAdsOAuthListener = true;
+      window.addEventListener('message', (ev) => {
+        if (ev.data?.type !== 'google-ads-oauth') return;
+        if (ev.data.ok) {
+          Utils.toast('✓ Google Ads autorizado!');
+          Actions.loadGoogleAdsStatus();
+          // Avança pro step 3 (escolher conta)
+          if (App.state.googleAdsWizard) {
+            App.state.googleAdsWizard.step = 3;
+            App.state.googleAdsWizard.authorizing = false;
+            App.render();
+            Actions.loadGoogleAdsAccounts();
+          }
+        } else {
+          const w = App.state.googleAdsWizard;
+          if (w) { w.error = ev.data.message || 'OAuth falhou'; w.authorizing = false; App.render(); }
+        }
+      });
+    }
+  },
+
+  closeGoogleAdsWizard() {
+    App.state.googleAdsWizard = null;
+    App.render();
+  },
+
+  setGoogleAdsWizardStep(step) {
+    if (!App.state.googleAdsWizard) return;
+    App.state.googleAdsWizard.step = Number(step) || 1;
+    App.render();
+  },
+
+  updateGoogleAdsDraft(field, value) {
+    if (!App.state.googleAdsWizard) return;
+    const w = App.state.googleAdsWizard;
+    w.draft[field] = value;
+    // Sem render — preserva foco
+  },
+
+  async saveGoogleAdsCredentials() {
+    const w = App.state.googleAdsWizard;
+    if (!w) return;
+    const d = w.draft;
+    if (!d.clientId || !d.clientSecret || !d.developerToken) {
+      return Utils.toast('Preencha Client ID, Client Secret e Developer Token.');
+    }
+    w.saving = true;
+    w.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/google-ads-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          clientId: d.clientId.trim(),
+          clientSecret: d.clientSecret.trim(),
+          developerToken: d.developerToken.trim(),
+          loginCustomerId: d.loginCustomerId.trim() || null
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        w.error = data.message || 'Falha ao salvar.';
+        w.saving = false;
+        App.render();
+        return;
+      }
+      w.saving = false;
+      w.step = 2; // avança pra Autorizar
+      App.render();
+      await Actions.loadGoogleAdsStatus();
+    } catch (err) {
+      w.error = err.message;
+      w.saving = false;
+      App.render();
+    }
+  },
+
+  async startGoogleAdsAuthorization() {
+    const w = App.state.googleAdsWizard;
+    if (!w) return;
+    w.authorizing = true;
+    w.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/google-ads-oauth-init', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) {
+        w.error = data.message || 'Falha ao iniciar OAuth.';
+        w.authorizing = false;
+        App.render();
+        return;
+      }
+      // Abre popup com a URL de auth do Google
+      const popup = window.open(data.authUrl, 'google-ads-oauth', 'width=600,height=700');
+      if (!popup) {
+        w.error = 'Popup bloqueado pelo navegador. Permita popups pra este site e tente de novo.';
+        w.authorizing = false;
+        App.render();
+      }
+      // O postMessage do callback vai disparar avanço pro step 3
+    } catch (err) {
+      w.error = err.message;
+      w.authorizing = false;
+      App.render();
+    }
+  },
+
+  async loadGoogleAdsAccounts() {
+    const w = App.state.googleAdsWizard;
+    if (!w) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/google-ads-list-accounts', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (data.ok) {
+        w.accounts = Array.isArray(data.accounts) ? data.accounts : [];
+      } else {
+        w.error = data.message || 'Não consegui listar contas.';
+      }
+      App.render();
+    } catch (err) {
+      w.error = err.message;
+      App.render();
+    }
+  },
+
+  setGoogleAdsSelectedCustomer(customerId) {
+    const w = App.state.googleAdsWizard;
+    if (!w) return;
+    w.selectedCustomerId = String(customerId);
+    App.render();
+  },
+
+  async confirmGoogleAdsAccount() {
+    const w = App.state.googleAdsWizard;
+    if (!w || !w.selectedCustomerId) return Utils.toast('Selecione uma conta.');
+    w.saving = true;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/google-ads-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          selectedCustomerId: w.selectedCustomerId,
+          accountDescriptiveName: `Customer ${w.selectedCustomerId}`
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        w.error = data.message;
+        w.saving = false;
+        App.render();
+        return;
+      }
+      w.saving = false;
+      w.step = 4; // Sucesso final
+      App.render();
+      await Actions.loadGoogleAdsStatus();
+    } catch (err) {
+      w.error = err.message;
+      w.saving = false;
+      App.render();
+    }
+  },
+
+  async disconnectGoogleAds() {
+    if (!confirm('Desconectar Google Ads? Você vai perder o histórico cacheado.')) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      await fetch('/api/google-ads-config', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      Utils.toast('Google Ads desconectado.');
+      App.state.googleAdsStatus = { ok: true, configured: false };
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
   },
 
   setHotmartWizardStep(step) {

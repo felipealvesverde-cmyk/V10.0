@@ -18,6 +18,46 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.1',
+    date: '2026-06-02',
+    title: 'Integrações IPI completa — config completa de RD e ClickUp dentro dos modais',
+    bullets: [
+      'Toda a configuração de RD Station (Token, Tempo Real, Marketing) e ClickUp (OAuth/PAT, raiz, mirror, advanced) agora vive dentro dos modais próprios.',
+      'Ao clicar em RD ou ClickUp em Iterar, você vê o status card no topo + painel completo de configuração abaixo — sem precisar pular pra Settings.',
+      'Bloco antigo de RD e ClickUp em Configurações deixou de ter rota direta.',
+      'Backend continua exatamente igual — Sansone e demais clientes mantêm conexões ativas intactas.'
+    ]
+  },
+  {
+    version: 'V35.6.0',
+    date: '2026-06-02',
+    title: 'Integrações IPI — área inteira repaginada com Injetar, Propagar e Iterar',
+    bullets: [
+      'A aba "Integrações" em Configurações foi inteira redesenhada com a mecânica do Journey: Injetar (softwares que alimentam dados), Propagar (executam comandos), Iterar (dialogam em loop).',
+      'Cada aba tem descritivo educativo explicando seu papel + cores próprias (gradiente azul de profundidade).',
+      'Cards de integração no padrão Google Ads V35.5.0 — Google Ads, Hotmart, Meta Ads, Stripe em Injetar; RD Station, ClickUp em Iterar.',
+      'Modal de cada integração herda a cor de fundo da aba a que pertence; as cores próprias (amber, orange, pink, violet) viram accents que vibram na cor principal.',
+      'Modais próprios pra RD e ClickUp substituem o deep-link pro Settings antigo — RD mostra 3 sub-conexões (Token / Tempo Real / Marketing), ClickUp mostra Workspace e Sincronização.',
+      'Componente Connection Status Card unificado (estilo print 3 do RD) aplicado em todas as 4 integrações ativas — identificação, badges, última validação, botões e ícone de ajuda.',
+      'Modal nested "X + LeadJourney" no ícone (?) explica o fluxo de dados real de cada integração: o que entra, o que sai, frequência, como o loop funciona e pré-requisitos.',
+      'Bancos de Leads migrados pra Configurações → Minha Conta → aba "Bancos de Leads" (não é integração externa).',
+      'Seção "Conexão RD Station" removida do sidebar de Configurações (agora é card em Iterar).',
+      'Backend não mudou nada — sua conexão RD, ClickUp ou Google Ads continua intacta.'
+    ]
+  },
+  {
+    version: 'V35.5.0',
+    date: '2026-06-02',
+    title: 'Integração Google Ads — conecte sua conta em 4 passos',
+    bullets: [
+      'Novo card Google Ads em Configurações → Integrações → Performance (era "Em breve").',
+      'Wizard de 4 passos: credenciais (Client ID/Secret/Developer Token) → autorizar → escolher conta → pronto.',
+      'Cada cliente conecta sua própria conta Google Ads — multi-tenant nativo.',
+      'Refresh token salvo criptografado por tenant (AES-256-GCM); access token renovado automaticamente.',
+      'Botão "Desconectar" zera tudo e remove credenciais do banco.'
+    ]
+  },
+  {
     version: 'V35.4.3',
     date: '2026-06-01',
     title: 'Sessão expirada agora aparece como banner discreto — sem bloquear',

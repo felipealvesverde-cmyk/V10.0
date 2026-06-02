@@ -15,17 +15,21 @@
       const step = Number(w.step || 1);
       const status = App.state.hotmartStatus || {};
       const alreadyConfigured = !!status.configured;
+      const isManage = w.mode === 'manage';
+      const headerKicker = isManage ? 'Gerenciar Hotmart' : 'Conectar Hotmart';
 
       return `<div class="fixed inset-0 z-[92] grid place-items-center p-4"
-        style="background: rgba(15,23,42,0.78); backdrop-filter: blur(6px);"
+        style="background: rgba(10,31,68,0.85); backdrop-filter: blur(6px);"
         onclick="if(event.target===this) Actions.closeHotmartWizard()">
-        <div class="w-full max-w-2xl rounded-3xl bg-slate-900 border-2 border-orange-400/40 shadow-2xl overflow-hidden">
+        <div class="w-full max-w-2xl rounded-3xl border-2 border-orange-400/40 shadow-2xl overflow-hidden"
+          style="background: linear-gradient(135deg, #0A1F44 0%, #001230 100%);">
 
           <!-- HEADER -->
-          <div class="bg-gradient-to-r from-orange-500/20 to-amber-500/20 border-b border-white/10 px-5 py-4 flex items-start justify-between gap-3">
+          <div class="border-b border-white/10 px-5 py-4 flex items-start justify-between gap-3"
+            style="background: linear-gradient(90deg, rgba(249,115,22,0.18) 0%, rgba(249,115,22,0.05) 100%);">
             <div class="min-w-0">
               <p class="text-[10px] font-black text-orange-300 uppercase tracking-widest inline-flex items-center gap-1.5">
-                <i data-lucide="dollar-sign" class="w-3 h-3"></i> Conectar Hotmart
+                <i data-lucide="dollar-sign" class="w-3 h-3"></i> ${headerKicker}
               </p>
               <h2 class="text-lg font-black text-white mt-1 leading-tight">Receita real entrando no LJ</h2>
               <p class="text-[11px] text-slate-300 mt-0.5">Quando alguém comprar, o LJ marca o lead como customer automaticamente.</p>
@@ -35,7 +39,7 @@
             </button>
           </div>
 
-          <!-- STEPPER -->
+          ${isManage ? '' : `<!-- STEPPER -->
           <div class="px-5 pt-4">
             <div class="flex items-center gap-2">
               ${[1,2,3].map(n => {
@@ -51,23 +55,23 @@
                 </button>`;
               }).join('')}
             </div>
-          </div>
+          </div>`}
 
           <!-- BODY -->
           <div class="p-5 max-h-[60vh] overflow-y-auto">
-            ${this._renderStep(step, w, status)}
+            ${isManage ? this._manageView(status) : this._renderStep(step, w, status)}
           </div>
 
           <!-- FOOTER -->
-          <div class="bg-slate-900/80 border-t border-white/5 px-5 py-3 flex items-center justify-between gap-2">
+          <div class="border-t border-white/5 px-5 py-3 flex items-center justify-between gap-2" style="background: rgba(0,18,48,0.6);">
             <div>
-              ${step > 1 ? `<button onclick="Actions.setHotmartWizardStep(${step-1})" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5">
+              ${(!isManage && step > 1) ? `<button onclick="Actions.setHotmartWizardStep(${step-1})" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1.5">
                 <i data-lucide="arrow-left" class="w-3 h-3"></i> Voltar
               </button>` : ''}
             </div>
             <div class="flex items-center gap-1.5">
               <button onclick="Actions.closeHotmartWizard()" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[10px] font-black uppercase tracking-wider">Fechar</button>
-              ${this._renderFooterAction(step, w, alreadyConfigured)}
+              ${isManage ? '' : this._renderFooterAction(step, w, alreadyConfigured)}
             </div>
           </div>
         </div>
@@ -105,6 +109,54 @@
       return '';
     },
 
+    // V35.6.0-alpha6 — Modo manage: status card + ações em vez do wizard.
+    _manageView(status) {
+      const hottokMasked = status.hottokMasked || '—';
+      const oauthConfigured = Boolean(status.oauthConfigured);
+      const syncWindow = status.syncWindowDays || 90;
+      const lastEventAt = status.lastEventAt || status.connectedAt;
+      const lastValidationLabel = lastEventAt
+        ? `Último evento recebido: ${this._fmtDate(lastEventAt)}`
+        : 'Aguardando primeiro evento do Hotmart.';
+
+      const badges = [
+        { label: 'HOTTOK ativo', status: 'ok', icon: 'key' },
+        { label: 'Webhook recebendo', status: 'ok', icon: 'radio' }
+      ];
+      if (oauthConfigured) badges.push({ label: `OAuth · ${syncWindow}d histórico`, status: 'ok', icon: 'history' });
+
+      return `<div class="space-y-4">
+        ${window.ConnectionStatusCard ? ConnectionStatusCard.render({
+          accentColor: 'orange',
+          kicker: 'Produto conectado',
+          identification: `HOTTOK ${hottokMasked}`,
+          subtitle: oauthConfigured ? 'Webhook + OAuth de histórico ativos' : 'Webhook receive-only ativo',
+          badges,
+          lastValidationLabel,
+          secondaryButtons: [
+            { label: 'Atualizar HOTTOK', icon: 'refresh-cw', action: 'Actions.switchHotmartToWizard()' },
+            { label: 'Hotmart + LeadJourney', icon: 'book-open', action: "Actions.openIntegrationDeepDive('hotmart')" }
+          ],
+          helpAction: "Actions.openIntegrationDeepDive('hotmart')"
+        }) : ''}
+
+        <div class="flex flex-wrap justify-between items-center gap-3 pt-3 border-t border-white/10">
+          <p class="text-[11px] text-slate-400">Para trocar o HOTTOK ou ativar OAuth de histórico, atualize as credenciais acima.</p>
+          <button onclick="Actions.disconnectHotmart()" class="px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/40 text-rose-200 text-xs font-black inline-flex items-center gap-1.5">
+            <i data-lucide="unplug" class="w-3.5 h-3.5"></i> Desconectar
+          </button>
+        </div>
+      </div>`;
+    },
+
+    _fmtDate(iso) {
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      } catch (_) { return '—'; }
+    },
+
     _step1() {
       return `<div class="space-y-4">
         <div class="rounded-2xl bg-orange-500/8 border border-orange-400/20 p-4">
@@ -118,7 +170,7 @@
           </p>
         </div>
 
-        <div class="rounded-2xl bg-slate-800/40 border border-white/10 p-4 space-y-2">
+        <div class="rounded-2xl bg-[#001230]/60 border border-white/10 p-4 space-y-2">
           <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">O que o webhook vai fazer</p>
           <ul class="space-y-1.5 text-[12px] text-slate-300">
             <li class="flex items-start gap-2"><i data-lucide="user-check" class="w-3.5 h-3.5 text-emerald-300 mt-0.5 shrink-0"></i><span>Promover Lead → Customer quando pagamento for aprovado.</span></li>
@@ -148,7 +200,7 @@
           <p class="text-[10px] text-emerald-100/70 mt-1">Cole novos valores abaixo se quiser substituir.</p>
         </div>` : ''}
 
-        <div class="rounded-2xl bg-slate-800/40 border border-white/10 p-4 space-y-2">
+        <div class="rounded-2xl bg-[#001230]/60 border border-white/10 p-4 space-y-2">
           <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Onde achar o HOTTOK</p>
           <ol class="space-y-1.5 text-[12px] text-slate-300 list-decimal pl-5">
             <li>Entre no Hotmart → <b>Ferramentas</b> → <b>Webhook</b>.</li>
@@ -163,7 +215,7 @@
           <input type="text" value="${Utils.escape(hottok)}"
                  oninput="Actions.updateHotmartDraft('hottok', this.value)"
                  placeholder="cole aqui o HOTTOK"
-                 class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white text-[12px] font-mono focus:border-orange-400/60 focus:outline-none" />
+                 class="w-full px-3 py-2.5 rounded-xl bg-[#001230] border border-white/15 text-white text-[12px] font-mono focus:border-orange-400/60 focus:outline-none" />
           <p class="text-[10px] text-slate-500">Obrigatório. Fica criptografado no nosso banco.</p>
         </div>
 
@@ -193,14 +245,14 @@
                 <input type="text" value="${Utils.escape(clientId)}"
                        oninput="Actions.updateHotmartDraft('clientId', this.value)"
                        placeholder="cole aqui o client_id"
-                       class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-white/15 text-white text-[11px] font-mono focus:border-violet-400/60 focus:outline-none" />
+                       class="w-full px-3 py-2 rounded-lg bg-[#001230] border border-white/15 text-white text-[11px] font-mono focus:border-violet-400/60 focus:outline-none" />
               </div>
               <div>
                 <label class="text-[10px] font-black text-violet-300 uppercase tracking-widest">Client Secret</label>
                 <input type="password" value="${Utils.escape(clientSecret)}"
                        oninput="Actions.updateHotmartDraft('clientSecret', this.value)"
                        placeholder="cole aqui o client_secret"
-                       class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-white/15 text-white text-[11px] font-mono focus:border-violet-400/60 focus:outline-none" />
+                       class="w-full px-3 py-2 rounded-lg bg-[#001230] border border-white/15 text-white text-[11px] font-mono focus:border-violet-400/60 focus:outline-none" />
               </div>
             </div>
             <div>
@@ -249,7 +301,7 @@
           <div class="flex gap-2">
             <input type="text" readonly value="${Utils.escape(webhookUrl)}"
                    onclick="this.select()"
-                   class="flex-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white text-[11px] font-mono focus:border-orange-400/60 focus:outline-none" />
+                   class="flex-1 px-3 py-2.5 rounded-xl bg-[#001230] border border-white/15 text-white text-[11px] font-mono focus:border-orange-400/60 focus:outline-none" />
             <button onclick="Actions.copyHotmartWebhookUrl()" class="px-3 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-[10px] font-black uppercase tracking-wider" style="color:#fff!important;">
               <i data-lucide="copy" class="w-3.5 h-3.5"></i>
             </button>
@@ -258,7 +310,7 @@
           <p class="text-[12px] text-amber-200">Seu user não tem tenant ativo — não consigo gerar a URL agora. Configure um produto primeiro.</p>
         </div>`}
 
-        <div class="rounded-2xl bg-slate-800/40 border border-white/10 p-4 space-y-2">
+        <div class="rounded-2xl bg-[#001230]/60 border border-white/10 p-4 space-y-2">
           <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">Onde colar no Hotmart</p>
           <ol class="space-y-1.5 text-[12px] text-slate-300 list-decimal pl-5">
             <li>Volte pro Hotmart → <b>Ferramentas</b> → <b>Webhook</b>.</li>

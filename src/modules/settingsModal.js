@@ -2628,12 +2628,20 @@ var SettingsModal = {
         <span class="font-black text-sm">${label}</span>
       </button>`;
     };
+    // V35.6.0-alpha2 — Auto-fetch lead banks (migrou pra Minha Conta).
+    if (!App.state.leadBanksCache?.loadedAt && !App.state.leadBanksCache?.loading && window.Actions?.loadLeadBanks) {
+      setTimeout(() => Actions.loadLeadBanks(), 0);
+    }
+    const content = tab === 'products' ? this._myAccountTabProducts()
+      : tab === 'mailing' ? this._leadBanksCard()
+      : this._myAccountTabIdentity();
     return `<div class="space-y-4">
       <div class="flex gap-2 flex-wrap">
         ${tabBtn('identity', 'Identidade', 'user')}
         ${tabBtn('products', 'Produtos', 'package')}
+        ${tabBtn('mailing', 'Bancos de Leads', 'database')}
       </div>
-      ${tab === 'products' ? this._myAccountTabProducts() : this._myAccountTabIdentity()}
+      ${content}
     </div>`;
   },
 
@@ -3105,6 +3113,12 @@ var SettingsModal = {
   // (Meta Ads / Google Ads / Stripe). V32.12.1 = esqueleto visual (botões
   // placeholder). Backend OAuth chega em V32.12.2 (Meta), .3 (Google), .4 (Stripe).
   _performanceIntegrationsBlock() {
+    // V35.5.0 — Google Ads agora é funcional. Meta/Stripe seguem em breve.
+    const gAds = App.state.googleAdsStatus || {};
+    const gAdsConnected = Boolean(gAds.configured && gAds.oauthCompleted);
+    if (!App.state.googleAdsStatus && window.Actions?.loadGoogleAdsStatus) {
+      setTimeout(() => Actions.loadGoogleAdsStatus(), 0);
+    }
     const cards = [
       {
         id: 'meta',
@@ -3112,15 +3126,20 @@ var SettingsModal = {
         desc: 'Investimento, conversões e CAC por campanha (Facebook + Instagram).',
         icon: 'megaphone',
         tone: 'sky',
-        status: 'soon'  // 'soon' | 'connected' | 'disconnected'
+        status: 'soon'
       },
       {
         id: 'google',
         name: 'Google Ads',
-        desc: 'Search, Display e YouTube por campanha. Imports diários.',
+        desc: gAdsConnected
+          ? `Conectado · Customer ${gAds.selectedCustomerId || '?'}`
+          : 'Search, Display e YouTube por campanha. Imports diários.',
         icon: 'search',
         tone: 'amber',
-        status: 'soon'
+        status: gAdsConnected ? 'connected' : 'disconnected',
+        action: gAdsConnected ? 'Actions.disconnectGoogleAds()' : 'Actions.openGoogleAdsWizard()',
+        actionLabel: gAdsConnected ? 'Desconectar' : 'Conectar',
+        actionIcon: gAdsConnected ? 'unplug' : 'plug'
       },
       {
         id: 'stripe',
@@ -3162,17 +3181,31 @@ var SettingsModal = {
               <p class="text-[10px] font-black ${t.pill} uppercase tracking-widest">${c.name}</p>
               <p class="text-[11px] text-slate-600 leading-snug mt-1">${c.desc}</p>
             </div>
-            <button ${isSoon ? 'disabled' : ''} title="${isSoon ? 'Disponível em breve (V32.12.x)' : 'Conectar agora'}" class="mt-1 px-3 py-1.5 rounded-lg ${isSoon ? 'bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed' : 'bg-violet-600 hover:bg-violet-700 text-white'} text-[10px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5" ${isSoon ? '' : 'style="color:#fff!important;"'}>
-              <i data-lucide="${isSoon ? 'clock' : 'plug'}" class="w-3 h-3"></i>
-              ${isSoon ? 'Em breve' : 'Conectar'}
-            </button>
+            ${isSoon
+              ? `<button disabled title="Disponível em breve" class="mt-1 px-3 py-1.5 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed text-[10px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5">
+                  <i data-lucide="clock" class="w-3 h-3"></i> Em breve
+                </button>`
+              : `<button onclick="${c.action || ''}" title="${c.actionLabel || 'Conectar'}" class="mt-1 px-3 py-1.5 rounded-lg ${c.status === 'connected' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-violet-600 hover:bg-violet-700'} text-white text-[10px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5" style="color:#fff!important;">
+                  <i data-lucide="${c.actionIcon || 'plug'}" class="w-3 h-3"></i> ${c.actionLabel || 'Conectar'}
+                </button>`
+            }
           </div>`;
         }).join('')}
       </div>
     </div>`;
   },
 
+  // V35.6.0-alpha2 — Nova área Integrações IPI (3 abas, grid de cards).
+  // O conteúdo todo veio pro IntegrationsModule. Section 'clickup' (legacy)
+  // permanece pra deep-link do card ClickUp no Iterar.
   integrationsPanel() {
+    return window.IntegrationsModule ? IntegrationsModule.render() : '';
+  },
+
+  // V35.6.0-alpha2 — Card ClickUp legacy extraído do antigo integrationsPanel.
+  // Acessado via Actions.openSettingsModal('clickup') a partir do card ClickUp
+  // em Integrações > Iterar. Sem botão no sidebar — purely deep-link.
+  clickupPanel() {
     const status = App.state.clickupStatus || { connected: false, encryptionReady: true };
     const draft = App.state.clickupPatDraft || '';
     const encWarn = !status.encryptionReady ? `<div class="rounded-2xl bg-red-50 border-2 border-red-300 p-4 mb-4 text-red-800"><p class="font-black mb-1">⚠️ ENCRYPTION_KEY não configurada no servidor.</p><p class="text-sm">O admin precisa adicionar no Railway → Variables antes de você conectar. Veja README.</p></div>` : '';
@@ -3205,57 +3238,7 @@ var SettingsModal = {
         </div>`
       : '';
 
-    // V33.0.0 Onda 2 — Auto-fetch status Hotmart 1x quando user abre Integrações.
-    if (App.state.hotmartStatus === null && window.Actions?.loadHotmartStatus) {
-      setTimeout(() => Actions.loadHotmartStatus(), 0);
-    }
-
-    // V34.0.0 Onda 2 — Auto-fetch bancos de leads ao abrir Integrações.
-    if (!App.state.leadBanksCache?.loadedAt && !App.state.leadBanksCache?.loading && window.Actions?.loadLeadBanks) {
-      setTimeout(() => Actions.loadLeadBanks(), 0);
-    }
-    const leadBanksCard = this._leadBanksCard();
-    const hStatus = App.state.hotmartStatus || {};
-    const hotmartCard = `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-      <div class="flex items-start justify-between gap-3 mb-4">
-        <div class="flex items-start gap-3 min-w-0">
-          <span class="shrink-0 w-10 h-10 rounded-xl bg-orange-100 grid place-items-center">
-            <i data-lucide="dollar-sign" class="w-5 h-5 text-orange-700"></i>
-          </span>
-          <div class="min-w-0">
-            <h3 class="font-black text-lg">Hotmart</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Recebe compras automaticamente e promove leads para customers.</p>
-          </div>
-        </div>
-        ${hStatus.configured
-          ? `<span class="px-2.5 py-1 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-700 text-[10px] font-black uppercase tracking-wider">Conectado</span>`
-          : `<span class="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-500 text-[10px] font-black uppercase tracking-wider">Não conectado</span>`}
-      </div>
-      ${hStatus.configured ? `
-        <div class="rounded-2xl bg-slate-50 border border-slate-100 p-3 mb-3">
-          <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">HOTTOK</p>
-          <p class="text-[12px] font-mono text-slate-700">${Utils.escape(hStatus.hottokMasked || '—')}</p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button onclick="Actions.openHotmartWizard()" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;">
-            <i data-lucide="settings" class="w-3 h-3"></i> Gerenciar
-          </button>
-          <button onclick="Actions.disconnectHotmart()" class="px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-xs font-black flex items-center gap-1.5">
-            <i data-lucide="unplug" class="w-3 h-3"></i> Desconectar
-          </button>
-        </div>
-      ` : `
-        <button onclick="Actions.openHotmartWizard()" class="w-full px-4 py-3 rounded-2xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-black flex items-center justify-center gap-2" style="color:#fff!important;">
-          <i data-lucide="plug" class="w-4 h-4"></i> Conectar Hotmart
-        </button>
-        <p class="text-[10px] text-slate-500 mt-2 italic">Wizard guiado: cola o HOTTOK e a URL do webhook no Hotmart.</p>
-      `}
-    </div>`;
-
     return `<div class="space-y-5">
-      ${leadBanksCard}
-      ${hotmartCard}
-      ${this._performanceIntegrationsBlock()}
       ${App.state.clickupSpaceWizard?.open ? this._clickupSpaceWizardRender() : ''}
       ${(() => {
         // V32.7.3 (Geraldo A5) — Modal de alerta 1ª vez sobre delete da raiz.
@@ -4202,6 +4185,7 @@ var SettingsModal = {
     const content = resolvedActive === 'rd' ? this.rdConnectionPanel()
       : resolvedActive === 'execution' ? this.executionPanel()
       : resolvedActive === 'integrations' ? this.integrationsPanel()
+      : resolvedActive === 'clickup' ? this.clickupPanel()
       : resolvedActive === 'agents' ? this.agentsPanel()
       : resolvedActive === 'backup' ? this.backupPanel()
       : resolvedActive === 'users' ? this.usersPanel()
@@ -4232,7 +4216,9 @@ var SettingsModal = {
           <aside class="bg-white border-r border-slate-200 p-5 space-y-3">
             ${this.sectionButton('myAccount','Minha Conta','user')}
             ${App.currentUser?.tenantId ? this.sectionButton('myDb','Meu Banco','hard-drive-download') : ''}
-            ${this.sectionButton('rd','Conexão RD Station','plug-zap')}
+            ${/* V35.6.0-alpha2 — "Conexão RD Station" removida do sidebar.
+                RD agora vive como card em Integrações > Iterar. Section 'rd' preservada
+                porque ainda é acessada via deep-link openSettingsModal('rd'). */ ''}
             ${App.currentUser?.isMaster ? this.sectionButton('users','Usuários','users') : ''}
             ${/* V32.5.7 — Section 'Execução Operacional' removida do sidebar (Felipe).
                 executionPanel() preservado pra callers indiretos (e.g. botão
