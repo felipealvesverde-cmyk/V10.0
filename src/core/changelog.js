@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.7.2',
+    date: '2026-06-02',
+    title: 'Visão Geral Google Ads: filtros por Produto/Campanha LJ + KPIs explicáveis',
+    bullets: [
+      'Filtro multi-select de Produto no topo da Visão Geral — escolha quais produtos entram no consolidado.',
+      'Filtro multi-select de Campanha LJ — selecione 1 ou várias campanhas pra analisar em conjunto.',
+      'Combinação livre: ver consolidado das ads do Produto X + Y, filtrando por Campanha Z.',
+      'Botão "Limpar" volta ao consolidado total. Toggle "Incluir não associadas" continua, fica desabilitado quando há filtro ativo (não faz sentido somar órfãs num recorte restritivo).',
+      'Botão "?" no canto superior direito de cada card de KPI abre modal explicando o que é, qual a fórmula e como interpretar.',
+      'Dicionário cobre os 12 indicadores do Visão Geral + 8 do Grupo 3 avançado.'
+    ]
+  },
+  {
     version: 'V35.7.1',
     date: '2026-06-02',
     title: 'Dashboard Google Ads ganha "Visão Geral" + cards expansíveis + Avançados',
