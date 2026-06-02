@@ -7108,6 +7108,108 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V35.7.0-alpha1 — Carrega campanhas Google Ads. Por enquanto, sempre
+  // mock (dados fictícios estáveis). Quando a alpha4 trouxer sync real,
+  // este endpoint passa a tentar real primeiro e cair pra mock só se
+  // OAuth não conectado ou sem dados.
+  async loadGoogleAdsCampaigns() {
+    // Mock determinístico (mesmos números sempre).
+    const mocks = window.GoogleAdsMockCampaigns?.list() || [];
+    App.state.googleAdsCampaignsCache = mocks;
+    App.state.googleAdsCampaignsLoadedAt = new Date().toISOString();
+    App.state.googleAdsCampaignsAreMock = true;
+    App.render();
+  },
+
+  // V35.7.0-alpha1 — Sub-aba do Dashboard Google Ads.
+  setGoogleAdsDashboardSubTab(tab) {
+    const valid = ['overview', 'orphans'];
+    App.state.googleAdsDashboardSubTab = valid.includes(tab) ? tab : 'overview';
+    App.save();
+    App.render();
+  },
+
+  // V35.7.0-alpha1 — Vincula 1 ou mais campanhas externas (Google Ads) a
+  // uma Campanha LJ. campaignExternalIds: array de strings (campaign_id da
+  // plataforma). ljCampaignId: id da Campanha LJ destino.
+  linkGoogleAdsCampaignsToLj(ljCampaignId, campaignExternalIds) {
+    if (!ljCampaignId || !Array.isArray(campaignExternalIds) || !campaignExternalIds.length) return;
+    const lj = (App.state.campaigns || []).find(c => Number(c.id) === Number(ljCampaignId));
+    if (!lj) return Utils.toast('Campanha LJ não encontrada.');
+    if (!lj.externalLinks) lj.externalLinks = { googleAds: [], metaAds: [], ga4: { sessionCampaignNames: [] } };
+    if (!Array.isArray(lj.externalLinks.googleAds)) lj.externalLinks.googleAds = [];
+    // Remover de qualquer outra Campanha LJ que já tenha esses externalIds (cada externalId pode ter só 1 dono).
+    const setIds = new Set(campaignExternalIds.map(String));
+    (App.state.campaigns || []).forEach(c => {
+      if (Number(c.id) === Number(ljCampaignId)) return;
+      if (!c.externalLinks?.googleAds) return;
+      c.externalLinks.googleAds = c.externalLinks.googleAds.filter(id => !setIds.has(String(id)));
+    });
+    // Adicionar ao destino (dedup).
+    const existing = new Set(lj.externalLinks.googleAds.map(String));
+    campaignExternalIds.forEach(id => existing.add(String(id)));
+    lj.externalLinks.googleAds = Array.from(existing);
+    App.save(); App.render();
+    Utils.toast(`✓ ${campaignExternalIds.length} campanha(s) Ads vinculada(s) a "${lj.name}".`);
+  },
+
+  // V35.7.0-alpha1 — Stub do wizard de associação. Implementação real na
+  // alpha2. Por ora abre toast e (atalho) permite vincular numa única
+  // Campanha LJ se houver exatamente 1 disponível — pra Felipe poder
+  // testar o consolidado visual da alpha1.
+  openAdsAssociationWizard(platform, externalIdsArg) {
+    const externalIds = Array.isArray(externalIdsArg) ? externalIdsArg : [];
+    if (platform !== 'google-ads') {
+      Utils.toast('Por enquanto só Google Ads. Meta/GA4 chegam em release futura.');
+      return;
+    }
+    // Atalho temporário: se cliente só tem 1 Campanha LJ, vincula direto.
+    const ljCampaigns = Array.isArray(App.state.campaigns) ? App.state.campaigns : [];
+    if (!ljCampaigns.length) {
+      Utils.toast('Crie uma Campanha LJ primeiro pra poder vincular Ads.');
+      return;
+    }
+    if (externalIds.length === 0) {
+      // "Associar todas" — pega TODAS as órfãs.
+      const allAds = Array.isArray(App.state.googleAdsCampaignsCache) ? App.state.googleAdsCampaignsCache : [];
+      const linkedSet = new Set();
+      ljCampaigns.forEach(c => (c.externalLinks?.googleAds || []).forEach(id => linkedSet.add(String(id))));
+      externalIds.push(...allAds.filter(a => !linkedSet.has(String(a.campaign_id))).map(a => String(a.campaign_id)));
+    }
+    if (!externalIds.length) {
+      Utils.toast('Nenhuma campanha Ads órfã pra associar.');
+      return;
+    }
+    // Atalho V35.7.0-alpha1: prompt nativo pra escolher Campanha LJ.
+    const options = ljCampaigns.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
+    const idxStr = window.prompt(`Vincular ${externalIds.length} campanha(s) Ads a qual Campanha LJ?\n\n${options}\n\nDigite o número:`);
+    if (!idxStr) return;
+    const idx = parseInt(idxStr, 10) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= ljCampaigns.length) {
+      Utils.toast('Número inválido. Tente de novo.');
+      return;
+    }
+    Actions.linkGoogleAdsCampaignsToLj(ljCampaigns[idx].id, externalIds);
+  },
+
+  // V35.7.0-alpha1 — Desvincula 1 campanha externa de Google Ads de qualquer
+  // Campanha LJ. campaignExternalId: string.
+  unlinkGoogleAdsCampaignFromLj(campaignExternalId) {
+    if (!campaignExternalId) return;
+    const targetId = String(campaignExternalId);
+    let removed = false;
+    (App.state.campaigns || []).forEach(c => {
+      if (!c.externalLinks?.googleAds) return;
+      const before = c.externalLinks.googleAds.length;
+      c.externalLinks.googleAds = c.externalLinks.googleAds.filter(id => String(id) !== targetId);
+      if (c.externalLinks.googleAds.length !== before) removed = true;
+    });
+    if (removed) {
+      App.save(); App.render();
+      Utils.toast('✓ Campanha Ads voltou para "Não associadas".');
+    }
+  },
+
   // V35.6.0-alpha5 — Modal nested "X + LeadJourney" (deep-dive do fluxo de dados).
   openIntegrationDeepDive(integrationId) {
     const validIds = window.IntegrationDeepDiveModal?.CONTENT

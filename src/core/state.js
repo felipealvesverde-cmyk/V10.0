@@ -549,6 +549,14 @@ var State = {
       // V35.6.0-alpha5 — Modal nested "X + LeadJourney" (deep-dive do fluxo de dados).
       // Guarda o ID da integração aberta (string) ou null.
       integrationDeepDiveOpen: null,
+      // V35.7.0-alpha1 — Cache local de campanhas Google Ads vindas do sync
+      // (alpha4) ou do mock (alpha1). Chave: campaign_id (string).
+      googleAdsCampaignsCache: null,        // null = ainda não carregou; [] = carregou (até vazio)
+      googleAdsCampaignsLoadedAt: null,     // ISO timestamp
+      googleAdsCampaignsAreMock: false,     // true quando usando GoogleAdsMockCampaigns
+      // V35.7.0-alpha1 — Sub-aba ativa do Dashboard Google Ads.
+      // 'overview' (default) | 'orphans' (Não associadas)
+      googleAdsDashboardSubTab: 'overview',
       leadDraft: { name: '', phone: '', email: '', idade: '', estado: '', cidade: '', estadoCivil: '', sexo: '', faixaSalarial: '', tags: '' },
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' },
@@ -766,7 +774,16 @@ var State = {
       status: campaign.status || 'Ativa',
       mediaInvestment: Number(campaign.mediaInvestment || 0),
       okrs: this.normalizeCampaignOkrs(campaign.okrs),
-      createdAt: campaign.createdAt || nowIso
+      createdAt: campaign.createdAt || nowIso,
+      // V35.7.0-alpha1 — Mapeamento N:1 pra campanhas externas (Ads).
+      // Array de strings (campaign_id da plataforma) por canal.
+      externalLinks: {
+        googleAds: Array.isArray(campaign.externalLinks?.googleAds) ? campaign.externalLinks.googleAds.map(String) : [],
+        metaAds: Array.isArray(campaign.externalLinks?.metaAds) ? campaign.externalLinks.metaAds.map(String) : [],
+        ga4: {
+          sessionCampaignNames: Array.isArray(campaign.externalLinks?.ga4?.sessionCampaignNames) ? campaign.externalLinks.ga4.sessionCampaignNames.map(String) : []
+        }
+      }
     })) : base.campaigns;
     return {
       ...base,
@@ -1148,6 +1165,11 @@ var State = {
       clickupConnectionModalOpen: false,
       // V35.6.0-alpha5 — deep-dive nested (não persiste aberto)
       integrationDeepDiveOpen: null,
+      // V35.7.0-alpha1 — Google Ads cache (mock ou real) + sub-tab Dashboard.
+      googleAdsCampaignsCache: Array.isArray(raw.googleAdsCampaignsCache) ? raw.googleAdsCampaignsCache : null,
+      googleAdsCampaignsLoadedAt: raw.googleAdsCampaignsLoadedAt || null,
+      googleAdsCampaignsAreMock: Boolean(raw.googleAdsCampaignsAreMock),
+      googleAdsDashboardSubTab: (typeof raw.googleAdsDashboardSubTab === 'string' && ['overview','orphans'].includes(raw.googleAdsDashboardSubTab)) ? raw.googleAdsDashboardSubTab : 'overview',
       leadDraft: { ...base.leadDraft, ...(raw.leadDraft || {}) },
       manualLeads: Array.isArray(raw.manualLeads) ? LeadIdentityEngine.mergeMany([], raw.manualLeads.map((lead, index) => {
         const normalized = LeadParser.normalizeLead(lead, index, fallbackScoreId);
