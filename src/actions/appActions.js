@@ -2246,15 +2246,21 @@ Object.assign(Actions, {
   // Caso cliente queira sair: botão "Sair mesmo assim" baixa JSON backup
   // automático ANTES de chamar logout normal.
 
-  openReloginInlineModal() {
+  // V35.6.4 — opts.mode: 'urgent' (default — write 401, fundo vermelho) ou
+  // 'friendly' (banner click — fundo neutro, sem dramatização). Friendly é
+  // pra quando o user voluntariamente decide reentrar, não pra quando ele
+  // tá pra perder trabalho.
+  openReloginInlineModal(opts) {
     if (App.state.reloginInlineModal?.open) return; // idempotente
-    App.state.reloginInlineModal = { open: true, error: null, loading: false };
+    const mode = (opts && opts.mode === 'friendly') ? 'friendly' : 'urgent';
+    App.state.reloginInlineModal = { open: true, error: null, loading: false, mode };
     App.render();
   },
 
   // V35.4.3 — Banner discreto dispara reabertura do modal completo.
+  // V35.6.4 — Banner abre em modo friendly (não-urgente).
   openReloginFromBanner() {
-    Actions.openReloginInlineModal();
+    Actions.openReloginInlineModal({ mode: 'friendly' });
   },
 
   closeReloginInlineModal() {

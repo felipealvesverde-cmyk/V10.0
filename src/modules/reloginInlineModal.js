@@ -25,6 +25,7 @@
       if (!m?.open) return '';
       const loading = !!m.loading;
       const error = m.error || '';
+      const isFriendly = m.mode === 'friendly';
 
       // Lê username do JWT atual pra mostrar quem está reentrando.
       let username = '';
@@ -42,22 +43,41 @@
         } catch (_) {}
       }
 
+      // V35.6.4 — Dois modos:
+      //   urgent (default — write 401): backdrop vermelho dramático + header
+      //     rose. Sinaliza "você ia perder trabalho, reentre AGORA".
+      //   friendly (banner click): backdrop slate suave + header violet.
+      //     Sinaliza "você escolheu reentrar, vamos por aqui".
+      const backdropStyle = isFriendly
+        ? 'background: rgba(15,23,42,0.7); backdrop-filter: blur(8px);'
+        : 'background: rgba(127,29,29,0.85); backdrop-filter: blur(8px);';
+      const cardBorder = isFriendly ? 'border-slate-200' : 'border-rose-300';
+      const headerBg = isFriendly
+        ? 'bg-gradient-to-br from-violet-600 via-violet-700 to-violet-800'
+        : 'bg-gradient-to-br from-rose-600 via-rose-700 to-rose-800';
+      const kickerCls = isFriendly ? 'text-violet-100' : 'text-rose-100';
+      const subtitleCls = isFriendly ? 'text-violet-100/90' : 'text-rose-100/90';
+      const headerIcon = isFriendly ? 'log-in' : 'shield-alert';
+      const kickerLabel = isFriendly ? 'Entrar de novo' : 'Sessão Expirada';
+      const titleLabel = isFriendly ? 'Sessão expirada — entre de novo' : 'Reentre para continuar';
+      const subtitleHtml = isFriendly
+        ? `Sua sessão expirou. Entre de novo pra continuar trabalhando — suas alterações em memória continuam aqui.`
+        : `Sua sessão expirou enquanto você trabalhava. <b class="text-white">Suas alterações ainda estão aqui, em memória</b> — entre de novo e o sistema salva tudo automaticamente.`;
+
       return `
-        <div class="fixed inset-0 z-[99] grid place-items-center p-4" style="background: rgba(127,29,29,0.85); backdrop-filter: blur(8px);">
-          <div class="w-full max-w-md rounded-3xl bg-white shadow-2xl border-2 border-rose-300 overflow-hidden">
-            <div class="bg-gradient-to-br from-rose-600 via-rose-700 to-rose-800 px-6 py-5 text-white">
+        <div class="fixed inset-0 z-[99] grid place-items-center p-4" style="${backdropStyle}">
+          <div class="w-full max-w-md rounded-3xl bg-white shadow-2xl border-2 ${cardBorder} overflow-hidden">
+            <div class="${headerBg} px-6 py-5 text-white">
               <div class="flex items-center gap-3">
                 <span class="w-10 h-10 rounded-xl bg-white/15 grid place-items-center">
-                  <i data-lucide="shield-alert" class="w-5 h-5"></i>
+                  <i data-lucide="${headerIcon}" class="w-5 h-5"></i>
                 </span>
                 <div>
-                  <p class="text-[10px] font-black text-rose-100 uppercase tracking-widest">Sessão Expirada</p>
-                  <h2 class="text-lg font-black leading-tight">Reentre para continuar</h2>
+                  <p class="text-[10px] font-black ${kickerCls} uppercase tracking-widest">${kickerLabel}</p>
+                  <h2 class="text-lg font-black leading-tight">${titleLabel}</h2>
                 </div>
               </div>
-              <p class="text-[12px] text-rose-100/90 mt-3 leading-relaxed">
-                Sua sessão expirou enquanto você trabalhava. <b class="text-white">Suas alterações ainda estão aqui, em memória</b> — entre de novo e o sistema salva tudo automaticamente.
-              </p>
+              <p class="text-[12px] ${subtitleCls} mt-3 leading-relaxed">${subtitleHtml}</p>
             </div>
 
             <div class="p-6 space-y-4">
@@ -85,15 +105,15 @@
                 class="w-full px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-black uppercase tracking-wider inline-flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 style="color:#fff!important;">
                 <i data-lucide="${loading ? 'loader-2' : 'log-in'}" class="w-4 h-4 ${loading ? 'animate-spin' : ''}"></i>
-                ${loading ? 'Reentrando...' : 'Reentrar e Salvar'}
+                ${loading ? 'Reentrando...' : (isFriendly ? 'Entrar' : 'Reentrar e Salvar')}
               </button>
 
               <div class="pt-3 border-t border-slate-200">
                 <button onclick="Actions.logoutWithBackup()" ${loading ? 'disabled' : ''}
                   class="w-full text-[11px] font-bold text-slate-500 hover:text-slate-700 inline-flex items-center justify-center gap-1.5 disabled:opacity-50"
                   title="Baixa um JSON de backup do seu trabalho atual ANTES de sair.">
-                  <i data-lucide="download" class="w-3 h-3"></i>
-                  Sair mesmo assim (baixa backup automático)
+                  <i data-lucide="${isFriendly ? 'log-out' : 'download'}" class="w-3 h-3"></i>
+                  ${isFriendly ? 'Sair' : 'Sair mesmo assim (baixa backup automático)'}
                 </button>
               </div>
             </div>
