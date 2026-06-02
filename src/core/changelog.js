@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.7.0-alpha2',
+    date: '2026-06-02',
+    title: 'Wizard guiado de associação Ads → Campanha LJ',
+    bullets: [
+      'Clique em "Associar" agora abre wizard guiado em 4 passos (estilo importação de CSV).',
+      'Step 1: marque as campanhas Google Ads pra vincular juntas (multi-seleção).',
+      'Step 2: escolha uma Campanha LJ existente OU crie uma nova ali mesmo (atalho inline).',
+      'Step 3: preview consolidado — gasto, ROAS, CPL e conversões agregados antes de confirmar.',
+      'Step 4: sucesso. Métricas passam a aparecer agregadas na sub-aba "Visão geral".'
+    ]
+  },
+  {
     version: 'V35.7.0-alpha1',
     date: '2026-06-02',
     title: 'Dashboard Google Ads ganha dados (de exemplo) + sub-aba "Não associadas"',

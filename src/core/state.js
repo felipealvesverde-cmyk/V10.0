@@ -557,6 +557,9 @@ var State = {
       // V35.7.0-alpha1 — Sub-aba ativa do Dashboard Google Ads.
       // 'overview' (default) | 'orphans' (Não associadas)
       googleAdsDashboardSubTab: 'overview',
+      // V35.7.0-alpha2 — Wizard de associação Ads ↔ Campanha LJ.
+      // null quando fechado; objeto quando aberto.
+      adsAssociationWizard: null,
       leadDraft: { name: '', phone: '', email: '', idade: '', estado: '', cidade: '', estadoCivil: '', sexo: '', faixaSalarial: '', tags: '' },
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' },
@@ -1170,6 +1173,8 @@ var State = {
       googleAdsCampaignsLoadedAt: raw.googleAdsCampaignsLoadedAt || null,
       googleAdsCampaignsAreMock: Boolean(raw.googleAdsCampaignsAreMock),
       googleAdsDashboardSubTab: (typeof raw.googleAdsDashboardSubTab === 'string' && ['overview','orphans'].includes(raw.googleAdsDashboardSubTab)) ? raw.googleAdsDashboardSubTab : 'overview',
+      // V35.7.0-alpha2 — wizard fica fechado entre sessões.
+      adsAssociationWizard: null,
       leadDraft: { ...base.leadDraft, ...(raw.leadDraft || {}) },
       manualLeads: Array.isArray(raw.manualLeads) ? LeadIdentityEngine.mergeMany([], raw.manualLeads.map((lead, index) => {
         const normalized = LeadParser.normalizeLead(lead, index, fallbackScoreId);
