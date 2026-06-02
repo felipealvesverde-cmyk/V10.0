@@ -80,16 +80,17 @@ window.ClickupConnectionModal = {
             lastValidationLabel,
             secondaryButtons: connected ? [
               ...(tokenType === 'pat' ? [{ label: 'Revelar PAT', icon: 'eye', action: 'Actions.revealClickupPat()' }] : []),
-              { label: 'ClickUp + LeadJourney', icon: 'book-open', action: "Actions.openIntegrationDeepDive('clickup')" }
+              { label: 'ClickUp + LeadJourney', icon: 'book-open', action: "Actions.openIntegrationDeepDive('clickup')" },
+              { label: 'Desconectar', icon: 'unplug', action: 'Actions.disconnectClickup()' }
             ] : [],
             helpAction: "Actions.openIntegrationDeepDive('clickup')"
           })}
 
-          <!-- V35.6.1 — Painel completo de configuração ClickUp embedado.
-               Conteúdo herda layout claro do SettingsModal.clickupPanel()
-               com wrapper branco pra contrastar com fundo Iterar. -->
+          <!-- V35.6.2 — Painel completo de configuração ClickUp embedado.
+               skipHeader=true esconde o header ícone+nome+badge+disconnect
+               que duplicava o ConnectionStatusCard acima. -->
           <div class="rounded-2xl bg-white shadow-xl overflow-hidden">
-            ${(window.SettingsModal?.clickupPanel) ? SettingsModal.clickupPanel() : '<div class="p-6 text-slate-700">Painel ClickUp indisponível.</div>'}
+            ${(window.SettingsModal?.clickupPanel) ? SettingsModal.clickupPanel({ skipHeader: true }) : '<div class="p-6 text-slate-700">Painel ClickUp indisponível.</div>'}
           </div>
 
         </div>
