@@ -7160,10 +7160,38 @@ Object.assign(Actions, {
   },
 
   // V35.7.0-alpha1 — Sub-aba do Dashboard Google Ads.
+  // V35.7.1 — 3 sub-abas: 'overview' (Visão Geral nova) | 'linked' (Associadas)
+  // | 'orphans' (Não associadas).
   setGoogleAdsDashboardSubTab(tab) {
-    const valid = ['overview', 'orphans'];
+    const valid = ['overview', 'linked', 'orphans'];
     App.state.googleAdsDashboardSubTab = valid.includes(tab) ? tab : 'overview';
     App.save();
+    App.render();
+  },
+
+  // V35.7.1 — Toggle "incluir não associadas no consolidado" da Visão Geral.
+  toggleGoogleAdsOverviewIncludeOrphans() {
+    App.state.googleAdsOverviewIncludeOrphans = !App.state.googleAdsOverviewIncludeOrphans;
+    App.save();
+    App.render();
+  },
+
+  // V35.7.1 — Expande/colapsa um card de ads vinculada na sub-aba "Associadas".
+  toggleGoogleAdsExpandedAd(campaignId) {
+    const id = String(campaignId);
+    const set = new Set((App.state.googleAdsExpandedAds || []).map(String));
+    if (set.has(id)) set.delete(id); else set.add(id);
+    App.state.googleAdsExpandedAds = Array.from(set);
+    App.render();
+  },
+
+  // V35.7.1 — Abre modal "Avançados" com 25 indicadores da campanha Ads.
+  openGoogleAdsAdvancedModal(campaignId) {
+    App.state.googleAdsAdvancedModalCampaignId = String(campaignId);
+    App.render();
+  },
+  closeGoogleAdsAdvancedModal() {
+    App.state.googleAdsAdvancedModalCampaignId = null;
     App.render();
   },
 

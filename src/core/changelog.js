@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.7.1',
+    date: '2026-06-02',
+    title: 'Dashboard Google Ads ganha "Visão Geral" + cards expansíveis + Avançados',
+    bullets: [
+      'Nova sub-aba "Visão Geral" no Dashboard > Google Ads — consolidado dos 25 indicadores das ads vinculadas.',
+      'Chave seletora "Incluir não associadas" pra ver o panorama completo do tenant quando quiser.',
+      'Sub-aba "Visão geral" antiga renomeada pra "Associadas" — mantém o consolidado por Campanha LJ.',
+      'Cada ads vinculada agora vira card expansível: clica e mostra impressões, cliques, CPC médio, CPM, receita atribuída.',
+      'Botão "Avançados (25 indicadores)" abre modal com a query completa GAQL — id, name, budget, custo, volume, conversão, ROAS, search impression share, view-through, etc.',
+      'Bloco "Indicadores avançados" expansível na Visão Geral pro Grupo 3 (all_conversions, impression share, view-through).',
+      'Hero do card agora tem texto branco sobre fundo pink saturado — corrige contraste ilegível no app dark.'
+    ]
+  },
+  {
     version: 'V35.7.0-alpha4',
     date: '2026-06-02',
     title: 'Sync real Google Ads — dados de exemplo são substituídos pelos reais',

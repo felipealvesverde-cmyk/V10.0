@@ -555,8 +555,15 @@ var State = {
       googleAdsCampaignsLoadedAt: null,     // ISO timestamp
       googleAdsCampaignsAreMock: false,     // true quando usando GoogleAdsMockCampaigns
       // V35.7.0-alpha1 — Sub-aba ativa do Dashboard Google Ads.
-      // 'overview' (default) | 'orphans' (Não associadas)
+      // V35.7.1 — 3 sub-abas agora: 'overview' (Visão Geral nova) | 'linked'
+      // (Associadas — era 'overview') | 'orphans' (Não associadas).
       googleAdsDashboardSubTab: 'overview',
+      // V35.7.1 — Toggle "incluir não associadas" no consolidado da Visão Geral.
+      googleAdsOverviewIncludeOrphans: false,
+      // V35.7.1 — Ads expandidos no card (sub-aba Associadas). Array de campaign_ids.
+      googleAdsExpandedAds: [],
+      // V35.7.1 — campaign_id aberto no modal "Avançados" (25 indicadores). null = fechado.
+      googleAdsAdvancedModalCampaignId: null,
       // V35.7.0-alpha2 — Wizard de associação Ads ↔ Campanha LJ.
       // null quando fechado; objeto quando aberto.
       adsAssociationWizard: null,
@@ -1177,7 +1184,11 @@ var State = {
       googleAdsCampaignsCache: Array.isArray(raw.googleAdsCampaignsCache) ? raw.googleAdsCampaignsCache : null,
       googleAdsCampaignsLoadedAt: raw.googleAdsCampaignsLoadedAt || null,
       googleAdsCampaignsAreMock: Boolean(raw.googleAdsCampaignsAreMock),
-      googleAdsDashboardSubTab: (typeof raw.googleAdsDashboardSubTab === 'string' && ['overview','orphans'].includes(raw.googleAdsDashboardSubTab)) ? raw.googleAdsDashboardSubTab : 'overview',
+      // V35.7.1 — 3 sub-abas: overview (Visão Geral) | linked (Associadas) | orphans
+      googleAdsDashboardSubTab: (typeof raw.googleAdsDashboardSubTab === 'string' && ['overview','linked','orphans'].includes(raw.googleAdsDashboardSubTab)) ? raw.googleAdsDashboardSubTab : 'overview',
+      googleAdsOverviewIncludeOrphans: Boolean(raw.googleAdsOverviewIncludeOrphans),
+      googleAdsExpandedAds: Array.isArray(raw.googleAdsExpandedAds) ? raw.googleAdsExpandedAds.map(String) : [],
+      googleAdsAdvancedModalCampaignId: null,    // modal nunca persiste aberto
       // V35.7.0-alpha2 — wizard fica fechado entre sessões.
       adsAssociationWizard: null,
       // V35.7.0-alpha3 — Cooldown do sininho de ads órfãs persiste entre sessões.
