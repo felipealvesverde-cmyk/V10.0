@@ -2652,7 +2652,8 @@ Object.assign(Actions, {
   // V32.5.7 — Sub-abas em Configurações → Minha Conta:
   // 'identity' (perfil) e 'products' (gerenciamento de produtos).
   setMyAccountTab(tab) {
-    App.state.myAccountTab = (tab === 'products') ? 'products' : 'identity';
+    const valid = ['identity', 'products', 'mailing'];
+    App.state.myAccountTab = valid.includes(tab) ? tab : 'identity';
     App.save(); App.render();
   },
 

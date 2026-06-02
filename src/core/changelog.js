@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.0-alpha2',
+    date: '2026-06-02',
+    title: 'Integrações IPI agora vivem dentro de Configurações (correção)',
+    bullets: [
+      'Nova área Integrações deixou de ser menu próprio — agora substitui a aba "Integrações" dentro de Configurações.',
+      'Seção "Conexão RD Station" removida do sidebar de Configurações — RD vira card em Integrações > Iterar.',
+      'Bancos de Leads movidos pra Configurações > Minha Conta > aba "Bancos de Leads" (não é integração externa).',
+      'Card ClickUp em Iterar abre a seção legacy clickup (sem botão no sidebar, deep-link puro).',
+      'Card RD em Iterar abre a seção legacy rd (mesma técnica).'
+    ]
+  },
+  {
     version: 'V35.6.0-alpha1',
     date: '2026-06-02',
     title: 'Nova área Integrações com navegação IPI (Injetar / Propagar / Iterar)',
