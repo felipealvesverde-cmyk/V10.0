@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.5',
+    date: '2026-06-02',
+    title: 'Sessão dura 7 dias agora — fica logado mesmo deixando a aba parada por dias',
+    bullets: [
+      'TTL da sessão subiu de 24h para 7 dias. Você fica até uma semana sem mexer e volta sem precisar reentrar.',
+      'Enquanto você usa o app, a sessão se renova sozinha em background — sem interrupções.',
+      'Padrão usado por HubSpot, Linear, Asana. Segurança preservada pela rotação automática de JWT secret (V35.4.0).'
+    ]
+  },
+  {
     version: 'V35.6.4',
     date: '2026-06-02',
     title: 'Modal de relogin pelo banner agora é tranquilo, não mais vermelho dramático',

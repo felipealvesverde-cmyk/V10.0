@@ -829,10 +829,13 @@ async function runMigrations() {
 
 // V23.0.0 — Middleware: anexa pool + usuário decodificado em req.
 // V33.0.0 Onda Sliding Session — emite refresh token no header X-Auth-Refresh
-// quando o JWT atual está nas últimas 6h de vida. Padrão GitHub/Linear:
-// cliente ativo renova sozinho, cliente inativo >24h cai pro relogin inline.
-const SLIDING_SESSION_TTL = '24h';            // novo JWT vale 24h
-const SLIDING_RENEWAL_WINDOW_MS = 6 * 60 * 60 * 1000;   // renova quando < 6h pra expirar
+// quando o JWT atual está nas últimas N horas de vida. Padrão GitHub/Linear:
+// cliente ativo renova sozinho, cliente inativo cai pro relogin inline.
+// V35.6.5 — TTL subido de 24h pra 7d. Reduz fricção pra Sansone (que deixa
+// aba aberta por noites/fins de semana). Risco mitigado pela rotação de
+// JWT secret V35.4.0 (rotação invalida tokens vazados em segundos).
+const SLIDING_SESSION_TTL = '7d';                       // novo JWT vale 7 dias
+const SLIDING_RENEWAL_WINDOW_MS = 24 * 60 * 60 * 1000;  // renova quando < 24h pra expirar
 
 // V35.4.0 — JWT verification com suporte a rotação (JWT_SECRET + JWT_SECRET_PREVIOUS).
 const { verifyWithRotation, signWithCurrent } = require('./lib/jwt-rotation');
