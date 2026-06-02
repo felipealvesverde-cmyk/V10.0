@@ -150,13 +150,23 @@ window.RemoteSyncAdapter = {
     }
   },
 
-  // V32.12.4 — Dispara modal de relogin inline (idempotente).
+  // V32.12.4 — Dispara feedback de auth expirado (idempotente).
   // Lei JWT silent failure: 401 NUNCA pode ser silencioso.
+  //
+  // V35.6.3 — Auto-push em background NÃO abre mais o modal bloqueante
+  // (era invasivo: aparecia mesmo sem o user ter clicado em nada).
+  // Agora só seta `sessionExpired = true` (banner âmbar discreto).
+  // O modal continua aparecendo quando o user efetivamente tenta write
+  // manual (interceptado em slidingSession.js, que distingue write vs
+  // read por método HTTP). Mantém lei: 401 sempre vira algo visível.
   _triggerAuthExpired() {
-    if (window.Actions?.openReloginInlineModal) {
-      window.Actions.openReloginInlineModal();
+    if (window.App?.state) {
+      if (!window.App.state.sessionExpired) {
+        window.App.state.sessionExpired = true;
+        if (window.App.render) window.App.render();
+      }
     } else {
-      console.error('[RemoteSync] 401 detectado mas Actions.openReloginInlineModal indisponível.');
+      console.error('[RemoteSync] 401 detectado mas App.state indisponível.');
     }
   },
 
