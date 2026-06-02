@@ -1,13 +1,15 @@
 // V35.3.3 — Google Ads Dashboard.
-// V35.7.0-alpha1 — Reescrito: 2 sub-abas (Overview + Não associadas) lendo
-// de App.state.googleAdsCampaignsCache (mock ou real). Mock prevalece
-// quando sync real (alpha4) ainda não trouxe dados. Badge "Dados de
-// exemplo" indica quando estamos olhando mock.
-//
-// Sub-tab 'overview' — campanhas vinculadas a alguma Campanha LJ + métricas
-// consolidadas por Campanha LJ.
-// Sub-tab 'orphans' — campanhas Ads sem Campanha LJ vinculada (órfãs).
-// Botão "Associar" abre o adsAssociationWizard (alpha2).
+// V35.7.0-alpha1 — 2 sub-abas (Overview + Não associadas) lendo de cache.
+// V35.7.1 — 3 sub-abas:
+//   - 'overview' (Visão Geral nova): compilado dos 25 indicadores de TODAS
+//     as ads associadas. Toggle "incluir não associadas" agrega órfãs também.
+//     Grupo 3 (avançados) atrás de botão expansível.
+//   - 'linked' (Associadas): a antiga visão geral. Cards por Campanha LJ
+//     com linhas das ads dentro. Cada linha agora é expansível, mostra
+//     Grupo 2 + botão "Avançados" → abre modal com 25 indicadores.
+//   - 'orphans' (Não associadas): idêntica ao que era.
+// V35.7.1 — Hero do card com texto branco (era slate-900 ilegível no fundo
+// translúcido sobre app dark).
 
 window.GoogleAdsDashboard = {
   render() {
@@ -20,7 +22,6 @@ window.GoogleAdsDashboard = {
     const allAds = Array.isArray(App.state.googleAdsCampaignsCache) ? App.state.googleAdsCampaignsCache : [];
     const isMock = Boolean(App.state.googleAdsCampaignsAreMock);
 
-    // Separar campanhas Ads em (vinculadas a alguma LJ Campaign) vs (órfãs).
     const ljCampaigns = Array.isArray(App.state.campaigns) ? App.state.campaigns : [];
     const linkedExternalIds = new Set();
     ljCampaigns.forEach(c => (c.externalLinks?.googleAds || []).forEach(id => linkedExternalIds.add(String(id))));
@@ -31,43 +32,47 @@ window.GoogleAdsDashboard = {
     return `<div class="space-y-4">
       ${this._hero(isMock, orphans.length)}
       ${this._subTabsBar(subTab, orphans.length)}
-      ${subTab === 'orphans'
-        ? this._renderOrphans(orphans, ljCampaigns)
-        : this._renderOverview(linked, ljCampaigns)}
+      ${subTab === 'overview' ? this._renderOverview(linked, orphans)
+        : subTab === 'orphans' ? this._renderOrphans(orphans)
+        : this._renderLinked(linked, ljCampaigns)}
     </div>`;
   },
 
+  // ============================ HERO ============================
   _hero(isMock, orphansCount) {
     const mockBadge = isMock
-      ? `<span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md bg-amber-100 border border-amber-300 text-amber-800">Dados de exemplo</span>`
+      ? `<span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md bg-amber-400/30 border border-amber-300/60 text-amber-100">Dados de exemplo</span>`
       : '';
     const orphanBadge = orphansCount > 0
-      ? `<span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md bg-rose-100 border border-rose-300 text-rose-800">${orphansCount} não associada${orphansCount > 1 ? 's' : ''}</span>`
+      ? `<span class="ml-2 text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-md bg-rose-400/30 border border-rose-300/60 text-rose-100">${orphansCount} não associada${orphansCount > 1 ? 's' : ''}</span>`
       : '';
-    // V35.7.0-alpha4 — Botão "Sincronizar agora" quando OAuth conectado.
     const oauthDone = Boolean(App.state.googleAdsStatus?.oauthCompleted);
     const syncBtn = oauthDone
       ? `<button onclick="Actions.triggerGoogleAdsSync()"
-          class="shrink-0 px-3 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-xs font-black inline-flex items-center gap-1.5"
+          class="shrink-0 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur text-white text-xs font-black inline-flex items-center gap-1.5 border border-white/30"
           style="color:#fff!important;">
           <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar agora
         </button>`
       : '';
-    return `<div class="rounded-3xl p-6 lg:p-8" style="background: linear-gradient(135deg, rgba(244,114,182,.18), rgba(249,168,212,.10)); border: 1px solid rgba(244,114,182,.30);">
+    // V35.7.1 — Fundo mais saturado + texto branco pra legibilidade
+    // (era translúcido sobre dark, ficava ilegível).
+    return `<div class="rounded-3xl p-6 lg:p-8 shadow-xl"
+      style="background: linear-gradient(135deg, #BE185D 0%, #9D174D 60%, #831843 100%); border: 1px solid rgba(244,114,182,.40);">
       <div class="flex items-start gap-4">
-        <div class="shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center" style="background: rgba(244,114,182,.20); border: 1px solid rgba(244,114,182,.40);">
-          <i data-lucide="search" class="w-7 h-7" style="color: #F472B6;"></i>
+        <div class="shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center bg-white/15 border border-white/25">
+          <i data-lucide="search" class="w-7 h-7 text-white"></i>
         </div>
         <div class="min-w-0 flex-1">
-          <p class="text-[10px] font-black uppercase tracking-widest mb-1" style="color: #F472B6;">Marketing · Aquisição</p>
-          <h2 class="text-2xl lg:text-3xl font-black text-slate-900 flex items-center flex-wrap gap-2">Google Ads ${mockBadge}${orphanBadge}</h2>
-          <p class="text-sm text-slate-600 mt-2">Search, Display, YouTube, Performance Max. Vincule cada campanha Ads a uma Campanha LJ pra consolidar gasto, ROAS e conversões por iniciativa.</p>
+          <p class="text-[10px] font-black uppercase tracking-widest mb-1 text-pink-100">Marketing · Aquisição</p>
+          <h2 class="text-2xl lg:text-3xl font-black text-white flex items-center flex-wrap gap-2">Google Ads ${mockBadge}${orphanBadge}</h2>
+          <p class="text-sm text-pink-100/90 mt-2">Search, Display, YouTube, Performance Max. Vincule cada campanha Ads a uma Campanha LJ pra consolidar gasto, ROAS e conversões por iniciativa.</p>
         </div>
         ${syncBtn}
       </div>
     </div>`;
   },
 
+  // ============================ SUB-TABS ============================
   _subTabsBar(active, orphansCount) {
     const tab = (id, label, icon, badge = '') => {
       const isActive = active === id;
@@ -78,16 +83,246 @@ window.GoogleAdsDashboard = {
         ${badge}
       </button>`;
     };
-    const orphanCountBadge = orphansCount > 0
+    const orphanBadgeCount = orphansCount > 0
       ? `<span class="text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md ${active === 'orphans' ? 'bg-white text-pink-700' : 'bg-rose-100 text-rose-700'}">${orphansCount}</span>`
       : '';
     return `<div class="flex flex-wrap gap-2">
-      ${tab('overview', 'Visão geral', 'layout-dashboard')}
-      ${tab('orphans', 'Não associadas', 'link-2-off', orphanCountBadge)}
+      ${tab('overview', 'Visão Geral', 'layout-dashboard')}
+      ${tab('linked', 'Associadas', 'link-2')}
+      ${tab('orphans', 'Não associadas', 'link-2-off', orphanBadgeCount)}
     </div>`;
   },
 
-  _renderOrphans(orphans, ljCampaigns) {
+  // ============================ VISÃO GERAL (NOVA) ============================
+  _renderOverview(linked, orphans) {
+    const includeOrphans = Boolean(App.state.googleAdsOverviewIncludeOrphans);
+    const universe = includeOrphans ? [...linked, ...orphans] : linked;
+
+    if (!linked.length && !includeOrphans) {
+      return `<div class="rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 p-12 text-center">
+        <i data-lucide="layout-dashboard" class="w-10 h-10 text-slate-400 mx-auto mb-3"></i>
+        <p class="text-sm font-black text-slate-700">Nenhuma campanha Ads vinculada ainda.</p>
+        <p class="text-[12px] text-slate-500 mt-1 max-w-md mx-auto">Visão Geral mostra o consolidado das ads vinculadas. ${orphans.length > 0 ? `Você tem ${orphans.length} órfã${orphans.length > 1 ? 's' : ''} — vincule na aba "Não associadas" OU ative o toggle abaixo pra ver tudo:` : 'Quando vincular ads, o panorama aparece aqui.'}</p>
+        ${orphans.length > 0 ? `<button onclick="Actions.toggleGoogleAdsOverviewIncludeOrphans()" class="mt-4 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+          <i data-lucide="eye" class="w-3.5 h-3.5"></i> Incluir não associadas no consolidado
+        </button>` : ''}
+      </div>`;
+    }
+
+    // Agregação
+    const agg = this._aggregate(universe);
+
+    return `<div class="space-y-4">
+      ${this._overviewToggleBar(linked.length, orphans.length, includeOrphans)}
+
+      <!-- Grupo 1: KPIs principais -->
+      ${this._kpiGrid([
+        { label: 'Gasto 30d',         value: `R$ ${this._fmtMoney(agg.cost_brl)}`,   tone: 'pink' },
+        { label: 'ROAS',              value: `${agg.roas.toFixed(2)}x`,              tone: agg.roas >= 3 ? 'emerald' : agg.roas >= 1 ? 'amber' : 'rose' },
+        { label: 'CPL',               value: `R$ ${this._fmtMoney(agg.cpl)}`,        tone: 'slate' },
+        { label: 'CTR',               value: `${agg.ctr.toFixed(2)}%`,               tone: 'slate' }
+      ])}
+
+      <!-- Grupo 2: Volume + Conversão -->
+      ${this._kpiGrid([
+        { label: 'Impressões',        value: this._fmtInt(agg.impressions),          tone: 'slate' },
+        { label: 'Cliques',           value: this._fmtInt(agg.clicks),               tone: 'slate' },
+        { label: 'CPC médio',         value: `R$ ${this._fmtMoney(agg.cpc)}`,        tone: 'slate' },
+        { label: 'CPM médio',         value: `R$ ${this._fmtMoney(agg.cpm)}`,        tone: 'slate' },
+        { label: 'Conversões',        value: this._fmtInt(agg.conversions),          tone: 'pink' },
+        { label: 'Receita atribuída', value: `R$ ${this._fmtMoney(agg.conversions_value)}`, tone: 'emerald' },
+        { label: 'Campanhas ativas',  value: this._fmtInt(universe.length),          tone: 'slate' },
+        { label: 'Ticket médio',      value: `R$ ${this._fmtMoney(agg.ticket)}`,     tone: 'slate' }
+      ])}
+
+      <!-- Grupo 3: Avançados (expansível) -->
+      ${this._advancedSection(agg)}
+    </div>`;
+  },
+
+  _overviewToggleBar(linkedCount, orphansCount, includeOrphans) {
+    return `<div class="rounded-2xl bg-white border border-slate-200 p-3 flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-2 text-[12px] text-slate-700">
+        <i data-lucide="filter" class="w-3.5 h-3.5 text-slate-500"></i>
+        <span>Mostrando consolidado de <b>${linkedCount} associada${linkedCount !== 1 ? 's' : ''}</b>${includeOrphans ? ` <b>+ ${orphansCount} não associada${orphansCount !== 1 ? 's' : ''}</b>` : ''}.</span>
+      </div>
+      <label class="flex items-center gap-2 cursor-pointer text-[12px] font-black text-slate-700">
+        <span>Incluir não associadas</span>
+        <button onclick="Actions.toggleGoogleAdsOverviewIncludeOrphans()" type="button"
+          class="relative inline-flex h-5 w-9 items-center rounded-full transition ${includeOrphans ? 'bg-pink-600' : 'bg-slate-300'}"
+          aria-checked="${includeOrphans}" role="switch">
+          <span class="inline-block w-3.5 h-3.5 transform rounded-full bg-white shadow transition ${includeOrphans ? 'translate-x-5' : 'translate-x-0.5'}"></span>
+        </button>
+      </label>
+    </div>`;
+  },
+
+  _kpiGrid(items) {
+    const toneCls = {
+      pink:    'border-pink-200 bg-pink-50 text-pink-900',
+      emerald: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+      amber:   'border-amber-200 bg-amber-50 text-amber-900',
+      rose:    'border-rose-200 bg-rose-50 text-rose-900',
+      slate:   'border-slate-200 bg-white text-slate-900'
+    };
+    return `<div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      ${items.map(k => `<div class="rounded-2xl border ${toneCls[k.tone] || toneCls.slate} p-3 text-center">
+        <p class="text-[9px] font-black uppercase tracking-widest opacity-70">${Utils.escape(k.label)}</p>
+        <p class="text-lg font-black mt-1">${k.value}</p>
+      </div>`).join('')}
+    </div>`;
+  },
+
+  _advancedSection(agg) {
+    return `<details class="rounded-2xl bg-white border border-slate-200 group">
+      <summary class="px-4 py-3 cursor-pointer flex items-center justify-between gap-2 list-none">
+        <div class="flex items-center gap-2">
+          <i data-lucide="settings-2" class="w-4 h-4 text-slate-500"></i>
+          <span class="text-sm font-black text-slate-700">Indicadores avançados</span>
+          <span class="text-[10px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600">Grupo 3</span>
+        </div>
+        <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500 transition group-open:rotate-180"></i>
+      </summary>
+      <div class="px-4 pb-4">
+        ${this._kpiGrid([
+          { label: 'Todas conversões',         value: this._fmtInt(agg.all_conversions),                tone: 'slate' },
+          { label: 'Receita (todas conv.)',    value: `R$ ${this._fmtMoney(agg.all_conversions_value)}`, tone: 'slate' },
+          { label: 'Custo por todas conv.',    value: `R$ ${this._fmtMoney(agg.cost_per_all_conv)}`,    tone: 'slate' },
+          { label: 'Receita por todas conv.',  value: `R$ ${this._fmtMoney(agg.value_per_all_conv)}`,   tone: 'slate' },
+          { label: 'View-through conv.',       value: this._fmtInt(agg.view_through_conversions),       tone: 'slate' },
+          { label: 'Conv. por interação',      value: `${(agg.conv_from_interaction_rate * 100).toFixed(2)}%`, tone: 'slate' },
+          { label: 'Search impression share',  value: agg.search_impression_share != null ? `${agg.search_impression_share.toFixed(1)}%` : '—', tone: 'slate' },
+          { label: 'Search top impression sh.', value: agg.search_top_impression_share != null ? `${agg.search_top_impression_share.toFixed(1)}%` : '—', tone: 'slate' }
+        ])}
+        <p class="text-[10px] text-slate-500 mt-3 italic">All conversions inclui primárias + secundárias + view-through. Impression share só vale pra Search/Shopping (vídeos e PMax não expõem direto).</p>
+      </div>
+    </details>`;
+  },
+
+  // ============================ ASSOCIADAS (era 'overview') ============================
+  _renderLinked(linked, ljCampaigns) {
+    if (!linked.length) {
+      return `<div class="rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 p-12 text-center">
+        <i data-lucide="link-2-off" class="w-10 h-10 text-slate-400 mx-auto mb-3"></i>
+        <p class="text-sm font-black text-slate-700">Nenhuma campanha Ads vinculada ainda.</p>
+        <p class="text-[12px] text-slate-500 mt-1">Vá para a aba "Não associadas" e amarre cada campanha Ads a uma Campanha LJ.</p>
+      </div>`;
+    }
+
+    const byLj = new Map();
+    linked.forEach(ad => {
+      const lj = ljCampaigns.find(c => (c.externalLinks?.googleAds || []).map(String).includes(String(ad.campaign_id)));
+      if (!lj) return;
+      if (!byLj.has(lj.id)) byLj.set(lj.id, { lj, ads: [] });
+      byLj.get(lj.id).ads.push(ad);
+    });
+
+    return `<div class="space-y-4">
+      ${Array.from(byLj.values()).map(({ lj, ads }) => this._ljCampaignBlock(lj, ads)).join('')}
+    </div>`;
+  },
+
+  _ljCampaignBlock(lj, ads) {
+    const agg = this._aggregate(ads);
+    return `<div class="rounded-3xl bg-white border border-slate-200 shadow-sm overflow-hidden">
+      <div class="p-5 border-b border-slate-100" style="background: linear-gradient(135deg, rgba(244,114,182,.10), rgba(249,168,212,.05));">
+        <div class="flex items-start justify-between gap-3 flex-wrap">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black uppercase tracking-widest text-pink-700">Campanha LJ</p>
+            <h3 class="text-xl font-black text-slate-900 mt-0.5">${Utils.escape(lj.name)}</h3>
+            <p class="text-[11px] text-slate-500 mt-0.5">${ads.length} campanha${ads.length > 1 ? 's' : ''} Ads vinculada${ads.length > 1 ? 's' : ''} · ${Utils.escape(lj.sector || 'Marketing')}</p>
+          </div>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
+            <div class="rounded-lg bg-white border border-slate-200 p-2 text-center min-w-[80px]">
+              <p class="text-[9px] font-black uppercase tracking-widest text-slate-500">Gasto 30d</p>
+              <p class="text-sm font-black text-slate-900 mt-0.5">R$ ${this._fmtMoney(agg.cost_brl)}</p>
+            </div>
+            <div class="rounded-lg bg-white border border-slate-200 p-2 text-center min-w-[80px]">
+              <p class="text-[9px] font-black uppercase tracking-widest text-slate-500">ROAS</p>
+              <p class="text-sm font-black ${agg.roas >= 3 ? 'text-emerald-700' : agg.roas >= 1 ? 'text-amber-700' : 'text-rose-700'} mt-0.5">${agg.roas.toFixed(2)}x</p>
+            </div>
+            <div class="rounded-lg bg-white border border-slate-200 p-2 text-center min-w-[80px]">
+              <p class="text-[9px] font-black uppercase tracking-widest text-slate-500">CPL</p>
+              <p class="text-sm font-black text-slate-900 mt-0.5">R$ ${this._fmtMoney(agg.cpl)}</p>
+            </div>
+            <div class="rounded-lg bg-white border border-slate-200 p-2 text-center min-w-[80px]">
+              <p class="text-[9px] font-black uppercase tracking-widest text-slate-500">CTR</p>
+              <p class="text-sm font-black text-slate-900 mt-0.5">${agg.ctr.toFixed(2)}%</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divide-y divide-slate-100">
+        ${ads.map(a => this._linkedAdRow(a)).join('')}
+      </div>
+    </div>`;
+  },
+
+  // V35.7.1 — Card de ads vinculada agora é expansível (click expande/colapsa
+  // mostrando Grupo 2). Dentro do expandido tem botão "Avançados".
+  _linkedAdRow(a) {
+    const m = a.metrics_30d || {};
+    const channelType = (a.advertising_channel_type || '').replace('_', ' ');
+    const expanded = (App.state.googleAdsExpandedAds || []).map(String).includes(String(a.campaign_id));
+
+    const header = `<button type="button" onclick="Actions.toggleGoogleAdsExpandedAd('${Utils.escape(a.campaign_id)}')"
+        class="w-full p-4 flex items-center justify-between gap-3 hover:bg-slate-50 text-left">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <i data-lucide="${expanded ? 'chevron-down' : 'chevron-right'}" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+            <p class="text-sm font-black text-slate-900 truncate">${Utils.escape(a.campaign_name || a.campaign_id)}</p>
+            <span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-pink-100 text-pink-700">${Utils.escape(channelType)}</span>
+            <span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700">${Utils.escape(a.status || '')}</span>
+          </div>
+          <p class="text-[10px] text-slate-500 font-mono mt-0.5 ml-5">ID ${Utils.escape(a.campaign_id)}</p>
+        </div>
+        <div class="hidden md:flex gap-3 text-right">
+          <div>
+            <p class="text-[9px] font-black uppercase tracking-widest text-slate-500">Gasto 30d</p>
+            <p class="text-[12px] font-black text-slate-900">R$ ${this._fmtMoney(m.cost_brl)}</p>
+          </div>
+          <div>
+            <p class="text-[9px] font-black uppercase tracking-widest text-slate-500">Conv.</p>
+            <p class="text-[12px] font-black text-slate-900">${this._fmtInt(m.conversions)}</p>
+          </div>
+        </div>
+      </button>`;
+
+    const expandedBody = expanded ? `<div class="px-5 pb-4 pt-1 bg-slate-50/60 border-t border-slate-100">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Indicadores detalhados</p>
+        ${this._kpiGrid([
+          { label: 'Impressões',     value: this._fmtInt(m.impressions),                tone: 'slate' },
+          { label: 'Cliques',        value: this._fmtInt(m.clicks),                     tone: 'slate' },
+          { label: 'CTR',            value: `${Number(m.ctr || 0).toFixed(2)}%`,        tone: 'slate' },
+          { label: 'CPC médio',      value: `R$ ${this._fmtMoney(m.average_cpc)}`,      tone: 'slate' },
+          { label: 'CPM médio',      value: `R$ ${this._fmtMoney(m.average_cpm)}`,      tone: 'slate' },
+          { label: 'Conversões',     value: this._fmtInt(m.conversions),                tone: 'pink' },
+          { label: 'Receita conv.',  value: `R$ ${this._fmtMoney(m.conversions_value)}`, tone: 'emerald' },
+          { label: 'Custo / conv.',  value: `R$ ${this._fmtMoney(m.cost_per_conversion)}`, tone: 'slate' }
+        ])}
+        <div class="mt-3 flex flex-wrap gap-2 justify-between items-center">
+          <p class="text-[11px] text-slate-500">Bidding: <b class="font-mono">${Utils.escape((a.bidding_strategy_type || '').replace('_',' '))}</b> · Budget diário: <b>R$ ${this._fmtMoney(a.daily_budget_brl)}</b></p>
+          <div class="flex gap-2">
+            <button onclick="Actions.openGoogleAdsAdvancedModal('${Utils.escape(a.campaign_id)}')"
+              class="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-black inline-flex items-center gap-1.5"
+              style="color:#fff!important;">
+              <i data-lucide="settings-2" class="w-3.5 h-3.5"></i> Avançados (25 indicadores)
+            </button>
+            <button onclick="event.stopPropagation(); Actions.unlinkGoogleAdsCampaignFromLj('${Utils.escape(a.campaign_id)}')"
+              class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-rose-700 text-[11px] font-black inline-flex items-center gap-1.5"
+              title="Desvincular esta campanha Ads">
+              <i data-lucide="unlink" class="w-3 h-3"></i> Desvincular
+            </button>
+          </div>
+        </div>
+      </div>` : '';
+
+    return header + expandedBody;
+  },
+
+  // ============================ NÃO ASSOCIADAS ============================
+  _renderOrphans(orphans) {
     if (!orphans.length) {
       return `<div class="rounded-3xl bg-emerald-50 border border-emerald-200 p-8 text-center">
         <i data-lucide="check-circle-2" class="w-10 h-10 text-emerald-600 mx-auto mb-3"></i>
@@ -150,111 +385,47 @@ window.GoogleAdsDashboard = {
     </div>`;
   },
 
-  _renderOverview(linked, ljCampaigns) {
-    if (!linked.length) {
-      return `<div class="rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 p-12 text-center">
-        <i data-lucide="link-2-off" class="w-10 h-10 text-slate-400 mx-auto mb-3"></i>
-        <p class="text-sm font-black text-slate-700">Nenhuma campanha Ads vinculada ainda.</p>
-        <p class="text-[12px] text-slate-500 mt-1">Vá para a aba "Não associadas" e amarre cada campanha Ads a uma Campanha LJ.</p>
-      </div>`;
-    }
-
-    // Agrupa por Campanha LJ.
-    const byLj = new Map();
-    linked.forEach(ad => {
-      const lj = ljCampaigns.find(c => (c.externalLinks?.googleAds || []).map(String).includes(String(ad.campaign_id)));
-      if (!lj) return;
-      if (!byLj.has(lj.id)) byLj.set(lj.id, { lj, ads: [] });
-      byLj.get(lj.id).ads.push(ad);
-    });
-
-    return `<div class="space-y-4">
-      ${Array.from(byLj.values()).map(({ lj, ads }) => this._ljCampaignBlock(lj, ads)).join('')}
-    </div>`;
-  },
-
-  _ljCampaignBlock(lj, ads) {
-    let cost = 0, clicks = 0, impressions = 0, conversions = 0, conversionsValue = 0;
+  // ============================ AGREGAÇÃO ============================
+  _aggregate(ads) {
+    let cost = 0, impressions = 0, clicks = 0, conversions = 0, conversions_value = 0;
+    let all_conversions = 0, all_conversions_value = 0, view_through = 0;
+    let sis_sum = 0, sis_count = 0, stis_sum = 0, stis_count = 0;
+    let cfir_sum = 0, cfir_count = 0;
     ads.forEach(a => {
       const m = a.metrics_30d || {};
       cost += Number(m.cost_brl || 0);
-      clicks += Number(m.clicks || 0);
       impressions += Number(m.impressions || 0);
+      clicks += Number(m.clicks || 0);
       conversions += Number(m.conversions || 0);
-      conversionsValue += Number(m.conversions_value || 0);
+      conversions_value += Number(m.conversions_value || 0);
+      all_conversions += Number(m.all_conversions || 0);
+      all_conversions_value += Number(m.all_conversions_value || 0);
+      view_through += Number(m.view_through_conversions || 0);
+      if (m.search_impression_share != null) { sis_sum += Number(m.search_impression_share); sis_count++; }
+      if (m.search_top_impression_share != null) { stis_sum += Number(m.search_top_impression_share); stis_count++; }
+      if (m.conversions_from_interactions_rate != null) { cfir_sum += Number(m.conversions_from_interactions_rate); cfir_count++; }
     });
-    const roas = cost > 0 ? (conversionsValue / cost) : 0;
-    const cpl = conversions > 0 ? (cost / conversions) : 0;
-    const ctr = impressions > 0 ? ((clicks / impressions) * 100) : 0;
-
-    return `<div class="rounded-3xl bg-white border border-slate-200 shadow-sm overflow-hidden">
-      <div class="p-5 border-b border-slate-100" style="background: linear-gradient(135deg, rgba(244,114,182,.10), rgba(249,168,212,.05));">
-        <div class="flex items-start justify-between gap-3 flex-wrap">
-          <div class="min-w-0">
-            <p class="text-[10px] font-black uppercase tracking-widest text-pink-700">Campanha LJ</p>
-            <h3 class="text-xl font-black text-slate-900 mt-0.5">${Utils.escape(lj.name)}</h3>
-            <p class="text-[11px] text-slate-500 mt-0.5">${ads.length} campanha${ads.length > 1 ? 's' : ''} Ads vinculada${ads.length > 1 ? 's' : ''} · ${Utils.escape(lj.sector || 'Marketing')}</p>
-          </div>
-          <div class="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
-            <div class="rounded-lg bg-white border border-slate-200 p-2 text-center min-w-[80px]">
-              <p class="text-[9px] font-black uppercase tracking-widest text-slate-500">Gasto 30d</p>
-              <p class="text-sm font-black text-slate-900 mt-0.5">R$ ${this._fmtMoney(cost)}</p>
-            </div>
-            <div class="rounded-lg bg-white border border-slate-200 p-2 text-center min-w-[80px]">
-              <p class="text-[9px] font-black uppercase tracking-widest text-slate-500">ROAS</p>
-              <p class="text-sm font-black ${roas >= 3 ? 'text-emerald-700' : roas >= 1 ? 'text-amber-700' : 'text-rose-700'} mt-0.5">${roas.toFixed(2)}x</p>
-            </div>
-            <div class="rounded-lg bg-white border border-slate-200 p-2 text-center min-w-[80px]">
-              <p class="text-[9px] font-black uppercase tracking-widest text-slate-500">CPL</p>
-              <p class="text-sm font-black text-slate-900 mt-0.5">R$ ${this._fmtMoney(cpl)}</p>
-            </div>
-            <div class="rounded-lg bg-white border border-slate-200 p-2 text-center min-w-[80px]">
-              <p class="text-[9px] font-black uppercase tracking-widest text-slate-500">CTR</p>
-              <p class="text-sm font-black text-slate-900 mt-0.5">${ctr.toFixed(2)}%</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="divide-y divide-slate-100">
-        ${ads.map(a => this._linkedAdRow(a)).join('')}
-      </div>
-    </div>`;
-  },
-
-  _linkedAdRow(a) {
-    const m = a.metrics_30d || {};
-    const channelType = (a.advertising_channel_type || '').replace('_', ' ');
-    return `<div class="p-4 flex items-center justify-between gap-3 hover:bg-slate-50">
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2 flex-wrap">
-          <p class="text-sm font-black text-slate-900 truncate">${Utils.escape(a.campaign_name || a.campaign_id)}</p>
-          <span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-pink-100 text-pink-700">${Utils.escape(channelType)}</span>
-          <span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700">${Utils.escape(a.status || '')}</span>
-        </div>
-        <p class="text-[10px] text-slate-500 font-mono mt-0.5">ID ${Utils.escape(a.campaign_id)}</p>
-      </div>
-      <div class="hidden md:flex gap-3 text-right">
-        <div>
-          <p class="text-[9px] font-black uppercase tracking-widest text-slate-500">Gasto 30d</p>
-          <p class="text-[12px] font-black text-slate-900">R$ ${this._fmtMoney(m.cost_brl)}</p>
-        </div>
-        <div>
-          <p class="text-[9px] font-black uppercase tracking-widest text-slate-500">Conv.</p>
-          <p class="text-[12px] font-black text-slate-900">${this._fmtInt(m.conversions)}</p>
-        </div>
-      </div>
-      <button onclick="Actions.unlinkGoogleAdsCampaignFromLj('${Utils.escape(a.campaign_id)}')"
-        class="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-rose-700 text-[10px] font-black inline-flex items-center gap-1 shrink-0"
-        title="Desvincular esta campanha Ads">
-        <i data-lucide="unlink" class="w-3 h-3"></i> Desvincular
-      </button>
-    </div>`;
+    const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+    const cpc = clicks > 0 ? cost / clicks : 0;
+    const cpm = impressions > 0 ? (cost / impressions) * 1000 : 0;
+    const cpl = conversions > 0 ? cost / conversions : 0;
+    const roas = cost > 0 ? conversions_value / cost : 0;
+    const ticket = conversions > 0 ? conversions_value / conversions : 0;
+    const cost_per_all_conv = all_conversions > 0 ? cost / all_conversions : 0;
+    const value_per_all_conv = all_conversions > 0 ? all_conversions_value / all_conversions : 0;
+    return {
+      cost_brl: cost, impressions, clicks, conversions, conversions_value,
+      ctr, cpc, cpm, cpl, roas, ticket,
+      all_conversions, all_conversions_value, view_through_conversions: view_through,
+      cost_per_all_conv, value_per_all_conv,
+      search_impression_share: sis_count > 0 ? (sis_sum / sis_count) : null,
+      search_top_impression_share: stis_count > 0 ? (stis_sum / stis_count) : null,
+      conv_from_interaction_rate: cfir_count > 0 ? (cfir_sum / cfir_count) : 0
+    };
   },
 
   _fmtMoney(n) {
-    const v = Number(n || 0);
-    return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return Number(n || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   },
 
   _fmtInt(n) {
