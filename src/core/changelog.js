@@ -18,76 +18,20 @@
 
 window.LJChangelog = [
   {
-    version: 'V35.6.0-alpha6',
+    version: 'V35.6.0',
     date: '2026-06-02',
-    title: 'Google Ads e Hotmart conectados — agora abrem em modo Gerenciar',
+    title: 'Integrações IPI — área inteira repaginada com Injetar, Propagar e Iterar',
     bullets: [
-      'Quando você clica em "Gerenciar" no Google Ads conectado, abre status card unificado em vez do wizard inteiro.',
-      'Hotmart conectado idem — status card com badges HOTTOK ativo, Webhook recebendo, OAuth (se houver).',
-      'Botão "Atualizar credenciais/HOTTOK" entra no wizard só quando você quer trocar.',
-      'Botão "Desconectar" sempre disponível no rodapé do modo Gerenciar.',
-      'ConnectionStatusCard agora é o template padrão em todas as 4 integrações ativas (Google Ads, Hotmart, RD, ClickUp).'
-    ]
-  },
-  {
-    version: 'V35.6.0-alpha5',
-    date: '2026-06-02',
-    title: 'Modal "X + LeadJourney" — entenda o fluxo de dados de cada integração',
-    bullets: [
-      'Clica no ícone (?) dentro do modal de qualquer integração e abre um modal nested explicando o fluxo de dados real.',
-      'Mostra o que entra no LJ, o que sai do LJ, e a frequência de cada troca.',
-      'Explica passo-a-passo como funciona o loop de cada integração.',
-      'Lista os pré-requisitos pra cada integração funcionar (tokens, OAuth, etc).',
-      'Conteúdo já preparado para RD, ClickUp, Google Ads, Hotmart, Meta Ads e Stripe.'
-    ]
-  },
-  {
-    version: 'V35.6.0-alpha4',
-    date: '2026-06-02',
-    title: 'Modais próprios pra RD e ClickUp + Status Card padrão',
-    bullets: [
-      'RD Station agora tem modal próprio com fundo Iterar (#1565C0 royal blue) e accent pink (cor brand RD).',
-      'ClickUp idem — fundo Iterar + accent violet (cor brand ClickUp).',
-      'Componente Connection Status Card padrão estilo print 3 do RD: identificação, badges, última validação, botões secundários, ícone de ajuda.',
-      'RD mostra 3 sub-cards (Token CRM / Tempo Real / RD Marketing); ClickUp mostra 2 (Workspace+Raiz / Sincronização).',
-      'Configuração avançada de cada integração ainda abre Settings legacy — sairá na alpha final.'
-    ]
-  },
-  {
-    version: 'V35.6.0-alpha3',
-    date: '2026-06-02',
-    title: 'Modais de integração herdam a cor da aba IPI a que pertencem',
-    bullets: [
-      'Modal de Google Ads agora usa fundo Injetar (#0A1F44 marinho profundo) com accent amber preservado.',
-      'Modal de Hotmart idem — fundo Injetar com accent orange preservado.',
-      'Cores próprias da integração (amber Google, orange Hotmart) viram nuances que vibram na cor principal da aba — usadas em ícone, badge, botão CTA.',
-      'Inputs e cards internos usam #001230 (mais escuro que o fundo) pra criar profundidade.',
-      'Regra cravada: toda integração de Iterar (RD, ClickUp) terá fundo #1565C0 quando os modais próprios chegarem.'
-    ]
-  },
-  {
-    version: 'V35.6.0-alpha2',
-    date: '2026-06-02',
-    title: 'Integrações IPI agora vivem dentro de Configurações (correção)',
-    bullets: [
-      'Nova área Integrações deixou de ser menu próprio — agora substitui a aba "Integrações" dentro de Configurações.',
-      'Seção "Conexão RD Station" removida do sidebar de Configurações — RD vira card em Integrações > Iterar.',
-      'Bancos de Leads movidos pra Configurações > Minha Conta > aba "Bancos de Leads" (não é integração externa).',
-      'Card ClickUp em Iterar abre a seção legacy clickup (sem botão no sidebar, deep-link puro).',
-      'Card RD em Iterar abre a seção legacy rd (mesma técnica).'
-    ]
-  },
-  {
-    version: 'V35.6.0-alpha1',
-    date: '2026-06-02',
-    title: 'Nova área Integrações com navegação IPI (Injetar / Propagar / Iterar)',
-    bullets: [
-      'Novo menu "Integrações" no nível principal do app (ao lado de Dashboard).',
-      'Três abas com a mecânica do Journey — Injetar (alimentam dados), Propagar (executam comando), Iterar (dialogam em loop).',
-      'Cada aba tem descritivo educativo explicando o conceito IPI no contexto LJ.',
-      'Cards de Google Ads, Hotmart já funcionais nesta versão; Meta Ads e Stripe seguem "Em breve".',
-      'RD Station e ClickUp aparecem em Iterar (ainda gerenciados via Configurações nesta alpha — modais próprios em V35.6.x).',
-      'Bloco antigo em Configurações → Integrações continua vivo até V35.6.0 final.'
+      'A aba "Integrações" em Configurações foi inteira redesenhada com a mecânica do Journey: Injetar (softwares que alimentam dados), Propagar (executam comandos), Iterar (dialogam em loop).',
+      'Cada aba tem descritivo educativo explicando seu papel + cores próprias (gradiente azul de profundidade).',
+      'Cards de integração no padrão Google Ads V35.5.0 — Google Ads, Hotmart, Meta Ads, Stripe em Injetar; RD Station, ClickUp em Iterar.',
+      'Modal de cada integração herda a cor de fundo da aba a que pertence; as cores próprias (amber, orange, pink, violet) viram accents que vibram na cor principal.',
+      'Modais próprios pra RD e ClickUp substituem o deep-link pro Settings antigo — RD mostra 3 sub-conexões (Token / Tempo Real / Marketing), ClickUp mostra Workspace e Sincronização.',
+      'Componente Connection Status Card unificado (estilo print 3 do RD) aplicado em todas as 4 integrações ativas — identificação, badges, última validação, botões e ícone de ajuda.',
+      'Modal nested "X + LeadJourney" no ícone (?) explica o fluxo de dados real de cada integração: o que entra, o que sai, frequência, como o loop funciona e pré-requisitos.',
+      'Bancos de Leads migrados pra Configurações → Minha Conta → aba "Bancos de Leads" (não é integração externa).',
+      'Seção "Conexão RD Station" removida do sidebar de Configurações (agora é card em Iterar).',
+      'Backend não mudou nada — sua conexão RD, ClickUp ou Google Ads continua intacta.'
     ]
   },
   {
