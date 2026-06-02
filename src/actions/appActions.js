@@ -7153,6 +7153,65 @@ Object.assign(Actions, {
     Utils.toast(`✓ ${campaignExternalIds.length} campanha(s) Ads vinculada(s) a "${lj.name}".`);
   },
 
+  // V35.7.0-alpha3 — Cooldown global do sininho de ads órfãs.
+  //
+  // Mecânica (decidida com Felipe):
+  // - 1 notificação por campanha Ads órfã (count = quantas órfãs existem)
+  // - Click no sininho remove a bolinha visual (dismissedAt = Date.now())
+  // - 10 min depois, se ainda tem órfã, bolinha volta (cooldown global)
+  // - Bypass: se chega ads órfã com ID NÃO presente no snapshot do dismiss,
+  //   bolinha volta IMEDIATAMENTE (sem esperar 10min)
+  // - Quando órfã é associada de fato, sai automaticamente do count
+  ADS_ORPHAN_BELL_COOLDOWN_MS: 10 * 60 * 1000,
+
+  _adsOrphanIds() {
+    const allAds = Array.isArray(App.state.googleAdsCampaignsCache) ? App.state.googleAdsCampaignsCache : [];
+    const ljCampaigns = Array.isArray(App.state.campaigns) ? App.state.campaigns : [];
+    const linkedSet = new Set();
+    ljCampaigns.forEach(c => (c.externalLinks?.googleAds || []).forEach(id => linkedSet.add(String(id))));
+    return allAds.filter(a => !linkedSet.has(String(a.campaign_id))).map(a => String(a.campaign_id));
+  },
+
+  // Quantas órfãs aparecem no sininho AGORA (respeitando cooldown).
+  getAdsOrphanBellCount() {
+    const orphans = Actions._adsOrphanIds();
+    if (!orphans.length) return 0;
+    const dismissedAt = App.state.googleAdsOrphanBellDismissedAt;
+    if (!dismissedAt) return orphans.length;
+    const snapshot = new Set((App.state.googleAdsOrphanBellSnapshot || []).map(String));
+    // Bypass: alguma órfã atual NÃO estava no snapshot do dismiss → nova chegou.
+    const hasNew = orphans.some(id => !snapshot.has(id));
+    if (hasNew) return orphans.length;
+    // Cooldown expirou: volta a mostrar.
+    if (Date.now() - dismissedAt >= Actions.ADS_ORPHAN_BELL_COOLDOWN_MS) return orphans.length;
+    // Dentro do cooldown e sem novas: silenciado.
+    return 0;
+  },
+
+  // Click no sininho: tira bolinha visual + memoriza snapshot atual pra
+  // permitir detectar "novas" depois.
+  dismissAdsOrphanBell() {
+    App.state.googleAdsOrphanBellDismissedAt = Date.now();
+    App.state.googleAdsOrphanBellSnapshot = Actions._adsOrphanIds();
+    // Agenda re-render quando cooldown expirar (forçar bolinha voltar).
+    if (window._adsOrphanBellTimer) clearTimeout(window._adsOrphanBellTimer);
+    window._adsOrphanBellTimer = setTimeout(() => {
+      if (window.App?.render) App.render();
+    }, Actions.ADS_ORPHAN_BELL_COOLDOWN_MS + 500);
+    App.save();
+  },
+
+  // Click no sininho com ads pendentes — navega pra sub-aba "Não associadas"
+  // do Dashboard > Google Ads e dispensa a bolinha pelo cooldown.
+  openAdsOrphanInbox() {
+    Actions.dismissAdsOrphanBell();
+    App.state.activeTab = 'dashboard';
+    App.state.activeDashboardTab = 'google-ads';
+    App.state.googleAdsDashboardSubTab = 'orphans';
+    App.save();
+    App.render();
+  },
+
   // V35.7.0-alpha2 — Wizard de associação (4 steps).
   openAdsAssociationWizard(platform, externalIdsArg) {
     const externalIds = Array.isArray(externalIdsArg) ? externalIdsArg.map(String) : [];

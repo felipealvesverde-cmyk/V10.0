@@ -176,21 +176,28 @@ window.HomeModule = {
         <button class="lj-home-icon-btn" title="Buscar"><i data-lucide="search" class="w-4 h-4"></i></button>
         ${(() => {
           // V35.3.8 — Sininho agrega 3 canais: conciliação RD + import reports + releases
+          // V35.7.0-alpha3 — +1 canal: ads órfãs (Google Ads não associadas).
+          // Cooldown global de 10min + bypass quando chegam novas (mecânica dentro
+          // de Actions.getAdsOrphanBellCount).
           const reconCount = Number(App.state.pendingReconciliationCount || 0);
           const importCount = Number(App.state.pendingLeadImportReports || 0);
           const unseenReleases = (window.Actions?._getUnseenReleases?.() || []);
           const releaseCount = unseenReleases.length;
-          const count = reconCount + importCount + releaseCount;
+          const adsOrphanCount = Number(window.Actions?.getAdsOrphanBellCount?.() || 0);
+          const count = reconCount + importCount + releaseCount + adsOrphanCount;
           const titleParts = [];
           if (reconCount) titleParts.push(`${reconCount} conciliação(ões) RD`);
           if (importCount) titleParts.push(`${importCount} relatório(s) de import`);
           if (releaseCount) titleParts.push(`${releaseCount} atualização(ões) do LJ`);
+          if (adsOrphanCount) titleParts.push(`${adsOrphanCount} campanha(s) Ads sem Campanha LJ`);
           const title = count > 0 ? titleParts.join(' · ') + ' — clique pra ver' : 'Nenhuma notificação pendente';
-          // Notificações de import ou release abrem o modal de notificações;
-          // só conciliação RD abre o modal próprio dela
-          const onclick = (importCount || releaseCount) && !reconCount
-            ? 'Actions.openImportReportsModal()'
-            : 'Actions.openReconciliationModal()';
+          // Prioridade do click: ads órfãs > reconcilição > import/release
+          // (ads órfãs é o que tem timer próprio com bypass; resolver primeiro reduz ruído).
+          const onclick = adsOrphanCount
+            ? 'Actions.openAdsOrphanInbox()'
+            : reconCount
+              ? 'Actions.openReconciliationModal()'
+              : 'Actions.openImportReportsModal()';
           return `<button onclick="${onclick}" class="lj-home-icon-btn lj-home-bell" title="${title}">
             <i data-lucide="bell" class="w-4 h-4"></i>
             ${count > 0 ? `<span class="lj-home-bell-badge">${count > 99 ? '99+' : count}</span>` : ''}
