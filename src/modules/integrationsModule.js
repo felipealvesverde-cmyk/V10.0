@@ -145,6 +145,14 @@ const IntegrationsModule = {
         status: 'soon'
       },
       {
+        id: 'ga4',
+        name: 'Google Analytics 4',
+        desc: 'Tráfego orgânico, direto, referral e paid. Cruza com campanhas pra fechar o funil.',
+        icon: 'line-chart',
+        tone: 'amber',
+        status: 'soon'
+      },
+      {
         id: 'stripe',
         name: 'Stripe',
         desc: 'Vendas reais, reembolsos e MRR por produto/oferta.',
