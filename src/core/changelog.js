@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.6',
+    date: '2026-06-02',
+    title: 'Google Analytics 4 entra como card "Em breve" em Integrações > Injetar',
+    bullets: [
+      'Novo card Google Analytics 4 ao lado de Meta Ads e Stripe em Integrações > Injetar.',
+      'Clica no (?) e abre o deep-dive com a lista oficial de dimensões e métricas que vão ser puxadas (sessions, users, conversões, totalRevenue, canal, source, campanha).',
+      'Cruzamento previsto com Google Ads pelo campaign name — fecha o funil aquisição → sessão → conversão.',
+      'Ainda em planejamento — integração técnica vem em release futura.'
+    ]
+  },
+  {
     version: 'V35.6.5',
     date: '2026-06-02',
     title: 'Sessão dura 7 dias agora — fica logado mesmo deixando a aba parada por dias',

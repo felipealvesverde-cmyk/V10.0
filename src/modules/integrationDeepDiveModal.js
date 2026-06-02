@@ -153,6 +153,38 @@ window.IntegrationDeepDiveModal = {
       howItWorks: ['Integração ainda em desenvolvimento.'],
       requirements: ['Aguardando habilitação.']
     },
+    'ga4': {
+      title: 'Google Analytics 4 + LeadJourney',
+      subtitle: 'Em breve. Vai trazer tráfego classificado por canal (orgânico, direto, paid, social) e cruzar com Google Ads pra fechar o funil.',
+      category: 'injetar',
+      accentColor: 'amber',
+      icon: 'line-chart',
+      dataFlow: {
+        incoming: [
+          'Dimensions: date · sessionDefaultChannelGroup · sessionSource · sessionMedium · sessionCampaignName · landingPage',
+          'Metrics: sessions · totalUsers · newUsers · engagedSessions · engagementRate · averageSessionDuration · conversions · totalRevenue · purchaseRevenue',
+          'Classificação automática do GA4: Direct, Organic Search, Paid Search, Organic Social, Paid Social, Email, Referral, Display, Video',
+          'Granularidade: 1 linha por (dia, canal, source, medium, campanha)'
+        ],
+        outgoing: [
+          'Nenhum — read-only via Analytics Data API v1.'
+        ],
+        frequency: 'Import diário (proposto) com janela retroativa de 7 dias pra absorver correções tardias do GA4.'
+      },
+      howItWorks: [
+        'Cliente cadastra Client ID + Client Secret (mesmo provider OAuth do Google Ads, scope analytics.readonly).',
+        'Cliente cola o GA4 Property ID (formato 123456789) no wizard — diferente do Customer ID do Ads.',
+        'O LJ chama runReport() da Analytics Data API v1 com a query de tráfego classificado.',
+        'Cruzamento opcional: sessionCampaignName do GA4 = campaign.name do Google Ads → fecha aquisição→sessão→conversão num funil só.',
+        'Mesmo refresh token criptografado por tenant que o Google Ads (AES-256-GCM).'
+      ],
+      requirements: [
+        'OAuth Client no Google Cloud Console (mesmo projeto do Google Ads serve)',
+        'API "Google Analytics Data API" ativada no projeto',
+        'GA4 Property ID identificado (Admin → Property → Property details no GA4)',
+        'Usuário Google com acesso de Visualização ao GA4 property'
+      ]
+    },
     'stripe': {
       title: 'Stripe + LeadJourney',
       subtitle: 'Em breve. Vai alimentar vendas reais, reembolsos e MRR por produto/oferta.',
