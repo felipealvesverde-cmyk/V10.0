@@ -30,13 +30,15 @@ var SettingsModal = {
   // Justificativa arquitetural: as duas conexões usam credenciais e fluxos
   // fundamentalmente diferentes (PAT estático vs OAuth multi-step). Forçar
   // uma UX unificada confundia o usuário.
-  rdConnectionPanel() {
+  // V35.6.2 — opts.skipHeader=true quando renderizado dentro do RdConnectionModal
+  // pra evitar duplicação visual (ConnectionStatusCard novo já cobre o header).
+  rdConnectionPanel(opts = {}) {
     const rdCfg = (App.state.integrations && App.state.integrations.rd) || (window.RDConfig ? RDConfig.defaultConfig() : {});
     const crmCfg = (App.state.integrations && App.state.integrations.rdCrm) || (window.RdCrmConfig ? RdCrmConfig.defaultConfig() : {});
     const activeTab = App.state.settingsRdActiveTab || 'crm';
 
     return `<div class="space-y-4">
-      ${this._rdAccountHeader(rdCfg, crmCfg)}
+      ${opts.skipHeader ? '' : this._rdAccountHeader(rdCfg, crmCfg)}
       ${App.state.rdInfoModal?.open ? this._rdInfoModalRender() : ''}
       ${this._rdTabsBar(rdCfg, crmCfg, activeTab)}
       <div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
@@ -3205,7 +3207,9 @@ var SettingsModal = {
   // V35.6.0-alpha2 — Card ClickUp legacy extraído do antigo integrationsPanel.
   // Acessado via Actions.openSettingsModal('clickup') a partir do card ClickUp
   // em Integrações > Iterar. Sem botão no sidebar — purely deep-link.
-  clickupPanel() {
+  // V35.6.2 — opts.skipHeader=true esconde o header (ícone+nome+badge+disconnect)
+  // que duplica o ConnectionStatusCard do ClickupConnectionModal.
+  clickupPanel(opts = {}) {
     const status = App.state.clickupStatus || { connected: false, encryptionReady: true };
     const draft = App.state.clickupPatDraft || '';
     const encWarn = !status.encryptionReady ? `<div class="rounded-2xl bg-red-50 border-2 border-red-300 p-4 mb-4 text-red-800"><p class="font-black mb-1">⚠️ ENCRYPTION_KEY não configurada no servidor.</p><p class="text-sm">O admin precisa adicionar no Railway → Variables antes de você conectar. Veja README.</p></div>` : '';
@@ -3292,7 +3296,7 @@ var SettingsModal = {
       ${spaceDeleteBanner}
 
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 space-y-4">
-        <div class="flex items-start justify-between gap-3">
+        ${opts.skipHeader ? '' : `<div class="flex items-start justify-between gap-3">
           <div>
             <div class="flex items-center gap-2 mb-1">
               <div class="w-8 h-8 rounded-lg bg-purple-100 grid place-items-center"><i data-lucide="check-square" class="w-4 h-4 text-purple-700"></i></div>
@@ -3302,7 +3306,7 @@ var SettingsModal = {
             <p class="text-sm text-slate-500">Crie tarefas no ClickUp direto do Mapa da Receita ou via chat do Djow.</p>
           </div>
           ${status.connected ? `<button onclick="Actions.disconnectClickup()" class="px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-black">Desconectar</button>` : ''}
-        </div>
+        </div>`}
 
         ${!status.connected ? this._clickupConnectTabs(status, draft) : `
         <div class="rounded-2xl bg-emerald-50 border-2 border-emerald-300 p-4">

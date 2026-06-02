@@ -47,7 +47,8 @@
     </main>
   </div>
 
-  <div id="toast" class="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:w-96 hidden rounded-2xl bg-slate-900 text-white px-5 py-4 shadow-2xl font-semibold z-50"></div>
+  <!-- V35.6.2 — z-index subido pra ficar acima dos modais (RD/ClickUp/etc usam z-[92], deep-dive z-[95]). -->
+  <div id="toast" class="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:w-96 hidden rounded-2xl bg-slate-900 text-white px-5 py-4 shadow-2xl font-semibold z-[200]"></div>
   <!-- V26.0.4 — Djow modal sempre num root próprio fora de #app pra que
        position:fixed funcione (parent #app tem transform via card-enter). -->
   <div id="djowModalRoot"></div>

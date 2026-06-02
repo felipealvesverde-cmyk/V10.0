@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.2',
+    date: '2026-06-02',
+    title: 'Hotfix Integrações IPI — sem duplicação de header e toast acima dos modais',
+    bullets: [
+      'Card de status RD e ClickUp não aparece mais duplicado dentro do modal.',
+      'Botão "Testar conexão" no modal RD agora funciona (chamava ação errada antes).',
+      'Toasts (incluindo retorno do teste de conexão) aparecem na frente dos modais — não mais escondidos atrás.',
+      'Botão "Desconectar" do ClickUp continua acessível como ação secundária no status card.'
+    ]
+  },
+  {
     version: 'V35.6.1',
     date: '2026-06-02',
     title: 'Integrações IPI completa — config completa de RD e ClickUp dentro dos modais',

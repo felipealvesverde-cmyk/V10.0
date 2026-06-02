@@ -15,20 +15,33 @@ window.RdConnectionModal = {
     if (!App.state.rdConnectionModalOpen) return '';
 
     const rdCfg = App.state.integrations?.rd || {};
-    const rdCrm = App.state.integrations?.rdCrm || {};
     const status = App.state.rdConnectionStatus || {};
-    const account = rdCfg.accountEmail || rdCrm.accountEmail || rdCfg.accountName || 'Conta RD Station';
+    const account = (rdCfg.accountName || '').trim() || 'Conta RD não identificada';
+    const testing = Boolean(App.state.rdTestingConnections);
+
+    // V35.6.2 — Lógica de cor das badges idêntica ao header antigo
+    // (_rdAccountHeader): connected=verde, missing=amarelo, error=vermelho,
+    // unknown=cinza. mapBadgeStatus traduz pros 4 status do ConnectionStatusCard.
+    const mapBadgeStatus = (s) =>
+      s === 'connected' ? 'ok'
+      : s === 'missing' ? 'pending'
+      : s === 'error'   ? 'error'
+      : 'neutral';
 
     const sub = {
-      crmPat: status.crm_pat?.status || 'unknown',
-      crmOauth: status.crm_oauth?.status || 'unknown',
+      crmPat:         status.crm_pat?.status         || 'unknown',
+      crmOauth:       status.crm_oauth?.status       || 'unknown',
       marketingOauth: status.marketing_oauth?.status || 'unknown'
     };
-    const mapBadgeStatus = (s) => s === 'connected' || s === 'ok' ? 'ok' : (s === 'missing' || s === 'unknown') ? 'neutral' : (s === 'error' ? 'error' : 'pending');
 
-    const lastTestAt = status.testedAt || status.lastTestAt;
-    const lastValidationLabel = lastTestAt
-      ? `Última validação: ${this._fmtDate(lastTestAt)}`
+    // V35.6.2 — Última validação: pega o testedAt mais recente entre as 3
+    // conexões (mesma lógica do _rdAccountHeader).
+    const lastTested = ['crm_pat', 'marketing_oauth', 'crm_oauth']
+      .map(k => status[k]?.testedAt ? new Date(status[k].testedAt).getTime() : 0)
+      .reduce((a, b) => Math.max(a, b), 0);
+    const crmAt = rdCfg.crmTestAt ? new Date(rdCfg.crmTestAt).toLocaleString('pt-BR') : null;
+    const lastValidationLabel = lastTested
+      ? `${crmAt ? `Validação CRM: ${crmAt} · ` : ''}testado há ${Math.max(1, Math.round((Date.now() - lastTested) / 60000))} min`
       : 'Conexão ainda não foi testada.';
 
     return `<div class="fixed inset-0 z-[92] grid place-items-center p-4"
@@ -67,18 +80,18 @@ window.RdConnectionModal = {
             ],
             lastValidationLabel,
             secondaryButtons: [
-              { label: 'Testar conexão', icon: 'activity', action: 'Actions.testRdConnections()' },
+              { label: testing ? 'Testando…' : 'Testar conexão', icon: testing ? 'loader-2' : 'activity', action: testing ? '' : 'Actions.testAllRdConnections()' },
               { label: 'RD + LeadJourney', icon: 'book-open', action: "Actions.openIntegrationDeepDive('rd')" }
             ],
             helpAction: "Actions.openIntegrationDeepDive('rd')"
           })}
 
-          <!-- V35.6.1 — Painel completo de configuração das 3 conexões RD,
-               embedado dentro do modal próprio. Conteúdo herda layout claro
-               do SettingsModal.rdConnectionPanel() — wrapper branco mantém
-               legibilidade dentro do fundo Iterar azul royal. -->
+          <!-- V35.6.2 — Painel completo de configuração das 3 conexões RD.
+               skipHeader=true elimina o _rdAccountHeader (duplicava o
+               ConnectionStatusCard acima). Wrapper branco mantém legibilidade
+               dentro do fundo Iterar azul royal. -->
           <div class="rounded-2xl bg-white shadow-xl overflow-hidden">
-            ${(window.SettingsModal?.rdConnectionPanel) ? SettingsModal.rdConnectionPanel() : '<div class="p-6 text-slate-700">Painel RD indisponível.</div>'}
+            ${(window.SettingsModal?.rdConnectionPanel) ? SettingsModal.rdConnectionPanel({ skipHeader: true }) : '<div class="p-6 text-slate-700">Painel RD indisponível.</div>'}
           </div>
 
         </div>
