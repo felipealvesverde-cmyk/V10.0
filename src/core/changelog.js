@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.0-alpha6',
+    date: '2026-06-02',
+    title: 'Google Ads e Hotmart conectados — agora abrem em modo Gerenciar',
+    bullets: [
+      'Quando você clica em "Gerenciar" no Google Ads conectado, abre status card unificado em vez do wizard inteiro.',
+      'Hotmart conectado idem — status card com badges HOTTOK ativo, Webhook recebendo, OAuth (se houver).',
+      'Botão "Atualizar credenciais/HOTTOK" entra no wizard só quando você quer trocar.',
+      'Botão "Desconectar" sempre disponível no rodapé do modo Gerenciar.',
+      'ConnectionStatusCard agora é o template padrão em todas as 4 integrações ativas (Google Ads, Hotmart, RD, ClickUp).'
+    ]
+  },
+  {
     version: 'V35.6.0-alpha5',
     date: '2026-06-02',
     title: 'Modal "X + LeadJourney" — entenda o fluxo de dados de cada integração',

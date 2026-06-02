@@ -14,6 +14,9 @@ window.GoogleAdsWizardModal = {
     const w = App.state.googleAdsWizard;
     if (!w) return '';
 
+    const isManage = w.mode === 'manage';
+    const headerKicker = isManage ? 'Gerenciar Google Ads' : 'Conectar Google Ads';
+
     return `<div class="fixed inset-0 z-[90] grid place-items-center p-4"
       style="background: rgba(10,31,68,0.85); backdrop-filter: blur(6px);"
       onclick="if(event.target===this) Actions.closeGoogleAdsWizard()">
@@ -24,7 +27,7 @@ window.GoogleAdsWizardModal = {
           style="background: linear-gradient(90deg, rgba(245,158,11,0.18) 0%, rgba(245,158,11,0.05) 100%);">
           <div class="min-w-0">
             <p class="text-[10px] font-black text-amber-300 uppercase tracking-widest inline-flex items-center gap-1.5">
-              <i data-lucide="megaphone" class="w-3 h-3"></i> Conectar Google Ads
+              <i data-lucide="megaphone" class="w-3 h-3"></i> ${headerKicker}
             </p>
             <h2 class="text-lg font-black text-white mt-1 leading-tight">Marketing · Aquisição</h2>
             <p class="text-[11px] text-slate-300 mt-0.5">Investimento, ROAS, CPL e conversões dentro do LJ.</p>
@@ -34,16 +37,64 @@ window.GoogleAdsWizardModal = {
           </button>
         </div>
 
-        ${this._stepper(w)}
+        ${isManage ? '' : this._stepper(w)}
 
         <div class="p-5 max-h-[65vh] overflow-y-auto">
-          ${w.step === 1 ? this._step1Credentials(w) : ''}
-          ${w.step === 2 ? this._step2Authorize(w) : ''}
-          ${w.step === 3 ? this._step3SelectAccount(w) : ''}
-          ${w.step === 4 ? this._step4Success(w) : ''}
+          ${isManage ? this._manageView() : ''}
+          ${!isManage && w.step === 1 ? this._step1Credentials(w) : ''}
+          ${!isManage && w.step === 2 ? this._step2Authorize(w) : ''}
+          ${!isManage && w.step === 3 ? this._step3SelectAccount(w) : ''}
+          ${!isManage && w.step === 4 ? this._step4Success(w) : ''}
         </div>
       </div>
     </div>`;
+  },
+
+  // V35.6.0-alpha6 — Modo manage: status card + ações em vez do wizard.
+  _manageView() {
+    const s = App.state.googleAdsStatus || {};
+    const customer = s.selectedCustomerId || '?';
+    const mccActive = Boolean(s.loginCustomerId);
+    const lastSyncLabel = s.lastSyncAt
+      ? `Última sincronização: ${this._fmtDate(s.lastSyncAt)}`
+      : 'Primeira sincronização roda em background nas próximas horas.';
+
+    const badges = [
+      { label: `Customer ${customer}`, status: 'ok', icon: 'hash' },
+      { label: 'OAuth ativo', status: 'ok', icon: 'shield-check' }
+    ];
+    if (mccActive) badges.push({ label: 'Manager Account', status: 'ok', icon: 'layers' });
+
+    return `<div class="space-y-4">
+      ${window.ConnectionStatusCard ? ConnectionStatusCard.render({
+        accentColor: 'amber',
+        kicker: 'Conta ativa',
+        identification: `Customer ${customer}`,
+        subtitle: 'OAuth Google + Developer Token operando',
+        badges,
+        lastValidationLabel: lastSyncLabel,
+        secondaryButtons: [
+          { label: 'Atualizar credenciais', icon: 'refresh-cw', action: 'Actions.switchGoogleAdsToWizard()' },
+          { label: 'Google Ads + LeadJourney', icon: 'book-open', action: "Actions.openIntegrationDeepDive('google-ads')" }
+        ],
+        helpAction: "Actions.openIntegrationDeepDive('google-ads')"
+      }) : ''}
+
+      <div class="flex flex-wrap justify-between items-center gap-3 pt-3 border-t border-white/10">
+        <p class="text-[11px] text-slate-400">Para trocar de conta ou refazer o OAuth, atualize as credenciais acima.</p>
+        <button onclick="Actions.disconnectGoogleAds()" class="px-4 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-400/40 text-rose-200 text-xs font-black inline-flex items-center gap-1.5">
+          <i data-lucide="unplug" class="w-3.5 h-3.5"></i> Desconectar
+        </button>
+      </div>
+    </div>`;
+  },
+
+  _fmtDate(iso) {
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return '—';
+      return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (_) { return '—'; }
   },
 
   _stepper(w) {

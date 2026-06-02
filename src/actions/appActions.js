@@ -7082,6 +7082,14 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V35.6.0-alpha6 — Sai do modo manage Google Ads e entra no wizard de update.
+  switchGoogleAdsToWizard() {
+    if (!App.state.googleAdsWizard) return;
+    App.state.googleAdsWizard.mode = 'wizard';
+    App.state.googleAdsWizard.step = 1;
+    App.render();
+  },
+
   // V35.6.0-alpha5 — Modal nested "X + LeadJourney" (deep-dive do fluxo de dados).
   openIntegrationDeepDive(integrationId) {
     const validIds = window.IntegrationDeepDiveModal?.CONTENT
@@ -11970,14 +11978,25 @@ Object.assign(Actions, {
   },
 
   openHotmartWizard() {
+    // V35.6.0-alpha6 — Detecta status existente. Se conectado, abre em modo
+    // 'manage' (status card + botões). Se não, abre wizard normal step 1.
+    const connected = Boolean(App.state.hotmartStatus?.configured);
     App.state.hotmartWizardOpen = {
       step: 1,
+      mode: connected ? 'manage' : 'wizard',
       draft: { hottok: '', productMappings: {} },
       saving: false,
       error: null
     };
-    // Garante que status tá carregado pro wizard mostrar "já conectado" se for o caso
     if (!App.state.hotmartStatus) Actions.loadHotmartStatus();
+    App.render();
+  },
+
+  // V35.6.0-alpha6 — Sai do modo manage e entra no wizard de update (step 2 — atualizar HOTTOK).
+  switchHotmartToWizard() {
+    if (!App.state.hotmartWizardOpen) return;
+    App.state.hotmartWizardOpen.mode = 'wizard';
+    App.state.hotmartWizardOpen.step = 2;
     App.render();
   },
 
@@ -11999,8 +12018,13 @@ Object.assign(Actions, {
   },
 
   openGoogleAdsWizard() {
+    // V35.6.0-alpha6 — Detecta status existente. Se conectado (OAuth completo),
+    // abre em modo 'manage'. Se não, abre wizard normal step 1.
+    const s = App.state.googleAdsStatus || {};
+    const connected = Boolean(s.configured && s.oauthCompleted);
     App.state.googleAdsWizard = {
       step: 1,
+      mode: connected ? 'manage' : 'wizard',
       draft: {
         clientId: '',
         clientSecret: '',

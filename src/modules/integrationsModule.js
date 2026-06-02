@@ -119,9 +119,9 @@ const IntegrationsModule = {
         icon: 'search',
         tone: 'amber',
         status: gAdsConnected ? 'connected' : 'disconnected',
-        action: gAdsConnected ? 'Actions.disconnectGoogleAds()' : 'Actions.openGoogleAdsWizard()',
-        actionLabel: gAdsConnected ? 'Desconectar' : 'Conectar',
-        actionIcon: gAdsConnected ? 'unplug' : 'plug'
+        action: 'Actions.openGoogleAdsWizard()',
+        actionLabel: gAdsConnected ? 'Gerenciar' : 'Conectar',
+        actionIcon: gAdsConnected ? 'settings' : 'plug'
       },
       {
         id: 'hotmart',
