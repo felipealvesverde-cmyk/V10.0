@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.6.0-alpha3',
+    date: '2026-06-02',
+    title: 'Modais de integração herdam a cor da aba IPI a que pertencem',
+    bullets: [
+      'Modal de Google Ads agora usa fundo Injetar (#0A1F44 marinho profundo) com accent amber preservado.',
+      'Modal de Hotmart idem — fundo Injetar com accent orange preservado.',
+      'Cores próprias da integração (amber Google, orange Hotmart) viram nuances que vibram na cor principal da aba — usadas em ícone, badge, botão CTA.',
+      'Inputs e cards internos usam #001230 (mais escuro que o fundo) pra criar profundidade.',
+      'Regra cravada: toda integração de Iterar (RD, ClickUp) terá fundo #1565C0 quando os modais próprios chegarem.'
+    ]
+  },
+  {
     version: 'V35.6.0-alpha2',
     date: '2026-06-02',
     title: 'Integrações IPI agora vivem dentro de Configurações (correção)',
