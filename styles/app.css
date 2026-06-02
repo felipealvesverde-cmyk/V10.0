@@ -69,6 +69,82 @@
 }
 .journey-pipeline .jp-stage-node:hover { filter: saturate(1.08); }
 .journey-pipeline .jp-stage-node:hover .jp-stage-core { transform: scale(1.08); }
+/* V35.4.3 — Session Expired Banner (A3 pattern). Discreto, âmbar, top-fixed. */
+.lj-session-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  background: linear-gradient(180deg, rgba(251,191,36,0.96), rgba(245,158,11,0.94));
+  border-bottom: 1px solid rgba(180,83,9,0.55);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+  animation: lj-session-banner-slide 0.25s ease-out;
+}
+@keyframes lj-session-banner-slide {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(0); }
+}
+.lj-session-banner-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lj-session-banner-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(0,0,0,0.18);
+  color: #1f2937;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.lj-session-banner-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.lj-session-banner-title {
+  font-size: 13px;
+  font-weight: 900;
+  color: #1f2937;
+}
+.lj-session-banner-desc {
+  font-size: 11px;
+  color: rgba(31,41,55,0.78);
+}
+.lj-session-banner-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 10px;
+  background: #1f2937;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+.lj-session-banner-btn:hover {
+  background: #111827;
+  transform: translateY(-1px);
+}
+/* Padding-top do app quando banner ativo (pra não cobrir conteúdo) */
+body:has(.lj-session-banner) #app,
+body:has(.lj-session-banner) #pageHeader {
+  margin-top: 52px;
+  transition: margin-top 0.25s ease;
+}
+
 /* V35.3.7 — Cafezinho Loader (xícara animada + vapor subindo) */
 .lj-cafezinho {
   position: relative;
