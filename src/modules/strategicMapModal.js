@@ -2555,9 +2555,10 @@ window.StrategicMapModal = {
   },
 
   _numeroCardConfirmed(obj, kr, tone, handoffBadge) {
-    const progress = StrategicOkrEngine.progress(kr);
-    const score = StrategicOkrEngine.score ? StrategicOkrEngine.score(kr) : 0;
-    const scoreStatus = StrategicOkrEngine.scoreStatus ? StrategicOkrEngine.scoreStatus(kr) : { color: 'slate', label: '' };
+    // V35.12.0 — Computa live UMA vez (evita 4x chamadas no template).
+    const live = window.KrLiveValueEngine?.computeCurrentValue(kr, {}) || null;
+    const liveValue = Number(live?.value ?? kr.current ?? 0);
+    const score = StrategicOkrEngine.score ? StrategicOkrEngine.score({ ...kr, current: liveValue }) : 0;
     const periodLabel = this._periodLabel(kr.period);
     return `<div class="rounded-2xl bg-emerald-500/[0.05] border border-emerald-400/30 p-3">
       <div class="flex items-start justify-between gap-2">
@@ -2566,34 +2567,74 @@ window.StrategicMapModal = {
             <span class="text-emerald-300 font-black">✓</span>
             <p class="font-black text-white text-sm">${Utils.escape(kr.name)}</p>
             ${handoffBadge}
-            ${(() => {
-              const live = window.KrLiveValueEngine?.computeCurrentValue(kr, {});
-              if (live?.source === 'live') return '<span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>ao vivo</span>';
-              if (live?.source === 'derived') return '<span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-violet-500/20 border border-violet-400/40 text-violet-200">fórmula</span>';
-              return '';
-            })()}
+            ${live?.source === 'live' ? '<span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>ao vivo</span>' : ''}
+            ${live?.source === 'derived' ? '<span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-violet-500/20 border border-violet-400/40 text-violet-200">fórmula</span>' : ''}
           </div>
-          <p class="text-[11px] text-slate-300">
-            Hoje <b class="text-white">${(() => {
-              const live = window.KrLiveValueEngine?.computeCurrentValue(kr, {});
-              return Number(live?.value ?? kr.current ?? 0);
-            })()}</b>
+          <p class="text-[11px] text-slate-300 flex items-center gap-1 flex-wrap">
+            Hoje <b class="text-white">${liveValue}</b>
+            ${this._renderTrend(live?.trend)}
             · Segura <b class="text-emerald-300">${Number(kr.targetCommitted ?? 0)}</b>
             · Avançada <b class="text-violet-300">${Number(kr.targetStretch ?? 0)}</b>
             · em <b class="text-white">${periodLabel}</b>
           </p>
         </div>
         <div class="flex flex-col items-end gap-0.5 shrink-0">
-          <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-${scoreStatus.color}-500/20 text-${scoreStatus.color}-200 border border-${scoreStatus.color}-400/30 whitespace-nowrap" title="${Utils.escape(scoreStatus.label)}">${score.toFixed(2)}</span>
-          <span class="text-[9px] text-slate-500">${progress}%</span>
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-${live?.status?.color || 'slate'}-500/20 text-${live?.status?.color || 'slate'}-200 border border-${live?.status?.color || 'slate'}-400/30 whitespace-nowrap" title="${Utils.escape(live?.status?.label || '')}">${score.toFixed(2)}</span>
+          <span class="text-[9px] text-slate-500">${Number(live?.progress?.vsSafe || 0)}%</span>
         </div>
       </div>
-      ${StrategicMapRenderer.progressBar(progress, scoreStatus.color)}
+      ${this._renderProgressBarTwoMarks(live)}
       <div class="flex justify-end gap-1 mt-2">
         <button onclick="Actions.editStrategicNumero('${obj.id}','${kr.id}')" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 text-[10px] font-black">Editar</button>
         <button onclick="Actions.removeStrategicOkr('${obj.id}','${kr.id}')" class="px-2 py-0.5 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-400/30 text-red-300 text-[10px] font-black">Remover</button>
       </div>
     </div>`;
+  },
+
+  // V35.12.0 — Renderiza barra de progresso linear (0..120%) com marcador da
+  // meta segura. Cores baseadas no status do KR.
+  _renderProgressBarTwoMarks(live) {
+    if (!live) return '';
+    const pct = Math.max(0, Math.min(120, Number(live.progress?.vsSafe || 0)));
+    const tier = live.status?.tier || 'below';
+    const fillPalette = {
+      below:   'bg-red-500',
+      onway:   'bg-amber-500',
+      safe:    'bg-emerald-500',
+      stretch: 'bg-yellow-400',
+      nometa:  'bg-slate-500'
+    };
+    const fill = fillPalette[tier] || 'bg-slate-500';
+    // Faixa total visível = 120%. Marcador da Segura @ 83.33% (=100/120).
+    const widthPct = (pct / 120) * 100;
+    return `<div class="relative w-full h-2 rounded-full bg-white/10 overflow-hidden mt-1.5">
+      <div class="h-full ${fill} transition-all duration-300" style="width:${widthPct.toFixed(1)}%;" title="${Utils.escape(live.status?.label || '')}"></div>
+      <div class="absolute top-0 bottom-0 w-px bg-white/40" style="left:83.33%;" title="Meta segura (100%)"></div>
+    </div>`;
+  },
+
+  // V35.12.0 — Seta de trend ▲▼ ou — com cor.
+  _renderTrend(trend) {
+    if (!trend || !trend.direction) return '';
+    const icon = trend.direction === 'up' ? '▲' : (trend.direction === 'down' ? '▼' : '—');
+    const colorClass = {
+      emerald: 'text-emerald-400',
+      red: 'text-red-400',
+      slate: 'text-slate-400'
+    }[trend.color] || 'text-slate-400';
+    const sign = trend.delta > 0 ? '+' : '';
+    const deltaTxt = `${sign}${this._formatNumberShort(trend.delta)}`;
+    const tip = `vs ${trend.snapshotDate} (${trend.snapshotValue})`;
+    return `<span class="inline-flex items-center gap-0.5 ${colorClass} font-black text-[10px]" title="${Utils.escape(tip)}">${icon} ${deltaTxt}</span>`;
+  },
+
+  _formatNumberShort(n) {
+    const x = Number(n) || 0;
+    const a = Math.abs(x);
+    if (a >= 1e6) return (x / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (a >= 1e3) return (x / 1e3).toFixed(1).replace(/\.0$/, '') + 'k';
+    if (a < 10 && a !== Math.floor(a)) return x.toFixed(1);
+    return String(Math.round(x));
   },
 
   _numeroCardEditing(product, obj, kr, tone, handoffBadge) {

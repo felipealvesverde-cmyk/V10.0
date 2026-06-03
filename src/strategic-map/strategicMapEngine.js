@@ -903,7 +903,17 @@ window.StrategicMapEngine = {
       // da fonte real. Quando djowMeta existe e tem selectedSources, o
       // engine de KrLiveValue (alpha2) recalcula current automaticamente.
       // Quando null, KR é manual (cliente atualiza no braço).
-      djowMeta: krData.djowMeta || null
+      djowMeta: krData.djowMeta || null,
+      // V35.12.0 — Snapshots pra trend (seta verde/vermelha).
+      // 2 buckets:
+      //   snapshot* = baseline do dia atual (primeira leitura de hoje)
+      //   previousSnapshot* = baseline do dia anterior (pra calcular delta)
+      // Atualizados via Actions._processKrSnapshots na primeira render de
+      // cada sessão (lazy). Quando dia vira, snapshot* rola pra previous*.
+      snapshotValue: krData.snapshotValue != null ? Number(krData.snapshotValue) : null,
+      snapshotDate: krData.snapshotDate || null,
+      previousSnapshotValue: krData.previousSnapshotValue != null ? Number(krData.previousSnapshotValue) : null,
+      previousSnapshotDate: krData.previousSnapshotDate || null
     };
     const productKrs = [...(map.productKrs || []), kr];
     this.save(productId, { productKrs });

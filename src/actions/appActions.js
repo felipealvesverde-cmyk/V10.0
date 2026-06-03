@@ -12458,6 +12458,43 @@ Prioridade: ${d.priority}
     Utils.toast(`✓ "${name}" criado${djowMeta ? ' e conectado à fonte' : ''}.`);
   },
 
+  // V35.12.0 — Processa snapshots de TODOS os productKrs uma vez por sessão.
+  // Roda em background 200ms após cada session boot. Itera produtos → KRs,
+  // computa valor atual via KrLiveValueEngine, e se shouldSnapshot, atualiza
+  // os buckets:
+  //   - rollPrevious=true: snap atual (de um dia passado) rola pra previous,
+  //     novo snap = (value, today)
+  //   - rollPrevious=false: 1ª vez, só cria snap = (value, today), previous null
+  // Idempotente via flag de sessão (App.state._krSnapshotsProcessedAt).
+  _processKrSnapshots() {
+    if (!window.KrLiveValueEngine || !window.StrategicMapEngine) return;
+    const today = new Date().toISOString().slice(0, 10);
+    // Idempotente: se já processou hoje nesta sessão, pula
+    if (App.state._krSnapshotsProcessedAt === today) return;
+    const products = Array.isArray(App.state.products) ? App.state.products : [];
+    let touched = 0;
+    products.forEach(p => {
+      const krs = StrategicMapEngine.getProductKrs(p.id) || [];
+      krs.forEach(kr => {
+        const live = KrLiveValueEngine.computeCurrentValue(kr, { productId: p.id });
+        if (!live?.shouldSnapshot || !live.newSnapshot) return;
+        const patch = {
+          snapshotValue: live.newSnapshot.value,
+          snapshotDate: live.newSnapshot.date
+        };
+        // Se rolando: snap atual (que está pra ser sobrescrito) vira previous
+        if (live.newSnapshot.rollPrevious) {
+          patch.previousSnapshotValue = kr.snapshotValue;
+          patch.previousSnapshotDate = kr.snapshotDate;
+        }
+        StrategicMapEngine.updateProductKr(p.id, kr.id, patch);
+        touched++;
+      });
+    });
+    App.state._krSnapshotsProcessedAt = today;
+    if (touched > 0) { App.save(); App.render(); }
+  },
+
   // V31.2.11 — Confirma o KR-mãe (estado editing → confirmed verde).
   // Exige Meta Segura e Meta Avançada preenchidas pra confirmar.
   confirmProductKr(productId, krId) {

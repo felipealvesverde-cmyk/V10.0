@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.12.0',
+    date: '2026-06-03',
+    title: 'KRs ganham barra de status vs meta e seta de tendência',
+    bullets: [
+      'Cada KR-mãe agora mostra uma barra de progresso linear indo de 0% até 120% da meta segura, com marcador da linha 100%.',
+      'Cores: vermelho abaixo de 70%, âmbar em curso (70-99%), verde meta segura batida (100-119%), dourado quando ultrapassa a meta avançada (120%+).',
+      'Seta de tendência ▲▼ ao lado do valor "Hoje" mostra delta vs último dia que você abriu o app — verde se está crescendo, vermelho se está caindo.',
+      'Para KRs onde menos é melhor (CAC, churn, custo), as cores e setas se invertem automaticamente respeitando a direção que o Djow inferiu.',
+      'Snapshot diário acontece sozinho na primeira leitura do dia — sem cron, sem configuração.',
+      'Vale tanto pros cards do Mapa da Receita quanto pros KPIs da Home.'
+    ]
+  },
+  {
     version: 'V35.11.4',
     date: '2026-06-03',
     title: 'Hotfix KR ao vivo + workflows prontos pra ativar quando você quiser',

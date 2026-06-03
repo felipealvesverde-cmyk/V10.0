@@ -15,30 +15,134 @@
 
 window.KrLiveValueEngine = {
   /**
-   * Computa o current ao vivo de um KR.
+   * Computa o current ao vivo de um KR + status vs meta + trend vs ontem.
    * @param {Object} kr — { productKr } com djowMeta
    * @param {Object|null} ctx — contexto opcional ({ state, productId })
-   * @returns {{ value: number, source: 'manual'|'live'|'derived', error?: string }}
+   * @returns {{
+   *   value: number,
+   *   source: 'manual'|'live'|'derived',
+   *   error?: string,
+   *   status: { tier, color, label },
+   *   progress: { vsSafe, vsStretch, normalized },
+   *   trend: { direction, delta, color, snapshotValue, snapshotDate } | null,
+   *   shouldSnapshot: boolean,
+   *   newSnapshot: { value, date } | null
+   * }}
    */
   computeCurrentValue(kr, ctx = {}) {
-    if (!kr) return { value: 0, source: 'manual' };
+    if (!kr) return this._wrap(0, 'manual', kr);
     const meta = kr.djowMeta;
+    let raw;
     // Sem djowMeta = manual, retorna o que o cliente digitou
     if (!meta || !meta.classification || meta.classification === 'manual') {
-      return { value: Number(kr.current || 0), source: 'manual' };
+      raw = { value: Number(kr.current || 0), source: 'manual' };
+    } else if (meta.classification === 'derived') {
+      raw = this._computeDerived(kr, ctx);
+    } else if (meta.classification === 'atomic') {
+      raw = this._computeAtomic(kr, ctx);
+    } else {
+      raw = { value: Number(kr.current || 0), source: 'manual' };
+    }
+    return this._wrap(raw.value, raw.source, kr, raw.error);
+  },
+
+  // V35.12.0 — Enriquece result com status + progress + trend + snapshot hint.
+  _wrap(value, source, kr, error) {
+    const direction = (kr?.djowMeta?.direction === 'lower') ? 'lower' : 'higher';
+    const targetSafe = Number(kr?.targetCommitted ?? 0);
+    const targetStretch = Number(kr?.targetStretch ?? 0);
+
+    // Progress vs metas — direction-aware.
+    // higher: progress = current/target (mais é melhor)
+    // lower:  progress = target/current (menos é melhor; ultrapassar pra baixo = >100%)
+    const calcProgress = (target) => {
+      if (!target) return 0;
+      if (direction === 'higher') {
+        return Math.max(0, Math.round((value / target) * 100));
+      }
+      // lower: se value=0, "infinito" (capa em 200%)
+      if (value <= 0) return 200;
+      return Math.max(0, Math.round((target / value) * 100));
+    };
+    const vsSafe = calcProgress(targetSafe);
+    const vsStretch = calcProgress(targetStretch);
+
+    // Status tier:
+    //   stretch: >=100% vs stretch
+    //   safe:    >=100% vs safe (mas <100% vs stretch)
+    //   onway:   >=70% vs safe
+    //   below:   <70% vs safe
+    //   nometa:  sem targetSafe definido
+    let tier, color, label;
+    if (!targetSafe) {
+      tier = 'nometa'; color = 'slate'; label = 'Sem meta';
+    } else if (targetStretch && vsStretch >= 100) {
+      tier = 'stretch'; color = 'yellow'; label = 'Sonho atingido';
+    } else if (vsSafe >= 100) {
+      tier = 'safe'; color = 'emerald'; label = 'Meta segura batida';
+    } else if (vsSafe >= 70) {
+      tier = 'onway'; color = 'amber'; label = 'Em curso';
+    } else {
+      tier = 'below'; color = 'red'; label = 'Abaixo da meta';
     }
 
-    // Derivado: aplica fórmula sobre insumos
-    if (meta.classification === 'derived') {
-      return this._computeDerived(kr, ctx);
+    // Trend vs snapshot do dia anterior. Lógica de 2 buckets:
+    //   snapshotValue/snapshotDate          = baseline do dia ATUAL
+    //   previousSnapshotValue/Date          = baseline do dia anterior (ou null)
+    // Trend = value - previousSnapshotValue (se existe previous).
+    // Quando dia vira, snapshot atual rola pra previous (via Actions._processKrSnapshots).
+    const today = this._todayYmd();
+    const snapDate = kr?.snapshotDate || null;
+    const snapValue = (kr?.snapshotValue != null) ? Number(kr.snapshotValue) : null;
+    const prevDate = kr?.previousSnapshotDate || null;
+    const prevValue = (kr?.previousSnapshotValue != null) ? Number(kr.previousSnapshotValue) : null;
+    let trend = null;
+    let shouldSnapshot = false;
+    let newSnapshot = null;
+
+    // Trend só aparece se temos baseline anterior (previous).
+    if (prevValue != null && prevDate) {
+      const delta = value - prevValue;
+      let dir = 'flat';
+      if (Math.abs(delta) > 0.0001) dir = (delta > 0) ? 'up' : 'down';
+      let trendColor = 'slate';
+      if (dir === 'up')   trendColor = direction === 'higher' ? 'emerald' : 'red';
+      if (dir === 'down') trendColor = direction === 'higher' ? 'red'     : 'emerald';
+      trend = { direction: dir, delta, color: trendColor, snapshotValue: prevValue, snapshotDate: prevDate };
     }
 
-    // Atômico: soma das fontes apontadas
-    if (meta.classification === 'atomic') {
-      return this._computeAtomic(kr, ctx);
+    // shouldSnapshot indica que o caller deve atualizar os buckets:
+    //   - Sem snap atual → cria primeiro snap (sem trend ainda)
+    //   - snapDate < today → rola atual pra previous, cria novo current
+    if (!snapDate || snapDate !== today) {
+      shouldSnapshot = true;
+      newSnapshot = {
+        value,
+        date: today,
+        // Se já tinha snap (de um dia anterior), ele vira o novo previous.
+        // Se NÃO tinha (1ª vez), previous fica null (vai aparecer no próximo dia).
+        rollPrevious: Boolean(snapDate)
+      };
     }
 
-    return { value: Number(kr.current || 0), source: 'manual' };
+    return {
+      value,
+      source,
+      error,
+      status: { tier, color, label },
+      progress: { vsSafe, vsStretch, normalized: Math.min(120, vsSafe) },
+      trend,
+      shouldSnapshot,
+      newSnapshot
+    };
+  },
+
+  _todayYmd() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   },
 
   _computeAtomic(kr, ctx) {
