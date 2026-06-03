@@ -11839,8 +11839,11 @@ Prioridade: ${d.priority}
   // V31.2.12 — Modal "Criar KR-mãe customizado": 5 inputs (nome, unidade,
   // atual, segura, avançada). Sem período. Confirma → cria productKr +
   // adiciona ao customKpiCatalog[area] (base de conhecimento aprendida).
-  openCreateCustomKrModal(productId, area) {
+  async openCreateCustomKrModal(productId, area) {
     if (this._demoGuard && this._demoGuard('Criar KR-mãe customizado')) return;
+    // V35.8.0-alpha4 — Mapeia area pro setor que o backend espera.
+    const setorMap = { marketing: 'marketing', vendas: 'vendas', cs: 'cs' };
+    const setor = setorMap[String(area).toLowerCase()] || String(area).toLowerCase();
     App.state.createCustomKrModal = {
       open: true,
       productId: Number(productId),
@@ -11851,16 +11854,41 @@ Prioridade: ${d.priority}
       targetCommitted: '',
       targetStretch: '',
       // V35.8.0-alpha3 — estrutura do Djow no modal (3 zonas + progressivo)
+      // V35.8.0-alpha4 — sessionId real do backend
       djow: {
+        sessionId: null,
+        starting: true,
+        analyzing: false,
         falaHistory: [],
         layerOptions: [],
         selectedIds: [],
         numbersUnlocked: false,
         showHistorico: false,
-        lastProcessedName: null
+        lastProcessedName: null,
+        classification: null,
+        krMeta: null
       }
     };
     App.render();
+
+    // Inicia sessão no backend (best-effort). Se falhar, fallback pro
+    // mock local funciona — UX não bloqueia.
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-kr-infer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ step: 'start', setor, productId: Number(productId) })
+      });
+      const data = await r.json();
+      if (data.ok && data.sessionId && App.state.createCustomKrModal?.open) {
+        App.state.createCustomKrModal.djow.sessionId = data.sessionId;
+      }
+    } catch (_) { /* offline ou erro — segue com mock local */ }
+    if (App.state.createCustomKrModal?.open) {
+      App.state.createCustomKrModal.djow.starting = false;
+      App.render();
+    }
   },
   closeCreateCustomKrModal() {
     App.state.createCustomKrModal = null;
@@ -11873,21 +11901,58 @@ Prioridade: ${d.priority}
     if (field === 'metric') App.render();
   },
 
-  // V35.8.0-alpha3 — STUB do fluxo Djow no modal de KR. Usa heurística
-  // MOCK estática pra demonstrar o layout enquanto a alpha4 não wira o
-  // endpoint real. Reconhece um conjunto curto de nomes pra fins de
-  // teste visual (MQL, ROAS, LTV, NPS).
-  djowProcessKrName(rawName) {
+  // V35.8.0-alpha3 — STUB inicial.
+  // V35.8.0-alpha4 — Chama endpoint real /api/djow-kr-infer step='name'.
+  // Mantém mock local como fallback se backend falhar (offline, 500, etc).
+  async djowProcessKrName(rawName) {
     const m = App.state.createCustomKrModal;
     if (!m || !m.open) return;
     const name = String(rawName || '').trim();
     if (!name) return;
-    if (!m.djow) m.djow = { falaHistory: [], layerOptions: [], selectedIds: [], numbersUnlocked: false };
-    // Não reprocessa se nome igual
+    if (!m.djow) return;
     if (m.djow.lastProcessedName === name) return;
     m.djow.lastProcessedName = name;
+    m.djow.analyzing = true;
+    App.render();
 
-    // Mock de classificação: lookups simples
+    // Tenta backend real
+    if (m.djow.sessionId) {
+      try {
+        const token = localStorage.getItem('lj_jwt');
+        const r = await fetch('/api/djow-kr-infer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ step: 'name', sessionId: m.djow.sessionId, nome: name })
+        });
+        const data = await r.json();
+        if (data.ok && App.state.createCustomKrModal?.open) {
+          const mm = App.state.createCustomKrModal;
+          mm.djow.classification = data.classification;
+          mm.djow.falaHistory = data.fala_history || [];
+          mm.djow.layerOptions = data.layer_options || [];
+          mm.djow.selectedIds = [];
+          mm.djow.numbersUnlocked = (data.layer_options || []).length === 0;  // manual = libera direto
+          mm.djow.krMeta = data.kr_meta || null;
+          mm.djow.analyzing = false;
+          if (data.kr_meta?.unit) mm.metric = data.kr_meta.unit;
+          App.save(); App.render();
+          return;
+        }
+      } catch (_) { /* fallback local */ }
+    }
+
+    // Fallback: mock local (mantém usabilidade quando backend indisponível)
+    Actions._djowProcessKrNameMockLocal(name);
+    if (App.state.createCustomKrModal?.open) {
+      App.state.createCustomKrModal.djow.analyzing = false;
+      App.render();
+    }
+  },
+
+  // V35.8.0-alpha4 — Mock local mantido como fallback.
+  _djowProcessKrNameMockLocal(name) {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow) return;
     const nLower = name.toLowerCase();
     let fala, layerOptions, unit;
     if (/\bltv\b/.test(nLower) || /lifetime value/.test(nLower)) {
@@ -11948,11 +12013,33 @@ Prioridade: ${d.priority}
     App.render();
   },
 
-  djowConfirmSources() {
+  // V35.8.0-alpha4 — Confirma fontes via backend (com fallback local).
+  async djowConfirmSources() {
     const m = App.state.createCustomKrModal;
     if (!m?.djow) return;
     const selectedCount = (m.djow.selectedIds || []).length;
     if (!selectedCount) return Utils.toast('Selecione pelo menos uma fonte.');
+
+    if (m.djow.sessionId) {
+      try {
+        const token = localStorage.getItem('lj_jwt');
+        const r = await fetch('/api/djow-kr-infer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ step: 'select-source', sessionId: m.djow.sessionId, selected_ids: m.djow.selectedIds })
+        });
+        const data = await r.json();
+        if (data.ok && App.state.createCustomKrModal?.open) {
+          const mm = App.state.createCustomKrModal;
+          mm.djow.falaHistory = data.fala_history || mm.djow.falaHistory;
+          mm.djow.numbersUnlocked = true;
+          App.render();
+          return;
+        }
+      } catch (_) { /* fallback local */ }
+    }
+
+    // Fallback local
     m.djow.numbersUnlocked = true;
     m.djow.falaHistory.push({
       at: new Date().toISOString(),

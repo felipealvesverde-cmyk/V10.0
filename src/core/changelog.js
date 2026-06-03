@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.8.0-alpha4',
+    date: '2026-06-03',
+    title: 'Djow agora reconhece qualquer nome de KR (não só os 5 do mock)',
+    bullets: [
+      'Modal de criar KR-mãe agora conversa de verdade com o backend do Djow.',
+      'Heurística do servidor cobre 28 naturezas + 8 fórmulas — bate primeiro sem chamar IA.',
+      'Quando o nome é criativo demais (ex: "Magnetismo da marca"), o Djow consulta a IA pra desambiguar.',
+      'Spinner "analisando..." aparece enquanto o Djow pensa (2-5 segundos).',
+      'Se o backend cair, modal continua funcionando com o mock local — sem travar a criação.',
+      'Próxima alpha: mostrar o "Hoje X" real no quadro de KRs do Mapa.'
+    ]
+  },
+  {
     version: 'V35.8.0-alpha3',
     date: '2026-06-03',
     title: 'Modal de criar KR-mãe ganha cara nova com Djow no comando',

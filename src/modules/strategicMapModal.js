@@ -1363,7 +1363,16 @@ window.StrategicMapModal = {
           </div>
 
           <!-- ZONA 2: FALA DO DJOW (MONÓLOGO CUMULATIVO) -->
-          ${falaHistory.length ? `<div class="rounded-2xl bg-violet-500/8 border border-violet-400/30 p-3">
+          ${djow.analyzing ? `<div class="rounded-2xl bg-violet-500/8 border border-violet-400/30 p-3">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-black text-violet-200 uppercase tracking-widest inline-flex items-center gap-1.5">
+                <i data-lucide="sparkles" class="w-3 h-3"></i> Djow
+              </span>
+              <span class="text-[11px] text-violet-300 inline-flex items-center gap-1.5">
+                <i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> analisando...
+              </span>
+            </div>
+          </div>` : falaHistory.length ? `<div class="rounded-2xl bg-violet-500/8 border border-violet-400/30 p-3">
             <div class="flex items-center gap-2 mb-2">
               <span class="text-[10px] font-black text-violet-200 uppercase tracking-widest inline-flex items-center gap-1.5">
                 <i data-lucide="sparkles" class="w-3 h-3"></i> Djow
@@ -1378,7 +1387,7 @@ window.StrategicMapModal = {
             <span class="text-[10px] font-black text-violet-200 uppercase tracking-widest inline-flex items-center gap-1.5 mb-1.5">
               <i data-lucide="sparkles" class="w-3 h-3"></i> Djow
             </span>
-            <p>Digite o nome do número acima — vou te ajudar a configurar.</p>
+            <p>${djow.starting ? 'Carregando contexto...' : 'Digite o nome do número acima — vou te ajudar a configurar.'}</p>
           </div>`}
 
           <!-- ZONA 3: LAYER DE OPÇÕES (editado pelo Djow) -->
