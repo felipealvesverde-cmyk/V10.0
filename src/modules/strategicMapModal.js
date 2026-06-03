@@ -2298,6 +2298,7 @@ window.StrategicMapModal = {
     const allAreasCovered = missingAreas.length === 0;
     return `<section class="space-y-4">
       ${this._stepIntro('Quais são os números deste produto?', 'Defina pelo menos 1 número em cada uma das 3 frentes: Marketing, Vendas e CS. Sem cobrir as 3, o funil fica manco.', 'target', null, 'okrs-kr-mae', 'O funil RevOps clássico é Marketing → Vendas → CS. Se você só seta números em Marketing, gera leads que ninguém recebe. Setar 1+ número em cada frente garante que a campanha tenha cobertura completa pra trabalhar.')}
+      ${this._pulseProductBanner(product)}
       ${this._productKrsBlock(product, productKrs, orphans)}
       ${!allAreasCovered && productKrs.length > 0 ? `<div class="rounded-2xl bg-amber-500/10 border border-amber-400/30 p-3 text-[12px] text-amber-100 flex items-start gap-2">
         <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mt-0.5 text-amber-300 shrink-0"></i>
@@ -2305,6 +2306,30 @@ window.StrategicMapModal = {
       </div>` : ''}
       ${this._stepCta('Próximo passo: escolher a campanha', allAreasCovered, 'okrs')}
     </section>`;
+  },
+
+  // V35.8.0-alpha5 — Banner que torna explícito que esses KRs são do
+  // produto que aparece (e pulsa) no Pulso da Receita da Home.
+  // Indicador visual + abertura pra release futura: rotacionar com Pulso.
+  _pulseProductBanner(product) {
+    if (!product) return '';
+    const totalProducts = (App.state.products || []).filter(p => !p.archived).length;
+    const krCount = (StrategicMapEngine.getProductKrs(product.id) || []).length;
+    return `<div class="rounded-2xl bg-gradient-to-r from-pink-500/10 to-rose-500/10 border border-pink-400/30 p-3 flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="shrink-0 w-8 h-8 rounded-xl bg-pink-500/20 grid place-items-center">
+          <i data-lucide="activity" class="w-4 h-4 text-pink-300"></i>
+        </span>
+        <div class="min-w-0">
+          <p class="text-[10px] font-black uppercase tracking-widest text-pink-200">Acompanhando Pulso da Receita</p>
+          <p class="text-[13px] font-black text-white truncate">${Utils.escape(product.name || 'Produto sem nome')}</p>
+          <p class="text-[10px] text-pink-100/80">${krCount} número(s) configurado(s) ${totalProducts > 1 ? `· ${totalProducts} produtos pulsando na Home` : ''}</p>
+        </div>
+      </div>
+      ${totalProducts > 1 ? `<div class="text-[10px] text-pink-200/70 italic flex items-center gap-1">
+        <i data-lucide="rotate-cw" class="w-3 h-3"></i> Rotação automática chega em breve
+      </div>` : ''}
+    </div>`;
   },
 
   _stepOkrsReadOnly(product) {

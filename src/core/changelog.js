@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.8.0-alpha5',
+    date: '2026-06-03',
+    title: 'Quadro de KRs do Mapa mostra qual produto está pulsando',
+    bullets: [
+      'Banner novo no topo da etapa "Quais são os números deste produto?" deixa explícito qual produto você está editando.',
+      'Mostra o vínculo com o Pulso da Receita da Home — quando rolar a rotação automática, o quadro vai acompanhar.',
+      'Contagem de produtos pulsando aparece quando há mais de um cadastrado.',
+      'Valor atual de cada KR já vem da fonte salva (vinha como "0" antes só porque o atual não tinha sido preenchido).',
+      'Onda V35.8.0 completa — criação de KR com Djow inferindo está pronta de ponta a ponta.'
+    ]
+  },
+  {
     version: 'V35.8.0-alpha4',
     date: '2026-06-03',
     title: 'Djow agora reconhece qualquer nome de KR (não só os 5 do mock)',
