@@ -59,6 +59,14 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ ok: false, message: `Step desconhecido: "${step}".` });
     }
   } catch (err) {
+    // V35.11.4 — Tabela djow_kr_sessions mora no tenant-db-schema.sql.
+    // Em tenants sem DB próprio (fallback control plane), pode não existir
+    // → "relation does not exist". Retorna 503 com hint pra frontend cair
+    // no fallback local (que classifica heuristicamente sem DB).
+    if (/relation .* does not exist/i.test(err.message || '')) {
+      console.warn('[djow-kr-infer] tabela ausente no tenant — frontend deve usar fallback local.');
+      return res.status(503).json({ ok: false, schemaMissing: true, message: 'Sessão Djow indisponível neste tenant. Frontend usa fallback local.' });
+    }
     console.error('[djow-kr-infer]', step, err);
     return res.status(500).json({ ok: false, message: err.message || 'Erro interno.' });
   }

@@ -68,9 +68,14 @@ window.KrLiveValueEngine = {
     let touchedAnySource = false;
 
     sources.forEach(src => {
-      if (!src || !src.integration_id) return;
-      if (src.integration_id === 'google_ads') {
-        const fieldKey = this._gadsFieldToCacheKey(src.field);
+      if (!src) return;
+      // V35.11.4 — Self-heal: deriva integration_id/field do src.id se vierem
+      // null (KRs criados via fallback local antes da V35.11.4 ficaram assim).
+      const integrationId = src.integration_id || this._deriveIntegrationFromId(src.id);
+      const field = src.field || this._deriveFieldFromId(src.id);
+      if (!integrationId) return;
+      if (integrationId === 'google_ads') {
+        const fieldKey = this._gadsFieldToCacheKey(field);
         if (!fieldKey) return;
         const allAds = Array.isArray(state.googleAdsCampaignsCache) ? state.googleAdsCampaignsCache : [];
         let sum = 0;
@@ -93,6 +98,40 @@ window.KrLiveValueEngine = {
     else total = Math.round(total);
 
     return { value: total, source: 'live' };
+  },
+
+  // V35.11.4 — Self-heal helpers: derivam integration_id/field do src.id
+  // pra KRs que foram criados com selectedSources incompletos (fallback
+  // local pré-V35.11.4 setava só { id, label } sem integration_id+field).
+  _deriveIntegrationFromId(id) {
+    if (!id || typeof id !== 'string') return null;
+    if (id.startsWith('gads::'))    return 'google_ads';
+    if (id.startsWith('rd::'))      return 'rd_station';
+    if (id.startsWith('hotmart::')) return 'hotmart';
+    if (id.startsWith('clickup::')) return 'clickup';
+    return null;
+  },
+  _deriveFieldFromId(id) {
+    if (!id || typeof id !== 'string') return null;
+    if (id.startsWith('gads::')) {
+      const key = id.slice(6);
+      const map = {
+        impressions: 'metrics.impressions',
+        clicks: 'metrics.clicks',
+        ctr: 'metrics.ctr',
+        cpc: 'metrics.average_cpc',
+        cpm: 'metrics.average_cpm',
+        conversions: 'metrics.conversions',
+        receita_atribuida: 'metrics.conversions_value',
+        gasto: 'metrics.cost_micros',
+        cpa: 'metrics.cost_per_conversion'
+      };
+      return map[key] || null;
+    }
+    if (id.startsWith('rd::'))      return id.slice(4);
+    if (id.startsWith('hotmart::')) return id.slice(9);
+    if (id.startsWith('clickup::')) return id.slice(9);
+    return null;
   },
 
   // GAQL field → cache key. Mapping curto pro que tá no mock + sync real.

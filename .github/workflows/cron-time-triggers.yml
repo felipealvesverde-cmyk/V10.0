@@ -1,0 +1,51 @@
+# V35.11.3 — Cron diário: triggers do tipo Tempo.
+#
+# Bate em POST /api/cron-time-triggers em prod 1x/dia às 04:15 UTC
+# (15 min depois do daily-tick pra não competir por DB).
+#
+# O que roda no servidor:
+#   - Pra cada visitor com inatividade >= trigger_value_int dias,
+#     aplica a transição definida na rule (Revenue Flow Map).
+#
+# Configuração necessária: mesmos secrets do daily-tick
+# (CRON_BASE_URL + CRON_RECONCILE_TOKEN).
+#
+# Trigger manual: Actions → Cron Time Triggers → Run workflow
+
+name: Cron Time Triggers
+
+on:
+  # V35.11.4 — Schedule comentado até Felipe configurar secrets
+  # (CRON_BASE_URL + CRON_RECONCILE_TOKEN). Descomenta as 2 linhas
+  # abaixo pra ativar agendamento automático diário.
+  # schedule:
+  #   - cron: '15 4 * * *'   # 04:15 UTC todos os dias
+  workflow_dispatch:
+
+jobs:
+  time-triggers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: POST /api/cron-time-triggers
+        env:
+          BASE: ${{ secrets.CRON_BASE_URL }}
+          TOKEN: ${{ secrets.CRON_RECONCILE_TOKEN }}
+        run: |
+          if [ -z "$BASE" ] || [ -z "$TOKEN" ]; then
+            echo "ERRO: secrets CRON_BASE_URL ou CRON_RECONCILE_TOKEN não configurados."
+            exit 1
+          fi
+          echo "Batendo em $BASE/api/cron-time-triggers..."
+          response=$(curl -sS -w "\n__STATUS__%{http_code}" -X POST "$BASE/api/cron-time-triggers" \
+            -H "X-Cron-Token: $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          body=$(echo "$response" | sed -e 's/__STATUS__.*$//')
+          status=$(echo "$response" | grep -o '__STATUS__[0-9]*' | sed 's/__STATUS__//')
+          echo "HTTP $status"
+          echo "$body" | head -c 4000
+          if [ "$status" != "200" ]; then
+            echo "ERRO: status $status"
+            exit 1
+          fi

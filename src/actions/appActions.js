@@ -12213,6 +12213,41 @@ Prioridade: ${d.priority}
   },
 
   // V35.8.0-alpha4 — Mock local mantido como fallback.
+  // V35.11.4 — Deriva { integration_id, field } a partir do id da option
+  // do mockLocal (formato "<prefix>::<key>"). Mapping curto pra evitar que
+  // selectedSources fique com integration_id=null se mocks futuros forem
+  // adicionados sem setar os campos explicitamente.
+  _deriveSourceFromId(id) {
+    const out = { integration_id: null, field: null };
+    if (!id || typeof id !== 'string') return out;
+    if (id.startsWith('gads::')) {
+      out.integration_id = 'google_ads';
+      const key = id.slice(6);
+      const map = {
+        impressions: 'metrics.impressions',
+        clicks: 'metrics.clicks',
+        ctr: 'metrics.ctr',
+        cpc: 'metrics.average_cpc',
+        cpm: 'metrics.average_cpm',
+        conversions: 'metrics.conversions',
+        receita_atribuida: 'metrics.conversions_value',
+        gasto: 'metrics.cost_micros',
+        cpa: 'metrics.cost_per_conversion'
+      };
+      out.field = map[key] || null;
+    } else if (id.startsWith('rd::')) {
+      out.integration_id = 'rd_station';
+      out.field = id.slice(4); // mantém label simbólico ('deals_tag_mql' etc)
+    } else if (id.startsWith('hotmart::')) {
+      out.integration_id = 'hotmart';
+      out.field = id.slice(9);
+    } else if (id.startsWith('clickup::')) {
+      out.integration_id = 'clickup';
+      out.field = id.slice(9);
+    }
+    return out;
+  },
+
   _djowProcessKrNameMockLocal(name) {
     const m = App.state.createCustomKrModal;
     if (!m?.djow) return;
@@ -12230,16 +12265,16 @@ Prioridade: ${d.priority}
     } else if (/\bmql\b/.test(nLower)) {
       fala = `Reconheci "${name}" como MQL (Marketing Qualified Lead). Você tem RD Station conectado — vou propor puxar daí. Escolhe a opção que faz mais sentido pro seu caso.`;
       layerOptions = [
-        { id: 'rd::deals_tag_mql',    label: 'RD Station — deals com tag MQL' },
-        { id: 'rd::contacts_mql',     label: 'RD Station — contatos no estágio MQL' },
-        { id: 'manual::',             label: 'Manual (você atualiza o valor)' }
+        { id: 'rd::deals_tag_mql', label: 'RD Station — deals com tag MQL', integration_id: 'rd_station', field: 'deals_with_tag', aggregation: 'count' },
+        { id: 'rd::contacts_mql',  label: 'RD Station — contatos no estágio MQL', integration_id: 'rd_station', field: 'contacts_in_stage', aggregation: 'count' },
+        { id: 'manual::',          label: 'Manual (você atualiza o valor)' }
       ];
       unit = 'quantidade';
     } else if (/\broas\b/.test(nLower)) {
       fala = `"${name}" é Return on Ad Spend — derivado. Vou calcular: Receita atribuída ÷ Gasto em mídia. Você tem Google Ads conectado pra puxar ambos.`;
       layerOptions = [
-        { id: 'gads::receita_atribuida', label: 'Google Ads — receita das conversões' },
-        { id: 'gads::gasto',             label: 'Google Ads — gasto em mídia' }
+        { id: 'gads::receita_atribuida', label: 'Google Ads — receita das conversões', integration_id: 'google_ads', field: 'metrics.conversions_value', aggregation: 'sum' },
+        { id: 'gads::gasto',             label: 'Google Ads — gasto em mídia',          integration_id: 'google_ads', field: 'metrics.cost_micros',        aggregation: 'sum' }
       ];
       unit = 'numero';
     } else if (/\bnps\b/.test(nLower)) {
@@ -12249,7 +12284,7 @@ Prioridade: ${d.priority}
     } else if (/alcan|impress/.test(nLower)) {
       fala = `Reconheci "${name}" como Alcance/Impressões. Você tem Google Ads conectado — vou propor puxar daí.`;
       layerOptions = [
-        { id: 'gads::impressions', label: 'Google Ads — impressões' },
+        { id: 'gads::impressions', label: 'Google Ads — impressões', integration_id: 'google_ads', field: 'metrics.impressions', aggregation: 'sum' },
         { id: 'manual::',          label: 'Manual (você atualiza o valor)' }
       ];
       unit = 'quantidade';
@@ -12377,13 +12412,19 @@ Prioridade: ${d.priority}
         formulaId: m.djow.krMeta?.formula_id || null,
         formulaDisplay: m.djow.krMeta?.formula_display || null,
         formulaSymbolic: m.djow.krMeta?.formula_symbolic || null,
-        selectedSources: selectedOptions.map(o => ({
-          id: o.id,
-          label: o.label,
-          integration_id: o.integration_id || null,
-          field: o.field || null,
-          aggregation: o.aggregation || 'sum'
-        })),
+        // V35.11.4 — Backstop: se integration_id/field vierem null, deriva
+        // do prefixo do id (gads::X, rd::X). Garante que mocks futuros que
+        // esqueçam de setar os campos não quebrem o engine ao vivo.
+        selectedSources: selectedOptions.map(o => {
+          const derived = Actions._deriveSourceFromId(o.id);
+          return {
+            id: o.id,
+            label: o.label,
+            integration_id: o.integration_id || derived.integration_id,
+            field: o.field || derived.field,
+            aggregation: o.aggregation || 'sum'
+          };
+        }),
         createdSession: m.djow.sessionId || null,
         direction: m.djow.krMeta?.direction || 'higher'
       };

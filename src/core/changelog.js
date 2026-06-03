@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.11.4',
+    date: '2026-06-03',
+    title: 'Hotfix KR ao vivo + workflows prontos pra ativar quando você quiser',
+    bullets: [
+      'KR criado quando o backend do Djow estava fora agora puxa do Google Ads sozinho — antes ficava zerado porque faltava integration_id no payload.',
+      'Engine de KR ao vivo virou self-healing: deriva a fonte (Google Ads / RD / Hotmart) pelo id do source quando os campos vêm em branco.',
+      'KRs existentes com esse problema (ex: "Alcanse" que você criou hoje) voltam a funcionar sem precisar deletar e refazer.',
+      'Endpoints de webhook RD e Djow KR agora avisam direito quando a tabela ainda não existe no tenant — antes davam 500 silencioso.',
+      'Workflows de cron diário do GitHub Actions plantados no repo (cron-daily-tick + cron-time-triggers). Schedule comentado até você configurar 2 secrets (CRON_BASE_URL + CRON_RECONCILE_TOKEN) e descomentar — assim não dispara emails de falha enquanto não tá pronto.'
+    ]
+  },
+  {
     version: 'V35.11.2',
     date: '2026-06-03',
     title: 'Cron RD pull desativado — webhook é o único caminho',
