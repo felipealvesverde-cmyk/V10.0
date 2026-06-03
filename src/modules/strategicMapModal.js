@@ -1356,10 +1356,12 @@ window.StrategicMapModal = {
             <input
               value="${Utils.escape(m.name || '')}"
               oninput="Actions.updateCreateCustomKrModalField('name', this.value)"
+              onkeydown="if (event.key === 'Enter') { event.preventDefault(); Actions.djowProcessKrName(this.value); }"
               onblur="Actions.djowProcessKrName(this.value)"
               autofocus
               placeholder="Ex: MQL, ROAS, Reduzir churn no checkout, LTV…"
               class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-800 border border-white/10 text-white font-semibold placeholder:text-slate-500" />
+            <p class="text-[10px] text-slate-500 mt-1 italic">Pressione <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-white/10 text-slate-300 font-mono text-[9px]">Enter</kbd> pra o Djow analisar.</p>
           </div>
 
           <!-- ZONA 2: FALA DO DJOW (MONÓLOGO CUMULATIVO) -->
@@ -1387,7 +1389,7 @@ window.StrategicMapModal = {
             <span class="text-[10px] font-black text-violet-200 uppercase tracking-widest inline-flex items-center gap-1.5 mb-1.5">
               <i data-lucide="sparkles" class="w-3 h-3"></i> Djow
             </span>
-            <p>${djow.starting ? 'Carregando contexto...' : 'Digite o nome do número acima — vou te ajudar a configurar.'}</p>
+            <p>${djow.starting ? 'Carregando contexto...' : 'Digite o nome do número acima e aperte Enter — vou te ajudar a configurar.'}</p>
           </div>`}
 
           <!-- ZONA 3: LAYER DE OPÇÕES (editado pelo Djow) -->

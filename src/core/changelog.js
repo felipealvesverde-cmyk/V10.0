@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.9.3',
+    date: '2026-06-03',
+    title: 'Sininho com 2 abas (Atualizações + Alertas) e Djow responde no Enter',
+    bullets: [
+      'Click no sininho agora abre o modal de Notificações com 2 abas — não vai mais direto pra reconciliação ou Ads.',
+      'Aba "Atualizações" mostra releases novas e relatórios de importação de leads.',
+      'Aba "Alertas" lista pontos de atenção (Ads sem vínculo, conciliação RD pendente, etc) com botão pra resolver cada um.',
+      'Se há alerta no ar, o modal abre direto na aba Alertas pra você ver primeiro.',
+      'No modal de criar KR-mãe, agora basta apertar Enter pra o Djow analisar o nome (antes precisava clicar fora do input).'
+    ]
+  },
+  {
     version: 'V35.9.2',
     date: '2026-06-03',
     title: 'Cards de KPI da Home agora mostram os KRs reais do produto',

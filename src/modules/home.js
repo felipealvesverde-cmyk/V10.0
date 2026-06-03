@@ -225,13 +225,11 @@ window.HomeModule = {
           if (releaseCount) titleParts.push(`${releaseCount} atualização(ões) do LJ`);
           if (adsOrphanCount) titleParts.push(`${adsOrphanCount} campanha(s) Ads sem Campanha LJ`);
           const title = count > 0 ? titleParts.join(' · ') + ' — clique pra ver' : 'Nenhuma notificação pendente';
-          // Prioridade do click: ads órfãs > reconcilição > import/release
-          // (ads órfãs é o que tem timer próprio com bypass; resolver primeiro reduz ruído).
-          const onclick = adsOrphanCount
-            ? 'Actions.openAdsOrphanInbox()'
-            : reconCount
-              ? 'Actions.openReconciliationModal()'
-              : 'Actions.openImportReportsModal()';
+          // V35.9.3 — Click sempre abre o modal de Notificações com 2 abas
+          // (Atualizações / Alertas). Tab inicial decide pela presença de
+          // alertas: se há alerta no ar, abre em Alertas; senão Atualizações.
+          // Antes (V35.7.0): click ia direto pro modal específico (recon/ads/import).
+          const onclick = "Actions.openNotificationsModal()";
           return `<button onclick="${onclick}" class="lj-home-icon-btn lj-home-bell" title="${title}">
             <i data-lucide="bell" class="w-4 h-4"></i>
             ${count > 0 ? `<span class="lj-home-bell-badge">${count > 99 ? '99+' : count}</span>` : ''}

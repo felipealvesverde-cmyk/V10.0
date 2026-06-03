@@ -47,6 +47,11 @@ window.LeadImportWizard = {
     const reports = App.state.leadImportReports || [];
     const unseenReleases = window.Actions?._getUnseenReleases?.() || [];
     const allReleases = window.LJChangelog || [];
+    // V35.9.3 — Modal de notificações com 2 abas: Atualizações + Alertas.
+    const alerts = window.Actions?._getNotificationAlerts?.() || [];
+    const tab = App.state.notificationsTab || (alerts.length ? 'alerts' : 'updates');
+    const updatesCount = unseenReleases.length + reports.length;
+
     return `<div class="fixed inset-0 z-[75] bg-slate-900/60 backdrop-blur-sm flex items-start justify-center p-4 overflow-y-auto"
               onclick="if(event.target===this) Actions.closeImportReportsModal()">
       <section class="bg-white rounded-3xl shadow-2xl border border-white/20 max-w-2xl w-full mt-6 overflow-hidden">
@@ -55,21 +60,69 @@ window.LeadImportWizard = {
             <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest mb-1">
               <i data-lucide="bell" class="w-3 h-3 inline"></i> Notificações
             </p>
-            <h2 class="text-xl font-black">Tudo que rolou</h2>
-            <p class="text-[12px] text-slate-300 mt-1">${unseenReleases.length} atualização(ões) nova(s) · ${reports.length} relatório(s) de import</p>
+            <h2 class="text-xl font-black">${tab === 'alerts' ? 'Pontos de atenção' : 'Tudo que rolou'}</h2>
+            <p class="text-[12px] text-slate-300 mt-1">${alerts.length} alerta(s) · ${updatesCount} atualização(ões)</p>
           </div>
           <button onclick="Actions.closeImportReportsModal()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 grid place-items-center" style="color:#fff;">
             <i data-lucide="x" class="w-4 h-4"></i>
           </button>
         </header>
-        <main class="p-5 max-h-[60vh] overflow-y-auto space-y-5">
-          ${this._releasesSection(allReleases, unseenReleases)}
-          ${this._importReportsSection(reports)}
+
+        <!-- ABAS -->
+        <nav class="flex border-b border-slate-200 bg-slate-50">
+          <button onclick="Actions.setNotificationsTab('updates')"
+            class="flex-1 px-5 py-3 text-xs font-black uppercase tracking-widest transition border-b-2 ${tab === 'updates' ? 'border-violet-600 text-violet-700 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'}">
+            <i data-lucide="sparkles" class="w-3 h-3 inline mr-1"></i> Atualizações
+            ${updatesCount > 0 && tab !== 'updates' ? `<span class="ml-1.5 text-[9px] font-black bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded-full">${updatesCount}</span>` : ''}
+          </button>
+          <button onclick="Actions.setNotificationsTab('alerts')"
+            class="flex-1 px-5 py-3 text-xs font-black uppercase tracking-widest transition border-b-2 ${tab === 'alerts' ? 'border-rose-600 text-rose-700 bg-white' : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-100'}">
+            <i data-lucide="alert-circle" class="w-3 h-3 inline mr-1"></i> Alertas
+            ${alerts.length > 0 && tab !== 'alerts' ? `<span class="ml-1.5 text-[9px] font-black bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full">${alerts.length}</span>` : ''}
+          </button>
+        </nav>
+
+        <main class="p-5 max-h-[55vh] overflow-y-auto space-y-5">
+          ${tab === 'alerts'
+            ? this._alertsSection(alerts)
+            : `${this._releasesSection(allReleases, unseenReleases)}
+               ${this._importReportsSection(reports)}`}
         </main>
-        ${reports.length > 0 ? `<footer class="border-t border-slate-200 p-3 flex justify-end">
+
+        ${tab === 'updates' && reports.length > 0 ? `<footer class="border-t border-slate-200 p-3 flex justify-end">
           <button onclick="Actions.clearImportReports()" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-black text-slate-700">Limpar histórico de imports</button>
         </footer>` : ''}
       </section>
+    </div>`;
+  },
+
+  // V35.9.3 — Seção de alertas (pontos de atenção). Cada alerta tem
+  // título + descrição + (opcional) botão pra resolver.
+  _alertsSection(alerts) {
+    if (!alerts.length) {
+      return `<div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-6 text-center">
+        <i data-lucide="check-circle-2" class="w-10 h-10 text-emerald-600 mx-auto mb-2"></i>
+        <p class="text-sm font-black text-emerald-900">Sem pontos de atenção agora.</p>
+        <p class="text-[12px] text-emerald-700 mt-1">Quando algo precisar de você, aparece aqui.</p>
+      </div>`;
+    }
+    return `<div class="space-y-2">
+      ${alerts.map(a => `<div class="rounded-2xl border border-rose-200 bg-rose-50/60 p-3">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 w-9 h-9 rounded-xl bg-rose-100 border border-rose-200 grid place-items-center text-rose-700">
+            <i data-lucide="${a.icon}" class="w-4 h-4"></i>
+          </span>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-black text-rose-900">${Utils.escape(a.title)}</p>
+            ${a.description ? `<p class="text-[12px] text-rose-800/80 mt-0.5 leading-relaxed">${Utils.escape(a.description)}</p>` : ''}
+          </div>
+        </div>
+        ${a.action ? `<div class="mt-3 flex justify-end">
+          <button onclick="Actions.closeImportReportsModal(); ${a.action}" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black inline-flex items-center gap-1.5" style="color:#fff;">
+            <i data-lucide="arrow-right" class="w-3 h-3"></i> ${Utils.escape(a.actionLabel || 'Resolver')}
+          </button>
+        </div>` : ''}
+      </div>`).join('')}
     </div>`;
   },
 
