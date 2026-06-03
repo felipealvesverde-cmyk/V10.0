@@ -1285,6 +1285,8 @@ var State = {
             cs: Number(raw.homeKrPages.cs) || 0
           }
         : { marketing: 0, vendas: 0, cs: 0 },
+      // V35.9.3 — Aba ativa do modal de Notificações ('updates' | 'alerts')
+      notificationsTab: ['updates', 'alerts'].includes(raw.notificationsTab) ? raw.notificationsTab : 'updates',
       // V26.0.0 — Djow AI (Claude assistant)
       djowConfig: (raw.djowConfig && typeof raw.djowConfig === 'object')
         ? { model: raw.djowConfig.model || 'claude-sonnet-4-6', allowedRoles: Array.isArray(raw.djowConfig.allowedRoles) ? raw.djowConfig.allowedRoles : ['master'] }

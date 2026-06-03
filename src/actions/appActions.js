@@ -561,12 +561,60 @@ var Actions = {
         App.save();
       },
 
-      openImportReportsModal() {
+      openImportReportsModal(tab) {
         App.state.importReportsModalOpen = true;
         App.state.pendingLeadImportReports = 0;
         // V35.3.8 — Ao abrir, marca todas as releases como vistas
         if (window.LJVersion) App.state.lastSeenVersion = window.LJVersion;
+        // V35.9.3 — Aceita tab opcional ('updates' | 'alerts'). Se não vier,
+        // decide pela presença de alertas — alerta no ar → entra em Alertas.
+        const valid = ['updates', 'alerts'];
+        if (valid.includes(tab)) {
+          App.state.notificationsTab = tab;
+        } else {
+          const alerts = Actions._getNotificationAlerts ? Actions._getNotificationAlerts() : [];
+          App.state.notificationsTab = alerts.length ? 'alerts' : 'updates';
+        }
         App.save(); App.render();
+      },
+      // V35.9.3 — Alias semântico mais limpo. Mesma função.
+      openNotificationsModal(tab) { Actions.openImportReportsModal(tab); },
+      setNotificationsTab(tab) {
+        const valid = ['updates', 'alerts'];
+        if (!valid.includes(tab)) return;
+        App.state.notificationsTab = tab;
+        App.save(); App.render();
+      },
+      // V35.9.3 — Coleta alertas do tenant (ads órfãs, reconciliação RD,
+      // pode crescer com integrações futuras). Cada alerta: { id, icon,
+      // title, description, action?, actionLabel? }.
+      _getNotificationAlerts() {
+        const alerts = [];
+        // 1. Ads órfãs (Google Ads não associadas a Campanha LJ)
+        const adsOrphanCount = Actions.getAdsOrphanBellCount ? Actions.getAdsOrphanBellCount() : 0;
+        if (adsOrphanCount > 0) {
+          alerts.push({
+            id: 'ads-orphan',
+            icon: 'link-2-off',
+            title: `${adsOrphanCount} campanha(s) Google Ads sem vínculo`,
+            description: 'Vincule a uma Campanha LJ pra os números entrarem nos roll-ups (RevOps, Mapa da Receita, Home).',
+            action: 'Actions.openAdsOrphanInbox()',
+            actionLabel: 'Abrir Dashboard'
+          });
+        }
+        // 2. Reconciliação RD pendente
+        const reconCount = Number(App.state.pendingReconciliationCount || 0);
+        if (reconCount > 0) {
+          alerts.push({
+            id: 'rd-recon',
+            icon: 'refresh-cw',
+            title: `${reconCount} conciliação(ões) RD aguardando`,
+            description: 'Discrepâncias entre RD Station e LJ precisam de decisão.',
+            action: 'Actions.openReconciliationModal()',
+            actionLabel: 'Abrir Conciliação'
+          });
+        }
+        return alerts;
       },
       closeImportReportsModal() {
         App.state.importReportsModalOpen = false;
