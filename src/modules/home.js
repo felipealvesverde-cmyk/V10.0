@@ -532,15 +532,15 @@ window.HomeModule = {
     const tmRealFmt = tmRealRaw != null ? fmtMoney(tmRealRaw) : '—';
 
     const breakevenSales = dash.breakevenSales;
-    // V35.13.1 — % breakeven previsto (vs sales projetadas) + atual (vs realSales)
-    const pctBreakevenPrev = breakevenSales && breakevenSales > 0
-      ? Math.round((previsto / breakevenSales) * 100)
-      : null;
-    const pctBreakevenReal = breakevenSales && breakevenSales > 0
-      ? Math.round((realizado / breakevenSales) * 100)
-      : null;
-    const pctColorFor = pct => pct === null ? 'lj-revops-pct-neutral' : (pct >= 100 ? 'lj-revops-pct-ok' : 'lj-revops-pct-bad');
-    const pctLabel = pct => pct === null ? '—' : `${pct}%`;
+    // V35.13.2 — Breakeven flat: PRECISA (constante = breakevenSales) × TEM (vendas reais).
+    // Cor: TEM >= PRECISA verde, < PRECISA vermelho.
+    const beNeeds = breakevenSales != null ? breakevenSales : null;
+    const beHas = realizado;
+    const beNeedsLabel = beNeeds == null ? '—' : beNeeds.toLocaleString('pt-BR');
+    const beHasLabel = beHas.toLocaleString('pt-BR');
+    const beHasColor = beNeeds == null
+      ? 'lj-revops-pct-neutral'
+      : (beHas >= beNeeds ? 'lj-revops-pct-ok' : 'lj-revops-pct-bad');
 
     return `<div class="lj-home-cards lj-home-revops-cards">
       <div class="lj-home-card lj-home-card-revops">
@@ -599,17 +599,17 @@ window.HomeModule = {
 
       <div class="lj-home-card lj-home-card-revops">
         <div class="lj-home-card-header">
-          <div class="lj-home-card-title"><i data-lucide="trending-up" class="w-4 h-4"></i>% Breakeven</div>
+          <div class="lj-home-card-title"><i data-lucide="trending-up" class="w-4 h-4"></i>Breakeven</div>
         </div>
         <div class="lj-revops-pair">
           <div class="lj-revops-pair-col">
-            <div class="lj-revops-pair-label">Previsto</div>
-            <div class="lj-revops-pair-value ${pctColorFor(pctBreakevenPrev)}">${pctLabel(pctBreakevenPrev)}</div>
+            <div class="lj-revops-pair-label">Precisa</div>
+            <div class="lj-revops-pair-value">${beNeedsLabel}</div>
           </div>
           <div class="lj-revops-pair-sep">×</div>
           <div class="lj-revops-pair-col">
-            <div class="lj-revops-pair-label">Atual</div>
-            <div class="lj-revops-pair-value ${pctColorFor(pctBreakevenReal)}">${pctLabel(pctBreakevenReal)}</div>
+            <div class="lj-revops-pair-label">Tem</div>
+            <div class="lj-revops-pair-value ${beHasColor}">${beHasLabel}</div>
           </div>
         </div>
         <div class="lj-revops-metric-sub">${breakevenSales ? `equilíbrio em ${breakevenSales} vendas` : 'breakeven não calculado'}</div>

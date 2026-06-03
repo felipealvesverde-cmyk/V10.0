@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.13.2',
+    date: '2026-06-03',
+    title: 'Card Breakeven em valores flat — Precisa × Tem (sem porcentagem)',
+    bullets: [
+      'O card de Breakeven trocou porcentagem por número absoluto de vendas: "Precisa 171 × Tem 0".',
+      'Verde quando "Tem" alcança ou ultrapassa "Precisa". Vermelho quando ainda falta.',
+      'Subtitle continua mostrando "equilíbrio em N vendas" pra contexto.'
+    ]
+  },
+  {
     version: 'V35.13.1',
     date: '2026-06-03',
     title: 'Cards RevOps da Home agora mostram Previsto × Atual lado a lado',
