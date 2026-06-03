@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.13.6',
+    date: '2026-06-03',
+    title: 'Auto-clear de "Sessão Expirada" quando auth volta a funcionar',
+    bullets: [
+      'Em races transientes do boot (pool tenant ainda inicializando), um 401 isolado disparava o modal "Sessão Expirada" mesmo com o JWT válido.',
+      'Antes o modal só sumia se você reentrasse manualmente — mesmo que a próxima request já voltasse 200.',
+      'Agora qualquer response 2xx com Auth Bearer confirma "sessão viva" e limpa a flag silenciosamente. Modal/banner some sozinho.'
+    ]
+  },
+  {
     version: 'V35.13.5',
     date: '2026-06-03',
     title: 'Silenciado warning falso-positivo de campos lost no boot',

@@ -56,6 +56,23 @@
         // Falha em ler header (CORS bloqueado, etc) — silencioso. Não afeta a request.
       }
 
+      // V35.13.6 — Auto-clear de sessionExpired em 2xx. Cobre cenário transient:
+      // pool de tenant DB ainda inicializando no boot → 401 falso-positivo →
+      // sessionExpired marcado → race resolve, POSTs voltam a 200 → modal
+      // ficava preso até relogin manual. Agora qualquer 2xx com Auth Bearer
+      // sinaliza "auth tá viva", limpa a flag. Idempotente (só limpa se true).
+      if (response.status >= 200 && response.status < 300) {
+        if (window.App?.state?.sessionExpired) {
+          window.App.state.sessionExpired = false;
+          // Também fecha modal inline se estava aberto por falso-positivo.
+          if (window.App.state.reloginInlineModal?.open) {
+            window.App.state.reloginInlineModal = { open: false, error: null, loading: false };
+          }
+          if (window.App.render) window.App.render();
+          if (DEBUG) console.log('[SlidingSession] sessionExpired auto-limpo (2xx confirmou auth viva).');
+        }
+      }
+
       // V35.4.3 — A3 (banner discreto pra READs, modal só pra WRITEs).
       // GET 401 → seta sessionExpired flag (banner aparece, não bloqueia).
       // POST/PUT/DELETE/PATCH 401 → modal inline (write precisa de auth válida).
