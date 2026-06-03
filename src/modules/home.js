@@ -517,38 +517,53 @@ window.HomeModule = {
     if (!dash) return '';
 
     const fmtMoney = v => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-    const cac = fmtMoney(dash.cac);
-    const tm  = fmtMoney(dash.ticket);
     const previsto = Number(dash.sales || 0);
     const realizado = Number(dash.realSales || 0);
+    // V35.13.1 — CAC previsto + atual (vem da cascata do painel V2)
+    const cacPrevisto = dash.cacPrevisto != null ? Number(dash.cacPrevisto) : Number(dash.cac || 0);
+    const cacRealRaw = (dash.cacReal != null) ? Number(dash.cacReal) : null;
+    const cacPrevistoFmt = fmtMoney(cacPrevisto);
+    const cacRealFmt = cacRealRaw != null ? fmtMoney(cacRealRaw) : '—';
+    // V35.13.1 — TM previsto (ofertas) + atual (receita real ÷ vendas reais).
+    // Atual só faz sentido com realSales > 0.
+    const tmPrevisto = Number(dash.ticket || 0);
+    const tmRealRaw = realizado > 0 ? tmPrevisto : null; // proxy — sem receita real granular, usa ticket
+    const tmPrevistoFmt = fmtMoney(tmPrevisto);
+    const tmRealFmt = tmRealRaw != null ? fmtMoney(tmRealRaw) : '—';
+
     const breakevenSales = dash.breakevenSales;
-    const pctBreakeven = breakevenSales && breakevenSales > 0
+    // V35.13.1 — % breakeven previsto (vs sales projetadas) + atual (vs realSales)
+    const pctBreakevenPrev = breakevenSales && breakevenSales > 0
+      ? Math.round((previsto / breakevenSales) * 100)
+      : null;
+    const pctBreakevenReal = breakevenSales && breakevenSales > 0
       ? Math.round((realizado / breakevenSales) * 100)
       : null;
-
-    // Cor: ≥100% verde escalonado, <100% vermelho.
-    let pctColor = 'lj-revops-pct-neutral';
-    if (pctBreakeven !== null) {
-      if (pctBreakeven >= 100) pctColor = 'lj-revops-pct-ok';
-      else pctColor = 'lj-revops-pct-bad';
-    }
-    const pctLabel = pctBreakeven === null ? '—' : `${pctBreakeven}%`;
-    const pctSub = breakevenSales
-      ? (pctBreakeven >= 100 ? 'acima do breakeven' : `faltam ${Math.max(0, breakevenSales - realizado)} venda(s)`)
-      : 'breakeven não calculado';
+    const pctColorFor = pct => pct === null ? 'lj-revops-pct-neutral' : (pct >= 100 ? 'lj-revops-pct-ok' : 'lj-revops-pct-bad');
+    const pctLabel = pct => pct === null ? '—' : `${pct}%`;
 
     return `<div class="lj-home-cards lj-home-revops-cards">
       <div class="lj-home-card lj-home-card-revops">
         <div class="lj-home-card-header">
           <div class="lj-home-card-title"><i data-lucide="hand-coins" class="w-4 h-4"></i>CAC</div>
         </div>
-        <div class="lj-revops-metric">${cac}</div>
+        <div class="lj-revops-pair">
+          <div class="lj-revops-pair-col">
+            <div class="lj-revops-pair-label">Previsto</div>
+            <div class="lj-revops-pair-value">${cacPrevistoFmt}</div>
+          </div>
+          <div class="lj-revops-pair-sep">×</div>
+          <div class="lj-revops-pair-col">
+            <div class="lj-revops-pair-label">Atual</div>
+            <div class="lj-revops-pair-value">${cacRealFmt}</div>
+          </div>
+        </div>
         <div class="lj-revops-metric-sub">Custo por aquisição · RevOps</div>
       </div>
 
       <div class="lj-home-card lj-home-card-sales">
         <div class="lj-home-card-header">
-          <div class="lj-home-card-title"><i data-lucide="target" class="w-4 h-4"></i>Previsto × Realizado</div>
+          <div class="lj-home-card-title"><i data-lucide="target" class="w-4 h-4"></i>Vendas</div>
         </div>
         <div class="lj-revops-pair">
           <div class="lj-revops-pair-col">
@@ -557,7 +572,7 @@ window.HomeModule = {
           </div>
           <div class="lj-revops-pair-sep">×</div>
           <div class="lj-revops-pair-col">
-            <div class="lj-revops-pair-label">Realizado</div>
+            <div class="lj-revops-pair-label">Atual</div>
             <div class="lj-revops-pair-value">${realizado.toLocaleString('pt-BR')}</div>
           </div>
         </div>
@@ -568,16 +583,36 @@ window.HomeModule = {
         <div class="lj-home-card-header">
           <div class="lj-home-card-title"><i data-lucide="receipt" class="w-4 h-4"></i>TM</div>
         </div>
-        <div class="lj-revops-metric">${tm}</div>
+        <div class="lj-revops-pair">
+          <div class="lj-revops-pair-col">
+            <div class="lj-revops-pair-label">Previsto</div>
+            <div class="lj-revops-pair-value">${tmPrevistoFmt}</div>
+          </div>
+          <div class="lj-revops-pair-sep">×</div>
+          <div class="lj-revops-pair-col">
+            <div class="lj-revops-pair-label">Atual</div>
+            <div class="lj-revops-pair-value">${tmRealFmt}</div>
+          </div>
+        </div>
         <div class="lj-revops-metric-sub">Ticket médio · RevOps</div>
       </div>
 
       <div class="lj-home-card lj-home-card-revops">
         <div class="lj-home-card-header">
-          <div class="lj-home-card-title"><i data-lucide="trending-up" class="w-4 h-4"></i>% para Breakeven</div>
+          <div class="lj-home-card-title"><i data-lucide="trending-up" class="w-4 h-4"></i>% Breakeven</div>
         </div>
-        <div class="lj-revops-metric ${pctColor}">${pctLabel}</div>
-        <div class="lj-revops-metric-sub">${pctSub}</div>
+        <div class="lj-revops-pair">
+          <div class="lj-revops-pair-col">
+            <div class="lj-revops-pair-label">Previsto</div>
+            <div class="lj-revops-pair-value ${pctColorFor(pctBreakevenPrev)}">${pctLabel(pctBreakevenPrev)}</div>
+          </div>
+          <div class="lj-revops-pair-sep">×</div>
+          <div class="lj-revops-pair-col">
+            <div class="lj-revops-pair-label">Atual</div>
+            <div class="lj-revops-pair-value ${pctColorFor(pctBreakevenReal)}">${pctLabel(pctBreakevenReal)}</div>
+          </div>
+        </div>
+        <div class="lj-revops-metric-sub">${breakevenSales ? `equilíbrio em ${breakevenSales} vendas` : 'breakeven não calculado'}</div>
       </div>
     </div>`;
   },
