@@ -102,6 +102,84 @@
     // NORMALIZE — defensivo contra state sujo
     // ─────────────────────────────────────────────────────────────
 
+    // V35.9.1 — Recalcula o item auto '[LJ]Google ads' em
+    // revopsFinanceV2[productId].groups[bucket='acquisition'].items.
+    //
+    // Comportamento idêntico ao da V1 mas no modelo whitelabel:
+    //   - Encontra (ou cria) grupo com bucket='acquisition'
+    //   - Encontra item com source='auto-google-ads'
+    //   - Calcula soma do gasto 30d das ads vinculadas a Campanhas LJ deste Produto
+    //   - Soma > 0 → cria/atualiza item com calc.mode='fixed', source/locked
+    //   - Soma === 0 → remove item (todas ads desvinculadas)
+    //
+    // Idempotente. Chamado por linkGoogleAdsCampaignsToLj e unlink.
+    recomputeAcquisitionAutoItem(productId, sourceKey) {
+      if (!productId) return;
+      if (sourceKey !== 'auto-google-ads') return;
+      if (!window.App?.state) return;
+
+      const state = App.state;
+      if (!state.revopsFinanceV2) state.revopsFinanceV2 = {};
+      if (!state.revopsFinanceV2[productId]) state.revopsFinanceV2[productId] = this.defaultConfig(productId);
+      const cfg = state.revopsFinanceV2[productId];
+      if (!Array.isArray(cfg.groups)) cfg.groups = [];
+
+      // 1. Coleta external IDs vinculados a Campanhas LJ deste Produto.
+      const ljCampaigns = Array.isArray(state.campaigns) ? state.campaigns : [];
+      const productCampaigns = ljCampaigns.filter(c => Number(c.productId) === Number(productId));
+      const linkedExternalIds = new Set();
+      productCampaigns.forEach(c => (c.externalLinks?.googleAds || []).forEach(id => linkedExternalIds.add(String(id))));
+
+      // 2. Soma cost_brl 30d das ads no cache cujos IDs batem.
+      const allAds = Array.isArray(state.googleAdsCampaignsCache) ? state.googleAdsCampaignsCache : [];
+      let sum = 0;
+      allAds.forEach(ad => {
+        if (linkedExternalIds.has(String(ad.campaign_id))) {
+          sum += Number(ad.metrics_30d?.cost_brl || 0);
+        }
+      });
+      sum = Math.round(sum * 100) / 100;
+
+      // 3. Encontra grupo acquisition (ou cria).
+      let acqGroup = cfg.groups.find(g => g.bucket === 'acquisition');
+      if (!acqGroup) {
+        if (sum === 0) return;            // nada a fazer
+        acqGroup = {
+          id: `g_acquisition_${Date.now().toString(36).slice(-4)}`,
+          label: 'Aquisição',
+          bucket: 'acquisition',
+          items: []
+        };
+        cfg.groups.push(acqGroup);
+      }
+      if (!Array.isArray(acqGroup.items)) acqGroup.items = [];
+
+      // 4. Procura item auto.
+      const itemName = '[LJ]Google ads';
+      const idx = acqGroup.items.findIndex(it => it.source === sourceKey);
+
+      if (sum > 0) {
+        if (idx >= 0) {
+          acqGroup.items[idx].name = itemName;
+          acqGroup.items[idx].calc = { mode: 'fixed', value: sum };
+          acqGroup.items[idx].source = sourceKey;
+          acqGroup.items[idx].locked = true;
+        } else {
+          acqGroup.items.push({
+            id: `lj_google_ads_${Date.now().toString(36).slice(-4)}`,
+            name: itemName,
+            calc: { mode: 'fixed', value: sum },
+            source: sourceKey,
+            locked: true
+          });
+        }
+      } else if (idx >= 0) {
+        acqGroup.items.splice(idx, 1);
+        // Se o grupo ficou vazio E só existia por nossa causa, podemos deixar
+        // o grupo (cliente pode usar pra outros items manuais futuros).
+      }
+    },
+
     normalize(raw = {}, productId = null) {
       const base = this.defaultConfig(productId);
       if (!raw || typeof raw !== 'object') return base;
@@ -155,7 +233,12 @@
       return {
         id: String(raw.id || `item_${Date.now().toString(36).slice(-4)}`),
         name: String(raw.name || 'Item'),
-        calc: this._normalizeCalc(raw.calc)
+        calc: this._normalizeCalc(raw.calc),
+        // V35.9.1 — Preserva metadados de auto-gerado (convenção [LJ]).
+        // items com source != null e locked === true são gerenciados pelo LJ
+        // (ex: '[LJ]Google ads'), bloqueados pra edição/delete manual na UI.
+        source: raw.source || null,
+        locked: Boolean(raw.locked)
       };
     },
 

@@ -512,9 +512,30 @@
 
     // V32.11.3 — Leonardo: item Builder executivo. Inputs sóbrios com focus
     // violet, "Calculado" como pill, delete icon Lucide.
+    // V35.9.1 — Items travados (auto-gerados pelo LJ) renderizam com cadeado
+    // amber, sem possibilidade de rename/delete/mudar modo de cálculo.
     _itemRow(productId, group, item, ev) {
       const calc = item.calc || { mode: 'fixed', value: 0 };
       const value = ev.itemValues[item.id] || 0;
+      const isLocked = Boolean(item.locked);
+      if (isLocked) {
+        return `<div class="rounded-xl bg-amber-50/50 border border-amber-300 transition p-3" title="Item gerenciado pelo LJ — para alterar, desvincule as campanhas Ads no Dashboard.">
+          <div class="flex items-center gap-2">
+            <div class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-white border border-amber-200 text-sm font-bold text-slate-800 flex items-center gap-2">
+              <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-600 shrink-0"></i>
+              <span class="truncate">${Utils.escape(item.name)}</span>
+            </div>
+            <div class="text-right shrink-0 px-2.5 py-1 rounded-lg bg-white border border-amber-200">
+              <p class="text-[9px] font-black text-amber-700 uppercase tracking-wider">Auto · LJ</p>
+              <p class="text-sm font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
+            </div>
+            <div class="px-1.5 py-1 rounded-lg bg-amber-100 border border-amber-300 text-amber-700 shrink-0 self-start" title="Gerenciado pelo LJ (não pode ser removido aqui)">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+            </div>
+          </div>
+          <p class="text-[10px] text-amber-700/80 mt-2 italic">Soma do gasto das campanhas Ads vinculadas. Pra alterar, vá em Dashboard → Google Ads.</p>
+        </div>`;
+      }
       return `<div class="rounded-xl bg-white border border-slate-200 hover:border-slate-300 transition p-3">
         <div class="flex items-start gap-2 mb-2.5">
           <input value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome do item" class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
