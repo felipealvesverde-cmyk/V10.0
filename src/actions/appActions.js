@@ -12147,12 +12147,78 @@ Prioridade: ${d.priority}
     m.djow.showHistorico = Boolean(show);
     App.render();
   },
-  confirmCreateCustomKr() {
+  // V35.10.0-alpha1 — Captura metadados do Djow (nature_id, formula_id,
+  // selected_sources, kr_meta) e persiste no KR pra alpha2 puxar o
+  // current ao vivo da fonte real. Compat: se sessão Djow não rolou
+  // (fallback mock ou backend caiu), djowMeta fica null e KR vira manual.
+  async confirmCreateCustomKr() {
     const m = App.state.createCustomKrModal;
     if (!m || !m.open) return;
     const name = String(m.name || '').trim();
     if (!name) return Utils.toast('Digite o nome do KR-mãe.');
     if (!window.StrategicMapEngine) return;
+
+    // V35.10.0-alpha1 — Tenta finalizar sessão Djow (best-effort) pra
+    // pegar kr_payload com selected_sources e fórmula. Se backend cair,
+    // monta djowMeta com o que o frontend tem na sessão local.
+    let djowMeta = null;
+    if (m.djow?.sessionId) {
+      try {
+        const token = localStorage.getItem('lj_jwt');
+        // step numbers (se ainda não rodou validação no backend)
+        await fetch('/api/djow-kr-infer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            step: 'numbers',
+            sessionId: m.djow.sessionId,
+            atual: Number(m.current || 0),
+            segura: Number(m.targetCommitted || 0),
+            avancada: Number(m.targetStretch || 0)
+          })
+        });
+        // step confirm — recebe kr_payload final estruturado pelo backend
+        const r = await fetch('/api/djow-kr-infer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ step: 'confirm', sessionId: m.djow.sessionId })
+        });
+        const data = await r.json();
+        if (data.ok && data.kr_payload) {
+          djowMeta = {
+            classification: data.kr_payload.type || m.djow.classification || 'manual',
+            natureId: data.kr_payload.nature_id || null,
+            formulaId: data.kr_payload.formula_id || null,
+            formulaDisplay: data.kr_payload.formula_display || null,
+            formulaSymbolic: data.kr_payload.formula_symbolic || null,
+            selectedSources: Array.isArray(data.kr_payload.selected_sources) ? data.kr_payload.selected_sources : [],
+            createdSession: data.kr_payload.created_by_djow_session || m.djow.sessionId,
+            direction: data.kr_payload.direction || m.djow.krMeta?.direction || 'higher'
+          };
+        }
+      } catch (_) { /* fallback abaixo */ }
+    }
+    // Fallback local: monta djowMeta com o que tá na sessão do frontend
+    if (!djowMeta && m.djow?.layerOptions?.length) {
+      const selectedOptions = (m.djow.layerOptions || []).filter(o => (m.djow.selectedIds || []).includes(o.id));
+      djowMeta = {
+        classification: m.djow.classification || 'atomic',
+        natureId: m.djow.krMeta?.nature_id || null,
+        formulaId: m.djow.krMeta?.formula_id || null,
+        formulaDisplay: m.djow.krMeta?.formula_display || null,
+        formulaSymbolic: m.djow.krMeta?.formula_symbolic || null,
+        selectedSources: selectedOptions.map(o => ({
+          id: o.id,
+          label: o.label,
+          integration_id: o.integration_id || null,
+          field: o.field || null,
+          aggregation: o.aggregation || 'sum'
+        })),
+        createdSession: m.djow.sessionId || null,
+        direction: m.djow.krMeta?.direction || 'higher'
+      };
+    }
+
     // 1. Adiciona ao customKpiCatalog (base de conhecimento global)
     const learnedKpi = StrategicMapEngine.addCustomKpiToCatalog(m.area, {
       name,
@@ -12160,7 +12226,7 @@ Prioridade: ${d.priority}
       description: `Custom criado em ${m.area}`,
       handoff: false
     });
-    // 2. Cria productKr no produto atual já confirmed
+    // 2. Cria productKr no produto atual já confirmed + djowMeta
     StrategicMapEngine.addProductKr(m.productId, {
       area: m.area,
       catalogId: learnedKpi ? learnedKpi.id : null,
@@ -12173,11 +12239,12 @@ Prioridade: ${d.priority}
       targetStretch: m.targetStretch !== '' ? Number(m.targetStretch) : null,
       period: 90,
       owner: '',
-      confirmed: true
+      confirmed: true,
+      djowMeta
     }, 'ceo');
     App.state.createCustomKrModal = null;
     App.save(); App.render();
-    Utils.toast(`✓ "${name}" criado e adicionado à base de conhecimento de ${m.area}.`);
+    Utils.toast(`✓ "${name}" criado${djowMeta ? ' e conectado à fonte' : ''}.`);
   },
 
   // V31.2.11 — Confirma o KR-mãe (estado editing → confirmed verde).

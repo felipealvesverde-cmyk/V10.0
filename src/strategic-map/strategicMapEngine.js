@@ -898,7 +898,12 @@ window.StrategicMapEngine = {
       isHandoff: Boolean(krData.isHandoff),
       catalogDescription: krData.catalogDescription || '',
       createdBy: source,                    // 'ceo' | 'auto' (K3)
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      // V35.10.0-alpha1 — Metadados do Djow pra puxar o `current` ao vivo
+      // da fonte real. Quando djowMeta existe e tem selectedSources, o
+      // engine de KrLiveValue (alpha2) recalcula current automaticamente.
+      // Quando null, KR é manual (cliente atualiza no braço).
+      djowMeta: krData.djowMeta || null
     };
     const productKrs = [...(map.productKrs || []), kr];
     this.save(productId, { productKrs });
