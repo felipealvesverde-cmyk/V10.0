@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.9.0',
+    date: '2026-06-03',
+    title: 'Custo de Google Ads vai direto pro RevOps Aquisição S&M (automático)',
+    bullets: [
+      'Quando você vincula campanhas Google Ads a uma Campanha LJ, o LJ cria automaticamente o item "[LJ]Google ads" no RevOps > Aquisição S&M do produto correspondente.',
+      'O valor é a soma do gasto 30d de todas as campanhas Ads vinculadas a Campanhas LJ daquele produto.',
+      'Item travado: vem com ícone de cadeado, sem edição manual de nome ou valor. Pra ajustar, você desvincula ou vincula mais ads no Dashboard.',
+      'Quando você desvincula todas as ads de um produto, o item some sozinho.',
+      'Convenção universal: todo item auto-gerado pelo LJ no RevOps começa com prefixo "[LJ]" pra distinguir dos manuais.'
+    ]
+  },
+  {
     version: 'V35.8.0-alpha5',
     date: '2026-06-03',
     title: 'Quadro de KRs do Mapa mostra qual produto está pulsando',
