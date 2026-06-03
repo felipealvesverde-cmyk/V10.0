@@ -13594,6 +13594,11 @@ Object.assign(Actions, {
     }
   },
 
+  setGa4DashboardSubTab(tab) {
+    App.state.ga4DashboardSubTab = ['overview', 'breakdown', 'customs'].includes(tab) ? tab : 'overview';
+    App.render();
+  },
+
   async loadGa4Reports(days) {
     const d = Math.max(1, Math.min(365, Number(days || 30)));
     try {

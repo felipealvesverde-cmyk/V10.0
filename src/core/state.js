@@ -561,11 +561,13 @@ var State = {
       //   ga4PropertiesCache: lista de properties acessíveis (carregada após OAuth)
       //   ga4ReportsCache: { rows, loadedAt, days }
       //   ga4CustomsCache: lista de customs detectados via getMetadata
+      //   ga4DashboardSubTab: 'overview' | 'breakdown' | 'customs'
       ga4Wizard: null,
       ga4Status: null,
       ga4PropertiesCache: null,
       ga4ReportsCache: null,
       ga4CustomsCache: null,
+      ga4DashboardSubTab: 'overview',
       // V35.6.0 — Integrações IPI: aba ativa na nova página Integrações.
       integrationsTab: 'injetar',
       // V35.6.0-alpha4 — Modais próprios de RD e ClickUp dentro de Integrações.
@@ -1218,6 +1220,7 @@ var State = {
       ga4PropertiesCache: raw.ga4PropertiesCache || null,
       ga4ReportsCache: raw.ga4ReportsCache || null,
       ga4CustomsCache: raw.ga4CustomsCache || null,
+      ga4DashboardSubTab: raw.ga4DashboardSubTab || 'overview',
       // V35.6.0 — Integrações IPI
       integrationsTab: (typeof raw.integrationsTab === 'string' && ['injetar','propagar','iterar'].includes(raw.integrationsTab)) ? raw.integrationsTab : 'injetar',
       // V35.6.0-alpha4 — modais Iterar (não persistem aberto entre sessões)

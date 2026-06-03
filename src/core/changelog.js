@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.14.4',
+    date: '2026-06-03',
+    title: 'GA4 — Dashboard com 3 abas (Onda 3c)',
+    bullets: [
+      'Tab "GA4" entrou no Dashboard ao lado de Google Ads, com 3 sub-abas: Visão Geral, Detalhes e Customs.',
+      'Visão Geral mostra KPIs do período (sessions, users, conversions, pageviews, receita) e tráfego por canal.',
+      'Detalhes traz a tabela completa quebrada por todas as dimensões sincronizadas — fácil de exportar via copiar/colar.',
+      'Customs lista as métricas/dimensões customizadas com o nome amigável que você deu no wizard.',
+      'Botão "Sincronizar agora" no header dispara sync manual e recarrega o painel.'
+    ]
+  },
+  {
     version: 'V35.14.3',
     date: '2026-06-03',
     title: 'GA4 — Sub-wizard de customs (Onda 3b)',

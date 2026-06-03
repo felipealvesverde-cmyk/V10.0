@@ -13,7 +13,8 @@ var DashboardModule = {
           checkout:     () => window.CheckoutDashboard   ? CheckoutDashboard.render()   : '<p class="p-6 text-slate-500">CheckoutDashboard não carregado.</p>',
           alunos:       () => window.AlunosModule        ? `<div class="p-2 lg:p-4">${AlunosModule.render()}</div>`        : '<p class="p-6 text-slate-500">AlunosModule não carregado.</p>',
           'meta-ads':   () => window.MetaAdsDashboard    ? `<div class="p-2 lg:p-4">${MetaAdsDashboard.render()}</div>`    : '<p class="p-6 text-slate-500">MetaAdsDashboard não carregado.</p>',
-          'google-ads': () => window.GoogleAdsDashboard  ? `<div class="p-2 lg:p-4">${GoogleAdsDashboard.render()}</div>`  : '<p class="p-6 text-slate-500">GoogleAdsDashboard não carregado.</p>'
+          'google-ads': () => window.GoogleAdsDashboard  ? `<div class="p-2 lg:p-4">${GoogleAdsDashboard.render()}</div>`  : '<p class="p-6 text-slate-500">GoogleAdsDashboard não carregado.</p>',
+          'ga4':        () => window.Ga4Dashboard        ? `<div class="p-2 lg:p-4">${Ga4Dashboard.render()}</div>`        : '<p class="p-6 text-slate-500">Ga4Dashboard não carregado.</p>'
         };
         const body = (renderers[activeTab] || renderers.overview)();
         return this._tabs(activeTab) + body;
@@ -27,7 +28,8 @@ var DashboardModule = {
           { sep: true },
           { id: 'alunos',      label: 'Meus Alunos',  icon: 'graduation-cap',   semantic: 'cs',        color: '#6BBEF9' },
           { id: 'meta-ads',    label: 'Meta Ads',     icon: 'facebook',         semantic: 'marketing', color: '#F472B6' },
-          { id: 'google-ads',  label: 'Google Ads',   icon: 'search',           semantic: 'marketing', color: '#F472B6' }
+          { id: 'google-ads',  label: 'Google Ads',   icon: 'search',           semantic: 'marketing', color: '#F472B6' },
+          { id: 'ga4',         label: 'GA4',          icon: 'line-chart',       semantic: 'marketing', color: '#F472B6' }
         ];
         return `<div class="px-2 pt-2">
           <div class="inline-flex rounded-2xl bg-slate-100 border border-slate-200 p-1 gap-1 mb-4 flex-wrap items-center">
