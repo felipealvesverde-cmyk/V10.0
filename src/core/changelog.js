@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.8.0-alpha3',
+    date: '2026-06-03',
+    title: 'Modal de criar KR-mãe ganha cara nova com Djow no comando',
+    bullets: [
+      'Modal redesenhado em 3 zonas claras: nome, fala do Djow, opções de fonte.',
+      'Djow comenta cada decisão no monólogo cumulativo — após 5 mensagens aparece "ver histórico" pra desbravar.',
+      'Layer de opções fica embaixo da fala do Djow: ele lista as fontes reais e você marca uma ou várias.',
+      'Campos atual / meta segura / meta avançada ficam bloqueados até você confirmar a fonte — sem mais comprometer meta sem saber de onde vem o número.',
+      'Testes rápidos pra ver a UX: digite "MQL", "ROAS", "LTV" ou "NPS" e veja o Djow responder diferente pra cada um.',
+      'Próxima alpha: substituir o mock pelo backend de verdade.'
+    ]
+  },
+  {
     version: 'V35.8.0-alpha2',
     date: '2026-06-03',
     title: 'Djow já consegue classificar e propor fontes pra novo KR (backend pronto)',
