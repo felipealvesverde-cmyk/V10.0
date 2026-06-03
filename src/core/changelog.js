@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.14.0',
+    date: '2026-06-03',
+    title: 'Google Analytics 4 — fundação OAuth + schema (Onda 1)',
+    bullets: [
+      'Começou a integração com GA4: agora o LJ tem a base técnica pra conectar a propriedade GA4 do cliente via OAuth Google.',
+      'Esta onda entrega só a fundação invisível (banco de dados e endpoints OAuth). O wizard, dashboard e dashboards GA4 vêm nas próximas ondas (V35.14.1+).',
+      'Schema flexível: o LJ aceita qualquer combinação de métricas e dimensões que o cliente escolher (incluindo customs que ele criou no GA4), sem mexer no banco depois.',
+      'Modelo: cliente cadastra próprio Cloud Project + OAuth Client ID/Secret (paridade com Google Ads). LJ guarda refresh_token criptografado.'
+    ]
+  },
+  {
     version: 'V35.13.6',
     date: '2026-06-03',
     title: 'Auto-clear de "Sessão Expirada" quando auth volta a funcionar',
