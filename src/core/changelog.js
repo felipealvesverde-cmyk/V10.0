@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.13.3.1',
+    date: '2026-06-03',
+    title: 'Fix detecção de ação órfã (V35.13.3 não acionava o resolver)',
+    bullets: [
+      'V35.13.3 não estava marcando a ação como órfã porque o KR-filho na branch ainda existia (segurando o connectedActionIds) mesmo depois do KR-mãe ser deletado.',
+      'Agora a detecção checa o KR-mãe resolvido em productKrs — se ele não existe mais, a ação vira cinza apagado com o botão Resolver.',
+      'Reconectar a ação também limpa o vínculo com o KR-filho órfão antigo, evitando que ela continue parecendo órfã depois de reconectada.'
+    ]
+  },
+  {
     version: 'V35.13.3',
     date: '2026-06-03',
     title: 'Ações órfãs no editor de campanha agora pedem decisão',
