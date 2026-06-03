@@ -243,6 +243,11 @@ var State = {
       // do Felipe (KR plugado + checkboxes KR + nome + onde começa/pra onde
       // leva + canal + "Criar Ação"). Opera sobre action existente (não cria).
       strategicMindMapActionEditor: null,
+      // V35.13.3 — Resolver de ação órfã (KR-mãe deletado). null = fechado.
+      // Quando aberto: { actionId, mode } onde mode ∈ {'choose', 'reconnect'}.
+      // 'choose' = mostra 2 botões (Deletar / Conectar). 'reconnect' = mostra
+      // lista de KRs-mãe ativos do produto na frente atual da ação.
+      orphanActionResolver: null,
       // V32.13.16 — Modal de detalhe da task de execução acionado pelo click
       // no card amber da branch de execução. null = fechado.
       // Quando aberto: { taskId, syncing: bool }
@@ -919,6 +924,8 @@ var State = {
       strategicJustCreatedActionId: null,
       // V32.13.12 — Editor de ação do mind-map é volátil (F5 fecha).
       strategicMindMapActionEditor: null,
+      // V35.13.3 — Resolver de ação órfã é volátil (F5 fecha).
+      orphanActionResolver: null,
       // V32.13.16 — Detalhe execution task volátil (F5 fecha).
       executionTaskDetail: null,
       // V32.14.1 — Drill-down KR volátil.

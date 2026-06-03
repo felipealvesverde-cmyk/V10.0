@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.13.3',
+    date: '2026-06-03',
+    title: 'Ações órfãs no editor de campanha agora pedem decisão',
+    bullets: [
+      'Quando você deleta um número da campanha, as ações que dependiam dele ficavam fantasma no editor. Agora elas viram cinza apagado com um botão "Resolver".',
+      'Clicar em Resolver abre 2 caminhos: deletar a ação inteira (incluindo as tasks no ClickUp) ou conectar a ação a outro número ativo da mesma frente.',
+      'A opção de conectar lista os números ativos do produto na frente daquela ação (Marketing, Vendas ou CS), pra você não ter que recriar a ação do zero.',
+      'Deletar dispara o cascade real: ação some, tasks somem, mapping ClickUp some. Sem fantasma.'
+    ]
+  },
+  {
     version: 'V35.13.2',
     date: '2026-06-03',
     title: 'Card Breakeven em valores flat — Precisa × Tem (sem porcentagem)',
