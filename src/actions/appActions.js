@@ -5135,6 +5135,12 @@ Object.assign(Actions, {
   removeRevopsAcquisitionItem(itemId) {
     const config = this._revopsEnsureConfig();
     if (!config || !config.acquisitionCosts) return;
+    // V35.9.0 — Bloqueia delete manual de items travados (auto-gerados pelo LJ).
+    const target = (config.acquisitionCosts.items || []).find(it => it.id === itemId);
+    if (target?.locked) {
+      Utils.toast('Esse item é gerenciado pelo LJ. Pra removê-lo, desvincule as campanhas Ads.');
+      return;
+    }
     config.acquisitionCosts.items = (config.acquisitionCosts.items || []).filter(item => item.id !== itemId);
     App.save(); App.render();
   },
@@ -5144,6 +5150,8 @@ Object.assign(Actions, {
     if (!config || !config.acquisitionCosts) return;
     config.acquisitionCosts.items = (config.acquisitionCosts.items || []).map(item => {
       if (item.id !== itemId) return item;
+      // V35.9.0 — Ignora updates em items travados (auto-gerados).
+      if (item.locked) return item;
       return { ...item, [field]: field === 'name' ? value : RevopsFinanceEngine.number(value) };
     });
     App.save();
@@ -7230,23 +7238,36 @@ Object.assign(Actions, {
   // V35.7.0-alpha1 — Vincula 1 ou mais campanhas externas (Google Ads) a
   // uma Campanha LJ. campaignExternalIds: array de strings (campaign_id da
   // plataforma). ljCampaignId: id da Campanha LJ destino.
+  // V35.9.0 — Dispara recalc de [LJ]Google ads em RevOps Aquisição após vincular.
   linkGoogleAdsCampaignsToLj(ljCampaignId, campaignExternalIds) {
     if (!ljCampaignId || !Array.isArray(campaignExternalIds) || !campaignExternalIds.length) return;
     const lj = (App.state.campaigns || []).find(c => Number(c.id) === Number(ljCampaignId));
     if (!lj) return Utils.toast('Campanha LJ não encontrada.');
     if (!lj.externalLinks) lj.externalLinks = { googleAds: [], metaAds: [], ga4: { sessionCampaignNames: [] } };
     if (!Array.isArray(lj.externalLinks.googleAds)) lj.externalLinks.googleAds = [];
-    // Remover de qualquer outra Campanha LJ que já tenha esses externalIds (cada externalId pode ter só 1 dono).
+    // V35.9.0 — Coleta Produtos afetados ANTES da mudança (caso steal de outras
+    // Campanhas LJ tire ads de outros Produtos — eles também precisam recalc).
+    const affectedProductIds = new Set([Number(lj.productId)]);
     const setIds = new Set(campaignExternalIds.map(String));
     (App.state.campaigns || []).forEach(c => {
       if (Number(c.id) === Number(ljCampaignId)) return;
       if (!c.externalLinks?.googleAds) return;
+      const hadAny = c.externalLinks.googleAds.some(id => setIds.has(String(id)));
+      if (hadAny) affectedProductIds.add(Number(c.productId));
       c.externalLinks.googleAds = c.externalLinks.googleAds.filter(id => !setIds.has(String(id)));
     });
     // Adicionar ao destino (dedup).
     const existing = new Set(lj.externalLinks.googleAds.map(String));
     campaignExternalIds.forEach(id => existing.add(String(id)));
     lj.externalLinks.googleAds = Array.from(existing);
+
+    // V35.9.0 — Recalcula [LJ]Google ads em RevOps Aquisição de cada Produto afetado.
+    if (window.RevopsFinanceEngine?.recomputeAcquisitionAutoItem) {
+      affectedProductIds.forEach(pid => {
+        if (pid) RevopsFinanceEngine.recomputeAcquisitionAutoItem(pid, 'auto-google-ads');
+      });
+    }
+
     App.save(); App.render();
     Utils.toast(`✓ ${campaignExternalIds.length} campanha(s) Ads vinculada(s) a "${lj.name}".`);
   },
@@ -7418,17 +7439,28 @@ Object.assign(Actions, {
 
   // V35.7.0-alpha1 — Desvincula 1 campanha externa de Google Ads de qualquer
   // Campanha LJ. campaignExternalId: string.
+  // V35.9.0 — Dispara recalc do item auto em RevOps Aquisição após desvincular.
   unlinkGoogleAdsCampaignFromLj(campaignExternalId) {
     if (!campaignExternalId) return;
     const targetId = String(campaignExternalId);
     let removed = false;
+    const affectedProductIds = new Set();
     (App.state.campaigns || []).forEach(c => {
       if (!c.externalLinks?.googleAds) return;
       const before = c.externalLinks.googleAds.length;
       c.externalLinks.googleAds = c.externalLinks.googleAds.filter(id => String(id) !== targetId);
-      if (c.externalLinks.googleAds.length !== before) removed = true;
+      if (c.externalLinks.googleAds.length !== before) {
+        removed = true;
+        if (c.productId) affectedProductIds.add(Number(c.productId));
+      }
     });
     if (removed) {
+      // V35.9.0 — Recalcula [LJ]Google ads em cada Produto afetado.
+      if (window.RevopsFinanceEngine?.recomputeAcquisitionAutoItem) {
+        affectedProductIds.forEach(pid => {
+          RevopsFinanceEngine.recomputeAcquisitionAutoItem(pid, 'auto-google-ads');
+        });
+      }
       App.save(); App.render();
       Utils.toast('✓ Campanha Ads voltou para "Não associadas".');
     }

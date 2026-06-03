@@ -57,6 +57,25 @@ var RevopsAcquisitionCostsModal = {
   _itemRow(item) {
     const focusName = `acq_${item.id}_name`;
     const focusValue = `acq_${item.id}_value`;
+    // V35.9.0 — Item travado (auto-gerado pelo LJ): inputs readonly, cadeado
+    // visível, botão "×" escondido. Único caminho pra zerar: desvincular as
+    // ads no Dashboard Google Ads.
+    const isLocked = Boolean(item.locked);
+    if (isLocked) {
+      return `<div class="rounded-2xl border border-amber-400/30 bg-amber-500/5 p-3 grid grid-cols-[1fr_160px_36px] gap-2 items-center" title="Item gerenciado pelo LJ — para alterar, desvincule as campanhas Ads no Dashboard.">
+        <div class="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-semibold text-sm flex items-center gap-2">
+          <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-300 shrink-0"></i>
+          <span class="truncate">${Utils.escape(item.name || '')}</span>
+        </div>
+        <div class="relative">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-black text-slate-400 pointer-events-none">R$</span>
+          <div class="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-black text-sm text-right">${Utils.formatCents(item.value)}</div>
+        </div>
+        <div class="h-10 rounded-xl bg-amber-500/10 border border-amber-400/30 grid place-items-center text-amber-200" title="Gerenciado pelo LJ (não pode ser removido aqui)">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+        </div>
+      </div>`;
+    }
     return `<div class="rounded-2xl border border-white/10 bg-black/20 p-3 grid grid-cols-[1fr_160px_36px] gap-2 items-center">
       <input id="${focusName}" data-focus-key="${focusName}" value="${Utils.escape(item.name || '')}" oninput="Actions.updateRevopsAcquisitionItemSilent('${item.id}', 'name', this.value)" onchange="App.render()" placeholder="Ex.: Google Ads, Meta Ads, RD Station, Hotmart" class="px-3 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white font-semibold text-sm placeholder:text-slate-500" />
       <div class="relative">

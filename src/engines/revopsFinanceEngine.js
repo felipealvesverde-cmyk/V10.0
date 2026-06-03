@@ -195,12 +195,17 @@ var RevopsFinanceEngine = {
         items: raw.items.map(item => ({
           id: item.id || `fx_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
           name: String(item.name || '').trim(),
-          value: this.number(item.value)
+          value: this.number(item.value),
+          // V35.9.0 — Preserva metadados de auto-gerado (source + locked).
+          // Convenção [LJ]: items criados pelo sistema (ex: '[LJ]Google ads')
+          // têm source='auto-<integração>' e locked=true (sem edição manual).
+          source: item.source || null,
+          locked: Boolean(item.locked)
         }))
       };
     }
     if (typeof raw === 'number' && raw > 0) {
-      return { items: [{ id: `fx_legacy_${Math.floor(Math.random() * 1000)}`, name: defaultLabel || 'Total', value: raw }] };
+      return { items: [{ id: `fx_legacy_${Math.floor(Math.random() * 1000)}`, name: defaultLabel || 'Total', value: raw, source: null, locked: false }] };
     }
     return { items: [] };
   },
@@ -256,6 +261,75 @@ var RevopsFinanceEngine = {
 
   acquisitionTotal(config = {}) {
     return this.fixedCategoryTotal(config.acquisitionCosts);
+  },
+
+  // V35.9.0 — Recalcula o item auto-gerado `[LJ]Google ads` em
+  // revopsFinance[productId].acquisitionCosts.items. Lê todas as ads
+  // vinculadas a Campanhas LJ daquele Produto e soma o gasto 30d.
+  //
+  // Comportamento:
+  //   - Soma > 0: cria ou atualiza item com name='[LJ]Google ads',
+  //     source='auto-google-ads', locked=true.
+  //   - Soma === 0: remove o item auto se existir (todas ads desvinculadas).
+  //
+  // Idempotente. Chamado por linkGoogleAdsCampaignsToLj e
+  // unlinkGoogleAdsCampaignFromLj após cada mudança de vínculo.
+  recomputeAcquisitionAutoItem(productId, sourceKey) {
+    if (!productId) return;
+    if (!sourceKey) return;
+    if (!window.App?.state) return;
+    if (sourceKey !== 'auto-google-ads') return;       // só suportamos GAds por enquanto
+
+    const state = App.state;
+    if (!state.revopsFinance) state.revopsFinance = {};
+    if (!state.revopsFinance[productId]) state.revopsFinance[productId] = this.defaultConfig(productId);
+    const config = state.revopsFinance[productId];
+    if (!config.acquisitionCosts) config.acquisitionCosts = { items: [] };
+    if (!Array.isArray(config.acquisitionCosts.items)) config.acquisitionCosts.items = [];
+
+    // 1. Coleta external IDs de Google Ads vinculados a Campanhas LJ deste Produto.
+    const ljCampaigns = Array.isArray(state.campaigns) ? state.campaigns : [];
+    const productCampaigns = ljCampaigns.filter(c => Number(c.productId) === Number(productId));
+    const linkedExternalIds = new Set();
+    productCampaigns.forEach(c => (c.externalLinks?.googleAds || []).forEach(id => linkedExternalIds.add(String(id))));
+
+    // 2. Soma cost_brl 30d das ads no cache cujos IDs batem.
+    const allAds = Array.isArray(state.googleAdsCampaignsCache) ? state.googleAdsCampaignsCache : [];
+    let sum = 0;
+    allAds.forEach(ad => {
+      if (linkedExternalIds.has(String(ad.campaign_id))) {
+        sum += Number(ad.metrics_30d?.cost_brl || 0);
+      }
+    });
+    sum = Math.round(sum * 100) / 100;   // 2 casas
+
+    // 3. Procura item auto existente.
+    const itemName = '[LJ]Google ads';
+    const idx = config.acquisitionCosts.items.findIndex(it => it.source === sourceKey);
+
+    if (sum > 0) {
+      if (idx >= 0) {
+        // Atualiza
+        config.acquisitionCosts.items[idx].value = sum;
+        config.acquisitionCosts.items[idx].name = itemName;
+        config.acquisitionCosts.items[idx].source = sourceKey;
+        config.acquisitionCosts.items[idx].locked = true;
+      } else {
+        // Cria novo
+        config.acquisitionCosts.items.push({
+          id: `acq_auto_gads_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+          name: itemName,
+          value: sum,
+          source: sourceKey,
+          locked: true
+        });
+      }
+    } else {
+      // Soma zero — desvinculou tudo. Remove item auto.
+      if (idx >= 0) {
+        config.acquisitionCosts.items.splice(idx, 1);
+      }
+    }
   },
 
   computeTicket(config = {}) {
