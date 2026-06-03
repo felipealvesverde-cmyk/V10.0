@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.13.4',
+    date: '2026-06-03',
+    title: 'Fix card EXECUÇÕES da Home sempre mostrando 0',
+    bullets: [
+      'Bug pré-existente: o card EXECUÇÕES do Pulso da Receita e o card Execuções na Home contavam 0 mesmo quando existiam tasks no gestor de projeto.',
+      'Causa: a Home chamava ExecutionTaskStore.list() (método que não existe) e filtrava por t.actionId (campo errado).',
+      'Fix: agora usa .all() e filtra por linked_action_id, igual ao resto do app.'
+    ]
+  },
+  {
     version: 'V35.13.3.1',
     date: '2026-06-03',
     title: 'Fix detecção de ação órfã (V35.13.3 não acionava o resolver)',
