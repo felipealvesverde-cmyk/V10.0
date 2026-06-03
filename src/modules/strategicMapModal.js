@@ -1317,69 +1317,134 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // V31.2.12 — Modal pra CRIAR KR custom: 5 inputs (nome, unidade select,
-  // atual, segura, avançada). Sem período. Confirma → cria productKr + adiciona
-  // no customKpiCatalog[area] (base de conhecimento → vira sugestão futura).
+  // V31.2.12 — Modal "Criar KR-mãe customizado".
+  // V35.8.0-alpha3 — Refactor visual: 3 zonas (nome + fala do Djow +
+  // layer de opções) + campos numéricos progressivos. Esta alpha usa
+  // MOCK estático no Djow — wire real do backend chega na alpha4.
   _createCustomKrModalRender() {
     const m = App.state.createCustomKrModal;
     if (!m || !m.open) return '';
     const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === m.area);
     if (!area) return '';
     const tone = area.color;
-    const units = [
-      { v: 'percentual',  l: '% (porcentagem)' },
-      { v: 'quantidade',  l: 'Quantidade (unidades)' },
-      { v: 'pontuacao',   l: 'Pontuação (NPS, CSAT)' },
-      { v: 'reais',       l: 'R$ (reais)' },
-      { v: 'numero',      l: 'Número' }
-    ];
+
+    const djow = m.djow || {};
+    const falaHistory = Array.isArray(djow.falaHistory) ? djow.falaHistory : [];
+    const layerOptions = Array.isArray(djow.layerOptions) ? djow.layerOptions : [];
+    const selectedIds = Array.isArray(djow.selectedIds) ? djow.selectedIds : [];
+    const numbersUnlocked = Boolean(djow.numbersUnlocked);
+    const showHistorico = Boolean(djow.showHistorico);
+
     return `<div class="fixed inset-0 z-[95] bg-slate-950/85 backdrop-blur-sm grid place-items-center p-4">
-      <div class="bg-slate-900 rounded-[2rem] shadow-2xl border border-${tone}-400/40 w-full max-w-xl overflow-hidden max-h-[92vh] flex flex-col">
+      <div class="bg-slate-900 rounded-[2rem] shadow-2xl border border-${tone}-400/40 w-full max-w-2xl overflow-hidden max-h-[92vh] flex flex-col">
+
+        <!-- HEADER -->
         <header class="p-5 bg-${tone}-500/20 border-b border-${tone}-400/30">
           <div class="flex items-center gap-2 mb-2">
             <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
             <p class="text-[11px] font-black text-${tone}-200 uppercase tracking-wider">${Utils.escape(area.label)} · Novo número</p>
           </div>
           <h3 class="text-xl font-black text-white">Criar KR-mãe customizado</h3>
-          <p class="text-xs text-slate-300 mt-1">Defina o número, a unidade e as duas metas. Vai pra base de conhecimento e aparece como sugestão pros próximos produtos.</p>
+          <p class="text-xs text-slate-300 mt-1">Diga o que quer medir. O Djow monta o resto.</p>
         </header>
+
         <div class="p-5 space-y-3 overflow-y-auto">
+
+          <!-- ZONA 1: NOME DO NÚMERO -->
           <div>
             <label class="text-[10px] font-black text-slate-400 uppercase tracking-wide">Nome do número</label>
-            <input value="${Utils.escape(m.name || '')}" oninput="Actions.updateCreateCustomKrModalField('name', this.value)" autofocus placeholder="Ex: Engajamento Instagram" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-800 border border-white/10 text-white font-semibold placeholder:text-slate-500" />
+            <input
+              value="${Utils.escape(m.name || '')}"
+              oninput="Actions.updateCreateCustomKrModalField('name', this.value)"
+              onblur="Actions.djowProcessKrName(this.value)"
+              autofocus
+              placeholder="Ex: MQL, ROAS, Reduzir churn no checkout, LTV…"
+              class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-800 border border-white/10 text-white font-semibold placeholder:text-slate-500" />
           </div>
-          <div>
-            <label class="text-[10px] font-black text-slate-400 uppercase tracking-wide">Unidade</label>
-            <select onchange="Actions.updateCreateCustomKrModalField('metric', this.value)" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-800 border border-white/10 text-white font-semibold">
-              ${units.map(u => `<option value="${u.v}" ${m.metric === u.v ? 'selected' : ''}>${u.l}</option>`).join('')}
-            </select>
+
+          <!-- ZONA 2: FALA DO DJOW (MONÓLOGO CUMULATIVO) -->
+          ${djow.analyzing ? `<div class="rounded-2xl bg-violet-500/8 border border-violet-400/30 p-3">
+            <div class="flex items-center gap-2">
+              <span class="text-[10px] font-black text-violet-200 uppercase tracking-widest inline-flex items-center gap-1.5">
+                <i data-lucide="sparkles" class="w-3 h-3"></i> Djow
+              </span>
+              <span class="text-[11px] text-violet-300 inline-flex items-center gap-1.5">
+                <i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> analisando...
+              </span>
+            </div>
+          </div>` : falaHistory.length ? `<div class="rounded-2xl bg-violet-500/8 border border-violet-400/30 p-3">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-[10px] font-black text-violet-200 uppercase tracking-widest inline-flex items-center gap-1.5">
+                <i data-lucide="sparkles" class="w-3 h-3"></i> Djow
+              </span>
+              ${falaHistory.length > 5 && !showHistorico ? `<button onclick="Actions.djowToggleHistorico(true)" class="text-[10px] text-violet-300 hover:text-violet-200 underline">⌄ ver histórico</button>` : ''}
+              ${showHistorico ? `<button onclick="Actions.djowToggleHistorico(false)" class="text-[10px] text-violet-300 hover:text-violet-200 underline">⌃ esconder</button>` : ''}
+            </div>
+            <div class="space-y-2 text-[12px] text-violet-100 leading-relaxed">
+              ${(showHistorico ? falaHistory : falaHistory.slice(-5)).map(f => `<p>${Utils.escape(f.text)}</p>`).join('')}
+            </div>
+          </div>` : `<div class="rounded-2xl bg-slate-800/50 border border-white/5 p-3 text-[12px] text-slate-400 italic">
+            <span class="text-[10px] font-black text-violet-200 uppercase tracking-widest inline-flex items-center gap-1.5 mb-1.5">
+              <i data-lucide="sparkles" class="w-3 h-3"></i> Djow
+            </span>
+            <p>${djow.starting ? 'Carregando contexto...' : 'Digite o nome do número acima — vou te ajudar a configurar.'}</p>
+          </div>`}
+
+          <!-- ZONA 3: LAYER DE OPÇÕES (editado pelo Djow) -->
+          ${layerOptions.length ? `<div>
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-wide mb-2 inline-flex items-center gap-1.5">
+              <i data-lucide="link" class="w-3 h-3"></i> Onde puxar
+            </p>
+            <div class="space-y-1.5">
+              ${layerOptions.map(opt => {
+                const checked = selectedIds.includes(opt.id);
+                return `<label class="flex items-start gap-2 p-2.5 rounded-xl bg-slate-800/60 border ${checked ? 'border-' + tone + '-400' : 'border-white/10'} hover:bg-slate-800/80 cursor-pointer transition">
+                  <input type="checkbox" ${checked ? 'checked' : ''}
+                    onchange="Actions.djowToggleSourceOption('${Utils.escape(opt.id)}')"
+                    class="mt-0.5 w-4 h-4 accent-${tone}-500" />
+                  <div class="min-w-0 flex-1">
+                    <p class="text-[12px] font-bold text-white truncate">${Utils.escape(opt.label)}</p>
+                    ${opt.default_label ? `<p class="text-[10px] text-slate-400 mt-0.5">${Utils.escape(opt.default_label)}</p>` : ''}
+                  </div>
+                </label>`;
+              }).join('')}
+            </div>
+            ${selectedIds.length && !numbersUnlocked ? `<button onclick="Actions.djowConfirmSources()" class="mt-2 w-full px-4 py-2 rounded-xl bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5">
+              <i data-lucide="check" class="w-3 h-3"></i> Confirmar fonte
+            </button>` : ''}
+          </div>` : ''}
+
+          <!-- ZONA 4: CAMPOS NUMÉRICOS PROGRESSIVOS -->
+          <div class="${numbersUnlocked ? '' : 'opacity-40 pointer-events-none'} transition">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-wide mb-2 inline-flex items-center gap-1.5">
+              <i data-lucide="${numbersUnlocked ? 'unlock' : 'lock'}" class="w-3 h-3"></i>
+              ${numbersUnlocked ? 'Preencha agora os números' : 'Disponível depois de confirmar a fonte'}
+            </p>
+            <div class="grid grid-cols-3 gap-2">
+              <label class="flex flex-col gap-1">
+                <span class="text-[10px] font-black text-slate-400 uppercase tracking-wide">Atual</span>
+                ${this._unitDecoratedInput(m.metric || 'numero', m.current, '0', 'border-white/10', "Actions.updateCreateCustomKrModalField('current', this.value)")}
+              </label>
+              <label class="flex flex-col gap-1">
+                <span class="text-[10px] font-black text-emerald-300 uppercase tracking-wide">🔒 Meta Segura</span>
+                ${this._unitDecoratedInput(m.metric || 'numero', m.targetCommitted, 'piso', 'border-emerald-400/30', "Actions.updateCreateCustomKrModalField('targetCommitted', this.value)")}
+              </label>
+              <label class="flex flex-col gap-1">
+                <span class="text-[10px] font-black text-violet-300 uppercase tracking-wide">🚀 Meta Avançada</span>
+                ${this._unitDecoratedInput(m.metric || 'numero', m.targetStretch, 'sonho', 'border-violet-400/30', "Actions.updateCreateCustomKrModalField('targetStretch', this.value)")}
+              </label>
+            </div>
           </div>
-          <div class="grid grid-cols-3 gap-2">
-            <label class="flex flex-col gap-1">
-              <span class="text-[10px] font-black text-slate-400 uppercase tracking-wide">Atual</span>
-              ${this._unitDecoratedInput(m.metric, m.current, '0', 'border-white/10', "Actions.updateCreateCustomKrModalField('current', this.value)")}
-            </label>
-            <label class="flex flex-col gap-1">
-              <span class="text-[10px] font-black text-emerald-300 uppercase tracking-wide">🔒 Meta Segura</span>
-              ${this._unitDecoratedInput(m.metric, m.targetCommitted, 'piso', 'border-emerald-400/30', "Actions.updateCreateCustomKrModalField('targetCommitted', this.value)")}
-            </label>
-            <label class="flex flex-col gap-1">
-              <span class="text-[10px] font-black text-violet-300 uppercase tracking-wide">🚀 Meta Avançada</span>
-              ${this._unitDecoratedInput(m.metric, m.targetStretch, 'sonho', 'border-violet-400/30', "Actions.updateCreateCustomKrModalField('targetStretch', this.value)")}
-            </label>
-          </div>
+
           <div class="rounded-xl bg-indigo-500/10 border border-indigo-400/30 p-3 text-[11px] text-indigo-100 flex items-start gap-2">
             <i data-lucide="info" class="w-3.5 h-3.5 mt-0.5 shrink-0 text-indigo-300"></i>
             <p><b>Sem prazo aqui.</b> O tempo é definido lá na campanha quando você plugar o número nela.</p>
           </div>
-          <div class="rounded-xl bg-${tone}-500/10 border border-${tone}-400/30 p-3 text-[11px] text-${tone}-100 flex items-start gap-2">
-            <i data-lucide="sparkles" class="w-3.5 h-3.5 mt-0.5 shrink-0 text-${tone}-300"></i>
-            <p><b>Aprendizado:</b> esse número entra na base de conhecimento de <b>${Utils.escape(area.label)}</b> e aparece como sugestão pros próximos produtos.</p>
-          </div>
         </div>
+
         <footer class="border-t border-white/10 p-4 flex items-center justify-end gap-2 bg-slate-950/40">
           <button onclick="Actions.closeCreateCustomKrModal()" class="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 font-black text-xs">Cancelar</button>
-          <button onclick="Actions.confirmCreateCustomKr()" class="px-4 py-2.5 rounded-2xl bg-${tone}-500 hover:bg-${tone}-600 text-white font-black text-xs flex items-center gap-1.5" style="color:#fff!important;">
+          <button onclick="Actions.confirmCreateCustomKr()" ${numbersUnlocked ? '' : 'disabled'} class="px-4 py-2.5 rounded-2xl ${numbersUnlocked ? `bg-${tone}-500 hover:bg-${tone}-600` : 'bg-slate-700 cursor-not-allowed opacity-50'} text-white font-black text-xs flex items-center gap-1.5" ${numbersUnlocked ? 'style="color:#fff!important;"' : ''}>
             <i data-lucide="check" class="w-3.5 h-3.5"></i> Confirmar OKR
           </button>
         </footer>
@@ -2233,6 +2298,7 @@ window.StrategicMapModal = {
     const allAreasCovered = missingAreas.length === 0;
     return `<section class="space-y-4">
       ${this._stepIntro('Quais são os números deste produto?', 'Defina pelo menos 1 número em cada uma das 3 frentes: Marketing, Vendas e CS. Sem cobrir as 3, o funil fica manco.', 'target', null, 'okrs-kr-mae', 'O funil RevOps clássico é Marketing → Vendas → CS. Se você só seta números em Marketing, gera leads que ninguém recebe. Setar 1+ número em cada frente garante que a campanha tenha cobertura completa pra trabalhar.')}
+      ${this._pulseProductBanner(product)}
       ${this._productKrsBlock(product, productKrs, orphans)}
       ${!allAreasCovered && productKrs.length > 0 ? `<div class="rounded-2xl bg-amber-500/10 border border-amber-400/30 p-3 text-[12px] text-amber-100 flex items-start gap-2">
         <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mt-0.5 text-amber-300 shrink-0"></i>
@@ -2240,6 +2306,30 @@ window.StrategicMapModal = {
       </div>` : ''}
       ${this._stepCta('Próximo passo: escolher a campanha', allAreasCovered, 'okrs')}
     </section>`;
+  },
+
+  // V35.8.0-alpha5 — Banner que torna explícito que esses KRs são do
+  // produto que aparece (e pulsa) no Pulso da Receita da Home.
+  // Indicador visual + abertura pra release futura: rotacionar com Pulso.
+  _pulseProductBanner(product) {
+    if (!product) return '';
+    const totalProducts = (App.state.products || []).filter(p => !p.archived).length;
+    const krCount = (StrategicMapEngine.getProductKrs(product.id) || []).length;
+    return `<div class="rounded-2xl bg-gradient-to-r from-pink-500/10 to-rose-500/10 border border-pink-400/30 p-3 flex items-center justify-between gap-3 flex-wrap">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="shrink-0 w-8 h-8 rounded-xl bg-pink-500/20 grid place-items-center">
+          <i data-lucide="activity" class="w-4 h-4 text-pink-300"></i>
+        </span>
+        <div class="min-w-0">
+          <p class="text-[10px] font-black uppercase tracking-widest text-pink-200">Acompanhando Pulso da Receita</p>
+          <p class="text-[13px] font-black text-white truncate">${Utils.escape(product.name || 'Produto sem nome')}</p>
+          <p class="text-[10px] text-pink-100/80">${krCount} número(s) configurado(s) ${totalProducts > 1 ? `· ${totalProducts} produtos pulsando na Home` : ''}</p>
+        </div>
+      </div>
+      ${totalProducts > 1 ? `<div class="text-[10px] text-pink-200/70 italic flex items-center gap-1">
+        <i data-lucide="rotate-cw" class="w-3 h-3"></i> Rotação automática chega em breve
+      </div>` : ''}
+    </div>`;
   },
 
   _stepOkrsReadOnly(product) {

@@ -18,6 +18,69 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.8.0-alpha5',
+    date: '2026-06-03',
+    title: 'Quadro de KRs do Mapa mostra qual produto está pulsando',
+    bullets: [
+      'Banner novo no topo da etapa "Quais são os números deste produto?" deixa explícito qual produto você está editando.',
+      'Mostra o vínculo com o Pulso da Receita da Home — quando rolar a rotação automática, o quadro vai acompanhar.',
+      'Contagem de produtos pulsando aparece quando há mais de um cadastrado.',
+      'Valor atual de cada KR já vem da fonte salva (vinha como "0" antes só porque o atual não tinha sido preenchido).',
+      'Onda V35.8.0 completa — criação de KR com Djow inferindo está pronta de ponta a ponta.'
+    ]
+  },
+  {
+    version: 'V35.8.0-alpha4',
+    date: '2026-06-03',
+    title: 'Djow agora reconhece qualquer nome de KR (não só os 5 do mock)',
+    bullets: [
+      'Modal de criar KR-mãe agora conversa de verdade com o backend do Djow.',
+      'Heurística do servidor cobre 28 naturezas + 8 fórmulas — bate primeiro sem chamar IA.',
+      'Quando o nome é criativo demais (ex: "Magnetismo da marca"), o Djow consulta a IA pra desambiguar.',
+      'Spinner "analisando..." aparece enquanto o Djow pensa (2-5 segundos).',
+      'Se o backend cair, modal continua funcionando com o mock local — sem travar a criação.',
+      'Próxima alpha: mostrar o "Hoje X" real no quadro de KRs do Mapa.'
+    ]
+  },
+  {
+    version: 'V35.8.0-alpha3',
+    date: '2026-06-03',
+    title: 'Modal de criar KR-mãe ganha cara nova com Djow no comando',
+    bullets: [
+      'Modal redesenhado em 3 zonas claras: nome, fala do Djow, opções de fonte.',
+      'Djow comenta cada decisão no monólogo cumulativo — após 5 mensagens aparece "ver histórico" pra desbravar.',
+      'Layer de opções fica embaixo da fala do Djow: ele lista as fontes reais e você marca uma ou várias.',
+      'Campos atual / meta segura / meta avançada ficam bloqueados até você confirmar a fonte — sem mais comprometer meta sem saber de onde vem o número.',
+      'Testes rápidos pra ver a UX: digite "MQL", "ROAS", "LTV" ou "NPS" e veja o Djow responder diferente pra cada um.',
+      'Próxima alpha: substituir o mock pelo backend de verdade.'
+    ]
+  },
+  {
+    version: 'V35.8.0-alpha2',
+    date: '2026-06-03',
+    title: 'Djow já consegue classificar e propor fontes pra novo KR (backend pronto)',
+    bullets: [
+      'Endpoint pronto pra receber um nome de KR e devolver classificação automática (atômico, derivado ou manual).',
+      'Heurística determinística primeiro: 28 naturezas + 8 fórmulas no catálogo respondem direto sem chamar IA.',
+      'Quando o nome é criativo e a heurística não bate, o Djow consulta a IA pra desambiguar — barato e rápido.',
+      'Cada sessão tem 5 etapas (start → nome → fonte → números → confirmar) e o estado fica salvo no banco por 30 minutos.',
+      'Validações de coerência (meta segura no nível do atual, meta avançada menor que segura, etc) são código puro — sem alucinação.',
+      'Próxima alpha: refactor visual do modal pra mostrar tudo isso ao vivo.'
+    ]
+  },
+  {
+    version: 'V35.8.0-alpha1',
+    date: '2026-06-03',
+    title: 'Base do Djow pra entender o que cada KR é (sem mudança visível ainda)',
+    bullets: [
+      'Foundation invisível pro usuário: o LJ ganhou catálogos internos que vão alimentar a próxima geração da criação de KR.',
+      'Catálogo de naturezas atômicas: 20+ "coisas que se medem" reconhecidas (Alcance, MQL, Conversões, Receita, NPS, CSAT, Win Rate, etc) com mapeamento pra fontes integradas.',
+      'Catálogo de fórmulas derivadas: 8 fórmulas clássicas (LTV, CAC blended, ROAS, MRR, ARR, Payback, LTV/CAC, Margem de Contribuição) com seus insumos.',
+      'Detector de integrações ativas por tenant: o Djow vai saber exatamente o que cada cliente tem conectado antes de propor qualquer KR.',
+      'Próxima alpha: endpoint de inferência do Djow usando essa base.'
+    ]
+  },
+  {
     version: 'V35.7.2',
     date: '2026-06-02',
     title: 'Visão Geral Google Ads: filtros por Produto/Campanha LJ + KPIs explicáveis',

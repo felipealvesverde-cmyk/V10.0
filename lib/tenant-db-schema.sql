@@ -744,6 +744,23 @@ CREATE INDEX IF NOT EXISTS idx_reconciliation_user_unread
   WHERE read_at IS NULL;
 
 -- ============================================================================
+-- V35.8.0 — Sessões de criação de KR com Djow. Mantém estado entre chamadas
+-- incrementais do modal (start → name → select-source → numbers → confirm).
+-- Expira em 30min pra liberar espaço se cliente fecha modal sem confirmar.
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS djow_kr_sessions (
+  session_id UUID PRIMARY KEY,
+  user_id INT NOT NULL,
+  setor VARCHAR(64) NOT NULL,                  -- 'marketing' | 'vendas' | 'cs'
+  step VARCHAR(32) NOT NULL DEFAULT 'started', -- started | named | source_selected | numbers_provided | confirmed
+  data JSONB NOT NULL DEFAULT '{}',            -- payload completo da sessão (nome, classification, layer, selections, numbers)
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '30 minutes'
+);
+CREATE INDEX IF NOT EXISTS idx_djow_sessions_user ON djow_kr_sessions(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_djow_sessions_expires ON djow_kr_sessions(expires_at) WHERE expires_at < NOW() + INTERVAL '1 day';
+
+-- ============================================================================
 -- V35.7.0 — Google Ads campanhas (sync diário). 1 linha por (user, campaign, date).
 -- UPSERT pela PK; janela de 30 dias rolante. Quando user desconecta, mantém
 -- registros (pra histórico) — só para de receber updates novos.
@@ -777,5 +794,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v35.7.0-google-ads-sync')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v35.8.0-djow-kr-sessions')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();

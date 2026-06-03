@@ -11839,8 +11839,11 @@ Prioridade: ${d.priority}
   // V31.2.12 — Modal "Criar KR-mãe customizado": 5 inputs (nome, unidade,
   // atual, segura, avançada). Sem período. Confirma → cria productKr +
   // adiciona ao customKpiCatalog[area] (base de conhecimento aprendida).
-  openCreateCustomKrModal(productId, area) {
+  async openCreateCustomKrModal(productId, area) {
     if (this._demoGuard && this._demoGuard('Criar KR-mãe customizado')) return;
+    // V35.8.0-alpha4 — Mapeia area pro setor que o backend espera.
+    const setorMap = { marketing: 'marketing', vendas: 'vendas', cs: 'cs' };
+    const setor = setorMap[String(area).toLowerCase()] || String(area).toLowerCase();
     App.state.createCustomKrModal = {
       open: true,
       productId: Number(productId),
@@ -11849,9 +11852,43 @@ Prioridade: ${d.priority}
       metric: 'quantidade',
       current: '',
       targetCommitted: '',
-      targetStretch: ''
+      targetStretch: '',
+      // V35.8.0-alpha3 — estrutura do Djow no modal (3 zonas + progressivo)
+      // V35.8.0-alpha4 — sessionId real do backend
+      djow: {
+        sessionId: null,
+        starting: true,
+        analyzing: false,
+        falaHistory: [],
+        layerOptions: [],
+        selectedIds: [],
+        numbersUnlocked: false,
+        showHistorico: false,
+        lastProcessedName: null,
+        classification: null,
+        krMeta: null
+      }
     };
     App.render();
+
+    // Inicia sessão no backend (best-effort). Se falhar, fallback pro
+    // mock local funciona — UX não bloqueia.
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-kr-infer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ step: 'start', setor, productId: Number(productId) })
+      });
+      const data = await r.json();
+      if (data.ok && data.sessionId && App.state.createCustomKrModal?.open) {
+        App.state.createCustomKrModal.djow.sessionId = data.sessionId;
+      }
+    } catch (_) { /* offline ou erro — segue com mock local */ }
+    if (App.state.createCustomKrModal?.open) {
+      App.state.createCustomKrModal.djow.starting = false;
+      App.render();
+    }
   },
   closeCreateCustomKrModal() {
     App.state.createCustomKrModal = null;
@@ -11862,6 +11899,160 @@ Prioridade: ${d.priority}
     App.state.createCustomKrModal[field] = value;
     // V31.2.13 — Trocar unidade re-renderiza pra refletir prefix/suffix nos inputs.
     if (field === 'metric') App.render();
+  },
+
+  // V35.8.0-alpha3 — STUB inicial.
+  // V35.8.0-alpha4 — Chama endpoint real /api/djow-kr-infer step='name'.
+  // Mantém mock local como fallback se backend falhar (offline, 500, etc).
+  async djowProcessKrName(rawName) {
+    const m = App.state.createCustomKrModal;
+    if (!m || !m.open) return;
+    const name = String(rawName || '').trim();
+    if (!name) return;
+    if (!m.djow) return;
+    if (m.djow.lastProcessedName === name) return;
+    m.djow.lastProcessedName = name;
+    m.djow.analyzing = true;
+    App.render();
+
+    // Tenta backend real
+    if (m.djow.sessionId) {
+      try {
+        const token = localStorage.getItem('lj_jwt');
+        const r = await fetch('/api/djow-kr-infer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ step: 'name', sessionId: m.djow.sessionId, nome: name })
+        });
+        const data = await r.json();
+        if (data.ok && App.state.createCustomKrModal?.open) {
+          const mm = App.state.createCustomKrModal;
+          mm.djow.classification = data.classification;
+          mm.djow.falaHistory = data.fala_history || [];
+          mm.djow.layerOptions = data.layer_options || [];
+          mm.djow.selectedIds = [];
+          mm.djow.numbersUnlocked = (data.layer_options || []).length === 0;  // manual = libera direto
+          mm.djow.krMeta = data.kr_meta || null;
+          mm.djow.analyzing = false;
+          if (data.kr_meta?.unit) mm.metric = data.kr_meta.unit;
+          App.save(); App.render();
+          return;
+        }
+      } catch (_) { /* fallback local */ }
+    }
+
+    // Fallback: mock local (mantém usabilidade quando backend indisponível)
+    Actions._djowProcessKrNameMockLocal(name);
+    if (App.state.createCustomKrModal?.open) {
+      App.state.createCustomKrModal.djow.analyzing = false;
+      App.render();
+    }
+  },
+
+  // V35.8.0-alpha4 — Mock local mantido como fallback.
+  _djowProcessKrNameMockLocal(name) {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow) return;
+    const nLower = name.toLowerCase();
+    let fala, layerOptions, unit;
+    if (/\bltv\b/.test(nLower) || /lifetime value/.test(nLower)) {
+      fala = `"${name}" é um número derivado — vou calcular pela fórmula: (Faturamento ÷ Nº Clientes) × Retenção média - CAC. Preciso plugar 4 insumos. Te mostro as opções abaixo.`;
+      layerOptions = [
+        { id: 'input::faturamento', label: 'Faturamento — vou puxar do Hotmart' },
+        { id: 'input::clientes',    label: 'Nº de Clientes — vou puxar do Hotmart' },
+        { id: 'input::retencao',    label: 'Tempo médio de retenção (meses)', default_label: 'Sem dado: vou usar 12 meses como padrão' },
+        { id: 'input::cac',         label: 'CAC (Custo de Aquisição)',         default_label: 'Crie o KR de CAC pra incluir aqui' }
+      ];
+      unit = 'reais';
+    } else if (/\bmql\b/.test(nLower)) {
+      fala = `Reconheci "${name}" como MQL (Marketing Qualified Lead). Você tem RD Station conectado — vou propor puxar daí. Escolhe a opção que faz mais sentido pro seu caso.`;
+      layerOptions = [
+        { id: 'rd::deals_tag_mql',    label: 'RD Station — deals com tag MQL' },
+        { id: 'rd::contacts_mql',     label: 'RD Station — contatos no estágio MQL' },
+        { id: 'manual::',             label: 'Manual (você atualiza o valor)' }
+      ];
+      unit = 'quantidade';
+    } else if (/\broas\b/.test(nLower)) {
+      fala = `"${name}" é Return on Ad Spend — derivado. Vou calcular: Receita atribuída ÷ Gasto em mídia. Você tem Google Ads conectado pra puxar ambos.`;
+      layerOptions = [
+        { id: 'gads::receita_atribuida', label: 'Google Ads — receita das conversões' },
+        { id: 'gads::gasto',             label: 'Google Ads — gasto em mídia' }
+      ];
+      unit = 'numero';
+    } else if (/\bnps\b/.test(nLower)) {
+      fala = `NPS normalmente vem de Delighted, Wootric ou HubSpot CSAT. Você não tem nenhuma conectada agora. Vou criar como número manual — você atualiza o valor periodicamente. Quando integrar uma dessas, te aviso.`;
+      layerOptions = [];   // sem fonte
+      unit = 'pontuacao';
+    } else if (/alcan|impress/.test(nLower)) {
+      fala = `Reconheci "${name}" como Alcance/Impressões. Você tem Google Ads conectado — vou propor puxar daí.`;
+      layerOptions = [
+        { id: 'gads::impressions', label: 'Google Ads — impressões' },
+        { id: 'manual::',          label: 'Manual (você atualiza o valor)' }
+      ];
+      unit = 'quantidade';
+    } else {
+      fala = `Não consegui mapear "${name}" em fonte automática. Vou criar como número manual — você atualiza o valor periodicamente.`;
+      layerOptions = [];
+      unit = 'numero';
+    }
+
+    m.djow.falaHistory.push({ at: new Date().toISOString(), text: fala });
+    m.djow.layerOptions = layerOptions;
+    m.djow.selectedIds = [];
+    m.djow.numbersUnlocked = layerOptions.length === 0;  // sem fonte = manual = libera direto
+    m.metric = unit;
+    App.save(); App.render();
+  },
+
+  djowToggleSourceOption(optionId) {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow) return;
+    const set = new Set((m.djow.selectedIds || []).map(String));
+    if (set.has(optionId)) set.delete(optionId); else set.add(optionId);
+    m.djow.selectedIds = Array.from(set);
+    App.render();
+  },
+
+  // V35.8.0-alpha4 — Confirma fontes via backend (com fallback local).
+  async djowConfirmSources() {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow) return;
+    const selectedCount = (m.djow.selectedIds || []).length;
+    if (!selectedCount) return Utils.toast('Selecione pelo menos uma fonte.');
+
+    if (m.djow.sessionId) {
+      try {
+        const token = localStorage.getItem('lj_jwt');
+        const r = await fetch('/api/djow-kr-infer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ step: 'select-source', sessionId: m.djow.sessionId, selected_ids: m.djow.selectedIds })
+        });
+        const data = await r.json();
+        if (data.ok && App.state.createCustomKrModal?.open) {
+          const mm = App.state.createCustomKrModal;
+          mm.djow.falaHistory = data.fala_history || mm.djow.falaHistory;
+          mm.djow.numbersUnlocked = true;
+          App.render();
+          return;
+        }
+      } catch (_) { /* fallback local */ }
+    }
+
+    // Fallback local
+    m.djow.numbersUnlocked = true;
+    m.djow.falaHistory.push({
+      at: new Date().toISOString(),
+      text: `Boa escolha. Agora libere os números abaixo — atual, meta segura e meta avançada.`
+    });
+    App.render();
+  },
+
+  djowToggleHistorico(show) {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow) return;
+    m.djow.showHistorico = Boolean(show);
+    App.render();
   },
   confirmCreateCustomKr() {
     const m = App.state.createCustomKrModal;
