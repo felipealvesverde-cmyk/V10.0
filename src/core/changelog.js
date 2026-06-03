@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.14.1',
+    date: '2026-06-03',
+    title: 'GA4 — sync, descoberta de customs e leitura (Onda 2)',
+    bullets: [
+      'Backend GA4 está completo: dá pra listar propriedades da conta, descobrir métricas/dimensões customizadas, puxar dados pra dentro do LJ e ler depois.',
+      'Os 9 packs estão definidos como contrato declarativo — o LJ sabe quais métricas pedir pra cada perfil de negócio (e-commerce, lead gen, conteúdo, etc).',
+      'Sync respeita o limite de 9 dimensões + 10 métricas por chamada da API: quando o cliente ativa muitos packs, o LJ quebra em várias chamadas e junta no banco.',
+      'Backend pronto pra wizard, dashboard e dashboards (V35.14.2).'
+    ]
+  },
+  {
     version: 'V35.14.0',
     date: '2026-06-03',
     title: 'Google Analytics 4 — fundação OAuth + schema (Onda 1)',
