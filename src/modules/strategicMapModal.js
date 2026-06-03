@@ -3481,11 +3481,14 @@ window.StrategicMapModal = {
     const hasDestSector = String(action.destSector || '').trim().length > 0;
     const hasDestFunnel = String(action.destFunnelPoint || '').trim().length > 0;
     const isComplete = hasName && hasChannel && hasType && hasFunnel && hasDestSector && hasDestFunnel;
-    // V35.13.3 — Ação órfã: tem nome (já editada) mas nenhum KR-mãe ativo
-    // (primaryKrId=null). Acontece quando user deleta o KR-mãe da campanha.
-    // Visual: card cinza apagado + overlay "Resolver" centralizado. Click no
-    // overlay abre Actions.openOrphanActionResolver(actionId).
-    const isOrphan = hasName && !primaryKrId;
+    // V35.13.3.1 — Ação órfã: tem nome (já editada) mas o KR-mãe resolvido
+    // não existe mais em productKrs. Cobre 2 casos:
+    //   (a) primaryKrId=null (nenhum childKr referenciou esta action)
+    //   (b) primaryKrId aponta pro childKr órfão (parentProductKrId zerado
+    //       pelo removeProductKr, fallback `|| kr.id` em _actionsForFrente
+    //       deixou primaryKrId apontar pro childKr que NÃO está em productKrs)
+    // Em ambos `kr` (productKr resolvido) é null/undefined.
+    const isOrphan = hasName && !kr;
     if (isOrphan) return this._orphanActionCard(action);
     const statusIcon = isComplete ? 'check-circle-2' : 'alert-triangle';
     const statusPillCls = isComplete

@@ -9193,6 +9193,21 @@ Object.assign(Actions, {
     const productKrs = StrategicMapEngine.getProductKrs(productId) || [];
     const productKr = productKrs.find(k => k.id === parentKrId);
     if (!productKr) return Utils.toast('Número não encontrado.');
+    // V35.13.3.1 — Antes de adicionar no novo childKr, remove o actionId de
+    // childKrs órfãos (sem parent OU com parent apontando pra productKr que
+    // não existe mais) na mesma frente. Senão `_actionsForFrente` (que pega a
+    // 1ª ocorrência via Map.has) continuaria devolvendo o childKr órfão como
+    // primaryKr e a ação ficaria órfã visualmente mesmo após reconectar.
+    const productKrIdSet = new Set(productKrs.map(k => k.id));
+    (objective.okrs || []).forEach(k => {
+      const isOrphanChild = !k.parentProductKrId || !productKrIdSet.has(k.parentProductKrId);
+      if (isOrphanChild) {
+        const ids = (k.connectedActionIds || []).map(Number).filter(id => id !== numActionId);
+        if (ids.length !== (k.connectedActionIds || []).length) {
+          k.connectedActionIds = ids;
+        }
+      }
+    });
     let childKr = (objective.okrs || []).find(k => k.parentProductKrId === parentKrId);
     if (!childKr) {
       childKr = {
