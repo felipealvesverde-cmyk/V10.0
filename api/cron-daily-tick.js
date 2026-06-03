@@ -8,6 +8,8 @@
 //   1. Itera todos users aprovados
 //   2. Pra cada user: roda Score Engine batch_decay (recalcula scores
 //      aplicando decay temporal). Score "vivo" — lead inativo cai sozinho.
+//   3. V35.11.1 — Purge de lj_rd_webhook_log com received_at > 7 dias por tenant
+//      (1 query por tenant_db distinto, não por user).
 //
 // Setup do cron externo (cron-job.org / Railway cron / GitHub Actions):
 //   POST .../api/cron-daily-tick
@@ -80,9 +82,17 @@ module.exports = async function handler(req, res) {
   let usersProcessed = 0, totalVisitorsProcessed = 0;
   const errors = [];
 
+  // V35.11.1 — Coleta tenantDbs distintos pra rodar purge 1x por tenant.
+  // Map<dbIdentity, { db, userIds: number[] }>. Identidade do db = referência
+  // (Pool/Client) — control plane compartilhado vira mesma chave; tenants
+  // próprios cada um vira chave distinta.
+  const distinctTenantDbs = new Map();
+
   for (const uid of userIds) {
     const tenantDb = await resolveTenantDb(req.db, uid);
     if (!tenantDb) continue;
+    if (!distinctTenantDbs.has(tenantDb)) distinctTenantDbs.set(tenantDb, { db: tenantDb, userIds: [] });
+    distinctTenantDbs.get(tenantDb).userIds.push(uid);
     try {
       if (dryRun) {
         // Dry-run: só conta quantos visitors elegíveis
@@ -107,14 +117,34 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // V35.11.1 — Purge de lj_rd_webhook_log >7d em cada tenantDb distinto.
+  // Tabela pode não existir em tenants antigos — try/catch swallow.
+  let webhookLogsPurged = 0;
+  if (!dryRun) {
+    for (const { db } of distinctTenantDbs.values()) {
+      try {
+        const r = await db.query(
+          `DELETE FROM lj_rd_webhook_log WHERE received_at < NOW() - INTERVAL '7 days'`
+        );
+        webhookLogsPurged += r.rowCount || 0;
+      } catch (err) {
+        // Tabela não existe ou erro de DB — não derruba o cron
+        if (!/relation .* does not exist/i.test(err.message)) {
+          console.warn('[cron-daily-tick webhook-log purge]', err.message);
+        }
+      }
+    }
+  }
+
   const elapsedMs = Date.now() - startedAt;
-  console.log(`[cron-daily-tick] ${usersProcessed} users · ${totalVisitorsProcessed} visitors · ${elapsedMs}ms (triggeredBy: ${auth.source})`);
+  console.log(`[cron-daily-tick] ${usersProcessed} users · ${totalVisitorsProcessed} visitors · ${webhookLogsPurged} webhook logs purged · ${elapsedMs}ms (triggeredBy: ${auth.source})`);
 
   return res.status(200).json({
     ok: true,
     dryRun,
     usersProcessed,
     totalVisitorsProcessed,
+    webhookLogsPurged,
     elapsedMs,
     triggeredBy: auth.source,
     errors: errors.slice(0, 20)

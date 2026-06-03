@@ -18,6 +18,40 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.11.2',
+    date: '2026-06-03',
+    title: 'Cron RD pull desativado — webhook é o único caminho',
+    bullets: [
+      'Os crons antigos de pull bidirecional RD (cron-rd-pull e cron-rd-sync) foram desativados. Agora 100% das atualizações do RD chegam ao LJ via webhook.',
+      'Os endpoints continuam vivos respondendo "200 OK · desativado" — se você tem cron-job.org ou Railway cron apontando pra eles, continuam batendo sem custo (nem API RD, nem banco). Desligue por lá quando puder.',
+      'O cron diário de manutenção (decay de score + purge do log de webhooks) continua rodando normalmente.',
+      'Trade-off consciente: se o RD não conseguir entregar o webhook (incidente lá), aquele update se perde — sem rede de segurança automática.'
+    ]
+  },
+  {
+    version: 'V35.11.1',
+    date: '2026-06-03',
+    title: 'Hotfix V35.11 — classificação correta de erros + purge automático do log',
+    bullets: [
+      'Erros como "Payload sem contact_id" agora aparecem como "validação" no breakdown do sininho (antes caíam em "desconhecido").',
+      'Cron diário agora purga registros do log de webhooks RD com mais de 7 dias — tabela não cresce mais indefinidamente.',
+      'Limpeza interna: removido handler de erro morto (sem mudança de comportamento).'
+    ]
+  },
+  {
+    version: 'V35.11.0',
+    date: '2026-06-03',
+    title: 'Webhook RD ao vivo — atualizações de contato chegam direto, log de tudo',
+    bullets: [
+      'O RD agora atualiza o LJ em tempo real: quando você cria, edita ou apaga um contato no CRM, o LJ recebe na hora (não precisa esperar o sync diário).',
+      'Sininho aprende a contar: 1 a 9 falhas → alerta amarelo (atenção), 10+ → vermelho (crítico). Quantas falhas vier, é UMA notificação só, com o número agregado.',
+      'A notificação acumula até você clicar "Marcar como visto". Depois disso, próxima falha cria notificação nova imediatamente.',
+      'Click no alerta abre o log completo já marcando as falhas como vistas.',
+      'Novo card "Log de Erros" em Configurações > Meu Banco: tabela com filtros (período, status, tipo, busca livre), paginação e download CSV.',
+      'Histórico mantido por 7 dias. Cada linha mostra quando chegou, status (OK/Erro), tipo do evento, contato e detalhe/erro.'
+    ]
+  },
+  {
     version: 'V35.10.0',
     date: '2026-06-03',
     title: 'KRs ao vivo — o "Hoje" puxa direto da fonte que o Djow escolheu',

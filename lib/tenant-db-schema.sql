@@ -786,6 +786,37 @@ CREATE TABLE IF NOT EXISTS lj_google_ads_campaigns_daily (
 CREATE INDEX IF NOT EXISTS idx_gads_daily_user_date ON lj_google_ads_campaigns_daily(user_id, date DESC);
 
 -- ============================================================================
+-- V35.11.0 — RD Webhook Log (audit de TODO webhook recebido + agregação de
+-- falhas pro sininho). 1 linha por evento recebido em /api/rd-webhook.
+-- Retention 7 dias (purge via cron-daily-tick).
+-- Agregação no sininho: status='error' AND user_read_at IS NULL.
+-- Quando cliente abre o sino + "marca como visto", todas as falhas atuais
+-- recebem user_read_at=NOW(). Próxima falha vira nova vaga (gera nova
+-- notificação imediatamente — escolha (a) do Felipe).
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS lj_rd_webhook_log (
+  id BIGSERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  received_at TIMESTAMPTZ DEFAULT NOW(),
+  event_type VARCHAR(64),                  -- crm_contact_created/updated/deleted, tag_added, ...
+  status VARCHAR(16) NOT NULL,             -- 'ok' | 'error'
+  error_category VARCHAR(32),              -- 'validation' | 'db' | 'tenant-resolve' | 'unknown'
+  error_message TEXT,
+  rd_contact_id VARCHAR(64),
+  payload_excerpt JSONB,                   -- só os campos chave (não payload inteiro)
+  processing_ms INT,
+  user_read_at TIMESTAMPTZ                 -- NULL = sino ainda mostra; preenchido = "marcado como visto"
+);
+
+CREATE INDEX IF NOT EXISTS idx_rd_webhook_log_user_when
+  ON lj_rd_webhook_log(user_id, received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rd_webhook_log_user_status
+  ON lj_rd_webhook_log(user_id, status, received_at DESC);
+CREATE INDEX IF NOT EXISTS idx_rd_webhook_log_unread_errors
+  ON lj_rd_webhook_log(user_id, received_at DESC)
+  WHERE status = 'error' AND user_read_at IS NULL;
+
+-- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS tenant_schema_meta (
@@ -794,5 +825,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v35.8.0-djow-kr-sessions')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v35.11.0-rd-webhook-log')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();

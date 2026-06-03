@@ -1,20 +1,22 @@
 // V24.0.0 — Endpoint serverless de ingestão de webhooks do RD Station.
 //
-// O RD POSTa eventos (contact_changed, tag_added, stage_changed, deal_won...)
-// pra este endpoint quando configurado em RD CRM → Integrações → Webhooks.
+// O RD POSTa eventos (contact_changed, tag_added, stage_changed, deal_won,
+// crm_contact_created/updated/deleted...) pra este endpoint quando configurado
+// em RD CRM → Integrações → Webhooks.
 //
 // EVIDÊNCIA DE DESIGN:
 //   - Endpoint público (não exige JWT do Journey). RD não tem nosso token.
 //   - Validação opcional via HMAC se RD_WEBHOOK_SECRET estiver setado.
 //   - Buffer em memória (ring de 500). Frontend faz pull via /api/rd-events-fetch.
-//   - NÃO mutamos state do Journey aqui: deixamos pro frontend rotear via
-//     RdCrmEventIngestor (que já existe e sabe fazer LeadBase/Score/Tag bridges).
+//   - Para mutar state via tags, já roteamos pro tenant via ?user_id=X.
 //
-// V34.6.c — quando webhook é registrado com ?user_id=X na URL, este endpoint
-// AGORA também escreve direto em lj_visitor_tags do tenant correspondente
-// quando o evento é tag_added/tag_removed. Resolve user → tenant via control
-// plane (users.default_tenant_id) e usa tenant-pool pro DB do tenant.
-// Idempotente: ON CONFLICT DO NOTHING em INSERT, DELETE idempotente.
+// V34.6.c — Tags ao vivo em lj_visitor_tags (handleTagSync).
+//
+// V35.11.0 — Caminho principal de atualização RD↔LJ via webhook.
+//   - handleContactSync: trata crm_contact_created/updated/deleted (upsert em lj_visitors).
+//   - Toda recepção (ok ou erro) loga em lj_rd_webhook_log pra audit + agregação
+//     no sininho. Cliente vê no Configurações > Meu Banco > Log de Erros.
+//   - Falhas agregam até cliente marcar como visto (POST /api/rd-webhook-failures-summary).
 const crypto = require('crypto');
 const tenantPoolHelper = require('../lib/tenant-pool');
 
@@ -44,6 +46,7 @@ module.exports = async function handler(req, res) {
     res.status(405).json({ ok: false, message: 'Use POST.' });
     return;
   }
+  const t0 = Date.now();
   try {
     let body = req.body;
     if (typeof body === 'string') {
@@ -72,12 +75,13 @@ module.exports = async function handler(req, res) {
     memoryBuffer.push(entry);
     if (memoryBuffer.length > RING_BUFFER_LIMIT) memoryBuffer.shift();
 
-    // V34.6.c — Tag sync ao vivo (só se webhook URL inclui ?user_id=X).
-    // Roda em background sem await — não bloqueia resposta ao RD (<100ms).
+    // V34.6.c + V35.11.0 — Quando webhook é registrado com ?user_id=X na URL,
+    // resolve tenant e processa em background (tags + contatos).
+    // Log sempre acontece, mesmo sem ?user_id (vira "skipped" no log).
     const userId = Number(req.query?.user_id || 0);
     if (userId > 0) {
-      handleTagSync(req.db, userId, entry).catch(err => {
-        console.error('[rd-webhook tag-sync]', err?.message || err);
+      processWebhookInTenant(req.db, userId, entry, t0).catch(err => {
+        console.error('[rd-webhook process]', err?.message || err);
       });
     }
 
@@ -87,21 +91,150 @@ module.exports = async function handler(req, res) {
   }
 };
 
-// V34.6.c — Resolve tenant DB do user_id e aplica tag.added / tag.removed em
-// lj_visitor_tags + audit em lj_tag_audit_log.
-//
-// Eventos tratados:
-//   - tag_added | contact_tagged → INSERT (idempotente)
-//   - tag_removed | contact_untagged → DELETE
-//
-// Payload esperado (formato flexível, varia entre versions do RD):
-//   { tags: [...] } OU { tag: 'x' } OU { added_tags: [...] } OU { removed_tags: [...] }
-//   Com entity_id / contact_id / contact.uuid identificando o contato RD.
-async function handleTagSync(controlPlaneDb, userId, entry) {
+// V35.11.0 — Pipeline único por webhook:
+//   1. Resolve tenantDb a partir do user_id (control plane → tenant pool)
+//   2. Despacha pro handler certo (tags ou contacts)
+//   3. Loga resultado em lj_rd_webhook_log (sempre — ok ou erro)
+async function processWebhookInTenant(controlPlaneDb, userId, entry, t0) {
+  let tenantDb = null;
+  let logRow = {
+    userId,
+    eventType: entry.eventType,
+    rdContactId: entry.contactId ? String(entry.contactId).slice(0, 64) : null,
+    status: 'ok',
+    errorCategory: null,
+    errorMessage: null,
+    payloadExcerpt: extractPayloadExcerpt(entry.payload)
+  };
+
+  try {
+    tenantDb = await resolveTenantDb(controlPlaneDb, userId);
+  } catch (err) {
+    logRow.status = 'error';
+    logRow.errorCategory = 'tenant-resolve';
+    logRow.errorMessage = err?.message || 'Falha ao resolver tenant.';
+    // Não tem tenantDb → não dá nem pra logar. Loga no console + sai.
+    console.error('[rd-webhook tenant-resolve]', logRow.errorMessage);
+    return;
+  }
+
+  // Despacha por tipo de evento (cada handler retorna { handled, error? }).
+  const evt = String(entry.eventType || '').toLowerCase().replace(/-/g, '_');
+  let dispatch = { handled: false };
+  try {
+    if (isTagEvent(evt)) {
+      dispatch = await handleTagSync(controlPlaneDb, tenantDb, userId, entry);
+    } else if (isContactEvent(evt)) {
+      dispatch = await handleContactSync(tenantDb, userId, entry);
+    } else {
+      // Evento desconhecido (ex: deal_won, stage_changed). Loga como OK
+      // mas sem ação — frontend ainda pode consumir via /api/rd-events-fetch.
+      dispatch = { handled: false, skipped: true };
+    }
+  } catch (err) {
+    dispatch = {
+      handled: false,
+      error: { category: classifyError(err), message: err?.message || String(err) }
+    };
+  }
+
+  if (dispatch.error) {
+    logRow.status = 'error';
+    logRow.errorCategory = dispatch.error.category;
+    logRow.errorMessage = (dispatch.error.message || '').slice(0, 500);
+  }
+
+  // writeWebhookLog tem try/catch interno e nunca rejeita.
+  await writeWebhookLog(tenantDb, logRow, Date.now() - t0);
+}
+
+async function resolveTenantDb(controlPlaneDb, userId) {
+  const userRow = await controlPlaneDb.query(
+    'SELECT default_tenant_id FROM users WHERE id = $1',
+    [userId]
+  );
+  if (!userRow.rows.length) throw new Error('User não encontrado no control plane.');
+  const tenantId = userRow.rows[0].default_tenant_id;
+  if (!tenantId) return controlPlaneDb; // master sem tenant → control plane
+  const pool = await tenantPoolHelper.getTenantPool(controlPlaneDb, tenantId);
+  return pool || controlPlaneDb;
+}
+
+function extractPayloadExcerpt(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  // Mantém só campos chave (não payload inteiro — pode ser pesado)
+  const pick = {};
+  ['contact_id', 'entity_id', 'email', 'name', 'phone', 'event_identifier',
+   'event_type', 'tag', 'tags', 'added_tags', 'removed_tags', 'stage', 'pipeline',
+   'updated_at', 'created_at'].forEach(k => {
+    if (payload[k] != null) pick[k] = payload[k];
+  });
+  if (payload.contact && typeof payload.contact === 'object') {
+    pick.contact = {};
+    ['id', 'uuid', 'email', 'name', 'phone'].forEach(k => {
+      if (payload.contact[k] != null) pick.contact[k] = payload.contact[k];
+    });
+  }
+  return Object.keys(pick).length ? pick : null;
+}
+
+function classifyError(err) {
+  // V35.11.1 — Handlers internos podem injetar _category via
+  // Object.assign(new Error(...), { _category: 'validation' }). Respeita
+  // ANTES de tentar adivinhar pelo texto da mensagem.
+  if (err?._category) return err._category;
+  const msg = (err?.message || '').toLowerCase();
+  if (msg.includes('email') && (msg.includes('inv') || msg.includes('format'))) return 'validation';
+  if (msg.includes('null value') || msg.includes('not-null')) return 'validation';
+  if (msg.includes('connect') || msg.includes('timeout') || msg.includes('econnrefused')) return 'db';
+  if (msg.includes('relation') || msg.includes('does not exist')) return 'db';
+  if (msg.includes('duplicate') || msg.includes('conflict')) return 'validation';
+  return 'unknown';
+}
+
+async function writeWebhookLog(tenantDb, log, processingMs) {
+  if (!tenantDb) return;
+  try {
+    await tenantDb.query(
+      `INSERT INTO lj_rd_webhook_log
+         (user_id, event_type, status, error_category, error_message,
+          rd_contact_id, payload_excerpt, processing_ms)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8)`,
+      [
+        log.userId,
+        (log.eventType || '').slice(0, 64),
+        log.status,
+        log.errorCategory,
+        log.errorMessage,
+        log.rdContactId,
+        log.payloadExcerpt ? JSON.stringify(log.payloadExcerpt) : null,
+        processingMs
+      ]
+    );
+  } catch (err) {
+    // Não propaga — log falhar não pode quebrar webhook
+    console.error('[rd-webhook log]', err?.message);
+  }
+}
+
+function isTagEvent(evt) {
+  return evt === 'tag_added' || evt === 'contact_tagged'
+      || evt === 'tag_removed' || evt === 'contact_untagged';
+}
+
+function isContactEvent(evt) {
+  return evt === 'crm_contact_created' || evt === 'crm_contact_updated' || evt === 'crm_contact_deleted'
+      || evt === 'contact_created' || evt === 'contact_updated' || evt === 'contact_deleted'
+      || evt === 'contact_changed';
+}
+
+// V34.6.c — Tag sync ao vivo (assinatura ajustada na V35.11.0: agora recebe
+// tenantDb resolvido pelo pipeline acima, em vez de resolver de novo).
+async function handleTagSync(controlPlaneDb, tenantDb, userId, entry) {
   const evt = String(entry.eventType || '').toLowerCase().replace(/-/g, '_');
   const isAdded = evt === 'tag_added' || evt === 'contact_tagged';
   const isRemoved = evt === 'tag_removed' || evt === 'contact_untagged';
-  if (!isAdded && !isRemoved) return;
+  if (!isAdded && !isRemoved) return { handled: false };
 
   const p = entry.payload || {};
   const rdContactId = String(
@@ -113,9 +246,10 @@ async function handleTagSync(controlPlaneDb, userId, entry) {
     p.entity?.id ||
     ''
   ).trim();
-  if (!rdContactId) return;
+  if (!rdContactId) {
+    throw Object.assign(new Error('Payload sem contact_id.'), { _category: 'validation' });
+  }
 
-  // Coleta tags do payload (vários formatos possíveis)
   let tags = [];
   if (Array.isArray(p.tags)) tags = p.tags;
   else if (Array.isArray(p.added_tags) && isAdded) tags = p.added_tags;
@@ -123,87 +257,155 @@ async function handleTagSync(controlPlaneDb, userId, entry) {
   else if (Array.isArray(p.contact?.tags)) tags = p.contact.tags;
   else if (p.tag) tags = [p.tag];
   tags = tags.map(t => String(t || '').trim()).filter(Boolean);
-  if (!tags.length) return;
+  if (!tags.length) return { handled: false };
 
-  // Resolve tenant DB pelo user_id
-  let tenantDb = null;
-  try {
-    const userRow = await controlPlaneDb.query(
-      'SELECT default_tenant_id FROM users WHERE id = $1',
-      [userId]
-    );
-    if (!userRow.rows.length) return;
-    const tenantId = userRow.rows[0].default_tenant_id;
-    if (!tenantId) {
-      // Master sem default tenant → usa control plane (fallback)
-      tenantDb = controlPlaneDb;
-    } else {
-      const pool = await tenantPoolHelper.getTenantPool(controlPlaneDb, tenantId);
-      tenantDb = pool || controlPlaneDb;
-    }
-  } catch (err) {
-    console.error('[rd-webhook tag-sync] resolve tenant err:', err.message);
-    return;
-  }
-
-  // Acha visitor por external_rd_contact_id
   let ljVisitorId = null;
-  try {
-    const r = await tenantDb.query(
-      `SELECT lj_visitor_id FROM lj_visitors
-         WHERE user_id = $1 AND external_rd_contact_id = $2 LIMIT 1`,
-      [userId, rdContactId]
-    );
-    if (r.rows.length) ljVisitorId = r.rows[0].lj_visitor_id;
-  } catch (err) {
-    console.error('[rd-webhook tag-sync] visitor lookup err:', err.message);
-    return;
-  }
-  if (!ljVisitorId) return; // visitor ainda não conhecido no LJ; pull diário (V34.6.d) reconcilia
+  const r = await tenantDb.query(
+    `SELECT lj_visitor_id FROM lj_visitors
+       WHERE user_id = $1 AND external_rd_contact_id = $2 LIMIT 1`,
+    [userId, rdContactId]
+  );
+  if (r.rows.length) ljVisitorId = r.rows[0].lj_visitor_id;
+  if (!ljVisitorId) return { handled: false, skipped: true };
 
-  // Aplica add/remove em batch
   for (const tag of tags) {
-    if (tag.startsWith('lj-')) continue; // namespace protegido, RD nunca grava lj-*
-    try {
-      if (isAdded) {
-        await tenantDb.query(
-          `INSERT INTO lj_visitor_tags (user_id, lj_visitor_id, tag, source, category)
-             VALUES ($1, $2, $3, 'rd-webhook', 'rd-auto')
-           ON CONFLICT (user_id, lj_visitor_id, tag) DO NOTHING`,
-          [userId, ljVisitorId, tag]
-        );
+    if (tag.startsWith('lj-')) continue;
+    if (isAdded) {
+      await tenantDb.query(
+        `INSERT INTO lj_visitor_tags (user_id, lj_visitor_id, tag, source, category)
+           VALUES ($1, $2, $3, 'rd-webhook', 'rd-auto')
+         ON CONFLICT (user_id, lj_visitor_id, tag) DO NOTHING`,
+        [userId, ljVisitorId, tag]
+      );
+      await tenantDb.query(
+        `INSERT INTO lj_tag_audit_log (user_id, lj_visitor_id, tag, action, source)
+           VALUES ($1, $2, $3, 'added', 'rd-webhook')`,
+        [userId, ljVisitorId, tag]
+      );
+    } else if (isRemoved) {
+      const del = await tenantDb.query(
+        `DELETE FROM lj_visitor_tags
+           WHERE user_id = $1 AND lj_visitor_id = $2 AND tag = $3
+           RETURNING tag`,
+        [userId, ljVisitorId, tag]
+      );
+      if (del.rows.length) {
         await tenantDb.query(
           `INSERT INTO lj_tag_audit_log (user_id, lj_visitor_id, tag, action, source)
-             VALUES ($1, $2, $3, 'added', 'rd-webhook')`,
+             VALUES ($1, $2, $3, 'removed', 'rd-webhook')`,
           [userId, ljVisitorId, tag]
         );
-      } else if (isRemoved) {
-        const del = await tenantDb.query(
-          `DELETE FROM lj_visitor_tags
-             WHERE user_id = $1 AND lj_visitor_id = $2 AND tag = $3
-             RETURNING tag`,
-          [userId, ljVisitorId, tag]
-        );
-        if (del.rows.length) {
-          await tenantDb.query(
-            `INSERT INTO lj_tag_audit_log (user_id, lj_visitor_id, tag, action, source)
-               VALUES ($1, $2, $3, 'removed', 'rd-webhook')`,
-            [userId, ljVisitorId, tag]
-          );
-        }
       }
-    } catch (err) {
-      console.error('[rd-webhook tag-sync] tag op err:', err.message);
     }
   }
 
-  // V34.7.f.2 — Tag mudou → recalcula score do visitor (R, F, V todos podem
-  // ter mudado: F+1 pelo evento, V mexe via tagSignal+engagementRate).
-  // Em background pra não atrasar a resposta ao RD.
   try {
     const { applyEvent } = require('../lib/score-engine');
     await applyEvent(tenantDb, userId, ljVisitorId, { source: 'rd-webhook', isAdded, isRemoved }, { masterDb: controlPlaneDb });
   } catch (err) {
     console.warn('[rd-webhook tag-sync] applyEvent score err:', err.message);
   }
+
+  return { handled: true };
+}
+
+// V35.11.0 — Sync de contato. RD envia crm_contact_created/updated/deleted
+// com payload.contact (ou raiz). Atualizamos lj_visitors do tenant baseado
+// no external_rd_contact_id. Idempotente.
+//
+// Estratégia:
+//   - created/updated: upsert por (user_id, external_rd_contact_id).
+//     Atualiza email/name/phone, last_seen_at, marca external_rd_sync_status='synced'.
+//   - deleted: NÃO apaga visitor (audit). Marca external_rd_sync_status='deleted-in-rd'.
+async function handleContactSync(tenantDb, userId, entry) {
+  const evt = String(entry.eventType || '').toLowerCase().replace(/-/g, '_');
+  const isDeleted = evt === 'crm_contact_deleted' || evt === 'contact_deleted';
+
+  const p = entry.payload || {};
+  const contact = (p.contact && typeof p.contact === 'object') ? p.contact : p;
+  const rdContactId = String(
+    entry.contactId || contact.id || contact.uuid || p.contact_id || p.entity_id || ''
+  ).trim();
+  if (!rdContactId) {
+    throw Object.assign(new Error('Payload sem contact_id.'), { _category: 'validation' });
+  }
+
+  if (isDeleted) {
+    await tenantDb.query(
+      `UPDATE lj_visitors
+          SET external_rd_sync_status = 'deleted-in-rd',
+              external_rd_synced_at = NOW(),
+              updated_at = NOW()
+        WHERE user_id = $1 AND external_rd_contact_id = $2`,
+      [userId, rdContactId]
+    );
+    return { handled: true };
+  }
+
+  const email = sanitizeStr(contact.email || p.email, 255);
+  const name = sanitizeStr(contact.name || p.name, 255);
+  const phone = sanitizeStr(contact.phone || contact.mobile_phone || p.phone, 64);
+
+  // Tenta achar visitor existente — primeiro por external_rd_contact_id,
+  // depois por email (link automático).
+  let existing = await tenantDb.query(
+    `SELECT lj_visitor_id, email, name, phone
+       FROM lj_visitors
+      WHERE user_id = $1 AND external_rd_contact_id = $2 LIMIT 1`,
+    [userId, rdContactId]
+  );
+  if (!existing.rows.length && email) {
+    existing = await tenantDb.query(
+      `SELECT lj_visitor_id, email, name, phone
+         FROM lj_visitors
+        WHERE user_id = $1 AND email = $2 AND external_rd_contact_id IS NULL
+        LIMIT 1`,
+      [userId, email]
+    );
+  }
+
+  if (existing.rows.length) {
+    const visitorId = existing.rows[0].lj_visitor_id;
+    await tenantDb.query(
+      `UPDATE lj_visitors
+          SET email = COALESCE($3, email),
+              name = COALESCE($4, name),
+              phone = COALESCE($5, phone),
+              external_rd_contact_id = $2,
+              external_rd_sync_status = 'synced',
+              external_rd_synced_at = NOW(),
+              last_seen_at = NOW(),
+              updated_at = NOW()
+        WHERE user_id = $1 AND lj_visitor_id = $6`,
+      [userId, rdContactId, email, name, phone, visitorId]
+    );
+    return { handled: true };
+  }
+
+  // INSERT novo visitor (created ou updated sem match)
+  const newVisitorId = `rd_${rdContactId}`;
+  await tenantDb.query(
+    `INSERT INTO lj_visitors
+       (lj_visitor_id, user_id, entity_type, current_stage, email, name, phone,
+        external_rd_contact_id, external_rd_sync_status, external_rd_synced_at,
+        first_seen_at, last_seen_at)
+     VALUES ($1, $2, 'suspect', 'marketing-tof', $3, $4, $5, $6, 'synced', NOW(), NOW(), NOW())
+     ON CONFLICT (user_id, lj_visitor_id) DO UPDATE
+       SET email = COALESCE(EXCLUDED.email, lj_visitors.email),
+           name  = COALESCE(EXCLUDED.name, lj_visitors.name),
+           phone = COALESCE(EXCLUDED.phone, lj_visitors.phone),
+           external_rd_sync_status = 'synced',
+           external_rd_synced_at = NOW(),
+           last_seen_at = NOW(),
+           updated_at = NOW()`,
+    [newVisitorId, userId, email, name, phone, rdContactId]
+  );
+  return { handled: true };
+}
+
+function sanitizeStr(s, maxLen) {
+  if (s == null) return null;
+  const t = String(s).trim();
+  if (!t) return null;
+  return t.length > maxLen ? t.slice(0, maxLen) : t;
 }
