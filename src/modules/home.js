@@ -61,8 +61,11 @@ window.HomeModule = {
     const campaignIds = new Set(campaigns.map(c => Number(c.id)));
     const actions = (App.state.actions || []).filter(a => campaignIds.has(Number(a.campaignId)));
     const actionIds = new Set(actions.map(a => Number(a.id)));
-    const allTasks = window.ExecutionTaskStore?.list?.() || [];
-    const executions = allTasks.filter(t => actionIds.has(Number(t.actionId)));
+    // V35.13.4 — Fix bug pré-existente: ExecutionTaskStore expõe .all(), não
+    // .list(); e o campo é `linked_action_id`, não `actionId`. Antes desse fix,
+    // card EXECUÇÕES sempre mostrava 0 mesmo com tasks no store.
+    const allTasks = window.ExecutionTaskStore?.all?.() || [];
+    const executions = allTasks.filter(t => actionIds.has(Number(t.linked_action_id)));
     const revenue = Number(product.priceValue || 0);
     return {
       campaigns: campaigns.length,
