@@ -333,6 +333,12 @@ var State = {
       reconciliationCounts: { conflictsUnread: 0, conflictsTotal: 0, pendingStage: 0, pendingDeal: 0, totalUnread: 0 },
       // V34.8.2 — Estado do botão "Conciliar" (rodar motor bidirecional sob demanda)
       reconciliationRunProgress: { running: false, phase: '', stats: null },
+      // V35.11.0 — RD Webhook failures aggregation (sininho + log).
+      // count drives a escalada: 1-9 = amber, 10+ = rose.
+      rdWebhookFailuresSummary: { count: 0, breakdown: {}, firstFailureAt: null, lastFailureAt: null, loadedAt: null },
+      rdWebhookLogModalOpen: false,
+      rdWebhookLogFilters: { status: 'all', eventType: '', period: '7d', search: '', page: 1 },
+      rdWebhookLogCache: { items: [], total: 0, page: 1, perPage: 50, totalPages: 1, loadedAt: null, loading: false },
       // V34.9.3 — Modal de Triggers (Revenue Flow Map). Lista triggers da
       // campanha selecionada + UI pra adicionar/editar/deletar/espelhar.
       triggersModal: {
@@ -972,6 +978,12 @@ var State = {
       reconciliationCounts: { conflictsUnread: 0, conflictsTotal: 0, pendingStage: 0, pendingDeal: 0, totalUnread: 0 },
       // V34.8.2 — Estado do botão "Conciliar" (rodar motor bidirecional sob demanda)
       reconciliationRunProgress: { running: false, phase: '', stats: null },
+      // V35.11.0 — RD Webhook failures aggregation (sininho + log).
+      // count drives a escalada: 1-9 = amber, 10+ = rose.
+      rdWebhookFailuresSummary: { count: 0, breakdown: {}, firstFailureAt: null, lastFailureAt: null, loadedAt: null },
+      rdWebhookLogModalOpen: false,
+      rdWebhookLogFilters: { status: 'all', eventType: '', period: '7d', search: '', page: 1 },
+      rdWebhookLogCache: { items: [], total: 0, page: 1, perPage: 50, totalPages: 1, loadedAt: null, loading: false },
       // V34.9.3 — Modal de Triggers (Revenue Flow Map). Lista triggers da
       // campanha selecionada + UI pra adicionar/editar/deletar/espelhar.
       triggersModal: {

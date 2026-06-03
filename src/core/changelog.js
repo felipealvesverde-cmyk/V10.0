@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.11.0',
+    date: '2026-06-03',
+    title: 'Webhook RD ao vivo — atualizações de contato chegam direto, log de tudo',
+    bullets: [
+      'O RD agora atualiza o LJ em tempo real: quando você cria, edita ou apaga um contato no CRM, o LJ recebe na hora (não precisa esperar o sync diário).',
+      'Sininho aprende a contar: 1 a 9 falhas → alerta amarelo (atenção), 10+ → vermelho (crítico). Quantas falhas vier, é UMA notificação só, com o número agregado.',
+      'A notificação acumula até você clicar "Marcar como visto". Depois disso, próxima falha cria notificação nova imediatamente.',
+      'Click no alerta abre o log completo já marcando as falhas como vistas.',
+      'Novo card "Log de Erros" em Configurações > Meu Banco: tabela com filtros (período, status, tipo, busca livre), paginação e download CSV.',
+      'Histórico mantido por 7 dias. Cada linha mostra quando chegou, status (OK/Erro), tipo do evento, contato e detalhe/erro.'
+    ]
+  },
+  {
     version: 'V35.10.0',
     date: '2026-06-03',
     title: 'KRs ao vivo — o "Hoje" puxa direto da fonte que o Djow escolheu',

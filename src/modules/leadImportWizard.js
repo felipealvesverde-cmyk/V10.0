@@ -98,6 +98,9 @@ window.LeadImportWizard = {
 
   // V35.9.3 — Seção de alertas (pontos de atenção). Cada alerta tem
   // título + descrição + (opcional) botão pra resolver.
+  // V35.11.0 — severity ('warning'|'critical') controla cor:
+  //   warning = amber (1-9 falhas RD, "atenção")
+  //   critical = rose (10+ falhas RD, ads órfãs, reconciliação RD pendente)
   _alertsSection(alerts) {
     if (!alerts.length) {
       return `<div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-6 text-center">
@@ -106,23 +109,30 @@ window.LeadImportWizard = {
         <p class="text-[12px] text-emerald-700 mt-1">Quando algo precisar de você, aparece aqui.</p>
       </div>`;
     }
+    const palette = {
+      warning: { border: 'border-amber-200', bg: 'bg-amber-50/60', iconBg: 'bg-amber-100', iconBorder: 'border-amber-200', iconColor: 'text-amber-700', title: 'text-amber-900', desc: 'text-amber-800/80', btnBg: 'bg-amber-600 hover:bg-amber-700' },
+      critical: { border: 'border-rose-200', bg: 'bg-rose-50/60', iconBg: 'bg-rose-100', iconBorder: 'border-rose-200', iconColor: 'text-rose-700', title: 'text-rose-900', desc: 'text-rose-800/80', btnBg: 'bg-rose-600 hover:bg-rose-700' }
+    };
     return `<div class="space-y-2">
-      ${alerts.map(a => `<div class="rounded-2xl border border-rose-200 bg-rose-50/60 p-3">
-        <div class="flex items-start gap-3">
-          <span class="shrink-0 w-9 h-9 rounded-xl bg-rose-100 border border-rose-200 grid place-items-center text-rose-700">
-            <i data-lucide="${a.icon}" class="w-4 h-4"></i>
-          </span>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-black text-rose-900">${Utils.escape(a.title)}</p>
-            ${a.description ? `<p class="text-[12px] text-rose-800/80 mt-0.5 leading-relaxed">${Utils.escape(a.description)}</p>` : ''}
+      ${alerts.map(a => {
+        const p = palette[a.severity === 'warning' ? 'warning' : 'critical'];
+        return `<div class="rounded-2xl border ${p.border} ${p.bg} p-3">
+          <div class="flex items-start gap-3">
+            <span class="shrink-0 w-9 h-9 rounded-xl ${p.iconBg} border ${p.iconBorder} grid place-items-center ${p.iconColor}">
+              <i data-lucide="${a.icon}" class="w-4 h-4"></i>
+            </span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-black ${p.title}">${Utils.escape(a.title)}</p>
+              ${a.description ? `<p class="text-[12px] ${p.desc} mt-0.5 leading-relaxed">${Utils.escape(a.description)}</p>` : ''}
+            </div>
           </div>
-        </div>
-        ${a.action ? `<div class="mt-3 flex justify-end">
-          <button onclick="Actions.closeImportReportsModal(); ${a.action}" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-black inline-flex items-center gap-1.5" style="color:#fff;">
-            <i data-lucide="arrow-right" class="w-3 h-3"></i> ${Utils.escape(a.actionLabel || 'Resolver')}
-          </button>
-        </div>` : ''}
-      </div>`).join('')}
+          ${a.action ? `<div class="mt-3 flex justify-end">
+            <button onclick="Actions.closeImportReportsModal(); ${a.action}" class="px-3 py-1.5 rounded-xl ${p.btnBg} text-white text-[11px] font-black inline-flex items-center gap-1.5" style="color:#fff;">
+              <i data-lucide="arrow-right" class="w-3 h-3"></i> ${Utils.escape(a.actionLabel || 'Resolver')}
+            </button>
+          </div>` : ''}
+        </div>`;
+      }).join('')}
     </div>`;
   },
 

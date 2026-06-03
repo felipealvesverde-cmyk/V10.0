@@ -2896,6 +2896,49 @@ var SettingsModal = {
           </details>
         `}
       </div>
+
+      ${this._rdWebhookLogCard()}
+    </div>`;
+  },
+
+  // V35.11.0 — Card de Log de Erros dos webhooks RD.
+  // Mostra resumo (X total, Y erros, Z ok últimos 7d) + botão pra abrir
+  // modal completo com tabela paginada + filtros + CSV.
+  _rdWebhookLogCard() {
+    const summary = App.state.rdWebhookFailuresSummary || {};
+    const unreadErrors = Number(summary.count || 0);
+    return `<div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div class="flex items-start gap-3 min-w-0">
+          <span class="shrink-0 w-10 h-10 rounded-xl ${unreadErrors > 0 ? (unreadErrors >= 10 ? 'bg-rose-100' : 'bg-amber-100') : 'bg-slate-100'} grid place-items-center">
+            <i data-lucide="webhook" class="w-5 h-5 ${unreadErrors > 0 ? (unreadErrors >= 10 ? 'text-rose-700' : 'text-amber-700') : 'text-slate-600'}"></i>
+          </span>
+          <div class="min-w-0">
+            <h3 class="font-black text-lg">Log de Erros · Webhooks RD</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Histórico de tudo que o RD enviou pro LJ (últimos 7 dias). Filtros por tipo, status e período.</p>
+          </div>
+        </div>
+        <button onclick="Actions.openRdWebhookLogModal()" class="shrink-0 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Abrir log
+        </button>
+      </div>
+
+      ${unreadErrors > 0 ? `<div class="rounded-2xl ${unreadErrors >= 10 ? 'bg-rose-50 border border-rose-200' : 'bg-amber-50 border border-amber-200'} p-3 flex items-start gap-3">
+        <i data-lucide="alert-triangle" class="w-4 h-4 mt-0.5 shrink-0 ${unreadErrors >= 10 ? 'text-rose-700' : 'text-amber-700'}"></i>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-black ${unreadErrors >= 10 ? 'text-rose-900' : 'text-amber-900'}">${unreadErrors} webhook${unreadErrors > 1 ? 's' : ''} ${unreadErrors >= 10 ? '(crítico)' : '(atenção)'} não vistos</p>
+          <p class="text-[11px] ${unreadErrors >= 10 ? 'text-rose-800' : 'text-amber-800'} mt-0.5">${unreadErrors >= 10 ? 'Volume alto. Vale olhar o log e checar o que está rolando do lado do RD.' : 'Pode ser ruído pontual. Olha quando puder.'}</p>
+        </div>
+        <button onclick="Actions.markRdWebhookFailuresAsRead()" class="shrink-0 px-2.5 py-1 rounded-lg bg-white border ${unreadErrors >= 10 ? 'border-rose-300 text-rose-700 hover:bg-rose-100' : 'border-amber-300 text-amber-700 hover:bg-amber-100'} text-[10px] font-black">
+          Marcar como visto
+        </button>
+      </div>` : `<div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-3 flex items-start gap-3">
+        <i data-lucide="check-circle-2" class="w-4 h-4 mt-0.5 shrink-0 text-emerald-700"></i>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-black text-emerald-900">Sem erros pendentes</p>
+          <p class="text-[11px] text-emerald-800 mt-0.5">Os últimos webhooks foram processados sem falhas.</p>
+        </div>
+      </div>`}
     </div>`;
   },
 

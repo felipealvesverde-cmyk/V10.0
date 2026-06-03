@@ -587,7 +587,9 @@ var Actions = {
       },
       // V35.9.3 — Coleta alertas do tenant (ads órfãs, reconciliação RD,
       // pode crescer com integrações futuras). Cada alerta: { id, icon,
-      // title, description, action?, actionLabel? }.
+      // title, description, action?, actionLabel?, severity? }.
+      // V35.11.0 — severity controla cor do card no modal de alertas:
+      //   'warning' = amber, 'critical' = rose (default rose se ausente).
       _getNotificationAlerts() {
         const alerts = [];
         // 1. Ads órfãs (Google Ads não associadas a Campanha LJ)
@@ -599,7 +601,8 @@ var Actions = {
             title: `${adsOrphanCount} campanha(s) Google Ads sem vínculo`,
             description: 'Vincule a uma Campanha LJ pra os números entrarem nos roll-ups (RevOps, Mapa da Receita, Home).',
             action: 'Actions.openAdsOrphanInbox()',
-            actionLabel: 'Abrir Dashboard'
+            actionLabel: 'Abrir Dashboard',
+            severity: 'critical'
           });
         }
         // 2. Reconciliação RD pendente
@@ -611,10 +614,177 @@ var Actions = {
             title: `${reconCount} conciliação(ões) RD aguardando`,
             description: 'Discrepâncias entre RD Station e LJ precisam de decisão.',
             action: 'Actions.openReconciliationModal()',
-            actionLabel: 'Abrir Conciliação'
+            actionLabel: 'Abrir Conciliação',
+            severity: 'critical'
+          });
+        }
+        // 3. V35.11.0 — Falhas de webhook RD agregadas (até cliente marcar como visto).
+        // Escalada: 1-9 = amber/warning, 10+ = rose/critical.
+        const wh = App.state.rdWebhookFailuresSummary || {};
+        const whCount = Number(wh.count || 0);
+        if (whCount > 0) {
+          const severity = whCount >= 10 ? 'critical' : 'warning';
+          const breakdown = wh.breakdown || {};
+          const breakdownLabels = {
+            validation: 'validação',
+            db: 'banco',
+            'tenant-resolve': 'tenant',
+            unknown: 'desconhecido'
+          };
+          const breakdownText = Object.keys(breakdown)
+            .map(k => `${breakdown[k]} ${breakdownLabels[k] || k}`)
+            .join(' · ');
+          alerts.push({
+            id: 'rd-webhook-failures',
+            icon: 'webhook',
+            title: `${whCount} webhook${whCount > 1 ? 's' : ''} do RD falharam`,
+            description: breakdownText
+              ? `Quebra por tipo: ${breakdownText}. Veja o log completo em Configurações > Meu Banco.`
+              : 'O LJ recebeu webhooks do RD mas não conseguiu processar. Veja o log em Configurações > Meu Banco.',
+            action: 'Actions.openRdWebhookLogModal(); Actions.markRdWebhookFailuresAsRead()',
+            actionLabel: 'Ver log e marcar como visto',
+            severity
           });
         }
         return alerts;
+      },
+
+      // V35.11.0 — Carrega summary das falhas de webhook RD pro sininho.
+      // Chamado no boot + em loop leve (60s) pelo timer de notifications.
+      async loadRdWebhookFailuresSummary() {
+        try {
+          const token = localStorage.getItem('lj_jwt');
+          if (!token) return;
+          const r = await fetch('/api/rd-webhook-failures-summary', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await r.json();
+          if (data.ok) {
+            App.state.rdWebhookFailuresSummary = {
+              count: data.count || 0,
+              breakdown: data.breakdown || {},
+              firstFailureAt: data.firstFailureAt || null,
+              lastFailureAt: data.lastFailureAt || null,
+              loadedAt: new Date().toISOString()
+            };
+            App.save(); App.render();
+          }
+        } catch (err) {
+          console.warn('[loadRdWebhookFailuresSummary]', err.message);
+        }
+      },
+
+      // V35.11.0 — Marca todas as falhas atuais como vistas. Reseta o sininho.
+      // Próxima falha vira nova vaga e gera notificação imediatamente.
+      async markRdWebhookFailuresAsRead() {
+        try {
+          const token = localStorage.getItem('lj_jwt');
+          if (!token) return;
+          const r = await fetch('/api/rd-webhook-failures-summary', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ action: 'mark_read' })
+          });
+          const data = await r.json();
+          if (data.ok) {
+            App.state.rdWebhookFailuresSummary = { count: 0, breakdown: {}, firstFailureAt: null, lastFailureAt: null, loadedAt: new Date().toISOString() };
+            App.save(); App.render();
+          }
+        } catch (err) {
+          console.warn('[markRdWebhookFailuresAsRead]', err.message);
+        }
+      },
+
+      // V35.11.0 — Abre modal de Log de Erros (Configurações > Meu Banco).
+      openRdWebhookLogModal() {
+        App.state.rdWebhookLogModalOpen = true;
+        App.state.rdWebhookLogFilters = { status: 'all', eventType: '', period: '7d', search: '', page: 1 };
+        App.save(); App.render();
+        setTimeout(() => Actions.loadRdWebhookLog(), 50);
+      },
+      closeRdWebhookLogModal() {
+        App.state.rdWebhookLogModalOpen = false;
+        App.save(); App.render();
+      },
+      setRdWebhookLogFilter(field, value) {
+        const f = App.state.rdWebhookLogFilters || { status: 'all', eventType: '', period: '7d', search: '', page: 1 };
+        f[field] = value;
+        if (field !== 'page') f.page = 1; // qualquer filtro reseta página
+        App.state.rdWebhookLogFilters = f;
+        App.save(); App.render();
+        // debounce simples no search; outros filtros disparam direto
+        clearTimeout(Actions._rdLogFilterTimer);
+        Actions._rdLogFilterTimer = setTimeout(() => Actions.loadRdWebhookLog(), field === 'search' ? 400 : 50);
+      },
+      setRdWebhookLogPage(page) {
+        const f = App.state.rdWebhookLogFilters || {};
+        f.page = Math.max(1, Number(page) || 1);
+        App.state.rdWebhookLogFilters = f;
+        App.save(); App.render();
+        setTimeout(() => Actions.loadRdWebhookLog(), 50);
+      },
+      async loadRdWebhookLog() {
+        App.state.rdWebhookLogCache = { ...(App.state.rdWebhookLogCache || {}), loading: true };
+        App.render();
+        try {
+          const token = localStorage.getItem('lj_jwt');
+          const f = App.state.rdWebhookLogFilters || {};
+          const params = new URLSearchParams({
+            status: f.status || 'all',
+            event_type: f.eventType || '',
+            period: f.period || '7d',
+            search: f.search || '',
+            page: String(f.page || 1),
+            per_page: '50'
+          });
+          const r = await fetch(`/api/rd-webhook-log?${params}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await r.json();
+          if (data.ok) {
+            App.state.rdWebhookLogCache = {
+              items: data.items || [],
+              total: data.total || 0,
+              page: data.page || 1,
+              perPage: data.perPage || 50,
+              totalPages: data.totalPages || 1,
+              loadedAt: new Date().toISOString(),
+              loading: false
+            };
+          } else {
+            App.state.rdWebhookLogCache = { ...(App.state.rdWebhookLogCache || {}), loading: false };
+            Utils.toast(`Erro: ${data.message || 'Falha ao carregar log.'}`);
+          }
+          App.save(); App.render();
+        } catch (err) {
+          App.state.rdWebhookLogCache = { ...(App.state.rdWebhookLogCache || {}), loading: false };
+          App.save(); App.render();
+          Utils.toast(`Erro: ${err.message}`);
+        }
+      },
+      downloadRdWebhookLogCsv() {
+        const token = localStorage.getItem('lj_jwt');
+        const f = App.state.rdWebhookLogFilters || {};
+        const params = new URLSearchParams({
+          status: f.status || 'all',
+          event_type: f.eventType || '',
+          period: f.period || '7d',
+          search: f.search || '',
+          format: 'csv'
+        });
+        // Browser não suporta Authorization header em window.open. Usamos fetch + blob.
+        fetch(`/api/rd-webhook-log?${params}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        }).then(r => r.blob()).then(blob => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `rd-webhook-log-${new Date().toISOString().slice(0, 10)}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+        }).catch(err => Utils.toast(`Erro ao baixar: ${err.message}`));
       },
       closeImportReportsModal() {
         App.state.importReportsModalOpen = false;

@@ -201,6 +201,12 @@ window.HomeModule = {
       App.state._reconciliationLastLoadedAt = Date.now();
       setTimeout(() => Actions.loadReconciliationAlerts(), 200);
     }
+    // V35.11.0 — Hidratação leve do summary de falhas de webhook RD (60s).
+    const lastWh = App.state._rdWebhookSummaryLoadedAt || 0;
+    if ((Date.now() - lastWh) > 60000 && window.Actions?.loadRdWebhookFailuresSummary) {
+      App.state._rdWebhookSummaryLoadedAt = Date.now();
+      setTimeout(() => Actions.loadRdWebhookFailuresSummary(), 250);
+    }
     return `<div class="lj-home-greeting">
       <div>
         <h1 class="lj-home-title">${greeting}, ${Utils.escape(name)} <span class="lj-home-wave"><i data-lucide="hand" class="lj-home-wave-icon"></i></span></h1>
