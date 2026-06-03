@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.8.0-alpha1',
+    date: '2026-06-03',
+    title: 'Base do Djow pra entender o que cada KR é (sem mudança visível ainda)',
+    bullets: [
+      'Foundation invisível pro usuário: o LJ ganhou catálogos internos que vão alimentar a próxima geração da criação de KR.',
+      'Catálogo de naturezas atômicas: 20+ "coisas que se medem" reconhecidas (Alcance, MQL, Conversões, Receita, NPS, CSAT, Win Rate, etc) com mapeamento pra fontes integradas.',
+      'Catálogo de fórmulas derivadas: 8 fórmulas clássicas (LTV, CAC blended, ROAS, MRR, ARR, Payback, LTV/CAC, Margem de Contribuição) com seus insumos.',
+      'Detector de integrações ativas por tenant: o Djow vai saber exatamente o que cada cliente tem conectado antes de propor qualquer KR.',
+      'Próxima alpha: endpoint de inferência do Djow usando essa base.'
+    ]
+  },
+  {
     version: 'V35.7.2',
     date: '2026-06-02',
     title: 'Visão Geral Google Ads: filtros por Produto/Campanha LJ + KPIs explicáveis',
