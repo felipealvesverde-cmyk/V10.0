@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.11.2',
+    date: '2026-06-03',
+    title: 'Cron RD pull desativado — webhook é o único caminho',
+    bullets: [
+      'Os crons antigos de pull bidirecional RD (cron-rd-pull e cron-rd-sync) foram desativados. Agora 100% das atualizações do RD chegam ao LJ via webhook.',
+      'Os endpoints continuam vivos respondendo "200 OK · desativado" — se você tem cron-job.org ou Railway cron apontando pra eles, continuam batendo sem custo (nem API RD, nem banco). Desligue por lá quando puder.',
+      'O cron diário de manutenção (decay de score + purge do log de webhooks) continua rodando normalmente.',
+      'Trade-off consciente: se o RD não conseguir entregar o webhook (incidente lá), aquele update se perde — sem rede de segurança automática.'
+    ]
+  },
+  {
     version: 'V35.11.1',
     date: '2026-06-03',
     title: 'Hotfix V35.11 — classificação correta de erros + purge automático do log',
