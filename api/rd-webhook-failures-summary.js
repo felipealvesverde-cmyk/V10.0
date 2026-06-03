@@ -78,6 +78,14 @@ module.exports = async function handler(req, res) {
 
     return res.status(405).json({ ok: false, message: 'Use GET ou POST.' });
   } catch (err) {
+    // V35.11.4 — Tabela lj_rd_webhook_log mora no tenant-db-schema.sql.
+    // Em tenants sem DB próprio (fallback control plane), a tabela pode
+    // não existir → "relation does not exist". Retorna count=0 silenciosamente
+    // pra não quebrar o sininho. Outros erros caem em 500.
+    if (/relation .* does not exist/i.test(err.message || '')) {
+      console.warn('[rd-webhook-failures-summary] tabela ausente no tenant — count=0 retornado.');
+      return res.status(200).json({ ok: true, count: 0, breakdown: {}, firstFailureAt: null, lastFailureAt: null, schemaMissing: true });
+    }
     console.error('[rd-webhook-failures-summary]', err.message);
     return res.status(500).json({ ok: false, message: err.message });
   }
