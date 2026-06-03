@@ -207,6 +207,10 @@ window.HomeModule = {
       App.state._rdWebhookSummaryLoadedAt = Date.now();
       setTimeout(() => Actions.loadRdWebhookFailuresSummary(), 250);
     }
+    // V35.12.0 — Tick lazy de snapshots de KR (1x por dia/sessão, idempotente).
+    if (window.Actions?._processKrSnapshots) {
+      setTimeout(() => Actions._processKrSnapshots(), 300);
+    }
     return `<div class="lj-home-greeting">
       <div>
         <h1 class="lj-home-title">${greeting}, ${Utils.escape(name)} <span class="lj-home-wave"><i data-lucide="hand" class="lj-home-wave-icon"></i></span></h1>
@@ -287,13 +291,32 @@ window.HomeModule = {
         ? visibleKrs.map(kr => {
             // V35.10.0-alpha2 — Usa KrLiveValueEngine quando KR tem djowMeta
             // (puxa current ao vivo da fonte). Senão usa kr.current legado.
+            // V35.12.0 — Engine também devolve { status, progress, trend }.
             const liveResult = window.KrLiveValueEngine?.computeCurrentValue(kr, { productId: product.id });
             const displayValue = liveResult?.value ?? kr.current;
             const isLive = liveResult?.source === 'live';
-            return `<div class="lj-kpi-kr-row" title="${Utils.escape(kr.name)}${isLive ? ' (ao vivo)' : ''}">
+            const tier = liveResult?.status?.tier || 'nometa';
+            const pct = Math.max(0, Math.min(120, Number(liveResult?.progress?.vsSafe || 0)));
+            const widthPct = (pct / 120) * 100;
+            const fillClass = {
+              below: 'lj-kpi-kr-bar-below',
+              onway: 'lj-kpi-kr-bar-onway',
+              safe: 'lj-kpi-kr-bar-safe',
+              stretch: 'lj-kpi-kr-bar-stretch',
+              nometa: 'lj-kpi-kr-bar-nometa'
+            }[tier] || 'lj-kpi-kr-bar-nometa';
+            const trend = liveResult?.trend;
+            const trendHtml = trend?.direction
+              ? `<span class="lj-kpi-kr-trend lj-kpi-kr-trend-${trend.color}" title="vs ${trend.snapshotDate} (${trend.snapshotValue})">${trend.direction === 'up' ? '▲' : (trend.direction === 'down' ? '▼' : '—')}</span>`
+              : '';
+            return `<div class="lj-kpi-kr-row" title="${Utils.escape(kr.name)}${isLive ? ' (ao vivo)' : ''}${liveResult?.status?.label ? ' · ' + Utils.escape(liveResult.status.label) : ''}">
               <p class="lj-kpi-kr-name">${Utils.escape(kr.name)}${isLive ? ' <span class="text-emerald-400 text-[8px]">●</span>' : ''}</p>
-              <p class="lj-kpi-kr-value">${formatKrValue(kr, displayValue)}</p>
+              <p class="lj-kpi-kr-value">${formatKrValue(kr, displayValue)}${trendHtml}</p>
               <p class="lj-kpi-kr-meta">Meta ${formatKrValue(kr, kr.targetCommitted)}</p>
+              <div class="lj-kpi-kr-bar">
+                <div class="lj-kpi-kr-bar-fill ${fillClass}" style="width:${widthPct.toFixed(1)}%;"></div>
+                <div class="lj-kpi-kr-bar-mark" style="left:83.33%;" title="Meta segura (100%)"></div>
+              </div>
             </div>`;
           }).join('')
         : `<div class="lj-kpi-kr-empty">

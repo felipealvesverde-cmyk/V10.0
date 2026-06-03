@@ -209,10 +209,10 @@
 .lj-kpi-kr-row {
   display: grid;
   grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto auto auto;
   column-gap: 8px;
   align-items: baseline;
-  padding-bottom: 6px;
+  padding-bottom: 8px;
   border-bottom: 1px dashed rgba(148,163,184,.14);
 }
 .lj-kpi-kr-row:last-child { border-bottom: none; padding-bottom: 0; }
@@ -246,6 +246,46 @@
   text-transform: uppercase;
   margin-top: 2px;
 }
+/* V35.12.0 — Barra de progresso (0..120%) com marcador na meta segura */
+.lj-kpi-kr-bar {
+  grid-column: 1 / span 2;
+  grid-row: 3;
+  position: relative;
+  width: 100%;
+  height: 4px;
+  background: rgba(148,163,184,.12);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.lj-kpi-kr-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width .3s ease;
+}
+.lj-kpi-kr-bar-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(255,255,255,.5);
+}
+.lj-kpi-kr-bar-below   { background: #EF4444; }
+.lj-kpi-kr-bar-onway   { background: #F59E0B; }
+.lj-kpi-kr-bar-safe    { background: #10B981; }
+.lj-kpi-kr-bar-stretch { background: #FBBF24; }
+.lj-kpi-kr-bar-nometa  { background: #64748B; }
+
+/* V35.12.0 — Seta de trend ao lado do valor "Hoje" */
+.lj-kpi-kr-trend {
+  font-size: 10px;
+  font-weight: 900;
+  margin-left: 4px;
+  letter-spacing: 0;
+}
+.lj-kpi-kr-trend-emerald { color: #10B981; }
+.lj-kpi-kr-trend-red     { color: #EF4444; }
+.lj-kpi-kr-trend-slate   { color: #64748B; }
 .lj-kpi-kr-empty {
   display: flex;
   flex-direction: column;
