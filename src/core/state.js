@@ -1529,6 +1529,13 @@ var State = {
       const lost = [];
       for (const key of Object.keys(raw)) {
         if (transient.has(key)) continue;
+        // V35.13.5 — Convenção: prefix '_' indica runtime/cache (não persiste
+        // semanticamente, mesmo que o JSON.stringify do saveRaw inclua). Em vez
+        // de manter lista crescente de _X individuais (V35.4.2 começou com 8;
+        // já temos >20 no codebase), trata o prefix como transient global.
+        // Se algum dia um campo legítimo precisar do prefix _ E persistência,
+        // basta adicioná-lo em normalize() — o audit só ignora keys ausentes lá.
+        if (key.startsWith('_')) continue;
         if (raw[key] == null) continue;
         if (key in normalized) continue;
         lost.push(key);

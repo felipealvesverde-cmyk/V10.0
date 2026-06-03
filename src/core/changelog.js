@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.13.5',
+    date: '2026-06-03',
+    title: 'Silenciado warning falso-positivo de campos lost no boot',
+    bullets: [
+      'Warning [State.load] Campos NÃO mapeados em normalize() vinha aparecendo no console em todo boot, listando campos de cache interno (_rdWebhookSummaryLoadedAt, _krSnapshotsProcessedAt).',
+      'Esses campos começam com prefix "_" — convenção que indica runtime/cache que não precisa persistir. Eram falso-positivo do audit.',
+      'Agora o audit ignora prefix "_" automaticamente. Nenhum impacto funcional — só limpa o console.'
+    ]
+  },
+  {
     version: 'V35.13.4',
     date: '2026-06-03',
     title: 'Fix card EXECUÇÕES da Home sempre mostrando 0',
