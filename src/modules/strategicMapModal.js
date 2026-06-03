@@ -1903,9 +1903,20 @@ window.StrategicMapModal = {
             <span class="text-emerald-300 font-black">✓</span>
             <p class="font-black text-white text-[13px]">${Utils.escape(kr.name)}</p>
             ${handoffBadge}
+            ${(() => {
+              // V35.10.0-alpha4 — Pill "ao vivo" / "fórmula" quando KR é
+              // alimentado por fonte real ou cálculo derivado.
+              const live = window.KrLiveValueEngine?.computeCurrentValue(kr, { productId: product.id });
+              if (live?.source === 'live') return '<span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>ao vivo</span>';
+              if (live?.source === 'derived') return '<span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-violet-500/20 border border-violet-400/40 text-violet-200">fórmula</span>';
+              return '';
+            })()}
           </div>
           <p class="text-[11px] text-slate-300">
-            Hoje <b class="text-white">${Number(kr.current ?? 0)}</b>
+            Hoje <b class="text-white">${(() => {
+              const live = window.KrLiveValueEngine?.computeCurrentValue(kr, { productId: product.id });
+              return Number(live?.value ?? kr.current ?? 0);
+            })()}</b>
             · Segura <b class="text-emerald-300">${Number(kr.targetCommitted ?? 0)}</b>
             · Avançada <b class="text-violet-300">${Number(kr.targetStretch ?? 0)}</b>
             ${/* V32.4.4 — Felipe pediu remover "em X dias" — por hora sem prazo setado. */ ''}
@@ -2555,9 +2566,18 @@ window.StrategicMapModal = {
             <span class="text-emerald-300 font-black">✓</span>
             <p class="font-black text-white text-sm">${Utils.escape(kr.name)}</p>
             ${handoffBadge}
+            ${(() => {
+              const live = window.KrLiveValueEngine?.computeCurrentValue(kr, {});
+              if (live?.source === 'live') return '<span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>ao vivo</span>';
+              if (live?.source === 'derived') return '<span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-violet-500/20 border border-violet-400/40 text-violet-200">fórmula</span>';
+              return '';
+            })()}
           </div>
           <p class="text-[11px] text-slate-300">
-            Hoje <b class="text-white">${Number(kr.current ?? 0)}</b>
+            Hoje <b class="text-white">${(() => {
+              const live = window.KrLiveValueEngine?.computeCurrentValue(kr, {});
+              return Number(live?.value ?? kr.current ?? 0);
+            })()}</b>
             · Segura <b class="text-emerald-300">${Number(kr.targetCommitted ?? 0)}</b>
             · Avançada <b class="text-violet-300">${Number(kr.targetStretch ?? 0)}</b>
             · em <b class="text-white">${periodLabel}</b>

@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.10.0',
+    date: '2026-06-03',
+    title: 'KRs ao vivo — o "Hoje" puxa direto da fonte que o Djow escolheu',
+    bullets: [
+      'KRs criados com o Djow agora mostram o valor real "Hoje X" puxando da fonte (Google Ads, RD, Hotmart) — não fica mais zerado.',
+      'Pill verde "● ao vivo" ao lado do nome quando o número está vindo de fonte real.',
+      'Pill violet "fórmula" pra KRs derivados (LTV, CAC, ROAS) calculados em tempo real a partir dos insumos.',
+      'Escopo de agregação cravado: KR de Marketing soma só de Campanhas LJ marcadas como Marketing daquele produto. Idem Vendas e CS.',
+      'KR manual (sem Djow) continua mostrando o valor que você digitou — sem alteração.',
+      'Visível tanto na Home (cards de KPI) quanto no Mapa da Receita (cards de KR).'
+    ]
+  },
+  {
     version: 'V35.9.3',
     date: '2026-06-03',
     title: 'Sininho com 2 abas (Atualizações + Alertas) e Djow responde no Enter',

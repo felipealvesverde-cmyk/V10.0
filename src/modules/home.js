@@ -278,11 +278,18 @@ window.HomeModule = {
       const visibleKrs = krs.slice(start, start + 3);
 
       const krRows = visibleKrs.length
-        ? visibleKrs.map(kr => `<div class="lj-kpi-kr-row" title="${Utils.escape(kr.name)}">
-            <p class="lj-kpi-kr-name">${Utils.escape(kr.name)}</p>
-            <p class="lj-kpi-kr-value">${formatKrValue(kr, kr.current)}</p>
-            <p class="lj-kpi-kr-meta">Meta ${formatKrValue(kr, kr.targetCommitted)}</p>
-          </div>`).join('')
+        ? visibleKrs.map(kr => {
+            // V35.10.0-alpha2 — Usa KrLiveValueEngine quando KR tem djowMeta
+            // (puxa current ao vivo da fonte). Senão usa kr.current legado.
+            const liveResult = window.KrLiveValueEngine?.computeCurrentValue(kr, { productId: product.id });
+            const displayValue = liveResult?.value ?? kr.current;
+            const isLive = liveResult?.source === 'live';
+            return `<div class="lj-kpi-kr-row" title="${Utils.escape(kr.name)}${isLive ? ' (ao vivo)' : ''}">
+              <p class="lj-kpi-kr-name">${Utils.escape(kr.name)}${isLive ? ' <span class="text-emerald-400 text-[8px]">●</span>' : ''}</p>
+              <p class="lj-kpi-kr-value">${formatKrValue(kr, displayValue)}</p>
+              <p class="lj-kpi-kr-meta">Meta ${formatKrValue(kr, kr.targetCommitted)}</p>
+            </div>`;
+          }).join('')
         : `<div class="lj-kpi-kr-empty">
             <p>Sem KR de ${area.label} ainda.</p>
             <p class="lj-kpi-kr-empty-cta">Crie no Mapa da Receita</p>
