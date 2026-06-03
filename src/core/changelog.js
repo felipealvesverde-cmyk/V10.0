@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.9.2',
+    date: '2026-06-03',
+    title: 'Cards de KPI da Home agora mostram os KRs reais do produto',
+    bullets: [
+      'Os 4 cards de KPI da Home (que ficavam zerados desde V25.0.0) agora seguem o produto pulsando no Pulso da Receita.',
+      'Cada card corresponde a uma área: Marketing, Vendas, CS e Receita.',
+      'Card mostra até 3 KRs daquela área, com nome, valor atual e meta segura.',
+      'Quando a área tem mais de 3 KRs, a página inteira gira (1-3 → 4-6 → 1-3) a cada 10s.',
+      'Quando o Pulso troca de produto, as páginas resetam pra o início.',
+      'Card de Receita ainda em definição — placeholder por enquanto.'
+    ]
+  },
+  {
     version: 'V35.9.1',
     date: '2026-06-03',
     title: 'Hotfix V35.9.0 — roll-up Google Ads aparece no painel novo do RevOps',

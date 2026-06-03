@@ -117,15 +117,49 @@ window.HomeModule = {
         next = (next + 1) % all.length;
       }
       App.state.homeProductIndex = next;
+      // V35.9.2 — Resetar páginas de KR quando o produto muda. Nova rodada
+      // começa do bloco 1-3 de cada área.
+      App.state.homeKrPages = { marketing: 0, vendas: 0, cs: 0 };
       App.save();
       App.render();
     }, 7000);
+
+    // V35.9.2 — Rotação interna de páginas de KR (cada área independente).
+    // Roda mais devagar que a do produto pra dar tempo de ler (10s).
+    this._krRotationTimer = setInterval(() => {
+      if (this._paused || this._hoverPause) return;
+      if (App.state.activeTab !== 'home') return;
+      if (App.state.djowOpen) return;
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+
+      const product = this._currentProduct();
+      if (!product || !window.StrategicMapEngine?.getProductKrs) return;
+      const krs = StrategicMapEngine.getProductKrs(product.id) || [];
+
+      let changed = false;
+      if (!App.state.homeKrPages) App.state.homeKrPages = { marketing: 0, vendas: 0, cs: 0 };
+      ['marketing', 'vendas', 'cs'].forEach(area => {
+        const areaKrs = krs.filter(k => String(k.area || '').toLowerCase() === area);
+        const totalPages = Math.max(1, Math.ceil(areaKrs.length / 3));
+        if (totalPages <= 1) return;       // só 1 página, não rotaciona
+        const cur = Number(App.state.homeKrPages[area]) || 0;
+        App.state.homeKrPages[area] = (cur + 1) % totalPages;
+        changed = true;
+      });
+
+      if (changed) { App.save(); App.render(); }
+    }, 10000);
   },
 
   stopRotation() {
     if (this._rotationTimer) {
       clearInterval(this._rotationTimer);
       this._rotationTimer = null;
+    }
+    if (this._krRotationTimer) {
+      clearInterval(this._krRotationTimer);
+      this._krRotationTimer = null;
     }
   },
 
@@ -214,21 +248,79 @@ window.HomeModule = {
   _kpiSlots() {
     // V25.0.0 — Slots zerados. Vão receber KPIs configuráveis em V25.x.
     // V34.9.16 — Accents alinhados à paleta semântica oficial (Leo).
-    const slots = [
-      { label: 'KPI 1', icon: 'users-round', value: '0', delta: '— vs ontem',        accent: 'marketing' },
-      { label: 'KPI 2', icon: 'target',      value: '0', delta: '—',                 accent: 'sales' },
-      { label: 'KPI 3', icon: 'filter',      value: '0', delta: '— vs ontem',        accent: 'cs' },
-      { label: 'KPI 4', icon: 'dollar-sign', value: 'R$ 0', delta: '— vs mês anterior', accent: 'revenue' }
+    // V35.9.2 — Cada card é uma ÁREA específica (Marketing / Vendas / CS).
+    // 4º card (Receita) fica como placeholder. KRs do produto pulsando
+    // filtrados por área. Até 3 KRs visíveis por card, página inteira gira
+    // (KRs 1-3 → KRs 4-6 → 1-3 …) quando área tem mais de 3.
+    const product = this._currentProduct();
+    const allKrs = (product && window.StrategicMapEngine?.getProductKrs)
+      ? (StrategicMapEngine.getProductKrs(product.id) || [])
+      : [];
+
+    const pages = App.state.homeKrPages || { marketing: 0, vendas: 0, cs: 0 };
+
+    const areas = [
+      { id: 'marketing', label: 'Marketing', accent: 'marketing', icon: 'megaphone' },
+      { id: 'vendas',    label: 'Vendas',    accent: 'sales',     icon: 'target' },
+      { id: 'cs',        label: 'CS',        accent: 'cs',        icon: 'heart' }
     ];
-    return `<div class="lj-home-kpis">
-      ${slots.map(s => `<div class="lj-kpi-card lj-kpi-${s.accent}">
+
+    const formatKrValue = (kr, v) => {
+      const num = Number(v || 0);
+      if (kr.metric === 'reais') return `R$ ${num.toLocaleString('pt-BR')}`;
+      if (kr.metric === 'percentual') return `${num}%`;
+      return num.toLocaleString('pt-BR');
+    };
+
+    const areaCards = areas.map(area => {
+      const krs = allKrs.filter(k => String(k.area || '').toLowerCase() === area.id);
+      const totalPages = Math.max(1, Math.ceil(krs.length / 3));
+      const currentPage = (Number(pages[area.id]) || 0) % totalPages;
+      const start = currentPage * 3;
+      const visibleKrs = krs.slice(start, start + 3);
+
+      const krRows = visibleKrs.length
+        ? visibleKrs.map(kr => `<div class="lj-kpi-kr-row" title="${Utils.escape(kr.name)}">
+            <p class="lj-kpi-kr-name">${Utils.escape(kr.name)}</p>
+            <p class="lj-kpi-kr-value">${formatKrValue(kr, kr.current)}</p>
+            <p class="lj-kpi-kr-meta">Meta ${formatKrValue(kr, kr.targetCommitted)}</p>
+          </div>`).join('')
+        : `<div class="lj-kpi-kr-empty">
+            <p>Sem KR de ${area.label} ainda.</p>
+            <p class="lj-kpi-kr-empty-cta">Crie no Mapa da Receita</p>
+          </div>`;
+
+      const paginationBadge = totalPages > 1
+        ? `<span class="lj-kpi-pagination">${currentPage + 1}/${totalPages}</span>`
+        : '';
+
+      return `<div class="lj-kpi-card lj-kpi-${area.accent}">
         <div class="lj-kpi-header">
-          <div class="lj-kpi-icon"><i data-lucide="${s.icon}" class="w-5 h-5"></i></div>
-          <div class="lj-kpi-label">${s.label}</div>
+          <div class="lj-kpi-icon"><i data-lucide="${area.icon}" class="w-5 h-5"></i></div>
+          <div class="lj-kpi-label">${area.label}</div>
+          ${paginationBadge}
         </div>
-        <div class="lj-kpi-value">${s.value}</div>
-        <div class="lj-kpi-delta">${s.delta}</div>
-      </div>`).join('')}
+        <div class="lj-kpi-krs">${krRows}</div>
+      </div>`;
+    }).join('');
+
+    // V35.9.2 — Card de Receita ainda sem definição (Felipe decidirá depois).
+    // Fica placeholder por enquanto.
+    const revenueCard = `<div class="lj-kpi-card lj-kpi-revenue opacity-60">
+      <div class="lj-kpi-header">
+        <div class="lj-kpi-icon"><i data-lucide="dollar-sign" class="w-5 h-5"></i></div>
+        <div class="lj-kpi-label">Receita</div>
+      </div>
+      <div class="lj-kpi-krs">
+        <div class="lj-kpi-kr-empty">
+          <p>Em definição.</p>
+        </div>
+      </div>
+    </div>`;
+
+    return `<div class="lj-home-kpis">
+      ${areaCards}
+      ${revenueCard}
     </div>`;
   },
 
