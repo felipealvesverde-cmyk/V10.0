@@ -1275,6 +1275,16 @@ var State = {
       rdRefreshing: false, // sempre false no boot
       // V25.0.0 — Home: produto vigente do Pulso (rotação random 7s)
       homeProductIndex: Number.isFinite(Number(raw.homeProductIndex)) ? Number(raw.homeProductIndex) : 0,
+      // V35.9.2 — Página atual dos KRs em cada card de área da Home.
+      // Quando a área tem mais de 3 KRs, o card pagina (KRs 1-3 → 4-6 → 1-3).
+      // Reseta pra 0 quando produto pulsando muda.
+      homeKrPages: (raw.homeKrPages && typeof raw.homeKrPages === 'object')
+        ? {
+            marketing: Number(raw.homeKrPages.marketing) || 0,
+            vendas: Number(raw.homeKrPages.vendas) || 0,
+            cs: Number(raw.homeKrPages.cs) || 0
+          }
+        : { marketing: 0, vendas: 0, cs: 0 },
       // V26.0.0 — Djow AI (Claude assistant)
       djowConfig: (raw.djowConfig && typeof raw.djowConfig === 'object')
         ? { model: raw.djowConfig.model || 'claude-sonnet-4-6', allowedRoles: Array.isArray(raw.djowConfig.allowedRoles) ? raw.djowConfig.allowedRoles : ['master'] }

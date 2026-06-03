@@ -185,6 +185,88 @@
   z-index: 1;
 }
 
+/* V35.9.2 — Card de área (Marketing/Vendas/CS/Receita) com até 3 KRs.
+   Página inteira gira (1-3 → 4-6 → 1-3) quando área tem mais de 3. */
+.lj-kpi-pagination {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  color: #64748B;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(148,163,184,.18);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.lj-kpi-krs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+  min-height: 110px;          /* acomoda 3 linhas; evita pulo na rotação */
+}
+.lj-kpi-kr-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: baseline;
+  padding-bottom: 6px;
+  border-bottom: 1px dashed rgba(148,163,184,.14);
+}
+.lj-kpi-kr-row:last-child { border-bottom: none; padding-bottom: 0; }
+.lj-kpi-kr-name {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 12px;
+  font-weight: 800;
+  color: #E2E8F0;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lj-kpi-kr-value {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 15px;
+  font-weight: 950;
+  color: #fff;
+  letter-spacing: -.02em;
+  white-space: nowrap;
+}
+.lj-kpi-kr-meta {
+  grid-column: 1 / span 2;
+  grid-row: 2;
+  font-size: 9px;
+  font-weight: 700;
+  color: #64748B;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.lj-kpi-kr-empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  flex: 1;
+  text-align: center;
+  font-size: 11px;
+  color: #64748B;
+  font-weight: 600;
+  padding: 12px 4px;
+}
+.lj-kpi-kr-empty p { margin: 0; }
+.lj-kpi-kr-empty-cta {
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  color: #94A3B8;
+}
+
 /* === Layout main: pulso+cards à esquerda, sidebar à direita === */
 .lj-home-main {
   display: grid;
