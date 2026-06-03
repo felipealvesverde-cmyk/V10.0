@@ -9148,6 +9148,132 @@ Object.assign(Actions, {
     }
   },
 
+  // V35.13.3 — Resolver de ação órfã. Quando KR-mãe é deletado, ações que
+  // dependiam dele ficam sem `primaryKrId` no mind-map. Card vira cinza
+  // apagado com overlay "Resolver" que abre este resolver: 2 caminhos
+  // (Deletar tudo / Conectar a outro KR).
+  openOrphanActionResolver(actionId, mode) {
+    App.state.orphanActionResolver = {
+      actionId: Number(actionId),
+      mode: mode === 'reconnect' ? 'reconnect' : 'choose'
+    };
+    App.render();
+  },
+
+  closeOrphanActionResolver() {
+    App.state.orphanActionResolver = null;
+    App.render();
+  },
+
+  setOrphanResolverMode(mode) {
+    const cur = App.state.orphanActionResolver;
+    if (!cur) return;
+    App.state.orphanActionResolver = {
+      ...cur,
+      mode: mode === 'reconnect' ? 'reconnect' : 'choose'
+    };
+    App.render();
+  },
+
+  // Reconecta a ação órfã ao parentKr escolhido — garante childKr na branch
+  // e injeta o actionId em connectedActionIds. Reusa exatamente a mesma
+  // lógica de saveMindMapAction (linha ~9091) pra criar childKr stub.
+  reconnectOrphanActionToParentKr(actionId, parentKrId) {
+    const numActionId = Number(actionId);
+    const action = (App.state.actions || []).find(a => Number(a.id) === numActionId);
+    if (!action) return Utils.toast('Ação não encontrada.');
+    const campaignId = Number(action.campaignId);
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    if (!branch) return Utils.toast('Branch da campanha não encontrada.');
+    const objective = (branch.objectives || []).find(o => o.area === action.strategicAreaId);
+    if (!objective) return Utils.toast('Frente da ação não encontrada na branch.');
+    const productId = Number(action.campaignId)
+      ? ((App.state.campaigns || []).find(c => Number(c.id) === campaignId)?.productId)
+      : App.state.strategicMapProductId;
+    const productKrs = StrategicMapEngine.getProductKrs(productId) || [];
+    const productKr = productKrs.find(k => k.id === parentKrId);
+    if (!productKr) return Utils.toast('Número não encontrado.');
+    let childKr = (objective.okrs || []).find(k => k.parentProductKrId === parentKrId);
+    if (!childKr) {
+      childKr = {
+        id: `okr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        name: productKr.name,
+        metric: productKr.metric || 'quantidade',
+        catalogId: productKr.catalogId || null,
+        isHandoff: false,
+        current: 0,
+        targetCommitted: productKr.targetCommitted ?? productKr.target ?? null,
+        targetStretch: productKr.targetStretch ?? null,
+        period: productKr.period || 90,
+        confirmed: false,
+        connectedActionIds: [],
+        parentProductKrId: parentKrId
+      };
+      objective.okrs = [...(objective.okrs || []), childKr];
+    }
+    const ids = new Set((childKr.connectedActionIds || []).map(Number));
+    ids.add(numActionId);
+    childKr.connectedActionIds = Array.from(ids);
+    branch.updatedAt = new Date().toISOString();
+    App.state.strategicCampaignMaps = { ...(App.state.strategicCampaignMaps || {}), [campaignId]: branch };
+    App.state.orphanActionResolver = null;
+    App.save(); App.render();
+    Utils.toast(`✓ Ação reconectada a "${productKr.name}".`);
+  },
+
+  // Confirma exclusão da ação órfã: remove execution tasks (que internamente
+  // disparam DELETE no provider ClickUp), limpa connectedActionIds residual,
+  // remove a ação do state e dispara mirror delete pro folder/list ClickUp.
+  async deleteOrphanActionCascade(actionId) {
+    const numActionId = Number(actionId);
+    const action = (App.state.actions || []).find(a => Number(a.id) === numActionId);
+    if (!action) {
+      App.state.orphanActionResolver = null;
+      App.render();
+      return Utils.toast('Ação não encontrada.');
+    }
+    const tasks = window.ExecutionTaskStore ? (ExecutionTaskStore.byAction(numActionId) || []) : [];
+    // 1) Remove cada execution task — internamente dispara provider delete.
+    for (const t of tasks) {
+      try {
+        if (window.ExecutionTaskEngine) await ExecutionTaskEngine.removeTask(t.task_id);
+      } catch (err) {
+        console.warn('[orphan-delete] task remove falhou:', t.task_id, err?.message);
+      }
+    }
+    // 2) Limpa connectedActionIds residual em todas branches do produto.
+    const campaignId = Number(action.campaignId);
+    const branch = StrategicMapEngine.getBranchMap(campaignId);
+    if (branch) {
+      let dirty = false;
+      (branch.objectives || []).forEach(o => {
+        (o.okrs || []).forEach(kr => {
+          const before = (kr.connectedActionIds || []).map(Number);
+          const after = before.filter(id => id !== numActionId);
+          if (after.length !== before.length) {
+            kr.connectedActionIds = after;
+            dirty = true;
+          }
+        });
+      });
+      if (dirty) {
+        branch.updatedAt = new Date().toISOString();
+        App.state.strategicCampaignMaps = { ...(App.state.strategicCampaignMaps || {}), [campaignId]: branch };
+      }
+    }
+    // 3) Remove a ação do state.
+    App.state.actions = (App.state.actions || []).filter(a => Number(a.id) !== numActionId);
+    if (Number(App.state.selectedActionId) === numActionId) App.state.selectedActionId = null;
+    // 4) Fecha resolver.
+    App.state.orphanActionResolver = null;
+    App.save(); App.render();
+    Utils.toast(`✓ Ação excluída${tasks.length ? ` (e ${tasks.length} task${tasks.length === 1 ? '' : 's'} no ClickUp)` : ''}.`);
+    // 5) Sync delete pro mirror ClickUp (subtask "action" no folder/list).
+    if (typeof Actions._syncDeleteToClickup === 'function') {
+      Actions._syncDeleteToClickup('action', numActionId);
+    }
+  },
+
   // V32.13.16 / V32.14.7 — Detalhe da task de execução. Auto-sync silencioso
   // ao abrir (resolve cenário "atualizei no ClickUp e LJ não puxou ainda").
   openExecutionTaskDetail(taskId) {

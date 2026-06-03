@@ -60,6 +60,7 @@ window.StrategicMapModal = {
       ${App.state.connectActionToKrsModal ? this._connectActionToKrsModalRender() : ''}
       ${App.state.strategicKrPickerOpen ? this._strategicKrPickerModalRender() : ''}
       ${App.state.strategicMindMapActionEditor ? this._mindMapActionEditorRender() : ''}
+      ${App.state.orphanActionResolver ? this._orphanActionResolverRender() : ''}
       ${App.state.executionTaskDetail ? this._executionTaskDetailRender() : ''}
       ${App.state.acompanhamentoKrDetail ? this._acompanhamentoKrDetailRender() : ''}
       ${App.state.acompanhamentoActionDetail ? this._acompanhamentoActionDetailRender() : ''}
@@ -3480,6 +3481,12 @@ window.StrategicMapModal = {
     const hasDestSector = String(action.destSector || '').trim().length > 0;
     const hasDestFunnel = String(action.destFunnelPoint || '').trim().length > 0;
     const isComplete = hasName && hasChannel && hasType && hasFunnel && hasDestSector && hasDestFunnel;
+    // V35.13.3 — Ação órfã: tem nome (já editada) mas nenhum KR-mãe ativo
+    // (primaryKrId=null). Acontece quando user deleta o KR-mãe da campanha.
+    // Visual: card cinza apagado + overlay "Resolver" centralizado. Click no
+    // overlay abre Actions.openOrphanActionResolver(actionId).
+    const isOrphan = hasName && !primaryKrId;
+    if (isOrphan) return this._orphanActionCard(action);
     const statusIcon = isComplete ? 'check-circle-2' : 'alert-triangle';
     const statusPillCls = isComplete
       ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300'
@@ -3577,6 +3584,149 @@ window.StrategicMapModal = {
         ${executeBtn}
       </div>
       ${executionBranch}
+    </div>`;
+  },
+
+  // V35.13.3 — Card de ação órfã (KR-mãe deletado). Visual cinza apagado
+  // (grayscale + opacity) com overlay clicável centralizado pedindo decisão:
+  // deletar tudo ou conectar a outro número. Reusa a mesma largura (w-48)
+  // do card normal pra não quebrar layout do mind-map.
+  _orphanActionCard(action) {
+    const displayName = String(action.name || '').trim() || 'Ação sem nome';
+    return `<button onclick="Actions.openOrphanActionResolver(${action.id})"
+      title="Esta ação não está conectada a nenhum número — clique pra resolver"
+      class="relative w-48 text-left bg-slate-900/40 border-2 border-slate-600/40 rounded-xl p-3 hover:bg-slate-800/60 hover:border-slate-400/50 transition group"
+      style="border-left: 6px solid #64748b; filter: grayscale(0.85);">
+      <!-- Conteúdo apagado (mostra que era uma ação real) -->
+      <div class="opacity-40">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <div class="flex items-center gap-1.5 min-w-0">
+            <span class="shrink-0 w-2 h-2 rounded-full bg-slate-500"></span>
+            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Sem destino</p>
+          </div>
+          <span class="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border bg-slate-600/20 border-slate-500/40 text-slate-300">
+            <i data-lucide="unlink-2" class="w-2.5 h-2.5"></i>
+            Órfã
+          </span>
+        </div>
+        <p class="text-[13px] font-black leading-snug line-clamp-2 mb-1.5 text-slate-300" title="${Utils.escape(displayName)}">${Utils.escape(displayName)}</p>
+        <p class="text-[10px] text-slate-500 truncate">${Utils.escape(action.channel || '— canal —')}</p>
+      </div>
+      <!-- Overlay com CTA — fica em cima do conteúdo apagado -->
+      <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/95 border border-amber-400/60 text-amber-200 text-[10px] font-black uppercase tracking-wider shadow-lg group-hover:bg-amber-500/30 group-hover:border-amber-300 group-hover:text-amber-100 transition">
+          <i data-lucide="alert-triangle" class="w-3 h-3"></i>
+          Resolver
+        </span>
+      </div>
+    </button>`;
+  },
+
+  // V35.13.3 — Modal de resolução de ação órfã. 2 caminhos:
+  //   - 'choose'   : exibe 2 botões grandes (Deletar / Conectar)
+  //   - 'reconnect': lista KRs-mãe ativos do produto na frente da ação
+  //                  pra clicar e re-vincular
+  _orphanActionResolverRender() {
+    const resolver = App.state.orphanActionResolver;
+    if (!resolver?.actionId) return '';
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(resolver.actionId));
+    if (!action) return '';
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
+    const productId = campaign?.productId || App.state.strategicMapProductId;
+    const taskCount = window.ExecutionTaskStore
+      ? (ExecutionTaskStore.byAction(Number(action.id)) || []).length
+      : 0;
+    const displayName = String(action.name || '').trim() || 'Ação sem nome';
+    const area = (StrategicMapEngine.COMERCIAL_AREAS || []).find(a => a.id === action.strategicAreaId);
+    const areaLabel = area?.label || action.strategicAreaId || '—';
+
+    const header = `<div class="flex items-start justify-between gap-3 mb-4">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <span class="shrink-0 w-10 h-10 rounded-xl bg-amber-500/20 grid place-items-center">
+          <i data-lucide="unlink-2" class="w-5 h-5 text-amber-300"></i>
+        </span>
+        <div class="min-w-0">
+          <p class="text-[10px] font-black text-amber-200 uppercase tracking-wider">Ação órfã</p>
+          <p class="text-sm font-black text-white truncate" title="${Utils.escape(displayName)}">${Utils.escape(displayName)}</p>
+          <p class="text-[11px] text-slate-400 mt-0.5">${Utils.escape(areaLabel)} · sem número vinculado</p>
+        </div>
+      </div>
+      <button onclick="Actions.closeOrphanActionResolver()" class="shrink-0 w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 grid place-items-center transition">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>`;
+
+    let body = '';
+    if (resolver.mode === 'reconnect') {
+      const productKrs = (StrategicMapEngine.getProductKrs(productId) || [])
+        .filter(k => k.area === action.strategicAreaId);
+      if (!productKrs.length) {
+        body = `<div class="rounded-xl bg-amber-500/10 border border-amber-400/30 p-4">
+          <p class="text-[12px] text-amber-200 font-black mb-1">Sem números ativos nesta frente.</p>
+          <p class="text-[11px] text-slate-300">Não há KR-mãe em <b>${Utils.escape(areaLabel)}</b> pra receber esta ação. Crie um KR-mãe primeiro na vista CEO ou delete esta ação.</p>
+        </div>
+        <div class="flex justify-end gap-2 mt-4">
+          <button onclick="Actions.setOrphanResolverMode('choose')" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 text-[11px] font-black uppercase tracking-wider">← Voltar</button>
+        </div>`;
+      } else {
+        body = `<p class="text-[12px] text-slate-300 mb-3">Escolha o número ao qual quer conectar a ação <b>${Utils.escape(displayName)}</b>:</p>
+        <div class="space-y-2 max-h-80 overflow-y-auto pr-1">
+          ${productKrs.map(pkr => {
+            const krColor = StrategicMapEngine.krColorFromId(pkr.id);
+            const meta = pkr.targetCommitted != null ? `<span class="text-[10px] text-slate-400">Meta ${Utils.escape(String(pkr.targetCommitted))} ${Utils.escape(pkr.metric || '')}</span>` : '';
+            return `<button onclick="Actions.reconnectOrphanActionToParentKr(${action.id}, '${pkr.id}')"
+              class="w-full text-left rounded-xl bg-slate-900/60 border-2 border-white/10 hover:border-emerald-400/60 hover:bg-slate-800/80 p-3 transition flex items-center gap-2.5"
+              style="border-left: 6px solid ${krColor};">
+              <span class="shrink-0 w-2.5 h-2.5 rounded-full" style="background:${krColor};"></span>
+              <div class="min-w-0 flex-1">
+                <p class="text-[13px] font-black text-white truncate">${Utils.escape(pkr.name)}</p>
+                ${meta}
+              </div>
+              <i data-lucide="arrow-right" class="w-4 h-4 text-emerald-300 shrink-0"></i>
+            </button>`;
+          }).join('')}
+        </div>
+        <div class="flex justify-between gap-2 mt-4">
+          <button onclick="Actions.setOrphanResolverMode('choose')" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 text-[11px] font-black uppercase tracking-wider">← Voltar</button>
+        </div>`;
+      }
+    } else {
+      // mode === 'choose': 2 caminhos lado-a-lado
+      const taskWarn = taskCount > 0
+        ? `<p class="text-[11px] text-rose-200 mt-2 flex items-center gap-1"><i data-lucide="alert-triangle" class="w-3 h-3"></i> Vai apagar também ${taskCount} task${taskCount === 1 ? '' : 's'} no ClickUp.</p>`
+        : `<p class="text-[11px] text-slate-400 mt-2">Sem tasks no ClickUp pra remover.</p>`;
+      body = `<p class="text-[12px] text-slate-300 mb-4">Esta ação foi desligada do número que cobria. Você quer:</p>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <button onclick="if (confirm('Apagar esta ação e ${taskCount} task(s) no ClickUp? Não dá pra desfazer.')) Actions.deleteOrphanActionCascade(${action.id})"
+          class="text-left rounded-2xl bg-rose-500/10 border-2 border-rose-400/40 hover:bg-rose-500/20 hover:border-rose-300/60 p-4 transition">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="shrink-0 w-8 h-8 rounded-lg bg-rose-500/30 grid place-items-center">
+              <i data-lucide="trash-2" class="w-4 h-4 text-rose-200"></i>
+            </span>
+            <p class="text-[12px] font-black text-rose-100 uppercase tracking-wider">Deletar tudo</p>
+          </div>
+          <p class="text-[11px] text-slate-300 leading-relaxed">Apaga esta ação e toda a árvore de execução, incluindo tasks no ClickUp.</p>
+          ${taskWarn}
+        </button>
+        <button onclick="Actions.setOrphanResolverMode('reconnect')"
+          class="text-left rounded-2xl bg-emerald-500/10 border-2 border-emerald-400/40 hover:bg-emerald-500/20 hover:border-emerald-300/60 p-4 transition">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="shrink-0 w-8 h-8 rounded-lg bg-emerald-500/30 grid place-items-center">
+              <i data-lucide="link-2" class="w-4 h-4 text-emerald-200"></i>
+            </span>
+            <p class="text-[12px] font-black text-emerald-100 uppercase tracking-wider">Conectar a outro número</p>
+          </div>
+          <p class="text-[11px] text-slate-300 leading-relaxed">Mantém a ação e tasks. Lista os números ativos de <b>${Utils.escape(areaLabel)}</b> pra escolher um novo destino.</p>
+        </button>
+      </div>`;
+    }
+
+    return `<div class="fixed inset-0 z-[95] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4"
+      onclick="if(event.target === this) Actions.closeOrphanActionResolver()">
+      <div class="rounded-3xl bg-slate-900 border border-white/10 shadow-2xl w-full max-w-xl p-6">
+        ${header}
+        ${body}
+      </div>
     </div>`;
   },
 
