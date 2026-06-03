@@ -458,14 +458,18 @@
     },
 
     // V35.13.0 — Dashboard pros cards da Home (CAC / Previsto×Realizado / TM /
-    // Breakeven). Lê do revopsFinanceV2[productId] (estrutura whitelabel nova
-    // onde Felipe configura grupos com bucket=acquisition/variable/fixed).
+    // Breakeven). Lê do revopsFinanceV2[productId].
+    // V35.13.1 — Usa a MESMA fórmula da cascata "Equilíbrio da Operação" do
+    // painel V2 (revopsWhitelabelPanel _revopsTab):
+    //   CAC = CTC ÷ Total de Vendas   onde CTC = acquisitionTotal
+    // Total de Vendas é PREVISTO (ev.sales) pra CAC previsto, e REAL
+    // (productRealSales) pra CAC atual.
     //
-    // Reutiliza productRealSales do V1 (que itera campaigns+actions+FlowResolutionEngine)
-    // — ele é orthogonal à estrutura financeira, só consome state.campaigns/actions.
+    // Reutiliza productRealSales do V1 (orthogonal — só consome campaigns/actions).
     //
-    // Retorna shape compatível com o que home.js _revopsCards espera:
-    //   { cac, ticket, sales, realSales, breakevenSales }
+    // Retorna shape compatível + extras pro Home mostrar previsto E atual:
+    //   { cacPrevisto, cacReal, ticket, sales, realSales, breakevenSales,
+    //     cac (alias cacPrevisto pra compat), source }
     computeDashboard(productId) {
       if (!productId || !window.App?.state) return null;
       const cfg = App.state.revopsFinanceV2?.[productId];
@@ -479,33 +483,45 @@
       if (!hasGroups && !hasOffersOrTicket) return null;
 
       const ev = this.evaluate(norm);
-      // Real sales — reutiliza engine V1 (orthogonal).
       const realSales = (window.RevopsFinanceEngine?.productRealSales)
         ? RevopsFinanceEngine.productRealSales(productId)
         : 0;
       const acquisitionTotal = ev.acquisitionTotal;
-      const cac = realSales > 0 ? acquisitionTotal / realSales : 0;
-      // Breakeven = fixedTotal / contributionUnit (unit = ticket - variableUnit)
-      // Variável unitário aproximado: variableTotal está calculado pro `sales`
-      // projetado; unit = variableTotal / sales (assume escalou linear com vendas).
+      // Fórmula igual à cascata do painel: CAC = CTC ÷ Total de Vendas.
+      // Previsto usa sales projetado (igual ao que o painel mostra), atual usa real.
+      const cacPrevisto = ev.sales > 0 ? acquisitionTotal / ev.sales : 0;
+      const cacReal     = realSales > 0 ? acquisitionTotal / realSales : null;
+
+      // Breakeven = Custo Fixo ÷ MSU (margem após aquisição), igual cascata:
+      //   MCU = ticket - variableUnitCost
+      //   CAC ← usa o CAC previsto (cascata é projeção)
+      //   MSU = MCU - CAC
+      //   Breakeven = fixedTotal ÷ MSU
       const ticket = ev.ticket;
       const variableUnit = ev.sales > 0 ? ev.variableTotal / ev.sales : 0;
-      const contributionUnit = ticket - variableUnit;
-      const breakevenSales = (contributionUnit > 0 && ev.fixedTotal > 0)
-        ? Math.ceil(ev.fixedTotal / contributionUnit)
+      const mcu = ticket - variableUnit;
+      const msu = mcu - cacPrevisto;
+      const breakevenSales = (msu > 0 && ev.fixedTotal > 0)
+        ? Math.ceil(ev.fixedTotal / msu)
         : null;
 
       return {
-        cac,
+        // CAC com previsto + atual (V35.13.1)
+        cacPrevisto,
+        cacReal,
+        cac: cacPrevisto,           // alias pra compat com home antigo
+        // Demais KPIs (igual cascata)
         ticket,
+        mcu,
+        msu,
         sales: ev.sales,
         realSales,
         breakevenSales,
-        // Bônus pra uso futuro (tooltips, drilldowns)
+        // Extras
         acquisitionTotal,
         fixedTotal: ev.fixedTotal,
         variableTotal: ev.variableTotal,
-        contributionUnit,
+        variableUnit,
         source: 'v2'
       };
     },

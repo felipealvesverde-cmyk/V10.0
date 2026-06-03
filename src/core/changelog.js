@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.13.1',
+    date: '2026-06-03',
+    title: 'Cards RevOps da Home agora mostram Previsto × Atual lado a lado',
+    bullets: [
+      'Os 4 cards (CAC, Vendas, TM, % Breakeven) ganham par Previsto × Atual igual ao "Previsto × Realizado" antigo.',
+      'CAC usa a mesma fórmula da cascata "Equilíbrio da Operação" do painel (CTC ÷ Total de Vendas) — previsto divide por vendas projetadas, atual divide por vendas reais.',
+      'Quando ainda não tem vendas reais cadastradas, o "Atual" mostra "—" (não inventa valor).',
+      'Breakeven mostra % previsto e % atual lado a lado em cores (verde ≥100%, vermelho <100%).'
+    ]
+  },
+  {
     version: 'V35.13.0',
     date: '2026-06-03',
     title: 'Cards de CAC / Previsto×Realizado / TM / Breakeven puxam da governança',
