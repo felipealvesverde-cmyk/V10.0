@@ -457,6 +457,59 @@
       };
     },
 
+    // V35.13.0 — Dashboard pros cards da Home (CAC / Previsto×Realizado / TM /
+    // Breakeven). Lê do revopsFinanceV2[productId] (estrutura whitelabel nova
+    // onde Felipe configura grupos com bucket=acquisition/variable/fixed).
+    //
+    // Reutiliza productRealSales do V1 (que itera campaigns+actions+FlowResolutionEngine)
+    // — ele é orthogonal à estrutura financeira, só consome state.campaigns/actions.
+    //
+    // Retorna shape compatível com o que home.js _revopsCards espera:
+    //   { cac, ticket, sales, realSales, breakevenSales }
+    computeDashboard(productId) {
+      if (!productId || !window.App?.state) return null;
+      const cfg = App.state.revopsFinanceV2?.[productId];
+      if (!cfg) return null;
+      const norm = this.normalize(cfg, productId);
+      // Se o cliente ainda não configurou nada útil, devolve null (Home cai no V1)
+      const hasGroups = (norm.groups || []).some(g => (g.items || []).length > 0);
+      const hasOffersOrTicket = norm.ticketMode === 'manual'
+        ? this._num(norm.ticketManualValue) > 0
+        : (norm.offers || []).some(o => o.selectedForTicket && this._num(o.price) > 0);
+      if (!hasGroups && !hasOffersOrTicket) return null;
+
+      const ev = this.evaluate(norm);
+      // Real sales — reutiliza engine V1 (orthogonal).
+      const realSales = (window.RevopsFinanceEngine?.productRealSales)
+        ? RevopsFinanceEngine.productRealSales(productId)
+        : 0;
+      const acquisitionTotal = ev.acquisitionTotal;
+      const cac = realSales > 0 ? acquisitionTotal / realSales : 0;
+      // Breakeven = fixedTotal / contributionUnit (unit = ticket - variableUnit)
+      // Variável unitário aproximado: variableTotal está calculado pro `sales`
+      // projetado; unit = variableTotal / sales (assume escalou linear com vendas).
+      const ticket = ev.ticket;
+      const variableUnit = ev.sales > 0 ? ev.variableTotal / ev.sales : 0;
+      const contributionUnit = ticket - variableUnit;
+      const breakevenSales = (contributionUnit > 0 && ev.fixedTotal > 0)
+        ? Math.ceil(ev.fixedTotal / contributionUnit)
+        : null;
+
+      return {
+        cac,
+        ticket,
+        sales: ev.sales,
+        realSales,
+        breakevenSales,
+        // Bônus pra uso futuro (tooltips, drilldowns)
+        acquisitionTotal,
+        fixedTotal: ev.fixedTotal,
+        variableTotal: ev.variableTotal,
+        contributionUnit,
+        source: 'v2'
+      };
+    },
+
     _computeTicket(cfg) {
       if (cfg.ticketMode === 'manual') return this._num(cfg.ticketManualValue);
       const offers = (cfg.offers || []).filter(o => o.selectedForTicket && this._num(o.price) > 0);

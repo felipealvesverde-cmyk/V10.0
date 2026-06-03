@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.13.0',
+    date: '2026-06-03',
+    title: 'Cards de CAC / Previsto×Realizado / TM / Breakeven puxam da governança',
+    bullets: [
+      'Os 4 painéis da Home (CAC, Previsto×Realizado, Ticket Médio, % para Breakeven) agora leem direto do painel novo da Governança (RevOps Whitelabel V2), onde você de fato configura os grupos de custos e ofertas.',
+      'CAC sai do total dos grupos com bucket=Aquisição (incluindo o "[LJ]Google ads" automático) dividido pelas vendas reais do produto.',
+      'Ticket médio respeita o modo escolhido (manual ou ponderado por mix de ofertas).',
+      'Breakeven recalcula com fixos / margem de contribuição unitária do V2.',
+      'Se o V2 ainda não está configurado, continua caindo na versão antiga (V1) — nenhum cliente atual quebra.'
+    ]
+  },
+  {
     version: 'V35.12.0',
     date: '2026-06-03',
     title: 'KRs ganham barra de status vs meta e seta de tendência',
