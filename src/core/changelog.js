@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.14.3',
+    date: '2026-06-03',
+    title: 'GA4 — Sub-wizard de customs (Onda 3b)',
+    bullets: [
+      'Depois que você termina o wizard de GA4, se o LJ detectar métricas/dimensões customizadas que você criou no GA4 dele, abre um sub-wizard pra configurar cada uma.',
+      'Pra cada custom: você dá um nome amigável (que aparece nos dashboards no lugar do nome técnico), categoria opcional, e decide se entra no sync.',
+      'Métricas customizadas podem ser marcadas como "disponível como KR ao vivo" — assim o Djow sugere elas quando você criar um KR novo.',
+      'Se a propriedade não tem nenhum custom, o sub-wizard é pulado automaticamente.'
+    ]
+  },
+  {
     version: 'V35.14.2',
     date: '2026-06-03',
     title: 'GA4 — Card ativo + Wizard (Onda 3a)',

@@ -13550,11 +13550,20 @@ Object.assign(Actions, {
         return;
       }
       w.saving = false;
-      w.step = 5; // tela de sucesso
       App.render();
       await Actions.loadGa4Status();
-      // Dispara sync inicial em background (não bloqueia UI)
-      Actions.triggerGa4Sync();
+      // V35.14.3 — Dispara descoberta de customs. Se houver, vai pra step 6
+      // (sub-wizard de customs). Senão pula direto pro step 7 (sucesso) +
+      // dispara sync inicial em background.
+      const meta = await Actions.loadGa4MetadataForWizard();
+      if (meta?.counts?.customs > 0) {
+        w.step = 6;
+        App.render();
+      } else {
+        w.step = 7;
+        App.render();
+        Actions.triggerGa4Sync();
+      }
     } catch (err) {
       w.error = err.message;
       w.saving = false;
@@ -13616,6 +13625,114 @@ Object.assign(Actions, {
       App.render();
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V35.14.3 — GA4 Custom Dimensions/Metrics Discovery
+  // Chama /api/ga4-metadata pra descobrir o que o cliente CRIOU no GA4 dele
+  // que não está nas listas nativas. Pra cada custom, cliente pode:
+  //   - habilitar/desabilitar (entra no sync ou não)
+  //   - dar nome amigável (substitui o apiName técnico no dashboard)
+  //   - marcar categoria opcional
+  //   - marcar se vira KR disponível pro Djow
+  async loadGa4MetadataForWizard() {
+    const w = App.state.ga4Wizard;
+    if (w) { w.loadingCustoms = true; w.error = null; App.render(); }
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-metadata', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) {
+        if (w) { w.error = data.message; w.loadingCustoms = false; App.render(); }
+        return { customs: [], counts: { customs: 0 } };
+      }
+      const customs = data.customs || [];
+      App.state.ga4CustomsCache = customs;
+      // Inicializa customsDraft no wizard: cada custom começa marcado SE for métrica
+      // (mais provável que entre em KR/dashboard) e desmarcado se for dimensão.
+      // Cliente pode mudar tudo manualmente.
+      if (w) {
+        const existing = (App.state.ga4Status?.customSettings) || {};
+        w.customsDraft = {};
+        customs.forEach(c => {
+          const prev = existing[c.apiName] || {};
+          w.customsDraft[c.apiName] = {
+            enabled: prev.enabled != null ? Boolean(prev.enabled) : c.kind === 'metric',
+            kind: c.kind,
+            friendlyName: prev.friendlyName || c.uiName || c.apiName,
+            category: prev.category || c.category || (c.kind === 'metric' ? 'Métrica' : 'Dimensão'),
+            asKr: prev.asKr != null ? Boolean(prev.asKr) : false,
+            apiName: c.apiName,
+            description: c.description || ''
+          };
+        });
+        w.detectedCustomsCount = customs.length;
+        w.loadingCustoms = false;
+        App.render();
+      }
+      return { customs, counts: data.counts || { customs: customs.length } };
+    } catch (err) {
+      if (w) { w.error = err.message; w.loadingCustoms = false; App.render(); }
+      return { customs: [], counts: { customs: 0 } };
+    }
+  },
+
+  toggleGa4Custom(apiName) {
+    const w = App.state.ga4Wizard;
+    if (!w || !w.customsDraft || !w.customsDraft[apiName]) return;
+    w.customsDraft[apiName].enabled = !w.customsDraft[apiName].enabled;
+    App.render();
+  },
+
+  setGa4CustomConfig(apiName, field, value) {
+    const w = App.state.ga4Wizard;
+    if (!w || !w.customsDraft || !w.customsDraft[apiName]) return;
+    if (field === 'asKr') {
+      w.customsDraft[apiName].asKr = Boolean(value);
+      App.render();
+    } else {
+      w.customsDraft[apiName][field] = String(value || '');
+      // Sem render — preserva foco do input em campos text
+    }
+  },
+
+  toggleGa4CustomExpanded(apiName) {
+    const w = App.state.ga4Wizard;
+    if (!w) return;
+    w.customExpanded = w.customExpanded === apiName ? null : apiName;
+    App.render();
+  },
+
+  async saveGa4Customs() {
+    const w = App.state.ga4Wizard;
+    if (!w || !w.customsDraft) return;
+    w.saving = true;
+    w.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ customSettings: w.customsDraft })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        w.error = data.message;
+        w.saving = false;
+        App.render();
+        return;
+      }
+      w.saving = false;
+      w.step = 7; // Sucesso final
+      App.render();
+      await Actions.loadGa4Status();
+      // Re-dispara sync pra incluir customs marcados como enabled
+      Actions.triggerGa4Sync();
+    } catch (err) {
+      w.error = err.message;
+      w.saving = false;
+      App.render();
     }
   },
 

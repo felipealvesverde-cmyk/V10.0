@@ -47,7 +47,8 @@ window.Ga4WizardModal = {
           ${!isManage && w.step === 2 ? this._step2Credentials(w) : ''}
           ${!isManage && w.step === 3 ? this._step3Authorize(w) : ''}
           ${!isManage && w.step === 4 ? this._step4PropertyAndPacks(w) : ''}
-          ${!isManage && w.step === 5 ? this._step5Success(w) : ''}
+          ${!isManage && w.step === 6 ? this._step6Customs(w) : ''}
+          ${!isManage && (w.step === 5 || w.step === 7) ? this._stepFinalSuccess(w) : ''}
         </div>
       </div>
     </div>`;
@@ -296,7 +297,116 @@ window.Ga4WizardModal = {
     </div>`;
   },
 
-  _step5Success(w) {
+  // V35.14.3 — Step 6: Sub-wizard de customs. Aparece automaticamente quando
+  // getMetadata detecta customs na propriedade. Cliente marca quais quer
+  // incluir, dá nome amigável e decide se vira KR pro Djow.
+  _step6Customs(w) {
+    const drafts = w.customsDraft || {};
+    const entries = Object.values(drafts);
+    const enabledCount = entries.filter(c => c.enabled).length;
+    const errorBlock = w.error ? `<div class="rounded-xl bg-rose-500/15 border border-rose-400/40 p-3 text-[12px] text-rose-200">${Utils.escape(w.error)}</div>` : '';
+
+    if (!entries.length) {
+      return `<div class="space-y-4 text-center py-8">
+        <i data-lucide="search-x" class="w-10 h-10 text-slate-500 mx-auto"></i>
+        <p class="text-sm text-slate-300">Nenhuma métrica/dimensão custom detectada na sua propriedade.</p>
+        <button onclick="Actions.setGa4WizardStep(7); Actions.triggerGa4Sync();"
+          class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-900 text-[11px] font-black uppercase tracking-wider">
+          Continuar
+        </button>
+      </div>`;
+    }
+
+    return `<div class="space-y-4">
+      <div>
+        <p class="text-sm font-black text-white">Detectei ${entries.length} ${entries.length === 1 ? 'item custom' : 'itens custom'} na sua propriedade GA4</p>
+        <p class="text-[11px] text-slate-400 mt-1">Configure quais entram no sync, com nome amigável e categoria. Você pode mudar depois.</p>
+      </div>
+
+      <div class="rounded-xl bg-amber-500/10 border border-amber-400/30 p-3 text-[11px] text-amber-100">
+        <p class="font-black mb-0.5"><i data-lucide="lightbulb" class="w-3 h-3 inline-block"></i> Dica</p>
+        <p>Customs são campos que VOCÊ criou no GA4 (ex: <code class="bg-black/30 px-1 rounded">subscriptionTier</code>, <code class="bg-black/30 px-1 rounded">mrrAtSignup</code>). Aqui você decide quais o LJ usa e como chamá-los.</p>
+      </div>
+
+      ${errorBlock}
+
+      <div class="space-y-1.5 max-h-[40vh] overflow-y-auto">
+        ${entries.map(c => this._customRow(c, w)).join('')}
+      </div>
+
+      <div class="flex items-center justify-between gap-2 pt-2 border-t border-white/10">
+        <p class="text-[11px] text-slate-400">${enabledCount} de ${entries.length} ativ${enabledCount === 1 ? 'o' : 'os'}</p>
+        <div class="flex gap-2">
+          <button onclick="Actions.setGa4WizardStep(7); Actions.triggerGa4Sync();"
+            class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-black uppercase tracking-wider">
+            Pular
+          </button>
+          <button ${w.saving ? 'disabled' : ''} onclick="Actions.saveGa4Customs()"
+            class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-900 text-[11px] font-black uppercase tracking-wider inline-flex items-center gap-1.5">
+            <i data-lucide="${w.saving ? 'loader-2' : 'check'}" class="w-3.5 h-3.5 ${w.saving ? 'animate-spin' : ''}"></i>
+            ${w.saving ? 'Salvando...' : 'Salvar customs'}
+          </button>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  _customRow(c, w) {
+    const expanded = w.customExpanded === c.apiName;
+    const kindBadge = c.kind === 'metric'
+      ? '<span class="px-1.5 py-0.5 rounded bg-sky-500/20 border border-sky-400/30 text-sky-200 text-[9px] font-black uppercase tracking-wider">Métrica</span>'
+      : '<span class="px-1.5 py-0.5 rounded bg-violet-500/20 border border-violet-400/30 text-violet-200 text-[9px] font-black uppercase tracking-wider">Dimensão</span>';
+    const apiNameSafe = Utils.escape(c.apiName).replace(/'/g, '&#39;');
+
+    return `<div class="rounded-xl border ${c.enabled ? 'border-amber-400/60 bg-amber-500/5' : 'border-white/10 bg-white/[0.02]'} overflow-hidden">
+      <div class="flex items-center gap-2 p-2.5">
+        <button onclick="Actions.toggleGa4Custom('${apiNameSafe}')"
+          class="shrink-0 w-5 h-5 rounded ${c.enabled ? 'bg-amber-500' : 'bg-white/10 border border-white/20'} grid place-items-center transition">
+          ${c.enabled ? '<i data-lucide="check" class="w-3 h-3 text-slate-900"></i>' : ''}
+        </button>
+        <button onclick="Actions.toggleGa4CustomExpanded('${apiNameSafe}')" class="flex-1 text-left min-w-0">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <p class="text-[12px] font-black ${c.enabled ? 'text-amber-100' : 'text-white'} truncate">${Utils.escape(c.friendlyName || c.apiName)}</p>
+            ${kindBadge}
+            ${c.asKr ? '<span class="px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/30 text-emerald-200 text-[9px] font-black uppercase tracking-wider">KR</span>' : ''}
+          </div>
+          <p class="text-[10px] text-slate-400 font-mono mt-0.5">${Utils.escape(c.apiName)}</p>
+        </button>
+        <button onclick="Actions.toggleGa4CustomExpanded('${apiNameSafe}')"
+          class="shrink-0 w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 grid place-items-center transition">
+          <i data-lucide="${expanded ? 'chevron-up' : 'chevron-down'}" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+      ${expanded ? `<div class="border-t border-white/10 px-3 py-3 space-y-2.5 bg-black/20">
+        ${c.description ? `<p class="text-[10px] text-slate-400 italic leading-relaxed">${Utils.escape(c.description)}</p>` : ''}
+        <div>
+          <label class="text-[9px] font-black text-amber-200 uppercase tracking-wider block mb-1">Nome amigável (aparece no dashboard)</label>
+          <input type="text" value="${Utils.escape(c.friendlyName || '')}"
+            oninput="Actions.setGa4CustomConfig('${apiNameSafe}', 'friendlyName', this.value)"
+            class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900/60 border border-white/10 text-white text-[11px] focus:border-amber-400 outline-none"/>
+        </div>
+        <div>
+          <label class="text-[9px] font-black text-amber-200 uppercase tracking-wider block mb-1">Categoria</label>
+          <input type="text" placeholder="Ex: Receita, Audiência, Tier..." value="${Utils.escape(c.category || '')}"
+            oninput="Actions.setGa4CustomConfig('${apiNameSafe}', 'category', this.value)"
+            class="w-full px-2.5 py-1.5 rounded-lg bg-slate-900/60 border border-white/10 text-white text-[11px] focus:border-amber-400 outline-none"/>
+        </div>
+        ${c.kind === 'metric' ? `<div class="flex items-center justify-between gap-2 p-2 rounded-lg bg-emerald-500/5 border border-emerald-400/20">
+          <div>
+            <p class="text-[11px] font-black text-emerald-100">Disponibilizar como KR ao vivo</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Djow vai sugerir esta métrica ao criar KRs novos.</p>
+          </div>
+          <button onclick="Actions.setGa4CustomConfig('${apiNameSafe}', 'asKr', ${!c.asKr})"
+            class="shrink-0 w-10 h-5 rounded-full ${c.asKr ? 'bg-emerald-500' : 'bg-white/15'} transition relative">
+            <span class="absolute top-0.5 ${c.asKr ? 'right-0.5' : 'left-0.5'} w-4 h-4 rounded-full bg-white transition"></span>
+          </button>
+        </div>` : ''}
+      </div>` : ''}
+    </div>`;
+  },
+
+  _stepFinalSuccess(w) {
+    const customsCount = w.customsDraft ? Object.values(w.customsDraft).filter(c => c.enabled).length : 0;
     return `<div class="space-y-4 text-center py-6">
       <div class="mx-auto w-16 h-16 rounded-full bg-emerald-500/20 border-2 border-emerald-400/50 grid place-items-center">
         <i data-lucide="check" class="w-8 h-8 text-emerald-300"></i>
@@ -304,6 +414,7 @@ window.Ga4WizardModal = {
       <div>
         <p class="text-lg font-black text-white">GA4 conectado!</p>
         <p class="text-[12px] text-slate-300 mt-1">Property <b>${Utils.escape(w.selectedPropertyDisplayName || '?')}</b> ligada ao LJ.</p>
+        ${customsCount > 0 ? `<p class="text-[11px] text-emerald-200 mt-2">${customsCount} custom${customsCount === 1 ? '' : 's'} configurado${customsCount === 1 ? '' : 's'} pra entrar no sync.</p>` : ''}
         <p class="text-[11px] text-slate-400 mt-2">A primeira sincronização (30 dias) já começou em background. Em 1-2 minutos seus dados aparecem.</p>
       </div>
       <button onclick="Actions.closeGa4Wizard()"
