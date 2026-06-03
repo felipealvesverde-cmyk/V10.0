@@ -144,9 +144,8 @@ async function processWebhookInTenant(controlPlaneDb, userId, entry, t0) {
     logRow.errorMessage = (dispatch.error.message || '').slice(0, 500);
   }
 
-  await writeWebhookLog(tenantDb, logRow, Date.now() - t0).catch(err => {
-    console.error('[rd-webhook log write]', err?.message);
-  });
+  // writeWebhookLog tem try/catch interno e nunca rejeita.
+  await writeWebhookLog(tenantDb, logRow, Date.now() - t0);
 }
 
 async function resolveTenantDb(controlPlaneDb, userId) {
@@ -180,6 +179,10 @@ function extractPayloadExcerpt(payload) {
 }
 
 function classifyError(err) {
+  // V35.11.1 — Handlers internos podem injetar _category via
+  // Object.assign(new Error(...), { _category: 'validation' }). Respeita
+  // ANTES de tentar adivinhar pelo texto da mensagem.
+  if (err?._category) return err._category;
   const msg = (err?.message || '').toLowerCase();
   if (msg.includes('email') && (msg.includes('inv') || msg.includes('format'))) return 'validation';
   if (msg.includes('null value') || msg.includes('not-null')) return 'validation';

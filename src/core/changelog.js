@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.11.1',
+    date: '2026-06-03',
+    title: 'Hotfix V35.11 — classificação correta de erros + purge automático do log',
+    bullets: [
+      'Erros como "Payload sem contact_id" agora aparecem como "validação" no breakdown do sininho (antes caíam em "desconhecido").',
+      'Cron diário agora purga registros do log de webhooks RD com mais de 7 dias — tabela não cresce mais indefinidamente.',
+      'Limpeza interna: removido handler de erro morto (sem mudança de comportamento).'
+    ]
+  },
+  {
     version: 'V35.11.0',
     date: '2026-06-03',
     title: 'Webhook RD ao vivo — atualizações de contato chegam direto, log de tudo',
