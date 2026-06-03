@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.14.2',
+    date: '2026-06-03',
+    title: 'GA4 — Card ativo + Wizard (Onda 3a)',
+    bullets: [
+      'O card "Google Analytics 4" em Integrações → Injetar saiu de "Em breve" e está ativo.',
+      'Wizard de 4 passos: você escolhe o perfil de negócio, cola credenciais do Cloud Console, autoriza no Google e seleciona a property.',
+      'Defaults inteligentes: cada perfil (lead gen, e-commerce, conteúdo, institucional, custom) ativa automaticamente os packs de métricas que fazem sentido.',
+      'Frequência de sync (1×/dia, 2×/dia ou manual) escolhida no wizard, com botão "Atualizar agora" sempre disponível em "Gerenciar".',
+      'Sub-wizard de customs, dashboard 3 abas, sininho próprio e conciliação Google Ads ↔ GA4 vêm nas próximas sub-ondas.'
+    ]
+  },
+  {
     version: 'V35.14.1',
     date: '2026-06-03',
     title: 'GA4 — sync, descoberta de customs e leitura (Onda 2)',

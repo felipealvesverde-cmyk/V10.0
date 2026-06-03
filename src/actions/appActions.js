@@ -13308,6 +13308,317 @@ Object.assign(Actions, {
     }
   },
 
+  // ============================================================================
+  // V35.14.2 — Google Analytics 4 (GA4) Actions
+  // ============================================================================
+  // Espelham padrão das Google Ads Actions (V35.5.0). Endpoints backend já
+  // entregues nas V35.14.0 + .1. Wizard mínimo funcional aqui pra OAuth
+  // end-to-end. Sub-wizard de customs + fluxo dedicado e-commerce vêm depois.
+
+  async loadGa4Status() {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch('/api/ga4-config', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      App.state.ga4Status = data;
+      App.render();
+    } catch (_) {}
+  },
+
+  openGa4Wizard() {
+    const s = App.state.ga4Status || {};
+    const connected = Boolean(s.configured && s.oauthCompleted && s.selectedPropertyId);
+    App.state.ga4Wizard = {
+      step: 1,
+      mode: connected ? 'manage' : 'wizard',
+      // step 1: businessProfile (leadgen / ecommerce / content / institutional / custom)
+      // step 2: credentials (client_id + client_secret)
+      // step 3: authorize + pick property
+      // step 4: packs + frequency + finish
+      businessProfile: s.businessProfile || null,
+      draft: {
+        clientId: '',
+        clientSecret: ''
+      },
+      selectedPropertyId: s.selectedPropertyId || null,
+      selectedPropertyDisplayName: s.propertyDisplayName || null,
+      selectedPacks: Array.isArray(s.selectedPacks) && s.selectedPacks.length
+        ? [...s.selectedPacks]
+        : ['essential'],
+      syncFrequencyPerDay: Number(s.syncFrequencyPerDay || 2),
+      backfillDays: Number(s.backfillDays || 30),
+      saving: false,
+      authorizing: false,
+      loadingProperties: false,
+      error: null
+    };
+    if (!App.state.ga4Status) Actions.loadGa4Status();
+    App.render();
+    // Listener pro postMessage do popup OAuth (uma vez por sessão).
+    if (!window._ga4OAuthListener) {
+      window._ga4OAuthListener = true;
+      window.addEventListener('message', (ev) => {
+        if (ev.data?.type !== 'ga4-oauth') return;
+        if (ev.data.ok) {
+          Utils.toast('✓ GA4 autorizado!');
+          Actions.loadGa4Status();
+          if (App.state.ga4Wizard) {
+            App.state.ga4Wizard.step = 3;
+            App.state.ga4Wizard.authorizing = false;
+            App.render();
+            Actions.loadGa4Properties();
+          }
+        } else {
+          const w = App.state.ga4Wizard;
+          if (w) { w.error = ev.data.message || 'OAuth falhou'; w.authorizing = false; App.render(); }
+        }
+      });
+    }
+  },
+
+  closeGa4Wizard() {
+    App.state.ga4Wizard = null;
+    App.render();
+  },
+
+  setGa4WizardStep(step) {
+    if (!App.state.ga4Wizard) return;
+    App.state.ga4Wizard.step = Number(step) || 1;
+    App.render();
+  },
+
+  setGa4BusinessProfile(profile) {
+    if (!App.state.ga4Wizard) return;
+    const w = App.state.ga4Wizard;
+    w.businessProfile = String(profile || 'leadgen');
+    // Default packs por perfil (mapeado em lib/ga4-packs.js).
+    const defaults = {
+      ecommerce:     ['essential', 'ecommerce'],
+      leadgen:       ['essential', 'leadgen'],
+      content:       ['essential', 'content'],
+      institutional: ['essential', 'institutional'],
+      custom:        ['essential']
+    };
+    w.selectedPacks = defaults[w.businessProfile] || ['essential'];
+    App.render();
+  },
+
+  updateGa4Draft(field, value) {
+    if (!App.state.ga4Wizard) return;
+    App.state.ga4Wizard.draft[field] = value;
+    // Sem render — preserva foco do input
+  },
+
+  toggleGa4Pack(packId) {
+    if (!App.state.ga4Wizard) return;
+    const w = App.state.ga4Wizard;
+    if (packId === 'essential') return; // essential é sempre on
+    const ids = new Set(w.selectedPacks || []);
+    if (ids.has(packId)) ids.delete(packId);
+    else ids.add(packId);
+    w.selectedPacks = Array.from(ids);
+    App.render();
+  },
+
+  setGa4SyncFrequency(perDay) {
+    if (!App.state.ga4Wizard) return;
+    App.state.ga4Wizard.syncFrequencyPerDay = Math.max(0, Math.min(24, Number(perDay) || 2));
+    App.render();
+  },
+
+  async saveGa4Credentials() {
+    const w = App.state.ga4Wizard;
+    if (!w) return;
+    const d = w.draft;
+    if (!d.clientId || !d.clientSecret) {
+      return Utils.toast('Preencha Client ID e Client Secret.');
+    }
+    w.saving = true;
+    w.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          clientId: d.clientId.trim(),
+          clientSecret: d.clientSecret.trim(),
+          businessProfile: w.businessProfile || 'leadgen'
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        w.error = data.message || 'Falha ao salvar.';
+        w.saving = false;
+        App.render();
+        return;
+      }
+      w.saving = false;
+      w.step = 3; // avança pra Autorizar
+      App.render();
+      await Actions.loadGa4Status();
+    } catch (err) {
+      w.error = err.message;
+      w.saving = false;
+      App.render();
+    }
+  },
+
+  async startGa4Authorization() {
+    const w = App.state.ga4Wizard;
+    if (!w) return;
+    w.authorizing = true;
+    w.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-oauth-init', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) {
+        w.error = data.message || 'Falha ao iniciar OAuth.';
+        w.authorizing = false;
+        App.render();
+        return;
+      }
+      // Abre popup do Google. postMessage do callback vai disparar listener.
+      const popup = window.open(data.authUrl, 'ga4-oauth', 'width=720,height=820');
+      if (!popup) {
+        w.error = 'Popup bloqueado. Permita popups deste site e tente de novo.';
+        w.authorizing = false;
+        App.render();
+      }
+    } catch (err) {
+      w.error = err.message;
+      w.authorizing = false;
+      App.render();
+    }
+  },
+
+  async loadGa4Properties() {
+    const w = App.state.ga4Wizard;
+    if (w) { w.loadingProperties = true; App.render(); }
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-list-properties', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) {
+        if (w) { w.error = data.message; w.loadingProperties = false; App.render(); }
+        return;
+      }
+      App.state.ga4PropertiesCache = data.properties || [];
+      if (w) { w.loadingProperties = false; App.render(); }
+    } catch (err) {
+      if (w) { w.error = err.message; w.loadingProperties = false; App.render(); }
+    }
+  },
+
+  selectGa4Property(propertyId, displayName) {
+    const w = App.state.ga4Wizard;
+    if (!w) return;
+    w.selectedPropertyId = String(propertyId);
+    w.selectedPropertyDisplayName = String(displayName || propertyId);
+    App.render();
+  },
+
+  async saveGa4WizardFinal() {
+    const w = App.state.ga4Wizard;
+    if (!w) return;
+    if (!w.selectedPropertyId) return Utils.toast('Escolha uma property antes.');
+    w.saving = true;
+    w.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          selectedPropertyId: w.selectedPropertyId,
+          propertyDisplayName: w.selectedPropertyDisplayName,
+          businessProfile: w.businessProfile,
+          selectedPacks: w.selectedPacks,
+          syncFrequencyPerDay: w.syncFrequencyPerDay,
+          backfillDays: w.backfillDays
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        w.error = data.message;
+        w.saving = false;
+        App.render();
+        return;
+      }
+      w.saving = false;
+      w.step = 5; // tela de sucesso
+      App.render();
+      await Actions.loadGa4Status();
+      // Dispara sync inicial em background (não bloqueia UI)
+      Actions.triggerGa4Sync();
+    } catch (err) {
+      w.error = err.message;
+      w.saving = false;
+      App.render();
+    }
+  },
+
+  async triggerGa4Sync() {
+    try {
+      Utils.toast('Sincronizando GA4...');
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-sync-trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({})
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        Utils.toast(`Sync falhou: ${data.message || 'erro'}`);
+        return;
+      }
+      const n = data.result?.rowsUpserted || 0;
+      Utils.toast(`✓ Sync ok: ${n} linha(s) atualizadas.`);
+      await Actions.loadGa4Status();
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro no sync: ${err.message}`);
+    }
+  },
+
+  async loadGa4Reports(days) {
+    const d = Math.max(1, Math.min(365, Number(days || 30)));
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(`/api/ga4-reports-list?days=${d}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) return;
+      App.state.ga4ReportsCache = {
+        rows: data.rows || [],
+        loadedAt: Date.now(),
+        days: d,
+        propertyId: data.propertyId,
+        propertyDisplayName: data.propertyDisplayName
+      };
+      App.render();
+    } catch (_) {}
+  },
+
+  async disconnectGa4() {
+    if (!confirm('Desconectar GA4? Você vai perder o histórico cacheado.')) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      await fetch('/api/ga4-config', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      Utils.toast('GA4 desconectado.');
+      App.state.ga4Status = { ok: true, configured: false };
+      App.state.ga4PropertiesCache = null;
+      App.state.ga4ReportsCache = null;
+      App.state.ga4CustomsCache = null;
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   setHotmartWizardStep(step) {
     if (!App.state.hotmartWizardOpen) return;
     App.state.hotmartWizardOpen = { ...App.state.hotmartWizardOpen, step: Number(step) || 1 };
