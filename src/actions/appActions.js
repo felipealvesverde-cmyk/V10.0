@@ -5009,14 +5009,21 @@ Object.assign(Actions, {
     Actions._revopsV2Mutate(productId, cfg => {
       const g = (cfg.groups || []).find(x => x.id === groupId);
       const it = g?.items?.find(i => i.id === itemId);
-      if (it) it.name = String(newName || it.name).trim();
+      if (!it) return;
+      // V35.9.1 — Items travados (auto-gerados pelo LJ) não podem ser renomeados.
+      if (it.locked) { Utils.toast('Esse item é gerenciado pelo LJ. Pra alterar, desvincule as campanhas Ads.'); return; }
+      it.name = String(newName || it.name).trim();
     });
   },
 
   deleteRevopsItem(productId, groupId, itemId) {
     Actions._revopsV2Mutate(productId, cfg => {
       const g = (cfg.groups || []).find(x => x.id === groupId);
-      if (g) g.items = (g.items || []).filter(i => i.id !== itemId);
+      if (!g) return;
+      // V35.9.1 — Bloqueia delete de items travados.
+      const target = (g.items || []).find(i => i.id === itemId);
+      if (target?.locked) { Utils.toast('Esse item é gerenciado pelo LJ. Pra removê-lo, desvincule as campanhas Ads.'); return; }
+      g.items = (g.items || []).filter(i => i.id !== itemId);
     });
   },
 
@@ -5024,7 +5031,10 @@ Object.assign(Actions, {
     Actions._revopsV2Mutate(productId, cfg => {
       const g = (cfg.groups || []).find(x => x.id === groupId);
       const it = g?.items?.find(i => i.id === itemId);
-      if (it) it.calc = RevopsWhitelabelEngine.emptyCalc(mode);
+      if (!it) return;
+      // V35.9.1 — Items travados não permitem troca de modo de cálculo.
+      if (it.locked) { Utils.toast('Esse item é gerenciado pelo LJ — modo de cálculo travado.'); return; }
+      it.calc = RevopsWhitelabelEngine.emptyCalc(mode);
     });
   },
 
@@ -5033,6 +5043,8 @@ Object.assign(Actions, {
       const g = (cfg.groups || []).find(x => x.id === groupId);
       const it = g?.items?.find(i => i.id === itemId);
       if (!it || !it.calc) return;
+      // V35.9.1 — Items travados não permitem update manual de valor.
+      if (it.locked) return;
       // Numéricos: coerce. Strings (base, groupRef, formula): direto.
       const numericFields = ['value', 'factor', 'baseValue'];
       it.calc[field] = numericFields.includes(field) ? (Number(value) || 0) : String(value || '');
@@ -7261,12 +7273,13 @@ Object.assign(Actions, {
     campaignExternalIds.forEach(id => existing.add(String(id)));
     lj.externalLinks.googleAds = Array.from(existing);
 
-    // V35.9.0 — Recalcula [LJ]Google ads em RevOps Aquisição de cada Produto afetado.
-    if (window.RevopsFinanceEngine?.recomputeAcquisitionAutoItem) {
-      affectedProductIds.forEach(pid => {
-        if (pid) RevopsFinanceEngine.recomputeAcquisitionAutoItem(pid, 'auto-google-ads');
-      });
-    }
+    // V35.9.0/9.1 — Recalcula [LJ]Google ads em RevOps Aquisição (V1 e V2)
+    // de cada Produto afetado. V2 (whitelabel) é o painel ativo da UI atual.
+    affectedProductIds.forEach(pid => {
+      if (!pid) return;
+      if (window.RevopsFinanceEngine?.recomputeAcquisitionAutoItem) RevopsFinanceEngine.recomputeAcquisitionAutoItem(pid, 'auto-google-ads');
+      if (window.RevopsWhitelabelEngine?.recomputeAcquisitionAutoItem) RevopsWhitelabelEngine.recomputeAcquisitionAutoItem(pid, 'auto-google-ads');
+    });
 
     App.save(); App.render();
     Utils.toast(`✓ ${campaignExternalIds.length} campanha(s) Ads vinculada(s) a "${lj.name}".`);
@@ -7455,12 +7468,12 @@ Object.assign(Actions, {
       }
     });
     if (removed) {
-      // V35.9.0 — Recalcula [LJ]Google ads em cada Produto afetado.
-      if (window.RevopsFinanceEngine?.recomputeAcquisitionAutoItem) {
-        affectedProductIds.forEach(pid => {
-          RevopsFinanceEngine.recomputeAcquisitionAutoItem(pid, 'auto-google-ads');
-        });
-      }
+      // V35.9.0/9.1 — Recalcula [LJ]Google ads em V1 e V2 de cada Produto afetado.
+      affectedProductIds.forEach(pid => {
+        if (!pid) return;
+        if (window.RevopsFinanceEngine?.recomputeAcquisitionAutoItem) RevopsFinanceEngine.recomputeAcquisitionAutoItem(pid, 'auto-google-ads');
+        if (window.RevopsWhitelabelEngine?.recomputeAcquisitionAutoItem) RevopsWhitelabelEngine.recomputeAcquisitionAutoItem(pid, 'auto-google-ads');
+      });
       App.save(); App.render();
       Utils.toast('✓ Campanha Ads voltou para "Não associadas".');
     }

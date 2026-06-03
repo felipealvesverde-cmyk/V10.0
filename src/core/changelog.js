@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.9.1',
+    date: '2026-06-03',
+    title: 'Hotfix V35.9.0 — roll-up Google Ads aparece no painel novo do RevOps',
+    bullets: [
+      'V35.9.0 mexia no painel antigo de Aquisição (modal R$ direto). O painel novo (whitelabel V2 com grupos, fórmulas e dre extras) não recebia o roll-up.',
+      'Engine de recalc portado pro RevopsWhitelabelEngine — agora o "[LJ]Google ads" aparece dentro do grupo Aquisição S&M do produto.',
+      'Item travado com fundo amber, cadeado, pill "Auto · LJ" e nota explicativa "Pra alterar, vá em Dashboard → Google Ads".',
+      'Mexer no item (renomear, deletar, mudar modo de cálculo) bloqueado com toast.',
+      'Quando você desvincula todas as ads do produto, o item some sozinho.'
+    ]
+  },
+  {
     version: 'V35.9.0',
     date: '2026-06-03',
     title: 'Custo de Google Ads vai direto pro RevOps Aquisição S&M (automático)',
