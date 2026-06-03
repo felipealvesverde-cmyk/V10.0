@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.8.0-alpha2',
+    date: '2026-06-03',
+    title: 'Djow já consegue classificar e propor fontes pra novo KR (backend pronto)',
+    bullets: [
+      'Endpoint pronto pra receber um nome de KR e devolver classificação automática (atômico, derivado ou manual).',
+      'Heurística determinística primeiro: 28 naturezas + 8 fórmulas no catálogo respondem direto sem chamar IA.',
+      'Quando o nome é criativo e a heurística não bate, o Djow consulta a IA pra desambiguar — barato e rápido.',
+      'Cada sessão tem 5 etapas (start → nome → fonte → números → confirmar) e o estado fica salvo no banco por 30 minutos.',
+      'Validações de coerência (meta segura no nível do atual, meta avançada menor que segura, etc) são código puro — sem alucinação.',
+      'Próxima alpha: refactor visual do modal pra mostrar tudo isso ao vivo.'
+    ]
+  },
+  {
     version: 'V35.8.0-alpha1',
     date: '2026-06-03',
     title: 'Base do Djow pra entender o que cada KR é (sem mudança visível ainda)',
