@@ -497,15 +497,24 @@ window.HomeModule = {
   },
 
   // V34.9.15 — 4 cards RevOps abaixo do bloco Campanhas/Ações/Execuções.
-  // Consome revopsFinanceEngine.computeDashboard(config) do produto vigente.
+  // V35.13.0 — Prefere RevopsWhitelabelEngine V2 (painel novo de governança
+  // onde Felipe configura grupos com bucket=acquisition/variable/fixed).
+  // Fallback pro V1 (revopsFinanceEngine) se V2 ainda não tem config.
   _revopsCards() {
     const product = this._currentProduct();
-    if (!product || !window.RevopsFinanceEngine) return '';
+    if (!product) return '';
 
-    const config = (App.state.revopsFinance || {})[product.id] || { productId: product.id };
-    let dash;
-    try { dash = RevopsFinanceEngine.computeDashboard(config); }
-    catch (_) { return ''; }
+    let dash = null;
+    if (window.RevopsWhitelabelEngine?.computeDashboard) {
+      try { dash = RevopsWhitelabelEngine.computeDashboard(product.id); }
+      catch (_) {}
+    }
+    if (!dash && window.RevopsFinanceEngine) {
+      const config = (App.state.revopsFinance || {})[product.id] || { productId: product.id };
+      try { dash = RevopsFinanceEngine.computeDashboard(config); }
+      catch (_) { return ''; }
+    }
+    if (!dash) return '';
 
     const fmtMoney = v => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
     const cac = fmtMoney(dash.cac);
