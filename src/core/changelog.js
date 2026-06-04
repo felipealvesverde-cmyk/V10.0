@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.14.5',
+    date: '2026-06-03',
+    title: 'GA4 — Sininho + modal de conciliação Google Ads (Onda 3d)',
+    bullets: [
+      'O sininho agora soma alertas próprios do GA4: sync falhou (token expirado / cota da API), customs novos detectados, ou sync atrasado mais de 48h.',
+      'Se você criar uma métrica/dimensão custom no GA4 depois de já ter conectado, o LJ avisa pra você configurar — não precisa lembrar de checar.',
+      'Quando você conclui a configuração do GA4 com Google Ads já conectado, abre automaticamente um modal explicando como os dois convivem sem duplicar custo no RevOps.',
+      'O modal oferece 3 caminhos: manter ambos (regra automática), desconectar Google Ads (GA4 vira fonte única) ou desconectar GA4 (volta ao estado anterior).'
+    ]
+  },
+  {
     version: 'V35.14.4',
     date: '2026-06-03',
     title: 'GA4 — Dashboard com 3 abas (Onda 3c)',

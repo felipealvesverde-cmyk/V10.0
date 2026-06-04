@@ -618,6 +618,9 @@ var Actions = {
             severity: 'critical'
           });
         }
+        // V35.14.5 — Alertas GA4
+        const ga4Alerts = Actions._getGa4Alerts ? Actions._getGa4Alerts() : [];
+        ga4Alerts.forEach(a => alerts.push(a));
         // 3. V35.11.0 — Falhas de webhook RD agregadas (até cliente marcar como visto).
         // Escalada: 1-9 = amber/warning, 10+ = rose/critical.
         const wh = App.state.rdWebhookFailuresSummary || {};
@@ -13563,6 +13566,14 @@ Object.assign(Actions, {
         w.step = 7;
         App.render();
         Actions.triggerGa4Sync();
+        // V35.14.5 — Se Google Ads também conectado, dispara modal de
+        // conciliação após pequeno delay (deixa user ver tela de sucesso 1.5s).
+        if (Actions._hasBothGa4AndGoogleAds && Actions._hasBothGa4AndGoogleAds()) {
+          setTimeout(() => {
+            if (App.state.ga4Wizard) Actions.closeGa4Wizard();
+            Actions.openGa4GoogleAdsReconciliationModal();
+          }, 1800);
+        }
       }
     } catch (err) {
       w.error = err.message;
@@ -13739,6 +13750,109 @@ Object.assign(Actions, {
       w.saving = false;
       App.render();
     }
+  },
+
+  // V35.14.5 — Detecta alertas GA4 pro sininho.
+  // Categorias:
+  //   - 'ga4-sync-failed' (critical): last_sync_result tem error ou perChunk com falhas
+  //   - 'ga4-customs-new' (warning): availableCustoms tem item que não está em customSettings
+  //   - 'ga4-stale' (warning): última sync > 48h (cliente esperava 2x/dia)
+  _getGa4Alerts() {
+    const alerts = [];
+    const s = App.state.ga4Status;
+    if (!s || !s.configured) return alerts;
+    if (!s.oauthCompleted || !s.selectedPropertyId) return alerts;
+
+    // 1. Sync falhou
+    const lastResult = s.lastSyncResult;
+    if (lastResult && typeof lastResult === 'object') {
+      const perChunk = Array.isArray(lastResult.perChunk) ? lastResult.perChunk : [];
+      const errors = perChunk.filter(c => c && c.error);
+      if (errors.length > 0) {
+        alerts.push({
+          id: 'ga4-sync-failed',
+          icon: 'alert-triangle',
+          title: `GA4 sync falhou (${errors.length} chunk${errors.length === 1 ? '' : 's'})`,
+          description: errors[0].error || 'Verifique se OAuth ainda está válido e cota da Data API não estourou.',
+          action: "Actions.triggerGa4Sync()",
+          actionLabel: 'Tentar de novo',
+          severity: 'critical'
+        });
+      }
+    }
+
+    // 2. Custom novo detectado
+    const available = Array.isArray(s.availableCustoms) ? s.availableCustoms : [];
+    const configured = s.customSettings || {};
+    const newCustoms = available.filter(c => !configured[c.apiName]);
+    if (newCustoms.length > 0) {
+      alerts.push({
+        id: 'ga4-customs-new',
+        icon: 'sparkles',
+        title: `${newCustoms.length} custom novo${newCustoms.length === 1 ? '' : 's'} no GA4`,
+        description: `Você criou ${newCustoms.length === 1 ? 'um campo customizado' : `${newCustoms.length} campos customizados`} no GA4 que ainda não estão configurados aqui. Configure pra entrar no sync.`,
+        action: "Actions.openGa4Wizard(); if (App.state.ga4Wizard) { App.state.ga4Wizard.step = 6; Actions.loadGa4MetadataForWizard(); App.render(); }",
+        actionLabel: 'Configurar agora',
+        severity: 'warning'
+      });
+    }
+
+    // 3. Sync atrasado (>48h sem sync)
+    if (s.lastSyncAt) {
+      const ageMs = Date.now() - new Date(s.lastSyncAt).getTime();
+      const ageHours = ageMs / (1000 * 60 * 60);
+      if (ageHours > 48 && Number(s.syncFrequencyPerDay) > 0) {
+        alerts.push({
+          id: 'ga4-stale',
+          icon: 'clock',
+          title: `GA4 sem sync há ${Math.floor(ageHours)}h`,
+          description: 'Esperava 2× ao dia mas o último sync foi há muito tempo. Pode ser cota da API ou OAuth expirado.',
+          action: "Actions.triggerGa4Sync()",
+          actionLabel: 'Forçar sync',
+          severity: 'warning'
+        });
+      }
+    }
+
+    return alerts;
+  },
+
+  // Helper público — count agregado pra badge do sininho.
+  getGa4AlertCount() {
+    if (!Actions._getGa4Alerts) return 0;
+    return Actions._getGa4Alerts().length;
+  },
+
+  // V35.14.5 — Modal de conciliação Google Ads x GA4.
+  // Dispara quando wizard GA4 conclui (após save final) E o LJ detecta que
+  // Google Ads também está conectado. Mostra a regra do RevOps e oferece
+  // opção de desligar 1 dos dois pra evitar dupla contagem.
+  openGa4GoogleAdsReconciliationModal() {
+    App.state.ga4GoogleAdsReconciliation = {
+      open: true,
+      step: 'inform' // 'inform' | 'choose'
+    };
+    App.render();
+  },
+
+  closeGa4GoogleAdsReconciliationModal() {
+    App.state.ga4GoogleAdsReconciliation = null;
+    App.render();
+  },
+
+  setGa4ReconciliationStep(step) {
+    if (!App.state.ga4GoogleAdsReconciliation) return;
+    App.state.ga4GoogleAdsReconciliation.step = step;
+    App.render();
+  },
+
+  // Helper — checa se ambos GA4 e Google Ads estão conectados.
+  _hasBothGa4AndGoogleAds() {
+    const ga4 = App.state.ga4Status || {};
+    const gAds = App.state.googleAdsStatus || {};
+    const ga4On = Boolean(ga4.configured && ga4.oauthCompleted && ga4.selectedPropertyId);
+    const gAdsOn = Boolean(gAds.configured && gAds.oauthCompleted);
+    return ga4On && gAdsOn;
   },
 
   setHotmartWizardStep(step) {
