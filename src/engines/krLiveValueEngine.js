@@ -190,6 +190,30 @@ window.KrLiveValueEngine = {
         total += sum;
         touchedAnySource = true;
       }
+      // V35.14.6 — GA4 como fonte de KR ao vivo.
+      // Não tem conceito de "campanha vinculada" — GA4 mede a propriedade
+      // inteira. Pra restringir por área (Marketing/Vendas/CS), filtro
+      // por sessionDefaultChannelGroup quando o KR é setorial. Senão soma
+      // todas as rows do cache.
+      if (integrationId === 'ga4') {
+        if (!field) return;
+        const cache = state.ga4ReportsCache || {};
+        const rows = Array.isArray(cache.rows) ? cache.rows : [];
+        let sum = 0;
+        for (const row of rows) {
+          // Se KR é setorial, opcionalmente filtra por channel group
+          if (sectorMatch) {
+            const channel = (row.dimensions || {}).sessionDefaultChannelGroup || '';
+            // Marketing → tudo exceto Direct (origem trabalho/colaboração)
+            // Vendas/CS → não filtra (não tem mapping óbvio em GA4)
+            if (sectorMatch === 'Marketing' && channel === 'Direct') continue;
+          }
+          const v = Number((row.metrics || {})[field]);
+          if (Number.isFinite(v)) sum += v;
+        }
+        total += sum;
+        touchedAnySource = true;
+      }
       // V35.10+ : rd_station, hotmart, clickup, etc viriam aqui
     });
 
@@ -210,6 +234,7 @@ window.KrLiveValueEngine = {
   _deriveIntegrationFromId(id) {
     if (!id || typeof id !== 'string') return null;
     if (id.startsWith('gads::'))    return 'google_ads';
+    if (id.startsWith('ga4::'))     return 'ga4';
     if (id.startsWith('rd::'))      return 'rd_station';
     if (id.startsWith('hotmart::')) return 'hotmart';
     if (id.startsWith('clickup::')) return 'clickup';
@@ -232,6 +257,10 @@ window.KrLiveValueEngine = {
       };
       return map[key] || null;
     }
+    // V35.14.6 — GA4 fields: nome após "ga4::" já é o apiName camelCase.
+    // Ex: "ga4::sessions" → "sessions" → busca em row.metrics.sessions.
+    // Custom metrics que cliente nomeou no GA4 também caem aqui direto.
+    if (id.startsWith('ga4::'))     return id.slice(5);
     if (id.startsWith('rd::'))      return id.slice(4);
     if (id.startsWith('hotmart::')) return id.slice(9);
     if (id.startsWith('clickup::')) return id.slice(9);

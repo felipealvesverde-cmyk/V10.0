@@ -12415,11 +12415,21 @@ Prioridade: ${d.priority}
       ];
       unit = 'quantidade';
     } else if (/\broas\b/.test(nLower)) {
-      fala = `"${name}" é Return on Ad Spend — derivado. Vou calcular: Receita atribuída ÷ Gasto em mídia. Você tem Google Ads conectado pra puxar ambos.`;
-      layerOptions = [
-        { id: 'gads::receita_atribuida', label: 'Google Ads — receita das conversões', integration_id: 'google_ads', field: 'metrics.conversions_value', aggregation: 'sum' },
-        { id: 'gads::gasto',             label: 'Google Ads — gasto em mídia',          integration_id: 'google_ads', field: 'metrics.cost_micros',        aggregation: 'sum' }
-      ];
+      // V35.14.6 — GA4 também pode entregar ROAS direto via returnOnAdSpend
+      // (calculado pelo Google quando GA4↔Google Ads linkado), ou os 2 insumos
+      // separados (purchaseRevenue + googleAdsCost). Prioriza Google Ads se conectado.
+      const ga4On = Boolean(App.state.ga4Status?.oauthCompleted);
+      const gAdsOn = Boolean(App.state.googleAdsStatus?.oauthCompleted);
+      fala = `"${name}" é Return on Ad Spend — derivado. Vou calcular: Receita atribuída ÷ Gasto em mídia.`;
+      layerOptions = [];
+      if (gAdsOn) {
+        layerOptions.push({ id: 'gads::receita_atribuida', label: 'Google Ads — receita das conversões', integration_id: 'google_ads', field: 'metrics.conversions_value', aggregation: 'sum' });
+        layerOptions.push({ id: 'gads::gasto',             label: 'Google Ads — gasto em mídia',         integration_id: 'google_ads', field: 'metrics.cost_micros',        aggregation: 'sum' });
+      } else if (ga4On) {
+        layerOptions.push({ id: 'ga4::returnOnAdSpend',  label: 'GA4 — ROAS direto (já calculado)',        integration_id: 'ga4', field: 'returnOnAdSpend', aggregation: 'sum' });
+        layerOptions.push({ id: 'ga4::purchaseRevenue',  label: 'GA4 — receita de compras (insumo)',       integration_id: 'ga4', field: 'purchaseRevenue', aggregation: 'sum' });
+        layerOptions.push({ id: 'ga4::googleAdsCost',    label: 'GA4 — gasto Google Ads (insumo)',         integration_id: 'ga4', field: 'googleAdsCost',   aggregation: 'sum' });
+      }
       unit = 'numero';
     } else if (/\bnps\b/.test(nLower)) {
       fala = `NPS normalmente vem de Delighted, Wootric ou HubSpot CSAT. Você não tem nenhuma conectada agora. Vou criar como número manual — você atualiza o valor periodicamente. Quando integrar uma dessas, te aviso.`;
@@ -12432,6 +12442,41 @@ Prioridade: ${d.priority}
         { id: 'manual::',          label: 'Manual (você atualiza o valor)' }
       ];
       unit = 'quantidade';
+    } else if (/sess[oõ]es|visitas|tr[aá]fego|visitantes|usu[aá]rios|users/.test(nLower)) {
+      // V35.14.6 — GA4 como fonte principal pra tráfego/sessões/usuários.
+      const ga4On = Boolean(App.state.ga4Status?.oauthCompleted);
+      fala = ga4On
+        ? `Reconheci "${name}" como métrica de tráfego/audiência. Você tem GA4 conectado — vou propor puxar daí.`
+        : `Reconheci "${name}" como tráfego, mas você não tem GA4 conectado. Vou criar como manual — conecte GA4 em Integrações pra automatizar.`;
+      layerOptions = ga4On ? [
+        { id: 'ga4::sessions',    label: 'GA4 — sessões totais',     integration_id: 'ga4', field: 'sessions',    aggregation: 'sum' },
+        { id: 'ga4::totalUsers',  label: 'GA4 — usuários únicos',    integration_id: 'ga4', field: 'totalUsers',  aggregation: 'sum' },
+        { id: 'ga4::newUsers',    label: 'GA4 — usuários novos',     integration_id: 'ga4', field: 'newUsers',    aggregation: 'sum' },
+        { id: 'ga4::activeUsers', label: 'GA4 — usuários ativos',    integration_id: 'ga4', field: 'activeUsers', aggregation: 'sum' },
+        { id: 'manual::',         label: 'Manual (você atualiza o valor)' }
+      ] : [{ id: 'manual::', label: 'Manual (você atualiza o valor)' }];
+      unit = 'quantidade';
+    } else if (/convers[aã]o|convers[oõ]es/.test(nLower)) {
+      // V35.14.6 — Conversões podem vir de Google Ads OU GA4.
+      const ga4On = Boolean(App.state.ga4Status?.oauthCompleted);
+      const gAdsOn = Boolean(App.state.googleAdsStatus?.oauthCompleted);
+      fala = `Reconheci "${name}" como conversões. Vou propor as fontes disponíveis.`;
+      layerOptions = [];
+      if (gAdsOn) layerOptions.push({ id: 'gads::conversions', label: 'Google Ads — conversões', integration_id: 'google_ads', field: 'metrics.conversions', aggregation: 'sum' });
+      if (ga4On)  layerOptions.push({ id: 'ga4::conversions', label: 'GA4 — conversões (key events)', integration_id: 'ga4', field: 'conversions', aggregation: 'sum' });
+      layerOptions.push({ id: 'manual::', label: 'Manual (você atualiza o valor)' });
+      unit = 'quantidade';
+    } else if (/receita|faturamento|vendas|revenue/.test(nLower)) {
+      // V35.14.6 — Receita pode vir de Hotmart, Google Ads OU GA4 (e-commerce).
+      const ga4On = Boolean(App.state.ga4Status?.oauthCompleted);
+      const gAdsOn = Boolean(App.state.googleAdsStatus?.oauthCompleted);
+      fala = `Reconheci "${name}" como receita. Vou propor as fontes disponíveis.`;
+      layerOptions = [];
+      if (gAdsOn) layerOptions.push({ id: 'gads::receita_atribuida', label: 'Google Ads — receita atribuída', integration_id: 'google_ads', field: 'metrics.conversions_value', aggregation: 'sum' });
+      if (ga4On)  layerOptions.push({ id: 'ga4::purchaseRevenue', label: 'GA4 — receita de compras (e-commerce)', integration_id: 'ga4', field: 'purchaseRevenue', aggregation: 'sum' });
+      if (ga4On)  layerOptions.push({ id: 'ga4::totalRevenue',    label: 'GA4 — receita total (todos eventos)', integration_id: 'ga4', field: 'totalRevenue',    aggregation: 'sum' });
+      layerOptions.push({ id: 'manual::', label: 'Manual (você atualiza o valor)' });
+      unit = 'reais';
     } else {
       fala = `Não consegui mapear "${name}" em fonte automática. Vou criar como número manual — você atualiza o valor periodicamente.`;
       layerOptions = [];
@@ -13599,6 +13644,11 @@ Object.assign(Actions, {
       const n = data.result?.rowsUpserted || 0;
       Utils.toast(`✓ Sync ok: ${n} linha(s) atualizadas.`);
       await Actions.loadGa4Status();
+      await Actions.loadGa4Reports(30);
+      // V35.14.6 — Recalcula auto-items RevOps (Google Ads prevalece sobre GA4).
+      if (window.RevopsWhitelabelEngine?.recomputeAllAutoItems) {
+        try { RevopsWhitelabelEngine.recomputeAllAutoItems(); App.save(); } catch (_) {}
+      }
       App.render();
     } catch (err) {
       Utils.toast(`Erro no sync: ${err.message}`);
@@ -13624,6 +13674,10 @@ Object.assign(Actions, {
         propertyId: data.propertyId,
         propertyDisplayName: data.propertyDisplayName
       };
+      // V35.14.6 — Recalcula auto-items quando reports atualizam.
+      if (window.RevopsWhitelabelEngine?.recomputeAllAutoItems) {
+        try { RevopsWhitelabelEngine.recomputeAllAutoItems(); App.save(); } catch (_) {}
+      }
       App.render();
     } catch (_) {}
   },

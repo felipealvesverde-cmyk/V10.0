@@ -180,6 +180,118 @@
       }
     },
 
+    // V35.14.6 — Auto-item '[LJ]GA4 Tráfego pago' em RevOps Aquisição.
+    //
+    // Regra cravada (Felipe, 2026-06-03):
+    //   "RevOps SÓ cria item GA4 se Google Ads NÃO estiver conectado direto."
+    //
+    // Razão: GA4 com Pack Ads ativo puxa googleAdsCost do mesmo Google Ads
+    // que a sync direta já puxa. Sem essa regra, RevOps somaria duas vezes.
+    //
+    // Comportamento:
+    //   - Se Google Ads sync ATIVO (refresh_token presente) → remove item GA4 (se existir)
+    //     E sai. Item Google Ads original prevalece.
+    //   - Se Google Ads NÃO conectado E GA4 conectado E reports cache tem
+    //     dados de googleAdsCost → cria/atualiza item com soma 30d.
+    //   - Se cache vazio ou sem googleAdsCost → remove item.
+    //
+    // Idempotente. Chamado por triggerGa4Sync (após UPSERT em
+    // lj_ga4_reports_daily) e por loadGa4Reports.
+    recomputeGa4AutoItem(productId) {
+      if (!productId) return;
+      if (!window.App?.state) return;
+
+      const state = App.state;
+      if (!state.revopsFinanceV2) state.revopsFinanceV2 = {};
+      if (!state.revopsFinanceV2[productId]) state.revopsFinanceV2[productId] = this.defaultConfig(productId);
+      const cfg = state.revopsFinanceV2[productId];
+      if (!Array.isArray(cfg.groups)) cfg.groups = [];
+
+      const sourceKey = 'auto-ga4-traffic';
+      const itemName = '[LJ]GA4 Tráfego pago';
+
+      // Helper pra remover item caso exista.
+      const removeItem = () => {
+        const acqGroup = cfg.groups.find(g => g.bucket === 'acquisition');
+        if (!acqGroup || !Array.isArray(acqGroup.items)) return;
+        const idx = acqGroup.items.findIndex(it => it.source === sourceKey);
+        if (idx >= 0) acqGroup.items.splice(idx, 1);
+      };
+
+      // 1. Se Google Ads sync direto está ativo → prevalece. Remove item GA4.
+      const gAds = state.googleAdsStatus || {};
+      const gAdsConnected = Boolean(gAds.configured && gAds.oauthCompleted);
+      if (gAdsConnected) {
+        removeItem();
+        return;
+      }
+
+      // 2. Se GA4 não está conectado → remove item (se existir) e sai.
+      const ga4 = state.ga4Status || {};
+      const ga4Connected = Boolean(ga4.configured && ga4.oauthCompleted && ga4.selectedPropertyId);
+      if (!ga4Connected) {
+        removeItem();
+        return;
+      }
+
+      // 3. Soma googleAdsCost dos reports cache (últimos 30d).
+      const cache = state.ga4ReportsCache || {};
+      const rows = Array.isArray(cache.rows) ? cache.rows : [];
+      let sum = 0;
+      for (const row of rows) {
+        const m = row.metrics || {};
+        sum += Number(m.googleAdsCost || 0);
+      }
+      sum = Math.round(sum * 100) / 100;
+
+      // 4. Encontra grupo acquisition (ou cria se há valor).
+      let acqGroup = cfg.groups.find(g => g.bucket === 'acquisition');
+      if (!acqGroup) {
+        if (sum === 0) return;
+        acqGroup = {
+          id: `g_acquisition_${Date.now().toString(36).slice(-4)}`,
+          label: 'Aquisição',
+          bucket: 'acquisition',
+          items: []
+        };
+        cfg.groups.push(acqGroup);
+      }
+      if (!Array.isArray(acqGroup.items)) acqGroup.items = [];
+
+      // 5. Procura item auto.
+      const idx = acqGroup.items.findIndex(it => it.source === sourceKey);
+      if (sum > 0) {
+        if (idx >= 0) {
+          acqGroup.items[idx].name = itemName;
+          acqGroup.items[idx].calc = { mode: 'fixed', value: sum };
+          acqGroup.items[idx].source = sourceKey;
+          acqGroup.items[idx].locked = true;
+        } else {
+          acqGroup.items.push({
+            id: `lj_ga4_traffic_${Date.now().toString(36).slice(-4)}`,
+            name: itemName,
+            calc: { mode: 'fixed', value: sum },
+            source: sourceKey,
+            locked: true
+          });
+        }
+      } else if (idx >= 0) {
+        acqGroup.items.splice(idx, 1);
+      }
+    },
+
+    // Helper conveniente: recalcula AMBOS auto-items pra todos os produtos.
+    // Útil quando Google Ads ou GA4 muda de estado (conecta/desconecta).
+    recomputeAllAutoItems() {
+      const state = window.App?.state;
+      if (!state) return;
+      const products = Array.isArray(state.products) ? state.products : [];
+      for (const p of products) {
+        try { this.recomputeAcquisitionAutoItem(p.id, 'auto-google-ads'); } catch (_) {}
+        try { this.recomputeGa4AutoItem(p.id); } catch (_) {}
+      }
+    },
+
     normalize(raw = {}, productId = null) {
       const base = this.defaultConfig(productId);
       if (!raw || typeof raw !== 'object') return base;

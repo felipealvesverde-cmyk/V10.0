@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.14.6',
+    date: '2026-06-03',
+    title: 'GA4 — Auto-item RevOps + KR ao vivo + Djow (Onda 3e)',
+    bullets: [
+      'GA4 entra como auto-item "[LJ]GA4 Tráfego pago" em RevOps Aquisição S&M — mas só se Google Ads NÃO estiver conectado direto. Sem duplicação.',
+      'KRs ao vivo agora reconhecem GA4 como fonte: criar KR "Sessões em junho" puxa direto de GA4 sem você precisar atualizar manualmente.',
+      'Djow ganhou 3 famílias novas de fontes via GA4: tráfego (sessions/users/newUsers), conversões e receita (purchaseRevenue/totalRevenue). Quando você cria um KR pelo Djow e ele reconhece o tema, propõe automaticamente.',
+      'ROAS pode vir do Google Ads OU do GA4 (returnOnAdSpend direto ou via insumos purchaseRevenue + googleAdsCost).',
+      'Quando GA4 sincroniza, RevOps Aquisição recalcula automaticamente — incluindo a regra "Google Ads prevalece".'
+    ]
+  },
+  {
     version: 'V35.14.5',
     date: '2026-06-03',
     title: 'GA4 — Sininho + modal de conciliação Google Ads (Onda 3d)',
