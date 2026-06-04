@@ -1322,6 +1322,91 @@ window.StrategicMapModal = {
   // V35.8.0-alpha3 — Refactor visual: 3 zonas (nome + fala do Djow +
   // layer de opções) + campos numéricos progressivos. Esta alpha usa
   // MOCK estático no Djow — wire real do backend chega na alpha4.
+  // V36.0 — Bloco de conciliação: cliente vê regra proposta pelo Djow e
+  // ajusta papéis (primária/fallback/contexto) ou troca modo (sum/avg/max).
+  _reconciliationBlock(djow, tone, layerOptions, selectedIds) {
+    const rule = djow.reconciliationRule || { mode: 'sum' };
+    const mode = rule.mode || 'sum';
+    const primaryId = rule.primarySourceId || null;
+    const fallbackIds = new Set(rule.fallbackSourceIds || []);
+    const contextIds = new Set(rule.contextSourceIds || []);
+    const selectedOpts = layerOptions.filter(o => selectedIds.includes(o.id));
+
+    const modes = [
+      { id: 'primary', label: 'Verdade + contexto', desc: 'Uma fonte é a verdade. Outras viram contexto (não entram na conta).' },
+      { id: 'sum', label: 'Somar tudo', desc: 'Soma todas as fontes. Use quando elas medem coisas diferentes.' },
+      { id: 'first-available', label: 'Primeira disponível', desc: 'Usa a primeira que tem valor > 0. Útil quando uma falha às vezes.' },
+      { id: 'avg', label: 'Média', desc: 'Média das fontes selecionadas.' },
+      { id: 'max', label: 'Maior valor', desc: 'Usa o maior número entre as fontes.' },
+      { id: 'min', label: 'Menor valor', desc: 'Usa o menor número entre as fontes.' }
+    ];
+
+    return `<div class="rounded-2xl bg-emerald-500/8 border-2 border-emerald-400/40 p-3 space-y-3">
+      <div class="flex items-start gap-2">
+        <i data-lucide="git-merge" class="w-4 h-4 text-emerald-300 shrink-0 mt-0.5"></i>
+        <div class="flex-1">
+          <p class="text-[10px] font-black text-emerald-200 uppercase tracking-widest">Conciliação · Djow propôs uma regra</p>
+          <p class="text-[11px] text-slate-300 mt-1">Múltiplas fontes podem medir coisas parecidas. Ajuste se necessário.</p>
+        </div>
+      </div>
+
+      <!-- Seletor de modo -->
+      <div>
+        <p class="text-[10px] font-black text-emerald-200 uppercase tracking-wider mb-1.5">Como combinar</p>
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-1.5">
+          ${modes.map(opt => {
+            const selected = mode === opt.id;
+            return `<button onclick="Actions.setReconciliationMode('${opt.id}')"
+              class="text-left rounded-xl border p-2 transition ${selected ? 'border-emerald-400 bg-emerald-500/15' : 'border-white/10 bg-slate-800/40 hover:border-emerald-400/40'}">
+              <p class="text-[11px] font-black ${selected ? 'text-emerald-100' : 'text-white'}">${opt.label}</p>
+              <p class="text-[9px] text-slate-400 leading-tight mt-0.5">${opt.desc}</p>
+            </button>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- Papéis (só pra modos com primary/context) -->
+      ${(mode === 'primary' || mode === 'first-available' || mode === 'sum' || mode === 'avg' || mode === 'max' || mode === 'min') ? `<div>
+        <p class="text-[10px] font-black text-emerald-200 uppercase tracking-wider mb-1.5">Papel de cada fonte</p>
+        <div class="space-y-1.5">
+          ${selectedOpts.map(opt => {
+            const isPrimary = primaryId === opt.id;
+            const isFallback = fallbackIds.has(opt.id);
+            const isContext = contextIds.has(opt.id);
+            return `<div class="rounded-xl border ${isContext ? 'border-slate-500/40 bg-slate-800/30 opacity-70' : isPrimary ? 'border-emerald-400 bg-emerald-500/10' : isFallback ? 'border-amber-400 bg-amber-500/10' : 'border-white/10 bg-slate-800/40'} p-2">
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="shrink-0 w-1.5 h-1.5 rounded-full ${isPrimary ? 'bg-emerald-300' : isFallback ? 'bg-amber-300' : isContext ? 'bg-slate-500' : 'bg-slate-600'}"></span>
+                <p class="text-[11px] font-bold text-white truncate flex-1">${Utils.escape(opt.label)}</p>
+                ${isPrimary ? '<span class="text-[9px] font-black text-emerald-200 uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20">Verdade</span>' : ''}
+                ${isFallback ? '<span class="text-[9px] font-black text-amber-200 uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20">Fallback</span>' : ''}
+                ${isContext ? '<span class="text-[9px] font-black text-slate-300 uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-500/20">Contexto</span>' : ''}
+              </div>
+              <div class="flex gap-1.5 text-[9px]">
+                ${(mode === 'primary' || mode === 'first-available') ? `<button onclick="Actions.setReconciliationPrimary('${Utils.escape(opt.id)}')"
+                  class="px-2 py-1 rounded ${isPrimary ? 'bg-emerald-500 text-slate-900' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'} font-black uppercase tracking-wider">
+                  Verdade
+                </button>` : ''}
+                ${mode === 'primary' ? `<button onclick="Actions.toggleReconciliationFallback('${Utils.escape(opt.id)}')"
+                  class="px-2 py-1 rounded ${isFallback ? 'bg-amber-500 text-slate-900' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'} font-black uppercase tracking-wider">
+                  Fallback
+                </button>` : ''}
+                <button onclick="Actions.toggleReconciliationContext('${Utils.escape(opt.id)}')"
+                  class="px-2 py-1 rounded ${isContext ? 'bg-slate-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'} font-black uppercase tracking-wider">
+                  Contexto
+                </button>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>` : ''}
+
+      <button onclick="Actions.confirmReconciliation()"
+        class="w-full px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-900 text-[11px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5">
+        <i data-lucide="check" class="w-3 h-3"></i> Confirmar regra e seguir
+      </button>
+    </div>`;
+  },
+
   _createCustomKrModalRender() {
     const m = App.state.createCustomKrModal;
     if (!m || !m.open) return '';
@@ -1412,10 +1497,13 @@ window.StrategicMapModal = {
                 </label>`;
               }).join('')}
             </div>
-            ${selectedIds.length && !numbersUnlocked ? `<button onclick="Actions.djowConfirmSources()" class="mt-2 w-full px-4 py-2 rounded-xl bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5">
+            ${selectedIds.length && !numbersUnlocked && !djow.reconciliationProposed ? `<button onclick="Actions.djowConfirmSources()" class="mt-2 w-full px-4 py-2 rounded-xl bg-${tone}-500/20 hover:bg-${tone}-500/30 border border-${tone}-400/40 text-${tone}-100 text-[11px] font-black uppercase tracking-wider inline-flex items-center justify-center gap-1.5">
               <i data-lucide="check" class="w-3 h-3"></i> Confirmar fonte
             </button>` : ''}
           </div>` : ''}
+
+          <!-- V36.0 — ZONA 3.5: CONCILIAÇÃO (só aparece com >1 fonte e Djow propôs) -->
+          ${djow.reconciliationProposed && !djow.reconciliationConfirmed ? this._reconciliationBlock(djow, tone, layerOptions, selectedIds) : ''}
 
           <!-- ZONA 4: CAMPOS NUMÉRICOS PROGRESSIVOS -->
           <div class="${numbersUnlocked ? '' : 'opacity-40 pointer-events-none'} transition">

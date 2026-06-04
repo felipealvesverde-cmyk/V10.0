@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.0',
+    date: '2026-06-04',
+    title: 'Djow Conciliador — KRs ao vivo com múltiplas fontes',
+    bullets: [
+      'KRs agora aceitam múltiplas fontes ao mesmo tempo (Hotmart + Google Ads + GA4, etc) — antes era 1 só por KR.',
+      'Quando você seleciona mais de uma fonte, o Djow propõe automaticamente uma regra de conciliação: qual é a verdade, qual é fallback, qual é só contexto.',
+      'Heurísticas iniciais: se há Hotmart em métrica de venda, ele vira a verdade automaticamente. Se há Google Ads + GA4, Google Ads vira a verdade (mesma regra do RevOps).',
+      '6 modos disponíveis: "Verdade + contexto" (recomendado), Somar, Primeira disponível, Média, Maior, Menor. Você pode trocar o modo e ajustar papéis a qualquer momento.',
+      'KRs antigos continuam funcionando exatamente como antes (backward compat: sem regra = soma tudo, igual sempre foi).'
+    ]
+  },
+  {
     version: 'V35.14.7',
     date: '2026-06-04',
     title: 'Botão "Rodar migrate" em Meu Banco — aplica schema novo sem psql',
