@@ -552,6 +552,28 @@ var State = {
       // V35.5.0 — Google Ads wizard (4 steps) + status atual.
       googleAdsWizard: null,
       googleAdsStatus: null,
+      // V35.14.2 — GA4 wizard (4 steps) + status + caches.
+      //   ga4Wizard: { step, businessProfile, clientIdDraft, clientSecretDraft,
+      //                selectedPropertyId, selectedPropertyDisplayName,
+      //                selectedPacks: [], syncFrequencyPerDay, backfillDays,
+      //                loading, error }
+      //   ga4Status: response do /api/ga4-config (configured, oauthCompleted, etc)
+      //   ga4PropertiesCache: lista de properties acessíveis (carregada após OAuth)
+      //   ga4ReportsCache: { rows, loadedAt, days }
+      //   ga4CustomsCache: lista de customs detectados via getMetadata
+      //   ga4DashboardSubTab: 'overview' | 'breakdown' | 'customs'
+      ga4Wizard: null,
+      ga4Status: null,
+      ga4PropertiesCache: null,
+      ga4ReportsCache: null,
+      ga4CustomsCache: null,
+      ga4DashboardSubTab: 'overview',
+      // V35.14.5 — Modal de conciliação Google Ads x GA4. null = fechado.
+      // { open: true, step: 'inform' | 'choose' }
+      ga4GoogleAdsReconciliation: null,
+      // V35.14.7 — Status do botão "Rodar migrate" em Settings → Meu Banco.
+      // { running: bool, lastResult: { ok, message, durationMs, schemaVersion, errorContext } | null }
+      adminMigrateStatus: null,
       // V35.6.0 — Integrações IPI: aba ativa na nova página Integrações.
       integrationsTab: 'injetar',
       // V35.6.0-alpha4 — Modais próprios de RD e ClickUp dentro de Integrações.
@@ -1198,6 +1220,15 @@ var State = {
       // V35.5.0 — Google Ads
       googleAdsWizard: raw.googleAdsWizard || null,
       googleAdsStatus: raw.googleAdsStatus || null,
+      // V35.14.2 — GA4
+      ga4Wizard: raw.ga4Wizard || null,
+      ga4Status: raw.ga4Status || null,
+      ga4PropertiesCache: raw.ga4PropertiesCache || null,
+      ga4ReportsCache: raw.ga4ReportsCache || null,
+      ga4CustomsCache: raw.ga4CustomsCache || null,
+      ga4DashboardSubTab: raw.ga4DashboardSubTab || 'overview',
+      ga4GoogleAdsReconciliation: raw.ga4GoogleAdsReconciliation || null,
+      adminMigrateStatus: raw.adminMigrateStatus || null,
       // V35.6.0 — Integrações IPI
       integrationsTab: (typeof raw.integrationsTab === 'string' && ['injetar','propagar','iterar'].includes(raw.integrationsTab)) ? raw.integrationsTab : 'injetar',
       // V35.6.0-alpha4 — modais Iterar (não persistem aberto entre sessões)

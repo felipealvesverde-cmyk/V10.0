@@ -618,6 +618,9 @@ var Actions = {
             severity: 'critical'
           });
         }
+        // V35.14.5 — Alertas GA4
+        const ga4Alerts = Actions._getGa4Alerts ? Actions._getGa4Alerts() : [];
+        ga4Alerts.forEach(a => alerts.push(a));
         // 3. V35.11.0 — Falhas de webhook RD agregadas (até cliente marcar como visto).
         // Escalada: 1-9 = amber/warning, 10+ = rose/critical.
         const wh = App.state.rdWebhookFailuresSummary || {};
@@ -12412,11 +12415,21 @@ Prioridade: ${d.priority}
       ];
       unit = 'quantidade';
     } else if (/\broas\b/.test(nLower)) {
-      fala = `"${name}" é Return on Ad Spend — derivado. Vou calcular: Receita atribuída ÷ Gasto em mídia. Você tem Google Ads conectado pra puxar ambos.`;
-      layerOptions = [
-        { id: 'gads::receita_atribuida', label: 'Google Ads — receita das conversões', integration_id: 'google_ads', field: 'metrics.conversions_value', aggregation: 'sum' },
-        { id: 'gads::gasto',             label: 'Google Ads — gasto em mídia',          integration_id: 'google_ads', field: 'metrics.cost_micros',        aggregation: 'sum' }
-      ];
+      // V35.14.6 — GA4 também pode entregar ROAS direto via returnOnAdSpend
+      // (calculado pelo Google quando GA4↔Google Ads linkado), ou os 2 insumos
+      // separados (purchaseRevenue + googleAdsCost). Prioriza Google Ads se conectado.
+      const ga4On = Boolean(App.state.ga4Status?.oauthCompleted);
+      const gAdsOn = Boolean(App.state.googleAdsStatus?.oauthCompleted);
+      fala = `"${name}" é Return on Ad Spend — derivado. Vou calcular: Receita atribuída ÷ Gasto em mídia.`;
+      layerOptions = [];
+      if (gAdsOn) {
+        layerOptions.push({ id: 'gads::receita_atribuida', label: 'Google Ads — receita das conversões', integration_id: 'google_ads', field: 'metrics.conversions_value', aggregation: 'sum' });
+        layerOptions.push({ id: 'gads::gasto',             label: 'Google Ads — gasto em mídia',         integration_id: 'google_ads', field: 'metrics.cost_micros',        aggregation: 'sum' });
+      } else if (ga4On) {
+        layerOptions.push({ id: 'ga4::returnOnAdSpend',  label: 'GA4 — ROAS direto (já calculado)',        integration_id: 'ga4', field: 'returnOnAdSpend', aggregation: 'sum' });
+        layerOptions.push({ id: 'ga4::purchaseRevenue',  label: 'GA4 — receita de compras (insumo)',       integration_id: 'ga4', field: 'purchaseRevenue', aggregation: 'sum' });
+        layerOptions.push({ id: 'ga4::googleAdsCost',    label: 'GA4 — gasto Google Ads (insumo)',         integration_id: 'ga4', field: 'googleAdsCost',   aggregation: 'sum' });
+      }
       unit = 'numero';
     } else if (/\bnps\b/.test(nLower)) {
       fala = `NPS normalmente vem de Delighted, Wootric ou HubSpot CSAT. Você não tem nenhuma conectada agora. Vou criar como número manual — você atualiza o valor periodicamente. Quando integrar uma dessas, te aviso.`;
@@ -12429,6 +12442,41 @@ Prioridade: ${d.priority}
         { id: 'manual::',          label: 'Manual (você atualiza o valor)' }
       ];
       unit = 'quantidade';
+    } else if (/sess[oõ]es|visitas|tr[aá]fego|visitantes|usu[aá]rios|users/.test(nLower)) {
+      // V35.14.6 — GA4 como fonte principal pra tráfego/sessões/usuários.
+      const ga4On = Boolean(App.state.ga4Status?.oauthCompleted);
+      fala = ga4On
+        ? `Reconheci "${name}" como métrica de tráfego/audiência. Você tem GA4 conectado — vou propor puxar daí.`
+        : `Reconheci "${name}" como tráfego, mas você não tem GA4 conectado. Vou criar como manual — conecte GA4 em Integrações pra automatizar.`;
+      layerOptions = ga4On ? [
+        { id: 'ga4::sessions',    label: 'GA4 — sessões totais',     integration_id: 'ga4', field: 'sessions',    aggregation: 'sum' },
+        { id: 'ga4::totalUsers',  label: 'GA4 — usuários únicos',    integration_id: 'ga4', field: 'totalUsers',  aggregation: 'sum' },
+        { id: 'ga4::newUsers',    label: 'GA4 — usuários novos',     integration_id: 'ga4', field: 'newUsers',    aggregation: 'sum' },
+        { id: 'ga4::activeUsers', label: 'GA4 — usuários ativos',    integration_id: 'ga4', field: 'activeUsers', aggregation: 'sum' },
+        { id: 'manual::',         label: 'Manual (você atualiza o valor)' }
+      ] : [{ id: 'manual::', label: 'Manual (você atualiza o valor)' }];
+      unit = 'quantidade';
+    } else if (/convers[aã]o|convers[oõ]es/.test(nLower)) {
+      // V35.14.6 — Conversões podem vir de Google Ads OU GA4.
+      const ga4On = Boolean(App.state.ga4Status?.oauthCompleted);
+      const gAdsOn = Boolean(App.state.googleAdsStatus?.oauthCompleted);
+      fala = `Reconheci "${name}" como conversões. Vou propor as fontes disponíveis.`;
+      layerOptions = [];
+      if (gAdsOn) layerOptions.push({ id: 'gads::conversions', label: 'Google Ads — conversões', integration_id: 'google_ads', field: 'metrics.conversions', aggregation: 'sum' });
+      if (ga4On)  layerOptions.push({ id: 'ga4::conversions', label: 'GA4 — conversões (key events)', integration_id: 'ga4', field: 'conversions', aggregation: 'sum' });
+      layerOptions.push({ id: 'manual::', label: 'Manual (você atualiza o valor)' });
+      unit = 'quantidade';
+    } else if (/receita|faturamento|vendas|revenue/.test(nLower)) {
+      // V35.14.6 — Receita pode vir de Hotmart, Google Ads OU GA4 (e-commerce).
+      const ga4On = Boolean(App.state.ga4Status?.oauthCompleted);
+      const gAdsOn = Boolean(App.state.googleAdsStatus?.oauthCompleted);
+      fala = `Reconheci "${name}" como receita. Vou propor as fontes disponíveis.`;
+      layerOptions = [];
+      if (gAdsOn) layerOptions.push({ id: 'gads::receita_atribuida', label: 'Google Ads — receita atribuída', integration_id: 'google_ads', field: 'metrics.conversions_value', aggregation: 'sum' });
+      if (ga4On)  layerOptions.push({ id: 'ga4::purchaseRevenue', label: 'GA4 — receita de compras (e-commerce)', integration_id: 'ga4', field: 'purchaseRevenue', aggregation: 'sum' });
+      if (ga4On)  layerOptions.push({ id: 'ga4::totalRevenue',    label: 'GA4 — receita total (todos eventos)', integration_id: 'ga4', field: 'totalRevenue',    aggregation: 'sum' });
+      layerOptions.push({ id: 'manual::', label: 'Manual (você atualiza o valor)' });
+      unit = 'reais';
     } else {
       fala = `Não consegui mapear "${name}" em fonte automática. Vou criar como número manual — você atualiza o valor periodicamente.`;
       layerOptions = [];
@@ -13306,6 +13354,588 @@ Object.assign(Actions, {
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     }
+  },
+
+  // ============================================================================
+  // V35.14.2 — Google Analytics 4 (GA4) Actions
+  // ============================================================================
+  // Espelham padrão das Google Ads Actions (V35.5.0). Endpoints backend já
+  // entregues nas V35.14.0 + .1. Wizard mínimo funcional aqui pra OAuth
+  // end-to-end. Sub-wizard de customs + fluxo dedicado e-commerce vêm depois.
+
+  async loadGa4Status() {
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch('/api/ga4-config', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      App.state.ga4Status = data;
+      App.render();
+    } catch (_) {}
+  },
+
+  openGa4Wizard() {
+    const s = App.state.ga4Status || {};
+    const connected = Boolean(s.configured && s.oauthCompleted && s.selectedPropertyId);
+    App.state.ga4Wizard = {
+      step: 1,
+      mode: connected ? 'manage' : 'wizard',
+      // step 1: businessProfile (leadgen / ecommerce / content / institutional / custom)
+      // step 2: credentials (client_id + client_secret)
+      // step 3: authorize + pick property
+      // step 4: packs + frequency + finish
+      businessProfile: s.businessProfile || null,
+      draft: {
+        clientId: '',
+        clientSecret: ''
+      },
+      selectedPropertyId: s.selectedPropertyId || null,
+      selectedPropertyDisplayName: s.propertyDisplayName || null,
+      selectedPacks: Array.isArray(s.selectedPacks) && s.selectedPacks.length
+        ? [...s.selectedPacks]
+        : ['essential'],
+      syncFrequencyPerDay: Number(s.syncFrequencyPerDay || 2),
+      backfillDays: Number(s.backfillDays || 30),
+      saving: false,
+      authorizing: false,
+      loadingProperties: false,
+      error: null
+    };
+    if (!App.state.ga4Status) Actions.loadGa4Status();
+    App.render();
+    // Listener pro postMessage do popup OAuth (uma vez por sessão).
+    if (!window._ga4OAuthListener) {
+      window._ga4OAuthListener = true;
+      window.addEventListener('message', (ev) => {
+        if (ev.data?.type !== 'ga4-oauth') return;
+        if (ev.data.ok) {
+          Utils.toast('✓ GA4 autorizado!');
+          Actions.loadGa4Status();
+          if (App.state.ga4Wizard) {
+            App.state.ga4Wizard.step = 3;
+            App.state.ga4Wizard.authorizing = false;
+            App.render();
+            Actions.loadGa4Properties();
+          }
+        } else {
+          const w = App.state.ga4Wizard;
+          if (w) { w.error = ev.data.message || 'OAuth falhou'; w.authorizing = false; App.render(); }
+        }
+      });
+    }
+  },
+
+  closeGa4Wizard() {
+    App.state.ga4Wizard = null;
+    App.render();
+  },
+
+  setGa4WizardStep(step) {
+    if (!App.state.ga4Wizard) return;
+    App.state.ga4Wizard.step = Number(step) || 1;
+    App.render();
+  },
+
+  setGa4BusinessProfile(profile) {
+    if (!App.state.ga4Wizard) return;
+    const w = App.state.ga4Wizard;
+    w.businessProfile = String(profile || 'leadgen');
+    // Default packs por perfil (mapeado em lib/ga4-packs.js).
+    const defaults = {
+      ecommerce:     ['essential', 'ecommerce'],
+      leadgen:       ['essential', 'leadgen'],
+      content:       ['essential', 'content'],
+      institutional: ['essential', 'institutional'],
+      custom:        ['essential']
+    };
+    w.selectedPacks = defaults[w.businessProfile] || ['essential'];
+    App.render();
+  },
+
+  updateGa4Draft(field, value) {
+    if (!App.state.ga4Wizard) return;
+    App.state.ga4Wizard.draft[field] = value;
+    // Sem render — preserva foco do input
+  },
+
+  toggleGa4Pack(packId) {
+    if (!App.state.ga4Wizard) return;
+    const w = App.state.ga4Wizard;
+    if (packId === 'essential') return; // essential é sempre on
+    const ids = new Set(w.selectedPacks || []);
+    if (ids.has(packId)) ids.delete(packId);
+    else ids.add(packId);
+    w.selectedPacks = Array.from(ids);
+    App.render();
+  },
+
+  setGa4SyncFrequency(perDay) {
+    if (!App.state.ga4Wizard) return;
+    App.state.ga4Wizard.syncFrequencyPerDay = Math.max(0, Math.min(24, Number(perDay) || 2));
+    App.render();
+  },
+
+  async saveGa4Credentials() {
+    const w = App.state.ga4Wizard;
+    if (!w) return;
+    const d = w.draft;
+    if (!d.clientId || !d.clientSecret) {
+      return Utils.toast('Preencha Client ID e Client Secret.');
+    }
+    w.saving = true;
+    w.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          clientId: d.clientId.trim(),
+          clientSecret: d.clientSecret.trim(),
+          businessProfile: w.businessProfile || 'leadgen'
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        w.error = data.message || 'Falha ao salvar.';
+        w.saving = false;
+        App.render();
+        return;
+      }
+      w.saving = false;
+      w.step = 3; // avança pra Autorizar
+      App.render();
+      await Actions.loadGa4Status();
+    } catch (err) {
+      w.error = err.message;
+      w.saving = false;
+      App.render();
+    }
+  },
+
+  async startGa4Authorization() {
+    const w = App.state.ga4Wizard;
+    if (!w) return;
+    w.authorizing = true;
+    w.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-oauth-init', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) {
+        w.error = data.message || 'Falha ao iniciar OAuth.';
+        w.authorizing = false;
+        App.render();
+        return;
+      }
+      // Abre popup do Google. postMessage do callback vai disparar listener.
+      const popup = window.open(data.authUrl, 'ga4-oauth', 'width=720,height=820');
+      if (!popup) {
+        w.error = 'Popup bloqueado. Permita popups deste site e tente de novo.';
+        w.authorizing = false;
+        App.render();
+      }
+    } catch (err) {
+      w.error = err.message;
+      w.authorizing = false;
+      App.render();
+    }
+  },
+
+  async loadGa4Properties() {
+    const w = App.state.ga4Wizard;
+    if (w) { w.loadingProperties = true; App.render(); }
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-list-properties', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) {
+        if (w) { w.error = data.message; w.loadingProperties = false; App.render(); }
+        return;
+      }
+      App.state.ga4PropertiesCache = data.properties || [];
+      if (w) { w.loadingProperties = false; App.render(); }
+    } catch (err) {
+      if (w) { w.error = err.message; w.loadingProperties = false; App.render(); }
+    }
+  },
+
+  selectGa4Property(propertyId, displayName) {
+    const w = App.state.ga4Wizard;
+    if (!w) return;
+    w.selectedPropertyId = String(propertyId);
+    w.selectedPropertyDisplayName = String(displayName || propertyId);
+    App.render();
+  },
+
+  async saveGa4WizardFinal() {
+    const w = App.state.ga4Wizard;
+    if (!w) return;
+    if (!w.selectedPropertyId) return Utils.toast('Escolha uma property antes.');
+    w.saving = true;
+    w.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          selectedPropertyId: w.selectedPropertyId,
+          propertyDisplayName: w.selectedPropertyDisplayName,
+          businessProfile: w.businessProfile,
+          selectedPacks: w.selectedPacks,
+          syncFrequencyPerDay: w.syncFrequencyPerDay,
+          backfillDays: w.backfillDays
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        w.error = data.message;
+        w.saving = false;
+        App.render();
+        return;
+      }
+      w.saving = false;
+      App.render();
+      await Actions.loadGa4Status();
+      // V35.14.3 — Dispara descoberta de customs. Se houver, vai pra step 6
+      // (sub-wizard de customs). Senão pula direto pro step 7 (sucesso) +
+      // dispara sync inicial em background.
+      const meta = await Actions.loadGa4MetadataForWizard();
+      if (meta?.counts?.customs > 0) {
+        w.step = 6;
+        App.render();
+      } else {
+        w.step = 7;
+        App.render();
+        Actions.triggerGa4Sync();
+        // V35.14.5 — Se Google Ads também conectado, dispara modal de
+        // conciliação após pequeno delay (deixa user ver tela de sucesso 1.5s).
+        if (Actions._hasBothGa4AndGoogleAds && Actions._hasBothGa4AndGoogleAds()) {
+          setTimeout(() => {
+            if (App.state.ga4Wizard) Actions.closeGa4Wizard();
+            Actions.openGa4GoogleAdsReconciliationModal();
+          }, 1800);
+        }
+      }
+    } catch (err) {
+      w.error = err.message;
+      w.saving = false;
+      App.render();
+    }
+  },
+
+  async triggerGa4Sync() {
+    try {
+      Utils.toast('Sincronizando GA4...');
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-sync-trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({})
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        Utils.toast(`Sync falhou: ${data.message || 'erro'}`);
+        return;
+      }
+      const n = data.result?.rowsUpserted || 0;
+      Utils.toast(`✓ Sync ok: ${n} linha(s) atualizadas.`);
+      await Actions.loadGa4Status();
+      await Actions.loadGa4Reports(30);
+      // V35.14.6 — Recalcula auto-items RevOps (Google Ads prevalece sobre GA4).
+      if (window.RevopsWhitelabelEngine?.recomputeAllAutoItems) {
+        try { RevopsWhitelabelEngine.recomputeAllAutoItems(); App.save(); } catch (_) {}
+      }
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro no sync: ${err.message}`);
+    }
+  },
+
+  setGa4DashboardSubTab(tab) {
+    App.state.ga4DashboardSubTab = ['overview', 'breakdown', 'customs'].includes(tab) ? tab : 'overview';
+    App.render();
+  },
+
+  async loadGa4Reports(days) {
+    const d = Math.max(1, Math.min(365, Number(days || 30)));
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(`/api/ga4-reports-list?days=${d}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) return;
+      App.state.ga4ReportsCache = {
+        rows: data.rows || [],
+        loadedAt: Date.now(),
+        days: d,
+        propertyId: data.propertyId,
+        propertyDisplayName: data.propertyDisplayName
+      };
+      // V35.14.6 — Recalcula auto-items quando reports atualizam.
+      if (window.RevopsWhitelabelEngine?.recomputeAllAutoItems) {
+        try { RevopsWhitelabelEngine.recomputeAllAutoItems(); App.save(); } catch (_) {}
+      }
+      App.render();
+    } catch (_) {}
+  },
+
+  // V35.14.7 — Roda lib/tenant-db-schema.sql contra o banco. Idempotente.
+  async runAdminMigrateSchema() {
+    if (!confirm('Rodar migrate de schema? É idempotente — não destrói dados, só cria/atualiza tabelas e índices.')) return;
+    App.state.adminMigrateStatus = { running: true, lastResult: null };
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/admin-migrate-schema', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({})
+      });
+      const data = await r.json();
+      App.state.adminMigrateStatus = { running: false, lastResult: data };
+      App.render();
+      if (data.ok) {
+        Utils.toast(`✓ Schema atualizado em ${data.durationMs}ms.`);
+        // Recarrega status das integrações que podem ter dependido das tabelas novas.
+        if (Actions.loadGa4Status) setTimeout(() => Actions.loadGa4Status(), 200);
+      } else {
+        Utils.toast(`Migrate falhou: ${data.message || 'erro'}`);
+      }
+    } catch (err) {
+      App.state.adminMigrateStatus = { running: false, lastResult: { ok: false, message: err.message } };
+      App.render();
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async disconnectGa4() {
+    if (!confirm('Desconectar GA4? Você vai perder o histórico cacheado.')) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      await fetch('/api/ga4-config', { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      Utils.toast('GA4 desconectado.');
+      App.state.ga4Status = { ok: true, configured: false };
+      App.state.ga4PropertiesCache = null;
+      App.state.ga4ReportsCache = null;
+      App.state.ga4CustomsCache = null;
+      App.render();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V35.14.3 — GA4 Custom Dimensions/Metrics Discovery
+  // Chama /api/ga4-metadata pra descobrir o que o cliente CRIOU no GA4 dele
+  // que não está nas listas nativas. Pra cada custom, cliente pode:
+  //   - habilitar/desabilitar (entra no sync ou não)
+  //   - dar nome amigável (substitui o apiName técnico no dashboard)
+  //   - marcar categoria opcional
+  //   - marcar se vira KR disponível pro Djow
+  async loadGa4MetadataForWizard() {
+    const w = App.state.ga4Wizard;
+    if (w) { w.loadingCustoms = true; w.error = null; App.render(); }
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-metadata', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) {
+        if (w) { w.error = data.message; w.loadingCustoms = false; App.render(); }
+        return { customs: [], counts: { customs: 0 } };
+      }
+      const customs = data.customs || [];
+      App.state.ga4CustomsCache = customs;
+      // Inicializa customsDraft no wizard: cada custom começa marcado SE for métrica
+      // (mais provável que entre em KR/dashboard) e desmarcado se for dimensão.
+      // Cliente pode mudar tudo manualmente.
+      if (w) {
+        const existing = (App.state.ga4Status?.customSettings) || {};
+        w.customsDraft = {};
+        customs.forEach(c => {
+          const prev = existing[c.apiName] || {};
+          w.customsDraft[c.apiName] = {
+            enabled: prev.enabled != null ? Boolean(prev.enabled) : c.kind === 'metric',
+            kind: c.kind,
+            friendlyName: prev.friendlyName || c.uiName || c.apiName,
+            category: prev.category || c.category || (c.kind === 'metric' ? 'Métrica' : 'Dimensão'),
+            asKr: prev.asKr != null ? Boolean(prev.asKr) : false,
+            apiName: c.apiName,
+            description: c.description || ''
+          };
+        });
+        w.detectedCustomsCount = customs.length;
+        w.loadingCustoms = false;
+        App.render();
+      }
+      return { customs, counts: data.counts || { customs: customs.length } };
+    } catch (err) {
+      if (w) { w.error = err.message; w.loadingCustoms = false; App.render(); }
+      return { customs: [], counts: { customs: 0 } };
+    }
+  },
+
+  toggleGa4Custom(apiName) {
+    const w = App.state.ga4Wizard;
+    if (!w || !w.customsDraft || !w.customsDraft[apiName]) return;
+    w.customsDraft[apiName].enabled = !w.customsDraft[apiName].enabled;
+    App.render();
+  },
+
+  setGa4CustomConfig(apiName, field, value) {
+    const w = App.state.ga4Wizard;
+    if (!w || !w.customsDraft || !w.customsDraft[apiName]) return;
+    if (field === 'asKr') {
+      w.customsDraft[apiName].asKr = Boolean(value);
+      App.render();
+    } else {
+      w.customsDraft[apiName][field] = String(value || '');
+      // Sem render — preserva foco do input em campos text
+    }
+  },
+
+  toggleGa4CustomExpanded(apiName) {
+    const w = App.state.ga4Wizard;
+    if (!w) return;
+    w.customExpanded = w.customExpanded === apiName ? null : apiName;
+    App.render();
+  },
+
+  async saveGa4Customs() {
+    const w = App.state.ga4Wizard;
+    if (!w || !w.customsDraft) return;
+    w.saving = true;
+    w.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/ga4-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ customSettings: w.customsDraft })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        w.error = data.message;
+        w.saving = false;
+        App.render();
+        return;
+      }
+      w.saving = false;
+      w.step = 7; // Sucesso final
+      App.render();
+      await Actions.loadGa4Status();
+      // Re-dispara sync pra incluir customs marcados como enabled
+      Actions.triggerGa4Sync();
+    } catch (err) {
+      w.error = err.message;
+      w.saving = false;
+      App.render();
+    }
+  },
+
+  // V35.14.5 — Detecta alertas GA4 pro sininho.
+  // Categorias:
+  //   - 'ga4-sync-failed' (critical): last_sync_result tem error ou perChunk com falhas
+  //   - 'ga4-customs-new' (warning): availableCustoms tem item que não está em customSettings
+  //   - 'ga4-stale' (warning): última sync > 48h (cliente esperava 2x/dia)
+  _getGa4Alerts() {
+    const alerts = [];
+    const s = App.state.ga4Status;
+    if (!s || !s.configured) return alerts;
+    if (!s.oauthCompleted || !s.selectedPropertyId) return alerts;
+
+    // 1. Sync falhou
+    const lastResult = s.lastSyncResult;
+    if (lastResult && typeof lastResult === 'object') {
+      const perChunk = Array.isArray(lastResult.perChunk) ? lastResult.perChunk : [];
+      const errors = perChunk.filter(c => c && c.error);
+      if (errors.length > 0) {
+        alerts.push({
+          id: 'ga4-sync-failed',
+          icon: 'alert-triangle',
+          title: `GA4 sync falhou (${errors.length} chunk${errors.length === 1 ? '' : 's'})`,
+          description: errors[0].error || 'Verifique se OAuth ainda está válido e cota da Data API não estourou.',
+          action: "Actions.triggerGa4Sync()",
+          actionLabel: 'Tentar de novo',
+          severity: 'critical'
+        });
+      }
+    }
+
+    // 2. Custom novo detectado
+    const available = Array.isArray(s.availableCustoms) ? s.availableCustoms : [];
+    const configured = s.customSettings || {};
+    const newCustoms = available.filter(c => !configured[c.apiName]);
+    if (newCustoms.length > 0) {
+      alerts.push({
+        id: 'ga4-customs-new',
+        icon: 'sparkles',
+        title: `${newCustoms.length} custom novo${newCustoms.length === 1 ? '' : 's'} no GA4`,
+        description: `Você criou ${newCustoms.length === 1 ? 'um campo customizado' : `${newCustoms.length} campos customizados`} no GA4 que ainda não estão configurados aqui. Configure pra entrar no sync.`,
+        action: "Actions.openGa4Wizard(); if (App.state.ga4Wizard) { App.state.ga4Wizard.step = 6; Actions.loadGa4MetadataForWizard(); App.render(); }",
+        actionLabel: 'Configurar agora',
+        severity: 'warning'
+      });
+    }
+
+    // 3. Sync atrasado (>48h sem sync)
+    if (s.lastSyncAt) {
+      const ageMs = Date.now() - new Date(s.lastSyncAt).getTime();
+      const ageHours = ageMs / (1000 * 60 * 60);
+      if (ageHours > 48 && Number(s.syncFrequencyPerDay) > 0) {
+        alerts.push({
+          id: 'ga4-stale',
+          icon: 'clock',
+          title: `GA4 sem sync há ${Math.floor(ageHours)}h`,
+          description: 'Esperava 2× ao dia mas o último sync foi há muito tempo. Pode ser cota da API ou OAuth expirado.',
+          action: "Actions.triggerGa4Sync()",
+          actionLabel: 'Forçar sync',
+          severity: 'warning'
+        });
+      }
+    }
+
+    return alerts;
+  },
+
+  // Helper público — count agregado pra badge do sininho.
+  getGa4AlertCount() {
+    if (!Actions._getGa4Alerts) return 0;
+    return Actions._getGa4Alerts().length;
+  },
+
+  // V35.14.5 — Modal de conciliação Google Ads x GA4.
+  // Dispara quando wizard GA4 conclui (após save final) E o LJ detecta que
+  // Google Ads também está conectado. Mostra a regra do RevOps e oferece
+  // opção de desligar 1 dos dois pra evitar dupla contagem.
+  openGa4GoogleAdsReconciliationModal() {
+    App.state.ga4GoogleAdsReconciliation = {
+      open: true,
+      step: 'inform' // 'inform' | 'choose'
+    };
+    App.render();
+  },
+
+  closeGa4GoogleAdsReconciliationModal() {
+    App.state.ga4GoogleAdsReconciliation = null;
+    App.render();
+  },
+
+  setGa4ReconciliationStep(step) {
+    if (!App.state.ga4GoogleAdsReconciliation) return;
+    App.state.ga4GoogleAdsReconciliation.step = step;
+    App.render();
+  },
+
+  // Helper — checa se ambos GA4 e Google Ads estão conectados.
+  _hasBothGa4AndGoogleAds() {
+    const ga4 = App.state.ga4Status || {};
+    const gAds = App.state.googleAdsStatus || {};
+    const ga4On = Boolean(ga4.configured && ga4.oauthCompleted && ga4.selectedPropertyId);
+    const gAdsOn = Boolean(gAds.configured && gAds.oauthCompleted);
+    return ga4On && gAdsOn;
   },
 
   setHotmartWizardStep(step) {

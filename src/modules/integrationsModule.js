@@ -46,6 +46,9 @@ const IntegrationsModule = {
     if (!App.state.clickupStatus && window.Actions?.loadClickupStatus) {
       setTimeout(() => Actions.loadClickupStatus(), 0);
     }
+    if (App.state.ga4Status === null && window.Actions?.loadGa4Status) {
+      setTimeout(() => Actions.loadGa4Status(), 0);
+    }
 
     return `<div class="space-y-6 max-w-6xl mx-auto px-2 pb-8">
       ${this._tabsBar(active)}
@@ -109,6 +112,8 @@ const IntegrationsModule = {
     const gAdsConnected = Boolean(gAds.configured && gAds.oauthCompleted);
     const hStatus = App.state.hotmartStatus || {};
     const hConnected = Boolean(hStatus.configured);
+    const ga4 = App.state.ga4Status || {};
+    const ga4Connected = Boolean(ga4.configured && ga4.oauthCompleted && ga4.selectedPropertyId);
     return [
       {
         id: 'google-ads',
@@ -147,10 +152,15 @@ const IntegrationsModule = {
       {
         id: 'ga4',
         name: 'Google Analytics 4',
-        desc: 'Tráfego orgânico, direto, referral e paid. Cruza com campanhas pra fechar o funil.',
+        desc: ga4Connected
+          ? `Conectado · ${Utils.escape(ga4.propertyDisplayName || ga4.selectedPropertyId)}`
+          : 'Tráfego orgânico, direto, referral e paid. Cruza com campanhas pra fechar o funil.',
         icon: 'line-chart',
         tone: 'amber',
-        status: 'soon'
+        status: ga4Connected ? 'connected' : 'disconnected',
+        action: 'Actions.openGa4Wizard()',
+        actionLabel: ga4Connected ? 'Gerenciar' : 'Conectar',
+        actionIcon: ga4Connected ? 'settings' : 'plug'
       },
       {
         id: 'stripe',

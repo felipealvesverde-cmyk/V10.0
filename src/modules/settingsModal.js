@@ -2897,7 +2897,41 @@ var SettingsModal = {
         `}
       </div>
 
+      ${this._migrateSchemaCard()}
       ${this._rdWebhookLogCard()}
+    </div>`;
+  },
+
+  // V35.14.7 — Card de migração de schema (botão "Atualizar schema").
+  // Roda lib/tenant-db-schema.sql contra o banco do tenant pra aplicar
+  // tabelas novas (ex: lj_ga4_config + lj_ga4_reports_daily da V35.14).
+  // Idempotente (CREATE TABLE IF NOT EXISTS).
+  _migrateSchemaCard() {
+    const status = App.state.adminMigrateStatus || {};
+    const running = Boolean(status.running);
+    const result = status.lastResult || null;
+    return `<div class="rounded-3xl bg-white border border-slate-100 p-5 shadow-sm">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div class="flex items-start gap-3 min-w-0">
+          <span class="shrink-0 w-10 h-10 rounded-xl bg-sky-100 grid place-items-center">
+            <i data-lucide="database-zap" class="w-5 h-5 text-sky-700"></i>
+          </span>
+          <div class="min-w-0">
+            <h3 class="font-black text-lg">Atualizar schema do banco</h3>
+            <p class="text-xs text-slate-500 mt-0.5">Aplica as últimas tabelas e índices definidos em <code class="bg-slate-100 px-1 rounded">lib/tenant-db-schema.sql</code>. Idempotente — pode rodar quantas vezes quiser sem perder dados.</p>
+          </div>
+        </div>
+        <button ${running ? 'disabled' : ''} onclick="Actions.runAdminMigrateSchema()" class="shrink-0 px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white text-xs font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+          <i data-lucide="${running ? 'loader-2' : 'play'}" class="w-3.5 h-3.5 ${running ? 'animate-spin' : ''}"></i>
+          ${running ? 'Rodando...' : 'Rodar migrate'}
+        </button>
+      </div>
+      ${result ? `<div class="rounded-2xl ${result.ok ? 'bg-emerald-50 border border-emerald-200' : 'bg-rose-50 border border-rose-200'} p-3 text-xs">
+        <p class="font-black ${result.ok ? 'text-emerald-900' : 'text-rose-900'} mb-1">${result.ok ? '✓ Schema atualizado' : '⚠ Falha ao atualizar'}</p>
+        <p class="${result.ok ? 'text-emerald-800' : 'text-rose-800'}">${Utils.escape(result.message || '')}</p>
+        ${result.schemaVersion ? `<p class="text-emerald-700 mt-1 font-mono text-[10px]">Versão atual: ${Utils.escape(result.schemaVersion)}</p>` : ''}
+        ${result.errorContext ? `<pre class="mt-2 text-[10px] font-mono text-rose-700 bg-rose-100 p-2 rounded overflow-x-auto whitespace-pre-wrap">${Utils.escape(result.errorContext)}</pre>` : ''}
+      </div>` : `<p class="text-[11px] text-slate-500 italic">Rode o migrate uma vez após cada update do LJ que adiciona tabelas novas (ex: V35.14 adicionou Google Analytics 4).</p>`}
     </div>`;
   },
 

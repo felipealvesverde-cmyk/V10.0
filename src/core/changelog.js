@@ -18,6 +18,97 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.14.7',
+    date: '2026-06-04',
+    title: 'Botão "Rodar migrate" em Meu Banco — aplica schema novo sem psql',
+    bullets: [
+      'Configurações → Meu Banco ganhou um card "Atualizar schema do banco" com botão que aplica o schema mais recente do LJ no seu banco.',
+      'É idempotente: roda quantas vezes quiser sem destruir dados. Cria tabelas e índices novos (ex: GA4 da V35.14) se ainda não existirem.',
+      'Toda vez que o LJ ganha tabelas novas em uma atualização, basta rodar o migrate em vez de pedir pra alguém mexer no psql.',
+      'Se algo der errado, o botão mostra exatamente onde quebrou no SQL (com ~80 caracteres de contexto).'
+    ]
+  },
+  {
+    version: 'V35.14.6',
+    date: '2026-06-03',
+    title: 'GA4 — Auto-item RevOps + KR ao vivo + Djow (Onda 3e)',
+    bullets: [
+      'GA4 entra como auto-item "[LJ]GA4 Tráfego pago" em RevOps Aquisição S&M — mas só se Google Ads NÃO estiver conectado direto. Sem duplicação.',
+      'KRs ao vivo agora reconhecem GA4 como fonte: criar KR "Sessões em junho" puxa direto de GA4 sem você precisar atualizar manualmente.',
+      'Djow ganhou 3 famílias novas de fontes via GA4: tráfego (sessions/users/newUsers), conversões e receita (purchaseRevenue/totalRevenue). Quando você cria um KR pelo Djow e ele reconhece o tema, propõe automaticamente.',
+      'ROAS pode vir do Google Ads OU do GA4 (returnOnAdSpend direto ou via insumos purchaseRevenue + googleAdsCost).',
+      'Quando GA4 sincroniza, RevOps Aquisição recalcula automaticamente — incluindo a regra "Google Ads prevalece".'
+    ]
+  },
+  {
+    version: 'V35.14.5',
+    date: '2026-06-03',
+    title: 'GA4 — Sininho + modal de conciliação Google Ads (Onda 3d)',
+    bullets: [
+      'O sininho agora soma alertas próprios do GA4: sync falhou (token expirado / cota da API), customs novos detectados, ou sync atrasado mais de 48h.',
+      'Se você criar uma métrica/dimensão custom no GA4 depois de já ter conectado, o LJ avisa pra você configurar — não precisa lembrar de checar.',
+      'Quando você conclui a configuração do GA4 com Google Ads já conectado, abre automaticamente um modal explicando como os dois convivem sem duplicar custo no RevOps.',
+      'O modal oferece 3 caminhos: manter ambos (regra automática), desconectar Google Ads (GA4 vira fonte única) ou desconectar GA4 (volta ao estado anterior).'
+    ]
+  },
+  {
+    version: 'V35.14.4',
+    date: '2026-06-03',
+    title: 'GA4 — Dashboard com 3 abas (Onda 3c)',
+    bullets: [
+      'Tab "GA4" entrou no Dashboard ao lado de Google Ads, com 3 sub-abas: Visão Geral, Detalhes e Customs.',
+      'Visão Geral mostra KPIs do período (sessions, users, conversions, pageviews, receita) e tráfego por canal.',
+      'Detalhes traz a tabela completa quebrada por todas as dimensões sincronizadas — fácil de exportar via copiar/colar.',
+      'Customs lista as métricas/dimensões customizadas com o nome amigável que você deu no wizard.',
+      'Botão "Sincronizar agora" no header dispara sync manual e recarrega o painel.'
+    ]
+  },
+  {
+    version: 'V35.14.3',
+    date: '2026-06-03',
+    title: 'GA4 — Sub-wizard de customs (Onda 3b)',
+    bullets: [
+      'Depois que você termina o wizard de GA4, se o LJ detectar métricas/dimensões customizadas que você criou no GA4 dele, abre um sub-wizard pra configurar cada uma.',
+      'Pra cada custom: você dá um nome amigável (que aparece nos dashboards no lugar do nome técnico), categoria opcional, e decide se entra no sync.',
+      'Métricas customizadas podem ser marcadas como "disponível como KR ao vivo" — assim o Djow sugere elas quando você criar um KR novo.',
+      'Se a propriedade não tem nenhum custom, o sub-wizard é pulado automaticamente.'
+    ]
+  },
+  {
+    version: 'V35.14.2',
+    date: '2026-06-03',
+    title: 'GA4 — Card ativo + Wizard (Onda 3a)',
+    bullets: [
+      'O card "Google Analytics 4" em Integrações → Injetar saiu de "Em breve" e está ativo.',
+      'Wizard de 4 passos: você escolhe o perfil de negócio, cola credenciais do Cloud Console, autoriza no Google e seleciona a property.',
+      'Defaults inteligentes: cada perfil (lead gen, e-commerce, conteúdo, institucional, custom) ativa automaticamente os packs de métricas que fazem sentido.',
+      'Frequência de sync (1×/dia, 2×/dia ou manual) escolhida no wizard, com botão "Atualizar agora" sempre disponível em "Gerenciar".',
+      'Sub-wizard de customs, dashboard 3 abas, sininho próprio e conciliação Google Ads ↔ GA4 vêm nas próximas sub-ondas.'
+    ]
+  },
+  {
+    version: 'V35.14.1',
+    date: '2026-06-03',
+    title: 'GA4 — sync, descoberta de customs e leitura (Onda 2)',
+    bullets: [
+      'Backend GA4 está completo: dá pra listar propriedades da conta, descobrir métricas/dimensões customizadas, puxar dados pra dentro do LJ e ler depois.',
+      'Os 9 packs estão definidos como contrato declarativo — o LJ sabe quais métricas pedir pra cada perfil de negócio (e-commerce, lead gen, conteúdo, etc).',
+      'Sync respeita o limite de 9 dimensões + 10 métricas por chamada da API: quando o cliente ativa muitos packs, o LJ quebra em várias chamadas e junta no banco.',
+      'Backend pronto pra wizard, dashboard e dashboards (V35.14.2).'
+    ]
+  },
+  {
+    version: 'V35.14.0',
+    date: '2026-06-03',
+    title: 'Google Analytics 4 — fundação OAuth + schema (Onda 1)',
+    bullets: [
+      'Começou a integração com GA4: agora o LJ tem a base técnica pra conectar a propriedade GA4 do cliente via OAuth Google.',
+      'Esta onda entrega só a fundação invisível (banco de dados e endpoints OAuth). O wizard, dashboard e dashboards GA4 vêm nas próximas ondas (V35.14.1+).',
+      'Schema flexível: o LJ aceita qualquer combinação de métricas e dimensões que o cliente escolher (incluindo customs que ele criou no GA4), sem mexer no banco depois.',
+      'Modelo: cliente cadastra próprio Cloud Project + OAuth Client ID/Secret (paridade com Google Ads). LJ guarda refresh_token criptografado.'
+    ]
+  },
+  {
     version: 'V35.13.6',
     date: '2026-06-03',
     title: 'Auto-clear de "Sessão Expirada" quando auth volta a funcionar',

@@ -817,6 +817,66 @@ CREATE INDEX IF NOT EXISTS idx_rd_webhook_log_unread_errors
   WHERE status = 'error' AND user_read_at IS NULL;
 
 -- ============================================================================
+-- V35.14.0 — Google Analytics 4 (GA4) config + reports
+-- ============================================================================
+-- Modelo paralelo ao lj_google_ads_config:
+--   - Cliente cadastra próprio Cloud Project + OAuth Client ID/Secret no GA4
+--   - Refresh token guarda encrypted, access token cacheia c/ expiração
+--   - 1 property por vez (selected_property_id no formato "properties/<id>")
+--   - selected_packs JSONB: array de IDs de packs ativados pelo wizard
+--     (ex: ["essential","leadgen","ads"])
+--   - custom_settings JSONB: configuração do sub-wizard de custom dimensions/metrics
+--     ({ "<api_name>": { "friendlyName": "...", "category": "...", "asKr": bool }})
+--   - sync_frequency_per_day: 1 (madrugada) ou 2 (12 em 12h) — wizard pergunta
+--   - backfill_days: histórico inicial puxado (default 30, paridade Google Ads)
+--   - available_customs JSONB: cache do getMetadata (lista de customs detectados
+--     na propriedade do cliente) + last_metadata_at pra invalidar
+CREATE TABLE IF NOT EXISTS lj_ga4_config (
+  user_id INT PRIMARY KEY,
+  client_id_enc TEXT,
+  client_secret_enc TEXT,
+  refresh_token_enc TEXT,
+  access_token_cache_enc TEXT,
+  access_token_expires_at TIMESTAMPTZ,
+  selected_property_id VARCHAR(64),          -- formato "properties/123456789"
+  property_display_name VARCHAR(255),
+  business_profile VARCHAR(32),              -- 'leadgen' | 'ecommerce' | 'content' | 'institutional' | 'custom'
+  selected_packs JSONB DEFAULT '[]'::jsonb,  -- ["essential","leadgen","ads"]
+  custom_settings JSONB DEFAULT '{}'::jsonb, -- per-custom config (nome amigável etc)
+  available_customs JSONB DEFAULT '[]'::jsonb, -- cache do getMetadata
+  last_metadata_at TIMESTAMPTZ,
+  sync_frequency_per_day SMALLINT DEFAULT 2, -- 1 ou 2 (paridade com pergunta do wizard)
+  backfill_days SMALLINT DEFAULT 30,
+  connected_at TIMESTAMPTZ,
+  last_sync_at TIMESTAMPTZ,
+  last_sync_result JSONB,
+  oauth_state_token VARCHAR(64),             -- CSRF protection no OAuth flow
+  oauth_state_expires_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ga4_oauth_state ON lj_ga4_config(oauth_state_token) WHERE oauth_state_token IS NOT NULL;
+
+-- Schema-less reports table: aceita qualquer combinação de dimensions+metrics
+-- que o wizard ativou (varia por cliente). dimensions_key é a chave canônica
+-- composta — pares "dim:value" ordenados, separados por "|" — pra PK
+-- estável sem precisar transformar JSONB.
+-- Exemplo:
+--   dimensions_key = "country:BR|sessionDefaultChannelGroup:Organic Search"
+--   dimensions    = {"country":"BR","sessionDefaultChannelGroup":"Organic Search"}
+--   metrics       = {"sessions":1234,"conversions":45,"purchaseRevenue":8900.50}
+CREATE TABLE IF NOT EXISTS lj_ga4_reports_daily (
+  user_id INT NOT NULL,
+  property_id VARCHAR(64) NOT NULL,          -- "properties/<id>"
+  date DATE NOT NULL,
+  dimensions_key TEXT NOT NULL,
+  dimensions JSONB NOT NULL DEFAULT '{}'::jsonb,
+  metrics JSONB NOT NULL DEFAULT '{}'::jsonb,
+  synced_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, property_id, date, dimensions_key)
+);
+CREATE INDEX IF NOT EXISTS idx_ga4_daily_user_date ON lj_ga4_reports_daily(user_id, property_id, date DESC);
+
+-- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS tenant_schema_meta (
@@ -825,5 +885,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v35.11.0-rd-webhook-log')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v35.14.0-ga4-config')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
