@@ -13682,6 +13682,35 @@ Object.assign(Actions, {
     } catch (_) {}
   },
 
+  // V35.14.7 — Roda lib/tenant-db-schema.sql contra o banco. Idempotente.
+  async runAdminMigrateSchema() {
+    if (!confirm('Rodar migrate de schema? É idempotente — não destrói dados, só cria/atualiza tabelas e índices.')) return;
+    App.state.adminMigrateStatus = { running: true, lastResult: null };
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/admin-migrate-schema', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({})
+      });
+      const data = await r.json();
+      App.state.adminMigrateStatus = { running: false, lastResult: data };
+      App.render();
+      if (data.ok) {
+        Utils.toast(`✓ Schema atualizado em ${data.durationMs}ms.`);
+        // Recarrega status das integrações que podem ter dependido das tabelas novas.
+        if (Actions.loadGa4Status) setTimeout(() => Actions.loadGa4Status(), 200);
+      } else {
+        Utils.toast(`Migrate falhou: ${data.message || 'erro'}`);
+      }
+    } catch (err) {
+      App.state.adminMigrateStatus = { running: false, lastResult: { ok: false, message: err.message } };
+      App.render();
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   async disconnectGa4() {
     if (!confirm('Desconectar GA4? Você vai perder o histórico cacheado.')) return;
     try {

@@ -571,6 +571,9 @@ var State = {
       // V35.14.5 — Modal de conciliação Google Ads x GA4. null = fechado.
       // { open: true, step: 'inform' | 'choose' }
       ga4GoogleAdsReconciliation: null,
+      // V35.14.7 — Status do botão "Rodar migrate" em Settings → Meu Banco.
+      // { running: bool, lastResult: { ok, message, durationMs, schemaVersion, errorContext } | null }
+      adminMigrateStatus: null,
       // V35.6.0 — Integrações IPI: aba ativa na nova página Integrações.
       integrationsTab: 'injetar',
       // V35.6.0-alpha4 — Modais próprios de RD e ClickUp dentro de Integrações.
@@ -1225,6 +1228,7 @@ var State = {
       ga4CustomsCache: raw.ga4CustomsCache || null,
       ga4DashboardSubTab: raw.ga4DashboardSubTab || 'overview',
       ga4GoogleAdsReconciliation: raw.ga4GoogleAdsReconciliation || null,
+      adminMigrateStatus: raw.adminMigrateStatus || null,
       // V35.6.0 — Integrações IPI
       integrationsTab: (typeof raw.integrationsTab === 'string' && ['injetar','propagar','iterar'].includes(raw.integrationsTab)) ? raw.integrationsTab : 'injetar',
       // V35.6.0-alpha4 — modais Iterar (não persistem aberto entre sessões)

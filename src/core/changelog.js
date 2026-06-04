@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V35.14.7',
+    date: '2026-06-04',
+    title: 'Botão "Rodar migrate" em Meu Banco — aplica schema novo sem psql',
+    bullets: [
+      'Configurações → Meu Banco ganhou um card "Atualizar schema do banco" com botão que aplica o schema mais recente do LJ no seu banco.',
+      'É idempotente: roda quantas vezes quiser sem destruir dados. Cria tabelas e índices novos (ex: GA4 da V35.14) se ainda não existirem.',
+      'Toda vez que o LJ ganha tabelas novas em uma atualização, basta rodar o migrate em vez de pedir pra alguém mexer no psql.',
+      'Se algo der errado, o botão mostra exatamente onde quebrou no SQL (com ~80 caracteres de contexto).'
+    ]
+  },
+  {
     version: 'V35.14.6',
     date: '2026-06-03',
     title: 'GA4 — Auto-item RevOps + KR ao vivo + Djow (Onda 3e)',
