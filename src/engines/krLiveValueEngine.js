@@ -168,56 +168,68 @@ window.KrLiveValueEngine = {
     const linkedExternalIds = new Set();
     ljCampaigns.forEach(c => (c.externalLinks?.googleAds || []).forEach(id => linkedExternalIds.add(String(id))));
 
-    let total = 0;
-    let touchedAnySource = false;
-
-    sources.forEach(src => {
-      if (!src) return;
-      // V35.11.4 — Self-heal: deriva integration_id/field do src.id se vierem
-      // null (KRs criados via fallback local antes da V35.11.4 ficaram assim).
+    // V36.0 — Coleta valor POR fonte separadamente (em vez de somar direto).
+    // Permite que a reconciliationRule abaixo decida COMO combinar.
+    const ctxPerSource = { sectorMatch, linkedExternalIds, state };
+    const perSource = sources.map(src => {
+      if (!src) return null;
       const integrationId = src.integration_id || this._deriveIntegrationFromId(src.id);
       const field = src.field || this._deriveFieldFromId(src.id);
-      if (!integrationId) return;
-      if (integrationId === 'google_ads') {
-        const fieldKey = this._gadsFieldToCacheKey(field);
-        if (!fieldKey) return;
-        const allAds = Array.isArray(state.googleAdsCampaignsCache) ? state.googleAdsCampaignsCache : [];
-        let sum = 0;
-        allAds.forEach(ad => {
-          if (!linkedExternalIds.has(String(ad.campaign_id))) return;
-          sum += Number(ad.metrics_30d?.[fieldKey] || 0);
-        });
-        total += sum;
-        touchedAnySource = true;
-      }
-      // V35.14.6 — GA4 como fonte de KR ao vivo.
-      // Não tem conceito de "campanha vinculada" — GA4 mede a propriedade
-      // inteira. Pra restringir por área (Marketing/Vendas/CS), filtro
-      // por sessionDefaultChannelGroup quando o KR é setorial. Senão soma
-      // todas as rows do cache.
-      if (integrationId === 'ga4') {
-        if (!field) return;
-        const cache = state.ga4ReportsCache || {};
-        const rows = Array.isArray(cache.rows) ? cache.rows : [];
-        let sum = 0;
-        for (const row of rows) {
-          // Se KR é setorial, opcionalmente filtra por channel group
-          if (sectorMatch) {
-            const channel = (row.dimensions || {}).sessionDefaultChannelGroup || '';
-            // Marketing → tudo exceto Direct (origem trabalho/colaboração)
-            // Vendas/CS → não filtra (não tem mapping óbvio em GA4)
-            if (sectorMatch === 'Marketing' && channel === 'Direct') continue;
-          }
-          const v = Number((row.metrics || {})[field]);
-          if (Number.isFinite(v)) sum += v;
-        }
-        total += sum;
-        touchedAnySource = true;
-      }
-      // V35.10+ : rd_station, hotmart, clickup, etc viriam aqui
-    });
+      if (!integrationId) return { id: src.id, value: 0, supported: false };
+      const v = this._computeSingleSource({ src, integrationId, field }, ctxPerSource);
+      return { id: src.id, value: v, supported: true };
+    }).filter(Boolean);
 
-    if (!touchedAnySource) return { value: 0, source: 'live', error: 'no-supported-source' };
+    if (!perSource.some(p => p.supported)) {
+      return { value: 0, source: 'live', error: 'no-supported-source' };
+    }
+
+    // V36.0 — Aplica reconciliationRule. Backward compat: KRs antigos sem
+    // rule → mode='sum' (comportamento idêntico ao pre-V36).
+    const rule = kr.djowMeta?.reconciliationRule || { mode: 'sum' };
+    const mode = rule.mode || 'sum';
+    const contextIds = new Set(Array.isArray(rule.contextSourceIds) ? rule.contextSourceIds : []);
+    const usable = perSource.filter(p => p.supported && !contextIds.has(p.id));
+
+    let total = 0;
+    let appliedSource = mode;
+
+    if (mode === 'primary') {
+      const order = [rule.primarySourceId, ...(Array.isArray(rule.fallbackSourceIds) ? rule.fallbackSourceIds : [])].filter(Boolean);
+      for (const sid of order) {
+        const sv = perSource.find(p => p.id === sid);
+        if (sv && Number.isFinite(sv.value) && sv.value !== 0) {
+          total = sv.value;
+          appliedSource = `primary:${sid}`;
+          break;
+        }
+      }
+      // Se nada bateu, usa zero da primary (não soma fallback)
+      if (!appliedSource.startsWith('primary:') && order.length) {
+        const firstSv = perSource.find(p => p.id === order[0]);
+        total = firstSv ? Number(firstSv.value) || 0 : 0;
+        appliedSource = `primary-empty:${order[0]}`;
+      }
+    } else if (mode === 'first-available') {
+      for (const sv of usable) {
+        if (Number.isFinite(sv.value) && sv.value > 0) {
+          total = sv.value;
+          appliedSource = `first-available:${sv.id}`;
+          break;
+        }
+      }
+    } else if (mode === 'avg') {
+      const valid = usable.filter(p => Number.isFinite(p.value));
+      total = valid.length ? valid.reduce((a, p) => a + p.value, 0) / valid.length : 0;
+    } else if (mode === 'max') {
+      total = usable.length ? Math.max(...usable.map(p => Number(p.value) || 0)) : 0;
+    } else if (mode === 'min') {
+      const nums = usable.map(p => Number(p.value) || 0);
+      total = nums.length ? Math.min(...nums) : 0;
+    } else {
+      // sum (default — backward compat com pre-V36)
+      total = usable.reduce((a, p) => a + (Number(p.value) || 0), 0);
+    }
 
     // Arredonda pra 2 casas pra R$ ou 0 pra quantidade
     const unit = kr.metric || '';
@@ -225,7 +237,46 @@ window.KrLiveValueEngine = {
     else if (unit === 'percentual') total = Math.round(total * 100) / 100;
     else total = Math.round(total);
 
-    return { value: total, source: 'live' };
+    return { value: total, source: 'live', reconciliation: appliedSource };
+  },
+
+  // V36.0 — Resolve valor de UMA fonte. Extraído do loop antigo de
+  // _computeAtomic pra que a reconciliationRule possa escolher COMO combinar.
+  // Retorna sempre número (zero se algo deu errado, não rejeita).
+  _computeSingleSource({ src, integrationId, field }, ctx) {
+    const { sectorMatch, linkedExternalIds, state } = ctx;
+
+    if (integrationId === 'google_ads') {
+      const fieldKey = this._gadsFieldToCacheKey(field);
+      if (!fieldKey) return 0;
+      const allAds = Array.isArray(state.googleAdsCampaignsCache) ? state.googleAdsCampaignsCache : [];
+      let sum = 0;
+      allAds.forEach(ad => {
+        if (!linkedExternalIds.has(String(ad.campaign_id))) return;
+        sum += Number(ad.metrics_30d?.[fieldKey] || 0);
+      });
+      return sum;
+    }
+
+    if (integrationId === 'ga4') {
+      if (!field) return 0;
+      const cache = state.ga4ReportsCache || {};
+      const rows = Array.isArray(cache.rows) ? cache.rows : [];
+      let sum = 0;
+      for (const row of rows) {
+        if (sectorMatch) {
+          const channel = (row.dimensions || {}).sessionDefaultChannelGroup || '';
+          if (sectorMatch === 'Marketing' && channel === 'Direct') continue;
+        }
+        const v = Number((row.metrics || {})[field]);
+        if (Number.isFinite(v)) sum += v;
+      }
+      return sum;
+    }
+
+    // rd_station, hotmart, clickup, etc viriam aqui com os mesmos blocos
+    // já presentes no fallback do appActions hoje.
+    return 0;
   },
 
   // V35.11.4 — Self-heal helpers: derivam integration_id/field do src.id

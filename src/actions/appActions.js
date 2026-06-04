@@ -12526,11 +12526,158 @@ Prioridade: ${d.priority}
       } catch (_) { /* fallback local */ }
     }
 
-    // Fallback local
+    // V36.0 — Se >1 fonte selecionada E não tem reconciliationRule confirmada,
+    // entra em modo "conciliação" (Djow propõe regra). Senão libera números.
+    const ids = Array.isArray(m.djow.selectedIds) ? m.djow.selectedIds : [];
+    const reconciliationConfirmed = Boolean(m.djow.reconciliationConfirmed);
+    if (ids.length > 1 && !reconciliationConfirmed) {
+      Actions.djowProposeReconciliation();
+      return;
+    }
+    // Fallback local — 1 fonte só ou rule já confirmada
     m.djow.numbersUnlocked = true;
     m.djow.falaHistory.push({
       at: new Date().toISOString(),
       text: `Boa escolha. Agora libere os números abaixo — atual, meta segura e meta avançada.`
+    });
+    App.render();
+  },
+
+  // V36.0 — Djow Conciliador: analisa fontes selecionadas e propõe uma
+  // reconciliationRule. Heurísticas locais (sem chamar backend ainda):
+  //   - Se 'hotmart' está entre as fontes E nome envolve vendas/receita →
+  //     primary=hotmart, contexto=Google Ads, GA4
+  //   - Se Google Ads + GA4 sem Hotmart → primary=Google Ads (paridade
+  //     com regra do auto-item RevOps), contexto=GA4
+  //   - Senão → sum (comportamento legado, soma todas)
+  // Cliente vê a regra proposta e pode ajustar manualmente.
+  djowProposeReconciliation() {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow) return;
+    const ids = Array.isArray(m.djow.selectedIds) ? m.djow.selectedIds : [];
+    if (ids.length < 2) {
+      // Não precisa conciliar. Vai direto pra números.
+      m.djow.numbersUnlocked = true;
+      App.render();
+      return;
+    }
+    const opts = Array.isArray(m.djow.layerOptions) ? m.djow.layerOptions : [];
+    const selectedOpts = opts.filter(o => ids.includes(o.id));
+    const integrations = new Set(selectedOpts.map(o => o.integration_id || Actions._deriveSourceFromId(o.id)?.integration_id));
+    const nameLower = String(m.name || '').toLowerCase();
+
+    let rule;
+    let proposalText;
+
+    const hasHotmart = integrations.has('hotmart');
+    const hasGAds = integrations.has('google_ads');
+    const hasGa4 = integrations.has('ga4');
+    const sellTopic = /vendas|receita|faturamento|purchases|revenue/.test(nameLower);
+
+    if (hasHotmart && sellTopic) {
+      // Hotmart é verdade pra vendas reais
+      const hotmartOpt = selectedOpts.find(o => (o.integration_id || Actions._deriveSourceFromId(o.id)?.integration_id) === 'hotmart');
+      const contextIds = selectedOpts.filter(o => o.id !== hotmartOpt.id).map(o => o.id);
+      rule = {
+        mode: 'primary',
+        primarySourceId: hotmartOpt.id,
+        fallbackSourceIds: [],
+        contextSourceIds: contextIds
+      };
+      proposalText = `Você marcou ${ids.length} fontes mas elas medem coisas parecidas. **Hotmart** é o sistema de pagamento real — vou usar ele como verdade. As outras viram contexto (atribuição) sem entrar na conta.`;
+    } else if (hasGAds && hasGa4) {
+      const gAdsOpt = selectedOpts.find(o => (o.integration_id || Actions._deriveSourceFromId(o.id)?.integration_id) === 'google_ads');
+      const contextIds = selectedOpts.filter(o => o.id !== gAdsOpt.id).map(o => o.id);
+      rule = {
+        mode: 'primary',
+        primarySourceId: gAdsOpt.id,
+        fallbackSourceIds: [],
+        contextSourceIds: contextIds
+      };
+      proposalText = `**Google Ads** mede os mesmos dados que o GA4 puxa (com diferença pequena de atribuição). Vou usar Google Ads como verdade — mesma regra do RevOps Aquisição.`;
+    } else {
+      // Padrão: soma todas. Não há overlap óbvio detectado.
+      rule = {
+        mode: 'sum',
+        primarySourceId: null,
+        fallbackSourceIds: [],
+        contextSourceIds: []
+      };
+      proposalText = `${ids.length} fontes selecionadas — vou somar todas porque não detectei sobreposição entre elas. Se alguma é só atribuição (não deve entrar na conta), marque como contexto abaixo.`;
+    }
+
+    m.djow.reconciliationRule = rule;
+    m.djow.reconciliationProposed = true;
+    m.djow.reconciliationConfirmed = false;
+    m.djow.falaHistory.push({ at: new Date().toISOString(), text: proposalText });
+    App.render();
+  },
+
+  setReconciliationMode(mode) {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow?.reconciliationRule) return;
+    const valid = ['sum', 'primary', 'first-available', 'avg', 'max', 'min'];
+    if (!valid.includes(mode)) return;
+    m.djow.reconciliationRule.mode = mode;
+    // Se vira 'sum'/'avg'/'max'/'min', limpa primary/fallback (não fazem sentido).
+    if (!['primary', 'first-available'].includes(mode)) {
+      m.djow.reconciliationRule.primarySourceId = null;
+      m.djow.reconciliationRule.fallbackSourceIds = [];
+    }
+    App.render();
+  },
+
+  setReconciliationPrimary(sourceId) {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow?.reconciliationRule) return;
+    m.djow.reconciliationRule.primarySourceId = String(sourceId);
+    // Se source virou primary, tira de fallback e de context.
+    m.djow.reconciliationRule.fallbackSourceIds = (m.djow.reconciliationRule.fallbackSourceIds || []).filter(id => id !== sourceId);
+    m.djow.reconciliationRule.contextSourceIds = (m.djow.reconciliationRule.contextSourceIds || []).filter(id => id !== sourceId);
+    App.render();
+  },
+
+  toggleReconciliationFallback(sourceId) {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow?.reconciliationRule) return;
+    const ids = new Set(m.djow.reconciliationRule.fallbackSourceIds || []);
+    if (ids.has(sourceId)) ids.delete(sourceId);
+    else {
+      ids.add(sourceId);
+      // Tira de context se tava lá
+      m.djow.reconciliationRule.contextSourceIds = (m.djow.reconciliationRule.contextSourceIds || []).filter(id => id !== sourceId);
+    }
+    m.djow.reconciliationRule.fallbackSourceIds = Array.from(ids);
+    App.render();
+  },
+
+  toggleReconciliationContext(sourceId) {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow?.reconciliationRule) return;
+    const ids = new Set(m.djow.reconciliationRule.contextSourceIds || []);
+    if (ids.has(sourceId)) ids.delete(sourceId);
+    else {
+      ids.add(sourceId);
+      // Tira de fallback se tava lá; e se era primary, libera primary
+      m.djow.reconciliationRule.fallbackSourceIds = (m.djow.reconciliationRule.fallbackSourceIds || []).filter(id => id !== sourceId);
+      if (m.djow.reconciliationRule.primarySourceId === sourceId) m.djow.reconciliationRule.primarySourceId = null;
+    }
+    m.djow.reconciliationRule.contextSourceIds = Array.from(ids);
+    App.render();
+  },
+
+  confirmReconciliation() {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow?.reconciliationRule) return;
+    const r = m.djow.reconciliationRule;
+    if (['primary', 'first-available'].includes(r.mode) && !r.primarySourceId) {
+      return Utils.toast('Escolha qual fonte é a verdade (primária).');
+    }
+    m.djow.reconciliationConfirmed = true;
+    m.djow.numbersUnlocked = true;
+    m.djow.falaHistory.push({
+      at: new Date().toISOString(),
+      text: `Regra confirmada (${r.mode}). Agora libere os números abaixo.`
     });
     App.render();
   },
@@ -12615,8 +12762,14 @@ Prioridade: ${d.priority}
           };
         }),
         createdSession: m.djow.sessionId || null,
-        direction: m.djow.krMeta?.direction || 'higher'
+        direction: m.djow.krMeta?.direction || 'higher',
+        // V36.0 — Reconciliation rule (sempre presente, default sum).
+        reconciliationRule: m.djow.reconciliationRule || { mode: 'sum', primarySourceId: null, fallbackSourceIds: [], contextSourceIds: [] }
       };
+    }
+    // V36.0 — Garante que mesmo o caminho do backend persista a rule local.
+    if (djowMeta && !djowMeta.reconciliationRule && m.djow?.reconciliationRule) {
+      djowMeta.reconciliationRule = m.djow.reconciliationRule;
     }
 
     // 1. Adiciona ao customKpiCatalog (base de conhecimento global)
