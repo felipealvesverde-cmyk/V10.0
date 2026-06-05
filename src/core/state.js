@@ -568,6 +568,10 @@ var State = {
       ga4ReportsCache: null,
       ga4CustomsCache: null,
       ga4DashboardSubTab: 'overview',
+      // V36.3.0 — Cache de KPIs Hotmart pra KrLiveValueEngine.
+      // Populado por Actions.loadHotmartKrCache() (reusa hotmart-dashboard-metrics).
+      //   loaded: boolean, fetchedAt: ms, days: number, approved_count, total_revenue, etc.
+      hotmartKrCache: null,
       // V35.14.5 — Modal de conciliação Google Ads x GA4. null = fechado.
       // { open: true, step: 'inform' | 'choose' }
       ga4GoogleAdsReconciliation: null,
@@ -1228,6 +1232,8 @@ var State = {
       ga4CustomsCache: raw.ga4CustomsCache || null,
       ga4DashboardSubTab: raw.ga4DashboardSubTab || 'overview',
       ga4GoogleAdsReconciliation: raw.ga4GoogleAdsReconciliation || null,
+      // V36.3.0
+      hotmartKrCache: raw.hotmartKrCache || null,
       adminMigrateStatus: raw.adminMigrateStatus || null,
       // V35.6.0 — Integrações IPI
       integrationsTab: (typeof raw.integrationsTab === 'string' && ['injetar','propagar','iterar'].includes(raw.integrationsTab)) ? raw.integrationsTab : 'injetar',

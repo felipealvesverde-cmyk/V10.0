@@ -12767,6 +12767,65 @@ Prioridade: ${d.priority}
     App.render();
   },
 
+  // V36.2.0 — Djow Conciliador: chama o backend pra sugerir regra.
+  // Heurística primeiro no servidor, LLM como fallback quando ambíguo.
+  // Substitui a regra atual no modal e marca origem do palpite.
+  async suggestReconciliationWithDjow() {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow?.reconciliationRule) return;
+    const opts = Array.isArray(m.djow.layerOptions) ? m.djow.layerOptions : [];
+    const selectedIds = Array.isArray(m.djow.selectedSourceIds) ? m.djow.selectedSourceIds : [];
+    const sources = opts
+      .filter(o => selectedIds.includes(o.id))
+      .map(o => ({
+        id: o.id,
+        integration_id: o.integration_id || null,
+        field: o.field || null,
+        label: o.label || o.id
+      }));
+    if (sources.length < 2) {
+      return Utils.toast('Selecione 2+ fontes pra Djow sugerir regra.');
+    }
+    m.djow.reconciliationSuggesting = true;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-reconcile-suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          krName: m.name || '',
+          krUnit: m.djow.krMeta?.unit || 'numero',
+          krDirection: m.djow.krMeta?.direction || 'higher',
+          sources
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        Utils.toast(data.message || 'Djow não conseguiu sugerir.');
+        return;
+      }
+      m.djow.reconciliationRule = {
+        mode: data.mode,
+        primarySourceId: data.primarySourceId || null,
+        fallbackSourceIds: data.fallbackSourceIds || [],
+        contextSourceIds: data.contextSourceIds || []
+      };
+      m.djow.reconciliationSource = data.usedLLM ? 'djow-ia' : 'djow-heuristic';
+      m.djow.reconciliationReasoning = data.reasoning || '';
+      m.djow.falaHistory.push({
+        at: new Date().toISOString(),
+        text: `Djow sugeriu: ${data.reasoning || 'regra atualizada.'} ${data.usedLLM ? '(IA)' : '(heurística)'}`
+      });
+    } catch (err) {
+      Utils.toast(`Djow falhou: ${err.message}`);
+    } finally {
+      const cur = App.state.createCustomKrModal;
+      if (cur?.djow) cur.djow.reconciliationSuggesting = false;
+      App.render();
+    }
+  },
+
   djowToggleHistorico(show) {
     const m = App.state.createCustomKrModal;
     if (!m?.djow) return;
@@ -13344,6 +13403,65 @@ Object.assign(Actions, {
     } catch (err) {
       App.state.hotmartStatus = { ok: false, configured: false, error: err.message };
       App.render();
+    }
+  },
+
+  // V36.3.0 — Cache de KPIs Hotmart pra KRs ao vivo (KrLiveValueEngine).
+  // Reutiliza /api/hotmart-dashboard-metrics (já agrega tudo no SQL — barato).
+  // Loader fica em sessionStorage de cache (1 chamada por sessão por janela).
+  async loadHotmartKrCache(opts) {
+    const days = Number(opts?.days || 30);
+    const productIdHotmart = opts?.productIdHotmart || 'all';
+    if (!App.state.hotmartStatus?.configured) {
+      App.state.hotmartKrCache = { loaded: false, error: 'not-configured' };
+      return;
+    }
+    const cur = App.state.hotmartKrCache;
+    // Throttle: se cache fresh (<5min), não rebusca
+    if (cur?.loaded && cur.fetchedAt && Date.now() - cur.fetchedAt < 5 * 60 * 1000) return;
+    // Guard contra loops do engine: se já loading OU se falhou nos últimos 30s, skip
+    if (cur?.loading) return;
+    if (cur?.error && cur.failedAt && Date.now() - cur.failedAt < 30 * 1000) return;
+    App.state.hotmartKrCache = { ...(cur || {}), loading: true };
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(
+        `/api/hotmart-dashboard-metrics?product_id_hotmart=${encodeURIComponent(productIdHotmart)}&days=${days}&limit=1`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await r.json();
+      if (!data.ok) {
+        App.state.hotmartKrCache = { loaded: false, loading: false, error: data.message || 'fetch-failed', failedAt: Date.now() };
+        return;
+      }
+      const k = data.kpis || {};
+      App.state.hotmartKrCache = {
+        loaded: true,
+        fetchedAt: Date.now(),
+        days,
+        // Counts
+        approved_count: Number(k.approvedCount || 0),
+        refunded_count: Number(k.refundedCount || 0),
+        chargeback_count: Number(k.chargebackCount || 0),
+        canceled_count: Number(k.canceledCount || 0),
+        billet_count: Number(k.billetCount || 0),
+        total_count: Number(k.totalCount || 0),
+        // Money (em reais — converte centavos)
+        total_revenue: Number(k.totalRevenueCents || 0) / 100,
+        total_commission: Number(k.totalCommissionCents || 0) / 100,
+        avg_ticket: Number(k.avgTicketCents || 0) / 100,
+        // Por produto (se quiser filtrar depois)
+        by_product: (data.products || []).map(p => ({
+          productIdHotmart: p.productIdHotmart,
+          productName: p.productName,
+          approved_count: Number(p.purchaseCount || 0),
+          total_revenue: Number(p.revenueCents || 0) / 100
+        }))
+      };
+      // Re-render pra KRs Hotmart pegarem o valor recém-carregado.
+      if (App.render) App.render();
+    } catch (err) {
+      App.state.hotmartKrCache = { loaded: false, loading: false, error: err.message, failedAt: Date.now() };
     }
   },
 
