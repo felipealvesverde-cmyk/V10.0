@@ -758,7 +758,11 @@ CREATE TABLE IF NOT EXISTS djow_kr_sessions (
   expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '30 minutes'
 );
 CREATE INDEX IF NOT EXISTS idx_djow_sessions_user ON djow_kr_sessions(user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_djow_sessions_expires ON djow_kr_sessions(expires_at) WHERE expires_at < NOW() + INTERVAL '1 day';
+-- V36.3.2 — Antes: WHERE expires_at < NOW() + INTERVAL '1 day' (rejeitado pelo
+-- Postgres porque NOW() não é IMMUTABLE → "functions in index predicate must
+-- be marked IMMUTABLE"). Index sem WHERE cobre as mesmas queries com pouco
+-- overhead extra (tabela é pequena, sessões expiram em 30min).
+CREATE INDEX IF NOT EXISTS idx_djow_sessions_expires ON djow_kr_sessions(expires_at);
 
 -- ============================================================================
 -- V35.7.0 — Google Ads campanhas (sync diário). 1 linha por (user, campaign, date).

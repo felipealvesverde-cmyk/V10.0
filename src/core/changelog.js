@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.3.2',
+    date: '2026-06-05',
+    title: 'Fix migrate de schema falhando com erro IMMUTABLE',
+    bullets: [
+      'O botão "Rodar migrate" em Configurações → Meu Banco quebrava com erro "functions in index predicate must be marked IMMUTABLE" — ninguém conseguia aplicar as tabelas novas no banco do tenant próprio.',
+      'Causa: um índice usava NOW() na cláusula WHERE — o Postgres não permite porque NOW() retorna valor diferente a cada chamada.',
+      'Fix: índice agora cobre a coluna inteira (sem WHERE). Pequeno overhead, mas a tabela é pequena (sessões expiram em 30min).',
+      'Quem tinha schema desatualizado (e por isso nem conseguia configurar Google Ads, GA4, etc) agora consegue rodar o migrate sem erro.'
+    ]
+  },
+  {
     version: 'V36.3.1',
     date: '2026-06-05',
     title: 'Fix wizard Google Ads perdendo foco ao digitar credenciais',
