@@ -64,11 +64,17 @@ window.RemoteSyncAdapter = {
   // V27.0.2 — Flush síncrono: cancela debounce + força push imediato + aguarda.
   // Usado antes de chamar Djow (que lê state do Postgres). Se não flushar, Djow
   // vê state desatualizado (até 2s atrás), gastando tokens em conclusão errada.
+  //
+  // V36.1.3 — flushNow chama _doPush com force=true. Sem isso, o guard
+  // sessionExpired da V36.1.1 transformava flushNow em no-op silencioso quando
+  // chamado em submitReloginInline (linha 2540 do appActions) — momento em que
+  // sessionExpired ainda era true. Resultado: trabalho do cliente ficava em
+  // memória até o próximo debounce. Defesa em profundidade: força bypass.
   async flushNow() {
     if (!this.isProduction()) return; // sandbox não persiste
     clearTimeout(this._saveTimer);
     this._saveTimer = null;
-    await this._doPush();
+    await this._doPush({ force: true });
   },
 
   // V32.12.3 — Detecta erro de rede (offline, DNS fail, internet caiu).
@@ -81,9 +87,10 @@ window.RemoteSyncAdapter = {
     return msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('load failed');
   },
 
-  async _doPush() {
+  async _doPush(opts) {
     if (!window.App?.state) return;
     const s = window.App.state;
+    const force = opts && opts.force === true;
 
     // V36.1.1 — GUARDA DE SESSÃO EXPIRADA. Quando JWT venceu, o auth-resolver
     // rejeita TODOS os endpoints. Sem essa guarda, _doPush dispara em loop
@@ -91,7 +98,11 @@ window.RemoteSyncAdapter = {
     // um 401 no console + re-seta sessionExpired=true → modal pisca.
     // Quando cliente reentra (submitReloginInline limpa sessionExpired=false),
     // o push volta a funcionar normalmente.
-    if (s.sessionExpired === true) {
+    //
+    // V36.1.3 — `force` bypassa o guard. Usado por flushNow pra garantir
+    // push imediato pós-relogin mesmo se o caller esquecer de limpar a flag
+    // antes (defesa em profundidade contra ordem trocada no futuro).
+    if (s.sessionExpired === true && !force) {
       this._lastPushStatus = 'paused_session_expired';
       return;
     }
