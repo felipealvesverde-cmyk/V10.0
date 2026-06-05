@@ -135,7 +135,7 @@ window.GoogleAdsWizardModal = {
 
       <div class="space-y-1.5">
         <label class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Client ID</label>
-        <input type="text" value="${Utils.escape(d.clientId || '')}"
+        <input type="text" id="gads-wizard-client-id" value="${Utils.escape(d.clientId || '')}"
           oninput="Actions.updateGoogleAdsDraft('clientId', this.value)"
           placeholder="123456789-abc...apps.googleusercontent.com"
           class="w-full px-3 py-2 rounded-xl bg-[#001230] border border-white/15 text-white text-[12px] font-mono focus:border-amber-400/60 focus:outline-none" />
@@ -143,7 +143,7 @@ window.GoogleAdsWizardModal = {
 
       <div class="space-y-1.5">
         <label class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Client Secret</label>
-        <input type="password" value="${Utils.escape(d.clientSecret || '')}"
+        <input type="password" id="gads-wizard-client-secret" value="${Utils.escape(d.clientSecret || '')}"
           oninput="Actions.updateGoogleAdsDraft('clientSecret', this.value)"
           placeholder="GOCSPX-xxxxxxxxxxxxx"
           class="w-full px-3 py-2 rounded-xl bg-[#001230] border border-white/15 text-white text-[12px] font-mono focus:border-amber-400/60 focus:outline-none" />
@@ -151,7 +151,7 @@ window.GoogleAdsWizardModal = {
 
       <div class="space-y-1.5">
         <label class="text-[11px] font-black text-amber-300 uppercase tracking-widest">Developer Token</label>
-        <input type="password" value="${Utils.escape(d.developerToken || '')}"
+        <input type="password" id="gads-wizard-developer-token" value="${Utils.escape(d.developerToken || '')}"
           oninput="Actions.updateGoogleAdsDraft('developerToken', this.value)"
           placeholder="20+ caracteres alfanuméricos"
           class="w-full px-3 py-2 rounded-xl bg-[#001230] border border-white/15 text-white text-[12px] font-mono focus:border-amber-400/60 focus:outline-none" />
@@ -160,7 +160,7 @@ window.GoogleAdsWizardModal = {
 
       <div class="space-y-1.5">
         <label class="text-[11px] font-black text-slate-400 uppercase tracking-widest">MCC ID (opcional)</label>
-        <input type="text" value="${Utils.escape(d.loginCustomerId || '')}"
+        <input type="text" id="gads-wizard-mcc-id" value="${Utils.escape(d.loginCustomerId || '')}"
           oninput="Actions.updateGoogleAdsDraft('loginCustomerId', this.value)"
           placeholder="1234567890 (sem traços)"
           class="w-full px-3 py-2 rounded-xl bg-[#001230] border border-white/15 text-white text-[12px] font-mono focus:border-slate-400/60 focus:outline-none" />

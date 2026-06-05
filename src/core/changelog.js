@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.3.1',
+    date: '2026-06-05',
+    title: 'Fix wizard Google Ads perdendo foco ao digitar credenciais',
+    bullets: [
+      'Os 4 campos (Client ID, Client Secret, Developer Token, MCC ID) do step 1 do wizard Google Ads perdiam foco do cursor quando algum loader em background fazia re-render da página.',
+      'Causa: inputs sem id ou data-focus-key — o sistema de preservação de foco do LJ não conseguia reidentificar o campo após o re-render.',
+      'Fix: cada input ganhou id próprio. Foco e posição do cursor são preservados em qualquer re-render.'
+    ]
+  },
+  {
     version: 'V36.3.0',
     date: '2026-06-05',
     title: 'KRs com fonte Hotmart agora puxam valor real do servidor',
