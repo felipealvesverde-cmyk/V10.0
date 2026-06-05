@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.3.4',
+    date: '2026-06-05',
+    title: 'Fix Google Ads API: bump v18 → v24 (versão atual)',
+    bullets: [
+      'Após autorizar Google Ads no LJ, o passo de listar suas contas batia em "Nenhuma conta encontrada" mesmo quando você tinha acesso a várias.',
+      'Causa: o LJ chamava a Google Ads API v18, que o Google descontinuou. A API retornava 404 HTML e o LJ interpretava como "sem contas".',
+      'Agora chamamos a v24 (versão atual em 2026). Listagem de contas e sincronização de campanhas voltam a funcionar.'
+    ]
+  },
+  {
     version: 'V36.3.3',
     date: '2026-06-05',
     title: 'Fix OAuth callback Google Ads e GA4 batendo em banco errado',
