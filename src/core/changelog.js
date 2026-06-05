@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.3.3',
+    date: '2026-06-05',
+    title: 'Fix OAuth callback Google Ads e GA4 batendo em banco errado',
+    bullets: [
+      'O callback do OAuth Google (quando você autoriza no popup) é endpoint público — Google redireciona seu navegador direto pra ele, sem token de autenticação do LJ. Por isso o sistema multi-tenant do LJ não sabia qual banco usar e caía no banco compartilhado.',
+      'Pra clientes com banco próprio (Sansone) isso quebrava a conexão com erro "relation lj_google_ads_config does not exist" mesmo depois do migrate ter rodado com sucesso no banco deles.',
+      'Fix: o state de segurança (CSRF) agora carrega o ID do tenant no prefixo. O callback decodifica e abre conexão no banco certo.',
+      'Mesma correção aplicada ao GA4 (que tinha o mesmo bug).'
+    ]
+  },
+  {
     version: 'V36.3.2',
     date: '2026-06-05',
     title: 'Fix migrate de schema falhando com erro IMMUTABLE',

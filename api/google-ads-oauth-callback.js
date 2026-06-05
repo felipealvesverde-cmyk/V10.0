@@ -11,6 +11,7 @@
 const { encrypt } = require('../lib/clickup-crypto');
 const { decrypt } = require('../lib/clickup-crypto');
 const { exchangeCodeForTokens } = require('../lib/google-ads-oauth');
+const tenantPoolHelper = require('../lib/tenant-pool');
 
 function htmlPage({ ok, message }) {
   const safe = (s) => String(s || '').replace(/[<>&"]/g, '');
@@ -68,11 +69,27 @@ module.exports = async function handler(req, res) {
     return res.send(htmlPage({ ok: false, message: 'Parâmetros code/state ausentes.' }));
   }
 
-  // O middleware multi-tenant deve ter populado req.tenantDb se houver tenant
-  // resolvível. Como este endpoint é público, talvez não tenha — vamos buscar
-  // em qualquer pool disponível por enquanto. Em prod multi-DB, isso requer
-  // resolução por state→user→tenant.
-  const db = req.tenantDb || req.db;
+  // V36.3.3 — Resolve tenant via prefixo do state CSRF.
+  // Endpoint público (sem JWT), então middleware multi-tenant não rodou
+  // — req.tenantDb cai pro control plane por padrão. Antes a query batia
+  // no DB errado e dava "relation lj_google_ads_config does not exist"
+  // quando o tenant tem DB próprio. Agora init prefixa state com tenantId
+  // (`${tenantId}.${nonce}`); aqui parseamos e conectamos no pool certo.
+  let db;
+  try {
+    const dotIdx = state.indexOf('.');
+    const tenantIdStr = dotIdx > 0 ? state.slice(0, dotIdx) : null;
+    const tenantId = tenantIdStr && tenantIdStr !== '0' ? Number(tenantIdStr) : null;
+    if (tenantId && req.db) {
+      const tenantPool = await tenantPoolHelper.getTenantPool(req.db, tenantId);
+      db = tenantPool || req.db; // tenant sem DB próprio → control plane
+    } else {
+      db = req.tenantDb || req.db;
+    }
+  } catch (poolErr) {
+    console.warn('[google-ads-oauth-callback] tenant pool resolve falhou:', poolErr.message);
+    db = req.tenantDb || req.db;
+  }
   if (!db) {
     res.setHeader('Content-Type', 'text/html');
     return res.send(htmlPage({ ok: false, message: 'Banco indisponível.' }));
