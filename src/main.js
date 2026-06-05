@@ -322,6 +322,17 @@ var App = {
           try { RemoteSyncAdapter.schedulePush(); } catch (e) { /* swallow */ }
         }
       },
+      // V36.1.2 — Persiste apenas em localStorage, SEM disparar push remoto.
+      // Usado quando a mudança é estado visual transient (ex: produto que está
+      // pulsando na rotação da home, página de KR atual). Esses campos precisam
+      // sobreviver a F5 mas não justificam um POST /api/state-sync a cada 7s.
+      // Sem isso, rotation chamava save() → schedulePush → _doPush → POST
+      // ~9 vezes por minuto. Se algum desses POSTs falha (401 transient do
+      // servidor), o modal de Sessão Expirada abre por bug do servidor que
+      // não é culpa do cliente.
+      saveLocal() {
+        State.save();
+      },
       setTab(tab) {
         this.state.showProductCampaignsModal = false;
         this.state.productCampaignsModalId = null;

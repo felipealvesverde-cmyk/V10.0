@@ -123,7 +123,10 @@ window.HomeModule = {
       // V35.9.2 — Resetar páginas de KR quando o produto muda. Nova rodada
       // começa do bloco 1-3 de cada área.
       App.state.homeKrPages = { marketing: 0, vendas: 0, cs: 0 };
-      App.save();
+      // V36.1.2 — saveLocal em vez de save: rotação é estado visual, não
+      // justifica POST /api/state-sync a cada 7s (causava cascata de 401
+      // quando o servidor degradava transient e abria modal Sessão Expirada).
+      App.saveLocal();
       App.render();
     }, 7000);
 
@@ -151,7 +154,8 @@ window.HomeModule = {
         changed = true;
       });
 
-      if (changed) { App.save(); App.render(); }
+      // V36.1.2 — saveLocal: idem rotation do produto.
+      if (changed) { App.saveLocal(); App.render(); }
     }, 10000);
   },
 
