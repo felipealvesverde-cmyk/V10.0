@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.1.1',
+    date: '2026-06-04',
+    title: 'Modal de sessão expirada não acumula mais 30+ erros 401 no console',
+    bullets: [
+      'Quando o modal "Sessão Expirada" aparecia, o LJ continuava tentando salvar/sincronizar/atualizar contadores em loop — 30+ erros 401 entupiam o console em segundos.',
+      'Agora todos os loaders e timers (sync remoto, snapshot 3min, conciliação RD, webhooks RD, status das integrações) pausam automaticamente enquanto o modal está aberto.',
+      'Quando você reentra, tudo volta a funcionar normalmente. Sem retrabalho, sem perda de dados.'
+    ]
+  },
+  {
     version: 'V36.1.0',
     date: '2026-06-04',
     title: 'Termos de Uso da IA — plugar chave própria exige aceite',

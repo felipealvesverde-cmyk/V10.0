@@ -36,17 +36,20 @@ const IntegrationsModule = {
     const active = App.state.integrationsTab || 'injetar';
     const tab = this.TABS.find(t => t.id === active) || this.TABS[0];
 
+    // V36.1.1 — Mesma guarda do home.js: não dispara loaders enquanto
+    // modal de relogin está aberto (sessionExpired=true).
+    const sessionOk = !App.state.sessionExpired;
     // Auto-fetch status das integrações 1x ao abrir a página.
-    if (App.state.googleAdsStatus === null && window.Actions?.loadGoogleAdsStatus) {
+    if (sessionOk && App.state.googleAdsStatus === null && window.Actions?.loadGoogleAdsStatus) {
       setTimeout(() => Actions.loadGoogleAdsStatus(), 0);
     }
-    if (App.state.hotmartStatus === null && window.Actions?.loadHotmartStatus) {
+    if (sessionOk && App.state.hotmartStatus === null && window.Actions?.loadHotmartStatus) {
       setTimeout(() => Actions.loadHotmartStatus(), 0);
     }
-    if (!App.state.clickupStatus && window.Actions?.loadClickupStatus) {
+    if (sessionOk && !App.state.clickupStatus && window.Actions?.loadClickupStatus) {
       setTimeout(() => Actions.loadClickupStatus(), 0);
     }
-    if (App.state.ga4Status === null && window.Actions?.loadGa4Status) {
+    if (sessionOk && App.state.ga4Status === null && window.Actions?.loadGa4Status) {
       setTimeout(() => Actions.loadGa4Status(), 0);
     }
 

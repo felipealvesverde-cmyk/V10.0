@@ -85,6 +85,17 @@ window.RemoteSyncAdapter = {
     if (!window.App?.state) return;
     const s = window.App.state;
 
+    // V36.1.1 — GUARDA DE SESSÃO EXPIRADA. Quando JWT venceu, o auth-resolver
+    // rejeita TODOS os endpoints. Sem essa guarda, _doPush dispara em loop
+    // (debounce 2s + fluxos que chamam schedulePush) → cada falha vira mais
+    // um 401 no console + re-seta sessionExpired=true → modal pisca.
+    // Quando cliente reentra (submitReloginInline limpa sessionExpired=false),
+    // o push volta a funcionar normalmente.
+    if (s.sessionExpired === true) {
+      this._lastPushStatus = 'paused_session_expired';
+      return;
+    }
+
     // V32.10.4 — GUARDA DE EMERGÊNCIA (Felipe perda de dados RevOps).
     // BLOQUEIA push se state aparenta corrompido/vazio. Pior cenário: push
     // raro deixa de propagar mudança real. Melhor cenário: impede DB ser
@@ -184,6 +195,11 @@ window.RemoteSyncAdapter = {
     if (!window.App?.state) return;
     if (!this.isProduction()) return;
     const s = window.App.state;
+    // V36.1.1 — Mesma guarda do _doPush: pausa snapshot se sessionExpired.
+    // Sem isso, snapshot 3min dispara 401 enquanto modal está aberto.
+    if (s.sessionExpired === true) {
+      return;
+    }
     // V32.10.4 — Guarda: NÃO criar snapshot vazio. Snapshot vazio polui retention
     // (LIMIT 50) e pode mascarar histórico bom. Só salva se há dados reais.
     const totalReal = (s.products||[]).length + (s.campaigns||[]).length + (s.actions||[]).length;
