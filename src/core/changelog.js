@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.2.0',
+    date: '2026-06-05',
+    title: 'Djow Conciliador IA: sugere regra de conciliação multi-source com 1 clique',
+    bullets: [
+      'No modal de criação de KR-mãe, quando você seleciona 2+ fontes, aparece o botão "Djow IA" no cabeçalho do bloco de Conciliação.',
+      'Djow analisa as fontes e propõe a melhor regra (Verdade+Contexto, Somar, Primeira disponível, etc) com explicação humana.',
+      'Heurística primeiro (instantânea, sem custo): 1 fonte = primária; 2 fontes do mesmo conceito = verdade+fallback; 2 fontes complementares = somar.',
+      'Quando ambíguo (3+ fontes ou caso novo), Djow puxa a IA pra refinar com contexto de RevOps.',
+      'A explicação aparece dentro do bloco com aspas — você confere se faz sentido antes de confirmar.'
+    ]
+  },
+  {
     version: 'V36.1.3',
     date: '2026-06-04',
     title: 'Reentrar na conta agora salva imediato (era no-op silencioso)',

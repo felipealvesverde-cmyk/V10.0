@@ -1341,13 +1341,31 @@ window.StrategicMapModal = {
       { id: 'min', label: 'Menor valor', desc: 'Usa o menor número entre as fontes.' }
     ];
 
+    const suggesting = Boolean(djow.reconciliationSuggesting);
+    const sourceMark = djow.reconciliationSource || null; // 'djow-ia' | 'djow-heuristic' | null
+    const reasoning = djow.reconciliationReasoning || '';
+    const sourceBadge = sourceMark === 'djow-ia'
+      ? '<span class="text-[9px] font-black text-violet-200 uppercase tracking-wider px-1.5 py-0.5 rounded bg-violet-500/20">Djow IA</span>'
+      : sourceMark === 'djow-heuristic'
+      ? '<span class="text-[9px] font-black text-emerald-200 uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20">Djow heurística</span>'
+      : '';
+
     return `<div class="rounded-2xl bg-emerald-500/8 border-2 border-emerald-400/40 p-3 space-y-3">
       <div class="flex items-start gap-2">
         <i data-lucide="git-merge" class="w-4 h-4 text-emerald-300 shrink-0 mt-0.5"></i>
         <div class="flex-1">
-          <p class="text-[10px] font-black text-emerald-200 uppercase tracking-widest">Conciliação · Djow propôs uma regra</p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="text-[10px] font-black text-emerald-200 uppercase tracking-widest">Conciliação · Djow propôs uma regra</p>
+            ${sourceBadge}
+          </div>
           <p class="text-[11px] text-slate-300 mt-1">Múltiplas fontes podem medir coisas parecidas. Ajuste se necessário.</p>
+          ${reasoning ? `<p class="text-[11px] text-emerald-100/90 mt-1.5 italic">"${Utils.escape(reasoning)}"</p>` : ''}
         </div>
+        <button onclick="Actions.suggestReconciliationWithDjow()" ${suggesting ? 'disabled' : ''}
+          class="shrink-0 px-2 py-1 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-400/40 text-[10px] font-black text-violet-100 uppercase tracking-wider disabled:opacity-50 inline-flex items-center gap-1">
+          <i data-lucide="${suggesting ? 'loader-2' : 'sparkles'}" class="w-3 h-3 ${suggesting ? 'animate-spin' : ''}"></i>
+          ${suggesting ? 'Pensando…' : 'Djow IA'}
+        </button>
       </div>
 
       <!-- Seletor de modo -->

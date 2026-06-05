@@ -12767,6 +12767,65 @@ Prioridade: ${d.priority}
     App.render();
   },
 
+  // V36.2.0 — Djow Conciliador: chama o backend pra sugerir regra.
+  // Heurística primeiro no servidor, LLM como fallback quando ambíguo.
+  // Substitui a regra atual no modal e marca origem do palpite.
+  async suggestReconciliationWithDjow() {
+    const m = App.state.createCustomKrModal;
+    if (!m?.djow?.reconciliationRule) return;
+    const opts = Array.isArray(m.djow.layerOptions) ? m.djow.layerOptions : [];
+    const selectedIds = Array.isArray(m.djow.selectedSourceIds) ? m.djow.selectedSourceIds : [];
+    const sources = opts
+      .filter(o => selectedIds.includes(o.id))
+      .map(o => ({
+        id: o.id,
+        integration_id: o.integration_id || null,
+        field: o.field || null,
+        label: o.label || o.id
+      }));
+    if (sources.length < 2) {
+      return Utils.toast('Selecione 2+ fontes pra Djow sugerir regra.');
+    }
+    m.djow.reconciliationSuggesting = true;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-reconcile-suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          krName: m.name || '',
+          krUnit: m.djow.krMeta?.unit || 'numero',
+          krDirection: m.djow.krMeta?.direction || 'higher',
+          sources
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        Utils.toast(data.message || 'Djow não conseguiu sugerir.');
+        return;
+      }
+      m.djow.reconciliationRule = {
+        mode: data.mode,
+        primarySourceId: data.primarySourceId || null,
+        fallbackSourceIds: data.fallbackSourceIds || [],
+        contextSourceIds: data.contextSourceIds || []
+      };
+      m.djow.reconciliationSource = data.usedLLM ? 'djow-ia' : 'djow-heuristic';
+      m.djow.reconciliationReasoning = data.reasoning || '';
+      m.djow.falaHistory.push({
+        at: new Date().toISOString(),
+        text: `Djow sugeriu: ${data.reasoning || 'regra atualizada.'} ${data.usedLLM ? '(IA)' : '(heurística)'}`
+      });
+    } catch (err) {
+      Utils.toast(`Djow falhou: ${err.message}`);
+    } finally {
+      const cur = App.state.createCustomKrModal;
+      if (cur?.djow) cur.djow.reconciliationSuggesting = false;
+      App.render();
+    }
+  },
+
   djowToggleHistorico(show) {
     const m = App.state.createCustomKrModal;
     if (!m?.djow) return;
