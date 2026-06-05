@@ -197,26 +197,30 @@ window.HomeModule = {
   _greetingBar() {
     const name = this._userFirstName();
     const greeting = this._greeting();
+    // V36.1.1 — Guard universal: se sessionExpired, pula TODOS os loaders.
+    // Sem isso, modal de relogin acumula 30+ erros 401 no console em segundos
+    // porque cada timer/loader continua disparando.
+    const sessionOk = !App.state.sessionExpired;
     // V34.8.0 — Dispara hidratação do count de conciliação em background na
     // primeira renderização (e renova após 60s pra refletir cron 15min do back).
     const lastRecon = App.state._reconciliationLastLoadedAt || 0;
-    if ((Date.now() - lastRecon) > 60000 && window.Actions?.loadReconciliationAlerts) {
+    if (sessionOk && (Date.now() - lastRecon) > 60000 && window.Actions?.loadReconciliationAlerts) {
       App.state._reconciliationLastLoadedAt = Date.now();
       setTimeout(() => Actions.loadReconciliationAlerts(), 200);
     }
     // V35.11.0 — Hidratação leve do summary de falhas de webhook RD (60s).
     const lastWh = App.state._rdWebhookSummaryLoadedAt || 0;
-    if ((Date.now() - lastWh) > 60000 && window.Actions?.loadRdWebhookFailuresSummary) {
+    if (sessionOk && (Date.now() - lastWh) > 60000 && window.Actions?.loadRdWebhookFailuresSummary) {
       App.state._rdWebhookSummaryLoadedAt = Date.now();
       setTimeout(() => Actions.loadRdWebhookFailuresSummary(), 250);
     }
     // V35.12.0 — Tick lazy de snapshots de KR (1x por dia/sessão, idempotente).
-    if (window.Actions?._processKrSnapshots) {
+    if (sessionOk && window.Actions?._processKrSnapshots) {
       setTimeout(() => Actions._processKrSnapshots(), 300);
     }
     // V35.14.5 — Carrega status GA4 pra alimentar o sininho (sync falhou,
     // customs novos, etc). Só na primeira renderização da sessão.
-    if (App.state.ga4Status === null && window.Actions?.loadGa4Status) {
+    if (sessionOk && App.state.ga4Status === null && window.Actions?.loadGa4Status) {
       setTimeout(() => Actions.loadGa4Status(), 350);
     }
     return `<div class="lj-home-greeting">
