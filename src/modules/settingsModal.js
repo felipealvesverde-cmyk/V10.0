@@ -1097,6 +1097,11 @@ var SettingsModal = {
         <p class="text-sm text-slate-500">Carregando configuração de IA...</p>
       </div>`;
     }
+    // V36.1.0 — Hidrata termos 1x.
+    if (!App.state._aiTerms && !App._aiTermsHydrated) {
+      App._aiTermsHydrated = true;
+      setTimeout(() => Actions.loadAiTerms(), 50);
+    }
 
     const c = cache || { configured: false, masterEnabled: false, source: null, provider: null, updatedAt: null };
 
@@ -1161,13 +1166,85 @@ var SettingsModal = {
         </ol>
       </div>`;
 
+    // V36.1.0 — Bloco de Termos de Uso de IA.
+    // Aparece quando applicable=true (não master, não master-shared).
+    // Master-shared (admin liberou) é informativo: mostra que está coberto.
+    const termsBlock = isMaster ? '' : this._aiTermsBlock(c.source);
+
     return `<div class="space-y-5">
       <div>
         <h3 class="text-2xl font-black text-slate-950">IA (Anthropic / Claude)</h3>
         <p class="text-sm text-slate-500">Origem da inteligência usada por Djow, Enriquecer nomes e demais features de IA. GPT (OpenAI) chega numa onda futura.</p>
       </div>
       ${statusCard}
+      ${termsBlock}
       ${formCard}
+    </div>`;
+  },
+
+  // V36.1.0 — Bloco de Termos de Uso da IA.
+  // 3 estados:
+  //  1. applicable=false (admin liberou) → card informativo "coberto pelos termos do admin"
+  //  2. applicable=true && accepted=false → mostra markdown + checkbox + botão Aceitar
+  //  3. applicable=true && accepted=true → mostra status "Aceito em X" + botão Revogar
+  _aiTermsBlock(currentSource) {
+    const t = App.state._aiTerms;
+    if (!t) {
+      return `<div class="rounded-3xl bg-white border border-slate-100 p-5 text-sm text-slate-500">
+        Carregando Termos de Uso da IA...
+      </div>`;
+    }
+
+    // Estado 1 — admin liberou, termos do master cobrem
+    if (!t.applicable || currentSource === 'master-shared') {
+      return `<div class="rounded-3xl bg-violet-50 border border-violet-200 p-5">
+        <h4 class="font-black text-violet-900 flex items-center gap-2 mb-1"><i data-lucide="shield" class="w-4 h-4"></i>Termos de IA cobertos pelo administrador</h4>
+        <p class="text-xs text-violet-900">Como o admin do LJ liberou o saldo dele pra você, os Termos de Uso da IA aceitos por ele já cobrem suas chamadas via Djow. Você não precisa aceitar nada agora.</p>
+        <p class="text-[11px] text-violet-700 mt-2">Se quiser plugar sua chave própria como fallback, vai precisar aceitar os termos abaixo primeiro.</p>
+      </div>`;
+    }
+
+    // Estado 3 — já aceitou versão atual
+    if (t.accepted) {
+      const when = t.acceptedAt ? new Date(t.acceptedAt).toLocaleString('pt-BR') : '—';
+      return `<div class="rounded-3xl bg-emerald-50 border border-emerald-200 p-5 space-y-2">
+        <h4 class="font-black text-emerald-900 flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4"></i>Termos de IA aceitos (versão ${Utils.escape(t.version || '')})</h4>
+        <p class="text-xs text-emerald-900">Aceito em <b>${Utils.escape(when)}</b>. Você pode plugar/usar sua chave Anthropic abaixo.</p>
+        <div class="flex items-center gap-2 pt-1">
+          <button onclick="Actions.toggleAiTermsExpanded()" class="px-3 py-1.5 rounded-xl bg-white border border-emerald-300 text-emerald-800 text-[11px] font-black inline-flex items-center gap-1.5">
+            <i data-lucide="${App.state._aiTermsExpanded ? 'chevron-up' : 'chevron-down'}" class="w-3 h-3"></i>
+            ${App.state._aiTermsExpanded ? 'Ocultar termos' : 'Ver termos'}
+          </button>
+          <button onclick="Actions.revokeAiTerms()" class="px-3 py-1.5 rounded-xl bg-white border border-rose-300 text-rose-700 text-[11px] font-black inline-flex items-center gap-1.5">
+            <i data-lucide="x-circle" class="w-3 h-3"></i> Revogar aceite
+          </button>
+        </div>
+        ${App.state._aiTermsExpanded ? `<div class="mt-3 rounded-2xl bg-white border border-emerald-200 p-4 max-h-72 overflow-y-auto">
+          <pre class="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap font-sans">${Utils.escape(t.content || '')}</pre>
+        </div>` : ''}
+      </div>`;
+    }
+
+    // Estado 2 — applicable=true, NÃO aceitou. Bloqueia chave própria.
+    const checked = Boolean(App.state._aiTermsCheckboxChecked);
+    return `<div class="rounded-3xl bg-amber-50 border-2 border-amber-300 p-5 space-y-3">
+      <div>
+        <h4 class="font-black text-amber-900 flex items-center gap-2 mb-1"><i data-lucide="file-text" class="w-4 h-4"></i>Termos de Uso da IA — versão ${Utils.escape(t.version || '1.0')}</h4>
+        <p class="text-xs text-amber-900">Pra plugar e usar sua chave Anthropic própria, leia e aceite os termos abaixo. Se o admin do LJ te liberar o saldo dele depois, você não precisa mais desses termos.</p>
+      </div>
+      <div class="rounded-2xl bg-white border border-amber-200 p-4 max-h-80 overflow-y-auto">
+        <pre class="text-[12px] text-slate-800 leading-relaxed whitespace-pre-wrap font-sans">${Utils.escape(t.content || '')}</pre>
+      </div>
+      <label class="flex items-start gap-2.5 p-3 rounded-xl bg-white border border-amber-300 cursor-pointer hover:bg-amber-50">
+        <input type="checkbox" ${checked ? 'checked' : ''}
+          onchange="Actions.toggleAiTermsCheckbox()"
+          class="mt-0.5 w-4 h-4 accent-amber-600" />
+        <span class="text-[12px] text-amber-900 font-bold leading-snug">Li e aceito os Termos de Uso da IA do LeadJourney na versão ${Utils.escape(t.version || '1.0')}. Confirmo que sou responsável pelo conteúdo que envio ao Djow.</span>
+      </label>
+      <button ${checked ? '' : 'disabled'} onclick="Actions.acceptAiTerms()"
+        class="px-4 py-2.5 rounded-2xl ${checked ? 'bg-amber-600 hover:bg-amber-700' : 'bg-amber-300 cursor-not-allowed'} text-white text-sm font-black flex items-center gap-2 ${checked ? '' : 'opacity-60'}" style="color:#fff;">
+        <i data-lucide="check" class="w-4 h-4"></i> Aceitar termos e liberar chave própria
+      </button>
     </div>`;
   },
 

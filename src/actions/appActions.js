@@ -2693,11 +2693,18 @@ Object.assign(Actions, {
   },
 
   // V34.7.h — Cliente: salva própria API key Anthropic.
+  // V36.1.0 — Gate: se applicable=true E !accepted, bloqueia salvar e
+  // mostra mensagem pedindo aceite dos termos.
   async saveUserAiKey() {
     const draft = App.state._userAiKeyDraft || '';
     const apiKey = String(draft || '').trim();
     if (!apiKey) return Utils.toast('Cole sua API key Anthropic primeiro.');
     if (!/^sk-ant-/.test(apiKey)) return Utils.toast('Chave Anthropic deve começar com sk-ant-.');
+    // V36.1.0 — Verifica aceite de termos
+    const terms = App.state._aiTerms || {};
+    if (terms.applicable && !terms.accepted) {
+      return Utils.toast('Aceite os Termos de Uso de IA antes de salvar a chave.');
+    }
     const token = localStorage.getItem('lj_jwt');
     try {
       const res = await fetch('/api/user-ai-config', {
@@ -2713,6 +2720,80 @@ Object.assign(Actions, {
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     }
+  },
+
+  // V36.1.0 — Carrega termos de IA + status de aceite.
+  async loadAiTerms() {
+    const token = localStorage.getItem('lj_jwt');
+    if (!token) return;
+    try {
+      const r = await fetch('/api/ai-terms', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (data.ok) {
+        App.state._aiTerms = {
+          content: data.content,
+          version: data.version,
+          accepted: Boolean(data.accepted),
+          acceptedAt: data.acceptedAt,
+          acceptedVersion: data.acceptedVersion,
+          applicable: Boolean(data.applicable),
+          loadedAt: Date.now()
+        };
+        App.render();
+      }
+    } catch (err) {
+      console.warn('[loadAiTerms]', err.message);
+    }
+  },
+
+  // V36.1.0 — Cliente marca/desmarca o checkbox "Li e aceito".
+  toggleAiTermsCheckbox() {
+    App.state._aiTermsCheckboxChecked = !App.state._aiTermsCheckboxChecked;
+    App.render();
+  },
+
+  // V36.1.0 — Registra aceite no backend.
+  async acceptAiTerms() {
+    if (!App.state._aiTermsCheckboxChecked) return Utils.toast('Marque "Li e aceito" antes.');
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch('/api/ai-terms-accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({})
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('✓ Termos aceitos. Agora você pode plugar sua chave.');
+      App.state._aiTermsCheckboxChecked = false;
+      await this.loadAiTerms();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V36.1.0 — Revoga aceite. Bloqueia chave própria até reaceitar.
+  async revokeAiTerms() {
+    if (!confirm('Revogar aceite dos Termos de IA?\n\nO Djow para de funcionar com sua chave própria. Você pode reativar depois lendo a versão atual dos termos novamente.')) return;
+    const token = localStorage.getItem('lj_jwt');
+    try {
+      const r = await fetch('/api/ai-terms-accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ revoke: true })
+      });
+      const data = await r.json();
+      if (!data.ok) return Utils.toast(`Falha: ${data.message}`);
+      Utils.toast('Aceite revogado.');
+      await this.loadAiTerms();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  toggleAiTermsExpanded() {
+    App.state._aiTermsExpanded = !App.state._aiTermsExpanded;
+    App.render();
   },
 
   // V34.7.h — Atualiza o draft do input da chave (sem re-render pra não perder foco).
