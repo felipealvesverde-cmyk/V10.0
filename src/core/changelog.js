@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.1.2',
+    date: '2026-06-04',
+    title: 'Rotação da Home não vai mais bater no servidor a cada 7 segundos',
+    bullets: [
+      'A Home rotaciona o produto que está pulsando a cada 7 segundos e a página de KRs a cada 10 segundos. Mas a cada rotação o LJ disparava um salvamento completo no servidor, gerando 8-10 chamadas por minuto sem necessidade.',
+      'Quando o servidor degradava transient (qualquer instabilidade momentânea), uma dessas chamadas falhava e abria o modal "Sessão Expirada" mesmo com sua sessão válida.',
+      'Agora a rotação salva apenas localmente (localStorage). F5 mantém o produto que estava pulsando, mas o servidor não é incomodado.',
+      'Mudanças reais de dado (criar campanha, salvar KR, etc) continuam sincronizando normalmente.'
+    ]
+  },
+  {
     version: 'V36.1.1',
     date: '2026-06-04',
     title: 'Modal de sessão expirada não acumula mais 30+ erros 401 no console',
