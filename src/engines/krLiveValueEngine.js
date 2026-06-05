@@ -274,8 +274,44 @@ window.KrLiveValueEngine = {
       return sum;
     }
 
-    // rd_station, hotmart, clickup, etc viriam aqui com os mesmos blocos
-    // já presentes no fallback do appActions hoje.
+    // V36.3.0 — Hotmart. Lê de state.hotmartKrCache populado por
+    // Actions.loadHotmartKrCache() (que reusa /api/hotmart-dashboard-metrics).
+    // Backward compat: aceita field nas formas:
+    //   - 'approved_count' / 'refunded_count' / 'canceled_count' / 'total_count'
+    //   - 'total_revenue' / 'total_commission' / 'avg_ticket' (em BRL)
+    //   - 'PURCHASE_APPROVED'        → approved_count
+    //   - 'PURCHASE_APPROVED.value'  → total_revenue
+    //   - 'PURCHASE_REFUNDED'        → refunded_count
+    //   - 'PURCHASE_CANCELED'        → canceled_count
+    if (integrationId === 'hotmart') {
+      const cache = state.hotmartKrCache || {};
+      if (!cache.loaded) {
+        // Dispara load async pra próxima passagem cobrir, mas retorna 0 agora.
+        if (window.Actions?.loadHotmartKrCache) {
+          Promise.resolve(window.Actions.loadHotmartKrCache()).catch(() => {});
+        }
+        return 0;
+      }
+      const map = {
+        'PURCHASE_APPROVED': 'approved_count',
+        'PURCHASE_APPROVED.value': 'total_revenue',
+        'PURCHASE_REFUNDED': 'refunded_count',
+        'PURCHASE_CANCELED': 'canceled_count',
+        'PURCHASE_CHARGEBACK': 'chargeback_count',
+        'PURCHASE_BILLET_PRINTED': 'billet_count'
+      };
+      const key = map[field] || field;
+      const v = Number(cache[key]);
+      return Number.isFinite(v) ? v : 0;
+    }
+
+    // V36.3.0 — RD Station e ClickUp ainda não têm cache agregado.
+    // Quando alguém implementar /api/rd-kr-aggregate e /api/clickup-kr-aggregate,
+    // entram aqui no mesmo padrão do Hotmart acima.
+    if (integrationId === 'rd_station' || integrationId === 'clickup') {
+      return 0;
+    }
+
     return 0;
   },
 

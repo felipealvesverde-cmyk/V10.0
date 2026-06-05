@@ -13406,6 +13406,65 @@ Object.assign(Actions, {
     }
   },
 
+  // V36.3.0 — Cache de KPIs Hotmart pra KRs ao vivo (KrLiveValueEngine).
+  // Reutiliza /api/hotmart-dashboard-metrics (já agrega tudo no SQL — barato).
+  // Loader fica em sessionStorage de cache (1 chamada por sessão por janela).
+  async loadHotmartKrCache(opts) {
+    const days = Number(opts?.days || 30);
+    const productIdHotmart = opts?.productIdHotmart || 'all';
+    if (!App.state.hotmartStatus?.configured) {
+      App.state.hotmartKrCache = { loaded: false, error: 'not-configured' };
+      return;
+    }
+    const cur = App.state.hotmartKrCache;
+    // Throttle: se cache fresh (<5min), não rebusca
+    if (cur?.loaded && cur.fetchedAt && Date.now() - cur.fetchedAt < 5 * 60 * 1000) return;
+    // Guard contra loops do engine: se já loading OU se falhou nos últimos 30s, skip
+    if (cur?.loading) return;
+    if (cur?.error && cur.failedAt && Date.now() - cur.failedAt < 30 * 1000) return;
+    App.state.hotmartKrCache = { ...(cur || {}), loading: true };
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(
+        `/api/hotmart-dashboard-metrics?product_id_hotmart=${encodeURIComponent(productIdHotmart)}&days=${days}&limit=1`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await r.json();
+      if (!data.ok) {
+        App.state.hotmartKrCache = { loaded: false, loading: false, error: data.message || 'fetch-failed', failedAt: Date.now() };
+        return;
+      }
+      const k = data.kpis || {};
+      App.state.hotmartKrCache = {
+        loaded: true,
+        fetchedAt: Date.now(),
+        days,
+        // Counts
+        approved_count: Number(k.approvedCount || 0),
+        refunded_count: Number(k.refundedCount || 0),
+        chargeback_count: Number(k.chargebackCount || 0),
+        canceled_count: Number(k.canceledCount || 0),
+        billet_count: Number(k.billetCount || 0),
+        total_count: Number(k.totalCount || 0),
+        // Money (em reais — converte centavos)
+        total_revenue: Number(k.totalRevenueCents || 0) / 100,
+        total_commission: Number(k.totalCommissionCents || 0) / 100,
+        avg_ticket: Number(k.avgTicketCents || 0) / 100,
+        // Por produto (se quiser filtrar depois)
+        by_product: (data.products || []).map(p => ({
+          productIdHotmart: p.productIdHotmart,
+          productName: p.productName,
+          approved_count: Number(p.purchaseCount || 0),
+          total_revenue: Number(p.revenueCents || 0) / 100
+        }))
+      };
+      // Re-render pra KRs Hotmart pegarem o valor recém-carregado.
+      if (App.render) App.render();
+    } catch (err) {
+      App.state.hotmartKrCache = { loaded: false, loading: false, error: err.message, failedAt: Date.now() };
+    }
+  },
+
   openHotmartWizard() {
     // V35.6.0-alpha6 — Detecta status existente. Se conectado, abre em modo
     // 'manage' (status card + botões). Se não, abre wizard normal step 1.

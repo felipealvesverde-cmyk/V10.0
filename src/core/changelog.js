@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.3.0',
+    date: '2026-06-05',
+    title: 'KRs com fonte Hotmart agora puxam valor real do servidor',
+    bullets: [
+      'KRs-mãe atômicos com fonte Hotmart (ex: "Vendas Aprovadas", "Receita", "Reembolsos") agora calculam o current ao vivo, igual já fazia com Google Ads e GA4.',
+      'Fontes Hotmart suportadas: vendas aprovadas, receita aprovada, reembolsos, cancelamentos, chargebacks, boletos impressos, ticket médio, comissão.',
+      'Cache fica fresh por 5 minutos. Falhas têm cooldown de 30s antes de tentar de novo (evita loop quando Hotmart está fora do ar).',
+      'Reutiliza o endpoint /api/hotmart-dashboard-metrics — sem nova carga no banco.',
+      'RD Station e ClickUp ainda não automatizam KRs — fonte voltará a aparecer só quando tiverem endpoint de agregação dedicado.'
+    ]
+  },
+  {
     version: 'V36.2.0',
     date: '2026-06-05',
     title: 'Djow Conciliador IA: sugere regra de conciliação multi-source com 1 clique',
