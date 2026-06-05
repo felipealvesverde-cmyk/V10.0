@@ -12,6 +12,7 @@
 
 const { encrypt, decrypt } = require('../lib/clickup-crypto');
 const { exchangeCodeForTokens } = require('../lib/ga4-oauth');
+const tenantPoolHelper = require('../lib/tenant-pool');
 
 function htmlPage({ ok, message }) {
   const safe = (s) => String(s || '').replace(/[<>&"]/g, '');
@@ -65,9 +66,26 @@ module.exports = async function handler(req, res) {
     return res.send(htmlPage({ ok: false, message: 'Parâmetros code/state ausentes.' }));
   }
 
-  // Endpoint público — não há req.user. Resolvemos o tenant via lookup
-  // do state CSRF na tabela. Mesma estratégia do google-ads-oauth-callback.
-  const db = req.tenantDb || req.db;
+  // V36.3.3 — Resolve tenant via prefixo do state CSRF (igual google-ads).
+  // Endpoint público (sem JWT), middleware multi-tenant não rodou. Init
+  // prefixa state com tenantId (`${tenantId}.${nonce}`); aqui parseamos
+  // e conectamos no pool certo. Sem isso, query caía no control plane
+  // e dava "relation lj_ga4_config does not exist".
+  let db;
+  try {
+    const dotIdx = state.indexOf('.');
+    const tenantIdStr = dotIdx > 0 ? state.slice(0, dotIdx) : null;
+    const tenantId = tenantIdStr && tenantIdStr !== '0' ? Number(tenantIdStr) : null;
+    if (tenantId && req.db) {
+      const tenantPool = await tenantPoolHelper.getTenantPool(req.db, tenantId);
+      db = tenantPool || req.db;
+    } else {
+      db = req.tenantDb || req.db;
+    }
+  } catch (poolErr) {
+    console.warn('[ga4-oauth-callback] tenant pool resolve falhou:', poolErr.message);
+    db = req.tenantDb || req.db;
+  }
   if (!db) {
     res.setHeader('Content-Type', 'text/html');
     return res.send(htmlPage({ ok: false, message: 'Banco indisponível.' }));

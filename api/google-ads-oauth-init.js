@@ -25,8 +25,13 @@ module.exports = async function handler(req, res) {
     }
     const clientId = decrypt(r.rows[0].client_id_enc);
 
-    // CSRF state — 32 bytes random, válido por 10 min, persistido no DB
-    const stateToken = crypto.randomBytes(32).toString('base64url');
+    // CSRF state — 32 bytes random, válido por 10 min, persistido no DB.
+    // V36.3.3 — Prefixa com tenantId pra que o callback (que é PÚBLICO,
+    // sem JWT, sem resolução de tenant via middleware) consiga descobrir
+    // qual tenant DB usar via state.split('.')[0]. Sem isso, callback
+    // caía no control plane e dava "relation does not exist".
+    const tenantPrefix = req.user.tenantId ? String(req.user.tenantId) : '0';
+    const stateToken = `${tenantPrefix}.${crypto.randomBytes(32).toString('base64url')}`;
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await req.tenantDb.query(
       `UPDATE lj_google_ads_config SET oauth_state_token = $1, oauth_state_expires_at = $2 WHERE user_id = $3`,
