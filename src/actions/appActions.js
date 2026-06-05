@@ -2535,14 +2535,18 @@ Object.assign(Actions, {
       // SUCESSO: atualiza token SEM tocar em App.state nem StorageAdapter.
       localStorage.setItem('lj_jwt', data.token);
       localStorage.setItem('lj_user', JSON.stringify(data.user));
+      // V36.1.3 — Limpar sessionExpired ANTES de flushNow. O guard V36.1.1
+      // em _doPush rejeita push quando sessionExpired=true, o que estava
+      // tornando o flushNow um no-op silencioso pós-relogin (trabalho ficava
+      // em memória até próximo App.save). A ordem nova garante que o push
+      // pendente realmente vá pro servidor. flushNow também passa force=true
+      // como defesa em profundidade.
+      App.state.sessionExpired = false;
+      App.state.reloginInlineModal = { open: false, error: null, loading: false };
       // Empurra mudanças pendentes IMEDIATAMENTE.
       try {
         if (window.RemoteSyncAdapter?.flushNow) await RemoteSyncAdapter.flushNow();
       } catch (_) {}
-      // V35.4.3 — Limpa banner de sessão expirada (A3).
-      App.state.sessionExpired = false;
-      // Fecha modal.
-      App.state.reloginInlineModal = { open: false, error: null, loading: false };
       App.render();
       Utils.toast('✓ Sessão renovada. Suas alterações foram salvas.');
     } catch (err) {

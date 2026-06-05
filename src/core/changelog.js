@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.1.3',
+    date: '2026-06-04',
+    title: 'Reentrar na conta agora salva imediato (era no-op silencioso)',
+    bullets: [
+      'Depois do "REENTRAR E SALVAR", o LJ tentava enviar suas alterações pro servidor mas o salvamento estava sendo bloqueado pela própria proteção contra loop de erro 401 introduzida na V36.1.1.',
+      'Resultado: o trabalho ficava em memória por até 2 segundos a mais até o próximo salvamento normal. Se algo desse errado nesse intervalo, perdia.',
+      'Agora o LJ limpa o estado de "sessão expirada" ANTES de tentar salvar, garantindo que o push imediato realmente vá pro servidor.',
+      'Defesa extra: o flushNow agora passa "force" pro _doPush, então mesmo se algum código futuro chamar fora de ordem, o salvamento ainda funciona.'
+    ]
+  },
+  {
     version: 'V36.1.2',
     date: '2026-06-04',
     title: 'Rotação da Home não vai mais bater no servidor a cada 7 segundos',
