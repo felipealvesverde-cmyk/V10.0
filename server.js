@@ -384,6 +384,18 @@ async function runMigrations() {
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS active_score_model VARCHAR(16) DEFAULT 'rfv';
     `);
+    // V36.1.0 — Aceite de termos de IA. Obrigatório APENAS pra source='user'
+    // (cliente plugou chave própria). Master + master-shared NÃO precisam —
+    // saldo do LJ é coberto pelo termo aceito pelo admin.
+    // ai_terms_accepted_at: timestamp do aceite (null = nunca aceitou)
+    // ai_terms_version: versão aceita (ex: '1.0'). Se constante atual mudar,
+    //                   cliente precisa reaceitar.
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_terms_accepted_at TIMESTAMPTZ;
+    `);
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS ai_terms_version VARCHAR(16);
+    `);
 
     // V34.7.h — API key do cliente (Anthropic agora; OpenAI numa onda futura).
     // Criptografada via ENCRYPTION_KEY (lib/clickup-crypto.js helpers).

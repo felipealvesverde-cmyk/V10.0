@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.1.0',
+    date: '2026-06-04',
+    title: 'Termos de Uso da IA — plugar chave própria exige aceite',
+    bullets: [
+      'Quem usa Djow via saldo liberado pelo admin (caso do Sansone hoje) NÃO precisa fazer nada — está coberto pelos termos que o admin já aceitou.',
+      'Quem plugar a própria chave Anthropic no LJ agora precisa ler e aceitar os Termos de Uso da IA antes de salvar a chave.',
+      'Os termos cobrem: o que o LJ envia ao modelo, retenção da Anthropic, responsabilidades LGPD, limites de garantia e como revogar.',
+      'Quem já tinha chave plugada antes desta versão continua usando normalmente (compatibilidade retroativa). O aceite só é exigido pra nova chave ou troca.'
+    ]
+  },
+  {
     version: 'V36.0',
     date: '2026-06-04',
     title: 'Djow Conciliador — KRs ao vivo com múltiplas fontes',
