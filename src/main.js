@@ -196,7 +196,8 @@ var App = {
             // V36.5.0 — Quando auth-me rejeita, descobre POR QUÊ via auth-debug.
             // Token órfão (assinatura inválida + não expirado) = JWT_SECRET
             // rotacionada sem manter PREVIOUS no servidor. Cliente fica preso
-            // em loop de 401 silencioso. Log claro pra debug + auto-clear.
+            // em loop de 401 silencioso.
+            let isOrphan = false;
             try {
               const dbg = await fetch('/api/auth-debug', {
                 headers: { 'Authorization': `Bearer ${token}` }
@@ -204,6 +205,7 @@ var App = {
               const mw = dbg?.middleware_verify_result || {};
               const pd = dbg?.token_payload_decoded || {};
               if (mw.ok === false && pd.already_expired === false) {
+                isOrphan = true;
                 console.warn('[_checkSession] 🚨 TOKEN ÓRFÃO detectado:', {
                   motivo: mw.error || 'assinatura inválida',
                   jwt_age_minutes: pd.age_minutes,
@@ -214,8 +216,31 @@ var App = {
                 console.log('[_checkSession] JWT expirou normalmente — relogin necessário.');
               }
             } catch (_) { /* silent */ }
-            localStorage.removeItem('lj_jwt');
-            localStorage.removeItem('lj_user');
+            // V36.5.1 — Limpa TUDO (não só lj_jwt). State em memória, sessionStorage,
+            // health check interval. Felipe reportou: app continuava com JWT velho
+            // mesmo após _checkSession remover lj_jwt. Limpeza completa garante.
+            try {
+              if (window._healthCheckInterval) {
+                clearInterval(window._healthCheckInterval);
+                window._healthCheckInterval = null;
+              }
+              if (window._rdWebhookSyncInterval) {
+                clearInterval(window._rdWebhookSyncInterval);
+                window._rdWebhookSyncInterval = null;
+              }
+              localStorage.removeItem('lj_jwt');
+              localStorage.removeItem('lj_user');
+              sessionStorage.clear();
+              this.state = null;
+              this.currentUser = null;
+              if (isOrphan) {
+                // V36.5.1 — Token órfão: força reload via location.replace (sem voltar
+                // pelo back), com query bust pra evitar qualquer cache.
+                console.warn('[_checkSession] Forçando reload limpo (location.replace).');
+                window.location.replace('/?orphan_logout=' + Date.now());
+                return false;
+              }
+            } catch (e) { console.warn('[_checkSession] cleanup err:', e); }
             return false;
           }
           this.currentUser = data.user;
