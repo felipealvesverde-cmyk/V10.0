@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.8.1',
+    date: '2026-06-08',
+    title: 'Fix do bug clássico — input perdia foco depois da 1ª letra nos modais novos',
+    bullets: [
+      'Os inputs do modal de criar cliente e do wizard de banco de dados perdiam foco a cada letra digitada (o App.render dispara em cada keystroke e o DOM era reconstruído).',
+      'O LJ já tem solução pra isso (_captureFocus + _restoreFocus em src/main.js) mas cada input precisa ter id único pra ser localizado e restaurado.',
+      'Adicionados IDs em todos os inputs novos. Agora você digita normalmente sem precisar clicar de novo a cada letra.'
+    ]
+  },
+  {
     version: 'V36.8.0',
     date: '2026-06-08',
     title: 'Master pode criar clientes novos + onboarding guiado com banco de dados',

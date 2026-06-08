@@ -206,36 +206,36 @@ window.TenantDbWizardModal = {
       <div class="grid grid-cols-2 gap-3">
         <div class="col-span-2 space-y-1.5">
           <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Host *</label>
-          <input type="text" value="${Utils.escape(f.host || '')}"
-            oninput="Actions.updateTenantDbField('host', this.value)"
+          <input type="text" id="tenant-db-host" value="${Utils.escape(f.host || '')}"
+            oninput="Actions.updateTenantDbField('host', this.value); App.render()"
             placeholder="db.exemplo.com"
             class="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm font-mono focus:border-sky-500 focus:outline-none" />
         </div>
         <div class="space-y-1.5">
           <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Porta</label>
-          <input type="text" value="${Utils.escape(f.port || '5432')}"
-            oninput="Actions.updateTenantDbField('port', this.value.replace(/[^0-9]/g, ''))"
+          <input type="text" id="tenant-db-port" value="${Utils.escape(f.port || '5432')}"
+            oninput="Actions.updateTenantDbField('port', this.value.replace(/[^0-9]/g, '')); App.render()"
             placeholder="5432"
             class="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm font-mono focus:border-sky-500 focus:outline-none" />
         </div>
         <div class="space-y-1.5">
           <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Database *</label>
-          <input type="text" value="${Utils.escape(f.dbname || '')}"
-            oninput="Actions.updateTenantDbField('dbname', this.value)"
+          <input type="text" id="tenant-db-dbname" value="${Utils.escape(f.dbname || '')}"
+            oninput="Actions.updateTenantDbField('dbname', this.value); App.render()"
             placeholder="leadjourney"
             class="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm font-mono focus:border-sky-500 focus:outline-none" />
         </div>
         <div class="space-y-1.5">
           <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Usuário *</label>
-          <input type="text" value="${Utils.escape(f.user || '')}"
-            oninput="Actions.updateTenantDbField('user', this.value)"
+          <input type="text" id="tenant-db-user" value="${Utils.escape(f.user || '')}"
+            oninput="Actions.updateTenantDbField('user', this.value); App.render()"
             placeholder="postgres"
             class="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm font-mono focus:border-sky-500 focus:outline-none" />
         </div>
         <div class="space-y-1.5">
           <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Senha *</label>
-          <input type="password" value="${Utils.escape(f.password || '')}"
-            oninput="Actions.updateTenantDbField('password', this.value)"
+          <input type="password" id="tenant-db-password" value="${Utils.escape(f.password || '')}"
+            oninput="Actions.updateTenantDbField('password', this.value); App.render()"
             placeholder="••••••••"
             class="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 text-sm font-mono focus:border-sky-500 focus:outline-none" />
         </div>
@@ -263,7 +263,7 @@ window.TenantDbWizardModal = {
 
       ${!isCustom ? `<div class="space-y-1.5">
         <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Cole a connection string aqui</label>
-        <input type="password" value="${Utils.escape(w.connStr || '')}"
+        <input type="password" id="tenant-db-connstr" value="${Utils.escape(w.connStr || '')}"
           oninput="App.state.tenantDbWizard.connStr = this.value; App.render()"
           placeholder="postgresql://user:senha@host:5432/database"
           class="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm font-mono focus:border-sky-500 focus:outline-none" />
