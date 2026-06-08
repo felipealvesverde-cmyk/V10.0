@@ -2436,6 +2436,37 @@ Object.assign(Actions, {
   //   1. Flush push pendente PRIMEIRO (garante deleções/edits no DB antes de sair)
   //   2. Limpa state localStorage SEMPRE (antes só sandbox limpava → vazava
   //      pra próxima conta que logasse no mesmo browser)
+  // V36.5.1 — Logout-força-bruta sem confirm, sem flushNow, sem nada que pode
+  // travar. Pra emergências quando JWT está órfão e nada normal funciona.
+  // Limpa localStorage, sessionStorage, intervals, state em memória. Reload via
+  // location.replace (sem voltar pelo back) com query bust pra zerar cache.
+  forceFullLogout() {
+    try {
+      if (window._healthCheckInterval) clearInterval(window._healthCheckInterval);
+      if (window._rdWebhookSyncInterval) clearInterval(window._rdWebhookSyncInterval);
+      if (window._krSnapshotInterval) clearInterval(window._krSnapshotInterval);
+    } catch (_) {}
+    try { localStorage.clear(); } catch (_) {}
+    try { sessionStorage.clear(); } catch (_) {}
+    // Limpa cookies do domínio (se houver)
+    try {
+      document.cookie.split(';').forEach(c => {
+        const eq = c.indexOf('=');
+        const name = (eq > -1 ? c.substring(0, eq) : c).trim();
+        document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+      });
+    } catch (_) {}
+    // Apaga state em memória
+    try {
+      if (window.App) {
+        window.App.state = null;
+        window.App.currentUser = null;
+      }
+    } catch (_) {}
+    // Reload forçado sem cache
+    window.location.replace('/?force_logout=' + Date.now());
+  },
+
   async logout() {
     if (!confirm('Deslogar do LeadJourney? Mudanças não salvas podem ser perdidas.')) return;
     // 1. Flush push pendente. Se master/production tinha edit pendente (ex: apagou
@@ -14053,6 +14084,11 @@ Object.assign(Actions, {
   // V36.5.0 — Health Check: roda checks em paralelo, popula state.healthCheck.items.
   async runHealthCheck() {
     if (!App.state.healthCheck) App.state.healthCheck = { items: [], loading: false, expanded: false };
+    // V36.5.1 — Skip se sessionExpired (não gera ruído de 401 enquanto banner está aberto).
+    if (App.state.sessionExpired) {
+      App.state.healthCheck.loading = false;
+      return;
+    }
     App.state.healthCheck.loading = true;
     App.render();
     const token = localStorage.getItem('lj_jwt');

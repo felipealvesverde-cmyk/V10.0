@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.5.1',
+    date: '2026-06-08',
+    title: 'Logout-força-bruta + botão "Sair forçado" no banner âmbar',
+    bullets: [
+      'Quando o LJ detecta passe órfão no boot, agora limpa TUDO (localStorage, sessionStorage, intervals, state em memória) e força reload sem cache — não só limpa o token isolado.',
+      'Novo botão "Sair forçado" no banner âmbar de Sessão Expirada. Vermelho, ao lado de "Reentrar". Limpa tudo sem pedir confirmação e te leva direto pra tela de login.',
+      'Health Check Panel agora pausa quando sessionExpired=true. Reduz ruído de 401 no console quando você precisa reentrar.'
+    ]
+  },
+  {
     version: 'V36.5.0',
     date: '2026-06-08',
     title: 'Detecção automática de "passe órfão" + Health Check Panel no menu',
