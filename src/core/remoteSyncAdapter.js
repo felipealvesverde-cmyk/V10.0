@@ -206,11 +206,23 @@ window.RemoteSyncAdapter = {
     if (!window.App?.state) return;
     if (!this.isProduction()) return;
     const s = window.App.state;
-    // V36.1.1 — Mesma guarda do _doPush: pausa snapshot se sessionExpired.
-    // Sem isso, snapshot 3min dispara 401 enquanto modal está aberto.
-    if (s.sessionExpired === true) {
-      return;
-    }
+    // V36.6.3 — REMOVIDA a guarda de sessionExpired (V36.1.1).
+    //
+    // A guarda original (paralela ao guard de _doPush) impedia snapshot quando
+    // banner âmbar estava aberto. Mas isso é O CONTRÁRIO do que deveríamos
+    // fazer: snapshot é EXATAMENTE quando o cliente precisa salvar — se a
+    // sessão expirou e ele continuou trabalhando, é o momento mais crítico
+    // pra preservar o estado.
+    //
+    // Bug operacional documentado (Felipe 2026-06-08): durante a sessão de
+    // debug do sliding session, banner âmbar ficou ativo por horas. Push e
+    // snapshot pausados → trabalho do Sansone não foi pro banco → quando
+    // localStorage foi limpo, dados se perderam. Felipe recuperou via backup
+    // manual mas foi sorte.
+    //
+    // Decisão: snapshot tenta sempre (mesmo com sessionExpired=true). Se der
+    // 401 no servidor por JWT inválido, _triggerAuthExpired apenas seta a
+    // flag (já está setada, idempotente). Sem loops.
     // V32.10.4 — Guarda: NÃO criar snapshot vazio. Snapshot vazio polui retention
     // (LIMIT 50) e pode mascarar histórico bom. Só salva se há dados reais.
     const totalReal = (s.products||[]).length + (s.campaigns||[]).length + (s.actions||[]).length;
