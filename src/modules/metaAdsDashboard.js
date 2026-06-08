@@ -17,7 +17,7 @@ window.MetaAdsDashboard = {
       <div class="rounded-3xl p-6 lg:p-8" style="background: linear-gradient(135deg, rgba(244,114,182,.18), rgba(249,168,212,.10)); border: 1px solid rgba(244,114,182,.30);">
         <div class="flex items-start gap-4">
           <div class="shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center" style="background: rgba(244,114,182,.20); border: 1px solid rgba(244,114,182,.40);">
-            <i data-lucide="facebook" class="w-7 h-7" style="color: #F472B6;"></i>
+            <i data-lucide="megaphone" class="w-7 h-7" style="color: #F472B6;"></i>
           </div>
           <div class="min-w-0 flex-1">
             <p class="text-[10px] font-black uppercase tracking-widest mb-1" style="color: #F472B6;">Marketing · Aquisição</p>
