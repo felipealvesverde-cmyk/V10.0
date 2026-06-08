@@ -3138,7 +3138,7 @@ var SettingsModal = {
         <div class="p-6 space-y-4">
           <div class="space-y-1.5">
             <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Slug (URL) *</label>
-            <input type="text" value="${Utils.escape(slug)}"
+            <input type="text" id="tenant-create-slug" value="${Utils.escape(slug)}"
               oninput="Actions.updateTenantCreateField('slug', this.value.toLowerCase().replace(/[^a-z0-9-]/g, '')); App.render()"
               placeholder="atira-pro"
               class="w-full px-3 py-2 rounded-xl bg-slate-50 border ${slug && !slugValid ? 'border-rose-300' : 'border-slate-200'} text-sm font-mono focus:border-violet-500 focus:outline-none" />
@@ -3148,7 +3148,7 @@ var SettingsModal = {
 
           <div class="space-y-1.5">
             <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Nome de exibição *</label>
-            <input type="text" value="${Utils.escape(name)}"
+            <input type="text" id="tenant-create-name" value="${Utils.escape(name)}"
               oninput="Actions.updateTenantCreateField('name', this.value); App.render()"
               placeholder="Atira.Pro"
               class="w-full px-3 py-2 rounded-xl bg-slate-50 border ${name && !nameValid ? 'border-rose-300' : 'border-slate-200'} text-sm focus:border-violet-500 focus:outline-none" />
@@ -3156,7 +3156,7 @@ var SettingsModal = {
 
           <div class="space-y-1.5 pt-3 border-t border-slate-100">
             <label class="text-[11px] font-black text-violet-700 uppercase tracking-wider">Master do cliente (owner) *</label>
-            <input type="email" value="${Utils.escape(masterEmail)}"
+            <input type="email" id="tenant-create-master" value="${Utils.escape(masterEmail)}"
               oninput="Actions.updateTenantCreateField('masterEmail', this.value.toLowerCase()); App.render()"
               placeholder="thiago@atira.pro"
               class="w-full px-3 py-2 rounded-xl bg-slate-50 border ${masterEmail && !masterValid ? 'border-rose-300' : 'border-slate-200'} text-sm focus:border-violet-500 focus:outline-none" />
@@ -3167,7 +3167,7 @@ var SettingsModal = {
             <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Equipe (opcional)</label>
             ${teamEmails.map((email, idx) => `
               <div class="flex gap-2">
-                <input type="email" value="${Utils.escape(email)}"
+                <input type="email" id="tenant-create-team-${idx}" value="${Utils.escape(email)}"
                   oninput="Actions.updateTenantTeamEmail(${idx}, this.value.toLowerCase()); App.render()"
                   placeholder="joao@atira.pro"
                   class="flex-1 px-3 py-2 rounded-xl bg-slate-50 border ${email && !emailRx.test(email) ? 'border-rose-300' : 'border-slate-200'} text-sm focus:border-violet-500 focus:outline-none" />
