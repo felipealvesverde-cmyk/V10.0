@@ -14038,6 +14038,118 @@ Object.assign(Actions, {
     } catch (_) {}
   },
 
+  // V36.5.0 — Health Check Panel: toggle expandir/recuar.
+  toggleHealthCheck() {
+    if (!App.state.healthCheck) App.state.healthCheck = { items: [], loading: false, expanded: false };
+    App.state.healthCheck.expanded = !App.state.healthCheck.expanded;
+    App.save();
+    App.render();
+    // Se expandindo e nunca rodou, dispara check
+    if (App.state.healthCheck.expanded && (!App.state.healthCheck.items || !App.state.healthCheck.items.length)) {
+      Actions.runHealthCheck();
+    }
+  },
+
+  // V36.5.0 — Health Check: roda checks em paralelo, popula state.healthCheck.items.
+  async runHealthCheck() {
+    if (!App.state.healthCheck) App.state.healthCheck = { items: [], loading: false, expanded: false };
+    App.state.healthCheck.loading = true;
+    App.render();
+    const token = localStorage.getItem('lj_jwt');
+    const auth = { Authorization: `Bearer ${token}` };
+    const items = [];
+
+    const safe = async (label, shortDetail, fn) => {
+      try {
+        const result = await fn();
+        items.push({ key: label, label, ...result, shortDetail: result.shortDetail || shortDetail });
+      } catch (err) {
+        items.push({ key: label, label, status: 'error', detail: err.message, shortDetail });
+      }
+    };
+
+    await Promise.all([
+      safe('Servidor', 'auth-me', async () => {
+        const t0 = Date.now();
+        const r = await fetch('/api/auth-me', { headers: auth });
+        const dt = Date.now() - t0;
+        const data = await r.json();
+        if (data.authenticated) return { status: 'ok', shortDetail: `${dt}ms`, detail: `auth-me 200 em ${dt}ms` };
+        return { status: 'error', shortDetail: 'rejeitou token', detail: 'Servidor rejeitou seu passe (JWT órfão? expirado?)' };
+      }),
+
+      safe('Sessão', 'JWT', async () => {
+        if (!token) return { status: 'error', shortDetail: 'sem token', detail: 'Não há lj_jwt no localStorage' };
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const now = Math.floor(Date.now()/1000);
+        const remH = Math.round((payload.exp - now) / 3600);
+        if (payload.exp < now) return { status: 'error', shortDetail: 'expirou', detail: 'JWT expirou — relogue' };
+        return { status: 'ok', shortDetail: `vale ${remH}h`, detail: `Expira em ${remH}h (${new Date(payload.exp*1000).toLocaleString()})` };
+      }),
+
+      safe('State sync', 'POST /api/state-sync', async () => {
+        const t0 = Date.now();
+        const r = await fetch('/api/state-sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...auth },
+          body: JSON.stringify({ state: { hc_ping: true } })
+        });
+        const dt = Date.now() - t0;
+        if (r.ok) return { status: 'ok', shortDetail: `${dt}ms`, detail: `POST state-sync 200 em ${dt}ms` };
+        return { status: 'error', shortDetail: `HTTP ${r.status}`, detail: `state-sync retornou ${r.status}` };
+      }),
+
+      safe('Banco', 'tenant DB', async () => {
+        const u = App.currentUser || JSON.parse(localStorage.getItem('lj_user') || '{}');
+        if (u.tenantDbPlugged) return { status: 'ok', shortDetail: 'próprio', detail: `Tenant ${u.tenantName || u.tenantId} com DB próprio` };
+        if (u.tenantId) return { status: 'ok', shortDetail: 'control plane', detail: 'Sem DB próprio (usa control plane)' };
+        return { status: 'ok', shortDetail: 'master', detail: 'Master no control plane' };
+      }),
+
+      safe('Google Ads', 'OAuth', async () => {
+        const s = App.state.googleAdsStatus || {};
+        if (!s.configured) return { status: 'not-configured', shortDetail: 'não config', detail: 'Sem credenciais cadastradas' };
+        if (!s.oauthCompleted) return { status: 'error', shortDetail: 'OAuth pendente', detail: 'Cadastrou credenciais mas não autorizou' };
+        if (!s.selectedCustomerId) return { status: 'error', shortDetail: 'sem Customer', detail: 'OAuth ok mas Customer não foi escolhida' };
+        return { status: 'ok', shortDetail: `Customer ${s.selectedCustomerId}`, detail: `Conectado · ${s.lastSyncAt ? 'último sync ' + new Date(s.lastSyncAt).toLocaleString() : 'sem sync ainda'}` };
+      }),
+
+      safe('GA4', 'OAuth', async () => {
+        const s = App.state.ga4Status || {};
+        if (!s.configured) return { status: 'not-configured', shortDetail: 'não config', detail: 'Sem credenciais cadastradas' };
+        if (!s.oauthCompleted) return { status: 'error', shortDetail: 'OAuth pendente', detail: 'Cadastrou credenciais mas não autorizou' };
+        return { status: 'ok', shortDetail: 'OAuth ativo', detail: `Property ${s.propertyId || '?'}` };
+      }),
+
+      safe('Hotmart', 'config', async () => {
+        const s = App.state.hotmartStatus || {};
+        if (!s.configured) return { status: 'not-configured', shortDetail: 'não config', detail: 'Sem HOTTOK cadastrado' };
+        return { status: 'ok', shortDetail: 'conectado', detail: 'HOTTOK cadastrado' };
+      }),
+
+      safe('ClickUp', 'OAuth/PAT', async () => {
+        const s = App.state.clickupStatus || {};
+        if (!s.connected) return { status: 'not-configured', shortDetail: 'não config', detail: 'Sem ClickUp conectado' };
+        return { status: 'ok', shortDetail: s.workspaceName || 'conectado', detail: `${s.tokenType === 'oauth' ? 'OAuth' : 'PAT'} · ${s.workspaceName || ''}` };
+      }),
+
+      safe('RD Station', 'tokens', async () => {
+        // V36.5.0 — Heurística simples: se App.state.rdCredentials existe = configurado.
+        const s = App.state.rdCredentials || {};
+        const hasAny = Boolean(s.pat?.connected || s.crm?.connected || s.marketing?.connected);
+        if (!hasAny) return { status: 'not-configured', shortDetail: 'não config', detail: 'Sem RD conectado' };
+        const conn = [s.pat?.connected && 'PAT', s.crm?.connected && 'CRM', s.marketing?.connected && 'Mkt'].filter(Boolean).join('+');
+        return { status: 'ok', shortDetail: conn, detail: `Conectado: ${conn}` };
+      })
+    ]);
+
+    App.state.healthCheck.items = items;
+    App.state.healthCheck.loading = false;
+    App.state.healthCheck.checkedAt = new Date().toISOString();
+    App.saveLocal();
+    App.render();
+  },
+
   // V35.14.7 — Roda lib/tenant-db-schema.sql contra o banco. Idempotente.
   async runAdminMigrateSchema() {
     if (!confirm('Rodar migrate de schema? É idempotente — não destrói dados, só cria/atualiza tabelas e índices.')) return;
