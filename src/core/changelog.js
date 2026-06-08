@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.7.1',
+    date: '2026-06-08',
+    title: 'URGENTE: novo guard que impede push de estado vazio sobrescrever dados',
+    bullets: [
+      'Felipe perdeu o Sansone 2x hoje (recuperou via backup). A análise mostrou que algum push automático nos primeiros segundos após o boot enviava state vazio sobre o servidor que tinha dados.',
+      'O guard antigo (V32.10.4) só comparava push atual com push anterior na MESMA sessão. Na primeira sessão após boot, ainda não havia push anterior pra comparar → guard inativo.',
+      'Novo guard V36.7.1 marca o state remoto carregado no boot (loadRemoteState) e impede QUALQUER push que tente enviar state vazio quando o remoto tinha dados.',
+      'Mensagem visível ao bloquear: "Push bloqueado — state local vazio mas servidor tem dados. Recarregue a página."',
+      'Não conserta a causa raiz (algo zera o state em memória logo após o boot), mas garante que o banco do servidor não é mais sobrescrito por isso.'
+    ]
+  },
+  {
     version: 'V36.7.0',
     date: '2026-06-08',
     title: 'Wizard Google Ads reformado pra usuário novo + conexão pela metade',
