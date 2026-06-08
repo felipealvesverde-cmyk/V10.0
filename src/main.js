@@ -15,6 +15,14 @@
       try { sessionStorage.clear(); } catch (_) {}
       window.__LJ_FORCE_LOGIN_SCREEN = true;
       console.warn('[Boot] Flag __LJ_FORCE_LOGIN_SCREEN=true. Init vai pular _checkSession.');
+      // V36.5.3 — Remove os query params da URL DEPOIS de processar.
+      // Sem isso, qualquer reload (ex: após login OK) re-disparava o sentinel
+      // e limpava o JWT recém-salvo → loop infinito de login.
+      try {
+        const cleanUrl = window.location.pathname;
+        history.replaceState(null, '', cleanUrl);
+        console.warn('[Boot] URL limpa (force_logout removido pra evitar loop pós-login).');
+      } catch (_) {}
     }
   } catch (_) {}
 })();
