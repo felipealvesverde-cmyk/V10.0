@@ -7465,6 +7465,21 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V36.6.4 — Atalho pra ir DIRETO ao Step 3 (seleção de Customer) quando
+  // OAuth já foi feito mas selectedCustomerId está vazio. Felipe relatou
+  // 2026-06-08: clicar "Atualizar credenciais" abre Step 1 com campos vazios
+  // e ele NÃO precisa redigitar — só precisa selecionar a conta.
+  async openGoogleAdsAccountPicker() {
+    if (!App.state.googleAdsWizard) Actions.openGoogleAdsWizard();
+    App.state.googleAdsWizard.mode = 'wizard';
+    App.state.googleAdsWizard.step = 3;
+    App.state.googleAdsWizard.accounts = [];
+    App.state.googleAdsWizard.error = null;
+    App.render();
+    // Dispara load da lista de contas via /api/google-ads-list-accounts
+    await Actions.loadGoogleAdsAccounts();
+  },
+
   // V35.7.0-alpha1 — Carrega campanhas Google Ads.
   // V35.7.0-alpha4 — Tenta dados reais (endpoint /api/google-ads-campaigns-list)
   // primeiro. Se vier vazio (sync nunca rodou ou conta nova) OU 401/erro,

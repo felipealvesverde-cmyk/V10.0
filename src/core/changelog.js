@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.6.4',
+    date: '2026-06-08',
+    title: 'Botão "Selecionar conta" no card Gerenciar Google Ads',
+    bullets: [
+      'Quando o OAuth do Google Ads já está feito mas você precisa só escolher (ou trocar) qual Customer conectar, antes precisava clicar "Atualizar credenciais" e redigitar Client ID, Secret e Developer Token de novo — chato.',
+      'Agora tem um botão novo "Selecionar conta" que pula direto pro Step 3 (lista de Customers acessíveis), sem refazer Step 1 e Step 2.',
+      'Botão "Atualizar credenciais" continua existindo pra quando você REALMENTE precisar trocar Client ID/Secret/Token.'
+    ]
+  },
+  {
     version: 'V36.6.3',
     date: '2026-06-08',
     title: 'Snapshot automático agora salva mesmo com banner âmbar (era o oposto)',
