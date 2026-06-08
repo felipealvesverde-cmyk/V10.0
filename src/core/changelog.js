@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.6.0',
+    date: '2026-06-08',
+    title: 'Token do RD Marketing renova sozinho — sem reconectar OAuth toda hora',
+    bullets: [
+      'O LJ já salvava o refresh_token do RD Marketing no banco mas nunca usava ele. A cada 24h o token expirava e você precisava refazer todo o fluxo OAuth.',
+      'Agora: a cada chamada do proxy RD, se o token estiver a menos de 10 min de expirar, o LJ renova sozinho usando o refresh_token. Você nunca mais precisa intervir.',
+      'BÔNUS: botão "Renovar agora" no card "Marketing conectado" pra emergências. Mostra status: ainda válido por X min, ou recém-renovado, ou erro.',
+      'Se o refresh_token for revogado pelo RD (acontece se você desconectar manualmente lá), o erro é claro: "Reconecte o OAuth Marketing".'
+    ]
+  },
+  {
     version: 'V36.5.5',
     date: '2026-06-08',
     title: 'Removido botão "Sair forçado" do banner (causa raiz já corrigida)',

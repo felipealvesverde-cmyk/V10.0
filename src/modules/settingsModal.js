@@ -668,12 +668,20 @@ var SettingsModal = {
     const exchangeFailed = rdCfg.status === 'exchange_failed';
 
     if (step4Done) {
-      return `<div class="rounded-3xl bg-emerald-50 border-2 border-emerald-200 p-5 flex items-start gap-3">
-        <i data-lucide="check-check" class="w-5 h-5 text-emerald-600 mt-0.5"></i>
-        <div>
-          <h4 class="font-black text-emerald-900">Marketing conectado</h4>
-          <p class="text-sm text-emerald-800">access_token e refresh_token salvos. Token renova automático a cada 24h.</p>
+      const refreshState = App.state.rdMarketingRefresh || { loading: false, lastResult: null };
+      return `<div class="rounded-3xl bg-emerald-50 border-2 border-emerald-200 p-5 flex items-start justify-between gap-3">
+        <div class="flex items-start gap-3">
+          <i data-lucide="check-check" class="w-5 h-5 text-emerald-600 mt-0.5"></i>
+          <div>
+            <h4 class="font-black text-emerald-900">Marketing conectado</h4>
+            <p class="text-sm text-emerald-800">access_token e refresh_token salvos. Auto-refresh roda quando faltar menos de 10 min pra expirar (V36.6.0).</p>
+            ${refreshState.lastResult ? `<p class="text-[11px] text-emerald-700 mt-1">${refreshState.lastResult.refreshed ? '✓ Renovado · expira em ' + refreshState.lastResult.expires_in_minutes + ' min' : (refreshState.lastResult.reason === 'still-valid' ? '✓ Ainda válido · expira em ' + refreshState.lastResult.expires_in_minutes + ' min' : '✗ ' + (refreshState.lastResult.message || refreshState.lastResult.reason))}</p>` : ''}
+          </div>
         </div>
+        <button onclick="Actions.refreshRdMarketingTokenNow()" ${refreshState.loading ? 'disabled' : ''} class="shrink-0 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+          <i data-lucide="${refreshState.loading ? 'loader-2' : 'refresh-cw'}" class="w-3.5 h-3.5 ${refreshState.loading ? 'animate-spin' : ''}"></i>
+          ${refreshState.loading ? 'Renovando…' : 'Renovar agora'}
+        </button>
       </div>`;
     }
 

@@ -576,6 +576,9 @@ var State = {
       //   items: [{key, label, status: 'ok'|'error'|'not-configured'|'loading', detail, shortDetail}]
       //   loading, expanded, checkedAt
       healthCheck: { items: [], loading: false, expanded: false, checkedAt: null },
+      // V36.6.0 — Status do botão "Renovar agora" no card RD Marketing.
+      //   { loading: bool, lastResult: { ok, refreshed, expires_at, expires_in_minutes, message } | null }
+      rdMarketingRefresh: { loading: false, lastResult: null },
       // V35.14.5 — Modal de conciliação Google Ads x GA4. null = fechado.
       // { open: true, step: 'inform' | 'choose' }
       ga4GoogleAdsReconciliation: null,

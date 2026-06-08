@@ -14069,6 +14069,35 @@ Object.assign(Actions, {
     } catch (_) {}
   },
 
+  // V36.6.0 — Renova manualmente o token OAuth do RD Marketing.
+  // Botão "Renovar agora" no card Marketing conectado. force=true ignora o
+  // TTL check, sempre renova.
+  async refreshRdMarketingTokenNow() {
+    App.state.rdMarketingRefresh = { loading: true, lastResult: null };
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/rd-marketing-refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ force: true })
+      });
+      const data = await r.json();
+      App.state.rdMarketingRefresh = { loading: false, lastResult: data };
+      if (data.ok && data.refreshed) {
+        Utils.toast('✓ Token RD Marketing renovado.');
+      } else if (data.ok) {
+        Utils.toast(`Token ainda válido (${data.expires_in_minutes} min restantes).`);
+      } else {
+        Utils.toast(`Erro: ${data.message || 'Falha ao renovar'}`);
+      }
+    } catch (err) {
+      App.state.rdMarketingRefresh = { loading: false, lastResult: { ok: false, message: err.message } };
+      Utils.toast(`Erro: ${err.message}`);
+    }
+    App.render();
+  },
+
   // V36.5.0 — Health Check Panel: toggle expandir/recuar.
   toggleHealthCheck() {
     if (!App.state.healthCheck) App.state.healthCheck = { items: [], loading: false, expanded: false };

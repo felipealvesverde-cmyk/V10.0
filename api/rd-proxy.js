@@ -21,10 +21,58 @@
 //     useQueryToken: false
 //   }
 const { getRdCredential } = require('../lib/rd-credentials');
+const { encrypt, decrypt } = require('../lib/clickup-crypto');
 
 const API_BASE = 'https://api.rd.services';
 const LEGACY_BASE = 'https://crm.rdstation.com/api/v1';
 const VALID_SOURCES = new Set(['crm_pat', 'marketing_oauth', 'crm_oauth']);
+const RD_TOKEN_URL = 'https://api.rd.services/auth/token';
+const REFRESH_MARGIN_MS = 10 * 60 * 1000; // 10 min — renova se faltar menos que isso
+
+// V36.6.0 — Auto-refresh inline pro marketing_oauth.
+// Antes: token expirava em 24h e cliente tinha que reconectar OAuth manual.
+// Agora: a cada chamada do proxy, se faltar < 10min pra expirar, renova
+// sozinho antes de fazer a chamada real. Idempotente: se outra request
+// renovou recente, esta vê expires_at já atualizado e pula.
+async function refreshMarketingTokenInline(tenantDb, userId) {
+  const r = await tenantDb.query(
+    `SELECT refresh_token_enc, client_id_enc, client_secret_enc, expires_at
+       FROM rd_credentials WHERE user_id = $1 AND token_type = 'marketing_oauth'`,
+    [userId]
+  );
+  if (!r.rows.length) return { refreshed: false, reason: 'no-row' };
+  const row = r.rows[0];
+  const refresh = row.refresh_token_enc ? decrypt(row.refresh_token_enc) : null;
+  const clientId = row.client_id_enc ? decrypt(row.client_id_enc) : null;
+  const clientSecret = row.client_secret_enc ? decrypt(row.client_secret_enc) : null;
+  if (!refresh || !clientId || !clientSecret) {
+    return { refreshed: false, reason: 'missing-credentials' };
+  }
+  const tokenRes = await fetch(RD_TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: clientId, client_secret: clientSecret,
+      grant_type: 'refresh_token', refresh_token: refresh
+    })
+  });
+  const tokenData = await tokenRes.json().catch(() => ({}));
+  if (!tokenRes.ok || !tokenData.access_token) {
+    return { refreshed: false, reason: 'rd-error', rd_status: tokenRes.status, rd_error: tokenData };
+  }
+  const newAccess = tokenData.access_token;
+  const newRefresh = tokenData.refresh_token || refresh;
+  const expiresIn = Number(tokenData.expires_in || 86400);
+  const newExpiresAt = new Date(Date.now() + expiresIn * 1000);
+  await tenantDb.query(
+    `UPDATE rd_credentials
+        SET access_token_enc = $1, refresh_token_enc = $2,
+            expires_at = $3, status = 'connected', updated_at = NOW()
+      WHERE user_id = $4 AND token_type = 'marketing_oauth'`,
+    [encrypt(newAccess), encrypt(newRefresh), newExpiresAt.toISOString(), userId]
+  );
+  return { refreshed: true, newAccess, expires_at: newExpiresAt };
+}
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -55,7 +103,31 @@ module.exports = async function handler(req, res) {
     try {
       // V32.0.10 — rd_credentials vivem no tenant plane.
       const cred = await getRdCredential(req.tenantDb, req.user.sub, token_source);
-      if (cred.token) {
+      // V36.6.0 — Auto-refresh inline pro marketing_oauth.
+      // Se faltar < 10 min pra expirar, renova ANTES de usar o token.
+      if (token_source === 'marketing_oauth' && cred.expiresAt) {
+        const msToExpiry = new Date(cred.expiresAt).getTime() - Date.now();
+        if (msToExpiry < REFRESH_MARGIN_MS) {
+          try {
+            const refreshResult = await refreshMarketingTokenInline(req.tenantDb, req.user.sub);
+            if (refreshResult.refreshed) {
+              effectiveToken = refreshResult.newAccess;
+              usedSource = 'db-refreshed';
+            } else if (refreshResult.reason === 'rd-error') {
+              // Refresh falhou — provavelmente refresh_token expirado.
+              // Não falha aqui, deixa tentar com o token antigo (que pode ainda funcionar)
+              // ou cliente vai ver erro real na chamada.
+              console.warn('[rd-proxy] auto-refresh falhou:', refreshResult);
+            }
+          } catch (refreshErr) {
+            console.warn('[rd-proxy] auto-refresh exception:', refreshErr.message);
+          }
+        }
+      }
+      if (!effectiveToken && cred.token) {
+        effectiveToken = cred.token;
+        usedSource = 'db';
+      } else if (cred.token && usedSource !== 'db-refreshed') {
         effectiveToken = cred.token;
         usedSource = 'db';
       }
