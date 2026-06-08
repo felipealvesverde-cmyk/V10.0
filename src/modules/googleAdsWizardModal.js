@@ -74,6 +74,7 @@ window.GoogleAdsWizardModal = {
         badges,
         lastValidationLabel: lastSyncLabel,
         secondaryButtons: [
+          { label: 'Selecionar conta', icon: 'list-checks', action: 'Actions.openGoogleAdsAccountPicker()' },
           { label: 'Atualizar credenciais', icon: 'refresh-cw', action: 'Actions.switchGoogleAdsToWizard()' },
           { label: 'Google Ads + LeadJourney', icon: 'book-open', action: "Actions.openIntegrationDeepDive('google-ads')" }
         ],
