@@ -23,6 +23,13 @@
   const _originalFetch = window.fetch.bind(window);
   const DEBUG = false; // ligar pra ver renovações no console
 
+  // V36.3.5 — Debounce de 401 transient. Acumula timestamps dos últimos 401s
+  // com Auth Bearer; só dispara sessionExpired quando há THRESHOLD_401 em
+  // janela de 10s. Diagnose Felipe 2026-06-08 confirmou servidor com 401
+  // ocasional em POSTs apesar de JWT válido.
+  const _recent401s = [];
+  const THRESHOLD_401 = 3;
+
   window.fetch = async function(...args) {
     const [input, init] = args;
 
@@ -62,6 +69,9 @@
       // ficava preso até relogin manual. Agora qualquer 2xx com Auth Bearer
       // sinaliza "auth tá viva", limpa a flag. Idempotente (só limpa se true).
       if (response.status >= 200 && response.status < 300) {
+        // V36.3.5 — Reseta contador de 401s (auth tá viva, qualquer 401 anterior
+        // era transient — desconsidera pra cálculo de threshold).
+        if (_recent401s.length) _recent401s.length = 0;
         if (window.App?.state?.sessionExpired) {
           window.App.state.sessionExpired = false;
           // Também fecha modal inline se estava aberto por falso-positivo.
@@ -77,20 +87,39 @@
       // GET 401 → seta sessionExpired flag (banner aparece, não bloqueia).
       // POST/PUT/DELETE/PATCH 401 → modal inline (write precisa de auth válida).
       // Original V34.6.bb: TODO 401 abria modal bloqueante.
+      //
+      // V36.3.5 — Debounce de transient 401. Felipe diagnosticou (2026-06-08):
+      // servidor às vezes retorna 401 em POSTs específicos mesmo com JWT 100%
+      // válido (auth-me 200, GETs 200, body 0.42MB longe do limite 5MB). Ainda
+      // não sabemos a causa raiz no servidor. Sintoma: cliente via tela vermelha
+      // no PRIMEIRO 401 mesmo que próximos 50 requests fossem 200.
+      //
+      // Fix: exigir THRESHOLD 401s em 10s antes de marcar sessão como expirada.
+      // 401 isolado (transient bug do servidor) é silencioso. 401 persistente
+      // (JWT realmente expirou) ainda aciona modal — porque cada request do
+      // app vai gerar mais 401, atingindo threshold rápido.
       if (response.status === 401) {
         const method = (init?.method || 'GET').toUpperCase();
         const isWrite = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
-        setTimeout(() => {
-          // Sempre marca sessão como expirada (banner aparece)
-          if (window.App?.state && !window.App.state.sessionExpired) {
-            window.App.state.sessionExpired = true;
-            if (window.App.render) window.App.render();
-          }
-          // Writes ainda abrem o modal inline (operação destrutiva precisa confirmação)
-          if (isWrite && window.Actions?.openReloginInlineModal) {
-            window.Actions.openReloginInlineModal();
-          }
-        }, 0);
+        const now = Date.now();
+        _recent401s.push(now);
+        // Janela deslizante de 10s
+        const cutoff = now - 10_000;
+        while (_recent401s.length && _recent401s[0] < cutoff) _recent401s.shift();
+
+        if (_recent401s.length >= THRESHOLD_401) {
+          setTimeout(() => {
+            if (window.App?.state && !window.App.state.sessionExpired) {
+              window.App.state.sessionExpired = true;
+              if (window.App.render) window.App.render();
+            }
+            if (isWrite && window.Actions?.openReloginInlineModal) {
+              window.Actions.openReloginInlineModal();
+            }
+          }, 0);
+        } else if (DEBUG) {
+          console.log(`[SlidingSession] 401 transient ignorado (${_recent401s.length}/${THRESHOLD_401} em janela 10s).`);
+        }
       }
     }
 

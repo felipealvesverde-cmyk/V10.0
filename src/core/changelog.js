@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.3.5',
+    date: '2026-06-08',
+    title: 'Tela vermelha "Sessão Expirada" não aparece mais por 401 transient',
+    bullets: [
+      'A tela vermelha de Sessão Expirada estava aparecendo do nada mesmo com sua sessão 100% válida. Causa: um único 401 transient do servidor (que vimos no diagnóstico — JWT vale 7 dias, todos os GETs funcionavam, mas algum POST ocasional dava 401) era suficiente pra abrir a tela.',
+      'Agora exigimos 3 erros 401 em 10 segundos antes de considerar que a sessão expirou de fato. 401 isolado fica silencioso.',
+      'Como contraprova: qualquer resposta 2xx reseta o contador (auth confirmada viva).',
+      'Sessão realmente expirada (JWT venceu de fato) continua disparando o modal — porque cada chamada do app vai gerar 401 e o threshold é atingido em segundos.'
+    ]
+  },
+  {
     version: 'V36.3.4',
     date: '2026-06-05',
     title: 'Fix Google Ads API: bump v18 → v24 (versão atual)',
