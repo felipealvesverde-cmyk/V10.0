@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.7.0',
+    date: '2026-06-08',
+    title: 'Wizard Google Ads reformado pra usuário novo + conexão pela metade',
+    bullets: [
+      'NOVO Step 1: checklist de pré-requisitos no topo com links pro Cloud Console e MCC, explicando que API Center só existe dentro de MCC. Botão "Já tenho tudo" dispensa pra usuários experientes.',
+      'NOVO Step 1: validação inline de cada campo (Client ID precisa terminar em .apps.googleusercontent.com, Secret começa com GOCSPX-, Token tem 20-30 chars, MCC ID 10 dígitos). Botão "Salvar e avançar" só ativa quando todos válidos. Traços do MCC ID são auto-removidos ao colar.',
+      'NOVO Step 3: quando lista de contas vem vazia, diagnóstico claro com 4 causas prováveis em ordem de probabilidade (Test Access, conta não é user do MCC, MCC ID errado, token revogado) + link pro API Center + botão de tentar de novo. Antes era mensagem genérica.',
+      'NOVO Step 3: nomes das contas exibidos (descriptiveName) em vez de só Customer ID. Formatação XXX-XXX-XXXX nos IDs.',
+      'NOVO Step 4: quando a conta tem 0 campanhas, aviso claro de "conta sem campanhas ativas" pra você saber que o Dashboard com exemplos é esperado.',
+      'NOVO card Gerenciar com 2 sub-estados: (a) Conexão pela metade — quando OAuth ok mas Customer não escolhido, mostra "Conexão pela metade · Falta escolher qual conta" com badges do que está OK e botão "Selecionar conta agora" em destaque (b) Conectado completo — botão primário "Sincronizar agora" emerald + secundários compactos.',
+      'Botão "Atualizar credenciais" no card Gerenciar agora se chama "Refazer credenciais" / "Trocar credenciais" dependendo do contexto. Hierarquia visual reorganizada.'
+    ]
+  },
+  {
     version: 'V36.6.4',
     date: '2026-06-08',
     title: 'Botão "Selecionar conta" no card Gerenciar Google Ads',

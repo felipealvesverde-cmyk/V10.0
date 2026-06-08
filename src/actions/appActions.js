@@ -7474,10 +7474,25 @@ Object.assign(Actions, {
     App.state.googleAdsWizard.mode = 'wizard';
     App.state.googleAdsWizard.step = 3;
     App.state.googleAdsWizard.accounts = [];
+    App.state.googleAdsWizard.loadingAccounts = true; // V36.7.0
     App.state.googleAdsWizard.error = null;
     App.render();
     // Dispara load da lista de contas via /api/google-ads-list-accounts
     await Actions.loadGoogleAdsAccounts();
+    if (App.state.googleAdsWizard) {
+      App.state.googleAdsWizard.loadingAccounts = false;
+      App.render();
+    }
+  },
+
+  // V36.7.0 — Dismiss permanente do checklist de pré-requisitos no Step 1.
+  // Cliente que já configurou Google Cloud + MCC + Developer Token não precisa
+  // ver de novo. Persiste em App.state.googleAdsWizard.checklistDismissed.
+  dismissGoogleAdsChecklist() {
+    if (!App.state.googleAdsWizard) return;
+    App.state.googleAdsWizard.checklistDismissed = true;
+    App.save();
+    App.render();
   },
 
   // V35.7.0-alpha1 — Carrega campanhas Google Ads.
@@ -7515,6 +7530,9 @@ Object.assign(Actions, {
   async triggerGoogleAdsSync() {
     const status = App.state.googleAdsStatus || {};
     if (!status.oauthCompleted) return Utils.toast('Conecte o Google Ads primeiro.');
+    // V36.7.0 — Flag de UI pro botão "Sincronizar agora" mostrar loading.
+    App.state.googleAdsSyncTriggering = true;
+    App.render();
     Utils.toast('⏳ Sincronizando Google Ads…');
     try {
       const token = localStorage.getItem('lj_jwt');
@@ -7526,8 +7544,13 @@ Object.assign(Actions, {
       }
       Utils.toast(`✓ Sync OK — ${data.rowsUpserted} linhas atualizadas.`);
       await Actions.loadGoogleAdsCampaigns();
+      // Atualiza lastSyncAt no status
+      await Actions.loadGoogleAdsStatus();
     } catch (err) {
       Utils.toast(`Erro de rede: ${err.message}`);
+    } finally {
+      App.state.googleAdsSyncTriggering = false;
+      App.render();
     }
   },
 

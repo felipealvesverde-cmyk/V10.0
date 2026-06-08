@@ -75,8 +75,17 @@ window.ConnectionStatusCard = {
         ${Utils.escape(opts.lastValidationLabel)}
       </p>` : ''}
 
+      <!-- V36.7.0 — ROW 3.5: primary button (opcional, ação principal destacada) -->
+      ${opts.primaryButton ? `<div class="mt-3">
+        <button onclick="${opts.primaryButton.action}" ${opts.primaryButton.disabled ? 'disabled' : ''}
+          class="w-full px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-black inline-flex items-center justify-center gap-2" style="color:#fff;">
+          ${opts.primaryButton.icon ? `<i data-lucide="${opts.primaryButton.icon}" class="w-4 h-4 ${opts.primaryButton.iconClass || ''}"></i>` : ''}
+          ${Utils.escape(opts.primaryButton.label)}
+        </button>
+      </div>` : ''}
+
       <!-- ROW 4: secondary buttons -->
-      ${(opts.secondaryButtons && opts.secondaryButtons.length) ? `<div class="flex flex-wrap gap-2 pt-2 border-t border-white/10">
+      ${(opts.secondaryButtons && opts.secondaryButtons.length) ? `<div class="flex flex-wrap gap-2 pt-2 ${opts.primaryButton ? 'mt-2' : 'border-t border-white/10'}">
         ${opts.secondaryButtons.map(btn => `<button onclick="${btn.action}"
           class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 text-[11px] font-black uppercase tracking-wider inline-flex items-center gap-1.5">
           ${btn.icon ? `<i data-lucide="${btn.icon}" class="w-3 h-3"></i>` : ''}
