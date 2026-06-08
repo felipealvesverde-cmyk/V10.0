@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.7.2',
+    date: '2026-06-08',
+    title: 'Tripla camada de proteção contra perda silenciosa de dados',
+    bullets: [
+      'Identificadas 2 vulnerabilidades adicionais que podiam causar a perda do Sansone:',
+      '(1) Se o normalize() do state remoto crashasse silenciosamente, o app caía pra usar o state local vazio e zerava tudo. Fix: try/catch ao redor do normalize remote — se crashar, usa o state remoto raw (sem normalize) que ainda tem dados, melhor que vazio.',
+      '(2) O App.save() persistia em localStorage mesmo com state vazio. Fix: guard adicional bloqueia o save INTEIRO (local + push) quando state em memória aparenta vazio mas o servidor tinha dados no boot.',
+      'Agora há 3 camadas de proteção: bloqueio no save, bloqueio no push (V36.7.1), e fallback robusto no load.',
+      'Toast amarelo aparece quando qualquer um dos guards dispara — instrução clara: "Recarregue a página."'
+    ]
+  },
+  {
     version: 'V36.7.1',
     date: '2026-06-08',
     title: 'URGENTE: novo guard que impede push de estado vazio sobrescrever dados',

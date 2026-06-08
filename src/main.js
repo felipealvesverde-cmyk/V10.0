@@ -358,9 +358,19 @@ var App = {
                 const remoteUpdated = remote.updatedAt ? new Date(remote.updatedAt).getTime() : 0;
                 if (remoteUpdated >= localUpdated) {
                   this.state = remote.state; // V31.0.1: pre-assign idem (defesa em camadas)
-                  useState = State.normalize(remote.state);
-                  useState = DatabaseService.applyMigrations(useState);
-                  console.log('[App] state remoto carregado (atualizado em', remote.updatedAt, ')');
+                  // V36.7.2 — Try/catch ao redor do normalize.
+                  // Se crashar, MANTER useState = remote.state raw (que tem dados)
+                  // em vez de cair pro local que pode estar vazio.
+                  // Antes: normalize crash → useState ficava como `local` (vazio) →
+                  // this.state = useState (vazio) → save dispara → banco zerado.
+                  try {
+                    useState = State.normalize(remote.state);
+                    useState = DatabaseService.applyMigrations(useState);
+                    console.log('[App] state remoto carregado (atualizado em', remote.updatedAt, ')');
+                  } catch (normErr) {
+                    console.error('[App] 🚨 normalize remote CRASHOU. Usando state remoto raw:', normErr);
+                    useState = remote.state; // raw com dados, sem normalize, melhor que vazio
+                  }
                 } else {
                   console.log('[App] state local mais novo que remoto, mantendo local');
                 }
@@ -430,6 +440,29 @@ var App = {
       save() {
         // V23.0.0 — Marca timestamp pro conflict resolution remoto.
         if (this.state) this.state.lastSavedAt = new Date().toISOString();
+
+        // V36.7.2 — Guard anti-perda: bloqueia o save E o push se state aparenta
+        // vazio MAS o remoto recém-carregado tinha dados. Defesa antes mesmo do
+        // localStorage (sem isso, save zera localStorage que ScoreEngine e outros
+        // podem ler depois → cascata de zeros).
+        try {
+          const s = this.state || {};
+          const totalNow = (s.products||[]).length + (s.campaigns||[]).length + (s.actions||[]).length;
+          const remoteAtLoad = window.RemoteSyncAdapter?._remoteSnapshotAtLoad;
+          if (totalNow === 0 && remoteAtLoad?.total > 0) {
+            console.error('[App.save] 🚨 BLOQUEADO V36.7.2: state em memória vazio mas remoto no boot tinha dados.', {
+              remoto_no_boot: remoteAtLoad,
+              memoria_agora: { products: (s.products||[]).length, campaigns: (s.campaigns||[]).length, actions: (s.actions||[]).length }
+            });
+            try {
+              if (window.Utils?.toast) {
+                window.Utils.toast('⚠ Save bloqueado — state em memória vazio. Recarregue a página (F5) sem fechar.');
+              }
+            } catch (_) {}
+            return; // não persiste local, não agenda push
+          }
+        } catch (_) { /* defensive */ }
+
         State.save();
         // V23.0.0 — Agenda push pro banco remoto (debounce 2s no Adapter).
         if (window.RemoteSyncAdapter) {
