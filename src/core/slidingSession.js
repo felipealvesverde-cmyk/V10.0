@@ -54,18 +54,38 @@
 
     // Só processa se request tinha bearer (request nossa) E response tem header refresh.
     if (hadAuthBearer) {
-      try {
-        const refreshed = response.headers.get('X-Auth-Refresh');
-        if (refreshed && refreshed.length > 20) {
-          const previous = localStorage.getItem('lj_jwt');
-          if (refreshed !== previous) {
-            localStorage.setItem('lj_jwt', refreshed);
-            if (DEBUG) console.log('[SlidingSession] JWT renovado silenciosamente');
-          }
-        }
-      } catch (_) {
-        // Falha em ler header (CORS bloqueado, etc) — silencioso. Não afeta a request.
-      }
+      // V36.5.4 — DESABILITADO auto-save de X-Auth-Refresh.
+      //
+      // Histórico do bug (Felipe 2026-06-08, JWT órfão em Sansone):
+      // 1. JWT_SECRET foi rotacionada no Railway. JWT do cliente continuou
+      //    no localStorage assinado com SECRET antiga.
+      // 2. Felipe configurou JWT_SECRET_PREVIOUS no Railway. Servidor passou
+      //    a aceitar tokens antigos via fallback.
+      // 3. Servidor enviava X-Auth-Refresh re-emitido com SECRET atual.
+      // 4. Sliding session salvava o token "novo" no localStorage.
+      // 5. Mas POSTs específicos continuavam dando 401 — não rastreamos a causa
+      //    raiz (race? handler específico? algo intermediário).
+      // 6. Cliente ficava preso em loops de banner âmbar mesmo com servidor
+      //    "aceitando" o token.
+      //
+      // Decisão (alinhada com Felipe): desativar auto-save. Cliente fica logado
+      // pelo TTL natural do JWT (7 dias). Após expirar, login normal — sem
+      // surpresas. Trade-off: cliente inativo por 7+ dias precisa relogar.
+      // Aceitável dado o problema operacional que essa "renovação invisível"
+      // estava causando.
+      //
+      // Para reativar no futuro (se quisermos voltar): descomentar bloco abaixo
+      // e investigar a causa raiz de POSTs falharem com token "refreshado".
+      //
+      // try {
+      //   const refreshed = response.headers.get('X-Auth-Refresh');
+      //   if (refreshed && refreshed.length > 20) {
+      //     const previous = localStorage.getItem('lj_jwt');
+      //     if (refreshed !== previous) {
+      //       localStorage.setItem('lj_jwt', refreshed);
+      //     }
+      //   }
+      // } catch (_) {}
 
       // V35.13.6 — Auto-clear de sessionExpired em 2xx. Cobre cenário transient:
       // pool de tenant DB ainda inicializando no boot → 401 falso-positivo →
