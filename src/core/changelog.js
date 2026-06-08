@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.5.5',
+    date: '2026-06-08',
+    title: 'Removido botão "Sair forçado" do banner (causa raiz já corrigida)',
+    bullets: [
+      'O botão "Sair forçado" vermelho que estava no banner âmbar foi removido. Era uma emergência pra contornar o bug de renovação invisível corrigido na V36.5.4.',
+      'O banner volta ao layout original: só botão "Reentrar" azul.',
+      'A função Actions.forceFullLogout continua existindo no código pra emergências futuras (pode chamar pelo console se precisar).'
+    ]
+  },
+  {
     version: 'V36.5.4',
     date: '2026-06-08',
     title: 'Renovação invisível de passe DESATIVADA (estava causando bugs)',

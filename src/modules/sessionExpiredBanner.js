@@ -28,10 +28,6 @@ window.SessionExpiredBanner = {
           <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
           Reentrar
         </button>
-        <button onclick="Actions.forceFullLogout()" class="lj-session-banner-btn" style="margin-left:6px;background:rgba(220,38,38,0.15);border-color:rgba(220,38,38,0.4);color:#fca5a5;" title="Limpa tudo e força reload pra tela de login">
-          <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
-          Sair forçado
-        </button>
       </div>
     </div>`;
   }
