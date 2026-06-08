@@ -42,12 +42,24 @@ window.RemoteSyncAdapter = {
   },
 
   // V23.0.0 — Baixa state remoto se existir. Retorna o state ou null.
+  // V36.7.1 — Marca _remoteSnapshotAtLoad pra _doPush usar como guard
+  // anti-perda (impede push de state vazio sobrescrever remoto que tinha dados).
   async loadRemoteState() {
     try {
       const res = await fetch('/api/state-sync', { headers: this.authHeaders() });
       if (!res.ok) return null;
       const data = await res.json();
-      return data?.ok && data.state ? { state: data.state, updatedAt: data.updatedAt } : null;
+      if (data?.ok && data.state) {
+        const s = data.state;
+        const totalRemote = (s.products||[]).length + (s.campaigns||[]).length + (s.actions||[]).length;
+        this._remoteSnapshotAtLoad = {
+          total: totalRemote,
+          updatedAt: data.updatedAt,
+          loadedAt: Date.now()
+        };
+        return { state: s, updatedAt: data.updatedAt };
+      }
+      return null;
     } catch (err) {
       console.warn('[RemoteSync] loadRemoteState falhou:', err);
       return null;
@@ -138,6 +150,33 @@ window.RemoteSyncAdapter = {
       } catch (_) {}
       return;
     }
+
+    // V36.7.1 — GUARD ADICIONAL: compara contra state REMOTO recém-carregado
+    // no boot. Pega o caso que o V32.10.4 não pega: PRIMEIRA sessão após boot,
+    // sem _lastPushSnapshot ainda. Felipe perdeu Sansone 2x hoje (2026-06-08)
+    // por causa disso — _doPush enviou state vazio em ~5s após boot, sobrescrevendo
+    // o remoto que tinha dados.
+    //
+    // Lógica: se loadRemoteState carregou state com N produtos/campanhas/ações,
+    // e agora vamos pushar com 0, isso é regressão MASSIVA em poucos segundos —
+    // impossível ser ação real do usuário.
+    const remoteAtLoad = this._remoteSnapshotAtLoad || null;
+    if (remoteAtLoad && totalNow === 0 && remoteAtLoad.total > 0) {
+      const secondsSinceLoad = (Date.now() - remoteAtLoad.loadedAt) / 1000;
+      console.error('[RemoteSync] 🚨 BLOQUEADO V36.7.1: push vazio sobre remoto que tinha dados.', {
+        remoto_no_boot: remoteAtLoad,
+        push_tentando: { products: productsNow, campaigns: campaignsNow, actions: actionsNow },
+        segundos_desde_boot: secondsSinceLoad.toFixed(1)
+      });
+      this._lastPushStatus = 'blocked_empty_over_nonempty_remote';
+      try {
+        if (window.Utils?.toast) {
+          window.Utils.toast('⚠ Push bloqueado — state local vazio mas servidor tem dados. Recarregue a página (F5) sem fechar.');
+        }
+      } catch (_) {}
+      return;
+    }
+
     // Marca snapshot pra próxima comparação
     this._lastPushSnapshot = { products: productsNow, campaigns: campaignsNow, actions: actionsNow, total: totalNow };
 
