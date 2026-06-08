@@ -18,14 +18,15 @@
 
 window.LJChangelog = [
   {
-    version: 'V36.3.5',
+    version: 'V36.4.0',
     date: '2026-06-08',
-    title: 'Tela vermelha "Sessão Expirada" não aparece mais por 401 transient',
+    title: 'Tela vermelha de "Sessão Expirada" ELIMINADA — só banner discreto',
     bullets: [
-      'A tela vermelha de Sessão Expirada estava aparecendo do nada mesmo com sua sessão 100% válida. Causa: um único 401 transient do servidor (que vimos no diagnóstico — JWT vale 7 dias, todos os GETs funcionavam, mas algum POST ocasional dava 401) era suficiente pra abrir a tela.',
-      'Agora exigimos 3 erros 401 em 10 segundos antes de considerar que a sessão expirou de fato. 401 isolado fica silencioso.',
-      'Como contraprova: qualquer resposta 2xx reseta o contador (auth confirmada viva).',
-      'Sessão realmente expirada (JWT venceu de fato) continua disparando o modal — porque cada chamada do app vai gerar 401 e o threshold é atingido em segundos.'
+      'A tela vermelha que cobria a tela inteira quando o LJ achava que sua sessão tinha expirado: ACABOU. Não aparece mais em nenhum cenário automático.',
+      'No lugar: banner discreto no topo (âmbar) com aviso "Sua sessão expirou. Você pode continuar navegando, mas pra salvar alterações precisa reentrar" + botão "Reentrar".',
+      'Quando você clica em "Reentrar" no banner, abre o modal violeta (não dramático) com campo de senha. Continua preservando todas as suas alterações em memória.',
+      'Debounce de 401 transient (V36.3.5 incorporado aqui): banner só aparece se houver 3 erros 401 em 10 segundos. 401 isolado fica silencioso. Qualquer resposta 2xx reseta o contador (auth confirmada viva).',
+      'Bug raiz no servidor (401 ocasional em POSTs com JWT válido) segue não identificado — mas o cliente agora é resiliente.'
     ]
   },
   {
