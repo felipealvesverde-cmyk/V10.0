@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.6.3',
+    date: '2026-06-08',
+    title: 'Snapshot automático agora salva mesmo com banner âmbar (era o oposto)',
+    bullets: [
+      'Bug operacional descoberto após Felipe perder dados do Sansone hoje: durante o debug do sliding session, o banner âmbar ficou ativo por horas. Nesse tempo, o snapshot automático de 3 em 3 minutos estava PAUSADO (guard V36.1.1 que copiei do _doPush sem pensar). Quando o localStorage foi limpo, dados se perderam.',
+      'Fix: guard removido do _doSnapshot. Snapshot tenta sempre — afinal, banner âmbar é EXATAMENTE quando você mais precisa preservar seu trabalho.',
+      'Se o snapshot der 401 por JWT inválido, é silencioso (não dispara loop). Push continua com o guard de sessionExpired (esse faz sentido — push espera o relogin).',
+      'Felipe recuperou hoje via backup manual, mas era pra ter recuperado via snapshot automático sem perder nada.'
+    ]
+  },
+  {
     version: 'V36.6.2',
     date: '2026-06-08',
     title: 'Limpeza de console: removidos warnings de debug e ícone Facebook quebrado',
