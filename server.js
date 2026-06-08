@@ -911,7 +911,11 @@ const PUBLIC_API_ROUTES = new Set([
   // Auth: HOTTOK do body é comparado contra hotmart_config.hottok_enc do tenant.
   '/api/hotmart-webhook',
   // V34.6.u — Health check pra diagnose Railway (Felipe acessa via browser).
-  '/api/health-check'
+  '/api/health-check',
+  // V36.4.1 — Auth debug: retorna metadados sobre JWT_SECRET e valida tokens
+  // (sem expor secrets). Público pra Felipe diagnosticar quando seu JWT
+  // está sendo rejeitado.
+  '/api/auth-debug'
 ]);
 
 // V23.0.0 — Gate de auth: rotas privadas /api/* exigem req.user.

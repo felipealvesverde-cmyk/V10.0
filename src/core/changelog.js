@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.4.1',
+    date: '2026-06-08',
+    title: 'Endpoint de diagnose pra entender quando o servidor rejeita o passe (JWT)',
+    bullets: [
+      'Adicionado /api/auth-debug que retorna se JWT_SECRET e JWT_SECRET_PREVIOUS estão configuradas no servidor.',
+      'Se você mandar um passe (JWT) junto, o endpoint testa se ele valida com a chave atual ou com a anterior.',
+      'Não expõe o valor de nenhuma chave — só metadados (tamanho, hash dos primeiros 12 chars).',
+      'Usado pra diagnosticar quando um passe deveria estar válido mas o servidor rejeita.'
+    ]
+  },
+  {
     version: 'V36.4.0',
     date: '2026-06-08',
     title: 'Tela vermelha de "Sessão Expirada" ELIMINADA — só banner discreto',
