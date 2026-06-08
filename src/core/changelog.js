@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.5.3',
+    date: '2026-06-08',
+    title: 'Fix loop infinito de login após "Sair forçado"',
+    bullets: [
+      'Bug introduzido na V36.5.2: o parâmetro ?force_logout=... ficava preso na URL. Quando você logava com sucesso, o reload pós-login disparava o sentinel de novo, limpava o JWT recém-salvo e voltava pra tela de login. Loop infinito.',
+      'Agora o sentinel REMOVE o parâmetro da URL (via history.replaceState) imediatamente após processá-lo. Reloads subsequentes não acionam mais o sentinel.',
+      'Login funciona normalmente. JWT novo é preservado.'
+    ]
+  },
+  {
     version: 'V36.5.2',
     date: '2026-06-08',
     title: 'Sentinel de logout forçado IMPOSSÍVEL de bypassar + espião de JWT',
