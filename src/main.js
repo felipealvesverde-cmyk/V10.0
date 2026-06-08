@@ -27,20 +27,24 @@
   } catch (_) {}
 })();
 
-// V36.5.2 — Espião permanente de localStorage.setItem('lj_jwt'). Loga stack
-// trace toda vez que ALGUÉM salva o JWT. Se Felipe relata "JWT voltou
-// sozinho", o console vai mostrar exatamente quem foi.
-(function jwtSetItemSpy() {
-  try {
-    const originalSet = Storage.prototype.setItem;
-    Storage.prototype.setItem = function(key, value) {
-      if (key === 'lj_jwt' || key === 'lj_user') {
-        console.warn(`[jwt-spy] 🔍 setItem('${key}') chamado:`, new Error().stack);
-      }
-      return originalSet.call(this, key, value);
-    };
-  } catch (_) {}
-})();
+// V36.5.2/V36.6.2 — Espião de setItem('lj_jwt'/'lj_user') foi REMOVIDO.
+// Foi usado pra identificar o bug raiz do sliding session auto-save
+// (corrigido em V36.5.4). Agora que sabemos, o espião só polui o console
+// com warnings amarelos em comportamento normal (_checkSession salvando
+// lj_user após auth-me OK).
+// Se reativar pra debug futuro: comentar bloco abaixo.
+//
+// (function jwtSetItemSpy() {
+//   try {
+//     const originalSet = Storage.prototype.setItem;
+//     Storage.prototype.setItem = function(key, value) {
+//       if (key === 'lj_jwt' || key === 'lj_user') {
+//         console.warn(`[jwt-spy] 🔍 setItem('${key}') chamado:`, new Error().stack);
+//       }
+//       return originalSet.call(this, key, value);
+//     };
+//   } catch (_) {}
+// })();
 
 // V32.0.13 — Banner amarelo "🚧 STAGING" quando ENVIRONMENT=staging no backend.
 // Roda no boot ANTES de qualquer outra coisa pra Felipe nunca confundir

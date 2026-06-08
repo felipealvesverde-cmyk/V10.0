@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.6.2',
+    date: '2026-06-08',
+    title: 'Limpeza de console: removidos warnings de debug e ícone Facebook quebrado',
+    bullets: [
+      'O espião [jwt-spy] foi REMOVIDO. Ele foi essencial pra encontrar o bug raiz do sliding session (V36.5.4), mas agora só poluía o console com warnings em comportamento normal.',
+      'Ícone "facebook" no header do Dashboard Meta Ads trocado por "megaphone" (o Lucide depreciou esse ícone em versões recentes). Visual fica igual.',
+      'Console agora está limpo no boot.'
+    ]
+  },
+  {
     version: 'V36.6.1',
     date: '2026-06-08',
     title: 'Health Check RD agora reflete o status real (estava sempre cinza)',
