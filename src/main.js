@@ -107,6 +107,17 @@ var App = {
         if (window.Actions?.loadClickupStatus) {
           setTimeout(() => Actions.loadClickupStatus(), 250);
         }
+        // V36.5.0 — Health Check no boot + auto-refresh 30s. Dá visibilidade
+        // imediata do que está conectado e funcionando.
+        if (window.Actions?.runHealthCheck) {
+          setTimeout(() => Actions.runHealthCheck(), 2000); // 2s pra dar tempo loaders rodarem
+          if (!window._healthCheckInterval) {
+            window._healthCheckInterval = setInterval(() => {
+              if (document.hidden) return;
+              if (window.Actions?.runHealthCheck) Actions.runHealthCheck();
+            }, 30 * 1000);
+          }
+        }
         // V31.2.36 — Hidrata credenciais RD do DB criptografado (safety net contra
         // perda de state). Continua usando App.state como API de leitura interna,
         // mas DB vira fonte autoritativa pra restaurar conexões perdidas.
@@ -182,6 +193,27 @@ var App = {
           });
           const data = await res.json();
           if (!data?.ok || !data?.authenticated) {
+            // V36.5.0 — Quando auth-me rejeita, descobre POR QUÊ via auth-debug.
+            // Token órfão (assinatura inválida + não expirado) = JWT_SECRET
+            // rotacionada sem manter PREVIOUS no servidor. Cliente fica preso
+            // em loop de 401 silencioso. Log claro pra debug + auto-clear.
+            try {
+              const dbg = await fetch('/api/auth-debug', {
+                headers: { 'Authorization': `Bearer ${token}` }
+              }).then(r => r.json());
+              const mw = dbg?.middleware_verify_result || {};
+              const pd = dbg?.token_payload_decoded || {};
+              if (mw.ok === false && pd.already_expired === false) {
+                console.warn('[_checkSession] 🚨 TOKEN ÓRFÃO detectado:', {
+                  motivo: mw.error || 'assinatura inválida',
+                  jwt_age_minutes: pd.age_minutes,
+                  expira_em: pd.exp_iso,
+                  previous_configurada: dbg?.jwt_secret_previous?.configured
+                });
+              } else if (pd.already_expired) {
+                console.log('[_checkSession] JWT expirou normalmente — relogin necessário.');
+              }
+            } catch (_) { /* silent */ }
             localStorage.removeItem('lj_jwt');
             localStorage.removeItem('lj_user');
             return false;
@@ -509,6 +541,7 @@ var App = {
               <i data-lucide="workflow" class="w-3 h-3"></i>
               <span>LeadJourney ${window.LJVersion || 'V?.?'}</span>
             </div>
+            ${window.HealthCheckPanel ? HealthCheckPanel.render() : ''}
           `;
         }
 

@@ -572,6 +572,10 @@ var State = {
       // Populado por Actions.loadHotmartKrCache() (reusa hotmart-dashboard-metrics).
       //   loaded: boolean, fetchedAt: ms, days: number, approved_count, total_revenue, etc.
       hotmartKrCache: null,
+      // V36.5.0 — Health Check Panel (menu lateral, abaixo da versão).
+      //   items: [{key, label, status: 'ok'|'error'|'not-configured'|'loading', detail, shortDetail}]
+      //   loading, expanded, checkedAt
+      healthCheck: { items: [], loading: false, expanded: false, checkedAt: null },
       // V35.14.5 — Modal de conciliação Google Ads x GA4. null = fechado.
       // { open: true, step: 'inform' | 'choose' }
       ga4GoogleAdsReconciliation: null,
@@ -1234,6 +1238,13 @@ var State = {
       ga4GoogleAdsReconciliation: raw.ga4GoogleAdsReconciliation || null,
       // V36.3.0
       hotmartKrCache: raw.hotmartKrCache || null,
+      // V36.5.0 — Health Check (só preserva 'expanded'; itens são sempre rerodados ao logar).
+      healthCheck: {
+        items: [],
+        loading: false,
+        expanded: Boolean(raw.healthCheck?.expanded),
+        checkedAt: null
+      },
       adminMigrateStatus: raw.adminMigrateStatus || null,
       // V35.6.0 — Integrações IPI
       integrationsTab: (typeof raw.integrationsTab === 'string' && ['injetar','propagar','iterar'].includes(raw.integrationsTab)) ? raw.integrationsTab : 'injetar',

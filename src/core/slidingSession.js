@@ -30,6 +30,10 @@
   const _recent401s = [];
   const THRESHOLD_401 = 3;
 
+  // V36.5.0 — Flag pra evitar múltiplas chamadas de auth-debug em paralelo
+  // quando 401s chegam em rajada. Só 1 verificação por vez.
+  let _orphanCheckInFlight = false;
+
   window.fetch = async function(...args) {
     const [input, init] = args;
 
@@ -106,14 +110,46 @@
         while (_recent401s.length && _recent401s[0] < cutoff) _recent401s.shift();
 
         if (_recent401s.length >= THRESHOLD_401) {
-          setTimeout(() => {
-            if (window.App?.state && !window.App.state.sessionExpired) {
-              window.App.state.sessionExpired = true;
-              if (window.App.render) window.App.render();
-            }
-            // V36.4.0 — NÃO chama mais openReloginInlineModal automaticamente.
-            // Cliente vê o banner e decide se quer reentrar agora.
-          }, 0);
+          // V36.5.0 — Antes de mostrar banner, checa se o token está órfão
+          // (assinatura inválida + não expirado = JWT_SECRET rotacionada sem
+          // PREVIOUS). Se sim, faz logout limpo + redirect pra login — sem
+          // deixar cliente preso na Home com banner persistente.
+          if (!_orphanCheckInFlight) {
+            _orphanCheckInFlight = true;
+            setTimeout(async () => {
+              try {
+                const jwt = localStorage.getItem('lj_jwt');
+                if (jwt) {
+                  const dbg = await _originalFetch('/api/auth-debug', {
+                    headers: { Authorization: `Bearer ${jwt}` }
+                  }).then(r => r.json());
+                  const mw = dbg?.middleware_verify_result || {};
+                  const pd = dbg?.token_payload_decoded || {};
+                  if (mw.ok === false && pd.already_expired === false) {
+                    console.warn('[SlidingSession] 🚨 Token órfão detectado durante uso. Limpando e redirecionando.', {
+                      motivo: mw.error,
+                      previous_configurada: dbg?.jwt_secret_previous?.configured
+                    });
+                    localStorage.removeItem('lj_jwt');
+                    localStorage.removeItem('lj_user');
+                    // Salva state local em sessionStorage pra recuperação manual
+                    try {
+                      const st = window.App?.state;
+                      if (st) sessionStorage.setItem('lj_state_recovery', JSON.stringify(st));
+                    } catch (_) {}
+                    location.href = '/';
+                    return;
+                  }
+                }
+              } catch (_) { /* silent */ }
+              _orphanCheckInFlight = false;
+              // Se não é órfão (server bug 401 transient), mostra banner normalmente.
+              if (window.App?.state && !window.App.state.sessionExpired) {
+                window.App.state.sessionExpired = true;
+                if (window.App.render) window.App.render();
+              }
+            }, 0);
+          }
         } else if (DEBUG) {
           console.log(`[SlidingSession] 401 transient ignorado (${_recent401s.length}/${THRESHOLD_401} em janela 10s).`);
         }

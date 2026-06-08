@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.5.0',
+    date: '2026-06-08',
+    title: 'Detecção automática de "passe órfão" + Health Check Panel no menu',
+    bullets: [
+      'Quando o servidor rejeita seu passe (JWT) por motivo de assinatura inválida (ex: quando alguém troca a chave secreta do servidor sem manter a anterior), o LJ agora detecta automaticamente, limpa o passe quebrado e te leva direto pra tela de login.',
+      'Antes ficava preso na Home com banner âmbar e 401 em loop. Acabou.',
+      'A detecção roda no boot do app E quando 401s acumulam durante uso.',
+      'NOVO Health Check Panel no menu lateral (abaixo do badge da versão): mostra status agregado tipo "● 6/9" no modo compacto. Clica pra expandir e ver detalhe de cada item — servidor, sessão, banco, Google Ads, GA4, Hotmart, ClickUp, RD Station, state sync.',
+      'Atualiza automaticamente a cada 30 segundos. Botão de refresh manual também.'
+    ]
+  },
+  {
     version: 'V36.4.1',
     date: '2026-06-08',
     title: 'Endpoint de diagnose pra entender quando o servidor rejeita o passe (JWT)',
