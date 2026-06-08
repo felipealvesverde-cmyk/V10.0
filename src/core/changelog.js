@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.8.2',
+    date: '2026-06-08',
+    title: 'Fix do "digitando ao contrário" — input type=email não funciona com re-render',
+    bullets: [
+      'Os campos de email no modal de criar cliente estavam invertendo a ordem dos caracteres digitados (digitava "c6b" e aparecia "b6c").',
+      'Causa: inputs com type="email" não suportam selectionStart em todos os browsers (inclusive Chrome). O sistema que preserva o cursor depois de cada re-render não conseguia salvar a posição, e o cursor caía sempre no início.',
+      'Fix: trocados type="email" por type="text" nos campos de email do modal. A validação de formato continua sendo feita por regex JS — formato visualmente igual, mas comportamento correto.'
+    ]
+  },
+  {
     version: 'V36.8.1',
     date: '2026-06-08',
     title: 'Fix do bug clássico — input perdia foco depois da 1ª letra nos modais novos',

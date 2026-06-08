@@ -3156,9 +3156,10 @@ var SettingsModal = {
 
           <div class="space-y-1.5 pt-3 border-t border-slate-100">
             <label class="text-[11px] font-black text-violet-700 uppercase tracking-wider">Master do cliente (owner) *</label>
-            <input type="email" id="tenant-create-master" value="${Utils.escape(masterEmail)}"
+            <input type="text" id="tenant-create-master" value="${Utils.escape(masterEmail)}"
               oninput="Actions.updateTenantCreateField('masterEmail', this.value.toLowerCase()); App.render()"
               placeholder="thiago@atira.pro"
+              autocomplete="off"
               class="w-full px-3 py-2 rounded-xl bg-slate-50 border ${masterEmail && !masterValid ? 'border-rose-300' : 'border-slate-200'} text-sm focus:border-violet-500 focus:outline-none" />
             <p class="text-[10px] text-slate-500">Esse user vai poder gerenciar tudo do tenant (incluindo plugar banco).</p>
           </div>
@@ -3167,9 +3168,10 @@ var SettingsModal = {
             <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Equipe (opcional)</label>
             ${teamEmails.map((email, idx) => `
               <div class="flex gap-2">
-                <input type="email" id="tenant-create-team-${idx}" value="${Utils.escape(email)}"
+                <input type="text" id="tenant-create-team-${idx}" value="${Utils.escape(email)}"
                   oninput="Actions.updateTenantTeamEmail(${idx}, this.value.toLowerCase()); App.render()"
                   placeholder="joao@atira.pro"
+                  autocomplete="off"
                   class="flex-1 px-3 py-2 rounded-xl bg-slate-50 border ${email && !emailRx.test(email) ? 'border-rose-300' : 'border-slate-200'} text-sm focus:border-violet-500 focus:outline-none" />
                 ${teamEmails.length > 1 ? `<button onclick="Actions.removeTenantTeamEmail(${idx})" class="px-2 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>` : ''}
               </div>
