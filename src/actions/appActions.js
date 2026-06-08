@@ -592,6 +592,39 @@ var Actions = {
       //   'warning' = amber, 'critical' = rose (default rose se ausente).
       _getNotificationAlerts() {
         const alerts = [];
+
+        // V36.8.0 — Alerta de boas-vindas (só pra cliente, dispensável).
+        // Aparece no primeiro acesso após criação do tenant. Fica até cliente
+        // clicar "Entendido" no modal. Não aparece pro master (já conhece o LJ).
+        const cu = App.currentUser || {};
+        const isCliente = cu.isMaster === false;
+        if (isCliente && !App.state.welcomeDismissed) {
+          alerts.push({
+            id: 'welcome-lj',
+            icon: 'sparkles',
+            title: '🚀 Bem-vindo ao LeadJourney',
+            description: 'Aqui você opera o ciclo completo de receita: capta leads (RD, Hotmart, ads, formulários), pontua e qualifica, visualiza o pulso da operação, conecta com outras plataformas e constrói seu Mapa da Receita. Tem o Djow (sua IA) pra buscar e configurar tudo. Vamos começar?',
+            action: 'Actions.dismissWelcome()',
+            actionLabel: 'Entendido, vamos começar',
+            severity: 'info'
+          });
+        }
+
+        // V36.8.0 — Alerta crítico: cliente sem banco de dados plugado.
+        // Aparece pra cliente cujo tenant não tem db_connection_string_enc.
+        // Bloqueia integrações até resolver. Não aparece pro master.
+        if (isCliente && cu.tenantDbPlugged === false) {
+          alerts.push({
+            id: 'tenant-db-missing',
+            icon: 'database',
+            title: '🔴 Configure um banco de dados',
+            description: 'Pra ativar as integrações com outras plataformas, sincronizar entre dispositivos e receber webhooks em tempo real, conecte seu próprio Postgres. Recomendamos Railway (R$30-50/mês, setup em 5min, backups automáticos). Também funciona com Neon, Supabase ou seu próprio. Enquanto sem banco: dados ficam só no seu navegador, sem sync, sem webhooks, sem integrações.',
+            action: 'Actions.openTenantDbWizard()',
+            actionLabel: 'Conectar banco de dados →',
+            severity: 'critical'
+          });
+        }
+
         // 1. Ads órfãs (Google Ads não associadas a Campanha LJ)
         const adsOrphanCount = Actions.getAdsOrphanBellCount ? Actions.getAdsOrphanBellCount() : 0;
         if (adsOrphanCount > 0) {
@@ -3157,6 +3190,214 @@ Object.assign(Actions, {
       await this.loadTenantsList();
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V36.8.0 — Dispensa permanente do alerta de boas-vindas.
+  dismissWelcome() {
+    App.state.welcomeDismissed = true;
+    App.save();
+    App.render();
+    Utils.toast('Boas-vindas dispensadas. Próximo passo: conectar banco.');
+  },
+
+  // V36.8.0 — Abre wizard de conexão de banco de dados (cliente sem DB).
+  openTenantDbWizard() {
+    App.state.tenantDbWizard = {
+      open: true,
+      step: 1,
+      provider: null,        // 'railway' | 'neon' | 'supabase' | 'custom'
+      fields: { host: '', port: '5432', user: '', password: '', dbname: '' },
+      connStr: '',
+      saving: false,
+      testing: false,
+      testResult: null,
+      error: null
+    };
+    // Fecha modal de notificações se estiver aberto
+    App.state.importReportsModalOpen = false;
+    App.render();
+  },
+
+  closeTenantDbWizard() {
+    App.state.tenantDbWizard = null;
+    App.render();
+  },
+
+  setTenantDbWizardStep(step) {
+    if (!App.state.tenantDbWizard) return;
+    App.state.tenantDbWizard.step = step;
+    App.render();
+  },
+
+  setTenantDbProvider(provider) {
+    if (!App.state.tenantDbWizard) return;
+    App.state.tenantDbWizard.provider = provider;
+    App.state.tenantDbWizard.step = 2;
+    App.render();
+  },
+
+  updateTenantDbField(field, value) {
+    if (!App.state.tenantDbWizard) return;
+    App.state.tenantDbWizard.fields = App.state.tenantDbWizard.fields || {};
+    App.state.tenantDbWizard.fields[field] = String(value || '');
+    // Recompõe connection string em tempo real
+    const f = App.state.tenantDbWizard.fields;
+    if (f.host && f.user && f.password && f.dbname) {
+      const port = f.port || '5432';
+      App.state.tenantDbWizard.connStr = `postgresql://${f.user}:${encodeURIComponent(f.password)}@${f.host}:${port}/${f.dbname}`;
+    } else {
+      App.state.tenantDbWizard.connStr = '';
+    }
+  },
+
+  // Conecta o DB do tenant ATUAL (cliente). Não é a mesma coisa que plugTenantDb
+  // (que é o endpoint master pra outro tenant). Aqui o cliente conecta o próprio.
+  async submitTenantDbConnect() {
+    const w = App.state.tenantDbWizard;
+    if (!w || !w.connStr) return;
+    w.saving = true;
+    w.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const cu = App.currentUser || {};
+      const tenantId = cu.tenantId;
+      if (!tenantId) {
+        w.error = 'Tenant não identificado. Faça logout e login de novo.';
+        w.saving = false;
+        App.render();
+        return;
+      }
+      const r = await fetch('/api/tenants-plug-db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenant_id: tenantId, connection_string: w.connStr })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        w.error = data.message || 'Falha ao plugar banco';
+        w.saving = false;
+        App.render();
+        return;
+      }
+      // Sucesso — passa pra step 4 (sucesso)
+      w.step = 4;
+      w.saving = false;
+      App.render();
+      // Atualiza tenantDbPlugged no currentUser pra alerta sumir
+      if (App.currentUser) App.currentUser.tenantDbPlugged = true;
+      Utils.toast(`✓ Banco conectado! Próximas requests vão pro seu Postgres.`);
+    } catch (err) {
+      w.error = err.message;
+      w.saving = false;
+      App.render();
+    }
+  },
+
+  // V36.8.0 — Modal "Criar novo cliente" (master only)
+  openTenantCreateModal() {
+    App.state.tenantCreateModal = {
+      slug: '',
+      name: '',
+      masterEmail: '',
+      teamEmails: [''],
+      saving: false,
+      error: null
+    };
+    App.render();
+  },
+
+  closeTenantCreateModal() {
+    App.state.tenantCreateModal = null;
+    App.render();
+  },
+
+  updateTenantCreateField(field, value) {
+    if (!App.state.tenantCreateModal) return;
+    App.state.tenantCreateModal[field] = String(value || '');
+  },
+
+  updateTenantTeamEmail(idx, value) {
+    const m = App.state.tenantCreateModal;
+    if (!m || !Array.isArray(m.teamEmails)) return;
+    m.teamEmails[idx] = String(value || '');
+  },
+
+  addTenantTeamEmail() {
+    const m = App.state.tenantCreateModal;
+    if (!m) return;
+    m.teamEmails = Array.isArray(m.teamEmails) ? m.teamEmails : [];
+    m.teamEmails.push('');
+    App.render();
+  },
+
+  removeTenantTeamEmail(idx) {
+    const m = App.state.tenantCreateModal;
+    if (!m || !Array.isArray(m.teamEmails)) return;
+    m.teamEmails.splice(idx, 1);
+    if (m.teamEmails.length === 0) m.teamEmails = [''];
+    App.render();
+  },
+
+  async submitTenantCreate() {
+    const m = App.state.tenantCreateModal;
+    if (!m) return;
+    m.saving = true;
+    m.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const teamEmails = (m.teamEmails || []).filter(e => e && e.trim());
+      const r = await fetch('/api/tenant-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          slug: m.slug,
+          name: m.name,
+          masterEmail: m.masterEmail,
+          teamEmails
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        m.error = data.message || 'Falha desconhecida';
+        m.saving = false;
+        App.render();
+        return;
+      }
+      // Fecha modal de criação, abre modal de credenciais
+      App.state.tenantCreateModal = null;
+      App.state.tenantCreatedCredentials = { tenant: data.tenant, credentials: data.credentials };
+      await Actions.loadTenantsList();
+      App.render();
+      Utils.toast(`✓ Cliente "${data.tenant.name}" criado.`);
+    } catch (err) {
+      m.error = err.message;
+      m.saving = false;
+      App.render();
+    }
+  },
+
+  closeTenantCredentialsModal() {
+    App.state.tenantCreatedCredentials = null;
+    App.render();
+  },
+
+  copyToClipboard(text, btn) {
+    try {
+      navigator.clipboard.writeText(text);
+      if (btn) {
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i> Copiado';
+        setTimeout(() => {
+          btn.innerHTML = original;
+          if (window.lucide?.createIcons) window.lucide.createIcons();
+        }, 1500);
+        if (window.lucide?.createIcons) window.lucide.createIcons();
+      }
+    } catch (_) {
+      Utils.toast('Falhou ao copiar — copie manualmente.');
     }
   },
 

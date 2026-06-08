@@ -103,6 +103,12 @@ var State = {
       // (mesma regra: novo campo em App.state precisa entrar em initial + normalize).
       _tenantsListCache: [],
       tenantPlugDraft: {},
+      // V36.8.0 — Modais master do painel Tenants
+      tenantCreateModal: null,
+      tenantCreatedCredentials: null,
+      // V36.8.0 — Onboarding cliente: dispensar boas-vindas + wizard de DB
+      welcomeDismissed: false,
+      tenantDbWizard: null,
       // V32.0.16 — Cache de providers conectados via execution_credentials (DB
       // criptografado). Hidratado por Actions.loadExecutionCredentials() ao
       // abrir Settings → Execução. Provider bridges (_isNewPathConnected) leem
@@ -1468,6 +1474,12 @@ var State = {
       // fresco) mas listamos pra normalize não dropar enquanto a sessão tá ativa.
       _tenantsListCache: Array.isArray(raw._tenantsListCache) ? raw._tenantsListCache : [],
       tenantPlugDraft: (raw.tenantPlugDraft && typeof raw.tenantPlugDraft === 'object') ? raw.tenantPlugDraft : {},
+      // V36.8.0 — Modais master criar cliente (não persistem, mas precisa pra normalize não dropar).
+      tenantCreateModal: (raw.tenantCreateModal && typeof raw.tenantCreateModal === 'object') ? raw.tenantCreateModal : null,
+      tenantCreatedCredentials: (raw.tenantCreatedCredentials && typeof raw.tenantCreatedCredentials === 'object') ? raw.tenantCreatedCredentials : null,
+      // V36.8.0 — Onboarding cliente: welcome dismissal persistente + wizard DB ephemeral.
+      welcomeDismissed: Boolean(raw.welcomeDismissed),
+      tenantDbWizard: (raw.tenantDbWizard && typeof raw.tenantDbWizard === 'object') ? raw.tenantDbWizard : null,
       // V32.0.16 — Cache + draft de execution_credentials.
       _executionCredentialsCache: Array.isArray(raw._executionCredentialsCache) ? raw._executionCredentialsCache : [],
       trelloConnectDraft: (raw.trelloConnectDraft && typeof raw.trelloConnectDraft === 'object')

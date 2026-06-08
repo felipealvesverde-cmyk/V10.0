@@ -3091,11 +3091,155 @@ var SettingsModal = {
           <h3 class="text-2xl font-black text-slate-950">Tenants (${tenants.length})</h3>
           <p class="text-sm text-slate-500">Master é admin global. Não aparece aqui — só clientes.</p>
         </div>
-        <button onclick="Actions.loadTenantsList()" class="px-4 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black flex items-center gap-1.5 lj-dark-button" style="color:#fff;"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Atualizar</button>
+        <div class="flex items-center gap-2">
+          <button onclick="Actions.openTenantCreateModal()" class="px-4 py-2 rounded-2xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff;"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Criar novo cliente</button>
+          <button onclick="Actions.loadTenantsList()" class="px-4 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black flex items-center gap-1.5 lj-dark-button" style="color:#fff;"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Atualizar</button>
+        </div>
       </div>
 
       <div class="space-y-3">
         ${tenants.map(t => this._tenantRow(t)).join('')}
+      </div>
+
+      ${App.state.tenantCreateModal ? this._tenantCreateModal() : ''}
+      ${App.state.tenantCreatedCredentials ? this._tenantCredentialsModal() : ''}
+    </div>`;
+  },
+
+  // V36.8.0 — Modal "Criar novo cliente"
+  _tenantCreateModal() {
+    const m = App.state.tenantCreateModal || {};
+    const slug = m.slug || '';
+    const name = m.name || '';
+    const masterEmail = m.masterEmail || '';
+    const teamEmails = Array.isArray(m.teamEmails) ? m.teamEmails : [''];
+    const saving = Boolean(m.saving);
+    const error = m.error || '';
+
+    // Validação inline
+    const slugValid = /^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) && slug.length >= 3 && slug.length <= 30;
+    const nameValid = name.length >= 2;
+    const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const masterValid = emailRx.test(masterEmail);
+    const teamValid = teamEmails.filter(Boolean).every(e => emailRx.test(e));
+    const allValid = slugValid && nameValid && masterValid && teamValid;
+
+    return `<div class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm grid place-items-center p-4" onclick="if(event.target===this) Actions.closeTenantCreateModal()">
+      <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="p-6 border-b border-slate-100 flex items-start justify-between">
+          <div>
+            <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-1">Control Plane</p>
+            <h3 class="text-xl font-black text-slate-900">Criar novo cliente</h3>
+            <p class="text-xs text-slate-500 mt-1">Cliente nasce sem banco. Vai ser guiado a conectar Postgres depois.</p>
+          </div>
+          <button onclick="Actions.closeTenantCreateModal()" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+
+        <div class="p-6 space-y-4">
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Slug (URL) *</label>
+            <input type="text" value="${Utils.escape(slug)}"
+              oninput="Actions.updateTenantCreateField('slug', this.value.toLowerCase().replace(/[^a-z0-9-]/g, '')); App.render()"
+              placeholder="atira-pro"
+              class="w-full px-3 py-2 rounded-xl bg-slate-50 border ${slug && !slugValid ? 'border-rose-300' : 'border-slate-200'} text-sm font-mono focus:border-violet-500 focus:outline-none" />
+            <p class="text-[10px] text-slate-500">3-30 chars, lowercase, números e hífens. Único no sistema.</p>
+            ${slug && !slugValid ? '<p class="text-[10px] text-rose-600">Formato inválido</p>' : ''}
+          </div>
+
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Nome de exibição *</label>
+            <input type="text" value="${Utils.escape(name)}"
+              oninput="Actions.updateTenantCreateField('name', this.value); App.render()"
+              placeholder="Atira.Pro"
+              class="w-full px-3 py-2 rounded-xl bg-slate-50 border ${name && !nameValid ? 'border-rose-300' : 'border-slate-200'} text-sm focus:border-violet-500 focus:outline-none" />
+          </div>
+
+          <div class="space-y-1.5 pt-3 border-t border-slate-100">
+            <label class="text-[11px] font-black text-violet-700 uppercase tracking-wider">Master do cliente (owner) *</label>
+            <input type="email" value="${Utils.escape(masterEmail)}"
+              oninput="Actions.updateTenantCreateField('masterEmail', this.value.toLowerCase()); App.render()"
+              placeholder="thiago@atira.pro"
+              class="w-full px-3 py-2 rounded-xl bg-slate-50 border ${masterEmail && !masterValid ? 'border-rose-300' : 'border-slate-200'} text-sm focus:border-violet-500 focus:outline-none" />
+            <p class="text-[10px] text-slate-500">Esse user vai poder gerenciar tudo do tenant (incluindo plugar banco).</p>
+          </div>
+
+          <div class="space-y-2 pt-3 border-t border-slate-100">
+            <label class="text-[11px] font-black text-slate-700 uppercase tracking-wider">Equipe (opcional)</label>
+            ${teamEmails.map((email, idx) => `
+              <div class="flex gap-2">
+                <input type="email" value="${Utils.escape(email)}"
+                  oninput="Actions.updateTenantTeamEmail(${idx}, this.value.toLowerCase()); App.render()"
+                  placeholder="joao@atira.pro"
+                  class="flex-1 px-3 py-2 rounded-xl bg-slate-50 border ${email && !emailRx.test(email) ? 'border-rose-300' : 'border-slate-200'} text-sm focus:border-violet-500 focus:outline-none" />
+                ${teamEmails.length > 1 ? `<button onclick="Actions.removeTenantTeamEmail(${idx})" class="px-2 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>` : ''}
+              </div>
+            `).join('')}
+            <button onclick="Actions.addTenantTeamEmail()" class="text-[11px] text-violet-600 font-black hover:text-violet-800 inline-flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Adicionar email</button>
+          </div>
+
+          ${error ? `<div class="rounded-xl bg-rose-50 border border-rose-200 p-3 text-xs text-rose-800">${Utils.escape(error)}</div>` : ''}
+        </div>
+
+        <div class="p-6 border-t border-slate-100 flex justify-end gap-2">
+          <button onclick="Actions.closeTenantCreateModal()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black">Cancelar</button>
+          <button onclick="Actions.submitTenantCreate()" ${(!allValid || saving) ? 'disabled' : ''} class="px-5 py-2 rounded-xl ${allValid && !saving ? 'bg-violet-600 hover:bg-violet-700' : 'bg-slate-300 cursor-not-allowed'} text-white text-xs font-black inline-flex items-center gap-2" style="color:#fff;">
+            ${saving ? '<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> Criando...' : '<i data-lucide="check" class="w-3.5 h-3.5"></i> Criar cliente'}
+          </button>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V36.8.0 — Modal de credenciais geradas (mostra senhas iniciais pra Felipe copiar)
+  _tenantCredentialsModal() {
+    const data = App.state.tenantCreatedCredentials || {};
+    const tenant = data.tenant || {};
+    const credentials = Array.isArray(data.credentials) ? data.credentials : [];
+
+    return `<div class="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm grid place-items-center p-4" onclick="if(event.target===this) Actions.closeTenantCredentialsModal()">
+      <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+        <div class="p-6 border-b border-slate-100 bg-gradient-to-br from-emerald-50 to-white">
+          <div class="flex items-start gap-3">
+            <div class="shrink-0 w-12 h-12 rounded-2xl bg-emerald-500/20 grid place-items-center">
+              <i data-lucide="check" class="w-6 h-6 text-emerald-700"></i>
+            </div>
+            <div>
+              <h3 class="text-xl font-black text-slate-900">Cliente criado!</h3>
+              <p class="text-sm text-slate-600 mt-1"><b>${Utils.escape(tenant.name || '—')}</b> (slug: <code class="bg-slate-100 px-1 rounded text-xs">${Utils.escape(tenant.slug || '—')}</code>) está pronto.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-6 space-y-3">
+          <div class="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+            <p class="font-black mb-1">⚠️ Anote essas senhas agora.</p>
+            <p>Por segurança, elas não ficam salvas em lugar nenhum. Se fechar essa tela sem copiar, o usuário precisa pedir reset.</p>
+          </div>
+
+          ${credentials.map(c => `
+            <div class="rounded-xl bg-slate-50 border border-slate-200 p-4">
+              <div class="flex items-center justify-between gap-2 mb-2">
+                <p class="text-sm font-black text-slate-900">${Utils.escape(c.email)}</p>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${c.role === 'owner' ? 'bg-violet-200 text-violet-800' : 'bg-slate-200 text-slate-700'} uppercase">${Utils.escape(c.role)}</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <code class="flex-1 bg-white border border-slate-300 px-3 py-2 rounded-lg text-sm font-mono">${Utils.escape(c.initialPassword)}</code>
+                <button onclick="Actions.copyToClipboard('${Utils.escape(c.initialPassword)}', this)" class="px-3 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff;"><i data-lucide="clipboard" class="w-3.5 h-3.5"></i> Copiar</button>
+              </div>
+            </div>
+          `).join('')}
+
+          <div class="rounded-xl bg-sky-50 border border-sky-200 p-3 text-xs text-sky-900 mt-3">
+            <p class="font-black mb-1">Próximos passos pra o cliente</p>
+            <p>1. Compartilhe as credenciais por canal seguro.</p>
+            <p>2. No primeiro login, o cliente vai ver alerta no sininho pedindo pra conectar um banco de dados.</p>
+            <p>3. Enquanto sem banco, integrações (RD, ClickUp, Hotmart, etc) ficam bloqueadas.</p>
+          </div>
+        </div>
+
+        <div class="p-6 border-t border-slate-100 flex justify-end">
+          <button onclick="Actions.closeTenantCredentialsModal()" class="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black" style="color:#fff;">Fechei, anotei tudo</button>
+        </div>
       </div>
     </div>`;
   },
