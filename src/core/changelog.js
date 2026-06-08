@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.5.4',
+    date: '2026-06-08',
+    title: 'Renovação invisível de passe DESATIVADA (estava causando bugs)',
+    bullets: [
+      'Antes: o LJ renovava seu passe automaticamente quando o servidor enviava um cabeçalho especial. Útil pra você não precisar relogar a cada 7 dias.',
+      'Problema descoberto: em cenários de rotação da chave do servidor com configuração intermediária (como o caso vivido pelo Felipe hoje), essa renovação criava tokens que pareciam válidos pra alguns endpoints mas eram rejeitados por outros. Resultado: banner âmbar "Sessão Expirada" preso, 401 em loop.',
+      'Decisão: desativar a renovação invisível. Seu passe agora vale pelo tempo natural (7 dias). Após isso, login normal — sem surpresas.',
+      'Trade-off aceito: cliente inativo por 7+ dias precisa relogar. Em troca, eliminamos a classe de bugs que estava causando dor de cabeça.',
+      'Se precisarmos voltar com renovação no futuro, o código está comentado em slidingSession.js pronto pra reativação.'
+    ]
+  },
+  {
     version: 'V36.5.3',
     date: '2026-06-08',
     title: 'Fix loop infinito de login após "Sair forçado"',
