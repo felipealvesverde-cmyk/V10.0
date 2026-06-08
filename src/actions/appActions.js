@@ -14199,12 +14199,30 @@ Object.assign(Actions, {
       }),
 
       safe('RD Station', 'tokens', async () => {
-        // V36.5.0 — Heurística simples: se App.state.rdCredentials existe = configurado.
-        const s = App.state.rdCredentials || {};
-        const hasAny = Boolean(s.pat?.connected || s.crm?.connected || s.marketing?.connected);
-        if (!hasAny) return { status: 'not-configured', shortDetail: 'não config', detail: 'Sem RD conectado' };
-        const conn = [s.pat?.connected && 'PAT', s.crm?.connected && 'CRM', s.marketing?.connected && 'Mkt'].filter(Boolean).join('+');
-        return { status: 'ok', shortDetail: conn, detail: `Conectado: ${conn}` };
+        // V36.6.1 — Health Check RD: lê 2 fontes pra detectar conexão.
+        //   (a) App.state.rdConnectionStatus — populado quando user roda "Testar conexão"
+        //       (mais autoritativo: status real testado contra a API)
+        //   (b) App.state.integrations.rd — credenciais salvas (heurística por presença)
+        // Antes lia App.state.rdCredentials que não existe → mostrava sempre "não config".
+        const status = App.state.rdConnectionStatus || {};
+        const rd = App.state.integrations?.rd || {};
+        const crm = App.state.integrations?.rdCrm || {};
+        const testedConn = ['crm_pat', 'crm_oauth', 'marketing_oauth']
+          .filter(k => status[k]?.status === 'connected');
+        if (testedConn.length) {
+          const labels = { crm_pat: 'PAT', crm_oauth: 'CRM', marketing_oauth: 'Mkt' };
+          const conn = testedConn.map(k => labels[k]).join('+');
+          return { status: 'ok', shortDetail: conn, detail: `Conexões testadas: ${conn}` };
+        }
+        // Fallback: detecta presença de credenciais (sem teste recente)
+        const hasPat = Boolean(crm.pat || rd.pat);
+        const hasCrmOauth = Boolean(rd.crmOauth?.accessToken);
+        const hasMktOauth = Boolean(rd.accessToken);
+        const detected = [hasPat && 'PAT', hasCrmOauth && 'CRM', hasMktOauth && 'Mkt'].filter(Boolean);
+        if (detected.length) {
+          return { status: 'ok', shortDetail: detected.join('+'), detail: `Credenciais detectadas: ${detected.join('+')} (clique "Testar conexão" no RD pra validar)` };
+        }
+        return { status: 'not-configured', shortDetail: 'não config', detail: 'Sem RD conectado' };
       })
     ]);
 

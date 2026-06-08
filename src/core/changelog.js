@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.6.1',
+    date: '2026-06-08',
+    title: 'Health Check RD agora reflete o status real (estava sempre cinza)',
+    bullets: [
+      'O item "RD Station" do Health Check mostrava "não config" mesmo quando você tinha as 3 conexões verdes no modal do RD.',
+      'Causa: o check estava lendo App.state.rdCredentials que não existe nessa estrutura. As credenciais reais ficam em App.state.integrations.rd.',
+      'Agora o Health Check prioriza App.state.rdConnectionStatus (status testado contra a API quando você clica "Testar conexão") e usa as credenciais como fallback.',
+      'Aparece tipo "PAT+CRM+Mkt" quando as 3 estão ativas.'
+    ]
+  },
+  {
     version: 'V36.6.0',
     date: '2026-06-08',
     title: 'Token do RD Marketing renova sozinho — sem reconectar OAuth toda hora',
