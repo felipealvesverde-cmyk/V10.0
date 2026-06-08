@@ -1,3 +1,39 @@
+// V36.5.2 — Sentinel de force_logout / orphan_logout. Roda PRIMEIRO de tudo,
+// antes de qualquer fetch ou init. Se URL tem qualquer um dos query params
+// de logout forçado, limpa SEMPRE localStorage + sessionStorage e marca flag
+// global pra forçar tela de login (ignora qualquer JWT que estiver lá).
+// Isso é defesa contra cenário do Felipe (V36.5.1): após forceFullLogout,
+// JWT velho voltava no localStorage por motivo não identificado, mantendo
+// app logado mesmo após "Sair forçado". Esta verificação é IMPOSSÍVEL de
+// bypassar — roda no parse do JS, antes de qualquer outro código.
+(function forceLogoutSentinel() {
+  try {
+    const q = window.location.search || '';
+    if (q.includes('force_logout=') || q.includes('orphan_logout=')) {
+      console.warn('[Boot] 🚨 force_logout/orphan_logout detectado na URL. Limpando TUDO.');
+      try { localStorage.clear(); } catch (_) {}
+      try { sessionStorage.clear(); } catch (_) {}
+      window.__LJ_FORCE_LOGIN_SCREEN = true;
+      console.warn('[Boot] Flag __LJ_FORCE_LOGIN_SCREEN=true. Init vai pular _checkSession.');
+    }
+  } catch (_) {}
+})();
+
+// V36.5.2 — Espião permanente de localStorage.setItem('lj_jwt'). Loga stack
+// trace toda vez que ALGUÉM salva o JWT. Se Felipe relata "JWT voltou
+// sozinho", o console vai mostrar exatamente quem foi.
+(function jwtSetItemSpy() {
+  try {
+    const originalSet = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(key, value) {
+      if (key === 'lj_jwt' || key === 'lj_user') {
+        console.warn(`[jwt-spy] 🔍 setItem('${key}') chamado:`, new Error().stack);
+      }
+      return originalSet.call(this, key, value);
+    };
+  } catch (_) {}
+})();
+
 // V32.0.13 — Banner amarelo "🚧 STAGING" quando ENVIRONMENT=staging no backend.
 // Roda no boot ANTES de qualquer outra coisa pra Felipe nunca confundir
 // staging × produção. Visível inclusive na tela de login.
@@ -64,6 +100,15 @@ var App = {
       state: null,
       currentUser: null,  // V23.0.0 — preenchido após login OK
       async init() {
+        // V36.5.2 — Sentinel: se URL tinha force_logout/orphan_logout, IGNORA
+        // qualquer JWT que esteja no localStorage e vai DIRETO pra tela de login.
+        // Cobre cenário do Felipe onde JWT velho reaparecia no localStorage por
+        // motivo desconhecido após "Sair forçado".
+        if (window.__LJ_FORCE_LOGIN_SCREEN) {
+          console.warn('[init] __LJ_FORCE_LOGIN_SCREEN=true — mostrando tela de login direto.');
+          this._showLoginScreen();
+          return;
+        }
         // V23.0.0 — Gate de login antes de carregar o app.
         const sessionOk = await this._checkSession();
         if (!sessionOk) {

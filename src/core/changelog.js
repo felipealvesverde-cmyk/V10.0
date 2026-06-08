@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.5.2',
+    date: '2026-06-08',
+    title: 'Sentinel de logout forçado IMPOSSÍVEL de bypassar + espião de JWT',
+    bullets: [
+      'Mesmo após clicar em "Sair forçado", o app continuava logado em alguns casos (cenário do Felipe). Causa não identificada — JWT velho reaparecia no localStorage após o reload.',
+      'Defesa nova: se URL tem ?force_logout= ou ?orphan_logout=, o app limpa localStorage/sessionStorage NO PARSE do JS (antes de qualquer fetch ou init) e marca flag global pra mostrar tela de login direto. Ignora qualquer JWT que estiver lá.',
+      'BONUS: espião permanente de localStorage.setItem("lj_jwt") loga stack trace no console toda vez que alguém salva o passe. Próxima vez que isso acontecer, vamos saber exatamente quem foi.',
+      'Diferente dos anteriores: esse sentinel não pode ser bypassado por race condition, código antigo em cache ou outras abas. Roda como IIFE no topo do main.js.'
+    ]
+  },
+  {
     version: 'V36.5.1',
     date: '2026-06-08',
     title: 'Logout-força-bruta + botão "Sair forçado" no banner âmbar',
