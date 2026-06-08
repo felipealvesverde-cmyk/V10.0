@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.8.0',
+    date: '2026-06-08',
+    title: 'Master pode criar clientes novos + onboarding guiado com banco de dados',
+    bullets: [
+      'Painel "Tenants" no master ganhou botão "+ Criar novo cliente". Modal pede slug, nome, email do master do cliente e emails da equipe (opcionais).',
+      'Ao criar, o LJ gera senha aleatória forte pra cada usuário e mostra num modal pra você copiar e mandar pro cliente por canal seguro (não persiste em lugar nenhum depois).',
+      'Cliente novo nasce sem banco de dados. No primeiro login, o sininho mostra mensagem de boas-vindas explicando o que o LJ faz e um alerta crítico pedindo pra conectar um Postgres.',
+      'Wizard de conexão de banco em 4 passos: escolha entre Railway (recomendado), Neon, Supabase ou Postgres próprio. Pra Railway, tutorial passo a passo dentro do LJ (5 etapas curtas).',
+      'Pra Postgres próprio, formulário com campos separados (host, porta, user, senha, database) — LJ monta a connection string automaticamente.',
+      'Enquanto banco não está conectado, todas as integrações (RD, Hotmart, ClickUp, Google Ads, GA4, Meta Ads) ficam BLOQUEADAS com tela de cadeado explicando o porquê. Master sempre passa sem bloqueio.'
+    ]
+  },
+  {
     version: 'V36.7.2',
     date: '2026-06-08',
     title: 'Tripla camada de proteção contra perda silenciosa de dados',

@@ -33,6 +33,12 @@ const IntegrationsModule = {
   ],
 
   render() {
+    // V36.8.0 — Lockdown se cliente sem DB plugado. Master sempre passa.
+    const cu = App.currentUser || {};
+    if (cu.isMaster === false && cu.tenantDbPlugged === false) {
+      return this._dbRequiredLockdown();
+    }
+
     const active = App.state.integrationsTab || 'injetar';
     const tab = this.TABS.find(t => t.id === active) || this.TABS[0];
 
@@ -57,6 +63,90 @@ const IntegrationsModule = {
       ${this._tabsBar(active)}
       ${this._activeTabHeader(tab)}
       ${this._cardsGrid(active)}
+    </div>`;
+  },
+
+  // V36.8.0 — Tela de lockdown quando cliente ainda não plugou banco de dados.
+  // Cards de integrações ficam visíveis embaixo (esmaecidos) com overlay
+  // de cadeado e CTA pra wizard de DB.
+  _dbRequiredLockdown() {
+    const fakeCardsPreview = [
+      { name: 'Google Ads', icon: 'search', tone: 'amber' },
+      { name: 'Hotmart', icon: 'shopping-cart', tone: 'orange' },
+      { name: 'GA4', icon: 'bar-chart-2', tone: 'sky' },
+      { name: 'RD Station', icon: 'users', tone: 'pink' },
+      { name: 'ClickUp', icon: 'check-square', tone: 'violet' },
+      { name: 'Meta Ads', icon: 'megaphone', tone: 'pink' }
+    ];
+
+    return `<div class="space-y-6 max-w-4xl mx-auto px-2 pb-8">
+      <!-- CTA principal de bloqueio -->
+      <div class="rounded-3xl bg-gradient-to-br from-rose-500/10 via-amber-500/5 to-white border-2 border-rose-300 p-8 shadow-xl">
+        <div class="flex items-start gap-4 mb-6">
+          <div class="shrink-0 w-14 h-14 rounded-2xl bg-rose-500/20 grid place-items-center">
+            <i data-lucide="lock" class="w-7 h-7 text-rose-700"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-[10px] font-black text-rose-700 uppercase tracking-widest mb-1">Integrações bloqueadas</p>
+            <h2 class="text-2xl font-black text-slate-900">Configure um banco de dados primeiro</h2>
+            <p class="text-sm text-slate-700 mt-2 leading-relaxed">
+              Pra conectar com RD, Hotmart, ClickUp, Google Ads, GA4 e Meta Ads,
+              precisamos de um lugar pra armazenar seus dados e receber webhooks.
+              Sem isso, as plataformas externas não conseguem mandar eventos pra você.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-3 mb-6">
+          <div class="rounded-xl bg-white border border-slate-200 p-3">
+            <p class="text-[10px] font-black text-rose-700 uppercase tracking-widest mb-1">Sem banco</p>
+            <ul class="text-xs text-slate-700 space-y-1">
+              <li>❌ Sem webhooks ao vivo</li>
+              <li>❌ Sem sync entre dispositivos</li>
+              <li>❌ Sem integrações com outras plataformas</li>
+              <li>⚠️ Perde dados se limpar cache</li>
+            </ul>
+          </div>
+          <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+            <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest mb-1">Com banco</p>
+            <ul class="text-xs text-slate-700 space-y-1">
+              <li>✓ Webhooks ao vivo</li>
+              <li>✓ Sync entre PC e celular</li>
+              <li>✓ Integrações desbloqueadas</li>
+              <li>✓ Backups automáticos</li>
+            </ul>
+          </div>
+        </div>
+
+        <button onclick="Actions.openTenantDbWizard()" class="w-full px-6 py-3 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white text-sm font-black inline-flex items-center justify-center gap-2" style="color:#fff;">
+          <i data-lucide="database" class="w-5 h-5"></i>
+          Conectar banco de dados agora →
+        </button>
+        <p class="text-[11px] text-slate-500 text-center mt-3">Recomendamos Railway — R$30-50/mês, setup em 5 min. A gente te ensina passo a passo.</p>
+      </div>
+
+      <!-- Preview esmaecido das integrações que estarão disponíveis -->
+      <div>
+        <p class="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">Integrações que estarão disponíveis</p>
+        <div class="grid md:grid-cols-3 gap-3">
+          ${fakeCardsPreview.map(c => `
+            <div class="rounded-2xl bg-white border border-slate-200 p-4 opacity-50 grayscale relative">
+              <div class="flex items-start gap-3">
+                <div class="shrink-0 w-10 h-10 rounded-xl bg-slate-100 grid place-items-center">
+                  <i data-lucide="${c.icon}" class="w-5 h-5 text-slate-400"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-black text-slate-700">${c.name}</p>
+                  <p class="text-[11px] text-slate-500 mt-1">Bloqueado · precisa banco</p>
+                </div>
+              </div>
+              <div class="absolute top-2 right-2">
+                <i data-lucide="lock" class="w-4 h-4 text-slate-400"></i>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
     </div>`;
   },
 
