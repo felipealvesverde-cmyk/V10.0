@@ -73,6 +73,12 @@ window.DjowStrategicAssistant = {
   _localSuggestion(message, ctx) {
     const msg = message.toLowerCase();
     const zoom = String(ctx?.zoom || '').trim();
+    // V36.9.4 — Avaliação NA ETAPA 3 (Os Números): check de cobertura por
+    // frente + qualidade das metas. Tem precedência sobre Etapa 1/2.
+    const isKrQuery = /n[uú]mero|n[uú]meros|meta|metas|kr|kpi|kpis/.test(msg);
+    if (zoom === 'okrs' && (/avalia|avaliar|cr[ií]tic|posso avan[cç]ar|falta|coerent/.test(msg) || isKrQuery)) {
+      return this._evaluateNumeros(ctx);
+    }
     // V36.9.3 — Pedido de avaliação NA ETAPA 2 (Comercial): check de cobertura
     // e qualidade das 3 frentes. Tem precedência sobre o avaliador da Etapa 1
     // quando o cliente está em objectives.
@@ -214,5 +220,84 @@ window.DjowStrategicAssistant = {
     }
 
     return `Frentes comerciais:\n\n${checklist}${alerts.length ? `\n\n${alerts.join('\n\n')}` : ''}\n\n${veredito}`;
+  },
+
+  // V36.9.4 — Crítico estrutural da Etapa 3 (Os Números).
+  // Olha cobertura por frente + qualidade das metas:
+  //   COBERTURA: cada frente tem 1+ KR?
+  //   METAS: KRs têm Meta Segura + Meta Avançada setadas? Avançada > Segura?
+  //   CONFIRMAÇÃO: tem KR em estado editing (rascunho não confirmado)?
+  //   COERÊNCIA: alguma frente com MUITO mais KRs que outra (5 em Marketing, 1 em Vendas)?
+  _evaluateNumeros(ctx) {
+    if (!window.StrategicMapEngine) {
+      return 'Não consegui ler os números agora. Tente novamente em alguns segundos.';
+    }
+    const App = window.App;
+    const productId = App?.state?.strategicMapProductId;
+    if (!productId) return 'Abra um produto pra eu avaliar.';
+
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    const productKrs = StrategicMapEngine.getProductKrs ? StrategicMapEngine.getProductKrs(productId) : [];
+
+    const frentes = areas.map(a => {
+      const krs = productKrs.filter(k => k.area === a.id);
+      const confirmed = krs.filter(k => k.confirmed);
+      const editing = krs.filter(k => !k.confirmed);
+      const incompleteMetas = krs.filter(k => {
+        const safe = Number(k.targetCommitted || 0);
+        const adv = Number(k.targetStretch || 0);
+        return safe > 0 && adv > 0 && adv <= safe;
+      });
+      return { area: a, krs, confirmed, editing, incompleteMetas };
+    });
+
+    const checklist = frentes.map(f => {
+      if (f.krs.length === 0) return `⚠ ${f.area.label} — sem número`;
+      const tag = f.editing.length ? ` (${f.editing.length} em rascunho)` : '';
+      return `✓ ${f.area.label} — ${f.krs.length} número${f.krs.length === 1 ? '' : 's'}${tag}`;
+    }).join('\n');
+
+    const alerts = [];
+    const missing = frentes.filter(f => f.krs.length === 0);
+    const onlyDrafts = frentes.filter(f => f.krs.length > 0 && f.confirmed.length === 0);
+    const draftCount = frentes.reduce((acc, f) => acc + f.editing.length, 0);
+    const allWithIncompleteMetas = frentes.flatMap(f => f.incompleteMetas);
+
+    // Cobertura desbalanceada (muito mais KR numa frente que noutra)
+    if (frentes.every(f => f.krs.length > 0)) {
+      const counts = frentes.map(f => f.krs.length);
+      const max = Math.max(...counts);
+      const min = Math.min(...counts);
+      if (max >= 3 && max >= min * 3) {
+        const heavy = frentes.filter(f => f.krs.length === max).map(f => f.area.label).join(', ');
+        const light = frentes.filter(f => f.krs.length === min).map(f => f.area.label).join(', ');
+        alerts.push(`⚠ Cobertura desbalanceada: ${heavy} com ${max} números, ${light} com só ${min}. Pode indicar foco demais numa ponta do funil.`);
+      }
+    }
+
+    if (draftCount > 0) {
+      alerts.push(`⚠ ${draftCount} número${draftCount === 1 ? '' : 's'} em RASCUNHO (não confirmado${draftCount === 1 ? '' : 's'}). Confirme cada um pra travar a meta.`);
+    }
+
+    if (allWithIncompleteMetas.length) {
+      alerts.push(`⚠ ${allWithIncompleteMetas.length} número(s) com Meta Avançada menor ou igual à Segura. Avançada precisa ser MAIOR que a Segura (ela é o sonho, não o piso).`);
+    }
+
+    if (onlyDrafts.length === frentes.length && productKrs.length > 0) {
+      alerts.push('⚠ Nenhum número confirmado ainda — todos em rascunho. Tudo pode mudar até você confirmar.');
+    }
+
+    let veredito;
+    if (missing.length === 0 && productKrs.length > 0) {
+      veredito = alerts.length
+        ? 'As 3 frentes têm números, mas há ponto de atenção acima.'
+        : 'As 3 frentes cobertas e metas coerentes. Pode avançar pra escolher a campanha (Etapa 4).';
+    } else if (productKrs.length === 0) {
+      veredito = 'Nenhum número definido ainda. Comece pela Marketing — bons exemplos: leads qualificados, MQLs, taxa de conversão da LP.';
+    } else {
+      veredito = `Falta cobrir ${missing.map(f => f.area.label).join(' e ')}. Sem cobertura completa, a campanha vai chegar na Etapa 5 sem o que plugar nessa(s) frente(s).`;
+    }
+
+    return `Números por frente:\n\n${checklist}${alerts.length ? `\n\n${alerts.join('\n\n')}` : ''}\n\n${veredito}`;
   }
 };

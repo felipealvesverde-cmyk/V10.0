@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.9.4',
+    date: '2026-06-09',
+    title: 'Mapa da Receita — Etapa 3 (Os Números) repensada: 3 blocos por frente em paralelo à Etapa 2',
+    bullets: [
+      'Tabs (Marketing | Vendas | CS) deram lugar a 3 blocos verticais empilhados — um bloco por frente. Cliente VÊ a cobertura completa de uma vez (3 selos verdes "Pronto" = funil fechado; bloco sem selo = lacuna óbvia).',
+      'Cabeçalho de cada bloco mostra ícone + nome da frente + dono herdado da Etapa 2 (read-only com link "editar na Etapa 2"). Removida a edição direta do dono aqui — a Etapa 2 é a fonte da verdade.',
+      'Tema offwhite #f5f3f0 + cartões bg-white/70 + tipografia stone. Mesma régua das Etapas 1 e 2.',
+      'KR card light em 2 estados: editing (form com Atual + Meta Segura + Meta Avançada + Período + botão Confirmar) e confirmed (verde, com Hoje/Segura/Avançada + rollup + Editar/Remover).',
+      'Hint da etapa ficou mais direta: "Cada frente do Comercial precisa de 1+ número pra perseguir. Sem cobrir as 3, o funil fica manco."',
+      'Djow Etapa 3 com hints adaptativos por cobertura: 0 frentes → "Por onde começo?", "Bons números pra Marketing?", "Quantos por frente?"; cobertura parcial → "Falta cobrir X e Y", "Avalia meus números", "Quanto botar de meta?"; 3/3 → "Avalia", "Posso avançar?", "Metas estão coerentes?".',
+      'Avaliador real do Djow pra Etapa 3: olha cobertura por frente + qualidade das metas (Avançada > Segura) + KRs em rascunho + desbalanceamento (5 KRs numa frente, 1 em outra). Devolve checklist + alertas + veredito.'
+    ]
+  },
+  {
     version: 'V36.9.3',
     date: '2026-06-09',
     title: 'Mapa da Receita — Etapa 2 (Comercial) repensada: mesma régua da Etapa 1',
