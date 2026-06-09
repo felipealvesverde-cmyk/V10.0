@@ -3895,9 +3895,10 @@ window.StrategicMapModal = {
     const activeId = this._activeAreaId(product.id);  // null se neutro
     const anyActive = activeId !== null;
     // V32.14.8 — CTA discreto (sem gradient pesado) quando neutro.
-    const ctaHint = !anyActive ? `<div class="rounded-xl bg-slate-900/40 border border-l-4 border-l-violet-500 border-white/5 px-3 py-2 flex items-center gap-2 mb-3">
-      <i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5 text-violet-300 shrink-0"></i>
-      <p class="text-[11px] text-slate-300">Clique numa frente abaixo pra montar a árvore de ações.</p>
+    // V36.10.1 — Adaptado pra light. Era dark slate-900/40.
+    const ctaHint = !anyActive ? `<div class="rounded-xl bg-white border-l-4 border-l-violet-500 border-y border-r border-stone-200 px-3 py-2 flex items-center gap-2 mb-3 shadow-sm">
+      <i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5 text-violet-600 shrink-0"></i>
+      <p class="text-[11px] text-stone-700">Clique numa frente abaixo pra montar a árvore de ações.</p>
     </div>` : '';
     return `<div>
       ${ctaHint}
@@ -3934,38 +3935,33 @@ window.StrategicMapModal = {
       ? `opacity-40 pointer-events-none transition-opacity duration-300`
       : '';
 
-    // Master card — SEMPRE COMPACTO. Felipe alinhou (V32.13.10): quando ativo,
-    // o master e o Add Ação ficam ANEXADOS (mesmo bloco, divisória vertical
-    // entre os dois). Sem conector/seta entre eles.
+    // V36.10.1 — Adaptado pra light. Era dark com opacidades baixas.
     const masterBorderCls = isActive
-      ? `bg-${tone}-500/10 border-${tone}-400/40`
-      : `bg-white/[0.03] border-white/10 hover:bg-white/[0.06] hover:border-${tone}-400/30 cursor-pointer transition`;
+      ? `bg-${tone}-100 border-${tone}-400`
+      : `bg-white border-stone-200 hover:bg-${tone}-50 hover:border-${tone}-300 cursor-pointer transition`;
 
     // Estado neutro/fade: master sozinho (sem Add Ação anexado).
-    // V32.13.14: cards neutros (não-fade) ganham hint inline "Clique pra abrir
-    // árvore →" pra deixar claro que a interação primária é clicar no card.
-    // Hover state reforçado: ring + scale leve.
     if (!isActive) {
       const isNeutralClickable = !isFade;
       const enhancedHover = isNeutralClickable
-        ? `bg-white/[0.04] border-${tone}-400/20 hover:bg-${tone}-500/10 hover:border-${tone}-400/50 hover:ring-2 hover:ring-${tone}-400/30 hover:scale-[1.005] cursor-pointer transition`
+        ? `bg-white border-${tone}-200 hover:bg-${tone}-50 hover:border-${tone}-400 hover:ring-2 hover:ring-${tone}-300 hover:scale-[1.005] cursor-pointer transition shadow-sm`
         : masterBorderCls;
       const wrapperClsNeutral = isNeutralClickable ? enhancedHover : masterBorderCls;
       const clickHint = isNeutralClickable
-        ? `<span class="hidden md:inline-flex shrink-0 ml-auto items-center gap-1 px-2 py-1 rounded-md bg-${tone}-500/15 border border-${tone}-400/30 text-${tone}-200 text-[10px] font-black uppercase tracking-wider">
+        ? `<span class="hidden md:inline-flex shrink-0 ml-auto items-center gap-1 px-2 py-1 rounded-md bg-${tone}-100 border border-${tone}-300 text-${tone}-800 text-[10px] font-black uppercase tracking-wider">
             Abrir árvore <i data-lucide="arrow-right" class="w-3 h-3"></i>
           </span>`
         : '';
       const masterCardSolo = `<button ${isFade ? 'tabindex="-1"' : ''} onclick="Actions.setStrategicActiveArea('${area.id}')"
         class="w-full text-left rounded-2xl border p-3 ${wrapperClsNeutral} ${isFade ? 'cursor-not-allowed' : ''}">
         <div class="flex items-center gap-2.5">
-          <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-500/25 grid place-items-center">
-            <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
+          <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-100 grid place-items-center">
+            <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-700"></i>
           </span>
           <div class="min-w-0">
-            <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest">${Utils.escape(area.label)}</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">${handoffHint}</p>
-            <p class="text-[10px] text-slate-500 font-bold mt-0.5">${stateLabel}</p>
+            <p class="text-[10px] font-black text-${tone}-700 uppercase tracking-widest">${Utils.escape(area.label)}</p>
+            <p class="text-[10px] text-stone-600 mt-0.5">${handoffHint}</p>
+            <p class="text-[10px] text-stone-500 font-bold mt-0.5">${stateLabel}</p>
           </div>
           ${clickHint}
         </div>
@@ -3981,27 +3977,29 @@ window.StrategicMapModal = {
     // Borda externa única envolve os dois; divisória interna vertical separa.
     // V32.14.9 — Felipe: self-center pra alinhar com setas/cards laterais
     // (era self-start, ficava encostado no topo e visualmente desbalanceado).
-    const masterPlusAdd = `<div class="shrink-0 self-center flex rounded-2xl overflow-hidden border ${masterBorderCls}">
+    // V36.10.1 — Light: master ativo em bg-${tone}-100; Add Ação em bg-${tone}-500
+    // saturado com texto branco (chama olho como CTA real).
+    const masterPlusAdd = `<div class="shrink-0 self-center flex rounded-2xl overflow-hidden border ${masterBorderCls} shadow-sm">
       <!-- Master (esquerda, principal) -->
       <button onclick="Actions.setStrategicActiveArea('${area.id}')"
-        class="w-64 text-left p-3 hover:bg-${tone}-500/15 transition">
+        class="w-64 text-left p-3 hover:bg-${tone}-200 transition">
         <div class="flex items-center gap-2.5">
-          <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-500/25 grid place-items-center">
-            <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i>
+          <span class="shrink-0 w-10 h-10 rounded-xl bg-${tone}-200 grid place-items-center">
+            <i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-700"></i>
           </span>
           <div class="min-w-0">
-            <p class="text-[10px] font-black text-${tone}-200 uppercase tracking-widest">${Utils.escape(area.label)} <span class="text-${tone}-100">· Ativo</span></p>
-            <p class="text-[10px] text-slate-400 mt-0.5">${handoffHint}</p>
-            <p class="text-[10px] text-${tone}-200 font-bold mt-0.5">${stateLabel}</p>
+            <p class="text-[10px] font-black text-${tone}-800 uppercase tracking-widest">${Utils.escape(area.label)} <span class="text-${tone}-700">· Ativo</span></p>
+            <p class="text-[10px] text-stone-600 mt-0.5">${handoffHint}</p>
+            <p class="text-[10px] text-${tone}-800 font-bold mt-0.5">${stateLabel}</p>
           </div>
         </div>
       </button>
       <!-- Divisória vertical -->
-      <div class="self-stretch w-px bg-${tone}-400/40"></div>
+      <div class="self-stretch w-px bg-${tone}-400"></div>
       <!-- Add Ação (direita, tira lateral) -->
       <button onclick="event.stopPropagation(); Actions.openStrategicKrPicker('${area.id}')"
         title="Adicionar ação à árvore desta frente"
-        class="self-stretch px-4 bg-${tone}-500/20 hover:bg-${tone}-500/40 text-${tone}-100 text-[11px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition" style="min-width:96px;">
+        class="self-stretch px-4 bg-${tone}-500 hover:bg-${tone}-600 text-white text-[11px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition" style="min-width:96px;color:#fff!important;">
         <i data-lucide="plus" class="w-4 h-4"></i>
         <span class="text-[10px] leading-tight text-center">Add<br/>Ação</span>
       </button>
@@ -4158,32 +4156,31 @@ window.StrategicMapModal = {
     const isOrphan = hasName && !kr;
     if (isOrphan) return this._orphanActionCard(action);
     const statusIcon = isComplete ? 'check-circle-2' : 'alert-triangle';
+    // V36.10.1 — Adaptado pra light. Era dark com opacidades baixas.
     const statusPillCls = isComplete
-      ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-300'
-      : 'bg-amber-500/15 border-amber-400/40 text-amber-300';
+      ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
+      : 'bg-amber-100 border-amber-300 text-amber-800';
     const statusLabel = isComplete ? 'OK' : 'Pendente';
-    const borderStatus = isComplete ? 'border-emerald-400/60' : 'border-amber-400/60';
+    const borderStatus = isComplete ? 'border-emerald-400' : 'border-amber-400';
     const isJustCreated = Number(App.state.strategicJustCreatedActionId) === Number(action.id);
     const animCls = isJustCreated ? 'lj-mind-map-action-enter' : '';
     const displayName = hasName ? action.name : 'Qual o nome da ação?';
-    const nameCls = hasName ? 'text-white' : 'text-amber-200 italic';
+    const nameCls = hasName ? 'text-slate-900' : 'text-amber-700 italic';
 
-    // V33.0.0 Onda 3 — Selo de eficácia: quantos visitors essa action moveu
-    // nos últimos 30 dias (atribuição causal). Verde se >0, slate se 0/N.A.
+    // V33.0.0 Onda 3 — Selo de eficácia.
     const attribution = App.state.actionAttributionsCache?.byActionId?.[action.id];
     const totalMoves = attribution ? Number(attribution.transitions || 0) : 0;
     const customersFromThis = attribution ? Number(attribution.customers || 0) : 0;
     const efficacyBadge = isComplete ? (totalMoves > 0
-      ? `<div class="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 text-[9px] font-black uppercase tracking-wider" title="Atribuição causal nos últimos 30 dias">
+      ? `<div class="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 text-[9px] font-black uppercase tracking-wider" title="Atribuição causal nos últimos 30 dias">
           <i data-lucide="trending-up" class="w-2.5 h-2.5"></i>
           ${totalMoves} mov · ${customersFromThis} cust
         </div>`
-      : `<div class="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-500/15 border border-slate-400/30 text-slate-400 text-[9px] font-black uppercase tracking-wider" title="Sem atribuição nos últimos 30 dias">
+      : `<div class="mt-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-stone-100 border border-stone-300 text-stone-600 text-[9px] font-black uppercase tracking-wider" title="Sem atribuição nos últimos 30 dias">
           <i data-lucide="moon" class="w-2.5 h-2.5"></i>
           0 mov · 30d
         </div>`) : '';
 
-    // V32.13.12 — Card sozinho (incompleto) ou Card + Executar Ação (completo)
     const cardInner = `<div class="flex items-center justify-between gap-2 mb-2">
         <div class="flex items-center gap-1.5 min-w-0">
           <span class="shrink-0 w-2 h-2 rounded-full" style="background:${krColor};"></span>
@@ -4195,7 +4192,7 @@ window.StrategicMapModal = {
         </span>
       </div>
       <p class="text-[13px] font-black leading-snug line-clamp-2 mb-1.5 ${nameCls}" title="${Utils.escape(displayName)}">${Utils.escape(displayName)}</p>
-      <p class="text-[10px] text-slate-500 truncate">${Utils.escape(action.channel || '— canal —')}</p>
+      <p class="text-[10px] text-stone-500 truncate">${Utils.escape(action.channel || '— canal —')}</p>
       ${efficacyBadge}`;
 
     // V32.15.3 (Leonardo) — Barra-totem na esquerda do card de ação espelha o
@@ -4204,8 +4201,8 @@ window.StrategicMapModal = {
     // como ancoragem, igual ao quadrado do ícone no master.
     const cardButton = `<button onclick="Actions.openMindMapActionEditor(${action.id})"
       title="Clique pra editar esta ação"
-      class="w-48 text-left bg-slate-900/60 border-2 ${borderStatus} p-3 hover:bg-slate-800 transition group ${isComplete ? 'rounded-l-xl border-r-0' : 'rounded-xl hover:scale-[1.02] hover:shadow-lg'} ${animCls}"
-      style="border-left: 6px solid ${krColor}; background-image: linear-gradient(to right, ${krColor}14 0%, transparent 22%);">
+      class="w-48 text-left bg-white border-2 ${borderStatus} p-3 hover:bg-stone-50 transition group ${isComplete ? 'rounded-l-xl border-r-0' : 'rounded-xl hover:scale-[1.02] hover:shadow-lg'} ${animCls} shadow-sm"
+      style="border-left: 6px solid ${krColor}; background-image: linear-gradient(to right, ${krColor}1f 0%, transparent 22%);">
       ${cardInner}
     </button>`;
 
@@ -4213,12 +4210,11 @@ window.StrategicMapModal = {
       return cardButton;
     }
 
-    // V32.14.9 — Botão Executar Ação: gradient agora sai de TRANSPARENTE
-    // (lado do card emerald) → amber dourado. Era from-emerald-500/15 que
-    // criava uma mancha verde acidental. Transparent deixa o amber "emergir".
+    // V36.10.1 — Light: bg amber-500 saturado com text white. Antes era gradient
+    // sobre slate dark que ficava lavado no contexto light.
     const executeBtn = `<button onclick="Actions.executeStrategicAction(${action.id})"
       title="Executar ação no provider operacional (ClickUp/Trello/etc)"
-      class="self-stretch px-3 rounded-r-xl border-2 border-l-0 border-amber-400/60 bg-gradient-to-r from-transparent via-amber-500/25 to-amber-500/45 hover:from-amber-500/10 hover:via-amber-500/40 hover:to-amber-500/60 text-amber-100 text-[10px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition" style="min-width:64px;">
+      class="self-stretch px-3 rounded-r-xl border-2 border-l-0 border-amber-400 bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-wider flex flex-col items-center justify-center gap-1 transition shadow-sm" style="min-width:64px;color:#fff!important;">
       <i data-lucide="play" class="w-3.5 h-3.5"></i>
       <span class="text-[9px] leading-tight text-center">Executar<br/>Ação</span>
     </button>`;
@@ -4261,30 +4257,30 @@ window.StrategicMapModal = {
   // (grayscale + opacity) com overlay clicável centralizado pedindo decisão:
   // deletar tudo ou conectar a outro número. Reusa a mesma largura (w-48)
   // do card normal pra não quebrar layout do mind-map.
+  // V36.10.1 — Adaptado pra light: bg-stone-100 com grayscale leve. Overlay
+  // amber 500 saturado.
   _orphanActionCard(action) {
     const displayName = String(action.name || '').trim() || 'Ação sem nome';
     return `<button onclick="Actions.openOrphanActionResolver(${action.id})"
       title="Esta ação não está conectada a nenhum número — clique pra resolver"
-      class="relative w-48 text-left bg-slate-900/40 border-2 border-slate-600/40 rounded-xl p-3 hover:bg-slate-800/60 hover:border-slate-400/50 transition group"
-      style="border-left: 6px solid #64748b; filter: grayscale(0.85);">
-      <!-- Conteúdo apagado (mostra que era uma ação real) -->
-      <div class="opacity-40">
+      class="relative w-48 text-left bg-stone-100 border-2 border-stone-300 rounded-xl p-3 hover:bg-stone-200 hover:border-stone-400 transition group"
+      style="border-left: 6px solid #94a3b8; filter: grayscale(0.5);">
+      <div class="opacity-50">
         <div class="flex items-center justify-between gap-2 mb-2">
           <div class="flex items-center gap-1.5 min-w-0">
-            <span class="shrink-0 w-2 h-2 rounded-full bg-slate-500"></span>
-            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 truncate">Sem destino</p>
+            <span class="shrink-0 w-2 h-2 rounded-full bg-stone-400"></span>
+            <p class="text-[9px] font-black uppercase tracking-widest text-stone-500 truncate">Sem destino</p>
           </div>
-          <span class="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border bg-slate-600/20 border-slate-500/40 text-slate-300">
+          <span class="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border bg-stone-200 border-stone-400 text-stone-700">
             <i data-lucide="unlink-2" class="w-2.5 h-2.5"></i>
             Órfã
           </span>
         </div>
-        <p class="text-[13px] font-black leading-snug line-clamp-2 mb-1.5 text-slate-300" title="${Utils.escape(displayName)}">${Utils.escape(displayName)}</p>
-        <p class="text-[10px] text-slate-500 truncate">${Utils.escape(action.channel || '— canal —')}</p>
+        <p class="text-[13px] font-black leading-snug line-clamp-2 mb-1.5 text-stone-700" title="${Utils.escape(displayName)}">${Utils.escape(displayName)}</p>
+        <p class="text-[10px] text-stone-500 truncate">${Utils.escape(action.channel || '— canal —')}</p>
       </div>
-      <!-- Overlay com CTA — fica em cima do conteúdo apagado -->
       <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/95 border border-amber-400/60 text-amber-200 text-[10px] font-black uppercase tracking-wider shadow-lg group-hover:bg-amber-500/30 group-hover:border-amber-300 group-hover:text-amber-100 transition">
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500 border border-amber-600 text-white text-[10px] font-black uppercase tracking-wider shadow-lg group-hover:bg-amber-600 transition" style="color:#fff!important;">
           <i data-lucide="alert-triangle" class="w-3 h-3"></i>
           Resolver
         </span>
@@ -4435,14 +4431,15 @@ window.StrategicMapModal = {
       };
     }
     // Fallback: classes Tailwind pelo LJ-status.
+    // V36.10.1 — Adaptado pra light.
     return {
       label: rawLabel || ljVisual.label,
       icon: ljVisual.icon,
       useInline: false,
       styleAttr: '',
-      bg: `bg-${ljVisual.tone}-500/15`,
-      border: `border-${ljVisual.tone}-400/40`,
-      text: `text-${ljVisual.tone}-200`
+      bg: `bg-${ljVisual.tone}-100`,
+      border: `border-${ljVisual.tone}-400`,
+      text: `text-${ljVisual.tone}-800`
     };
   },
 
@@ -4456,12 +4453,12 @@ window.StrategicMapModal = {
       const status = this._taskStatusBadge(task);
       const providerIcon = providerIconMap[task.provider] || 'briefcase';
       return `<div class="flex items-stretch shrink-0">
-        ${this._mindMapConnectorSVG('hsl(35 90% 60%)', 24)}
+        ${this._mindMapConnectorSVG('hsl(35 90% 50%)', 24)}
         <button onclick="Actions.openExecutionTaskDetail('${task.task_id}')" title="Ver detalhe da task no ${task.provider || 'provider'}"
-          class="w-44 text-left rounded-l-xl border-r-0 bg-slate-900/60 border-2 ${status.border} p-2.5 hover:bg-slate-800 transition group"
-          style="border-left: 4px solid hsl(35 90% 60%);">
+          class="w-44 text-left rounded-l-xl border-r-0 bg-white border-2 ${status.border} p-2.5 hover:bg-stone-50 transition group shadow-sm"
+          style="border-left: 4px solid hsl(35 90% 50%);">
           <div class="flex items-center justify-between gap-2 mb-1.5">
-            <span class="inline-flex items-center gap-1 text-[9px] font-black text-amber-300 uppercase tracking-widest">
+            <span class="inline-flex items-center gap-1 text-[9px] font-black text-amber-700 uppercase tracking-widest">
               <i data-lucide="${providerIcon}" class="w-2.5 h-2.5"></i>
               ${Utils.escape((task.provider || 'task').toUpperCase())}
             </span>
@@ -4470,19 +4467,17 @@ window.StrategicMapModal = {
               ${Utils.escape(String(status.label).toUpperCase())}
             </span>
           </div>
-          <p class="text-[12px] font-black text-white leading-snug line-clamp-2" title="${Utils.escape(task.title || '')}">${Utils.escape(task.title || 'Task sem nome')}</p>
+          <p class="text-[12px] font-black text-slate-900 leading-snug line-clamp-2" title="${Utils.escape(task.title || '')}">${Utils.escape(task.title || 'Task sem nome')}</p>
           ${task.external_url
-            ? `<p class="text-[9px] text-sky-400 mt-1 inline-flex items-center gap-1"><i data-lucide="external-link" class="w-2.5 h-2.5"></i> Ver detalhe</p>`
-            : `<p class="text-[9px] text-slate-500 mt-1 inline-flex items-center gap-1" title="Esta task ainda não foi criada no provider externo"><i data-lucide="circle-dashed" class="w-2.5 h-2.5"></i> Não listada</p>`}
+            ? `<p class="text-[9px] text-sky-700 mt-1 inline-flex items-center gap-1"><i data-lucide="external-link" class="w-2.5 h-2.5"></i> Ver detalhe</p>`
+            : `<p class="text-[9px] text-stone-500 mt-1 inline-flex items-center gap-1" title="Esta task ainda não foi criada no provider externo"><i data-lucide="circle-dashed" class="w-2.5 h-2.5"></i> Não listada</p>`}
         </button>
-        <!-- V32.14.6 / V32.14.8 — Botões Editar/Duplicar compactos (só ícone).
-             Leonardo: economizar largura, evitar 3 elementos volumosos lado a lado. -->
         <button onclick="Actions.openTaskCreationModal(${task.linked_action_id}, '${task.task_id}')" title="Editar esta task"
-          class="self-stretch w-8 border-t-2 border-b-2 ${status.border} bg-violet-500/15 hover:bg-violet-500/40 text-violet-200 grid place-items-center transition">
+          class="self-stretch w-8 border-t-2 border-b-2 ${status.border} bg-violet-100 hover:bg-violet-200 text-violet-700 grid place-items-center transition">
           <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
         </button>
         <button onclick="Actions.duplicateExecutionTask('${task.task_id}')" title="Duplicar (cria branch local em revisão)"
-          class="self-stretch w-8 rounded-r-xl border-2 border-l-0 ${status.border} bg-sky-500/15 hover:bg-sky-500/40 text-sky-200 grid place-items-center transition">
+          class="self-stretch w-8 rounded-r-xl border-2 border-l-0 ${status.border} bg-sky-100 hover:bg-sky-200 text-sky-700 grid place-items-center transition">
           <i data-lucide="copy" class="w-3.5 h-3.5"></i>
         </button>
       </div>`;
@@ -4495,17 +4490,18 @@ window.StrategicMapModal = {
     return (branch.objectives || []).some(o => (o.okrs || []).some(kr => (kr.connectedActionIds || []).length > 0));
   },
 
+  // V36.10.1 — Adaptado pra light. Era dark com opacidades que ficavam apagadas
+  // no fundo offwhite da Etapa 4 unificada.
   _unifiedWorkCampaignHeader(product, campaign) {
     if (!campaign) return '';
-    return `<div class="rounded-2xl bg-violet-500/10 border border-violet-400/30 p-3 flex items-center justify-between gap-2 flex-wrap">
+    return `<div class="rounded-2xl bg-violet-100 border border-violet-300 p-3 flex items-center justify-between gap-2 flex-wrap shadow-sm">
       <div class="flex items-center gap-2 min-w-0 flex-1">
-        <i data-lucide="git-branch" class="w-4 h-4 text-violet-300 shrink-0"></i>
+        <i data-lucide="git-branch" class="w-4 h-4 text-violet-700 shrink-0"></i>
         <div class="min-w-0">
-          <p class="text-[10px] font-black text-violet-200 uppercase tracking-wider">Editando a campanha</p>
-          <p class="text-sm font-black text-white truncate">${Utils.escape(campaign.name)}</p>
+          <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Editando a campanha</p>
+          <p class="text-sm font-black text-slate-900 truncate">${Utils.escape(campaign.name)}</p>
         </div>
       </div>
-      <button onclick="Actions.setStrategicZoom('campaign')" class="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 text-[10px] font-black flex items-center gap-1 shrink-0"><i data-lucide="arrow-left" class="w-3 h-3"></i> Trocar campanha</button>
     </div>`;
   },
 

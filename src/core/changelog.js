@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.10.1',
+    date: '2026-06-09',
+    title: 'Etapa 4 (Campanha): body de trabalho adaptado pra tema light vibrante',
+    bullets: [
+      'Header "Editando a campanha" passou de violet escuro lavado pra violet-100 vibrante com texto slate-900.',
+      'Master cards das 3 frentes (Marketing/Vendas/CS) ganharam fundos brancos com bordas e hover saturados. Estado ativo destaca em bg-${tone}-100 com ${tone}-400 sólido — antes era opacidade 10% sobre fundo dark, ficava cinza esmaecido sobre offwhite.',
+      'Botão "Add Ação" virou bg-${tone}-500 saturado com texto branco — CTA agora chama olho de verdade.',
+      'Action cards do mind-map: bg-white com border ${color}-400 sólido + shadow. Status pills em -100/300/800 (saturadas pra ler). Antes era bg-slate-900/60 — invisível no offwhite.',
+      'Botão "Executar Ação" amber sólido bg-amber-500 hover:amber-600 com texto branco. Eliminado o gradient transparente→amber que ficava lavado.',
+      'Tasks ClickUp/Manual no execution branch: bg-white com borders saturadas + texto slate-900.',
+      'Card de ação órfã: stone-100 com border stone-300 + overlay "Resolver" em bg-amber-500 sólido.',
+      'CTA hint "Clique numa frente abaixo": branco com borda violet-500 esquerda + texto stone-700.'
+    ]
+  },
+  {
     version: 'V36.10.0',
     date: '2026-06-09',
     title: 'Mapa da Receita: Etapas 4 (Selecionar Campanha) e 5 (As Ações) FUNDIDAS na nova Campanha — 5 etapas no total',
