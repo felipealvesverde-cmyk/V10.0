@@ -2286,37 +2286,40 @@ window.StrategicMapModal = {
   },
 
   // V36.9.0 — Modo REVISÃO: cliente já preencheu, vê o que escreveu em destaque.
-  // Sem tutorial. Botão "Editar" expõe textarea inline com draft (cancel reverte).
+  // V36.9.1 — Tema offwhite (stone-100) substitui slate-50 (que era branco demais).
+  // Badge "Revisão" sai da linha do intro e vira selo no canto superior direito
+  // do display card — diferencia POSIÇÃO/ESTADO/AÇÃO no header (badges deixaram
+  // de ser todos iguais).
   _stepVisionReview(product, vision) {
     const editing = App.state.strategicVisionEditDraft !== null && App.state.strategicVisionEditDraft !== undefined;
     const draftValue = editing ? String(App.state.strategicVisionEditDraft || '') : '';
-    return `<section class="space-y-4 rounded-3xl bg-slate-50 border border-slate-200 p-6 shadow-lg" style="color-scheme:light;">
+    return `<section class="space-y-4 rounded-3xl border p-6 shadow-md" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
       ${this._stepIntroLight(
         'Qual é o objetivo comercial de seu produto?',
         editing ? 'Editar a frase desta etapa.' : 'Esta etapa já foi preenchida.',
         'star',
         'vision',
         'vision-objetivo-comercial',
-        'É a missão que a empresa dá para aquele produto específico para ajudar a ganhar dinheiro.',
-        true
+        'É a missão que a empresa dá para aquele produto específico para ajudar a ganhar dinheiro.'
       )}
 
       ${editing ? `
-        <div class="rounded-2xl bg-white border border-slate-300 p-5 shadow-sm">
-          <label class="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">Objetivo do produto em uma frase</label>
-          <textarea id="strategicVisionEditTextarea" oninput="Actions.updateStrategicVisionDraft(this.value)" placeholder="Tornar [esse produto] o(a) [posição] pra [público] até [horizonte]" class="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-300 text-slate-900 text-sm font-semibold min-h-[100px] placeholder:text-slate-400">${Utils.escape(draftValue)}</textarea>
+        <div class="rounded-2xl bg-white/70 border border-stone-300 p-5 shadow-sm">
+          <label class="block text-[11px] font-black text-stone-500 uppercase tracking-wider mb-2">Objetivo do produto em uma frase</label>
+          <textarea id="strategicVisionEditTextarea" oninput="Actions.updateStrategicVisionDraft(this.value)" placeholder="Tornar [esse produto] o(a) [posição] pra [público] até [horizonte]" class="w-full px-4 py-3 rounded-2xl bg-white border border-stone-300 text-slate-900 text-sm font-semibold min-h-[100px] placeholder:text-stone-400">${Utils.escape(draftValue)}</textarea>
           <div class="flex items-center justify-end gap-2 mt-3">
-            <button onclick="Actions.cancelStrategicVisionEdit()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-black">Cancelar</button>
+            <button onclick="Actions.cancelStrategicVisionEdit()" class="px-4 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 text-xs font-black">Cancelar</button>
             <button onclick="Actions.saveStrategicVisionEdit()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black" style="color:#fff!important;">Salvar</button>
           </div>
         </div>
       ` : `
-        <div class="rounded-2xl bg-white border border-slate-200 p-8 shadow-sm">
-          <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider mb-3 inline-flex items-center gap-1.5">
-            <i data-lucide="check-circle-2" class="w-3 h-3"></i> Objetivo definido
-          </p>
+        <div class="rounded-2xl bg-white/70 border border-stone-200 p-8 shadow-sm relative">
+          <span class="absolute top-4 right-4 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
+            <i data-lucide="check" class="w-3 h-3"></i> Revisão
+          </span>
+          <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-3">Objetivo cravado</p>
           <p class="text-xl md:text-2xl font-black text-slate-900 leading-snug">"${Utils.escape(vision)}"</p>
-          <button onclick="Actions.startStrategicVisionEdit()" class="mt-5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-black inline-flex items-center gap-1.5">
+          <button onclick="Actions.startStrategicVisionEdit()" class="mt-5 px-4 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 text-xs font-black inline-flex items-center gap-1.5">
             <i data-lucide="pencil" class="w-3 h-3"></i> Editar
           </button>
         </div>
@@ -2328,6 +2331,7 @@ window.StrategicMapModal = {
 
   // V36.9.0 — Modo TUTORIAL: cliente nunca preencheu. Template + 5 exemplos
   // genéricos (sem destaque pra nicho específico). Tema claro ilha-no-escuro.
+  // V36.9.1 — Tema offwhite (stone) substitui slate-50 (era branco demais).
   _stepVisionTutorial(product, currentValue) {
     const examples = [
       'Ser o chocolate em barra preferido das famílias brasileiras até 2027',
@@ -2336,35 +2340,34 @@ window.StrategicMapModal = {
       'Ser o produto de crédito que toda pequena empresa do bairro confia',
       'Ser a primeira opção de doce em casamento no Sul do país'
     ];
-    return `<section class="space-y-4 rounded-3xl bg-slate-50 border border-slate-200 p-6 shadow-lg" style="color-scheme:light;">
+    return `<section class="space-y-4 rounded-3xl border p-6 shadow-md" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
       ${this._stepIntroLight(
         'Qual é o objetivo comercial de seu produto nos próximos 12 meses?',
         'Uma frase só, ambiciosa, conectada ao que esse produto entrega.',
         'star',
         'vision',
         'vision-objetivo-comercial',
-        'É a missão que a empresa dá para aquele produto específico para ajudar a ganhar dinheiro.',
-        false
+        'É a missão que a empresa dá para aquele produto específico para ajudar a ganhar dinheiro.'
       )}
 
-      <div class="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+      <div class="rounded-2xl bg-white/70 border border-stone-200 p-5 shadow-sm">
         <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider mb-2">Template</p>
         <p class="text-base md:text-lg text-slate-900 font-semibold leading-relaxed">
           Ser <span class="text-violet-700">o(a) [posição]</span> preferido(a) de <span class="text-violet-700">[público]</span> até <span class="text-violet-700">[horizonte]</span>.
         </p>
 
-        <div class="mt-5 pt-4 border-t border-slate-200">
-          <p class="text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">Exemplos práticos:</p>
+        <div class="mt-5 pt-4 border-t border-stone-200">
+          <p class="text-[11px] font-black text-stone-500 uppercase tracking-wider mb-2">Exemplos práticos:</p>
           <ul class="space-y-1.5">
-            ${examples.map(e => `<li class="text-[13px] text-slate-700">• ${Utils.escape(e)}</li>`).join('')}
+            ${examples.map(e => `<li class="text-[13px] text-stone-700">• ${Utils.escape(e)}</li>`).join('')}
           </ul>
         </div>
       </div>
 
-      <div class="rounded-2xl bg-white border border-slate-300 p-5 shadow-sm">
-        <label class="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">Escreva o objetivo do seu produto</label>
-        <textarea id="strategicVisionTextarea" oninput="Actions.updateStrategicVision(this.value)" placeholder="Tornar [esse produto] o(a) [posição] pra [público] até [horizonte]" class="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-300 text-slate-900 text-sm font-semibold min-h-[100px] placeholder:text-slate-400">${Utils.escape(currentValue)}</textarea>
-        <p class="text-[11px] text-slate-500 mt-2">Conecta o produto a quem ele serve. Esse objetivo norteia Marketing, Vendas e Sucesso do Cliente.</p>
+      <div class="rounded-2xl bg-white/70 border border-stone-300 p-5 shadow-sm">
+        <label class="block text-[11px] font-black text-stone-500 uppercase tracking-wider mb-2">Escreva o objetivo do seu produto</label>
+        <textarea id="strategicVisionTextarea" oninput="Actions.updateStrategicVision(this.value)" placeholder="Tornar [esse produto] o(a) [posição] pra [público] até [horizonte]" class="w-full px-4 py-3 rounded-2xl bg-white border border-stone-300 text-slate-900 text-sm font-semibold min-h-[100px] placeholder:text-stone-400">${Utils.escape(currentValue)}</textarea>
+        <p class="text-[11px] text-stone-500 mt-2">Conecta o produto a quem ele serve. Esse objetivo norteia Marketing, Vendas e Sucesso do Cliente.</p>
       </div>
 
       ${this._stepCtaLight('Próximo passo: definir o Comercial', Boolean(String(currentValue || '').trim()), 'vision')}
@@ -5333,15 +5336,24 @@ window.StrategicMapModal = {
   },
 
   // V36.9.0 — Variante light de _stepIntro pra etapas que rodam em ilha clara.
-  // Mesma estrutura (pill etapa + badge receita + título + hint + help), mas
-  // paletas adaptadas: pill com fundo sólido claro, título slate-900, hint
-  // slate-600. Help balloon vira branco com borda violeta.
-  _stepIntroLight(title, hint, icon, interviewKey, helpKey, helpText, isReviewMode) {
+  // V36.9.1 — Header refatorado: cada elemento ganha forma própria pela função.
+  //   - "Etapa N" = IDENTIFICADOR de posição → chip slate sólido com número
+  //     grande à esquerda + label "Etapa" pequena (forma forte, ancora o olho).
+  //   - "X passos até a receita" = INDICADOR de jornada → texto-com-ícone sem
+  //     pill nem borda (forma neutra, informativa).
+  //   - "Entenda mais" = AÇÃO interativa → botão com cara de botão (bg + hover
+  //     + chevron). Antes era pill passivo confundindo com indicador.
+  //   - "Revisão" = ESTADO da etapa → sai do header, vira selo no canto do
+  //     display card (em _stepVisionReview).
+  // Antes os 4 viviam como pills idênticas: igualdade formal escondia a
+  // diferença de função.
+  _stepIntroLight(title, hint, icon, interviewKey, helpKey, helpText) {
     const helpOpen = helpKey && (App.state.strategicHelpOpen || {})[helpKey];
     const helpBtn = helpKey && helpText
-      ? `<button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 hover:bg-violet-200 border border-violet-300 text-violet-700 text-[10px] font-black transition" title="O que é isso?">
+      ? `<button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-50 hover:bg-violet-100 border border-violet-200 text-violet-700 text-[11px] font-bold transition shadow-sm" title="O que é isso?">
           <i data-lucide="info" class="w-3 h-3"></i>
           ${helpOpen ? 'Fechar' : 'Entenda mais'}
+          ${helpOpen ? '' : '<i data-lucide="chevron-right" class="w-3 h-3"></i>'}
         </button>`
       : '';
     const helpBalloon = helpKey && helpText && helpOpen
@@ -5355,36 +5367,36 @@ window.StrategicMapModal = {
     const currentStep = StrategicZoomNavigation.current();
     const currentLevel = StrategicZoomNavigation.LEVELS.find(l => l.id === currentStep);
     const stepsLeft = StrategicZoomNavigation.stepsUntilRevenue(currentStep);
-    const thermal = currentLevel?.thermal || 'indigo';
-    const revenueBadge = stepsLeft === null
+    // V36.9.1 — Indicador de jornada virou texto-com-ícone (sem pill nem borda).
+    const revenueIndicator = stepsLeft === null
       ? ''
       : stepsLeft === -1
-      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 text-[10px] font-black"><i data-lucide="activity" class="w-3 h-3"></i> Pós-receita · Acompanhamento</span>`
+      ? `<span class="inline-flex items-center gap-1.5 text-stone-500 text-[12px] font-medium"><i data-lucide="activity" class="w-3.5 h-3.5"></i> Pós-receita · Acompanhamento</span>`
       : stepsLeft === 0
-      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 border border-yellow-300 text-yellow-800 text-[10px] font-black"><i data-lucide="circle-dollar-sign" class="w-3 h-3"></i> Você chegou à receita</span>`
-      : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-${thermal}-100 border border-${thermal}-300 text-${thermal}-800 text-[10px] font-black"><i data-lucide="map-pin" class="w-3 h-3"></i> ${stepsLeft} ${stepsLeft === 1 ? 'passo' : 'passos'} até a receita</span>`;
+      ? `<span class="inline-flex items-center gap-1.5 text-yellow-700 text-[12px] font-semibold"><i data-lucide="circle-dollar-sign" class="w-3.5 h-3.5"></i> Você chegou à receita</span>`
+      : `<span class="inline-flex items-center gap-1.5 text-stone-500 text-[12px] font-medium"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i> ${stepsLeft} ${stepsLeft === 1 ? 'passo' : 'passos'} até a receita</span>`;
 
     const stepIdx = StrategicZoomNavigation.LEVELS.findIndex(l => l.id === currentStep);
     const stepNum = stepIdx >= 0 ? stepIdx + 1 : 1;
-    const reviewPill = isReviewMode
-      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-black"><i data-lucide="check" class="w-3 h-3"></i> Revisão</span>`
-      : '';
-    return `<div>
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2 mb-2 flex-wrap">
-            <span class="px-2 py-0.5 rounded-full bg-${thermal}-100 border border-${thermal}-300 text-${thermal}-800 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1">
-              <i data-lucide="${icon}" class="w-3 h-3"></i>
-              Etapa ${stepNum}
-            </span>
-            ${revenueBadge}
-            ${reviewPill}
-            ${helpBtn}
-          </div>
-          <h3 class="text-lg md:text-xl font-black text-slate-900 leading-tight mb-1">${Utils.escape(title)}</h3>
-          <p class="text-xs text-slate-600">${Utils.escape(hint)}</p>
-        </div>
+    // V36.9.1 — Identificador de posição: chip sólido slate com número grande.
+    const stepChip = `<div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 text-white shadow-sm">
+      <span class="font-black text-lg leading-none">${stepNum}</span>
+      <div class="flex flex-col leading-tight">
+        <span class="text-[9px] font-bold uppercase tracking-wider opacity-70">Etapa</span>
+        <span class="text-[10px] font-semibold opacity-90 -mt-0.5">${Utils.escape(currentLevel?.short || '')}</span>
       </div>
+    </div>`;
+
+    return `<div>
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-3 flex-wrap min-w-0">
+          ${stepChip}
+          ${revenueIndicator}
+        </div>
+        ${helpBtn}
+      </div>
+      <h3 class="text-lg md:text-xl font-black text-slate-900 leading-tight mt-3 mb-1">${Utils.escape(title)}</h3>
+      <p class="text-xs text-stone-600">${Utils.escape(hint)}</p>
       ${helpBalloon}
     </div>`;
   },

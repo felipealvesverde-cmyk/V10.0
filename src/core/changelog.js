@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.9.1',
+    date: '2026-06-09',
+    title: 'Mapa da Receita — Etapa 1: tema offwhite (cinza claro morno) + hierarquia de badges',
+    bullets: [
+      'Tema da Etapa 1 desceu de branco quase puro pra offwhite morno (#f5f3f0). Cartões internos com bg-white/70 — continua ilha clara mas com peso e textura.',
+      'Header da etapa: 4 elementos que pareciam "tudo badge" ganharam formas distintas por função: "Etapa N" virou chip slate sólido com número grande (identificador de POSIÇÃO); "X passos até a receita" virou texto-com-ícone sem borda (INDICADOR de jornada); "Entenda mais" virou botão com cara de botão e chevron (AÇÃO interativa); "Revisão" saiu do header e virou selo no canto do cartão de display (ESTADO da etapa).',
+      'Hierarquia visual: agora o olho lê POSIÇÃO primeiro → INDICADOR depois → encontra a AÇÃO no canto direito.'
+    ]
+  },
+  {
     version: 'V36.9.0',
     date: '2026-06-09',
     title: 'Mapa da Receita — Etapa 1 (Objetivo) repensada: modo dual + tema claro + fixes de bug',
