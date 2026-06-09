@@ -7700,10 +7700,23 @@ Object.assign(Actions, {
   // ===== V35.1.0 — Dashboard Checkout =====
   // V35.3.4 — aceita 5 tabs paralelas (overview | checkout | alunos | meta-ads | google-ads)
   setDashboardTab(tab) {
-    const valid = ['overview', 'checkout', 'alunos', 'meta-ads', 'google-ads'];
+    // V36.10.3 — Adicionadas tabs 'ga4' e 'tarefas'.
+    const valid = ['overview', 'checkout', 'alunos', 'meta-ads', 'google-ads', 'ga4', 'tarefas'];
     App.state.activeDashboardTab = valid.includes(tab) ? tab : 'overview';
     App.save();
     App.render();
+  },
+
+  // V36.10.3 — Filtros da sub-tab Tarefas do Dashboard.
+  setTasksDashboardRange(range) {
+    const valid = ['all', '7d', '30d', 'overdue'];
+    App.state.tasksDashboardRange = valid.includes(range) ? range : 'all';
+    App.save(); App.render();
+  },
+
+  setTasksDashboardProvider(provider) {
+    App.state.tasksDashboardProvider = String(provider || 'all');
+    App.save(); App.render();
   },
 
   // V35.6.0 — Integrações IPI: troca aba ativa (Injetar/Propagar/Iterar).
