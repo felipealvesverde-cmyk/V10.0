@@ -2574,18 +2574,40 @@ window.StrategicMapModal = {
       ${expanded ? `<div class="px-4 pb-4 -mt-1 lj-kr-expand">
         ${areaKrs.length === 0
           ? this._productKrsEmptyStateLight(product, area)
-          : `<div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              ${areaKrs.map(kr => this._productKrCardLight(product, kr, tone)).join('')}
-              ${this._addMoreKrCardLight(area, areaKrs.length)}
-            </div>`
+          : this._productKrsGridLight(product, area, areaKrs)
         }
-        ${this._productKrsCatalogLight(product, area, areaKrs)}
-        <div class="mt-3 pt-3 border-t border-stone-200">
-          <button onclick="event.stopPropagation(); Actions.openCreateCustomKrModal(${product.id}, '${area.id}')" class="text-[11px] text-stone-600 hover:text-slate-900 transition inline-flex items-center gap-1.5">
-            <i data-lucide="zap" class="w-3 h-3"></i> Não achou? Crie um número personalizado
-          </button>
-        </div>
+        ${(App.state.strategicOkrsCatalogExpandedAreas || []).includes(area.id) ? `
+          <div class="lj-catalog-expand mt-3 pt-3 border-t border-stone-200">
+            ${this._productKrsCatalogLight(product, area, areaKrs)}
+            <div class="mt-3 pt-3 border-t border-stone-200">
+              <button onclick="event.stopPropagation(); Actions.openCreateCustomKrModal(${product.id}, '${area.id}')" class="text-[11px] text-stone-600 hover:text-slate-900 transition inline-flex items-center gap-1.5">
+                <i data-lucide="zap" class="w-3 h-3"></i> Não achou? Crie um número personalizado
+              </button>
+            </div>
+          </div>
+        ` : ''}
       </div>` : ''}
+    </div>`;
+  },
+
+  // V36.9.9 — Grid 4-col responsivo (1/2/3/4 conforme breakpoint). Cards mantêm
+  // tamanho fixo do slot. Quando há menos itens que cabem na linha, slots
+  // vazios placeholder aparecem sutis (border dashed cinza claro) sinalizando
+  // "tem espaço aqui pra mais". Visual estável independente de N KRs.
+  _productKrsGridLight(product, area, areaKrs) {
+    const tone = area.color;
+    const totalItems = areaKrs.length + 1; // KRs + card "Adicionar mais um"
+    // Sempre completa a linha visual atual até 4 quando há poucos itens.
+    // Se totalItems já passou de 4, sobra natural da grade.
+    const emptyPlaceholders = totalItems < 4 ? 4 - totalItems : 0;
+    let placeholders = '';
+    for (let i = 0; i < emptyPlaceholders; i++) {
+      placeholders += `<div class="rounded-2xl border border-dashed border-stone-200 min-h-[110px] hidden lg:block"></div>`;
+    }
+    return `<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+      ${areaKrs.map(kr => this._productKrCardLight(product, kr, tone)).join('')}
+      ${this._addMoreKrCardLight(area, areaKrs.length)}
+      ${placeholders}
     </div>`;
   },
 
@@ -2622,12 +2644,12 @@ window.StrategicMapModal = {
     </button>`;
   },
 
-  // V36.9.5 — Catálogo de sugestões: colapsável.
-  // V36.9.7 — Renomeado "Catálogo" pra "Sugestões pra [frente]" (jargão interno
-  // virou microcopy clara). Microcopy explicando fluxo (ativa → meta → Etapa 5
-  // liga ações). Agrupamento visual: "Sugeridos pelo LJ" vs "Da sua experiência"
-  // (✨ aprendidos de produtos anteriores). Cliente entende o que cada chip
-  // representa e o que vai acontecer ao clicar.
+  // V36.9.5 — Catálogo de sugestões.
+  // V36.9.7 — Renomeado "Catálogo" pra "Sugestões pra [frente]" + agrupamento.
+  // V36.9.9 — Removido botão de toggle interno (não auto-toggla mais). Catálogo
+  // só é RENDERIZADO quando aberto (`strategicOkrsCatalogExpandedAreas` inclui
+  // areaId). O trigger é o card "+ Adicionar mais um" no grid, OU o botão do
+  // empty state. Aqui retorna só os chips agrupados.
   _productKrsCatalogLight(product, area, areaKrs) {
     const curated = (StrategicMapEngine.KPI_CATALOG || {})[area.id] || [];
     const learned = (App.state.customKpiCatalog || {})[area.id] || [];
@@ -2635,30 +2657,24 @@ window.StrategicMapModal = {
     const availableCurated = curated.filter(c => !activatedIds.has(c.id));
     const availableLearned = learned.filter(c => !activatedIds.has(c.id));
     const total = availableCurated.length + availableLearned.length;
-    if (total === 0) return '';
+    if (total === 0) {
+      return `<p class="text-[11px] text-stone-500 italic">Você já ativou todas as sugestões pra ${Utils.escape(area.label)}. Pode criar um personalizado abaixo.</p>`;
+    }
     const tone = area.color;
-    const open = (App.state.strategicOkrsCatalogExpandedAreas || []).includes(area.id);
-    return `<div class="mt-3 pt-3 border-t border-stone-200">
-      <button onclick="event.stopPropagation(); Actions.toggleStrategicOkrsCatalog('${area.id}')" class="w-full flex items-center justify-between gap-2 text-[11px] font-bold text-stone-700 hover:text-slate-900 transition">
-        <span>+ Sugestões pra ${Utils.escape(area.label)} (${total})</span>
-        <i data-lucide="${open ? 'chevron-up' : 'chevron-down'}" class="w-3 h-3"></i>
-      </button>
-      ${open ? `
-      <div class="lj-catalog-expand">
-        <p class="text-[11px] text-stone-600 mt-2 mb-3 leading-relaxed">Números bons pra ${Utils.escape(area.label)}. Ative um → defina a meta → na Etapa 5 você liga ações pra mover ele.</p>
-        ${availableCurated.length ? `
-          <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">Sugeridos pelo LJ</p>
-          <div class="flex flex-wrap gap-1.5 ${availableLearned.length ? 'mb-3' : ''}">
-            ${availableCurated.map(c => `<button onclick="event.stopPropagation(); Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || '')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border border-${tone}-200 text-${tone}-800 text-[11px] font-bold">+ ${Utils.escape(c.name)}</button>`).join('')}
-          </div>
-        ` : ''}
-        ${availableLearned.length ? `
-          <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">✨ Da sua experiência (aprendidos de produtos anteriores)</p>
-          <div class="flex flex-wrap gap-1.5">
-            ${availableLearned.map(c => `<button onclick="event.stopPropagation(); Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || 'Sugerido a partir de um KR custom criado anteriormente')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border-2 border-dashed border-${tone}-300 text-${tone}-800 text-[11px] font-bold inline-flex items-center gap-1">✨ ${Utils.escape(c.name)}</button>`).join('')}
-          </div>
-        ` : ''}
-      </div>
+    return `<div>
+      <p class="text-[11px] font-bold text-slate-900 mb-1">Sugestões pra ${Utils.escape(area.label)}</p>
+      <p class="text-[11px] text-stone-600 mb-3 leading-relaxed">Ative uma → defina a meta → na Etapa 5 você liga ações pra mover ela.</p>
+      ${availableCurated.length ? `
+        <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">Sugeridos pelo LJ</p>
+        <div class="flex flex-wrap gap-1.5 ${availableLearned.length ? 'mb-3' : ''}">
+          ${availableCurated.map(c => `<button onclick="event.stopPropagation(); Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || '')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border border-${tone}-200 text-${tone}-800 text-[11px] font-bold">+ ${Utils.escape(c.name)}</button>`).join('')}
+        </div>
+      ` : ''}
+      ${availableLearned.length ? `
+        <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">✨ Da sua experiência (aprendidos de produtos anteriores)</p>
+        <div class="flex flex-wrap gap-1.5">
+          ${availableLearned.map(c => `<button onclick="event.stopPropagation(); Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || 'Sugerido a partir de um KR custom criado anteriormente')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border-2 border-dashed border-${tone}-300 text-${tone}-800 text-[11px] font-bold inline-flex items-center gap-1">✨ ${Utils.escape(c.name)}</button>`).join('')}
+        </div>
       ` : ''}
     </div>`;
   },
@@ -2673,8 +2689,10 @@ window.StrategicMapModal = {
     return this._productKrCardEditingLight(product, kr, tone, handoffBadge);
   },
 
-  // V36.9.5 — Confirmed card compacto: 1 linha de info + rollup pequeno
-  // + botões inline à direita. Eliminado linha redundante "Rollup: X de Y".
+  // V36.9.5 — Confirmed card compacto.
+  // V36.9.9 — Botões Editar/Remover viraram engrenagem com popover. Info
+  // dividida em 2 linhas pra caber em grid 4-col. Nome pode quebrar em
+  // múltiplas linhas (break-words) sem inflar card.
   _productKrCardConfirmedLight(product, kr, tone, handoffBadge) {
     const rollup = StrategicMapEngine.rollupForProductKr ? StrategicMapEngine.rollupForProductKr(product.id, kr.id) : { current: 0, contributors: 0 };
     const target = Number(kr.targetCommitted || 0);
@@ -2689,23 +2707,24 @@ window.StrategicMapModal = {
       if (live?.source === 'derived') return '<span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-violet-100 border border-violet-300 text-violet-800">fórmula</span>';
       return '';
     })();
-    return `<div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-2.5">
-      <div class="flex items-center gap-2 mb-1 flex-wrap">
-        <span class="text-emerald-700 font-black">✓</span>
-        <p class="font-black text-slate-900 text-[13px]">${Utils.escape(kr.name)}</p>
-        ${handoffBadge}
-        ${liveBadge}
-        <span class="ml-auto inline-flex items-center gap-1">
-          <button onclick="Actions.editProductKr(${product.id}, '${kr.id}')" class="px-2 py-0.5 rounded bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 text-[10px] font-black">Editar</button>
-          <button onclick="Actions.removeProductKrAction(${product.id}, '${kr.id}')" class="px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-[10px] font-black">Remover</button>
-        </span>
+    const menuOpen = App.state.strategicKrMenuOpen === kr.id;
+    return `<div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-2.5 relative">
+      <div class="flex items-start gap-1.5 mb-1.5">
+        <span class="text-emerald-700 font-black mt-0.5 shrink-0">✓</span>
+        <p class="font-black text-slate-900 text-[12px] leading-tight flex-1 min-w-0 break-words">${Utils.escape(kr.name)}</p>
+        <div class="relative shrink-0">
+          <button onclick="event.stopPropagation(); Actions.toggleStrategicKrMenu('${kr.id}')" title="Opções" class="w-6 h-6 rounded-md bg-white hover:bg-stone-100 border border-stone-300 text-stone-600 hover:text-slate-900 grid place-items-center transition">
+            <i data-lucide="settings" class="w-3 h-3"></i>
+          </button>
+          ${menuOpen ? `<div class="absolute right-0 top-full mt-1 bg-white border border-stone-300 rounded-lg shadow-lg p-1 z-20 min-w-[100px]">
+            <button onclick="event.stopPropagation(); Actions.closeStrategicKrMenu(); Actions.editProductKr(${product.id}, '${kr.id}')" class="w-full text-left px-2.5 py-1.5 rounded hover:bg-stone-100 text-stone-700 text-[11px] font-bold inline-flex items-center gap-1.5"><i data-lucide="pencil" class="w-3 h-3"></i> Editar</button>
+            <button onclick="event.stopPropagation(); Actions.closeStrategicKrMenu(); Actions.removeProductKrAction(${product.id}, '${kr.id}')" class="w-full text-left px-2.5 py-1.5 rounded hover:bg-red-50 text-red-700 text-[11px] font-bold inline-flex items-center gap-1.5"><i data-lucide="trash-2" class="w-3 h-3"></i> Remover</button>
+          </div>` : ''}
+        </div>
       </div>
-      <p class="text-[11px] text-stone-600 mb-1.5">
-        Hoje <b class="text-slate-900">${hoje}</b>
-        · Segura <b class="text-emerald-700">${Number(kr.targetCommitted ?? 0)}</b>
-        · Avançada <b class="text-violet-700">${Number(kr.targetStretch ?? 0)}</b>
-        · Rollup <b class="text-${tone}-700">${rollup.current}</b> de ${rollup.contributors} · <b>${progress}%</b>
-      </p>
+      ${(handoffBadge || liveBadge) ? `<div class="flex items-center gap-1 mb-1.5 flex-wrap">${handoffBadge}${liveBadge}</div>` : ''}
+      <p class="text-[10px] text-stone-600 leading-snug mb-0.5">Hoje <b class="text-slate-900">${hoje}</b> · Segura <b class="text-emerald-700">${Number(kr.targetCommitted ?? 0)}</b> · Avançada <b class="text-violet-700">${Number(kr.targetStretch ?? 0)}</b></p>
+      <p class="text-[10px] text-stone-500 mb-1.5">Rollup <b class="text-${tone}-700">${rollup.current}</b>/${rollup.contributors} · <b>${progress}%</b></p>
       ${window.StrategicMapRenderer ? StrategicMapRenderer.progressBar(progress, 'emerald') : ''}
     </div>`;
   },
