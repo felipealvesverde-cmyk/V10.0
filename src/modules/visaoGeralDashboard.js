@@ -66,11 +66,16 @@ window.VisaoGeralDashboard = {
     const checkout = App.state.checkoutDashboard || {};
     const ga4Rows = (App.state.ga4ReportsCache && Array.isArray(App.state.ga4ReportsCache.rows)) ? App.state.ga4ReportsCache.rows : [];
 
+    // V36.11.1 — Mapa actionId → campaignId pra resolver tasks ClickUp
+    // criadas só com linked_action_id (a UI direta não seta campaignId).
+    const actionToBranch = {};
+    (App.state.actions || []).forEach(a => { if (a && a.id && a.campaignId) actionToBranch[a.id] = a.campaignId; });
+
     const checkoutKpis = checkout.kpis || {};
     const totalRevenueCents = Number(checkoutKpis.totalRevenueCents || 0);
     const approvedSales = Number(checkoutKpis.approvedCount || 0);
 
-    const perBranch = branches.map(branch => this._aggregateBranch(branch, period, { allAds, allTasks, ga4Rows }));
+    const perBranch = branches.map(branch => this._aggregateBranch(branch, period, { allAds, allTasks, ga4Rows, actionToBranch }));
 
     const totals = perBranch.reduce((acc, b) => {
       acc.adsCost += b.ads.cost;
@@ -82,8 +87,12 @@ window.VisaoGeralDashboard = {
       acc.tasksCompleted += b.tasks.completed;
       acc.tasksLate += b.tasks.late;
       acc.tasksPending += b.tasks.pending;
+      // V36.11.1 — Breakdown por provider pra mostrar no card de atalho.
+      Object.keys(b.tasks.byProvider || {}).forEach(p => {
+        acc.tasksByProvider[p] = (acc.tasksByProvider[p] || 0) + b.tasks.byProvider[p];
+      });
       return acc;
-    }, { adsCost: 0, adsClicks: 0, adsConversions: 0, adsImpressions: 0, sessionsGa4: 0, tasksTotal: 0, tasksCompleted: 0, tasksLate: 0, tasksPending: 0 });
+    }, { adsCost: 0, adsClicks: 0, adsConversions: 0, adsImpressions: 0, sessionsGa4: 0, tasksTotal: 0, tasksCompleted: 0, tasksLate: 0, tasksPending: 0, tasksByProvider: {} });
 
     const roasEffective = totals.adsCost > 0 ? (totalRevenueCents / 100) / totals.adsCost : null;
     const cacConsolidated = approvedSales > 0 ? totals.adsCost / approvedSales : null;
@@ -125,15 +134,25 @@ window.VisaoGeralDashboard = {
       return acc;
     }, { sessions: 0, users: 0, conversions: 0 });
 
-    const branchTasks = sources.allTasks.filter(t => Number(t.linked_campaign_id) === Number(branch.id));
+    // V36.11.1 — Fallback: tasks ClickUp criadas via UI direta setam só
+    // linked_action_id (sem linked_campaign_id). Resolvemos a campanha via
+    // App.state.actions[].campaignId pra essas não sumirem do cruzamento.
+    const actionToBranch = sources.actionToBranch || {};
+    const branchTasks = sources.allTasks.filter(t => {
+      if (Number(t.linked_campaign_id) === Number(branch.id)) return true;
+      if (t.linked_action_id && Number(actionToBranch[t.linked_action_id]) === Number(branch.id)) return true;
+      return false;
+    });
     const nowT = Date.now();
     const tasks = branchTasks.reduce((acc, t) => {
       acc.total++;
       if (t.status === 'completed') acc.completed++;
       else if (t.due_date && new Date(t.due_date).getTime() < nowT && t.status !== 'completed') acc.late++;
       else acc.pending++;
+      const prov = t.provider || 'manual';
+      acc.byProvider[prov] = (acc.byProvider[prov] || 0) + 1;
       return acc;
-    }, { total: 0, completed: 0, late: 0, pending: 0 });
+    }, { total: 0, completed: 0, late: 0, pending: 0, byProvider: {} });
 
     const completionRate = tasks.total > 0 ? (tasks.completed / tasks.total) * 100 : 0;
     const branchROAS = ads.cost > 0 ? ads.conversionsValue / ads.cost : null;
@@ -427,7 +446,7 @@ window.VisaoGeralDashboard = {
         icon: 'list-checks',
         tone: 'violet',
         primary: `${data.totals.tasksCompleted}/${data.totals.tasksTotal}`,
-        secondary: `${data.totals.tasksLate} atrasada(s) · ${data.totals.tasksPending} pendente(s)`
+        secondary: this._providerBreakdownLine(data.totals.tasksByProvider, data.totals.tasksLate)
       },
       {
         id: 'checkout',
@@ -493,5 +512,16 @@ window.VisaoGeralDashboard = {
   // ============================================================
   _fmtMoney(v) {
     return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  },
+
+  _providerBreakdownLine(byProvider, late) {
+    const providerLabel = { clickup: 'ClickUp', trello: 'Trello', manual: 'manual' };
+    const entries = Object.entries(byProvider || {})
+      .filter(([, n]) => n > 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([p, n]) => `${n} ${providerLabel[p] || p}`)
+      .join(' · ');
+    const lateLine = late > 0 ? ` · ${late} atrasada(s)` : '';
+    return entries ? `${entries}${lateLine}` : `${late} atrasada(s)`;
   }
 };
