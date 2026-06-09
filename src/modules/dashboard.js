@@ -8,7 +8,11 @@ var DashboardModule = {
         const renderers = {
           overview:     () => {
             const selected = App.state.campaigns.find(c => c.id === App.state.selectedDashboardCampaignId) || null;
-            return selected ? this.campaignDetail(selected) : this.overview();
+            if (selected) return this.campaignDetail(selected);
+            // V36.11.0 — Visão Geral consolidada (cruzamento Tarefas + Checkout + Google).
+            // Antes mostrava overview legacy (KPIs amplos de campanhas). Agora só
+            // entra aqui quando NENHUMA campanha está selecionada pro drill.
+            return window.VisaoGeralDashboard ? VisaoGeralDashboard.render() : this.overview();
           },
           checkout:     () => window.CheckoutDashboard   ? CheckoutDashboard.render()   : '<p class="p-6 text-slate-500">CheckoutDashboard não carregado.</p>',
           alunos:       () => window.AlunosModule        ? `<div class="p-2 lg:p-4">${AlunosModule.render()}</div>`        : '<p class="p-6 text-slate-500">AlunosModule não carregado.</p>',
