@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.9.6',
+    date: '2026-06-09',
+    title: 'Etapa 2 (Comercial): contador de números removido pra eliminar confusão entre KR-mãe vs KR-filho',
+    bullets: [
+      'Os cards de cada frente (Marketing/Vendas/CS) na Etapa 2 mostravam "X números definidos" + botão "Ver números →". Esse X contava KR-FILHOS plugados na CAMPANHA atual; já a Etapa 3 mostra KR-MÃE do produto. Quando os números divergiam (cliente tem 5 KR-mãe mas só 2 plugados na campanha), parecia bug.',
+      'A Etapa 2 agora só cuida de UMA pergunta: "quem responde por cada frente?" — dono + prazo, mais nada. Pra saber quantos números cada frente tem, cliente navega pra Etapa 3 pelo stepper.',
+      'O contador real (com paralelismo entre mãe e filho) entra no roadmap como evolução futura — quando precisar mostrar plugagem por campanha, vai aparecer com label explícito ("2 plugados / 5 disponíveis").'
+    ]
+  },
+  {
     version: 'V36.9.5',
     date: '2026-06-09',
     title: 'Etapa 3 (Os Números): cards colapsáveis + inputs compactos, sem desperdício de espaço',

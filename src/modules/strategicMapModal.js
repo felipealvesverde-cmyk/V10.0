@@ -3346,11 +3346,11 @@ window.StrategicMapModal = {
           ${owner ? `<button onclick="Actions.finishStrategicAreaEdit()" class="mt-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold inline-flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="check" class="w-3 h-3"></i> Pronto</button>` : ''}
         </div>
       `}
-
-      <div class="flex items-center justify-between pt-2 border-t border-stone-200">
-        <span class="text-[11px] text-stone-500 inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-${tone}-500"></span> ${okrCount} número${okrCount === 1 ? '' : 's'} definido${okrCount === 1 ? '' : 's'}</span>
-        <button onclick="Actions.setStrategicZoom('okrs')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-100 hover:bg-${tone}-200 border border-${tone}-300 text-${tone}-700 text-[10px] font-black">Ver números →</button>
-      </div>
+      ${/* V36.9.6 — Removido contador "X números definidos" + botão "Ver números"
+          do card da Etapa 2. Causava confusão porque mostrava KR-FILHOS plugados
+          na campanha (objective.okrs) enquanto a Etapa 3 mostra KR-MÃE do produto
+          (productKrs). Felipe pediu Caminho C: Comercial só cuida de QUEM RESPONDE;
+          quem quer ver número, navega pela Etapa 3 no stepper. */ ''}
     </div>`;
   },
 
