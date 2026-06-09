@@ -14431,16 +14431,32 @@ Object.assign(Actions, {
         return { status: 'ok', shortDetail: `vale ${remH}h`, detail: `Expira em ${remH}h (${new Date(payload.exp*1000).toLocaleString()})` };
       }),
 
-      safe('State sync', 'POST /api/state-sync', async () => {
+      safe('State sync', 'GET /api/state-sync', async () => {
+        // V36.8.3 — CAUSA RAIZ da perda de dados Sansone (2026-06-08/09): a versão
+        // V36.5.0 deste check mandava POST com body { state: { hc_ping: true } }
+        // achando que o endpoint ignorava — mas /api/state-sync POST SALVA o body
+        // literal no banco, sobrescrevendo state legítimo a cada 30s do panel timer.
+        // Agora usa GET (read-only): testa conectividade sem escrever. Bonus: dá
+        // pra cruzar a contagem remota com a local pra detectar drift.
         const t0 = Date.now();
-        const r = await fetch('/api/state-sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...auth },
-          body: JSON.stringify({ state: { hc_ping: true } })
-        });
+        const r = await fetch('/api/state-sync', { headers: auth });
         const dt = Date.now() - t0;
-        if (r.ok) return { status: 'ok', shortDetail: `${dt}ms`, detail: `POST state-sync 200 em ${dt}ms` };
-        return { status: 'error', shortDetail: `HTTP ${r.status}`, detail: `state-sync retornou ${r.status}` };
+        if (!r.ok) return { status: 'error', shortDetail: `HTTP ${r.status}`, detail: `state-sync retornou ${r.status}` };
+        try {
+          const data = await r.json();
+          const remoteProducts = (data?.state?.products || []).length;
+          const localProducts = (App.state?.products || []).length;
+          const drift = remoteProducts !== localProducts;
+          return {
+            status: drift ? 'error' : 'ok',
+            shortDetail: drift ? `drift ${localProducts}↔${remoteProducts}` : `${dt}ms · ${remoteProducts} prods`,
+            detail: drift
+              ? `Local tem ${localProducts} produtos, banco tem ${remoteProducts}. Pode ser sync pendente ou perda.`
+              : `GET state-sync 200 em ${dt}ms · ${remoteProducts} produtos no banco`
+          };
+        } catch (_) {
+          return { status: 'ok', shortDetail: `${dt}ms`, detail: `GET state-sync 200 em ${dt}ms (sem JSON parseável)` };
+        }
       }),
 
       safe('Banco', 'tenant DB', async () => {
