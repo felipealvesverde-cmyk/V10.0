@@ -490,6 +490,12 @@ var State = {
       strategicDjowSending: false,
       strategicObjectiveDraft: null,
       strategicOkrDraft: null,
+      // V36.9.0 — Etapa 1 modo edição: null = não está editando; string = draft.
+      strategicVisionEditDraft: null,
+      // V36.9.0 — Flag transient: true = cliente no tutorial mode da etapa 1
+      // (não troca pra revisão durante typing). Setado em setStrategicZoom('vision')
+      // quando map.vision vazia. Resetado ao avançar a etapa.
+      strategicVisionInTutorial: false,
       showQuickActionModal: false,
       quickActionContext: null,
       quickActionDraft: { name: '', campaignId: null, channel: '', actionType: '' },
@@ -1162,6 +1168,8 @@ var State = {
       strategicDjowSending: false,
       strategicObjectiveDraft: null,
       strategicOkrDraft: null,
+      strategicVisionEditDraft: null,
+      strategicVisionInTutorial: false,
       showQuickActionModal: false,
       quickActionContext: null,
       quickActionDraft: { name: '', campaignId: null, channel: '', actionType: '' },

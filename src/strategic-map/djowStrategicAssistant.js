@@ -4,12 +4,33 @@
 // devolve exemplos guiados (visão, objetivo, OKR) conforme a pergunta.
 window.DjowStrategicAssistant = {
   history(productId) {
-    return (App.state.strategicDjowChats?.[productId]?.messages) || [];
+    const raw = (App.state.strategicDjowChats?.[productId]?.messages) || [];
+    // V36.9.0 — dedup retroativo: histórico legado pode ter N transitions
+    // duplicadas seguidas. Colapsa em 1 só leitura.
+    // Normaliza typo legado "Pluge"→"Plugue" pra dedup pegar bug + fix juntos.
+    const normalize = (t) => String(t || '').replace(/\bPluge\b/g, 'Plugue');
+    const out = [];
+    for (const m of raw) {
+      if (m.role === 'transition' && out.length) {
+        const last = out[out.length - 1];
+        if (last.role === 'transition' && normalize(last.text) === normalize(m.text)) continue;
+      }
+      out.push(m);
+    }
+    return out;
   },
 
   append(productId, message) {
     const chats = App.state.strategicDjowChats || {};
     const existing = chats[productId]?.messages || [];
+    // V36.9.0 — dedup: transitions com mesmo texto consecutivo viram 1.
+    // Antes, advanceStrategicStep + selectStrategicCampaign empurravam o mesmo
+    // hand-off cada vez que cliente voltava+avançava, enchendo a sidebar com
+    // 6× o mesmo card "Campanha selecionada. Pluge os números...".
+    if (message.role === 'transition' && existing.length) {
+      const last = existing[existing.length - 1];
+      if (last.role === 'transition' && last.text === message.text) return;
+    }
     App.state.strategicDjowChats = { ...chats, [productId]: { messages: [...existing, message] } };
   },
 

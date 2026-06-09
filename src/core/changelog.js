@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.9.0',
+    date: '2026-06-09',
+    title: 'Mapa da Receita — Etapa 1 (Objetivo) repensada: modo dual + tema claro + fixes de bug',
+    bullets: [
+      'Etapa 1 agora tem 2 modos: vazio mostra TUTORIAL completo (template + 5 exemplos práticos), preenchido mostra REVISÃO (sua frase em destaque + botão Editar). Quem já passou pela etapa não vê mais a pedagogia de novo.',
+      'Tema da etapa virou "ilha clara dentro do escuro": cartão branco com tipografia escura pra puxar foco pro trabalho. O resto do Mapa segue dark (header, stepper, Djow).',
+      'Exemplo de produto destacado deixou de ser "chocolate em barra" (que destoava de qualquer nicho diferente). Virou TEMPLATE genérico ("Ser o(a) [posição] preferido(a) de [público] até [horizonte]") + 5 exemplos práticos como referência.',
+      'Removido o label hostil "OUTROS EXEMPLOS PRA LEITURA (NÃO CLICÁVEIS)" — virou só "Exemplos práticos:".',
+      'Removida a dica duplicada do Djow na sidebar pra etapa 1 (estava ecoando a instrução do próprio título).',
+      'Bug fix: sidebar do Djow não repete mais o mesmo card de hand-off N vezes quando cliente volta e re-avança no wizard. Histórico antigo também é colapsado na leitura.',
+      'Bug fix: badge "X passos até a receita" agora trata Acompanhamento como PÓS-receita (etapa 6 era contada como passo, sumia a receita real que acontece na etapa 5 "Ações"). Acompanhamento ganha selo "Pós-execução".'
+    ]
+  },
+  {
     version: 'V36.8.6',
     date: '2026-06-09',
     title: 'Dashboard Google Ads não mostra mais dados de exemplo quando conta está conectada sem campanhas',

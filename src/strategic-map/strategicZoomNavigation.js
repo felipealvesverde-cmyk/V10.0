@@ -30,16 +30,19 @@ window.StrategicZoomNavigation = {
     { id: 'okrs',       label: 'Os números',          short: 'Números',   icon: 'target',     description: 'Como saber que cada frente está performando.',             thermal: 'fuchsia', word: 'metas',     titleQ: 'Quais são os números deste produto?' },
     { id: 'campaign',   label: 'Selecionar Campanha', short: 'Campanha',  icon: 'git-branch', description: 'Escolha em qual campanha vai trabalhar agora.',            thermal: 'pink',    word: 'escolha',   titleQ: 'Em qual campanha você quer trabalhar?' },
     { id: 'operations', label: 'As ações',            short: 'Ações',     icon: 'plug',       description: 'O que a operação faz pra mover esses números.',            thermal: 'orange',  word: 'trabalho',  titleQ: 'Como você vai cobrir esses números?' },
-    { id: 'execution',  label: 'Acompanhamento',      short: 'Acompanhamento', icon: 'activity', description: 'Como cada número e cada ação está performando no provider operacional.', thermal: 'amber', word: 'receita', titleQ: 'Acompanhamento em campo' }
+    { id: 'execution',  label: 'Acompanhamento',      short: 'Acompanhamento', icon: 'activity', description: 'Como cada número e cada ação está performando no provider operacional.', thermal: 'amber', word: 'pós-execução', titleQ: 'Acompanhamento em campo' }
   ],
 
-  // V32.5.2 — Helper: quantos passos faltam até a receita.
+  // V36.9.0 — Receita = etapa 'operations' (5ª). 'execution' é pós-receita
+  // (acompanhamento), não passo até receita.
+  // Retorno: number = passos faltam; 0 = chegou; -1 = já passou (pós-receita); null = inválido.
   stepsUntilRevenue(stepId) {
     const idx = this.LEVELS.findIndex(l => l.id === stepId);
     if (idx < 0) return null;
-    const last = this.LEVELS.length - 1;
-    if (idx === last) return 0;
-    return last - idx;
+    const revenueIdx = this.LEVELS.findIndex(l => l.id === 'operations');
+    if (revenueIdx < 0) return null;
+    if (idx > revenueIdx) return -1;
+    return revenueIdx - idx;
   },
 
   _aliasMap: { strategy: 'vision', flows: 'operations', actions: 'operations' },
