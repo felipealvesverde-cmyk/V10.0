@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.9.3',
+    date: '2026-06-09',
+    title: 'Mapa da Receita — Etapa 2 (Comercial) repensada: mesma régua da Etapa 1',
+    bullets: [
+      'Tema offwhite #f5f3f0 + cartões internos bg-white/70. Header com chip slate da Etapa, indicador de "X passos até a receita" como texto sem borda e botão "Entenda mais" com cara de botão.',
+      'Modo dual POR FRENTE (Marketing/Vendas/CS): vazio mostra form pra preencher dono; preenchido mostra dono em destaque + selo verde "Pronto" no canto + botão Editar. Edit reabre o form inline com botão "Pronto" pra voltar pro display.',
+      'Banner explicativo "Área Comercial é onde a empresa toca o cliente..." só aparece se NENHUMA frente está preenchida. Some quando o cliente já entendeu — não polui revisão.',
+      'Djow Etapa 2 com sugestões adaptativas por contagem de frentes: 0/3 → "Por onde começo?"; 1-2/3 → "Falta N frente(s)" + "Avalia minhas frentes"; 3/3 → "Posso avançar?" + "Como medir cada frente?".',
+      'Avaliador real do Djow pra Comercial: olha as 3 frentes, devolve checklist por frente (✓/⚠), alertas estruturais (mesma pessoa nas 3 = "1 herói cobrindo tudo"; frente sem dono mas com KRs = "número órfão") e veredito de avanço.'
+    ]
+  },
+  {
     version: 'V36.9.2',
     date: '2026-06-09',
     title: 'Djow da Etapa 1: filtro de etapa, sugestões adaptativas e avaliador real da frase do objetivo',

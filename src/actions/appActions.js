@@ -13610,6 +13610,18 @@ Prioridade: ${d.priority}
     App.render();
   },
 
+  // V36.9.3 — Etapa 2 (Comercial): edita uma frente já preenchida. Botão
+  // "Editar" abre o form inline; "Pronto" volta pro display.
+  startStrategicAreaEdit(areaId) {
+    App.state.strategicAreaEditingId = String(areaId || '');
+    App.render();
+  },
+
+  finishStrategicAreaEdit() {
+    App.state.strategicAreaEditingId = null;
+    App.save(); App.render();
+  },
+
   async askStrategicDjow(prefilled) {
     App.state.strategicDjowDraft = prefilled || '';
     App.render();

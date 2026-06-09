@@ -2381,40 +2381,55 @@ window.StrategicMapModal = {
   // V29.1.0 — Em mode='product', CEO edita só os DONOS compartilhados das 3 frentes
   // (areaOwners no produto). Cards mais simples, sem prazo/contador de números.
   // Em mode='campaign' mantém comportamento atual (donos herdados + override + prazo).
+  // V36.9.3 — Mesma régua da Etapa 1: tema offwhite, _stepIntroLight,
+  // modo dual POR CARD (vazio=form, preenchido=display+Editar), tutorial banner
+  // que some quando 3/3 frentes têm dono.
   _stepObjectives(product) {
     const mode = App.state.strategicMapMode || 'product';
     if (mode === 'product') {
       return this._stepObjectivesCEO(product);
     }
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
     const map = StrategicMapEngine.getForProduct(product.id);
     const objectives = map.objectives || [];
     const visionShort = (map.vision || '').length > 80 ? (map.vision || '').slice(0, 80) + '…' : (map.vision || '');
-    const areasReady = (StrategicMapEngine.COMERCIAL_AREAS || []).every(a => objectives.some(o => o.area === a.id) || (StrategicMapEngine.getBranchMap(App.state.strategicMapCampaignId)?.objectives || []).some(o => o.area === a.id));
+    const areasReady = areas.every(a => objectives.some(o => o.area === a.id) || (StrategicMapEngine.getBranchMap(App.state.strategicMapCampaignId)?.objectives || []).some(o => o.area === a.id));
 
-    return `<section class="space-y-4">
-      ${this._stepIntro(
+    // V36.9.3 — Quantas frentes têm dono: define se mostra tutorial banner.
+    const filledCount = areas.filter(a => {
+      const shared = window.StrategicMapEngine?.getAreaOwner ? StrategicMapEngine.getAreaOwner(product.id, a.id) : '';
+      const obj = StrategicMapEngine.getObjectiveByArea(product.id, a.id);
+      const branch = obj?.owner || '';
+      return Boolean(String(branch || shared || '').trim());
+    }).length;
+    const showTutorialBanner = filledCount === 0;
+
+    return `<section class="space-y-4 rounded-3xl border p-6 shadow-md" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+      ${this._stepIntroLight(
         'Como o Comercial se organiza pra realizar esse objetivo?',
-        'Marketing, Vendas e Sucesso do Cliente. Defina o dono e o prazo de cada frente.',
+        'Marketing, Vendas e Sucesso do Cliente. Defina o dono de cada frente.',
         'flag',
         'objectives',
         'objectives-area-comercial',
         'Área Comercial é a área de contato com o cliente: gera o desejo, vende e cuida da entrega do produto prometido. Dentro dela existem 3 segmentos: Marketing (quem gera desejo), Vendas (quem fecha negócio) e Sucesso do Cliente (quem garante a entrega e fala tão bem com o cliente que ele pensa em comprar mais).'
       )}
 
-      ${visionShort ? `<div class="rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-[11px] text-slate-300">⭐ <b class="text-violet-200">Objetivo comercial do produto:</b> «${Utils.escape(visionShort)}»</div>` : ''}
+      ${visionShort ? `<div class="rounded-xl bg-violet-50 border border-violet-200 px-3 py-2 text-[11px] text-violet-800"><span class="opacity-70">⭐ Objetivo:</span> <b>«${Utils.escape(visionShort)}»</b></div>` : ''}
 
-      <div class="rounded-2xl bg-indigo-500/10 border border-indigo-400/25 p-3 text-[12px] text-indigo-100 leading-relaxed">
-        <b class="text-indigo-200">Área Comercial no LeadJourney:</b> é onde a empresa toca o cliente — gera o desejo, vende e cuida da entrega do que foi prometido. Funciona como um funil de 3 segmentos:
-        <span class="block mt-1.5">• <b class="text-sky-200">Marketing</b> gera desejo no público (transforma suspeito em lead).</span>
-        <span class="block">• <b class="text-emerald-200">Vendas</b> fecha negócio (transforma lead em cliente).</span>
-        <span class="block">• <b class="text-violet-200">Sucesso do Cliente</b> entrega o que foi prometido tão bem que o cliente quer comprar mais.</span>
-      </div>
+      ${showTutorialBanner ? `
+        <div class="rounded-2xl bg-white/70 border border-stone-200 p-4 text-[12px] text-stone-700 leading-relaxed shadow-sm">
+          <b class="text-slate-900">Área Comercial no LeadJourney:</b> é onde a empresa toca o cliente — gera o desejo, vende e cuida da entrega do que foi prometido. Funciona como um funil de 3 segmentos:
+          <span class="block mt-1.5">• <b class="text-sky-700">Marketing</b> gera desejo no público (transforma suspeito em lead).</span>
+          <span class="block">• <b class="text-emerald-700">Vendas</b> fecha negócio (transforma lead em cliente).</span>
+          <span class="block">• <b class="text-violet-700">Sucesso do Cliente</b> entrega o que foi prometido tão bem que o cliente quer comprar mais.</span>
+        </div>
+      ` : ''}
 
       <div class="grid lg:grid-cols-3 gap-3">
-        ${(StrategicMapEngine.COMERCIAL_AREAS || []).map(area => this._comercialAreaCard(area, StrategicMapEngine.getObjectiveByArea(product.id, area.id))).join('')}
+        ${areas.map(area => this._comercialAreaCardLight(area, StrategicMapEngine.getObjectiveByArea(product.id, area.id), 'campaign')).join('')}
       </div>
 
-      ${this._stepCta('Próximo passo: definir os números', areasReady)}
+      ${this._stepCtaLight('Próximo passo: definir os números', areasReady, 'objectives')}
     </section>`;
   },
 
@@ -3017,13 +3032,17 @@ window.StrategicMapModal = {
   },
 
   // V29.1.0 — Etapa Comercial na vista CEO. Define donos compartilhados das 3 frentes.
+  // V36.9.3 — Mesma régua da Etapa 1: tema offwhite, _stepIntroLight,
+  // tutorial banner some quando 3/3 frentes têm dono.
   _stepObjectivesCEO(product) {
     const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
     const map = StrategicMapEngine.getForProduct(product.id);
     const visionShort = (map.vision || '').length > 80 ? (map.vision || '').slice(0, 80) + '…' : (map.vision || '');
     const allHaveOwners = areas.every(a => String(StrategicMapEngine.getAreaOwner(product.id, a.id) || '').trim());
-    return `<section class="space-y-4">
-      ${this._stepIntro(
+    const filledCount = areas.filter(a => String(StrategicMapEngine.getAreaOwner(product.id, a.id) || '').trim()).length;
+    const showTutorialBanner = filledCount === 0;
+    return `<section class="space-y-4 rounded-3xl border p-6 shadow-md" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+      ${this._stepIntroLight(
         'Quem responde por cada frente comercial?',
         'Define o dono de Marketing, Vendas e Sucesso do Cliente. Esses donos cuidam de TODAS as campanhas do produto.',
         'flag',
@@ -3031,26 +3050,111 @@ window.StrategicMapModal = {
         'objectives-area-comercial',
         'Área Comercial é onde a empresa toca o cliente: Marketing gera desejo, Vendas fecha, CS entrega. O dono de cada frente é o mesmo independente de quantas campanhas o produto tenha — quem cuida do Marketing cuida de todas as campanhas do produto.'
       )}
-      ${visionShort ? `<div class="rounded-xl bg-violet-500/10 border border-violet-400/20 px-3 py-2 text-[11px] text-slate-300">⭐ <b class="text-violet-200">Objetivo:</b> «${Utils.escape(visionShort)}»</div>` : ''}
+      ${visionShort ? `<div class="rounded-xl bg-violet-50 border border-violet-200 px-3 py-2 text-[11px] text-violet-800"><span class="opacity-70">⭐ Objetivo:</span> <b>«${Utils.escape(visionShort)}»</b></div>` : ''}
+      ${showTutorialBanner ? `
+        <div class="rounded-2xl bg-white/70 border border-stone-200 p-4 text-[12px] text-stone-700 leading-relaxed shadow-sm">
+          <b class="text-slate-900">Área Comercial no LeadJourney:</b> é onde a empresa toca o cliente — gera o desejo, vende e cuida da entrega do que foi prometido.
+          <span class="block mt-1.5">• <b class="text-sky-700">Marketing</b> gera desejo (suspeito → lead).</span>
+          <span class="block">• <b class="text-emerald-700">Vendas</b> fecha negócio (lead → cliente).</span>
+          <span class="block">• <b class="text-violet-700">Sucesso do Cliente</b> entrega o prometido tão bem que o cliente quer comprar mais.</span>
+        </div>
+      ` : ''}
       <div class="grid lg:grid-cols-3 gap-3">
-        ${areas.map(area => {
-          const owner = StrategicMapEngine.getAreaOwner(product.id, area.id) || '';
-          const tone = area.color;
-          return `<div class="rounded-3xl bg-white/[0.05] border border-${tone}-400/30 p-4 flex flex-col gap-3" style="min-height:240px;">
-            <div class="flex items-center gap-2">
-              <div class="w-9 h-9 rounded-xl bg-${tone}-500/20 grid place-items-center"><i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-200"></i></div>
-              <p class="font-black text-white text-base leading-tight">${Utils.escape(area.label)}</p>
-            </div>
-            <p class="text-[12px] text-slate-300 leading-relaxed flex-1">${Utils.escape(area.description)}</p>
-            <div class="pt-2 border-t border-white/10">
-              <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Dono desta frente (compartilhado entre todas as campanhas)</label>
-              <input value="${Utils.escape(owner)}" oninput="Actions.setStrategicAreaOwner(${product.id}, '${area.id}', this.value)" placeholder="Quem responde por essa frente?" class="w-full px-2.5 py-2 rounded-lg bg-slate-900 border border-${tone}-400/40 text-white text-[12px] font-bold placeholder:text-slate-500" />
-            </div>
-          </div>`;
-        }).join('')}
+        ${areas.map(area => this._comercialAreaCardLight(area, null, 'product')).join('')}
       </div>
-      ${this._stepCta('Próximo passo: os números do produto', allHaveOwners, 'objectives')}
+      ${this._stepCtaLight('Próximo passo: os números do produto', allHaveOwners, 'objectives')}
     </section>`;
+  },
+
+  // V36.9.3 — Card de uma frente comercial em tema LIGHT, modo dual.
+  // Vazio  → form pra preencher dono (e label opcional em campaign mode)
+  // Cheio  → display do dono em destaque + selo "Pronto" no canto + Editar
+  // Edit mode é ativado clicando Editar; sai clicando "Pronto".
+  // mode = 'product' (CEO, owner compartilhado) | 'campaign' (Gestor com override).
+  _comercialAreaCardLight(area, objective, mode) {
+    const productId = App.state.strategicMapProductId;
+    const tone = area.color;
+
+    if (mode === 'product') {
+      const owner = String(StrategicMapEngine.getAreaOwner(productId, area.id) || '').trim();
+      const isEditing = App.state.strategicAreaEditingId === area.id;
+      const filled = Boolean(owner) && !isEditing;
+      return `<div class="rounded-3xl bg-white/70 border border-stone-200 p-4 flex flex-col gap-3 shadow-sm relative" style="min-height:240px;">
+        ${filled ? `<span class="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 text-[9px] font-bold uppercase tracking-wider"><i data-lucide="check" class="w-2.5 h-2.5"></i> Pronto</span>` : ''}
+        <div class="flex items-center gap-2">
+          <div class="w-9 h-9 rounded-xl bg-${tone}-100 grid place-items-center"><i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-700"></i></div>
+          <p class="font-black text-slate-900 text-base leading-tight">${Utils.escape(area.label)}</p>
+        </div>
+        <p class="text-[12px] text-stone-600 leading-relaxed flex-1">${Utils.escape(area.description)}</p>
+        ${filled ? `
+          <div class="pt-2 border-t border-stone-200">
+            <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">Dono desta frente</p>
+            <p class="text-base font-black text-slate-900">${Utils.escape(owner)}</p>
+            <button onclick="Actions.startStrategicAreaEdit('${area.id}')" class="mt-3 px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 text-[11px] font-bold inline-flex items-center gap-1.5"><i data-lucide="pencil" class="w-3 h-3"></i> Editar</button>
+          </div>
+        ` : `
+          <div class="pt-2 border-t border-stone-200">
+            <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">Dono desta frente (compartilhado entre todas as campanhas)</label>
+            <input id="area-owner-${area.id}" value="${Utils.escape(owner)}" oninput="Actions.setStrategicAreaOwner(${productId}, '${area.id}', this.value)" placeholder="Quem responde por essa frente?" class="w-full px-2.5 py-2 rounded-lg bg-white border border-${tone}-300 text-slate-900 text-[12px] font-bold placeholder:text-stone-400" />
+            ${owner ? `<button onclick="Actions.finishStrategicAreaEdit()" class="mt-2 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold inline-flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="check" class="w-3 h-3"></i> Pronto</button>` : ''}
+          </div>
+        `}
+      </div>`;
+    }
+
+    // mode === 'campaign'
+    const sharedOwner = window.StrategicMapEngine?.getAreaOwner ? StrategicMapEngine.getAreaOwner(productId, area.id) : '';
+    const branchOwner = objective?.owner || '';
+    const owner = String(branchOwner || sharedOwner || '').trim();
+    const ownerSource = branchOwner ? '(override desta campanha)' : (sharedOwner ? '(compartilhado do produto)' : '');
+    const okrCount = (objective?.okrs || []).length;
+    const customLabel = objective?.label && objective.label !== area.label ? objective.label : '';
+    const isEditing = App.state.strategicAreaEditingId === area.id;
+    const filled = Boolean(owner) && !isEditing;
+
+    return `<div class="rounded-3xl bg-white/70 border border-stone-200 p-4 flex flex-col gap-3 shadow-sm relative" style="min-height:280px;">
+      ${filled ? `<span class="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 text-[9px] font-bold uppercase tracking-wider"><i data-lucide="check" class="w-2.5 h-2.5"></i> Pronto</span>` : ''}
+      <div class="flex items-center gap-2">
+        <div class="w-9 h-9 rounded-xl bg-${tone}-100 grid place-items-center"><i data-lucide="${area.icon}" class="w-4 h-4 text-${tone}-700"></i></div>
+        <div class="min-w-0">
+          <p class="font-black text-slate-900 text-base leading-tight">${Utils.escape(area.label)}</p>
+          ${customLabel ? `<p class="text-[10px] text-${tone}-700 truncate">${Utils.escape(customLabel)}</p>` : ''}
+        </div>
+      </div>
+
+      <p class="text-[12px] text-stone-600 leading-relaxed flex-1">${Utils.escape(area.description)}</p>
+
+      ${filled ? `
+        <div class="space-y-2 pt-2 border-t border-stone-200">
+          <div>
+            <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">Dono dessa frente ${ownerSource ? `<span class="text-[9px] font-normal text-stone-400">${ownerSource}</span>` : ''}</p>
+            <p class="text-base font-black text-slate-900">${Utils.escape(owner)}</p>
+          </div>
+          <div>
+            <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">Prazo do ciclo</p>
+            <div class="inline-flex items-center gap-1.5 text-stone-600 text-[12px] font-bold"><i data-lucide="clock" class="w-3.5 h-3.5"></i> 90 dias</div>
+          </div>
+          <button onclick="Actions.startStrategicAreaEdit('${area.id}')" class="mt-1 px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 text-[11px] font-bold inline-flex items-center gap-1.5"><i data-lucide="pencil" class="w-3 h-3"></i> Editar</button>
+        </div>
+      ` : `
+        <div class="space-y-2 pt-2 border-t border-stone-200">
+          <div>
+            <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">Dono dessa frente ${ownerSource ? `<span class="text-[9px] font-normal text-stone-400">${ownerSource}</span>` : ''}</label>
+            <input id="area-owner-${area.id}" value="${Utils.escape(owner)}" oninput="Actions.updateStrategicAreaField('${area.id}', 'owner', this.value)" placeholder="Quem responde por essa frente?" class="w-full px-2.5 py-2 rounded-lg bg-white border ${branchOwner ? 'border-amber-400' : 'border-stone-300'} text-slate-900 text-[12px] font-bold placeholder:text-stone-400" title="Edite na vista CEO pra mudar pra todas as branches do produto" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1">Prazo do ciclo</label>
+            <div class="w-full px-2.5 py-2 rounded-lg bg-stone-50 border border-stone-200 text-stone-600 text-[12px] font-bold flex items-center gap-1.5"><i data-lucide="clock" class="w-3.5 h-3.5 text-stone-500"></i> 90 dias</div>
+          </div>
+          ${owner ? `<button onclick="Actions.finishStrategicAreaEdit()" class="mt-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold inline-flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="check" class="w-3 h-3"></i> Pronto</button>` : ''}
+        </div>
+      `}
+
+      <div class="flex items-center justify-between pt-2 border-t border-stone-200">
+        <span class="text-[11px] text-stone-500 inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-${tone}-500"></span> ${okrCount} número${okrCount === 1 ? '' : 's'} definido${okrCount === 1 ? '' : 's'}</span>
+        <button onclick="Actions.setStrategicZoom('okrs')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-100 hover:bg-${tone}-200 border border-${tone}-300 text-${tone}-700 text-[10px] font-black">Ver números →</button>
+      </div>
+    </div>`;
   },
 
   // -------------------- STEP 4: CAMPANHA (NOVA V29.1.0) --------------------
@@ -5516,9 +5620,43 @@ window.StrategicMapModal = {
         ];
         intro = 'Pra começar:';
       }
+    } else if (stepId === 'objectives') {
+      // V36.9.3 — Hints adaptativos da Etapa 2 (Comercial) por contagem de
+      // frentes preenchidas (Marketing + Vendas + CS).
+      const productId = App.state.strategicMapProductId;
+      const areas = window.StrategicMapEngine?.COMERCIAL_AREAS || [];
+      const mode = App.state.strategicMapMode || 'product';
+      const filledCount = productId && window.StrategicMapEngine ? areas.filter(a => {
+        const shared = StrategicMapEngine.getAreaOwner ? StrategicMapEngine.getAreaOwner(productId, a.id) : '';
+        if (mode === 'product') return Boolean(String(shared || '').trim());
+        const obj = StrategicMapEngine.getObjectiveByArea ? StrategicMapEngine.getObjectiveByArea(productId, a.id) : null;
+        const branch = obj?.owner || '';
+        return Boolean(String(branch || shared || '').trim());
+      }).length : 0;
+      if (filledCount === 0) {
+        hints = [
+          { text: 'Por onde começo?', prompt: 'Por onde começo a definir as 3 frentes comerciais? Como escolher os donos de Marketing, Vendas e CS?' },
+          { text: 'Quem responde por Marketing/Vendas/CS?', prompt: 'Quem deve responder por cada frente comercial? Que tipo de perfil pra Marketing, Vendas e CS?' },
+          { text: 'Posso ter mesmo dono em 2 frentes?', prompt: 'Posso ter a mesma pessoa como dono de duas frentes comerciais? Tem problema?' }
+        ];
+        intro = 'Pra começar a Etapa 2:';
+      } else if (filledCount < 3) {
+        hints = [
+          { text: `Falta ${3 - filledCount} frente${filledCount === 2 ? '' : 's'}`, prompt: `Já defini ${filledCount} dono(s) de ${areas.length} frentes. O que considerar pra cobrir as que faltam?` },
+          { text: '🔍 Avalia minhas frentes', prompt: 'Avalia as frentes comerciais que eu já defini. Tá coerente? Falta algo?' },
+          { text: 'Mesmo dono em todas — ok?', prompt: 'Se eu colocar a mesma pessoa em todas as frentes, tem problema? O que perco?' }
+        ];
+        intro = 'Pra completar a Etapa 2:';
+      } else {
+        hints = [
+          { text: '🔍 Avalia minhas frentes', prompt: 'Avalia as 3 frentes comerciais que eu defini. Tá pronto pra avançar?' },
+          { text: 'Posso avançar?', prompt: 'Posso avançar pra próxima etapa (definir os números)?' },
+          { text: 'Como medir cada frente?', prompt: 'Como medir performance de cada frente — Marketing, Vendas e CS?' }
+        ];
+        intro = 'Pra fechar a Etapa 2:';
+      }
     } else {
       const hintsByStep = {
-        objectives: ['Como definir o dono de cada frente?', 'Quem deve responder por Marketing/Vendas/CS?', 'Posso ter mais de uma pessoa por frente?'],
         okrs:       ['Bons números para Marketing', 'Bons números para Vendas', 'Bons números para Sucesso do Cliente'],
         operations: ['Posso conectar uma ação a múltiplos números?', 'Como saber se uma ação serve esse número?', 'Não tenho ações ainda'],
         execution:  ['Para onde a tarefa vai?', 'Como configurar ClickUp?', 'Tarefa criada não aparece no provider']
