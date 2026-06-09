@@ -488,9 +488,13 @@
       const fatBruto = sales * ticket;
 
       // Symbol table inicial com handles especiais. Cresce conforme avalia items.
+      // V36.8.4 — `tm` é alias semântico de `ticket` pra usar em métricas POR VENDA
+      // (MCU, MSU). Cliente escreve `=tm*0,059` em métricas unitárias em vez de
+      // `=fat_bruto*0,059` (que é escala mensal e gera bug — ver Felipe 2026-06-09).
       const symbols = {
         sales,
         ticket,
+        tm: ticket,             // V36.8.4 — alias semântico unitário
         fat_bruto: fatBruto,
         fat_liquido: 0,         // recomputado abaixo após variáveis sobre gross
         resultado_apos_fixos: 0 // recomputado abaixo
@@ -725,8 +729,20 @@
     //
     // Pra mode='custom_formula', retorna o próprio calc.formula sem mudar.
 
-    deriveFormula(calc, cfg) {
+    // V36.8.4 — opts.unitContext=true converte handles de escala receita pra `tm`
+    // (alias unitário de ticket). Mantém semântica correta quando deriva fórmula
+    // pra contexto MCU/MSU. Antes: deriveFormula sempre retornava o handle bruto,
+    // causando incompatibilidade entre Auto (calculava com ticket) e Composição
+    // (avaliava com fat_bruto literal).
+    deriveFormula(calc, cfg, opts = {}) {
       if (!calc || typeof calc !== 'object') return '=0';
+      const unitContext = Boolean(opts.unitContext);
+      const remapBase = (base) => {
+        if (!unitContext) return base;
+        // Em contexto unitário, fat_bruto/fat_liquido viram tm (alias unitário)
+        if (base === 'fat_bruto' || base === 'fat_liquido') return 'tm';
+        return base;
+      };
       switch (calc.mode) {
         case 'fixed':
           return `=${this._num(calc.value)}`;
@@ -734,7 +750,7 @@
           return `=${this._num(calc.baseValue)} * ${this._num(calc.factor) / 100}`;
         case 'percent_of':
           if (!calc.base) return '=0';
-          return `=${calc.base} * ${this._num(calc.factor) / 100}`;
+          return `=${remapBase(calc.base)} * ${this._num(calc.factor) / 100}`;
         case 'derived':
           if (!calc.groupRef) return '=0';
           return `=${calc.groupRef}_total`;
@@ -820,8 +836,33 @@
     // override = { mode, value, formula, components }
     // autoValue = valor calculado se mode='auto'
     // symbols = symbol table pra resolver fórmulas dos overrides
-    resolveOverride(override, autoValue, symbols) {
+    // V36.8.4 — opts.unitContext=true quando resolve métrica POR VENDA (MCU/MSU).
+    // Nesse modo, fórmulas que referenciam handles de escala receita (fat_bruto,
+    // fat_liquido) são automaticamente convertidas pra escala unitária dividindo
+    // o resultado por sales. Felipe perdeu R$ 176k de MCU em 2026-06-09 porque
+    // o engine avaliava =fat_bruto*0,059 literalmente (R$ 20.473 do mês inteiro
+    // subtraído de uma única venda).
+    resolveOverride(override, autoValue, symbols, opts = {}) {
       const o = override || { mode: 'auto' };
+      const unitContext = Boolean(opts.unitContext);
+      const sales = Number(symbols?.sales) || 1;
+
+      // Detecta se fórmula usa handles de escala receita (precisa correção em
+      // contexto unitário). Ignora 'sales' e 'ticket' (já são unitários).
+      const isMonthlyScale = (raw) => /\b(fat_bruto|fat_liquido)\b/i.test(String(raw || ''));
+
+      // Avalia fórmula com correção opcional pra escala unitária.
+      const evalWithContext = (raw) => {
+        const trimmed = String(raw || '').trim();
+        if (!trimmed.startsWith('=')) return this._num(trimmed);
+        const rawValue = this._evalFormula(trimmed, symbols);
+        if (unitContext && isMonthlyScale(trimmed) && sales > 0) {
+          // Escala mensal usada em contexto unitário → divide por sales pra obter unit cost
+          return rawValue / sales;
+        }
+        return rawValue;
+      };
+
       if (o.mode === 'auto' || !o.mode) {
         return { value: autoValue, source: 'auto' };
       }
@@ -833,7 +874,7 @@
         }
         const strRaw = String(raw || '').trim();
         if (strRaw.startsWith('=')) {
-          const computed = this._evalFormula(strRaw, symbols);
+          const computed = evalWithContext(strRaw);
           return { value: computed, source: 'manual', input: strRaw, isFormula: true };
         }
         const num = this._num(strRaw);
@@ -850,10 +891,7 @@
         // override.baseValue = TM ou MCU (passado pelo caller)
         if (typeof o.baseValue === 'number') total = o.baseValue;
         for (const c of components) {
-          const raw = String(c.value || '').trim();
-          let v = 0;
-          if (raw.startsWith('=')) v = this._evalFormula(raw, symbols);
-          else v = this._num(raw);
+          const v = evalWithContext(c.value);
           // Convenção: components são DEDUÇÕES (subtraem do base)
           total -= v;
         }
@@ -875,10 +913,15 @@
     // Retorna { status, value, message, suggestions }
     //   status: 'ok' | 'warn' | 'error'
 
-    validateFormula(rawFormula, symbols, itemId) {
+    // V36.8.4 — opts.unitContext=true emite warning quando fórmula usa handles
+    // de escala receita (fat_bruto, fat_liquido) em métrica POR VENDA. O engine
+    // auto-corrige (divide por sales no resolveOverride), mas o aviso vai pro
+    // cliente saber que a forma idiomática é `=tm*0,059` em vez de `=fat_bruto*0,059`.
+    validateFormula(rawFormula, symbols, itemId, opts = {}) {
       const empty = (msg) => ({ status: 'warn', value: 0, message: msg || 'Fórmula vazia — vai calcular 0.', suggestions: [] });
       let f = String(rawFormula || '').trim().replace(/^=/, '').trim();
       if (!f) return empty();
+      const unitContext = Boolean(opts.unitContext);
 
       // Normaliza vírgula BR
       f = f.replace(/(\d),(\d)/g, '$1.$2');
@@ -944,6 +987,23 @@
         };
       }
 
+      // V36.8.4 — Warning de escala em métrica POR VENDA. Não bloqueia, só avisa
+      // (o resolveOverride já corrige automaticamente dividindo por sales).
+      if (unitContext) {
+        const usesMonthlyScale = /\b(fat_bruto|fat_liquido)\b/i.test(f);
+        if (usesMonthlyScale) {
+          const sales = Number(symbols?.sales) || 1;
+          const correctedValue = value / sales;
+          return {
+            status: 'warn',
+            value: correctedValue,
+            message: `⚠ Esta é uma métrica POR VENDA, mas a fórmula usa escala mensal (fat_bruto/fat_liquido). O LJ está corrigindo automaticamente (dividindo por ${sales} vendas → R$ ${correctedValue.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}). Pra eliminar essa correção, troque por "tm" — ex: =tm*0,059.`,
+            suggestions: ['tm'],
+            scaleWarning: true
+          };
+        }
+      }
+
       return { status: 'ok', value, message: `Resultado: R$ ${value.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}`, suggestions: null };
     },
 
@@ -956,6 +1016,7 @@
       const handles = [
         { id: 'sales',                label: 'Vendas previstas',        kind: 'special' },
         { id: 'ticket',               label: 'Ticket Médio',            kind: 'special' },
+        { id: 'tm',                   label: 'Ticket Médio (alias unit)', kind: 'special' }, // V36.8.4 — pra usar em métricas POR VENDA (MCU, MSU)
         { id: 'fat_bruto',            label: 'Faturamento Bruto',       kind: 'special' },
         { id: 'fat_liquido',          label: 'Faturamento Líquido',     kind: 'special' },
         { id: 'resultado_apos_fixos', label: 'Resultado após Fixos',    kind: 'special' },

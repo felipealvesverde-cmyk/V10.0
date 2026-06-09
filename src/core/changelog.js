@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.8.4',
+    date: '2026-06-09',
+    title: 'Fix crítico: MCU (Margem de Contribuição Unitária) misturava escala mensal com unitária',
+    bullets: [
+      'Bug grave no RevOps: ao usar modo "Composição" da MCU, fórmulas como =fat_bruto*0,059 eram avaliadas literalmente — o engine multiplicava o faturamento do mês inteiro (R$ 347.000) pelo percentual, gerando dedução de R$ 20.473 PER VENDA. Resultado: MCU virava negativa em R$ 176k quando deveria ser positiva em R$ 165.',
+      'Causa: o engine "Auto" tratava automaticamente fat_bruto como ticket × factor (correto pra contexto unitário), mas o modo "Composição" avaliava a fórmula crua sem essa correção.',
+      'Fix em 5 partes (Estratégia C híbrida): (1) symbol table agora tem `tm` como alias de ticket pra usar em métricas POR VENDA; (2) resolveOverride aceita opts.unitContext e divide resultado por sales quando fórmula usa fat_bruto/fat_liquido em métrica unitária; (3) deriveFormula remapeia base fat_bruto→tm em contexto unitário; (4) callers MCU e MSU passam unitContext:true; (5) validateFormula emite warning amber quando cliente escreve fat_bruto em métrica unitária ("LJ corrigindo automaticamente — use tm pra fórmula idiomática").',
+      'Tags `tm` adicionada ao autocomplete dos handles disponíveis no Modo Excel.',
+      'Sansone (Atira.Pro): MCU agora calcula correto. Se quiser ajustar a projeção de 1.000 vendas pra 850 reais, edita no input "Vendas previstas" do produto — não é bug, é setting.'
+    ]
+  },
+  {
     version: 'V36.8.3',
     date: '2026-06-09',
     title: 'CAUSA RAIZ da perda de dados — Health Check enviava ping vazio que sobrescrevia o banco',
