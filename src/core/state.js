@@ -604,6 +604,7 @@ var State = {
       googleAdsCampaignsCache: null,        // null = ainda não carregou; [] = carregou (até vazio)
       googleAdsCampaignsLoadedAt: null,     // ISO timestamp
       googleAdsCampaignsAreMock: false,     // true quando usando GoogleAdsMockCampaigns
+      googleAdsCampaignsRealEmpty: false,   // V36.8.6 — true quando sync rodou mas conta tem 0 campanhas
       // V35.7.0-alpha1 — Sub-aba ativa do Dashboard Google Ads.
       // V35.7.1 — 3 sub-abas agora: 'overview' (Visão Geral nova) | 'linked'
       // (Associadas — era 'overview') | 'orphans' (Não associadas).
@@ -1266,6 +1267,7 @@ var State = {
       googleAdsCampaignsCache: Array.isArray(raw.googleAdsCampaignsCache) ? raw.googleAdsCampaignsCache : null,
       googleAdsCampaignsLoadedAt: raw.googleAdsCampaignsLoadedAt || null,
       googleAdsCampaignsAreMock: Boolean(raw.googleAdsCampaignsAreMock),
+      googleAdsCampaignsRealEmpty: Boolean(raw.googleAdsCampaignsRealEmpty), // V36.8.6
       // V35.7.1 — 3 sub-abas: overview (Visão Geral) | linked (Associadas) | orphans
       googleAdsDashboardSubTab: (typeof raw.googleAdsDashboardSubTab === 'string' && ['overview','linked','orphans'].includes(raw.googleAdsDashboardSubTab)) ? raw.googleAdsDashboardSubTab : 'overview',
       googleAdsOverviewIncludeOrphans: Boolean(raw.googleAdsOverviewIncludeOrphans),

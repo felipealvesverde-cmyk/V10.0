@@ -7775,26 +7775,51 @@ Object.assign(Actions, {
   // cai pro mock. Quando há dados reais, isMock=false e o badge "Dados de
   // exemplo" some.
   async loadGoogleAdsCampaigns() {
+    // V36.8.6 — 3 estados em vez de 2:
+    //   (a) RealEmpty: sync rodou mas conta não tem campanhas no Google Ads
+    //   (b) RealWithData: tem dados reais
+    //   (c) Mock: sync nunca rodou ou erro de fetch
+    // Antes (V35.7.0): só real vs mock. Conta sem campanhas caía pro mock e
+    // confundia cliente (Sansone reportou 2026-06-09).
     let usedReal = false;
+    let realEmpty = false;
     try {
       const token = localStorage.getItem('lj_jwt');
       const r = await fetch('/api/google-ads-campaigns-list', { headers: { Authorization: `Bearer ${token}` } });
       if (r.ok) {
         const data = await r.json();
-        if (data.ok && Array.isArray(data.campaigns) && data.campaigns.length > 0) {
-          App.state.googleAdsCampaignsCache = data.campaigns;
-          App.state.googleAdsCampaignsLoadedAt = new Date().toISOString();
-          App.state.googleAdsCampaignsAreMock = false;
-          usedReal = true;
-          App.render();
+        if (data.ok && Array.isArray(data.campaigns)) {
+          if (data.campaigns.length > 0) {
+            // (b) RealWithData
+            App.state.googleAdsCampaignsCache = data.campaigns;
+            App.state.googleAdsCampaignsLoadedAt = new Date().toISOString();
+            App.state.googleAdsCampaignsAreMock = false;
+            App.state.googleAdsCampaignsRealEmpty = false;
+            usedReal = true;
+            App.render();
+          } else {
+            // Campanhas vazias. Sync já rodou? (status tem lastSyncAt)
+            const status = App.state.googleAdsStatus || {};
+            if (status.lastSyncAt) {
+              // (a) RealEmpty — conta conectada mas sem campanhas no Google Ads
+              App.state.googleAdsCampaignsCache = [];
+              App.state.googleAdsCampaignsLoadedAt = new Date().toISOString();
+              App.state.googleAdsCampaignsAreMock = false;
+              App.state.googleAdsCampaignsRealEmpty = true;
+              realEmpty = true;
+              App.render();
+            }
+          }
         }
       }
     } catch (_) { /* fallback */ }
-    if (!usedReal) {
+    if (!usedReal && !realEmpty) {
+      // (c) Mock — sync nunca rodou (cliente novo) ou erro de fetch
       const mocks = window.GoogleAdsMockCampaigns?.list() || [];
       App.state.googleAdsCampaignsCache = mocks;
       App.state.googleAdsCampaignsLoadedAt = new Date().toISOString();
       App.state.googleAdsCampaignsAreMock = true;
+      App.state.googleAdsCampaignsRealEmpty = false;
       App.render();
     }
   },

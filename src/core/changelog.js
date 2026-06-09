@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.8.6',
+    date: '2026-06-09',
+    title: 'Dashboard Google Ads não mostra mais dados de exemplo quando conta está conectada sem campanhas',
+    bullets: [
+      'Antes: cliente conectava Google Ads, sync rodava, conta não tinha campanhas reais → Dashboard caía pro mock genérico ("Dados de exemplo"). Confundia muito (Sansone relatou: "tá integrado mas mostra fictícios").',
+      'Agora: 3 estados em vez de 2. Se sync rodou e a conta tem 0 campanhas, mostra empty state explícito: "Conta conectada, sem campanhas ativas" + última sincronização + botão "Sincronizar agora" + atalho pra abrir Google Ads.',
+      'Mock só aparece quando o sync nunca rodou (cliente novo de verdade).',
+      'Fix bônus: ícone "facebook" do sub-tab Meta Ads foi removido do Lucide — trocado por "megaphone" pra parar de poluir o console com warnings.'
+    ]
+  },
+  {
     version: 'V36.8.5',
     date: '2026-06-09',
     title: 'Warning de escala MCU/MSU agora é acionável — botões "Aplicar correção" e "Corrigir todas"',

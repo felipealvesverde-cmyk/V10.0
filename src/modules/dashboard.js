@@ -27,7 +27,7 @@ var DashboardModule = {
           { id: 'checkout',    label: 'Checkout',     icon: 'shopping-cart',    semantic: null },
           { sep: true },
           { id: 'alunos',      label: 'Meus Alunos',  icon: 'graduation-cap',   semantic: 'cs',        color: '#6BBEF9' },
-          { id: 'meta-ads',    label: 'Meta Ads',     icon: 'facebook',         semantic: 'marketing', color: '#F472B6' },
+          { id: 'meta-ads',    label: 'Meta Ads',     icon: 'megaphone',        semantic: 'marketing', color: '#F472B6' },
           { id: 'google-ads',  label: 'Google Ads',   icon: 'search',           semantic: 'marketing', color: '#F472B6' },
           { id: 'ga4',         label: 'GA4',          icon: 'line-chart',       semantic: 'marketing', color: '#F472B6' }
         ];
