@@ -21,6 +21,16 @@ window.GoogleAdsDashboard = {
     const subTab = App.state.googleAdsDashboardSubTab || 'overview';
     const allAds = Array.isArray(App.state.googleAdsCampaignsCache) ? App.state.googleAdsCampaignsCache : [];
     const isMock = Boolean(App.state.googleAdsCampaignsAreMock);
+    const realEmpty = Boolean(App.state.googleAdsCampaignsRealEmpty); // V36.8.6
+
+    // V36.8.6 — Empty state explícito quando sync rodou mas conta tem 0 campanhas.
+    // Antes caía pro mock e confundia (Sansone reportou 2026-06-09).
+    if (realEmpty) {
+      return `<div class="space-y-4">
+        ${this._hero(false, 0)}
+        ${this._emptyStateRealEmpty()}
+      </div>`;
+    }
 
     const ljCampaigns = Array.isArray(App.state.campaigns) ? App.state.campaigns : [];
     const linkedExternalIds = new Set();
@@ -35,6 +45,43 @@ window.GoogleAdsDashboard = {
       ${subTab === 'overview' ? this._renderOverview(linked, orphans)
         : subTab === 'orphans' ? this._renderOrphans(orphans)
         : this._renderLinked(linked, ljCampaigns)}
+    </div>`;
+  },
+
+  // V36.8.6 — Empty state pra conta conectada mas sem campanhas no Google Ads.
+  // Mostra: customer ativo + última sync + explicação clara + CTA pra sincronizar.
+  _emptyStateRealEmpty() {
+    const status = App.state.googleAdsStatus || {};
+    const customer = status.selectedCustomerId || '?';
+    const lastSyncLabel = status.lastSyncAt
+      ? new Date(status.lastSyncAt).toLocaleString('pt-BR')
+      : '—';
+    return `<div class="rounded-3xl bg-white border-2 border-dashed border-amber-300 p-8 text-center">
+      <div class="inline-flex w-16 h-16 rounded-2xl items-center justify-center mb-4" style="background: rgba(245,158,11,.12);">
+        <i data-lucide="package-x" class="w-8 h-8 text-amber-600"></i>
+      </div>
+      <h3 class="text-xl font-black text-slate-900 mb-2">Conta conectada, sem campanhas ativas</h3>
+      <p class="text-sm text-slate-600 max-w-md mx-auto mb-6">
+        A integração com o Google Ads está ativa (Customer <code class="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-xs">${Utils.escape(String(customer))}</code>), mas a conta não tem campanhas no Google Ads neste momento.
+      </p>
+
+      <div class="max-w-md mx-auto rounded-2xl bg-slate-50 border border-slate-200 p-4 text-left mb-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">O que isso significa</p>
+        <ul class="text-xs text-slate-700 space-y-1.5 list-disc pl-5">
+          <li>O Google Ads sincronizou em <b>${Utils.escape(lastSyncLabel)}</b> e voltou 0 campanhas.</li>
+          <li>Não estamos mostrando dados de exemplo aqui — esse painel reflete a realidade da conta conectada.</li>
+          <li>Quando você criar uma campanha no Google Ads e o sync rodar (manual ou no cron diário), os números vão aparecer aqui automaticamente.</li>
+        </ul>
+      </div>
+
+      <div class="flex items-center justify-center gap-2">
+        <button onclick="Actions.triggerGoogleAdsSync()" class="px-4 py-2 rounded-xl bg-pink-600 hover:bg-pink-700 text-white text-xs font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar agora
+        </button>
+        <a href="https://ads.google.com/" target="_blank" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black inline-flex items-center gap-1.5">
+          <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Abrir Google Ads
+        </a>
+      </div>
     </div>`;
   },
 
