@@ -492,6 +492,9 @@ var State = {
       strategicDjowHintsExpanded: false,
       // V36.9.3 — Etapa 2 modo edição de uma frente: null ou areaId em edit.
       strategicAreaEditingId: null,
+      // V36.9.5 — Etapa 3: quais frentes estão expandidas e quais catálogos abertos.
+      strategicOkrsExpandedAreas: [],
+      strategicOkrsCatalogExpandedAreas: [],
       strategicObjectiveDraft: null,
       strategicOkrDraft: null,
       // V36.9.0 — Etapa 1 modo edição: null = não está editando; string = draft.
@@ -1172,6 +1175,8 @@ var State = {
       strategicDjowSending: false,
       strategicDjowHintsExpanded: false,
       strategicAreaEditingId: null,
+      strategicOkrsExpandedAreas: [],
+      strategicOkrsCatalogExpandedAreas: [],
       strategicObjectiveDraft: null,
       strategicOkrDraft: null,
       strategicVisionEditDraft: null,

@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.9.5',
+    date: '2026-06-09',
+    title: 'Etapa 3 (Os Números): cards colapsáveis + inputs compactos, sem desperdício de espaço',
+    bullets: [
+      'Cada frente (Marketing/Vendas/CS) agora vem FECHADA por default. Header mostra ícone + nome + dono + resumo numérico ("3 números · 2 confirmados") + selo "Pronto". Cliente vê a cobertura num scan rápido; abre só onde quer mexer.',
+      'Catálogo de sugestões também colapsado por default: "+ Catálogo (N disponíveis) ▾". Reduz ruído visual quando há muitas opções (Marketing tem 8+).',
+      'Inputs de Meta (Atual / Segura / Avançada) compactados pra ~80px de largura — antes ocupavam grid-cols-3 com w-full, desperdício gigante pra valores de 1-4 dígitos. Layout virou flex horizontal com chip "📅 90 dias" inline + tooltip "Por que 90 dias?".',
+      'Confirmed card também ficou mais compacto: 1 linha de info + rollup inline + botões Editar/Remover no topo direito.',
+      'Auto-expand: quando cliente adiciona/ativa um KR numa frente, ela abre automaticamente pra não esconder o novo card.'
+    ]
+  },
+  {
     version: 'V36.9.4',
     date: '2026-06-09',
     title: 'Mapa da Receita — Etapa 3 (Os Números) repensada: 3 blocos por frente em paralelo à Etapa 2',
