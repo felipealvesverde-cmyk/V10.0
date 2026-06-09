@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.10.2',
+    date: '2026-06-09',
+    title: 'Etapa 5 (Acompanhamento): dashboard adaptado pra tema light — mesma régua das outras etapas',
+    bullets: [
+      'Wrapper offwhite #f5f3f0 + _stepIntroLight com novo help balloon explicando o ciclo do acompanhamento (KRs com saúde, ações por status, carga por responsável, Gantt).',
+      'Empty state ("Nenhum número conectado a ação") em bg-amber-50 com botão amber-600 sólido. CTA agora aponta pra Etapa 4 (era "operations" antigo).',
+      'Stat cards (Total / Em dia / Atrasadas / Concluídas / Sem resp.) em -100 saturado com texto -800 e ícone -700. Antes eram -500/10 com texto -200 — lavados sobre offwhite.',
+      'Section headers (Números / Ações / Carga / Gantt) recolhíveis com chevron em bg-white border stone-300.',
+      'KR rows e Action rows em bg-white com bordas stone-200 + status pills -100/300/800 saturadas (concluídas verde, em dia azul, atrasadas rose).',
+      'Barras de carga por usuário em bg-white com avatares -100/300/800. Barras de progresso continuam gradient saturado.',
+      'Gantt timeline em bg-white com ticks stone-500 e linha "hoje" violet-500 sólida. Barras de tasks mantém gradient saturado (-500 → -400).',
+      'Scope selector (Campanha vs Produto inteiro) com select bg-white border stone-300.'
+    ]
+  },
+  {
     version: 'V36.10.1',
     date: '2026-06-09',
     title: 'Etapa 4 (Campanha): body de trabalho adaptado pra tema light vibrante',
