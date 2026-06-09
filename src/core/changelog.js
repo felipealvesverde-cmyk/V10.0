@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.9.2',
+    date: '2026-06-09',
+    title: 'Djow da Etapa 1: filtro de etapa, sugestões adaptativas e avaliador real da frase do objetivo',
+    bullets: [
+      'Transitions de outras etapas não poluem mais a sidebar. Quando você abre a Etapa 1, só mensagens da Etapa 1 aparecem (transition da Etapa 4 fica oculta lá no espaço dela).',
+      'Sugestões do Djow adaptam ao estado: se você ainda NÃO escreveu o objetivo, ele oferece "Por onde começo?" / "Me dá um exemplo do meu nicho" / "O que NÃO escrever". Se VOCÊ JÁ escreveu, ele oferece "Avalia minha frase" / "Como deixar mais ambiciosa?" / "Posso avançar?".',
+      'Djow virou crítico real: clicar "Avalia minha frase" faz check estrutural em 3 dimensões — POSIÇÃO (referência/preferido/líder), PÚBLICO (pra quem) e HORIZONTE (prazo) — devolve checklist + veredito + sugestão concreta. Funciona mesmo sem ligar Anthropic externa (tem fallback local que olha pra estrutura da sua frase).',
+      'Quando o chat tem mensagens, sugestões ficam recolhidas em "Sugestões ▾" pra não competir visualmente com a conversa.'
+    ]
+  },
+  {
     version: 'V36.9.1',
     date: '2026-06-09',
     title: 'Mapa da Receita — Etapa 1: tema offwhite (cinza claro morno) + hierarquia de badges',

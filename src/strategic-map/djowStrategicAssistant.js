@@ -72,6 +72,16 @@ window.DjowStrategicAssistant = {
 
   _localSuggestion(message, ctx) {
     const msg = message.toLowerCase();
+    // V36.9.2 — Pedido de AVALIAÇÃO da frase do objetivo: check estrutural
+    // (posição + público + horizonte) com veredito + sugestão de melhoria.
+    // É o que faz o Djow PARAR de ser catálogo e virar crítico real, mesmo
+    // sem ter a Anthropic ligada via RailwayAgentClient.
+    if (/avalia|avaliar|cr[ií]tic|melhor(ar)? minha frase/.test(msg)) {
+      return this._evaluateVision(ctx?.vision, ctx?.product);
+    }
+    if (/posso avan[cç]ar/.test(msg)) {
+      return this._evaluateVision(ctx?.vision, ctx?.product, { framing: 'advance' });
+    }
     if (/visão|missão/.test(msg)) {
       return `Exemplo de Visão para "${ctx.product || 'seu produto'}":\n\n"Transformar ${ctx.product_type || 'usuários'} em referência operacional, ampliando geração de receita previsível."`;
     }
@@ -88,5 +98,54 @@ window.DjowStrategicAssistant = {
       return 'Na execução, cada ação pode gerar tarefas operacionais via Djow (modal "Criar Tarefas" no card da ação). O resultado das tarefas alimenta a leitura dos OKRs.';
     }
     return `Posso te ajudar com:\n• Visão do produto (escreva "visão")\n• Objetivos estratégicos (escreva "objetivos")\n• OKRs (escreva "okr")\n• Conectar fluxos (escreva "fluxos")\n• Execução operacional (escreva "execução")`;
+  },
+
+  // V36.9.2 — Crítico estrutural local. Olha pra frase do objetivo e devolve
+  // veredito por 3 dimensões clássicas de visão de produto:
+  //   POSIÇÃO  — pretende ser o quê? (referência, preferido, líder, escolha...)
+  //   PÚBLICO  — pra quem? (cita público-alvo explicitamente?)
+  //   HORIZONTE — em que prazo? (ano específico, "até X", "em N meses")
+  // Quando faltam dimensões, devolve sugestão concreta com placeholder.
+  // Esta avaliação roda mesmo SEM Anthropic configurada — Djow vira utilidade
+  // imediata, não promessa de IA. Quando RailwayAgentClient está online, a
+  // resposta da Anthropic toma precedência (dispatch chama esta função só
+  // como fallback).
+  _evaluateVision(vision, productName, opts = {}) {
+    const v = String(vision || '').trim();
+    if (!v) {
+      return 'Você ainda não escreveu o objetivo. Quando escrever, eu avalio aqui pra ver se tá clara e acionável.';
+    }
+    const hasPosition = /preferid[oa]|refer[eê]ncia|primeir[oa]|favorit[oa]|escolha|melhor|l[ií]der|principal|n[uú]mero\s*1|n[ºo]\s*1/i.test(v);
+    const hasYear = /20\d{2}|at[eé]\s+\d|em\s+\d+\s+(m[eê]s|ano)|pr[oó]xim[oa]s?\s+(m[eê]s|ano)/i.test(v);
+    const wordCount = v.split(/\s+/).filter(Boolean).length;
+    // Heurística "tem público específico": presença de marcador de público
+    // (de/para/pra/dos/das/aos + algo) E comprimento >= 8 palavras.
+    const hasPublicMarker = /\b(de|para|pra|pros|pras|dos|das|aos|às)\s+[a-záéíóúâêôãõç]/i.test(v);
+    const hasPublic = hasPublicMarker && wordCount >= 8;
+
+    const checks = [
+      { ok: hasPosition, label: 'POSIÇÃO', hint: 'qual lugar o produto pretende ocupar — referência, preferido, líder, primeira escolha…' },
+      { ok: hasPublic,   label: 'PÚBLICO',  hint: 'quem é o cliente — seja específico (não "todo mundo")' },
+      { ok: hasYear,     label: 'HORIZONTE', hint: 'em que prazo — um ano ou "até X"' }
+    ];
+    const score = checks.filter(c => c.ok).length;
+    const checklist = checks.map(c => `${c.ok ? '✓' : '⚠'} ${c.label} — ${c.ok ? 'tá' : c.hint}`).join('\n');
+
+    let veredito;
+    if (opts.framing === 'advance') {
+      veredito = score === 3
+        ? 'Pode avançar. Sua frase tem os 3 pilares — posição, público e horizonte.'
+        : `Avançar agora é arriscado. Faltou ${checks.filter(c => !c.ok).map(c => c.label).join(' e ')}. Refina aqui antes de definir o Comercial.`;
+    } else {
+      veredito = score === 3
+        ? 'Frase completa. Tem posição, público e horizonte — está acionável.'
+        : score === 2
+          ? `Quase lá. Falta só ${checks.filter(c => !c.ok).map(c => c.label).join(' e ')}.`
+          : score === 1
+            ? `Frase ainda genérica. Tem ${checks.filter(c => c.ok).map(c => c.label).join(', ')} mas falta ${checks.filter(c => !c.ok).map(c => c.label).join(' e ')}.`
+            : 'Frase muito genérica. Precisa dos 3 pilares pra ser acionável: posição, público e horizonte.';
+    }
+
+    return `Sua frase:\n"${v}"\n\n${checklist}\n\n${veredito}\n\nTemplate ideal:\n"Ser o(a) [posição] preferido(a) de [público] até [horizonte]."`;
   }
 };

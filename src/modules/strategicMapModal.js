@@ -5435,20 +5435,40 @@ window.StrategicMapModal = {
   },
 
   _djowSide(product, stepId) {
-    const messages = DjowStrategicAssistant.history(product.id);
+    // V36.9.2 — Transitions de outras etapas saem da sidebar. Cada etapa
+    // mostra só transitions que CHEGAM nela (hand-off da etapa anterior).
+    // Conversa real (user/agent) segue sempre visível.
+    const allMessages = DjowStrategicAssistant.history(product.id);
+    const messages = allMessages.filter(m => {
+      if (m.role !== 'transition') return true;
+      return this._transitionTargetStep(m.text) === stepId;
+    });
     const draft = App.state.strategicDjowDraft || '';
     const sending = Boolean(App.state.strategicDjowSending);
     return `<aside class="rounded-3xl bg-white/[0.04] border border-white/10 p-4 flex flex-col" style="max-height:74vh;min-height:520px;">
       <div class="flex items-center gap-2 mb-3"><i data-lucide="sparkles" class="w-4 h-4 text-indigo-300"></i><p class="text-[11px] font-black text-indigo-200 uppercase tracking-wider">Djow — Estratégia</p></div>
       ${this._djowStepTip(stepId)}
       <div class="flex-1 overflow-auto space-y-2 pr-1 mt-3">
-        ${messages.length ? messages.map(m => this._chatBubble(m)).join('') : this._djowStepHints(stepId)}
+        ${messages.length ? messages.map(m => this._chatBubble(m)).join('') : ''}
+        ${this._djowStepHints(stepId, messages.length > 0)}
       </div>
       <div class="mt-3 border-t border-white/10 pt-3">
         <textarea ${sending ? 'disabled' : ''} oninput="Actions.updateStrategicDjowDraft(this.value)" placeholder="Pergunte qualquer coisa sobre esta etapa..." class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[64px] placeholder:text-slate-500" style="color-scheme:dark;">${Utils.escape(draft)}</textarea>
         <button ${sending ? 'disabled' : ''} onclick="Actions.sendStrategicDjow()" class="mt-2 w-full px-3 py-2 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:bg-slate-600 text-white text-xs font-black flex items-center justify-center gap-2" style="color:#fff!important;">${sending ? '<span class="w-3 h-3 rounded-full border-2 border-current border-r-transparent animate-spin"></span> Pensando…' : '<i data-lucide="send" class="w-3.5 h-3.5"></i> Perguntar ao Djow'}</button>
       </div>
     </aside>`;
+  },
+
+  // V36.9.2 — Cada handoff (gerado em advanceStrategicStep) tem um texto
+  // canônico. Mapeia "✓ X cravado" → step de chegada.
+  _transitionTargetStep(text) {
+    const t = String(text || '');
+    if (/Objetivo cravado/i.test(t)) return 'objectives';
+    if (/Donos definidos/i.test(t)) return 'okrs';
+    if (/Números prontos/i.test(t)) return 'campaign';
+    if (/Campanha.*selecionada/i.test(t)) return 'operations';
+    if (/Ações ativadas/i.test(t)) return 'execution';
+    return null;
   },
 
   _djowStepTip(stepId) {
@@ -5466,18 +5486,69 @@ window.StrategicMapModal = {
     return `<div class="rounded-xl bg-indigo-500/15 border border-indigo-400/30 p-2.5 text-[11px] text-indigo-100"><b class="text-indigo-200">Dica:</b> ${Utils.escape(tip)}</div>`;
   },
 
-  _djowStepHints(stepId) {
-    const hintsByStep = {
-      vision:     ['Como escrever o objetivo do produto?', 'Exemplos de objetivo de produto', 'Objetivo muito longo, como encurtar?'],
-      objectives: ['Como definir o dono de cada frente?', 'Quem deve responder por Marketing/Vendas/CS?', 'Posso ter mais de uma pessoa por frente?'],
-      okrs:       ['Bons números para Marketing', 'Bons números para Vendas', 'Bons números para Sucesso do Cliente'],
-      operations: ['Posso conectar uma ação a múltiplos números?', 'Como saber se uma ação serve esse número?', 'Não tenho ações ainda'],
-      execution:  ['Para onde a tarefa vai?', 'Como configurar ClickUp?', 'Tarefa criada não aparece no provider']
-    };
-    const hints = hintsByStep[stepId] || hintsByStep.vision;
+  _djowStepHints(stepId, hasMessages) {
+    // V36.9.2 — Hints da etapa 1 ADAPTAM ao estado da vision:
+    //   vazio     → sugestões de início ("por onde começo?")
+    //   preenchido→ sugestões de refino ("avalia minha frase")
+    // Avaliação chama dispatch → Anthropic (se configurado) ou fallback local
+    // que faz check estrutural (posição + público + horizonte).
+    // Quando há mensagens visíveis, hints são RECOLHIDOS em um botão "Sugestões"
+    // pra não competir visualmente com o chat ativo.
+    let hints;
+    let intro;
+    if (stepId === 'vision') {
+      const productId = App.state.strategicMapProductId;
+      const vision = productId && window.StrategicMapEngine
+        ? String(StrategicMapEngine.getForProduct(productId)?.vision || '').trim()
+        : '';
+      if (vision) {
+        hints = [
+          { text: '🔍 Avalia minha frase do objetivo', prompt: `Avalia minha frase: "${vision}". Ela tem posição, público e horizonte claros?` },
+          { text: 'Como deixar mais ambiciosa?', prompt: `Como deixar a frase "${vision}" mais ambiciosa sem perder foco?` },
+          { text: 'Posso avançar?', prompt: `A frase "${vision}" está pronta pra eu avançar pra próxima etapa?` }
+        ];
+        intro = 'Pra refinar seu objetivo:';
+      } else {
+        hints = [
+          { text: 'Por onde começo?', prompt: 'Por onde começo a escrever o objetivo do produto?' },
+          { text: 'Me dá um exemplo do meu nicho', prompt: 'Me dá um exemplo de objetivo de produto para meu nicho de negócio.' },
+          { text: 'O que NÃO escrever', prompt: 'O que NÃO devo escrever no objetivo do produto?' }
+        ];
+        intro = 'Pra começar:';
+      }
+    } else {
+      const hintsByStep = {
+        objectives: ['Como definir o dono de cada frente?', 'Quem deve responder por Marketing/Vendas/CS?', 'Posso ter mais de uma pessoa por frente?'],
+        okrs:       ['Bons números para Marketing', 'Bons números para Vendas', 'Bons números para Sucesso do Cliente'],
+        operations: ['Posso conectar uma ação a múltiplos números?', 'Como saber se uma ação serve esse número?', 'Não tenho ações ainda'],
+        execution:  ['Para onde a tarefa vai?', 'Como configurar ClickUp?', 'Tarefa criada não aparece no provider']
+      };
+      const list = hintsByStep[stepId] || [];
+      hints = list.map(h => ({ text: h, prompt: h }));
+      intro = 'Sugestões para esta etapa:';
+    }
+    if (!hints.length) return '';
+
+    const buttons = hints.map(h => {
+      const safePrompt = String(h.prompt).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+      return `<button onclick="Actions.askStrategicDjow('${safePrompt}')" class="w-full text-left px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-slate-200 text-xs">${Utils.escape(h.text)}</button>`;
+    }).join('');
+
+    if (hasMessages) {
+      // V36.9.2 — Quando o chat já tem mensagens, recolher as sugestões pra
+      // não competir visualmente com a conversa em andamento.
+      const open = Boolean(App.state.strategicDjowHintsExpanded);
+      return `<div class="mt-2 pt-2 border-t border-white/5">
+        <button onclick="Actions.toggleStrategicDjowHints()" class="w-full flex items-center justify-between gap-2 text-[10px] text-slate-400 hover:text-slate-200 uppercase tracking-wider font-bold transition py-1">
+          <span>Sugestões</span>
+          <i data-lucide="${open ? 'chevron-up' : 'chevron-down'}" class="w-3 h-3"></i>
+        </button>
+        ${open ? `<div class="space-y-2 mt-2">${buttons}</div>` : ''}
+      </div>`;
+    }
     return `<div class="space-y-2">
-      <p class="text-xs text-slate-400">Sugestões para esta etapa:</p>
-      ${hints.map(h => `<button onclick="Actions.askStrategicDjow('${Utils.escape(h).replace(/'/g, '&#39;')}')" class="w-full text-left px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-slate-200 text-xs">${Utils.escape(h)}</button>`).join('')}
+      <p class="text-xs text-slate-400">${Utils.escape(intro)}</p>
+      ${buttons}
     </div>`;
   },
 

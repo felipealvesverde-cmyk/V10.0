@@ -13604,6 +13604,12 @@ Prioridade: ${d.priority}
     App.state.strategicDjowDraft = String(value || '');
   },
 
+  // V36.9.2 — Toggle das sugestões do Djow (recolhe/expande).
+  toggleStrategicDjowHints() {
+    App.state.strategicDjowHintsExpanded = !App.state.strategicDjowHintsExpanded;
+    App.render();
+  },
+
   async askStrategicDjow(prefilled) {
     App.state.strategicDjowDraft = prefilled || '';
     App.render();
