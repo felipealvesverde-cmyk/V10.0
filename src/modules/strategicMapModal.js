@@ -2484,25 +2484,196 @@ window.StrategicMapModal = {
   _stepOkrs(product) {
     // V31.2.0 — Sempre versão editável (não há mais distinção CEO/Gestor).
     // V32.5.5 (Geraldo Opção A) — Agora exige PELO MENOS 1 KR em CADA uma
-    // das 3 frentes (Marketing + Vendas + CS). Antes habilitava com qualquer
-    // KR — cliente setava só Marketing, avançava, e ia descobrir na etapa 5
-    // que não havia o que plugar em Vendas/CS. Funil RevOps por filosofia
-    // exige cobertura completa. Falta de área é confrontada AGORA, não depois.
+    // das 3 frentes (Marketing + Vendas + CS).
+    // V36.9.4 — Mesma régua das Etapas 1 e 2: tema offwhite, _stepIntroLight,
+    // 3 blocos POR FRENTE (Marketing/Vendas/CS) em paralelismo com a Etapa 2.
+    // Substituiu tabs (Mkt | Vendas | CS) por blocos verticais empilhados —
+    // cliente VÊ a cobertura completa de uma vez (3 verdes = funil fechado;
+    // bloco sem verde = lacuna óbvia). Sem precisar ler banner amber.
     const productKrs = StrategicMapEngine.getProductKrs(product.id);
     const orphans = StrategicMapEngine.getOrphanChildKrs ? StrategicMapEngine.getOrphanChildKrs(product.id) : [];
     const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
     const missingAreas = areas.filter(a => !productKrs.some(k => k.area === a.id));
     const allAreasCovered = missingAreas.length === 0;
-    return `<section class="space-y-4">
-      ${this._stepIntro('Quais são os números deste produto?', 'Defina pelo menos 1 número em cada uma das 3 frentes: Marketing, Vendas e CS. Sem cobrir as 3, o funil fica manco.', 'target', null, 'okrs-kr-mae', 'O funil RevOps clássico é Marketing → Vendas → CS. Se você só seta números em Marketing, gera leads que ninguém recebe. Setar 1+ número em cada frente garante que a campanha tenha cobertura completa pra trabalhar.')}
-      ${this._pulseProductBanner(product)}
-      ${this._productKrsBlock(product, productKrs, orphans)}
-      ${!allAreasCovered && productKrs.length > 0 ? `<div class="rounded-2xl bg-amber-500/10 border border-amber-400/30 p-3 text-[12px] text-amber-100 flex items-start gap-2">
-        <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mt-0.5 text-amber-300 shrink-0"></i>
-        <span>Falta setar pelo menos 1 número em <b>${missingAreas.map(a => Utils.escape(a.label)).join('</b> e <b>')}</b> pra cobrir o funil completo.</span>
-      </div>` : ''}
-      ${this._stepCta('Próximo passo: escolher a campanha', allAreasCovered, 'okrs')}
+    return `<section class="space-y-4 rounded-3xl border p-6 shadow-md" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+      ${this._stepIntroLight(
+        'Quais são os números de cada frente do Comercial?',
+        'Cada frente (Marketing, Vendas e CS) precisa de 1+ número pra perseguir. Sem cobrir as 3, o funil fica manco.',
+        'target',
+        null,
+        'okrs-kr-mae',
+        'O funil RevOps clássico é Marketing → Vendas → CS. Se você só seta números em Marketing, gera leads que ninguém recebe. Setar 1+ número em cada frente garante que a campanha tenha cobertura completa pra trabalhar.'
+      )}
+      ${this._pulseProductBannerLight(product)}
+      ${orphans.length ? `<div class="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800">⚠ ${orphans.length} número(s) em branches sem KR-mãe correspondente. Crie a mãe pra ativar o rollup.</div>` : ''}
+      <div class="space-y-4">
+        ${areas.map(area => this._productKrsAreaSectionLight(product, area, productKrs)).join('')}
+      </div>
+      ${this._stepCtaLight('Próximo passo: escolher a campanha', allAreasCovered, 'okrs')}
     </section>`;
+  },
+
+  // V36.9.4 — Banner do Pulso da Receita em tema light (era _pulseProductBanner
+  // pink/rose escuro). Mantém o mesmo conteúdo (acompanhando produto X com Y
+  // números configurados) só pintando pra paleta light.
+  _pulseProductBannerLight(product) {
+    if (!product) return '';
+    const totalProducts = (App.state.products || []).filter(p => !p.archived).length;
+    const krCount = (StrategicMapEngine.getProductKrs(product.id) || []).length;
+    return `<div class="rounded-2xl bg-white/70 border border-pink-200 p-3 flex items-center justify-between gap-3 flex-wrap shadow-sm">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="shrink-0 w-8 h-8 rounded-xl bg-pink-100 grid place-items-center">
+          <i data-lucide="activity" class="w-4 h-4 text-pink-600"></i>
+        </span>
+        <div class="min-w-0">
+          <p class="text-[10px] font-black uppercase tracking-widest text-pink-700">Acompanhando Pulso da Receita</p>
+          <p class="text-[13px] font-black text-slate-900 truncate">${Utils.escape(product.name || 'Produto sem nome')}</p>
+          <p class="text-[10px] text-stone-500">${krCount} número(s) configurado(s) ${totalProducts > 1 ? `· ${totalProducts} produtos pulsando na Home` : ''}</p>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V36.9.4 — Bloco de uma frente comercial na Etapa 3 (Os Números) em tema
+  // LIGHT. Cabeçalho mostra ícone + nome da frente + dono herdado read-only +
+  // selo "Pronto" quando há 1+ KR. Lista dos KRs daquela frente + catálogo de
+  // sugestões + botão Criar customizado. Dono não é editável aqui — Etapa 2
+  // já cuida; oferece link "Editar na Etapa 2".
+  _productKrsAreaSectionLight(product, area, productKrs) {
+    const areaKrs = productKrs.filter(k => k.area === area.id);
+    const curated = (StrategicMapEngine.KPI_CATALOG || {})[area.id] || [];
+    const learned = (App.state.customKpiCatalog || {})[area.id] || [];
+    const activatedIds = new Set(areaKrs.map(k => k.catalogId).filter(Boolean));
+    const availableCurated = curated.filter(c => !activatedIds.has(c.id));
+    const availableLearned = learned.filter(c => !activatedIds.has(c.id));
+    const owner = StrategicMapEngine.getAreaOwner ? StrategicMapEngine.getAreaOwner(product.id, area.id) : '';
+    const tone = area.color;
+    const filled = areaKrs.length > 0;
+
+    return `<div class="rounded-3xl bg-white/70 border border-stone-200 p-5 shadow-sm relative">
+      ${filled ? `<span class="absolute top-4 right-4 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-700 text-[9px] font-bold uppercase tracking-wider"><i data-lucide="check" class="w-2.5 h-2.5"></i> Pronto</span>` : ''}
+      <div class="flex items-center gap-3 mb-2">
+        <div class="w-10 h-10 rounded-xl bg-${tone}-100 grid place-items-center shrink-0"><i data-lucide="${area.icon}" class="w-5 h-5 text-${tone}-700"></i></div>
+        <div class="min-w-0 flex-1">
+          <p class="font-black text-slate-900 text-base leading-tight">${Utils.escape(area.label)}</p>
+          <p class="text-[11px] text-stone-600">${owner ? `Dono: <b class="text-slate-900">${Utils.escape(owner)}</b>` : '<span class="text-amber-700">Sem dono — defina na Etapa 2</span>'} <button onclick="Actions.setStrategicZoom('objectives')" class="ml-1 text-stone-500 hover:text-slate-900 underline text-[10px]">editar na Etapa 2</button></p>
+        </div>
+      </div>
+
+      ${areaKrs.length === 0 ? `<p class="text-[12px] text-stone-500 italic py-3">Sem números nesta frente. Adicione abaixo.</p>` : `<div class="space-y-2 mt-3">${areaKrs.map(kr => this._productKrCardLight(product, kr, tone)).join('')}</div>`}
+
+      ${(availableCurated.length || availableLearned.length) ? `<div class="mt-3 pt-3 border-t border-stone-200">
+        <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">+ Adicionar número do catálogo:</p>
+        <div class="flex flex-wrap gap-1.5">
+          ${availableCurated.map(c => `<button onclick="Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || '')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border border-${tone}-200 text-${tone}-800 text-[11px] font-bold">+ ${Utils.escape(c.name)}</button>`).join('')}
+          ${availableLearned.map(c => `<button onclick="Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || 'Sugerido a partir de um KR custom criado anteriormente')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border-2 border-dashed border-${tone}-300 text-${tone}-800 text-[11px] font-bold inline-flex items-center gap-1">✨ ${Utils.escape(c.name)}</button>`).join('')}
+        </div>
+      </div>` : ''}
+      <div class="mt-3 pt-3 border-t border-stone-200">
+        <button onclick="Actions.openCreateCustomKrModal(${product.id}, '${area.id}')" class="px-3 py-1.5 rounded-lg bg-${tone}-50 hover:bg-${tone}-100 border border-dashed border-${tone}-300 text-${tone}-800 text-[11px] font-black inline-flex items-center gap-1.5">
+          <i data-lucide="zap" class="w-3 h-3"></i> Criar número customizado
+        </button>
+      </div>
+    </div>`;
+  },
+
+  // V36.9.4 — KR card light bi-estado: confirmed (verde, read-only com Editar)
+  // vs editing (form inline com 3 metas + Confirmar).
+  _productKrCardLight(product, kr, tone) {
+    const handoffBadge = kr.isHandoff
+      ? `<span title="Handoff: entrega desse segmento pro próximo" class="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-100 text-amber-800 border border-amber-200">🔁 HANDOFF</span>`
+      : '';
+    if (kr.confirmed) return this._productKrCardConfirmedLight(product, kr, tone, handoffBadge);
+    return this._productKrCardEditingLight(product, kr, tone, handoffBadge);
+  },
+
+  _productKrCardConfirmedLight(product, kr, tone, handoffBadge) {
+    const rollup = StrategicMapEngine.rollupForProductKr ? StrategicMapEngine.rollupForProductKr(product.id, kr.id) : { current: 0, contributors: 0 };
+    const target = Number(kr.targetCommitted || 0);
+    const progress = target ? Math.round((rollup.current / target) * 100) : 0;
+    return `<div class="rounded-2xl bg-emerald-50 border border-emerald-200 p-3">
+      <div class="flex items-start justify-between gap-2 mb-1.5">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 flex-wrap mb-1">
+            <span class="text-emerald-700 font-black">✓</span>
+            <p class="font-black text-slate-900 text-[13px]">${Utils.escape(kr.name)}</p>
+            ${handoffBadge}
+            ${(() => {
+              const live = window.KrLiveValueEngine?.computeCurrentValue(kr, { productId: product.id });
+              if (live?.source === 'live') return '<span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-emerald-100 border border-emerald-300 text-emerald-800 inline-flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>ao vivo</span>';
+              if (live?.source === 'derived') return '<span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-md bg-violet-100 border border-violet-300 text-violet-800">fórmula</span>';
+              return '';
+            })()}
+          </div>
+          <p class="text-[11px] text-stone-600">
+            Hoje <b class="text-slate-900">${(() => {
+              const live = window.KrLiveValueEngine?.computeCurrentValue(kr, { productId: product.id });
+              return Number(live?.value ?? kr.current ?? 0);
+            })()}</b>
+            · Segura <b class="text-emerald-700">${Number(kr.targetCommitted ?? 0)}</b>
+            · Avançada <b class="text-violet-700">${Number(kr.targetStretch ?? 0)}</b>
+          </p>
+          <p class="text-[10px] text-stone-500 mt-1">Rollup: <b class="text-${tone}-700">${rollup.current}</b> de ${rollup.contributors} branch(es) contribuindo · ${progress}%</p>
+        </div>
+      </div>
+      ${window.StrategicMapRenderer ? StrategicMapRenderer.progressBar(progress, 'emerald') : ''}
+      <div class="flex justify-end gap-1 mt-2">
+        <button onclick="Actions.editProductKr(${product.id}, '${kr.id}')" class="px-2 py-0.5 rounded bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 text-[10px] font-black">Editar</button>
+        <button onclick="Actions.removeProductKrAction(${product.id}, '${kr.id}')" class="px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-[10px] font-black">Remover</button>
+      </div>
+    </div>`;
+  },
+
+  _productKrCardEditingLight(product, kr, tone, handoffBadge) {
+    const productId = product.id;
+    const next = StrategicMapEngine.nextUnconfirmedProductKr ? StrategicMapEngine.nextUnconfirmedProductKr(productId) : null;
+    const isNext = next && next.krId === kr.id;
+    const ringCls = isNext ? `ring-2 ring-${tone}-400` : '';
+    const desc = kr.catalogDescription ? `<p class="text-[10px] text-stone-500 italic mb-2">${Utils.escape(kr.catalogDescription)}</p>` : '';
+    const hasSafe = Number(kr.targetCommitted ?? 0) > 0;
+    const hasAdv = Number(kr.targetStretch ?? 0) > 0;
+    const missingAdv = hasSafe && !hasAdv;
+    const complete = hasSafe && hasAdv && (kr.current !== null && kr.current !== undefined && kr.current !== '');
+    return `<div class="rounded-2xl bg-white border border-${tone}-200 p-3 ${ringCls} shadow-sm">
+      <div class="flex items-start justify-between gap-2 mb-2">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-1.5 flex-wrap mb-1">
+            ${isNext ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-black bg-${tone}-100 text-${tone}-800 border border-${tone}-300">PRÓXIMO</span>` : ''}
+            <p class="font-black text-slate-900 text-[13px]">${Utils.escape(kr.name)}</p>
+            ${handoffBadge}
+          </div>
+          ${desc}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-1.5 mb-2">
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-stone-500 uppercase">Atual</span>
+          <input type="number" value="${kr.current ?? ''}" placeholder="0" onfocus="this.select()" oninput="Actions.updateProductKrField(${productId}, '${kr.id}', 'current', this.value)" class="px-2 py-1.5 rounded-lg bg-white border border-stone-300 text-slate-900 text-[12px] font-bold w-full placeholder:text-stone-400" />
+        </label>
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-emerald-700 uppercase">🔒 Meta Segura</span>
+          <input type="number" value="${kr.targetCommitted ?? ''}" placeholder="piso" onfocus="this.select()" oninput="Actions.updateProductKrField(${productId}, '${kr.id}', 'targetCommitted', this.value)" class="px-2 py-1.5 rounded-lg bg-white border ${hasSafe ? 'border-emerald-300' : 'border-stone-300'} text-slate-900 text-[12px] font-bold w-full placeholder:text-stone-400" />
+        </label>
+        <label class="flex flex-col gap-0.5">
+          <span class="text-[9px] font-black text-violet-700 uppercase">🚀 Meta Avançada</span>
+          <input type="number" value="${kr.targetStretch ?? ''}" placeholder="sonho" onfocus="this.select()" oninput="Actions.updateProductKrField(${productId}, '${kr.id}', 'targetStretch', this.value)" class="px-2 py-1.5 rounded-lg bg-white border ${hasAdv ? 'border-violet-300' : (missingAdv ? 'border-amber-400' : 'border-stone-300')} text-slate-900 text-[12px] font-bold w-full placeholder:text-stone-400" />
+        </label>
+      </div>
+
+      ${missingAdv ? `<div class="rounded-lg bg-amber-50 border border-amber-200 p-2 text-[11px] text-amber-800 mb-2">⚠ Você definiu a Meta Segura. Agora preencha a <b>Meta Avançada</b> — o sonho do time. Sem ela, o número fica só com o piso e perde a ambição.</div>` : ''}
+
+      <div class="mb-2">
+        <p class="text-[9px] font-black text-stone-500 uppercase mb-1">Período Tático</p>
+        <button class="px-3 py-1.5 rounded-lg border bg-${tone}-100 border-${tone}-300 text-${tone}-800 text-[11px] font-bold cursor-default">90 dias — próximo trimestre</button>
+        <p class="text-[11px] text-stone-600 mt-2 leading-relaxed">💡 <b class="text-slate-900">Por que 90 dias?</b> Em um trimestre você vê resultado real (não só promessa), e ainda dá tempo de corrigir rota antes de gastar o ano inteiro num caminho errado.</p>
+      </div>
+
+      <div class="flex justify-between items-center pt-2 border-t border-stone-200">
+        <button onclick="Actions.removeProductKrAction(${productId}, '${kr.id}')" class="px-2 py-1 rounded bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-[10px] font-black">Remover</button>
+        <button onclick="Actions.confirmProductKr(${productId}, '${kr.id}')" ${complete ? '' : 'disabled'} class="px-3 py-1.5 rounded-lg ${complete ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-stone-200 text-stone-400 cursor-not-allowed'} text-[11px] font-black" ${complete ? 'style="color:#fff!important;"' : ''}>✓ Confirmar número →</button>
+      </div>
+    </div>`;
   },
 
   // V35.8.0-alpha5 — Banner que torna explícito que esses KRs são do
@@ -5655,9 +5826,39 @@ window.StrategicMapModal = {
         ];
         intro = 'Pra fechar a Etapa 2:';
       }
+    } else if (stepId === 'okrs') {
+      // V36.9.4 — Hints adaptativos da Etapa 3 (Os Números) por contagem de
+      // FRENTES cobertas (cada frente precisa 1+ número, não interessa
+      // quantidade total).
+      const productId = App.state.strategicMapProductId;
+      const areas = window.StrategicMapEngine?.COMERCIAL_AREAS || [];
+      const productKrs = productId && window.StrategicMapEngine?.getProductKrs ? StrategicMapEngine.getProductKrs(productId) : [];
+      const coveredAreas = areas.filter(a => productKrs.some(k => k.area === a.id));
+      const missingAreas = areas.filter(a => !productKrs.some(k => k.area === a.id));
+      if (coveredAreas.length === 0) {
+        hints = [
+          { text: 'Por onde começo?', prompt: 'Por onde começo a definir os números (KRs-mãe) de cada frente comercial?' },
+          { text: 'Bons números pra Marketing?', prompt: 'Quais são bons números pra perseguir na frente de Marketing? Exemplos.' },
+          { text: 'Quantos números por frente?', prompt: 'Quantos números devo definir em cada frente? 1, 3, 5?' }
+        ];
+        intro = 'Pra começar a Etapa 3:';
+      } else if (missingAreas.length > 0) {
+        hints = [
+          { text: `Falta cobrir ${missingAreas.map(a => a.short || a.label).join(' e ')}`, prompt: `Já cobri ${coveredAreas.map(a => a.label).join(' e ')}. Como definir bons números pra ${missingAreas.map(a => a.label).join(' e ')}?` },
+          { text: '🔍 Avalia meus números', prompt: 'Avalia os números que eu defini até aqui. Tá coerente? Tá faltando algo?' },
+          { text: 'Quanto botar de meta?', prompt: 'Como definir o valor da meta segura e da meta avançada? Tem regra?' }
+        ];
+        intro = 'Pra completar a Etapa 3:';
+      } else {
+        hints = [
+          { text: '🔍 Avalia meus números', prompt: 'Avalia os números que eu defini nas 3 frentes. Tá pronto pra avançar?' },
+          { text: 'Posso avançar?', prompt: 'Posso avançar pra próxima etapa (escolher a campanha)?' },
+          { text: 'Metas estão coerentes?', prompt: 'Olha as metas que eu defini (segura e avançada) — tá coerente entre as frentes?' }
+        ];
+        intro = 'Pra fechar a Etapa 3:';
+      }
     } else {
       const hintsByStep = {
-        okrs:       ['Bons números para Marketing', 'Bons números para Vendas', 'Bons números para Sucesso do Cliente'],
         operations: ['Posso conectar uma ação a múltiplos números?', 'Como saber se uma ação serve esse número?', 'Não tenho ações ainda'],
         execution:  ['Para onde a tarefa vai?', 'Como configurar ClickUp?', 'Tarefa criada não aparece no provider']
       };
