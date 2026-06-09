@@ -12699,6 +12699,7 @@ Prioridade: ${d.priority}
       owner: '',
       confirmed: false
     }, 'ceo');
+    Actions._ensureStrategicOkrsAreaExpanded(area);
     App.save(); App.render();
     Utils.toast(`KR-mãe "${kpi.name}" ativado. Preencha Atual + Meta Segura + Meta Avançada e confirme.`);
   },
@@ -12752,6 +12753,8 @@ Prioridade: ${d.priority}
       owner: '',
       confirmed: true
     }, 'ceo');
+    // V36.9.5 — Garante que a frente fica expandida pra cliente ver o novo KR.
+    Actions._ensureStrategicOkrsAreaExpanded(m.area);
     App.state.activateCatalogKrModal = null;
     App.save(); App.render();
     Utils.toast(`✓ "${kpi.name}" confirmado em ${m.area}.`);
@@ -13368,6 +13371,8 @@ Prioridade: ${d.priority}
       confirmed: true,
       djowMeta
     }, 'ceo');
+    // V36.9.5 — Garante que a frente fica expandida pra cliente ver o novo KR.
+    Actions._ensureStrategicOkrsAreaExpanded(m.area);
     App.state.createCustomKrModal = null;
     App.save(); App.render();
     Utils.toast(`✓ "${name}" criado${djowMeta ? ' e conectado à fonte' : ''}.`);
@@ -13620,6 +13625,30 @@ Prioridade: ${d.priority}
   finishStrategicAreaEdit() {
     App.state.strategicAreaEditingId = null;
     App.save(); App.render();
+  },
+
+  // V36.9.5 — Etapa 3 (Os Números): toggle colapso de uma frente e do
+  // catálogo dentro dela. Default: tudo fechado (cliente abre só o que mexer).
+  toggleStrategicOkrsArea(areaId) {
+    const id = String(areaId || '');
+    const arr = Array.isArray(App.state.strategicOkrsExpandedAreas) ? App.state.strategicOkrsExpandedAreas : [];
+    App.state.strategicOkrsExpandedAreas = arr.includes(id) ? arr.filter(a => a !== id) : [...arr, id];
+    App.render();
+  },
+
+  toggleStrategicOkrsCatalog(areaId) {
+    const id = String(areaId || '');
+    const arr = Array.isArray(App.state.strategicOkrsCatalogExpandedAreas) ? App.state.strategicOkrsCatalogExpandedAreas : [];
+    App.state.strategicOkrsCatalogExpandedAreas = arr.includes(id) ? arr.filter(a => a !== id) : [...arr, id];
+    App.render();
+  },
+
+  // V36.9.5 — Quando cliente adiciona/ativa um KR numa frente, AUTO-expande
+  // ela (senão o KR fica criado mas escondido atrás do header colapsado).
+  _ensureStrategicOkrsAreaExpanded(areaId) {
+    const id = String(areaId || '');
+    const arr = Array.isArray(App.state.strategicOkrsExpandedAreas) ? App.state.strategicOkrsExpandedAreas : [];
+    if (!arr.includes(id)) App.state.strategicOkrsExpandedAreas = [...arr, id];
   },
 
   async askStrategicDjow(prefilled) {
