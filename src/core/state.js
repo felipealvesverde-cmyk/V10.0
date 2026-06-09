@@ -488,6 +488,8 @@ var State = {
       strategicDjowChats: {},
       strategicDjowDraft: '',
       strategicDjowSending: false,
+      // V36.9.2 — Sugestões do Djow recolhem quando chat tem mensagens.
+      strategicDjowHintsExpanded: false,
       strategicObjectiveDraft: null,
       strategicOkrDraft: null,
       // V36.9.0 — Etapa 1 modo edição: null = não está editando; string = draft.
@@ -1166,6 +1168,7 @@ var State = {
       strategicDjowChats: raw.strategicDjowChats && typeof raw.strategicDjowChats === 'object' ? raw.strategicDjowChats : {},
       strategicDjowDraft: '',
       strategicDjowSending: false,
+      strategicDjowHintsExpanded: false,
       strategicObjectiveDraft: null,
       strategicOkrDraft: null,
       strategicVisionEditDraft: null,
