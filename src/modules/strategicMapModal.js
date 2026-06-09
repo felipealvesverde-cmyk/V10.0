@@ -2498,11 +2498,11 @@ window.StrategicMapModal = {
     return `<section class="space-y-4 rounded-3xl border p-6 shadow-md" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
       ${this._stepIntroLight(
         'Quais são os números de cada frente do Comercial?',
-        'Cada frente (Marketing, Vendas e CS) precisa de 1+ número pra perseguir. Sem cobrir as 3, o funil fica manco.',
+        'O número é o que conecta sua estratégia com a execução. Você define aqui, na Etapa 5 liga ações que prometem mover ele, e quando rodam o número se preenche — o produto sabe se cresceu. Sem número, ação rola sem alvo.',
         'target',
         null,
         'okrs-kr-mae',
-        'O funil RevOps clássico é Marketing → Vendas → CS. Se você só seta números em Marketing, gera leads que ninguém recebe. Setar 1+ número em cada frente garante que a campanha tenha cobertura completa pra trabalhar.'
+        'O ciclo do número (KR):\n\n1. AQUI (Etapa 3) — você define o número e a meta (segura + avançada).\n2. NA ETAPA 5 — você liga ações que prometem mover esse número.\n3. QUANDO AS AÇÕES RODAM — o sistema mede quanto cada uma contribuiu (chamamos isso de "rollup": cada campanha alimenta uma parte do total).\n4. NA ETAPA 6 — você vê o saldo: "essa ação deu +50 leads, essa outra deu zero".\n\nPor isso precisa cobrir as 3 frentes (Marketing → Vendas → CS): se só Marketing tem número, gera leads que ninguém vê chegar em Vendas, ninguém vê virar cliente.'
       )}
       ${this._pulseProductBannerLight(product)}
       ${orphans.length ? `<div class="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800">⚠ ${orphans.length} número(s) em branches sem KR-mãe correspondente. Crie a mãe pra ativar o rollup.</div>` : ''}
@@ -2513,23 +2513,20 @@ window.StrategicMapModal = {
     </section>`;
   },
 
-  // V36.9.4 — Banner do Pulso da Receita em tema light (era _pulseProductBanner
-  // pink/rose escuro). Mantém o mesmo conteúdo (acompanhando produto X com Y
-  // números configurados) só pintando pra paleta light.
+  // V36.9.4 — Banner do Pulso da Receita em tema light.
+  // V36.9.7 — Microcopy reescrita pra explicar pra que serve, não só sinalizar
+  // "estou acompanhando". Cliente novo agora entende que esses números vão
+  // aparecer pulsando na Home conforme as ações rodam.
   _pulseProductBannerLight(product) {
     if (!product) return '';
-    const totalProducts = (App.state.products || []).filter(p => !p.archived).length;
     const krCount = (StrategicMapEngine.getProductKrs(product.id) || []).length;
-    return `<div class="rounded-2xl bg-white/70 border border-pink-200 p-3 flex items-center justify-between gap-3 flex-wrap shadow-sm">
-      <div class="flex items-center gap-2 min-w-0">
-        <span class="shrink-0 w-8 h-8 rounded-xl bg-pink-100 grid place-items-center">
-          <i data-lucide="activity" class="w-4 h-4 text-pink-600"></i>
-        </span>
-        <div class="min-w-0">
-          <p class="text-[10px] font-black uppercase tracking-widest text-pink-700">Acompanhando Pulso da Receita</p>
-          <p class="text-[13px] font-black text-slate-900 truncate">${Utils.escape(product.name || 'Produto sem nome')}</p>
-          <p class="text-[10px] text-stone-500">${krCount} número(s) configurado(s) ${totalProducts > 1 ? `· ${totalProducts} produtos pulsando na Home` : ''}</p>
-        </div>
+    return `<div class="rounded-2xl bg-white/70 border border-pink-200 p-3 flex items-start gap-3 shadow-sm">
+      <span class="shrink-0 w-8 h-8 rounded-xl bg-pink-100 grid place-items-center">
+        <i data-lucide="activity" class="w-4 h-4 text-pink-600"></i>
+      </span>
+      <div class="min-w-0 flex-1">
+        <p class="text-[12px] text-slate-900 leading-snug">Esses números aparecem no <b class="text-pink-700">Pulso da Receita</b> da Home — cada um pulsa em tempo real conforme as ações rodam.</p>
+        <p class="text-[10px] text-stone-500 mt-1">Produto: <b class="text-slate-900">${Utils.escape(product.name || 'sem nome')}</b> · ${krCount} número(s) configurado(s)</p>
       </div>
     </div>`;
   },
@@ -2571,18 +2568,21 @@ window.StrategicMapModal = {
         </div>
         ${areaKrs.length === 0 ? `<p class="text-[12px] text-stone-500 italic py-2">Adicione abaixo.</p>` : `<div class="space-y-2">${areaKrs.map(kr => this._productKrCardLight(product, kr, tone)).join('')}</div>`}
         ${this._productKrsCatalogLight(product, area, areaKrs)}
-        <div class="mt-2">
-          <button onclick="event.stopPropagation(); Actions.openCreateCustomKrModal(${product.id}, '${area.id}')" class="px-3 py-1.5 rounded-lg bg-${tone}-50 hover:bg-${tone}-100 border border-dashed border-${tone}-300 text-${tone}-800 text-[11px] font-black inline-flex items-center gap-1.5">
-            <i data-lucide="zap" class="w-3 h-3"></i> Criar número customizado
+        <div class="mt-3 pt-3 border-t border-stone-200">
+          <button onclick="event.stopPropagation(); Actions.openCreateCustomKrModal(${product.id}, '${area.id}')" class="text-[11px] text-stone-600 hover:text-slate-900 transition inline-flex items-center gap-1.5">
+            <i data-lucide="zap" class="w-3 h-3"></i> Não achou? Crie um número personalizado
           </button>
         </div>
       </div>` : ''}
     </div>`;
   },
 
-  // V36.9.5 — Catálogo de sugestões: também colapsável. Fechado mostra "Catálogo
-  // (N disponíveis) ▾"; aberto mostra os chips. Reduz ruído visual quando há
-  // muitas opções no catálogo (Marketing tem 8+ KRs curados).
+  // V36.9.5 — Catálogo de sugestões: colapsável.
+  // V36.9.7 — Renomeado "Catálogo" pra "Sugestões pra [frente]" (jargão interno
+  // virou microcopy clara). Microcopy explicando fluxo (ativa → meta → Etapa 5
+  // liga ações). Agrupamento visual: "Sugeridos pelo LJ" vs "Da sua experiência"
+  // (✨ aprendidos de produtos anteriores). Cliente entende o que cada chip
+  // representa e o que vai acontecer ao clicar.
   _productKrsCatalogLight(product, area, areaKrs) {
     const curated = (StrategicMapEngine.KPI_CATALOG || {})[area.id] || [];
     const learned = (App.state.customKpiCatalog || {})[area.id] || [];
@@ -2594,14 +2594,25 @@ window.StrategicMapModal = {
     const tone = area.color;
     const open = (App.state.strategicOkrsCatalogExpandedAreas || []).includes(area.id);
     return `<div class="mt-3 pt-3 border-t border-stone-200">
-      <button onclick="event.stopPropagation(); Actions.toggleStrategicOkrsCatalog('${area.id}')" class="w-full flex items-center justify-between gap-2 text-[10px] font-bold text-stone-500 hover:text-slate-900 uppercase tracking-wider transition">
-        <span>+ Catálogo (${total} disponível${total === 1 ? '' : 'is'})</span>
+      <button onclick="event.stopPropagation(); Actions.toggleStrategicOkrsCatalog('${area.id}')" class="w-full flex items-center justify-between gap-2 text-[11px] font-bold text-stone-700 hover:text-slate-900 transition">
+        <span>+ Sugestões pra ${Utils.escape(area.label)} (${total})</span>
         <i data-lucide="${open ? 'chevron-up' : 'chevron-down'}" class="w-3 h-3"></i>
       </button>
-      ${open ? `<div class="flex flex-wrap gap-1.5 mt-2">
-        ${availableCurated.map(c => `<button onclick="event.stopPropagation(); Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || '')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border border-${tone}-200 text-${tone}-800 text-[11px] font-bold">+ ${Utils.escape(c.name)}</button>`).join('')}
-        ${availableLearned.map(c => `<button onclick="event.stopPropagation(); Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || 'Sugerido a partir de um KR custom criado anteriormente')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border-2 border-dashed border-${tone}-300 text-${tone}-800 text-[11px] font-bold inline-flex items-center gap-1">✨ ${Utils.escape(c.name)}</button>`).join('')}
-      </div>` : ''}
+      ${open ? `
+        <p class="text-[11px] text-stone-600 mt-2 mb-3 leading-relaxed">Números bons pra ${Utils.escape(area.label)}. Ative um → defina a meta → na Etapa 5 você liga ações pra mover ele.</p>
+        ${availableCurated.length ? `
+          <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">Sugeridos pelo LJ</p>
+          <div class="flex flex-wrap gap-1.5 ${availableLearned.length ? 'mb-3' : ''}">
+            ${availableCurated.map(c => `<button onclick="event.stopPropagation(); Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || '')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border border-${tone}-200 text-${tone}-800 text-[11px] font-bold">+ ${Utils.escape(c.name)}</button>`).join('')}
+          </div>
+        ` : ''}
+        ${availableLearned.length ? `
+          <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">✨ Da sua experiência (aprendidos de produtos anteriores)</p>
+          <div class="flex flex-wrap gap-1.5">
+            ${availableLearned.map(c => `<button onclick="event.stopPropagation(); Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || 'Sugerido a partir de um KR custom criado anteriormente')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border-2 border-dashed border-${tone}-300 text-${tone}-800 text-[11px] font-bold inline-flex items-center gap-1">✨ ${Utils.escape(c.name)}</button>`).join('')}
+          </div>
+        ` : ''}
+      ` : ''}
     </div>`;
   },
 
@@ -3346,11 +3357,11 @@ window.StrategicMapModal = {
           ${owner ? `<button onclick="Actions.finishStrategicAreaEdit()" class="mt-1 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold inline-flex items-center gap-1.5" style="color:#fff!important;"><i data-lucide="check" class="w-3 h-3"></i> Pronto</button>` : ''}
         </div>
       `}
-
-      <div class="flex items-center justify-between pt-2 border-t border-stone-200">
-        <span class="text-[11px] text-stone-500 inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-${tone}-500"></span> ${okrCount} número${okrCount === 1 ? '' : 's'} definido${okrCount === 1 ? '' : 's'}</span>
-        <button onclick="Actions.setStrategicZoom('okrs')" class="px-2.5 py-1.5 rounded-lg bg-${tone}-100 hover:bg-${tone}-200 border border-${tone}-300 text-${tone}-700 text-[10px] font-black">Ver números →</button>
-      </div>
+      ${/* V36.9.6 — Removido contador "X números definidos" + botão "Ver números"
+          do card da Etapa 2. Causava confusão porque mostrava KR-FILHOS plugados
+          na campanha (objective.okrs) enquanto a Etapa 3 mostra KR-MÃE do produto
+          (productKrs). Felipe pediu Caminho C: Comercial só cuida de QUEM RESPONDE;
+          quem quer ver número, navega pela Etapa 3 no stepper. */ ''}
     </div>`;
   },
 
@@ -5660,7 +5671,7 @@ window.StrategicMapModal = {
     const helpBalloon = helpKey && helpText && helpOpen
       ? `<div class="mt-3 rounded-2xl bg-violet-50 border-l-4 border-violet-400 border-y border-r border-violet-200 p-4 text-[12px] text-violet-900 leading-relaxed relative flex gap-3">
           <i data-lucide="lightbulb" class="w-4 h-4 text-violet-500 shrink-0 mt-0.5"></i>
-          <div class="flex-1 pr-6">${Utils.escape(helpText)}</div>
+          <div class="flex-1 pr-6 whitespace-pre-line">${Utils.escape(helpText)}</div>
           <button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="absolute top-2 right-2 w-5 h-5 rounded-full text-violet-600 hover:bg-violet-200 text-xs font-black grid place-items-center" title="Fechar">×</button>
         </div>`
       : '';

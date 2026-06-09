@@ -18,6 +18,28 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.9.7',
+    date: '2026-06-09',
+    title: 'Etapa 3 reescrita pra deixar claro o que é "número" e o ciclo estratégia → ação → impacto',
+    bullets: [
+      'Hint da etapa agora explica que o número é o ELO entre estratégia e execução: você define aqui, na Etapa 5 liga ações que prometem mover ele, e quando rodam o número se preenche — o produto sabe se cresceu. Antes só dizia "1+ por frente" sem contar o porquê.',
+      '"Entenda mais" virou um briefing do ciclo completo (4 passos: define → liga ações → rollup mede contribuição → vê saldo na Etapa 6). Inclui explicação do termo "rollup" que aparecia sem definição em outros lugares.',
+      'Catálogo virou "+ Sugestões pra Marketing" (jargão "Catálogo" trocado por linguagem clara). Microcopy explica o fluxo: "Ative um → defina a meta → na Etapa 5 você liga ações pra mover ele". Agrupado em "Sugeridos pelo LJ" + "Da sua experiência" (✨ aprendidos).',
+      'Botão "Criar número customizado" virou texto sutil "Não achou? Crie um número personalizado" — caminho B, não principal.',
+      'Banner Pulso da Receita reescrito: explica que esses números aparecem na Home pulsando em tempo real conforme as ações rodam. Antes só dizia "ACOMPANHANDO PULSO DA RECEITA" sem contexto.'
+    ]
+  },
+  {
+    version: 'V36.9.6',
+    date: '2026-06-09',
+    title: 'Etapa 2 (Comercial): contador de números removido pra eliminar confusão entre KR-mãe vs KR-filho',
+    bullets: [
+      'Os cards de cada frente (Marketing/Vendas/CS) na Etapa 2 mostravam "X números definidos" + botão "Ver números →". Esse X contava KR-FILHOS plugados na CAMPANHA atual; já a Etapa 3 mostra KR-MÃE do produto. Quando os números divergiam (cliente tem 5 KR-mãe mas só 2 plugados na campanha), parecia bug.',
+      'A Etapa 2 agora só cuida de UMA pergunta: "quem responde por cada frente?" — dono + prazo, mais nada. Pra saber quantos números cada frente tem, cliente navega pra Etapa 3 pelo stepper.',
+      'O contador real (com paralelismo entre mãe e filho) entra no roadmap como evolução futura — quando precisar mostrar plugagem por campanha, vai aparecer com label explícito ("2 plugados / 5 disponíveis").'
+    ]
+  },
+  {
     version: 'V36.9.5',
     date: '2026-06-09',
     title: 'Etapa 3 (Os Números): cards colapsáveis + inputs compactos, sem desperdício de espaço',
