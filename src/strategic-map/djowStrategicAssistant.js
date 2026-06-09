@@ -72,6 +72,14 @@ window.DjowStrategicAssistant = {
 
   _localSuggestion(message, ctx) {
     const msg = message.toLowerCase();
+    const zoom = String(ctx?.zoom || '').trim();
+    // V36.9.3 — Pedido de avaliação NA ETAPA 2 (Comercial): check de cobertura
+    // e qualidade das 3 frentes. Tem precedência sobre o avaliador da Etapa 1
+    // quando o cliente está em objectives.
+    const isAreaQuery = /frentes?|comercial|marketing.*vendas|vendas.*cs|mesmo dono|todas as frentes/.test(msg);
+    if (zoom === 'objectives' && (/avalia|avaliar|cr[ií]tic|posso avan[cç]ar|falta/.test(msg) || isAreaQuery)) {
+      return this._evaluateComercial(ctx);
+    }
     // V36.9.2 — Pedido de AVALIAÇÃO da frase do objetivo: check estrutural
     // (posição + público + horizonte) com veredito + sugestão de melhoria.
     // É o que faz o Djow PARAR de ser catálogo e virar crítico real, mesmo
@@ -147,5 +155,64 @@ window.DjowStrategicAssistant = {
     }
 
     return `Sua frase:\n"${v}"\n\n${checklist}\n\n${veredito}\n\nTemplate ideal:\n"Ser o(a) [posição] preferido(a) de [público] até [horizonte]."`;
+  },
+
+  // V36.9.3 — Crítico estrutural da Etapa 2 (Comercial).
+  // Olha as 3 frentes (Marketing, Vendas, CS) e avalia:
+  //   COBERTURA: tem dono nas 3?
+  //   DUPLICAÇÃO: mesma pessoa em todas as frentes? (sinal de "1 herói cobrindo tudo")
+  //   SOBREPOSIÇÃO: alguma frente sem dono mas com KRs definidos?
+  // Roda lendo direto do StrategicMapEngine (mais robusto que depender de ctx).
+  _evaluateComercial(ctx) {
+    if (!window.StrategicMapEngine) {
+      return 'Não consegui ler a estrutura comercial agora. Tente novamente em alguns segundos.';
+    }
+    const App = window.App;
+    const productId = App?.state?.strategicMapProductId;
+    if (!productId) return 'Abra um produto pra eu avaliar.';
+
+    const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    const mode = App?.state?.strategicMapMode || 'product';
+
+    const frentes = areas.map(a => {
+      const shared = StrategicMapEngine.getAreaOwner ? StrategicMapEngine.getAreaOwner(productId, a.id) : '';
+      const obj = StrategicMapEngine.getObjectiveByArea ? StrategicMapEngine.getObjectiveByArea(productId, a.id) : null;
+      const branch = obj?.owner || '';
+      const owner = String((mode === 'product' ? shared : (branch || shared)) || '').trim();
+      const okrCount = (obj?.okrs || []).length;
+      return { area: a, owner, hasOwner: Boolean(owner), okrCount };
+    });
+
+    const filled = frentes.filter(f => f.hasOwner);
+    const missing = frentes.filter(f => !f.hasOwner);
+
+    const checklist = frentes.map(f => `${f.hasOwner ? '✓' : '⚠'} ${f.area.label} — ${f.hasOwner ? f.owner : 'sem dono'}`).join('\n');
+
+    const alerts = [];
+    // Mesma pessoa cobrindo todas
+    const ownersDistinct = new Set(filled.map(f => f.owner.toLowerCase()));
+    if (filled.length === frentes.length && ownersDistinct.size === 1) {
+      alerts.push(`⚠ Mesma pessoa (${filled[0].owner}) cobrindo as 3 frentes. Pode funcionar enquanto o time é pequeno, mas Marketing, Vendas e CS exigem perfis diferentes — quem gera desejo dificilmente é quem fecha negócio ou quem entrega.`);
+    } else if (filled.length >= 2 && ownersDistinct.size === 1) {
+      alerts.push(`⚠ Mesma pessoa em ${filled.length} frentes. Reveja se faz sentido — perfis de Marketing, Vendas e CS costumam divergir.`);
+    }
+    // Frentes sem dono mas com KRs já criados
+    const orphanWithKrs = frentes.filter(f => !f.hasOwner && f.okrCount > 0);
+    if (orphanWithKrs.length) {
+      alerts.push(`⚠ ${orphanWithKrs.map(f => f.area.label).join(', ')} já tem número(s) definido(s) mas ninguém responde — número órfão não roda.`);
+    }
+
+    let veredito;
+    if (missing.length === 0) {
+      veredito = alerts.length
+        ? 'As 3 frentes têm dono, mas tem ponto de atenção acima. Avaliar antes de avançar.'
+        : 'As 3 frentes cobertas, sem sobreposições óbvias. Pode avançar pros números (Etapa 3).';
+    } else if (missing.length === frentes.length) {
+      veredito = 'Nenhuma frente preenchida ainda. Comece pelo Marketing — quem gera o desejo no público.';
+    } else {
+      veredito = `Falta dono em ${missing.map(f => f.area.label).join(' e ')}. Sem cobrir as 3, o funil RevOps fica manco (lead sem quem feche; cliente sem quem entregue).`;
+    }
+
+    return `Frentes comerciais:\n\n${checklist}${alerts.length ? `\n\n${alerts.join('\n\n')}` : ''}\n\n${veredito}`;
   }
 };
