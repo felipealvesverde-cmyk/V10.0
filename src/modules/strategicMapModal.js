@@ -2176,8 +2176,18 @@ window.StrategicMapModal = {
             numToneCls = `bg-${t}-500/30 text-${t}-100`;
             labelColorCls = `text-${t}-100`;
           }
-          const subLabel = done ? 'Concluído' : active ? 'Em foco' : `Pendente · ${level.word || ''}`;
-          return `<button onclick="Actions.setStrategicZoom('${level.id}')" title="${Utils.escape(level.description)}" class="text-left p-3 rounded-2xl border ${toneCls} transition flex items-center gap-2.5">
+          // V36.9.0 — Acompanhamento é PÓS-receita: sub-label vira "Pós-execução"
+          // (em vez de "Pendente · receita" que confundia — fazia parecer que
+          // Acompanhamento era a receita em si).
+          const isExecution = level.id === 'execution';
+          const subLabel = done
+            ? 'Concluído'
+            : active
+            ? 'Em foco'
+            : isExecution
+            ? 'Pós-execução'
+            : `Pendente · ${level.word || ''}`;
+          return `<button onclick="Actions.setStrategicZoom('${level.id}')" title="${Utils.escape(level.description)}" class="text-left p-3 rounded-2xl border ${toneCls} transition flex items-center gap-2.5 ${isExecution ? 'lg:ml-2' : ''}">
             <div class="w-7 h-7 rounded-xl ${numToneCls} grid place-items-center font-black text-xs shrink-0">${done ? '✓' : (i + 1)}</div>
             <div class="min-w-0">
               <p class="text-[11px] font-black ${labelColorCls} truncate">${Utils.escape(level.short)}</p>
@@ -2258,57 +2268,106 @@ window.StrategicMapModal = {
   // V28.1.0 — Vocabulário RevOps: foco é "produto" + ambição.
   // V31.2.6 — Sem bifurcação CEO/Gestor: sempre versão editável, mesmo dentro
   // de uma campanha. Visão é compartilhada pelo produto inteiro.
+  // V36.9.0 — Modo dual: vazio = tutorial (ilha clara com template + exemplos),
+  // preenchido = revisão (frase em destaque + editar). Tutorial não polui quem
+  // já passou pela etapa.
   _stepVision(product) {
     const map = StrategicMapEngine.getForProduct(product.id);
-    const hasVision = Boolean(String(map.vision || '').trim());
+    const vision = String(map.vision || '').trim();
+    const hasVision = Boolean(vision);
+    // V36.9.0 — Tutorial mode: força quando flag inTutorial=true (cliente
+    // entrando agora na etapa OU digitando first-fill). Sem isso, primeira
+    // letra digitada na vazia → re-render → swap pra revisão no meio do typing.
+    const inTutorial = Boolean(App.state.strategicVisionInTutorial);
+    if (inTutorial || !hasVision) {
+      return this._stepVisionTutorial(product, map.vision || '');
+    }
+    return this._stepVisionReview(product, vision);
+  },
 
-    const exampleCacau = 'Ser o chocolate em barra preferido das famílias brasileiras até 2027.';
-    const otherExamples = [
+  // V36.9.0 — Modo REVISÃO: cliente já preencheu, vê o que escreveu em destaque.
+  // Sem tutorial. Botão "Editar" expõe textarea inline com draft (cancel reverte).
+  _stepVisionReview(product, vision) {
+    const editing = App.state.strategicVisionEditDraft !== null && App.state.strategicVisionEditDraft !== undefined;
+    const draftValue = editing ? String(App.state.strategicVisionEditDraft || '') : '';
+    return `<section class="space-y-4 rounded-3xl bg-slate-50 border border-slate-200 p-6 shadow-lg" style="color-scheme:light;">
+      ${this._stepIntroLight(
+        'Qual é o objetivo comercial de seu produto?',
+        editing ? 'Editar a frase desta etapa.' : 'Esta etapa já foi preenchida.',
+        'star',
+        'vision',
+        'vision-objetivo-comercial',
+        'É a missão que a empresa dá para aquele produto específico para ajudar a ganhar dinheiro.',
+        true
+      )}
+
+      ${editing ? `
+        <div class="rounded-2xl bg-white border border-slate-300 p-5 shadow-sm">
+          <label class="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">Objetivo do produto em uma frase</label>
+          <textarea id="strategicVisionEditTextarea" oninput="Actions.updateStrategicVisionDraft(this.value)" placeholder="Tornar [esse produto] o(a) [posição] pra [público] até [horizonte]" class="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-300 text-slate-900 text-sm font-semibold min-h-[100px] placeholder:text-slate-400">${Utils.escape(draftValue)}</textarea>
+          <div class="flex items-center justify-end gap-2 mt-3">
+            <button onclick="Actions.cancelStrategicVisionEdit()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-black">Cancelar</button>
+            <button onclick="Actions.saveStrategicVisionEdit()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-black" style="color:#fff!important;">Salvar</button>
+          </div>
+        </div>
+      ` : `
+        <div class="rounded-2xl bg-white border border-slate-200 p-8 shadow-sm">
+          <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider mb-3 inline-flex items-center gap-1.5">
+            <i data-lucide="check-circle-2" class="w-3 h-3"></i> Objetivo definido
+          </p>
+          <p class="text-xl md:text-2xl font-black text-slate-900 leading-snug">"${Utils.escape(vision)}"</p>
+          <button onclick="Actions.startStrategicVisionEdit()" class="mt-5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 text-xs font-black inline-flex items-center gap-1.5">
+            <i data-lucide="pencil" class="w-3 h-3"></i> Editar
+          </button>
+        </div>
+      `}
+
+      ${this._stepCtaLight('Próximo passo: definir o Comercial', true, 'vision')}
+    </section>`;
+  },
+
+  // V36.9.0 — Modo TUTORIAL: cliente nunca preencheu. Template + 5 exemplos
+  // genéricos (sem destaque pra nicho específico). Tema claro ilha-no-escuro.
+  _stepVisionTutorial(product, currentValue) {
+    const examples = [
+      'Ser o chocolate em barra preferido das famílias brasileiras até 2027',
       'Ser o app que toda dona de pet abre antes de comprar ração',
       'Virar o café da manhã favorito de quem trabalha em escritório',
-      'Ser o produto de credito que toda pequena empresa do bairro confia',
+      'Ser o produto de crédito que toda pequena empresa do bairro confia',
       'Ser a primeira opção de doce em casamento no Sul do país'
     ];
-
-    return `<section class="space-y-4">
-      ${this._stepIntro(
+    return `<section class="space-y-4 rounded-3xl bg-slate-50 border border-slate-200 p-6 shadow-lg" style="color-scheme:light;">
+      ${this._stepIntroLight(
         'Qual é o objetivo comercial de seu produto nos próximos 12 meses?',
         'Uma frase só, ambiciosa, conectada ao que esse produto entrega.',
         'star',
         'vision',
         'vision-objetivo-comercial',
-        'É a missão que a empresa dá para aquele produto específico para ajudar a ganhar dinheiro.'
+        'É a missão que a empresa dá para aquele produto específico para ajudar a ganhar dinheiro.',
+        false
       )}
 
-      ${/* V32.5.3 — Felipe: card de exemplo + transição SEMPRE visíveis na
-          etapa 1. Antes era condicionado a !hasVision — quando user digitava
-          1 letra, a tela mudava (exemplo sumia). Sensação: a interface
-          "engolia" o exemplo no meio do typing. Agora tela é estável: o
-          cliente sempre tem a referência visível enquanto escreve. */ ''}
-      <div class="rounded-3xl bg-violet-500/10 border border-violet-400/30 p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-violet-500/30 text-violet-100">Exemplo de produto</span>
-          <span class="text-[11px] text-slate-400">Pra você entender o formato — escreva o seu abaixo</span>
-        </div>
-        <p class="text-base text-white font-semibold leading-relaxed italic mb-3">"${Utils.escape(exampleCacau)}"</p>
+      <div class="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
+        <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider mb-2">Template</p>
+        <p class="text-base md:text-lg text-slate-900 font-semibold leading-relaxed">
+          Ser <span class="text-violet-700">o(a) [posição]</span> preferido(a) de <span class="text-violet-700">[público]</span> até <span class="text-violet-700">[horizonte]</span>.
+        </p>
 
-        <div class="mt-4 pt-3 border-t border-white/10">
-          <p class="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Outros exemplos pra leitura (não clicáveis):</p>
-          <ul class="space-y-1">
-            ${otherExamples.map(e => `<li class="text-[12px] text-slate-300">• ${Utils.escape(e)}</li>`).join('')}
+        <div class="mt-5 pt-4 border-t border-slate-200">
+          <p class="text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">Exemplos práticos:</p>
+          <ul class="space-y-1.5">
+            ${examples.map(e => `<li class="text-[13px] text-slate-700">• ${Utils.escape(e)}</li>`).join('')}
           </ul>
         </div>
       </div>
 
-      <p class="text-center text-[12px] text-slate-300 italic px-4">Agora, depois que você entendeu o conceito, escreva o objetivo do seu produto aqui ↓</p>
-
-      <div class="rounded-3xl bg-white/[0.05] border border-white/10 p-5">
-        <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Objetivo do produto em uma frase</label>
-        <textarea id="strategicVisionTextarea" oninput="Actions.updateStrategicVision(this.value)" placeholder="Tornar [esse produto] o(a) [posição] pra [público] até [horizonte]" class="w-full px-4 py-3 rounded-2xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[100px] placeholder:text-slate-500" style="color-scheme:dark;">${Utils.escape(map.vision || '')}</textarea>
-        <p class="text-[11px] text-slate-400 mt-2">💡 Conecta o produto a quem ele serve. Esse objetivo norteia tudo: Marketing, Vendas e Sucesso do Cliente.</p>
+      <div class="rounded-2xl bg-white border border-slate-300 p-5 shadow-sm">
+        <label class="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">Escreva o objetivo do seu produto</label>
+        <textarea id="strategicVisionTextarea" oninput="Actions.updateStrategicVision(this.value)" placeholder="Tornar [esse produto] o(a) [posição] pra [público] até [horizonte]" class="w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-300 text-slate-900 text-sm font-semibold min-h-[100px] placeholder:text-slate-400">${Utils.escape(currentValue)}</textarea>
+        <p class="text-[11px] text-slate-500 mt-2">Conecta o produto a quem ele serve. Esse objetivo norteia Marketing, Vendas e Sucesso do Cliente.</p>
       </div>
 
-      ${this._stepCta('Próximo passo: definir o Comercial', hasVision, 'vision')}
+      ${this._stepCtaLight('Próximo passo: definir o Comercial', Boolean(String(currentValue || '').trim()), 'vision')}
     </section>`;
   },
 
@@ -5230,15 +5289,21 @@ window.StrategicMapModal = {
       : '';
 
     // V32.5.2 — Selo "X passos até a receita" usa cor térmica do step atual.
+    // V36.9.0 — Receita "chega" na etapa operations (5ª). Acompanhamento (6ª)
+    // é PÓS-RECEITA — badge muda pra "Acompanhamento · pós-receita". Antes
+    // misturava as 6 etapas como "passos até receita" mesmo Acompanhamento sendo
+    // monitoria pós-execução. Discrepância numérica que confundia Felipe.
     const currentStep = StrategicZoomNavigation.current();
     const currentLevel = StrategicZoomNavigation.LEVELS.find(l => l.id === currentStep);
     const stepsLeft = StrategicZoomNavigation.stepsUntilRevenue(currentStep);
     const thermal = currentLevel?.thermal || 'indigo';
-    const revenueBadge = stepsLeft !== null
-      ? (stepsLeft === 0
-          ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/20 border border-yellow-400/40 text-yellow-200 text-[10px] font-black"><i data-lucide="circle-dollar-sign" class="w-3 h-3"></i> Você chegou à receita</span>`
-          : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-${thermal}-500/15 border border-${thermal}-400/30 text-${thermal}-100 text-[10px] font-black"><i data-lucide="map-pin" class="w-3 h-3"></i> ${stepsLeft} ${stepsLeft === 1 ? 'passo' : 'passos'} até a receita</span>`)
-      : '';
+    const revenueBadge = stepsLeft === null
+      ? ''
+      : stepsLeft === -1
+      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/40 text-amber-200 text-[10px] font-black"><i data-lucide="activity" class="w-3 h-3"></i> Pós-receita · Acompanhamento</span>`
+      : stepsLeft === 0
+      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/20 border border-yellow-400/40 text-yellow-200 text-[10px] font-black"><i data-lucide="circle-dollar-sign" class="w-3 h-3"></i> Você chegou à receita</span>`
+      : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-${thermal}-500/15 border border-${thermal}-400/30 text-${thermal}-100 text-[10px] font-black"><i data-lucide="map-pin" class="w-3 h-3"></i> ${stepsLeft} ${stepsLeft === 1 ? 'passo' : 'passos'} até a receita</span>`;
 
     // V32.5.4 (Leonardo) — Título da etapa ganha hierarquia: pill "ETAPA N"
     // pequena lateral + título principal em text-lg branco. Antes era tudo
@@ -5267,6 +5332,96 @@ window.StrategicMapModal = {
     </div>`;
   },
 
+  // V36.9.0 — Variante light de _stepIntro pra etapas que rodam em ilha clara.
+  // Mesma estrutura (pill etapa + badge receita + título + hint + help), mas
+  // paletas adaptadas: pill com fundo sólido claro, título slate-900, hint
+  // slate-600. Help balloon vira branco com borda violeta.
+  _stepIntroLight(title, hint, icon, interviewKey, helpKey, helpText, isReviewMode) {
+    const helpOpen = helpKey && (App.state.strategicHelpOpen || {})[helpKey];
+    const helpBtn = helpKey && helpText
+      ? `<button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-100 hover:bg-violet-200 border border-violet-300 text-violet-700 text-[10px] font-black transition" title="O que é isso?">
+          <i data-lucide="info" class="w-3 h-3"></i>
+          ${helpOpen ? 'Fechar' : 'Entenda mais'}
+        </button>`
+      : '';
+    const helpBalloon = helpKey && helpText && helpOpen
+      ? `<div class="mt-3 rounded-2xl bg-violet-50 border-l-4 border-violet-400 border-y border-r border-violet-200 p-4 text-[12px] text-violet-900 leading-relaxed relative flex gap-3">
+          <i data-lucide="lightbulb" class="w-4 h-4 text-violet-500 shrink-0 mt-0.5"></i>
+          <div class="flex-1 pr-6">${Utils.escape(helpText)}</div>
+          <button onclick="Actions.toggleStrategicHelp('${helpKey}')" class="absolute top-2 right-2 w-5 h-5 rounded-full text-violet-600 hover:bg-violet-200 text-xs font-black grid place-items-center" title="Fechar">×</button>
+        </div>`
+      : '';
+
+    const currentStep = StrategicZoomNavigation.current();
+    const currentLevel = StrategicZoomNavigation.LEVELS.find(l => l.id === currentStep);
+    const stepsLeft = StrategicZoomNavigation.stepsUntilRevenue(currentStep);
+    const thermal = currentLevel?.thermal || 'indigo';
+    const revenueBadge = stepsLeft === null
+      ? ''
+      : stepsLeft === -1
+      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-800 text-[10px] font-black"><i data-lucide="activity" class="w-3 h-3"></i> Pós-receita · Acompanhamento</span>`
+      : stepsLeft === 0
+      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 border border-yellow-300 text-yellow-800 text-[10px] font-black"><i data-lucide="circle-dollar-sign" class="w-3 h-3"></i> Você chegou à receita</span>`
+      : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-${thermal}-100 border border-${thermal}-300 text-${thermal}-800 text-[10px] font-black"><i data-lucide="map-pin" class="w-3 h-3"></i> ${stepsLeft} ${stepsLeft === 1 ? 'passo' : 'passos'} até a receita</span>`;
+
+    const stepIdx = StrategicZoomNavigation.LEVELS.findIndex(l => l.id === currentStep);
+    const stepNum = stepIdx >= 0 ? stepIdx + 1 : 1;
+    const reviewPill = isReviewMode
+      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[10px] font-black"><i data-lucide="check" class="w-3 h-3"></i> Revisão</span>`
+      : '';
+    return `<div>
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 mb-2 flex-wrap">
+            <span class="px-2 py-0.5 rounded-full bg-${thermal}-100 border border-${thermal}-300 text-${thermal}-800 text-[10px] font-black uppercase tracking-wider inline-flex items-center gap-1">
+              <i data-lucide="${icon}" class="w-3 h-3"></i>
+              Etapa ${stepNum}
+            </span>
+            ${revenueBadge}
+            ${reviewPill}
+            ${helpBtn}
+          </div>
+          <h3 class="text-lg md:text-xl font-black text-slate-900 leading-tight mb-1">${Utils.escape(title)}</h3>
+          <p class="text-xs text-slate-600">${Utils.escape(hint)}</p>
+        </div>
+      </div>
+      ${helpBalloon}
+    </div>`;
+  },
+
+  // V36.9.0 — Variante light de _stepCta. Botão usa cor sólida + texto branco;
+  // disabled fica em slate claro. Mantém comportamento de Rever + advance.
+  _stepCtaLight(label, enabled, currentStepId) {
+    const levels = StrategicZoomNavigation.LEVELS;
+    const idx = currentStepId ? levels.findIndex(l => l.id === currentStepId) : -1;
+    const nextLevel = idx >= 0 && idx < levels.length - 1 ? levels[idx + 1] : null;
+    const prevLevel = idx > 0 ? levels[idx - 1] : null;
+    const nextThermal = nextLevel?.thermal || 'indigo';
+
+    const cls = enabled
+      ? `bg-${nextThermal}-600 hover:bg-${nextThermal}-700 text-white cursor-pointer shadow-sm`
+      : 'bg-slate-200 text-slate-400 cursor-not-allowed';
+    const icon = enabled ? 'arrow-right' : 'lock';
+    const disabledHints = {
+      vision:     'Escreva a frase do objetivo do produto pra avançar',
+      objectives: 'Defina dono pras 3 frentes (Marketing, Vendas, CS)',
+      okrs:       'Defina pelo menos 1 número em cada uma das 3 frentes',
+      campaign:   'Selecione uma campanha acima clicando em "Seguir →"',
+      operations: 'Conecte pelo menos 1 ação a um número pra colocar em campo',
+      execution:  ''
+    };
+    const title = enabled ? '' : `title="${Utils.escape(disabledHints[currentStepId] || 'Complete esta etapa pra avançar')}"`;
+
+    const reverBtn = prevLevel
+      ? `<button onclick="Actions.setStrategicZoom('${prevLevel.id}')" title="Voltar pra ${Utils.escape(prevLevel.short)}" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-600 hover:text-slate-900 text-[11px] font-bold flex items-center gap-1 transition"><i data-lucide="arrow-left" class="w-3 h-3"></i> Rever ${Utils.escape(prevLevel.short)}</button>`
+      : '';
+
+    return `<div class="flex justify-between items-center gap-2 pt-2 flex-wrap">
+      <div>${reverBtn}</div>
+      <button ${enabled ? '' : 'disabled'} ${title} onclick="Actions.advanceStrategicStep()" class="px-5 py-3 rounded-2xl ${cls} font-black flex items-center gap-2" ${enabled ? 'style="color:#fff!important;"' : ''}>${Utils.escape(label)} <i data-lucide="${icon}" class="w-4 h-4"></i></button>
+    </div>`;
+  },
+
   _djowSide(product, stepId) {
     const messages = DjowStrategicAssistant.history(product.id);
     const draft = App.state.strategicDjowDraft || '';
@@ -5285,8 +5440,10 @@ window.StrategicMapModal = {
   },
 
   _djowStepTip(stepId) {
+    // V36.9.0 — vision SEM dica aqui: ela duplicava a hint embaixo do título
+    // da etapa ("Uma frase só, ambiciosa..."). Os outros stepIds têm dica que
+    // ADICIONA contexto (funil 3 frentes, leads/clientes/retenção, etc.).
     const tipMap = {
-      vision:     'Foco no produto. Frase curta, ambiciosa, conectada a quem ele serve.',
       objectives: 'O Comercial é um funil de 3 frentes: Marketing → Vendas → CS. Cada frente tem um dono.',
       okrs:       'Pra cada frente, 1-3 números. Marketing: leads. Vendas: clientes. CS: retenção/advocacy.',
       operations: 'Conecte cada número à ação operacional real. Pode ser mais de uma.',

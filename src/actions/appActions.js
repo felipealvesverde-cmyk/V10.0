@@ -6473,6 +6473,10 @@ Object.assign(Actions, {
     App.state.strategicOkrDraft = null;
     App.state.strategicActiveArea = null;
     App.state.strategicCampaignPrompt = null;
+    // V36.9.0 — Reset modo edição/tutorial da etapa 1. inTutorial = true só se
+    // o produto não tem vision ainda (cliente novo). Senão revisão direto.
+    App.state.strategicVisionEditDraft = null;
+    App.state.strategicVisionInTutorial = false; // será setado abaixo após ensure
     if (window.StrategicMapEngine) {
       StrategicMapEngine.ensure(Number(productId));
       if (typeof StrategicMapEngine.migrateLegacyStrategicCampaigns === 'function') {
@@ -6495,6 +6499,11 @@ Object.assign(Actions, {
         StrategicMapEngine._lazyMigrateLegacyToBranch(productId, map.strategicCampaignId);
         Utils.toast('Mapa migrado pro novo modelo (branches por campanha).');
       }
+    }
+    // V36.9.0 — Define tutorial mode da etapa 1 baseado em vision atual.
+    if (window.StrategicMapEngine) {
+      const v = String(StrategicMapEngine.getForProduct(Number(productId))?.vision || '').trim();
+      App.state.strategicVisionInTutorial = !v;
     }
     App.save(); App.render();
   },
@@ -8916,6 +8925,19 @@ Object.assign(Actions, {
   setStrategicZoom(level) {
     if (!window.StrategicZoomNavigation) return;
     StrategicZoomNavigation.set(level);
+    // V36.9.0 — Ao entrar na etapa 1 com vision vazio, marcar inTutorial pra
+    // manter modo tutorial estável durante typing (sem swap surpresa pra revisão).
+    if (level === 'vision' || level === 'strategy') {
+      const productId = App.state.strategicMapProductId;
+      const vision = productId && window.StrategicMapEngine
+        ? String(StrategicMapEngine.getForProduct(productId).vision || '').trim()
+        : '';
+      App.state.strategicVisionInTutorial = !vision;
+      App.state.strategicVisionEditDraft = null;
+    } else {
+      App.state.strategicVisionInTutorial = false;
+      App.state.strategicVisionEditDraft = null;
+    }
     App.save(); App.render();
     // V31.1.1 — Reseta scroll do container do Mapa pra topo ao trocar etapa.
     // Junto com o stepper sticky, garante que o user vê a etapa do início.
@@ -8938,7 +8960,7 @@ Object.assign(Actions, {
         vision:     '✓ Objetivo cravado. Agora vamos atribuir os donos das 3 frentes comerciais.',
         objectives: '✓ Donos definidos. Hora de definir os números que cada frente precisa entregar.',
         okrs:       '✓ Números prontos. Escolha em qual campanha vai trabalhar agora.',
-        campaign:   '✓ Campanha selecionada. Pluge os números aqui e ative as ações que vão cobrir.',
+        campaign:   '✓ Campanha selecionada. Plugue os números aqui e ative as ações que vão cobrir.',
         operations: '✓ Ações ativadas. Pronto pra colocar em campo — vamos disparar as tarefas.'
       };
       const text = handoffMessages[current];
@@ -8952,6 +8974,10 @@ Object.assign(Actions, {
       }
     }
     StrategicZoomNavigation.set(next.id);
+    // V36.9.0 — Saiu da etapa 1: tutorial mode desliga; próxima entrada em
+    // vision (já preenchido) cai em modo revisão.
+    App.state.strategicVisionInTutorial = false;
+    App.state.strategicVisionEditDraft = null;
     App.save(); App.render();
   },
 
@@ -9089,6 +9115,37 @@ Object.assign(Actions, {
     App.save();
     const isFilled = Boolean(String(value || '').trim());
     if (wasFilled !== isFilled) App.render();
+  },
+
+  // V36.9.0 — Etapa 1 em modo REVISÃO: cliente clica "Editar" pra mexer na frase.
+  // Draft separado pra Cancel reverter (ao contrário do tutorial que salva direto).
+  startStrategicVisionEdit() {
+    const productId = App.state.strategicMapProductId;
+    if (!productId || !window.StrategicMapEngine) return;
+    const current = String(StrategicMapEngine.getForProduct(productId).vision || '');
+    App.state.strategicVisionEditDraft = current;
+    App.render();
+  },
+
+  updateStrategicVisionDraft(value) {
+    if (App.state.strategicVisionEditDraft === null || App.state.strategicVisionEditDraft === undefined) return;
+    App.state.strategicVisionEditDraft = String(value || '');
+  },
+
+  saveStrategicVisionEdit() {
+    const productId = App.state.strategicMapProductId;
+    if (!productId || !window.StrategicMapEngine) return;
+    const draft = String(App.state.strategicVisionEditDraft || '').trim();
+    if (!draft) return Utils.toast('O objetivo não pode ficar vazio.');
+    StrategicMapEngine.setVision(productId, draft);
+    App.state.strategicVisionEditDraft = null;
+    App.save(); App.render();
+    Utils.toast('Objetivo atualizado.');
+  },
+
+  cancelStrategicVisionEdit() {
+    App.state.strategicVisionEditDraft = null;
+    App.render();
   },
 
   startStrategicObjectiveDraft() {
@@ -9938,6 +9995,10 @@ Object.assign(Actions, {
       StrategicMapEngine.ensureBranchMap(Number(campaignId), Number(campaign.productId));
       StrategicMapEngine.ensureComercialAreas(Number(campaign.productId), Number(campaignId));
     }
+    // V36.9.0 — Abre na etapa 4 (campaign), não vision. Tutorial mode da etapa 1
+    // só importa se cliente voltar pra ela e estiver vazia.
+    App.state.strategicVisionEditDraft = null;
+    App.state.strategicVisionInTutorial = false;
     App.save(); App.render();
   },
 
@@ -12448,7 +12509,7 @@ Prioridade: ${d.priority}
     if (window.DjowStrategicAssistant) {
       DjowStrategicAssistant.append(Number(campaign.productId), {
         role: 'transition',
-        text: `✓ Campanha "${campaign.name}" selecionada. Pluge os números aqui e ative as ações que vão cobrir.`,
+        text: `✓ Campanha "${campaign.name}" selecionada. Plugue os números aqui e ative as ações que vão cobrir.`,
         thermal: 'orange',
         ts: new Date().toISOString()
       });
