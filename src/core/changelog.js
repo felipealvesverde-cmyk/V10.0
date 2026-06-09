@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.11.1',
+    date: '2026-06-09',
+    title: 'Visão Geral: tasks ClickUp agora entram no cruzamento por campanha',
+    bullets: [
+      'Bug do dia: tasks criadas direto pelo ClickUp (via modal de criação) só setavam linked_action_id, sem linked_campaign_id. Resultado: o cruzamento da Visão Geral perdia essas tasks e mostrava "0 tarefas" mesmo quando havia 20 no ClickUp da campanha.',
+      'Fix: fallback automático task → action → campanha. Se task tem linked_action_id, agora resolvemos a campanha pela ação vinculada (App.state.actions[].campaignId).',
+      'Card de atalho "Tarefas" agora mostra breakdown por provider (ex: "12 ClickUp · 3 manual · 2 atrasada(s)") em vez de só pendente/atrasada. Fica explícito que ClickUp está contando.'
+    ]
+  },
+  {
     version: 'V36.11.0',
     date: '2026-06-09',
     title: 'Visão Geral consolidada — cruzamento Tarefas + Checkout + Google por campanha do Mapa',
