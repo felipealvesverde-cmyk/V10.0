@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.9.9',
+    date: '2026-06-09',
+    title: 'Etapa 3: grid 4-col + slots placeholder + engrenagem + sugestões só ao clicar "Adicionar mais um"',
+    bullets: [
+      'Grid de KRs subiu pra 4 colunas em desktop (1/2/3/4 conforme breakpoint). Cards ficam menores e ocupam menos espaço vertical.',
+      'Slots vazios placeholder (dashed cinza claro) aparecem completando a linha quando há menos de 4 itens — visual estável "esperando criação". Quando passa de 4, sobra natural do grid.',
+      'Botões Editar/Remover do KR confirmed viraram ÍCONE DE ENGRENAGEM com popover. Click na engrenagem abre menu com as 2 opções; click em qualquer opção fecha o menu. Limpa muito o topo do card.',
+      'Catálogo de sugestões + "Não achou? Crie um personalizado" agora só aparecem QUANDO o cliente clica em "+ Adicionar mais um". Antes ficavam visíveis sempre embaixo do grid (mesmo colapsado, o botão "+ Sugestões" estava ali). Agora o card "Adicionar mais um" é o ÚNICO gatilho.',
+      'Catálogo simplificado: sem botão de toggle interno (não precisa mais — o trigger é externo). Mostra direto chips agrupados em "Sugeridos pelo LJ" e "Da sua experiência".'
+    ]
+  },
+  {
     version: 'V36.9.8',
     date: '2026-06-09',
     title: 'Etapa 3: KRs em grid lado a lado + card "Adicionar mais um" + empty state forte (estados 0→N)',

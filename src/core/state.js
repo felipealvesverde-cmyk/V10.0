@@ -495,6 +495,8 @@ var State = {
       // V36.9.5 — Etapa 3: quais frentes estão expandidas e quais catálogos abertos.
       strategicOkrsExpandedAreas: [],
       strategicOkrsCatalogExpandedAreas: [],
+      // V36.9.9 — Menu popover (engrenagem) de um KR aberto. krId ou null.
+      strategicKrMenuOpen: null,
       strategicObjectiveDraft: null,
       strategicOkrDraft: null,
       // V36.9.0 — Etapa 1 modo edição: null = não está editando; string = draft.
@@ -1177,6 +1179,7 @@ var State = {
       strategicAreaEditingId: null,
       strategicOkrsExpandedAreas: [],
       strategicOkrsCatalogExpandedAreas: [],
+      strategicKrMenuOpen: null,
       strategicObjectiveDraft: null,
       strategicOkrDraft: null,
       strategicVisionEditDraft: null,

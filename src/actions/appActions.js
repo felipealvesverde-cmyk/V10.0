@@ -13651,6 +13651,18 @@ Prioridade: ${d.priority}
     if (!arr.includes(id)) App.state.strategicOkrsExpandedAreas = [...arr, id];
   },
 
+  // V36.9.9 — Menu popover (engrenagem) de um KR. Click no ícone toggle, click
+  // numa opção (Editar/Remover) fecha pelo closeStrategicKrMenu chamado antes.
+  toggleStrategicKrMenu(krId) {
+    const id = String(krId || '');
+    App.state.strategicKrMenuOpen = App.state.strategicKrMenuOpen === id ? null : id;
+    App.render();
+  },
+
+  closeStrategicKrMenu() {
+    App.state.strategicKrMenuOpen = null;
+  },
+
   async askStrategicDjow(prefilled) {
     App.state.strategicDjowDraft = prefilled || '';
     App.render();
