@@ -7719,6 +7719,18 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V36.11.0 — Filtros da Visão Geral consolidada.
+  setOverviewRange(range) {
+    const valid = ['7d', '30d', '90d'];
+    App.state.overviewRange = valid.includes(range) ? range : '7d';
+    App.save(); App.render();
+  },
+
+  setOverviewBranchFilter(branchId) {
+    App.state.overviewBranchFilter = String(branchId || 'all');
+    App.save(); App.render();
+  },
+
   // V35.6.0 — Integrações IPI: troca aba ativa (Injetar/Propagar/Iterar).
   setIntegrationsTab(tab) {
     const valid = ['injetar', 'propagar', 'iterar'];

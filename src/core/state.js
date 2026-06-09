@@ -405,6 +405,8 @@ var State = {
       activeDashboardTab: 'overview',
       tasksDashboardRange: 'all',     // V36.10.3 — sub-tab Tarefas
       tasksDashboardProvider: 'all',
+      overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
+      overviewBranchFilter: 'all',
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
@@ -1103,6 +1105,8 @@ var State = {
       activeDashboardTab: 'overview',
       tasksDashboardRange: 'all',     // V36.10.3 — sub-tab Tarefas
       tasksDashboardProvider: 'all',
+      overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
+      overviewBranchFilter: 'all',
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart

@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.11.0',
+    date: '2026-06-09',
+    title: 'Visão Geral consolidada — cruzamento Tarefas + Checkout + Google por campanha do Mapa',
+    bullets: [
+      'Sub-tab "Visão Geral" do Dashboard repensada: agora é o ÚNICO lugar onde as 3 fontes (Tarefas, Checkout/Hotmart, Google Ads + GA4) se cruzam. As outras abas continuam puras, mostrando o que cada ferramenta entrega isolada.',
+      'Agrupamento ESTRITO por campanha do Mapa: cada cruzamento amarra ads + tarefas + sessões GA4 + receita Hotmart à branch correspondente. Cliente sem campanha no Mapa cai em empty state com CTA pra abrir o Mapa.',
+      'Filtros no topo: janela temporal (7d default / 30d / 90d) + dropdown de campanha (Todas ou uma específica).',
+      'Djow narra 1 frase consolidada no topo + lista de até 5 alertas ranqueados por severidade: gasto sem execução, ROAS abaixo de 1, tarefas atrasadas concentradas, clicks sem sessões (tracking quebrado), investimento sem venda, etc.',
+      'KPIs cruzados que nenhuma aba isolada calcula: ROAS efetivo (receita Hotmart ÷ gasto Ads), CAC consolidado, Sessões→Venda %, Clicks→Sessões %, Receita total, Esforço operacional.',
+      'Tabela por campanha do Mapa: gasto Ads, clicks, sessões GA4, ROAS, tarefas (concluídas/total) — ROAS<1 destacado em vermelho, tarefas atrasadas em âmbar.',
+      'Cards de atalho pras 4 fontes (Tarefas / Checkout / Google Ads / GA4) com sumário do período e botão "Abrir aba" pra mergulhar no raio-x.',
+      'Header mostra badges ON/OFF das 3 integrações pra leitura rápida do que está conectado.'
+    ]
+  },
+  {
     version: 'V36.10.3',
     date: '2026-06-09',
     title: 'Dashboard ganhou sub-tab "Tarefas" — visão executiva agnóstica de provider e campanha',
