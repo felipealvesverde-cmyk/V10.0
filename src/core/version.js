@@ -7,4 +7,4 @@
 //
 // O badge no topo das páginas (renderizado em main.js) consome window.LJVersion.
 // SEMPRE atualize esta constante ao subir uma versão — é a fonte única de verdade.
-window.LJVersion = 'V36.9.7';
+window.LJVersion = 'V36.9.8';

@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.9.8',
+    date: '2026-06-09',
+    title: 'Etapa 3: KRs em grid lado a lado + card "Adicionar mais um" + empty state forte (estados 0→N)',
+    bullets: [
+      'KRs adicionados agora viram cards LADO A LADO em grid (1 col mobile, 2 cols desktop) em vez de empilhados full-width. Aproveita melhor o espaço horizontal e dá visual de "deck de números".',
+      'No fim do grid: card especial dashed "+ Adicionar mais um" que sempre convida — com microcopy progressiva pela contagem: 1 KR → "Cobertura melhor do funil"; 2 → "Quer adicionar outro?"; 3 → "Mais granular sua leitura"; 4+ → "Sempre dá pra adicionar mais". Click abre o catálogo de sugestões.',
+      'Empty state da frente sem KRs ganha bloco grande "Vamos começar! Crie o primeiro número pra Marketing." com botão CTA "Ver sugestões pra começar". Substitui o "Adicione abaixo" discreto que cliente nem via.',
+      'Linha "Dono herdado da Etapa 2 — editar na Etapa 2" REMOVIDA do bloco aberto (repetia o dono que já aparece no header e poluía o card).',
+      'Animação suave (fade-in + slide-down 200ms) quando bloco da frente ou catálogo de sugestões abrem — em vez do "salto" abrupto de antes.'
+    ]
+  },
+  {
     version: 'V36.9.7',
     date: '2026-06-09',
     title: 'Etapa 3 reescrita pra deixar claro o que é "número" e o ciclo estratégia → ação → impacto',
