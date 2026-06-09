@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.8.5',
+    date: '2026-06-09',
+    title: 'Warning de escala MCU/MSU agora é acionável — botões "Aplicar correção" e "Corrigir todas"',
+    bullets: [
+      'O aviso amber em fórmulas com fat_bruto em métricas POR VENDA estava confuso: dizia "tá errado pra MCU" mas não mostrava qual era a fórmula certa.',
+      'Cada linha amber agora mostra explicitamente a forma correta (ex: =tm*0,059) num bloco compacto + botão "Aplicar" que substitui automaticamente.',
+      'No topo da Composição (MCU e MSU), banner amber resumido mostra quantas fórmulas estão sendo auto-corrigidas + botão "Corrigir todas" que substitui as N fórmulas de uma vez.',
+      'Após aplicar, borda vira verde, banner some, fórmula fica idiomática (=tm*X em vez de =fat_bruto*X) e o resultado fica matematicamente idêntico.'
+    ]
+  },
+  {
     version: 'V36.8.4',
     date: '2026-06-09',
     title: 'Fix crítico: MCU (Margem de Contribuição Unitária) misturava escala mensal com unitária',

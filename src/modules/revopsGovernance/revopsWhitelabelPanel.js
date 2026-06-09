@@ -1286,7 +1286,25 @@
         const cfgNow = this._currentConfig(productId);
         const evNow = this._evalWithCascade(cfgNow);
         const pickerKey = `composed:${productId}:${kpi}`;
+        // V36.8.5 — Detecta quantas linhas têm escala mensal em métrica unitária
+        // (MCU ou MSU). Banner com "Corrigir todas" aparece se ≥ 1.
+        const isUnitKpi = kpi === 'mcu' || kpi === 'msu';
+        const monthlyScaleCount = isUnitKpi ? components.filter(c => {
+          const raw = String(c.value || '').trim();
+          return raw.startsWith('=') && /\b(fat_bruto|fat_liquido)\b/i.test(raw);
+        }).length : 0;
+        const scaleBanner = monthlyScaleCount > 0 ? `<div class="rounded-xl bg-amber-50 border border-amber-300 p-3 flex items-start gap-2 mb-2">
+          <i data-lucide="info" class="w-4 h-4 text-amber-700 shrink-0 mt-0.5"></i>
+          <div class="flex-1 min-w-0">
+            <p class="text-[11px] font-black text-amber-900">Métricas POR VENDA usam <code class="bg-white px-1 rounded font-mono text-[10px]">tm</code> (Ticket Médio).</p>
+            <p class="text-[10px] text-amber-800 mt-0.5">${monthlyScaleCount} fórmula${monthlyScaleCount > 1 ? 's' : ''} com <code class="bg-white px-1 rounded font-mono text-[9px]">fat_bruto</code> ou <code class="bg-white px-1 rounded font-mono text-[9px]">fat_liquido</code> sendo corrigida${monthlyScaleCount > 1 ? 's' : ''} automaticamente. Aplique a correção pra eliminar essa mágica.</p>
+          </div>
+          <button onclick="Actions.applyAllRevopsScaleFixes('${productId}', '${kpi}')" class="px-2.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[10px] font-black inline-flex items-center gap-1 shrink-0" style="color:#fff!important;">
+            <i data-lucide="wand-2" class="w-3 h-3"></i> Corrigir tod${monthlyScaleCount > 1 ? 'as' : 'a'}
+          </button>
+        </div>` : '';
         body = `<div class="space-y-2">
+          ${scaleBanner}
           <div class="flex items-center justify-between flex-wrap gap-2">
             <p class="text-[10px] font-black text-slate-500 uppercase">Composição (cada linha é uma dedução do valor base)</p>
             ${this._handlePicker(pickerKey, cfgNow)}
@@ -1380,6 +1398,11 @@
             : validation.status === 'error'
             ? `<p class="text-[9px] text-rose-700 mt-0.5">${Utils.escape(validation.message)}</p>`
             : ''}
+          ${validation.scaleWarning ? `<div class="mt-1 flex items-center gap-1.5 text-[10px] text-amber-800 bg-amber-50 px-1.5 py-1 rounded border border-amber-200">
+            <i data-lucide="info" class="w-3 h-3 shrink-0"></i>
+            <span class="flex-1">Forma correta: <code class="bg-white px-1 rounded font-mono text-[10px]">${Utils.escape(validation.correctedFormula || '')}</code></span>
+            <button onclick="Actions.applyRevopsScaleFix('${productId}', '${kpi}', ${idx})" class="px-1.5 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-black inline-flex items-center gap-0.5 shrink-0" style="color:#fff!important;">Aplicar <i data-lucide="check" class="w-2.5 h-2.5"></i></button>
+          </div>` : ''}
         </div>
         <div class="text-right pt-1.5">
           <span class="text-xs font-black ${resultCls} whitespace-nowrap inline-flex items-center gap-1 justify-end"><i data-lucide="${resultIcon}" class="w-3 h-3"></i> ${resultLabel}</span>

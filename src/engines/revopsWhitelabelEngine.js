@@ -989,17 +989,24 @@
 
       // V36.8.4 — Warning de escala em métrica POR VENDA. Não bloqueia, só avisa
       // (o resolveOverride já corrige automaticamente dividindo por sales).
+      // V36.8.5 — Inclui correctedFormula pra UI mostrar substituição pronta +
+      // botão "Aplicar correção". Substitui fat_bruto/fat_liquido por tm.
       if (unitContext) {
         const usesMonthlyScale = /\b(fat_bruto|fat_liquido)\b/i.test(f);
         if (usesMonthlyScale) {
           const sales = Number(symbols?.sales) || 1;
           const correctedValue = value / sales;
+          const rawOriginal = String(rawFormula || '').trim();
+          // Substitui mantendo formato original (vírgula BR, espaços, etc).
+          // Case-insensitive + word boundary pra não tocar em handles parecidos.
+          const correctedFormula = rawOriginal.replace(/\b(fat_bruto|fat_liquido)\b/gi, 'tm');
           return {
             status: 'warn',
             value: correctedValue,
             message: `⚠ Esta é uma métrica POR VENDA, mas a fórmula usa escala mensal (fat_bruto/fat_liquido). O LJ está corrigindo automaticamente (dividindo por ${sales} vendas → R$ ${correctedValue.toLocaleString('pt-BR', { maximumFractionDigits: 2 })}). Pra eliminar essa correção, troque por "tm" — ex: =tm*0,059.`,
             suggestions: ['tm'],
-            scaleWarning: true
+            scaleWarning: true,
+            correctedFormula
           };
         }
       }

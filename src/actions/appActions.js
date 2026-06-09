@@ -5358,6 +5358,39 @@ Object.assign(Actions, {
     // não render — evita perder foco em input. Re-render via onchange.
   },
 
+  // V36.8.5 — Aplica correção de escala numa linha (substitui fat_bruto/fat_liquido
+  // por tm). Usado pelo botão "Aplicar correção" da linha amber.
+  applyRevopsScaleFix(productId, kpi, index) {
+    const o = Actions._revopsGetOverride(productId, kpi);
+    if (!Array.isArray(o.components) || !o.components[index]) return;
+    const c = o.components[index];
+    const raw = String(c.value || '').trim();
+    if (!raw.startsWith('=')) return; // só fórmulas
+    c.value = raw.replace(/\b(fat_bruto|fat_liquido)\b/gi, 'tm');
+    App.save();
+    App.render();
+    Utils.toast('✓ Fórmula corrigida pra contexto unitário.');
+  },
+
+  // V36.8.5 — Aplica correção em TODAS as linhas com fat_bruto/fat_liquido do KPI.
+  // Botão "Corrigir todas" no banner do topo da Composição.
+  applyAllRevopsScaleFixes(productId, kpi) {
+    const o = Actions._revopsGetOverride(productId, kpi);
+    if (!Array.isArray(o.components)) return;
+    let fixed = 0;
+    o.components.forEach(c => {
+      const raw = String(c.value || '').trim();
+      if (raw.startsWith('=') && /\b(fat_bruto|fat_liquido)\b/i.test(raw)) {
+        c.value = raw.replace(/\b(fat_bruto|fat_liquido)\b/gi, 'tm');
+        fixed++;
+      }
+    });
+    if (!fixed) return;
+    App.save();
+    App.render();
+    Utils.toast(`✓ ${fixed} fórmula(s) corrigida(s) pra contexto unitário.`);
+  },
+
   // V32.10.3 — Swap fórmula do campo Nome pro campo Valor (cliente confundiu).
   // Detecção: nome começa com '=' ou contém handle conhecido. Botão "Mover →"
   // dispara isso, move o conteúdo, limpa o nome (cliente renomeia depois).
