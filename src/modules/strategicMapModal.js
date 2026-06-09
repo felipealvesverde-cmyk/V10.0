@@ -42,6 +42,16 @@ window.StrategicMapModal = {
         .lj-mind-map-svg-line {
           animation: lj-mind-map-svg-draw 1100ms ease-out both;
         }
+
+        /* V36.9.8 — Expandir bloco de frente / catálogo de sugestões com
+           fade-in suave em vez de "salto" abrupto. Não anima altura (não dá
+           pra animar height auto), mas o fade + slide-down camufla. */
+        @keyframes lj-kr-expand {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .lj-kr-expand { animation: lj-kr-expand 220ms ease-out both; }
+        .lj-catalog-expand { animation: lj-kr-expand 200ms ease-out both; }
       </style>
       <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:98vw;max-width:1800px;background: radial-gradient(circle at 18% 8%, rgba(99,102,241,.25), transparent 32%), radial-gradient(circle at 82% 0%, rgba(34,197,94,.15), transparent 32%), #071326;">
         ${this._header(product)}
@@ -2561,12 +2571,14 @@ window.StrategicMapModal = {
         </div>
         <i data-lucide="${expanded ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 text-stone-500 shrink-0"></i>
       </button>
-      ${expanded ? `<div class="px-4 pb-4 -mt-1">
-        <div class="flex items-center justify-between mb-3">
-          <p class="text-[10px] text-stone-500">Dono herdado da Etapa 2</p>
-          <button onclick="event.stopPropagation(); Actions.setStrategicZoom('objectives')" class="text-stone-500 hover:text-slate-900 underline text-[10px]">editar na Etapa 2</button>
-        </div>
-        ${areaKrs.length === 0 ? `<p class="text-[12px] text-stone-500 italic py-2">Adicione abaixo.</p>` : `<div class="space-y-2">${areaKrs.map(kr => this._productKrCardLight(product, kr, tone)).join('')}</div>`}
+      ${expanded ? `<div class="px-4 pb-4 -mt-1 lj-kr-expand">
+        ${areaKrs.length === 0
+          ? this._productKrsEmptyStateLight(product, area)
+          : `<div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              ${areaKrs.map(kr => this._productKrCardLight(product, kr, tone)).join('')}
+              ${this._addMoreKrCardLight(area, areaKrs.length)}
+            </div>`
+        }
         ${this._productKrsCatalogLight(product, area, areaKrs)}
         <div class="mt-3 pt-3 border-t border-stone-200">
           <button onclick="event.stopPropagation(); Actions.openCreateCustomKrModal(${product.id}, '${area.id}')" class="text-[11px] text-stone-600 hover:text-slate-900 transition inline-flex items-center gap-1.5">
@@ -2575,6 +2587,39 @@ window.StrategicMapModal = {
         </div>
       </div>` : ''}
     </div>`;
+  },
+
+  // V36.9.8 — Empty state forte pra frente sem números: "Vamos começar!" +
+  // botão CTA pra abrir o catálogo. Substitui o "Adicione abaixo." discreto
+  // que cliente nem via.
+  _productKrsEmptyStateLight(product, area) {
+    const tone = area.color;
+    return `<div class="rounded-2xl bg-gradient-to-br from-${tone}-50 to-${tone}-100 border-2 border-dashed border-${tone}-300 p-5 text-center">
+      <div class="w-12 h-12 mx-auto rounded-xl bg-${tone}-200 grid place-items-center mb-2"><i data-lucide="${area.icon}" class="w-6 h-6 text-${tone}-700"></i></div>
+      <p class="font-black text-slate-900 text-[14px] mb-1">Vamos começar!</p>
+      <p class="text-[12px] text-stone-700 mb-3">Crie o primeiro número pra ${Utils.escape(area.label)}.</p>
+      <button onclick="event.stopPropagation(); Actions.toggleStrategicOkrsCatalog('${area.id}')" class="px-4 py-2 rounded-xl bg-${tone}-600 hover:bg-${tone}-700 text-white text-[12px] font-black inline-flex items-center gap-1.5 shadow-sm" style="color:#fff!important;">
+        <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i> Ver sugestões pra começar
+      </button>
+    </div>`;
+  },
+
+  // V36.9.8 — Card CTA "Adicionar mais um" no grid de KRs. Gradiente de convite
+  // pela contagem (1→"cobre o funil", 2→"mais um?", 3+→"quanto mais granular,
+  // melhor leitura") — nunca para de convidar mas progressivamente mais sutil.
+  // Click abre o catálogo de sugestões (toggle).
+  _addMoreKrCardLight(area, count) {
+    const tone = area.color;
+    let hint;
+    if (count === 1) hint = 'Cobertura melhor do funil';
+    else if (count === 2) hint = 'Quer adicionar outro?';
+    else if (count === 3) hint = 'Mais granular sua leitura';
+    else hint = 'Sempre dá pra adicionar mais';
+    return `<button onclick="event.stopPropagation(); Actions.toggleStrategicOkrsCatalog('${area.id}')" class="rounded-2xl bg-${tone}-50/40 hover:bg-${tone}-100/60 border-2 border-dashed border-${tone}-300 hover:border-${tone}-400 p-3 transition flex flex-col items-center justify-center text-center min-h-[110px] group">
+      <i data-lucide="plus" class="w-6 h-6 text-${tone}-600 group-hover:text-${tone}-700 mb-1"></i>
+      <p class="text-[12px] font-black text-${tone}-800">Adicionar mais um</p>
+      <p class="text-[10px] text-${tone}-700/70 mt-0.5">${hint}</p>
+    </button>`;
   },
 
   // V36.9.5 — Catálogo de sugestões: colapsável.
@@ -2599,6 +2644,7 @@ window.StrategicMapModal = {
         <i data-lucide="${open ? 'chevron-up' : 'chevron-down'}" class="w-3 h-3"></i>
       </button>
       ${open ? `
+      <div class="lj-catalog-expand">
         <p class="text-[11px] text-stone-600 mt-2 mb-3 leading-relaxed">Números bons pra ${Utils.escape(area.label)}. Ative um → defina a meta → na Etapa 5 você liga ações pra mover ele.</p>
         ${availableCurated.length ? `
           <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">Sugeridos pelo LJ</p>
@@ -2612,6 +2658,7 @@ window.StrategicMapModal = {
             ${availableLearned.map(c => `<button onclick="event.stopPropagation(); Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || 'Sugerido a partir de um KR custom criado anteriormente')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border-2 border-dashed border-${tone}-300 text-${tone}-800 text-[11px] font-bold inline-flex items-center gap-1">✨ ${Utils.escape(c.name)}</button>`).join('')}
           </div>
         ` : ''}
+      </div>
       ` : ''}
     </div>`;
   },
