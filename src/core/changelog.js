@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.10.0',
+    date: '2026-06-09',
+    title: 'Mapa da Receita: Etapas 4 (Selecionar Campanha) e 5 (As Ações) FUNDIDAS na nova Campanha — 5 etapas no total',
+    bullets: [
+      'O Mapa passa de 6 pra 5 etapas. A antiga Etapa 4 (hub de seleção) era um passo morto — cliente clicava em "Seguir" só pra mudar contexto, sem trabalho real. Agora ela funde com a antiga Etapa 5 (As Ações): seleção e trabalho viram um gesto só na mesma tela.',
+      'Nova Etapa 4 "Campanha": seletor compacto de campanhas no topo (cards horizontais com plugadas + desplugadas + "Nova campanha"). Clicar em uma campanha troca o contexto sem mudar de etapa. Abaixo: trabalho da campanha ativa (plugar números + ligar ações por frente).',
+      'Antiga "Acompanhamento" virou a Etapa 5. Badge "X passos até a receita" da Etapa 1 baixa de 4 → 3 passos.',
+      'Textos das Etapas 1-3 que mencionavam "Etapa 5" (liga ações) ou "Etapa 6" (Acompanhamento) atualizados pra "Etapa 4" e "Etapa 5".',
+      'Hand-off Djow "Campanha selecionada → trabalhar" removido (não há mais transição entre essas duas — viraram a mesma etapa). Hints de "operations" fundidos em "campaign".',
+      'Compatibilidade: código legado que seta zoom=\'operations\' continua funcionando via alias (\'operations\' → \'campaign\').'
+    ]
+  },
+  {
     version: 'V36.9.9',
     date: '2026-06-09',
     title: 'Etapa 3: grid 4-col + slots placeholder + engrenagem + sugestões só ao clicar "Adicionar mais um"',
