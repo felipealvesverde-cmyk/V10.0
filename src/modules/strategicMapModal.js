@@ -5212,33 +5212,34 @@ window.StrategicMapModal = {
       Actions._autoSyncClickupTasksOnce(`mapa-etapa6-${isProductWide ? 'product' : campaignId}`);
     }
 
-    // Header com filtro
+    // V36.10.2 — Light: filtro com select claro.
     const campaigns = (App.state.campaigns || []).filter(c => Number(c.productId) === Number(product.id));
     const currentCampaign = campaigns.find(c => Number(c.id) === Number(campaignId));
     const scopeSelector = `<div class="flex items-center gap-2 flex-wrap">
-      <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Escopo</label>
-      <select onchange="Actions.setAcompanhamentoScope(this.value)" class="px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[12px] font-bold">
+      <label class="text-[10px] font-black text-stone-600 uppercase tracking-widest">Escopo</label>
+      <select onchange="Actions.setAcompanhamentoScope(this.value)" class="px-3 py-2 rounded-lg bg-white border border-stone-300 text-slate-900 text-[12px] font-bold">
         ${campaignId ? `<option value="campaign" ${!isProductWide ? 'selected' : ''}>Campanha: ${Utils.escape(currentCampaign?.name || 'atual')}</option>` : ''}
         <option value="product" ${isProductWide ? 'selected' : ''}>📊 Produto inteiro (${campaigns.length} campanhas)</option>
       </select>
     </div>`;
 
     if (!connectedKrs.length) {
-      return `<section class="space-y-3">
-        ${this._stepIntro('Acompanhamento em campo', 'Como cada número e cada ação está performando no provider operacional.', 'activity')}
+      return `<section class="space-y-4 rounded-3xl border p-6 shadow-md" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+        ${this._stepIntroLight('Acompanhamento em campo', 'Como cada número e cada ação está performando no provider operacional.', 'activity', null, 'acompanhamento', 'Aqui é o dashboard pós-execução: você vê o saldo das ações que rodaram. KRs com saúde (% atingido), ações por status, carga por responsável, cronograma Gantt.')}
         ${scopeSelector}
-        <div class="rounded-3xl bg-amber-500/10 border border-amber-400/30 p-5 text-amber-200">
-          <p class="font-black mb-1">Nenhum número conectado a ação ainda.</p>
-          <p class="text-sm">Volte pra <b>As Ações</b> e plugue ao menos um número a uma ação.</p>
-          <button onclick="Actions.setStrategicZoom('operations')" class="mt-3 px-3 py-2 rounded-xl bg-white/10 border border-white/20 text-white text-xs font-black">← Voltar pra As Ações</button>
+        <div class="rounded-2xl bg-amber-50 border border-amber-200 p-5">
+          <p class="font-black text-amber-900 mb-1">Nenhum número conectado a ação ainda.</p>
+          <p class="text-[12px] text-amber-800">Volte pra <b>Campanha</b> (Etapa 4) e ligue ao menos uma ação a um número.</p>
+          <button onclick="Actions.setStrategicZoom('campaign')" class="mt-3 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+            <i data-lucide="arrow-left" class="w-3 h-3"></i> Ir pra Etapa 4
+          </button>
         </div>
       </section>`;
     }
 
-    // Agrega stats (V32.14.0)
     const stats = this._acompanhamentoStats(connectedKrs, isProductWide);
-    return `<section class="space-y-3">
-      ${this._stepIntro('Acompanhamento em campo', 'Como cada número e cada ação está performando no provider operacional.', 'activity')}
+    return `<section class="space-y-4 rounded-3xl border p-6 shadow-md" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+      ${this._stepIntroLight('Acompanhamento em campo', 'Como cada número e cada ação está performando no provider operacional.', 'activity', null, 'acompanhamento', 'Aqui é o dashboard pós-execução: você vê o saldo das ações que rodaram.\n\nO que tem:\n• KRs com saúde (% atingido por número)\n• Ações por status (em dia / atrasada / concluída)\n• Carga por responsável (gargalo de pessoa)\n• Cronograma Gantt das tasks\n\nFiltro escopo: olhar uma campanha específica ou todas do produto.')}
       ${scopeSelector}
       ${this._acompanhamentoStatCards(stats)}
       ${this._acompanhamentoKrList(product, connectedKrs)}
@@ -5261,11 +5262,10 @@ window.StrategicMapModal = {
       ? (ExecutionTaskStore.all() || []).filter(t => allActionIds.has(Number(t.linked_action_id)) && t.due_date)
       : [];
     if (allTasks.length === 0) {
-      // V32.15.0 — Recolhível mesmo no estado vazio.
       const empty = this._acompanhamentoSectionHeader('gantt', 'bar-chart-horizontal', 'Cronograma (Gantt)');
-      return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
+      return `<div class="rounded-3xl bg-white/70 border border-stone-200 p-4 shadow-sm">
         ${empty.headerHtml}
-        ${empty.isCollapsed ? '' : `<p class="text-[11px] text-slate-500 italic">Sem tasks com data de entrega ainda. Crie tasks via "Executar Ação" pra ver o cronograma aqui.</p>`}
+        ${empty.isCollapsed ? '' : `<p class="text-[11px] text-stone-500 italic">Sem tasks com data de entrega ainda. Crie tasks via "Executar Ação" pra ver o cronograma aqui.</p>`}
       </div>`;
     }
 
@@ -5307,25 +5307,23 @@ window.StrategicMapModal = {
     // Ordena tasks por start_date asc
     taskRanges.sort((a, b) => a.start - b.start);
 
-    // V32.15.0 — Recolhível (state.acompanhamentoSectionsCollapsed.gantt).
+    // V36.10.2 — Light.
     const { headerHtml, isCollapsed } = this._acompanhamentoSectionHeader('gantt', 'bar-chart-horizontal', `Cronograma (Gantt) · ${taskRanges.length} task${taskRanges.length === 1 ? '' : 's'}`);
-    return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
+    return `<div class="rounded-3xl bg-white/70 border border-stone-200 p-4 shadow-sm">
       ${headerHtml}
-      ${isCollapsed ? '' : `<!-- Header de marcadores temporais -->
-      <div class="relative h-6 mb-2 border-b border-white/10">
+      ${isCollapsed ? '' : `<div class="relative h-6 mb-2 border-b border-stone-200">
         ${ticks.map(t => `<div class="absolute top-0 bottom-0 flex items-center" style="left:${t.pct}%; transform:translateX(-50%);">
-          <span class="text-[9px] font-bold text-slate-500 whitespace-nowrap">${t.label}</span>
+          <span class="text-[9px] font-bold text-stone-500 whitespace-nowrap">${t.label}</span>
         </div>`).join('')}
-        ${todayPct !== null ? `<div class="absolute top-0 bottom-0 w-px bg-violet-400" style="left:${todayPct}%;" title="Hoje"></div>` : ''}
+        ${todayPct !== null ? `<div class="absolute top-0 bottom-0 w-px bg-violet-500" style="left:${todayPct}%;" title="Hoje"></div>` : ''}
       </div>
 
-      <!-- Linhas de tasks -->
       <div class="space-y-1.5 relative">
-        ${todayPct !== null ? `<div class="absolute top-0 bottom-0 w-px bg-violet-400/40 pointer-events-none z-10" style="left:${todayPct}%;"></div>` : ''}
+        ${todayPct !== null ? `<div class="absolute top-0 bottom-0 w-px bg-violet-300 pointer-events-none z-10" style="left:${todayPct}%;"></div>` : ''}
         ${taskRanges.map(r => this._acompanhamentoGanttRow(r, rangeStart, rangeMs, now)).join('')}
       </div>
 
-      ${todayPct !== null ? `<p class="text-[9px] text-violet-400 mt-2 inline-flex items-center gap-1"><span class="inline-block w-2 h-px bg-violet-400"></span> Hoje (${now.toLocaleDateString('pt-BR')})</p>` : ''}`}
+      ${todayPct !== null ? `<p class="text-[9px] text-violet-700 mt-2 inline-flex items-center gap-1"><span class="inline-block w-2 h-px bg-violet-500"></span> Hoje (${now.toLocaleDateString('pt-BR')})</p>` : ''}`}
     </div>`;
   },
 
@@ -5341,12 +5339,12 @@ window.StrategicMapModal = {
     const dueLabel = task.due_date ? new Date(task.due_date).toLocaleDateString('pt-BR') : '—';
     return `<div class="grid items-center gap-2" style="grid-template-columns: 160px 1fr;">
       <div class="min-w-0">
-        <p class="text-[11px] font-bold text-white truncate" title="${Utils.escape(task.title || '')}">${Utils.escape(task.title || 'Task')}</p>
-        <p class="text-[9px] text-slate-500 truncate">${dueLabel} · ${statusLabel}</p>
+        <p class="text-[11px] font-bold text-slate-900 truncate" title="${Utils.escape(task.title || '')}">${Utils.escape(task.title || 'Task')}</p>
+        <p class="text-[9px] text-stone-500 truncate">${dueLabel} · ${statusLabel}</p>
       </div>
-      <div class="relative h-5 rounded bg-white/5">
+      <div class="relative h-5 rounded bg-stone-100">
         <button onclick="Actions.openExecutionTaskDetail('${task.task_id}')" title="${Utils.escape(task.title || '')} · ${statusLabel} · entrega ${dueLabel}"
-          class="absolute top-0 bottom-0 rounded bg-gradient-to-r from-${tone}-500 to-${tone}-400 hover:opacity-80 transition border border-${tone}-300/40"
+          class="absolute top-0 bottom-0 rounded bg-gradient-to-r from-${tone}-500 to-${tone}-400 hover:opacity-80 transition border border-${tone}-400"
           style="left:${startPct}%; width:${widthPct}%;">
           <span class="absolute inset-0 grid place-items-center text-[9px] font-black text-white px-1 truncate" style="color:#fff !important;">${widthPct > 15 ? Utils.escape(task.title || '').slice(0, 20) : ''}</span>
         </button>
@@ -5411,36 +5409,36 @@ window.StrategicMapModal = {
     const maxCount = Math.max(noAssigneeBucket.count, ...entries.map(e => e.count));
     if (maxCount === 0) return '';
 
+    // V36.10.2 — Light.
     const renderBar = (count, label, sublabel, completed, late, onTime, isNoAssignee) => {
       const widthPct = Math.round((count / maxCount) * 100);
       const tone = isNoAssignee ? 'amber' : (count >= maxCount * 0.7 ? 'rose' : count >= maxCount * 0.4 ? 'sky' : 'emerald');
       const initial = label.charAt(0).toUpperCase();
-      return `<div class="rounded-xl bg-slate-900/60 border border-white/10 p-3">
+      return `<div class="rounded-xl bg-white border border-stone-200 p-3 shadow-sm">
         <div class="flex items-center justify-between gap-3 mb-2">
           <div class="flex items-center gap-2 min-w-0 flex-1">
-            <span class="shrink-0 w-8 h-8 rounded-lg bg-${tone}-500/20 border border-${tone}-400/30 grid place-items-center text-${tone}-200 text-xs font-black">${isNoAssignee ? '?' : Utils.escape(initial)}</span>
+            <span class="shrink-0 w-8 h-8 rounded-lg bg-${tone}-100 border border-${tone}-300 grid place-items-center text-${tone}-800 text-xs font-black">${isNoAssignee ? '?' : Utils.escape(initial)}</span>
             <div class="min-w-0">
-              <p class="font-black text-white text-[13px] truncate" title="${Utils.escape(label)}">${Utils.escape(label)}${isNoAssignee ? ` <span class="text-amber-400 text-[10px] font-bold">⚠</span>` : ''}</p>
-              ${sublabel ? `<p class="text-[10px] text-slate-500 truncate">${Utils.escape(sublabel)}</p>` : ''}
+              <p class="font-black text-slate-900 text-[13px] truncate" title="${Utils.escape(label)}">${Utils.escape(label)}${isNoAssignee ? ` <span class="text-amber-600 text-[10px] font-bold">⚠</span>` : ''}</p>
+              ${sublabel ? `<p class="text-[10px] text-stone-500 truncate">${Utils.escape(sublabel)}</p>` : ''}
             </div>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
-            ${completed > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 uppercase tracking-wider">✓ ${completed}</span>` : ''}
-            ${onTime > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-200 uppercase tracking-wider">⏱ ${onTime}</span>` : ''}
-            ${late > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-400/30 text-rose-200 uppercase tracking-wider">⚠ ${late}</span>` : ''}
-            <span class="text-[12px] font-black text-white whitespace-nowrap ml-1">${count}</span>
+            ${completed > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 uppercase tracking-wider">✓ ${completed}</span>` : ''}
+            ${onTime > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-100 border border-sky-300 text-sky-800 uppercase tracking-wider">⏱ ${onTime}</span>` : ''}
+            ${late > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-100 border border-rose-300 text-rose-800 uppercase tracking-wider">⚠ ${late}</span>` : ''}
+            <span class="text-[12px] font-black text-slate-900 whitespace-nowrap ml-1">${count}</span>
           </div>
         </div>
-        <div class="h-1.5 rounded-full bg-white/5 overflow-hidden">
+        <div class="h-1.5 rounded-full bg-stone-100 overflow-hidden">
           <div class="h-full bg-gradient-to-r from-${tone}-500 to-${tone}-400" style="width:${widthPct}%;"></div>
         </div>
       </div>`;
     };
 
     const totalUsers = entries.length + (noAssigneeBucket.count > 0 ? 1 : 0);
-    // V32.15.0 — Recolhível (state.acompanhamentoSectionsCollapsed.carga).
     const { headerHtml, isCollapsed } = this._acompanhamentoSectionHeader('carga', 'users', `Carga por usuário (ClickUp) · ${totalUsers} ${totalUsers === 1 ? 'responsável' : 'responsáveis'}`);
-    return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
+    return `<div class="rounded-3xl bg-white/70 border border-stone-200 p-4 shadow-sm">
       ${headerHtml}
       ${isCollapsed ? '' : `<div class="space-y-2">
         ${entries.map(e => renderBar(e.count, e.username, e.email, e.completed, e.late, e.onTime, false)).join('')}
@@ -5483,31 +5481,33 @@ window.StrategicMapModal = {
   // Felipe pediu chevron pra recolher Números/Ações/Carga/Gantt e manter só
   // o que está olhando. State persiste (acompanhamentoSectionsCollapsed.{key}).
   // Retorna { headerHtml, isCollapsed } pro caller condicionalmente renderizar o body.
+  // V36.10.2 — Light: text stone, button bg-white hover stone.
   _acompanhamentoSectionHeader(key, icon, title) {
     const cur = App.state.acompanhamentoSectionsCollapsed || {};
     const isCollapsed = Boolean(cur[key]);
     const chevron = isCollapsed ? 'chevron-down' : 'chevron-up';
     const ariaLabel = isCollapsed ? `Expandir ${title}` : `Recolher ${title}`;
     const headerHtml = `<div class="flex items-center justify-between gap-2 ${isCollapsed ? '' : 'mb-3'}">
-      <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest inline-flex items-center gap-1.5">
+      <p class="text-[11px] font-black text-stone-600 uppercase tracking-widest inline-flex items-center gap-1.5">
         <i data-lucide="${icon}" class="w-3.5 h-3.5"></i> ${title}
       </p>
       <button onclick="Actions.toggleAcompanhamentoSection('${key}')" title="${ariaLabel}" aria-label="${ariaLabel}"
-        class="shrink-0 w-7 h-7 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-slate-300 grid place-items-center transition">
+        class="shrink-0 w-7 h-7 rounded-lg bg-white hover:bg-stone-100 border border-stone-300 text-stone-600 grid place-items-center transition">
         <i data-lucide="${chevron}" class="w-3.5 h-3.5"></i>
       </button>
     </div>`;
     return { headerHtml, isCollapsed };
   },
 
-  // V32.14.0 — Stat cards horizontais. 4 indicadores principais.
+  // V36.10.2 — Stat cards adaptados pra light. Cores -100 saturadas + texto
+  // -700/800/900 e badge -200/700.
   _acompanhamentoStatCards(s) {
-    const card = (icon, label, value, tone) => `<div class="rounded-xl bg-${tone}-500/10 border border-${tone}-400/30 p-3">
+    const card = (icon, label, value, tone) => `<div class="rounded-xl bg-${tone}-100 border border-${tone}-300 p-3 shadow-sm">
       <div class="flex items-center gap-2 mb-1">
-        <span class="w-7 h-7 rounded-lg bg-${tone}-500/20 grid place-items-center text-${tone}-300"><i data-lucide="${icon}" class="w-3.5 h-3.5"></i></span>
-        <p class="text-[9px] font-black text-${tone}-200 uppercase tracking-widest leading-tight">${label}</p>
+        <span class="w-7 h-7 rounded-lg bg-${tone}-200 grid place-items-center text-${tone}-700"><i data-lucide="${icon}" class="w-3.5 h-3.5"></i></span>
+        <p class="text-[9px] font-black text-${tone}-800 uppercase tracking-widest leading-tight">${label}</p>
       </div>
-      <p class="text-xl font-black text-white">${value}</p>
+      <p class="text-xl font-black text-slate-900">${value}</p>
     </div>`;
     return `<div class="grid grid-cols-2 md:grid-cols-5 gap-2">
       ${card('list-checks', 'Total tasks', s.total, 'violet')}
@@ -5520,10 +5520,11 @@ window.StrategicMapModal = {
 
   // V32.14.0 — Lista de KRs com saúde (% atingido, ações, tasks).
   // V32.15.0 — Recolhível via chevron (state acompanhamentoSectionsCollapsed.krs).
+  // V36.10.2 — Light wrapper bg-white/70 com border stone.
   _acompanhamentoKrList(product, connectedKrs) {
     if (!connectedKrs.length) return '';
     const { headerHtml, isCollapsed } = this._acompanhamentoSectionHeader('krs', 'target', `Números (KRs) — saúde por número · ${connectedKrs.length}`);
-    return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
+    return `<div class="rounded-3xl bg-white/70 border border-stone-200 p-4 shadow-sm">
       ${headerHtml}
       ${isCollapsed ? '' : `<div class="space-y-2">
         ${connectedKrs.map(({ obj, kr, branchCampaignId }) => this._acompanhamentoKrRow(product, obj, kr, branchCampaignId)).join('')}
@@ -5531,7 +5532,7 @@ window.StrategicMapModal = {
     </div>`;
   },
 
-  // V32.14.0 / V32.14.1 — Row de 1 KR no Acompanhamento. Lupa abre drill-down.
+  // V36.10.2 — Row light.
   _acompanhamentoKrRow(product, obj, kr, branchCampaignId) {
     const target = Number(kr.targetCommitted || 0);
     const current = Number(kr.current || 0);
@@ -5546,26 +5547,26 @@ window.StrategicMapModal = {
     const onTime = allTasks.length - late - completed;
     const krColor = StrategicMapEngine.krColorFromId(kr.parentProductKrId || kr.id);
     const pctTone = pct >= 75 ? 'emerald' : pct >= 40 ? 'amber' : 'rose';
-    return `<div class="rounded-xl bg-slate-900/60 border border-white/10 p-3 hover:bg-slate-900/80 transition" style="border-left: 4px solid ${krColor};">
+    return `<div class="rounded-xl bg-white border border-stone-200 p-3 hover:bg-stone-50 transition shadow-sm" style="border-left: 4px solid ${krColor};">
       <div class="flex items-center justify-between gap-3 flex-wrap">
         <div class="flex items-center gap-2 min-w-0 flex-1">
           <span class="shrink-0 w-2 h-2 rounded-full" style="background:${krColor};"></span>
           <div class="min-w-0">
-            <p class="font-black text-white text-[13px] truncate" title="${Utils.escape(kr.name)}">${Utils.escape(kr.name)}</p>
-            <p class="text-[10px] text-slate-400 mt-0.5">${actionIds.length} ação${actionIds.length === 1 ? '' : 'ões'} · ${allTasks.length} task${allTasks.length === 1 ? '' : 's'}</p>
+            <p class="font-black text-slate-900 text-[13px] truncate" title="${Utils.escape(kr.name)}">${Utils.escape(kr.name)}</p>
+            <p class="text-[10px] text-stone-500 mt-0.5">${actionIds.length} ação${actionIds.length === 1 ? '' : 'ões'} · ${allTasks.length} task${allTasks.length === 1 ? '' : 's'}</p>
           </div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          ${completed > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 uppercase tracking-wider"><i data-lucide="check" class="w-2.5 h-2.5 inline-block"></i> ${completed}</span>` : ''}
-          ${onTime > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-200 uppercase tracking-wider"><i data-lucide="clock" class="w-2.5 h-2.5 inline-block"></i> ${onTime}</span>` : ''}
-          ${late > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-400/30 text-rose-200 uppercase tracking-wider"><i data-lucide="alert-triangle" class="w-2.5 h-2.5 inline-block"></i> ${late}</span>` : ''}
-          <span class="text-[10px] font-black px-2 py-0.5 rounded bg-${pctTone}-500/15 border border-${pctTone}-400/30 text-${pctTone}-200 uppercase tracking-wider">${pct}% meta</span>
-          <button onclick="Actions.openAcompanhamentoKrDetail('${kr.id}', ${branchCampaignId || 'null'})" title="Lupa: ver ações e tasks deste KR" class="shrink-0 w-7 h-7 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-slate-200 grid place-items-center">
+          ${completed > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 uppercase tracking-wider"><i data-lucide="check" class="w-2.5 h-2.5 inline-block"></i> ${completed}</span>` : ''}
+          ${onTime > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-100 border border-sky-300 text-sky-800 uppercase tracking-wider"><i data-lucide="clock" class="w-2.5 h-2.5 inline-block"></i> ${onTime}</span>` : ''}
+          ${late > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-100 border border-rose-300 text-rose-800 uppercase tracking-wider"><i data-lucide="alert-triangle" class="w-2.5 h-2.5 inline-block"></i> ${late}</span>` : ''}
+          <span class="text-[10px] font-black px-2 py-0.5 rounded bg-${pctTone}-100 border border-${pctTone}-300 text-${pctTone}-800 uppercase tracking-wider">${pct}% meta</span>
+          <button onclick="Actions.openAcompanhamentoKrDetail('${kr.id}', ${branchCampaignId || 'null'})" title="Lupa: ver ações e tasks deste KR" class="shrink-0 w-7 h-7 rounded-lg bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 grid place-items-center">
             <i data-lucide="search" class="w-3.5 h-3.5"></i>
           </button>
         </div>
       </div>
-      <div class="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
+      <div class="mt-2 h-1.5 rounded-full bg-stone-100 overflow-hidden">
         <div class="h-full bg-gradient-to-r from-${pctTone}-500 to-${pctTone}-400" style="width:${pct}%;"></div>
       </div>
     </div>`;
@@ -5573,6 +5574,7 @@ window.StrategicMapModal = {
 
   // V32.14.0 — Lista de ações com status agregado de suas tasks.
   // V32.15.0 — Recolhível (state.acompanhamentoSectionsCollapsed.actions).
+  // V36.10.2 — Light.
   _acompanhamentoActionsList(connectedKrs) {
     const allActionIds = new Set();
     connectedKrs.forEach(({ kr }) => {
@@ -5582,7 +5584,7 @@ window.StrategicMapModal = {
     const actions = (App.state.actions || []).filter(a => allActionIds.has(Number(a.id)));
     if (actions.length === 0) return '';
     const { headerHtml, isCollapsed } = this._acompanhamentoSectionHeader('actions', 'zap', `Ações — status por ação · ${actions.length}`);
-    return `<div class="rounded-3xl bg-slate-900/40 border border-white/10 p-4">
+    return `<div class="rounded-3xl bg-white/70 border border-stone-200 p-4 shadow-sm">
       ${headerHtml}
       ${isCollapsed ? '' : `<div class="space-y-2">
         ${actions.map(a => this._acompanhamentoActionRow(a)).join('')}
@@ -5598,17 +5600,17 @@ window.StrategicMapModal = {
     const late = tasks.filter(t => t.status !== 'completed' && t.due_date && new Date(t.due_date) < now).length;
     const completed = tasks.filter(t => t.status === 'completed').length;
     const onTime = tasks.length - late - completed;
-    return `<div class="rounded-xl bg-slate-900/60 border border-white/10 p-3 flex items-center justify-between gap-3 flex-wrap hover:bg-slate-900/80 transition">
+    return `<div class="rounded-xl bg-white border border-stone-200 p-3 flex items-center justify-between gap-3 flex-wrap hover:bg-stone-50 transition shadow-sm">
       <div class="min-w-0 flex-1">
-        <p class="font-black text-white text-[12px] truncate" title="${Utils.escape(action.name || 'Sem nome')}">${Utils.escape(action.name || 'Sem nome')}</p>
-        <p class="text-[10px] text-slate-400 mt-0.5">${Utils.escape(action.channel || '— canal —')} · ${tasks.length} task${tasks.length === 1 ? '' : 's'}</p>
+        <p class="font-black text-slate-900 text-[12px] truncate" title="${Utils.escape(action.name || 'Sem nome')}">${Utils.escape(action.name || 'Sem nome')}</p>
+        <p class="text-[10px] text-stone-500 mt-0.5">${Utils.escape(action.channel || '— canal —')} · ${tasks.length} task${tasks.length === 1 ? '' : 's'}</p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
-        ${completed > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-400/30 text-emerald-200 uppercase tracking-wider">✓ ${completed}</span>` : ''}
-        ${onTime > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-500/15 border border-sky-400/30 text-sky-200 uppercase tracking-wider">⏱ ${onTime}</span>` : ''}
-        ${late > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-500/15 border border-rose-400/30 text-rose-200 uppercase tracking-wider">⚠ ${late}</span>` : ''}
-        ${tasks.length === 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 border border-amber-400/30 text-amber-200 uppercase tracking-wider">Sem task</span>` : ''}
-        <button onclick="Actions.openAcompanhamentoActionDetail(${action.id})" title="Lupa: ver tasks e KRs desta ação" class="shrink-0 w-7 h-7 rounded-lg bg-white/5 hover:bg-white/15 border border-white/10 text-slate-200 grid place-items-center">
+        ${completed > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-300 text-emerald-800 uppercase tracking-wider">✓ ${completed}</span>` : ''}
+        ${onTime > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-100 border border-sky-300 text-sky-800 uppercase tracking-wider">⏱ ${onTime}</span>` : ''}
+        ${late > 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-rose-100 border border-rose-300 text-rose-800 uppercase tracking-wider">⚠ ${late}</span>` : ''}
+        ${tasks.length === 0 ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 border border-amber-300 text-amber-800 uppercase tracking-wider">Sem task</span>` : ''}
+        <button onclick="Actions.openAcompanhamentoActionDetail(${action.id})" title="Lupa: ver tasks e KRs desta ação" class="shrink-0 w-7 h-7 rounded-lg bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 grid place-items-center">
           <i data-lucide="search" class="w-3.5 h-3.5"></i>
         </button>
       </div>
