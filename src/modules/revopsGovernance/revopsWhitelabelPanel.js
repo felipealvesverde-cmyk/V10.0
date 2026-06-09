@@ -1027,7 +1027,8 @@
       const mcuAuto = RevopsWhitelabelEngine.computeAutoMCU(cfg, ev);
       const mcuOverride = App.state.revopsKpiOverrides?.[productId]?.mcu || { mode: 'auto' };
       mcuOverride.baseValue = tm; // base pra modo composed
-      const mcuResolved = RevopsWhitelabelEngine.resolveOverride(mcuOverride, mcuAuto.value, ev.symbols);
+      // V36.8.4 — unitContext:true → fórmulas com fat_bruto/fat_liquido viram unit cost
+      const mcuResolved = RevopsWhitelabelEngine.resolveOverride(mcuOverride, mcuAuto.value, ev.symbols, { unitContext: true });
       const mcu = mcuResolved.value;
 
       // 3. CAC (auto: CTC / Total de Vendas)
@@ -1039,7 +1040,8 @@
       const msuAuto = RevopsWhitelabelEngine.computeAutoMSU(mcu, cac);
       const msuOverride = App.state.revopsKpiOverrides?.[productId]?.msu || { mode: 'auto' };
       msuOverride.baseValue = mcu;
-      const msuResolved = RevopsWhitelabelEngine.resolveOverride(msuOverride, msuAuto.value, ev.symbols);
+      // V36.8.4 — unitContext:true (MSU é métrica POR VENDA igual MCU)
+      const msuResolved = RevopsWhitelabelEngine.resolveOverride(msuOverride, msuAuto.value, ev.symbols, { unitContext: true });
       const msu = msuResolved.value;
 
       // 5. Custo Fixo (auto: soma bucket=fixed)
@@ -1345,8 +1347,11 @@
       const valueRaw = String(c.value || '');
       // Detecta fórmula no nome (vetor de erro Felipe)
       const nameLooksLikeFormula = /^=/.test(nameRaw.trim()) || /=\s*[a-z_]/i.test(nameRaw);
-      // Valida o valor (mesma engine que fórmula avançada)
-      const validation = RevopsWhitelabelEngine.validateFormula(valueRaw, symbols, null);
+      // V36.8.4 — MCU e MSU são métricas POR VENDA. Passar unitContext:true
+      // pra validateFormula emitir warning quando fórmula usa fat_bruto/fat_liquido
+      // (auto-corrigido pelo resolveOverride, mas avisa pro cliente).
+      const isUnitKpi = kpi === 'mcu' || kpi === 'msu';
+      const validation = RevopsWhitelabelEngine.validateFormula(valueRaw, symbols, null, { unitContext: isUnitKpi });
       const borderCls = validation.status === 'ok' ? 'border-emerald-400'
                       : validation.status === 'warn' ? 'border-amber-400'
                       : 'border-rose-400';
@@ -1634,12 +1639,13 @@
       const mcuAuto = RevopsWhitelabelEngine.computeAutoMCU(cfg, ev);
       const mcuOv = App.state.revopsKpiOverrides?.[productId]?.mcu || { mode: 'auto' };
       mcuOv.baseValue = ev.ticket;
-      const mcu = RevopsWhitelabelEngine.resolveOverride(mcuOv, mcuAuto.value, ev.symbols).value;
+      // V36.8.4 — unitContext:true em MCU e MSU (métricas POR VENDA)
+      const mcu = RevopsWhitelabelEngine.resolveOverride(mcuOv, mcuAuto.value, ev.symbols, { unitContext: true }).value;
       const cac = ev.sales > 0 ? ev.acquisitionTotal / ev.sales : 0;
       const msuAuto = RevopsWhitelabelEngine.computeAutoMSU(mcu, cac);
       const msuOv = App.state.revopsKpiOverrides?.[productId]?.msu || { mode: 'auto' };
       msuOv.baseValue = mcu;
-      const msu = RevopsWhitelabelEngine.resolveOverride(msuOv, msuAuto.value, ev.symbols).value;
+      const msu = RevopsWhitelabelEngine.resolveOverride(msuOv, msuAuto.value, ev.symbols, { unitContext: true }).value;
       const breakeven = msu > 0 ? Math.ceil(ev.fixedTotal / msu) : 0;
       ev.symbols.mcu = mcu;
       ev.symbols.msu = msu;
