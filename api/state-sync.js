@@ -50,6 +50,57 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ ok: false, message: 'Body precisa de { state: {...} }' });
     }
 
+    // V36.8.3 — GUARD DE EMERGÊNCIA: rejeita state malformado (proteção de
+    // último nível, defesa em profundidade). Felipe perdeu Sansone em
+    // 2026-06-08/09 porque runHealthCheck (V36.5.0) mandava body
+    // { state: { hc_ping: true } } pra "testar conectividade" — endpoint
+    // salvava literal sobrescrevendo state legítimo a cada 30s do panel timer.
+    // Frontend já não faz mais isso (V36.8.3 mudou pra GET), mas o backend
+    // agora rejeita explicitamente esse padrão E qualquer state que NÃO tenha
+    // os campos mínimos de um state real do LJ.
+    const stateKeys = Object.keys(state);
+    const looksLikePing = stateKeys.length <= 2 && (state.hc_ping !== undefined || state.ping !== undefined);
+    const hasAnyRealField = ['products', 'campaigns', 'actions', 'leads', 'integrations', 'lastSavedAt'].some(k => state[k] !== undefined);
+    if (looksLikePing || !hasAnyRealField) {
+      console.warn('[state-sync POST] 🚨 REJEITADO V36.8.3 — body parece ping ou state corrompido.', {
+        user_id: userId,
+        keys: stateKeys,
+        looksLikePing,
+        hasAnyRealField
+      });
+      return res.status(422).json({
+        ok: false,
+        message: 'State malformado — não tem campos mínimos de um state real (products/campaigns/actions/integrations).',
+        keys_received: stateKeys
+      });
+    }
+
+    // V36.8.3 — Aviso (não bloqueio): se vier 0 produtos, 0 campanhas e 0 ações
+    // num tenant que tinha dados antes, loga pra investigação. NÃO bloqueia
+    // porque isso pode ser legítimo (cliente novo, reset intencional).
+    // Frontend tem guards V36.7.1 e V36.7.2 que cuidam disso na origem.
+    try {
+      const totalIncoming = (state.products||[]).length + (state.campaigns||[]).length + (state.actions||[]).length;
+      if (totalIncoming === 0) {
+        const prior = await req.tenantDb.query(
+          `SELECT jsonb_array_length(state_json->'products') AS p,
+                  jsonb_array_length(state_json->'campaigns') AS c,
+                  jsonb_array_length(state_json->'actions') AS a
+             FROM journey_state WHERE user_id = $1`,
+          [userId]
+        );
+        const row = prior.rows[0];
+        if (row && (row.p > 0 || row.c > 0 || row.a > 0)) {
+          console.warn('[state-sync POST] ⚠ Push zerando state que tinha dados.', {
+            user_id: userId,
+            prior_products: row.p,
+            prior_campaigns: row.c,
+            prior_actions: row.a
+          });
+        }
+      }
+    } catch (_) { /* defensive — não bloqueia se telemetria falhar */ }
+
     try {
       // V32.0.8 — req.tenantDb pra dados.
       await req.tenantDb.query(

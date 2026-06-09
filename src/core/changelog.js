@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.8.3',
+    date: '2026-06-09',
+    title: 'CAUSA RAIZ da perda de dados — Health Check enviava ping vazio que sobrescrevia o banco',
+    bullets: [
+      'Caçada com diagnóstico cirúrgico via spy de fetch identificou o culpado: o painel Health Check (V36.5.0) fazia POST /api/state-sync a cada 30s com body { state: { hc_ping: true } } pra "testar conectividade".',
+      'O endpoint não distinguia ping de state real — salvava { hc_ping: true } literal como state do tenant, sobrescrevendo produtos, campanhas e ações a cada execução.',
+      'Os guards V36.7.1 e V36.7.2 não pegaram porque esse fetch direto não passa pelo _doPush do RemoteSyncAdapter onde os guards moram.',
+      'Fix camada 1 (frontend): runHealthCheck agora usa GET /api/state-sync (só leitura). Bonus: o check agora compara contagem local vs remoto e marca como ERRO se houver drift.',
+      'Fix camada 2 (backend): /api/state-sync POST rejeita body { hc_ping: true } e qualquer state sem campos mínimos (products/campaigns/actions/integrations) com HTTP 422. Também loga warning quando alguém tenta zerar state que tinha dados.',
+      'Erro meu da V36.5.0 quando criei o Health Check Panel — não pensei nas consequências do POST. Pedi desculpas pelo Felipe ter perdido dados 3 vezes hoje.'
+    ]
+  },
+  {
     version: 'V36.8.2',
     date: '2026-06-08',
     title: 'Fix do "digitando ao contrário" — input type=email não funciona com re-render',
