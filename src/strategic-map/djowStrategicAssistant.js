@@ -291,11 +291,11 @@ window.DjowStrategicAssistant = {
     if (missing.length === 0 && productKrs.length > 0) {
       veredito = alerts.length
         ? 'As 3 frentes têm números, mas há ponto de atenção acima.'
-        : 'As 3 frentes cobertas e metas coerentes. Pode avançar pra escolher a campanha (Etapa 4).';
+        : 'As 3 frentes cobertas e metas coerentes. Pode avançar pra escolher a campanha e desenhar as ações (Etapa 4).';
     } else if (productKrs.length === 0) {
       veredito = 'Nenhum número definido ainda. Comece pela Marketing — bons exemplos: leads qualificados, MQLs, taxa de conversão da LP.';
     } else {
-      veredito = `Falta cobrir ${missing.map(f => f.area.label).join(' e ')}. Sem cobertura completa, a campanha vai chegar na Etapa 5 sem o que plugar nessa(s) frente(s).`;
+      veredito = `Falta cobrir ${missing.map(f => f.area.label).join(' e ')}. Sem cobertura completa, a campanha vai chegar na Etapa 4 sem o que plugar nessa(s) frente(s).`;
     }
 
     return `Números por frente:\n\n${checklist}${alerts.length ? `\n\n${alerts.join('\n\n')}` : ''}\n\n${veredito}`;

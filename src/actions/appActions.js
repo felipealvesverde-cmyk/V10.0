@@ -6518,9 +6518,9 @@ Object.assign(Actions, {
   // V32.15.0 — Click numa estação do Pulso da Receita (página Início) abre o
   // Mapa da Receita direto na etapa equivalente. Mapeamento estação→zoom:
   //   produto    → vision     (Etapa 1)
-  //   campanhas  → campaign   (Etapa 4)
-  //   acoes      → operations (Etapa 5)
-  //   execucoes  → execution  (Etapa 6 / Acompanhamento)
+  //   campanhas  → campaign   (Etapa 4 unificada — escolher + ações)
+  //   acoes      → campaign   (Etapa 4 — fundida; era operations)
+  //   execucoes  → execution  (Etapa 5 / Acompanhamento)
   //   receita    → execution  (Receita vive dentro do Acompanhamento)
   // Reusa openStrategicMap[ForCampaign] e sobrescreve o zoom no fim.
   openPulsoStation(productId, stationId) {
@@ -6528,7 +6528,7 @@ Object.assign(Actions, {
     const zoomMap = {
       produto: 'vision',
       campanhas: 'campaign',
-      acoes: 'operations',
+      acoes: 'campaign',
       execucoes: 'execution',
       receita: 'execution'
     };
@@ -8956,12 +8956,14 @@ Object.assign(Actions, {
     const current = StrategicZoomNavigation.current();
     const next = StrategicZoomNavigation.next();
     if (window.DjowStrategicAssistant && App.state.strategicMapProductId) {
+      // V36.10.0 — Etapa "campaign" fundiu Selecionar Campanha + As Ações.
+      // Não há mais handoff entre elas (era passo morto). Handoff de "okrs"
+      // agora aponta direto pro trabalho unificado.
       const handoffMessages = {
         vision:     '✓ Objetivo cravado. Agora vamos atribuir os donos das 3 frentes comerciais.',
         objectives: '✓ Donos definidos. Hora de definir os números que cada frente precisa entregar.',
-        okrs:       '✓ Números prontos. Escolha em qual campanha vai trabalhar agora.',
-        campaign:   '✓ Campanha selecionada. Plugue os números aqui e ative as ações que vão cobrir.',
-        operations: '✓ Ações ativadas. Pronto pra colocar em campo — vamos disparar as tarefas.'
+        okrs:       '✓ Números prontos. Escolha a campanha e desenhe as ações que vão mover esses números.',
+        campaign:   '✓ Ações ativadas. Pronto pra acompanhar — vamos pra Etapa 5.'
       };
       const text = handoffMessages[current];
       if (text) {
@@ -12491,9 +12493,15 @@ Prioridade: ${d.priority}
     App.render();
   },
 
-  // V29.2.0 — Hub etapa 4: gestor clica "Seguir" numa campanha →
-  // troca branch ativa + avança stepper pra etapa 5 (trabalho unificado).
+  // V29.2.0 → V36.10.0 — Etapa 4 (Selecionar Campanha) e 5 (As Ações) fundidas.
+  // selectAndAdvanceCampaign mantém a mesma assinatura pra não quebrar callers
+  // antigos, mas agora SÓ troca a campanha ativa — não muda zoom (continua em
+  // 'campaign'). Sem transition no Djow (cliente continua na mesma etapa).
   selectAndAdvanceCampaign(campaignId) {
+    return Actions.selectStrategicCampaign(campaignId);
+  },
+
+  selectStrategicCampaign(campaignId) {
     const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
     if (!campaign) return;
     App.state.strategicMapProductId = Number(campaign.productId);
@@ -12503,20 +12511,9 @@ Prioridade: ${d.priority}
       StrategicMapEngine.ensureBranchMap(Number(campaignId), Number(campaign.productId));
       StrategicMapEngine.ensureComercialAreas(Number(campaign.productId), Number(campaignId));
     }
-    // V32.5.2 (Leonardo) — Hand-off da etapa 4 (campaign) → 5 (operations).
-    // Esta action é a única forma de transição 4→5; advanceStrategicStep não
-    // passa por aqui, então injetamos hand-off direto.
-    if (window.DjowStrategicAssistant) {
-      DjowStrategicAssistant.append(Number(campaign.productId), {
-        role: 'transition',
-        text: `✓ Campanha "${campaign.name}" selecionada. Plugue os números aqui e ative as ações que vão cobrir.`,
-        thermal: 'orange',
-        ts: new Date().toISOString()
-      });
-    }
-    App.state.strategicMapZoom = 'operations';
+    App.state.strategicMapZoom = 'campaign';
     App.save(); App.render();
-    Utils.toast(`Editando ${campaign.name}. Pluga os números e ações.`);
+    Utils.toast(`Trabalhando em ${campaign.name}.`);
   },
 
   // V29.1.3 — "Executar Métricas" = publicar KRs-mãe pros gestores.

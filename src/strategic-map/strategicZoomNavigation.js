@@ -20,32 +20,33 @@ window.StrategicZoomNavigation = {
   // titleQ: versão como pergunta/convite pro título do _stepIntro (uniformiza
   // ritmo conversacional do mapa — antes era mix de pergunta/afirmação/comando).
   LEVELS: [
-    // V32.5.4 (Leonardo) — Etapa 1 vira 'slate' (cinza-azulado, frio puro)
-    // pra diferenciar do violet+purple+fuchsia da V32.5.2. Antes as 3
-    // primeiras viviam no mesmo eixo magenta — trilha "esquentava" mesmo só
-    // a partir da etapa 4. Agora começa estrategicamente frio, esquenta
-    // progressivamente sem ambiguidade.
+    // V32.5.4 (Leonardo) — Etapa 1 vira 'slate'.
+    // V36.10.0 — Etapas antigas "Selecionar Campanha" (4ª) + "As ações" (5ª)
+    // FUNDIDAS na nova "Campanha" (id: campaign). Selecionar era passo morto
+    // (cliente clicava em "Seguir" só pra mudar contexto). Agora seleção e
+    // trabalho viram um gesto só na mesma tela. Total: 6 → 5 etapas.
     { id: 'vision',     label: 'Objetivo do Produto', short: 'Objetivo',  icon: 'star',       description: 'Aonde esse produto chega nos próximos 12 meses.', thermal: 'slate',   word: 'visão',     titleQ: 'Qual é o objetivo do seu produto?' },
     { id: 'objectives', label: 'Comercial',           short: 'Comercial', icon: 'flag',       description: 'As 3 frentes do funil: Marketing, Vendas e CS.',           thermal: 'violet',  word: 'donos',     titleQ: 'Quem responde por cada frente comercial?' },
     { id: 'okrs',       label: 'Os números',          short: 'Números',   icon: 'target',     description: 'Como saber que cada frente está performando.',             thermal: 'fuchsia', word: 'metas',     titleQ: 'Quais são os números deste produto?' },
-    { id: 'campaign',   label: 'Selecionar Campanha', short: 'Campanha',  icon: 'git-branch', description: 'Escolha em qual campanha vai trabalhar agora.',            thermal: 'pink',    word: 'escolha',   titleQ: 'Em qual campanha você quer trabalhar?' },
-    { id: 'operations', label: 'As ações',            short: 'Ações',     icon: 'plug',       description: 'O que a operação faz pra mover esses números.',            thermal: 'orange',  word: 'trabalho',  titleQ: 'Como você vai cobrir esses números?' },
+    { id: 'campaign',   label: 'Campanha',            short: 'Campanha',  icon: 'plug',       description: 'Escolha a campanha e desenhe as ações que vão mover os números.', thermal: 'orange',  word: 'trabalho',  titleQ: 'Em qual campanha você vai trabalhar e como?' },
     { id: 'execution',  label: 'Acompanhamento',      short: 'Acompanhamento', icon: 'activity', description: 'Como cada número e cada ação está performando no provider operacional.', thermal: 'amber', word: 'pós-execução', titleQ: 'Acompanhamento em campo' }
   ],
 
-  // V36.9.0 — Receita = etapa 'operations' (5ª). 'execution' é pós-receita
-  // (acompanhamento), não passo até receita.
+  // V36.10.0 — Receita = etapa 'campaign' (4ª, antiga 5ª). 'execution' continua
+  // pós-receita (acompanhamento).
   // Retorno: number = passos faltam; 0 = chegou; -1 = já passou (pós-receita); null = inválido.
   stepsUntilRevenue(stepId) {
     const idx = this.LEVELS.findIndex(l => l.id === stepId);
     if (idx < 0) return null;
-    const revenueIdx = this.LEVELS.findIndex(l => l.id === 'operations');
+    const revenueIdx = this.LEVELS.findIndex(l => l.id === 'campaign');
     if (revenueIdx < 0) return null;
     if (idx > revenueIdx) return -1;
     return revenueIdx - idx;
   },
 
-  _aliasMap: { strategy: 'vision', flows: 'operations', actions: 'operations' },
+  // V36.10.0 — 'operations' (id antigo da Etapa 5) vira alias pra 'campaign'.
+  // Código legado que seta zoom='operations' continua funcionando.
+  _aliasMap: { strategy: 'vision', flows: 'campaign', actions: 'campaign', operations: 'campaign' },
 
   current() {
     const raw = App.state.strategicMapZoom || 'vision';

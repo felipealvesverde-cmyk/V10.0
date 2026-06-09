@@ -2164,7 +2164,7 @@ window.StrategicMapModal = {
     // pendente mostra cor térmica SUTIL (10% opacity) — cliente vê de longe
     // a TRILHA esquentando até o dourado da Receita.
     return `<div class="rounded-3xl border border-white/10 p-3 sticky top-0 z-10" style="background: rgba(7, 19, 38, 0.92); backdrop-filter: blur(12px);">
-      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
         ${StrategicZoomNavigation.LEVELS.map((level, i) => {
           const done = progress[level.id];
           const active = current === level.id;
@@ -2214,7 +2214,10 @@ window.StrategicMapModal = {
     if (stepId === 'objectives') return this._stepObjectives(product);
     if (stepId === 'campaign')   return this._stepCampaign(product);
     if (stepId === 'okrs')       return this._stepOkrs(product);
-    if (stepId === 'operations') return this._stepOperations(product);
+    // V36.10.0 — 'operations' fundido em 'campaign' via alias do ZoomNavigation.
+    // current() já retorna 'campaign' quando state.zoom='operations'; este
+    // branch só é alcançado se alguém chamar _stepContent direto com 'operations'.
+    if (stepId === 'operations') return this._stepCampaign(product);
     if (stepId === 'execution')  return this._stepExecution(product);
     return this._stepVision(product);
   },
@@ -2508,11 +2511,11 @@ window.StrategicMapModal = {
     return `<section class="space-y-4 rounded-3xl border p-6 shadow-md" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
       ${this._stepIntroLight(
         'Quais são os números de cada frente do Comercial?',
-        'O número é o que conecta sua estratégia com a execução. Você define aqui, na Etapa 5 liga ações que prometem mover ele, e quando rodam o número se preenche — o produto sabe se cresceu. Sem número, ação rola sem alvo.',
+        'O número é o que conecta sua estratégia com a execução. Você define aqui, na Etapa 4 liga ações que prometem mover ele, e quando rodam o número se preenche — o produto sabe se cresceu. Sem número, ação rola sem alvo.',
         'target',
         null,
         'okrs-kr-mae',
-        'O ciclo do número (KR):\n\n1. AQUI (Etapa 3) — você define o número e a meta (segura + avançada).\n2. NA ETAPA 5 — você liga ações que prometem mover esse número.\n3. QUANDO AS AÇÕES RODAM — o sistema mede quanto cada uma contribuiu (chamamos isso de "rollup": cada campanha alimenta uma parte do total).\n4. NA ETAPA 6 — você vê o saldo: "essa ação deu +50 leads, essa outra deu zero".\n\nPor isso precisa cobrir as 3 frentes (Marketing → Vendas → CS): se só Marketing tem número, gera leads que ninguém vê chegar em Vendas, ninguém vê virar cliente.'
+        'O ciclo do número (KR):\n\n1. AQUI (Etapa 3) — você define o número e a meta (segura + avançada).\n2. NA ETAPA 4 — você escolhe a campanha, pluga o número nela e liga ações que prometem mover.\n3. QUANDO AS AÇÕES RODAM — o sistema mede quanto cada uma contribuiu (chamamos isso de "rollup": cada campanha alimenta uma parte do total).\n4. NA ETAPA 5 — você vê o saldo: "essa ação deu +50 leads, essa outra deu zero".\n\nPor isso precisa cobrir as 3 frentes (Marketing → Vendas → CS): se só Marketing tem número, gera leads que ninguém vê chegar em Vendas, ninguém vê virar cliente.'
       )}
       ${this._pulseProductBannerLight(product)}
       ${orphans.length ? `<div class="rounded-xl bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800">⚠ ${orphans.length} número(s) em branches sem KR-mãe correspondente. Crie a mãe pra ativar o rollup.</div>` : ''}
@@ -2663,7 +2666,7 @@ window.StrategicMapModal = {
     const tone = area.color;
     return `<div>
       <p class="text-[11px] font-bold text-slate-900 mb-1">Sugestões pra ${Utils.escape(area.label)}</p>
-      <p class="text-[11px] text-stone-600 mb-3 leading-relaxed">Ative uma → defina a meta → na Etapa 5 você liga ações pra mover ela.</p>
+      <p class="text-[11px] text-stone-600 mb-3 leading-relaxed">Ative uma → defina a meta → na Etapa 4 você liga ações pra mover ela.</p>
       ${availableCurated.length ? `
         <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">Sugeridos pelo LJ</p>
         <div class="flex flex-wrap gap-1.5 ${availableLearned.length ? 'mb-3' : ''}">
@@ -3434,9 +3437,127 @@ window.StrategicMapModal = {
   // -------------------- STEP 4: CAMPANHA (NOVA V29.1.0) --------------------
   // Onde o gestor pluga KRs-mãe do produto na campanha (cria KRs-filhos com meta).
   // CEO vê locked com banner explicando.
+  // V36.10.0 — Etapa 4 unificada (era hub na Etapa 4 + trabalho na Etapa 5).
+  // Cliente vê seletor compacto de campanhas no topo + trabalho da campanha
+  // ativa abaixo (KRs plugados + ações por frente). Trocar campanha = trocar
+  // contexto sem mudar etapa.
   _stepCampaign(product) {
-    // V31.2.6 — Sem bifurcação CEO/Gestor. Sempre renderiza o hub.
-    return this._stepCampaignHub(product);
+    const productKrs = StrategicMapEngine.getProductKrs(product.id);
+    const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(product.id) : [];
+    const desplugadas = StrategicMapEngine.getDesplugedCampaigns ? StrategicMapEngine.getDesplugedCampaigns(product.id) : [];
+    const activeCampaignId = App.state.strategicMapCampaignId;
+    const activeCampaign = activeCampaignId ? (App.state.campaigns || []).find(c => Number(c.id) === Number(activeCampaignId)) : null;
+    const hasKrs = productKrs.length > 0;
+
+    if (!hasKrs) {
+      return `<section class="space-y-4 rounded-3xl border p-6 shadow-md" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+        ${this._stepIntroLight(
+          'Em qual campanha você vai trabalhar e como?',
+          'Antes de seguir, você precisa ter números definidos na Etapa 3.',
+          'plug',
+          null,
+          'campaign-unified',
+          'Cada campanha é uma APOSTA pra entregar os números do produto. Várias podem rodar ao mesmo tempo, cada uma contribuindo parte (rollup). Aqui você escolhe uma e desenha as ações que vão mover os números nela.'
+        )}
+        <div class="rounded-2xl bg-amber-50 border border-amber-200 p-5">
+          <p class="font-black text-amber-900 mb-1">⚠ Sem números do produto.</p>
+          <p class="text-[12px] text-amber-800">Volte pra Etapa 3 (Os Números) e defina pelo menos 1 número em cada frente. Sem KRs-mãe, a campanha não tem o que cobrir.</p>
+          <button onclick="event.stopPropagation(); Actions.setStrategicZoom('okrs')" class="mt-3 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+            <i data-lucide="arrow-left" class="w-3 h-3"></i> Ir pra Etapa 3
+          </button>
+        </div>
+      </section>`;
+    }
+
+    return `<section class="space-y-4 rounded-3xl border p-6 shadow-md" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+      ${this._stepIntroLight(
+        'Em qual campanha você vai trabalhar e como?',
+        'Escolha uma campanha no seletor abaixo e desenhe as ações que vão mover os números (definidos na Etapa 3).',
+        'plug',
+        'campaign',
+        'campaign-unified',
+        'Cada campanha é uma APOSTA pra entregar os números do produto. Várias podem rodar ao mesmo tempo, cada uma contribuindo parte (rollup pra o número-mãe).\n\nAqui você:\n1. Escolhe qual campanha trabalhar\n2. Pluga os números-mãe que essa campanha vai contribuir (define meta local)\n3. Liga ações táticas (Tráfego Pago, Webinar, etc.) que prometem mover esses números\n4. Quando as ações rodam, o rollup soma a contribuição e alimenta o número do produto.'
+      )}
+
+      ${this._campaignSelectorLight(product, branches, desplugadas, activeCampaignId)}
+
+      ${activeCampaign
+        ? this._campaignWorkBodyLight(product, activeCampaign, productKrs)
+        : `<div class="rounded-2xl bg-white/70 border border-stone-200 p-5 text-center">
+            <i data-lucide="git-branch" class="w-8 h-8 text-stone-400 mx-auto mb-2"></i>
+            <p class="text-[13px] text-slate-900 font-black mb-1">Selecione uma campanha acima pra começar</p>
+            <p class="text-[12px] text-stone-600">Você precisa apontar qual campanha vai trabalhar antes de plugar números e ligar ações.</p>
+          </div>`
+      }
+
+      ${activeCampaign ? this._stepCtaLight('Próximo passo: Acompanhamento', this._anyActionConnectedInBranch(activeCampaignId), 'campaign') : ''}
+    </section>`;
+  },
+
+  // V36.10.0 — Seletor compacto de campanhas no topo da Etapa 4. Plugadas vêm
+  // como cards horizontais com nome + status; desplugadas em chip mais sutil;
+  // botão "+ Nova campanha" sempre no fim. Click numa campanha troca a ativa.
+  _campaignSelectorLight(product, branches, desplugadas, activeCampaignId) {
+    return `<div class="rounded-2xl bg-white/70 border border-stone-200 p-3 shadow-sm">
+      <p class="text-[10px] font-bold text-stone-500 uppercase tracking-wider mb-2">Campanhas do produto</p>
+      <div class="flex flex-wrap gap-2 items-center">
+        ${branches.map(b => {
+          const c = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
+          if (!c) return '';
+          const isActive = Number(activeCampaignId) === Number(b.campaignId);
+          return `<button onclick="event.stopPropagation(); Actions.selectStrategicCampaign(${b.campaignId})" class="px-3 py-2 rounded-xl border text-[12px] font-bold inline-flex items-center gap-2 transition ${isActive ? 'bg-slate-900 border-slate-900 text-white shadow-md' : 'bg-white border-stone-300 text-slate-900 hover:bg-stone-50'}" ${isActive ? 'style="color:#fff!important;"' : ''}>
+            <i data-lucide="git-branch" class="w-3.5 h-3.5"></i>
+            <span>${Utils.escape(c.name)}</span>
+            ${isActive ? '<i data-lucide="check" class="w-3 h-3"></i>' : ''}
+          </button>`;
+        }).join('')}
+        ${desplugadas.length > 0 ? `<span class="text-stone-300">·</span>${desplugadas.map(c => `<button onclick="event.stopPropagation(); Actions.activateStrategicMapForCampaign(${c.id})" title="Ativar Mapa nessa campanha" class="px-3 py-2 rounded-xl border border-dashed border-stone-300 bg-stone-50/50 text-stone-600 hover:text-slate-900 hover:bg-stone-100 text-[12px] font-bold inline-flex items-center gap-1.5">
+          <i data-lucide="git-branch" class="w-3.5 h-3.5"></i>
+          ${Utils.escape(c.name)}
+          <span class="text-[9px] uppercase opacity-70">ativar</span>
+        </button>`).join('')}` : ''}
+        <button onclick="event.stopPropagation(); Actions.openCreateNewCampaignPopup()" title="Criar nova campanha pro produto" class="px-3 py-2 rounded-xl border-2 border-dashed border-violet-300 bg-violet-50/50 text-violet-700 hover:bg-violet-100 text-[12px] font-bold inline-flex items-center gap-1.5">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nova campanha
+        </button>
+      </div>
+    </div>`;
+  },
+
+  // V36.10.0 — Body de trabalho da campanha selecionada (era o miolo do
+  // _stepOperations). Header da campanha ativa + sync ClickUp + stack vertical
+  // das 3 frentes.
+  _campaignWorkBodyLight(product, campaign, productKrs) {
+    const campaignId = campaign.id;
+    const attrCache = App.state.actionAttributionsCache;
+    if (!attrCache?.loadedAt && !attrCache?.loading && window.Actions?.loadActionAttributions) {
+      setTimeout(() => Actions.loadActionAttributions(30), 0);
+    }
+    if (window.Actions?._autoSyncClickupTasksOnce) {
+      Actions._autoSyncClickupTasksOnce(`mapa-etapa4-${campaignId}`);
+    }
+    const clickupTaskCount = window.ExecutionTaskStore
+      ? (ExecutionTaskStore.all() || []).filter(t => t.provider === 'clickup' && t.provider_task_id).length
+      : 0;
+    const lastSyncAt = App.state.clickupLastSyncAt;
+    let lastSyncLabel = '';
+    if (lastSyncAt) {
+      const minsAgo = Math.floor((Date.now() - lastSyncAt) / 60000);
+      lastSyncLabel = minsAgo < 1 ? '· há segundos' : minsAgo < 60 ? `· há ${minsAgo}min` : `· há ${Math.floor(minsAgo / 60)}h`;
+    }
+    const syncBtn = (clickupTaskCount > 0 && App.state.clickupStatus?.connected) ? `
+      <div class="flex justify-end">
+        <button onclick="Actions.syncClickupTaskStatuses(false)" title="Atualizar status das ${clickupTaskCount} task(s) ClickUp"
+          class="px-3 py-2 rounded-xl bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 text-[11px] font-black uppercase tracking-wider inline-flex items-center gap-1.5">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sincronizar ${clickupTaskCount} task${clickupTaskCount === 1 ? '' : 's'} do ClickUp
+          ${lastSyncLabel ? `<span class="text-stone-500 font-normal normal-case ml-1">${lastSyncLabel}</span>` : ''}
+        </button>
+      </div>` : '';
+
+    return `<div class="space-y-3">
+      ${this._unifiedWorkCampaignHeader(product, campaign)}
+      ${syncBtn}
+      ${this._frenteStackVertical(product, productKrs, campaignId)}
+    </div>`;
   },
 
   // V29.2.0 — Hub: lista TODAS as campanhas do produto. Gestor seleciona uma
@@ -5839,12 +5960,14 @@ window.StrategicMapModal = {
 
   // V36.9.2 — Cada handoff (gerado em advanceStrategicStep) tem um texto
   // canônico. Mapeia "✓ X cravado" → step de chegada.
+  // V36.10.0 — "Campanha selecionada" ainda mapeia (legado em chats antigos);
+  // como 'operations' aliasou pra 'campaign', filtro o target final como 'campaign'.
   _transitionTargetStep(text) {
     const t = String(text || '');
     if (/Objetivo cravado/i.test(t)) return 'objectives';
     if (/Donos definidos/i.test(t)) return 'okrs';
     if (/Números prontos/i.test(t)) return 'campaign';
-    if (/Campanha.*selecionada/i.test(t)) return 'operations';
+    if (/Campanha.*selecionada/i.test(t)) return 'campaign';
     if (/Ações ativadas/i.test(t)) return 'execution';
     return null;
   },
@@ -5961,8 +6084,9 @@ window.StrategicMapModal = {
         intro = 'Pra fechar a Etapa 3:';
       }
     } else {
+      // V36.10.0 — campaign engloba o trabalho da Etapa 4 unificada.
       const hintsByStep = {
-        operations: ['Posso conectar uma ação a múltiplos números?', 'Como saber se uma ação serve esse número?', 'Não tenho ações ainda'],
+        campaign:   ['Como escolho a campanha certa?', 'Posso conectar uma ação a múltiplos números?', 'Não tenho campanhas — e agora?'],
         execution:  ['Para onde a tarefa vai?', 'Como configurar ClickUp?', 'Tarefa criada não aparece no provider']
       };
       const list = hintsByStep[stepId] || [];
