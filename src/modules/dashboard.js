@@ -14,7 +14,8 @@ var DashboardModule = {
           alunos:       () => window.AlunosModule        ? `<div class="p-2 lg:p-4">${AlunosModule.render()}</div>`        : '<p class="p-6 text-slate-500">AlunosModule não carregado.</p>',
           'meta-ads':   () => window.MetaAdsDashboard    ? `<div class="p-2 lg:p-4">${MetaAdsDashboard.render()}</div>`    : '<p class="p-6 text-slate-500">MetaAdsDashboard não carregado.</p>',
           'google-ads': () => window.GoogleAdsDashboard  ? `<div class="p-2 lg:p-4">${GoogleAdsDashboard.render()}</div>`  : '<p class="p-6 text-slate-500">GoogleAdsDashboard não carregado.</p>',
-          'ga4':        () => window.Ga4Dashboard        ? `<div class="p-2 lg:p-4">${Ga4Dashboard.render()}</div>`        : '<p class="p-6 text-slate-500">Ga4Dashboard não carregado.</p>'
+          'ga4':        () => window.Ga4Dashboard        ? `<div class="p-2 lg:p-4">${Ga4Dashboard.render()}</div>`        : '<p class="p-6 text-slate-500">Ga4Dashboard não carregado.</p>',
+          'tarefas':    () => window.TasksDashboard      ? TasksDashboard.render()                                          : '<p class="p-6 text-slate-500">TasksDashboard não carregado.</p>'
         };
         const body = (renderers[activeTab] || renderers.overview)();
         return this._tabs(activeTab) + body;
@@ -22,6 +23,8 @@ var DashboardModule = {
       _tabs(active) {
         // V35.3.4 — 5 tabs paralelas. Separador visual entre "Checkout" e
         // os dashs externos (Alunos / Meta Ads / Google Ads) pra agrupar.
+        // V36.10.3 — Adicionada tab "Tarefas" no fim com cor RevOps (#AB3ED8).
+        // Visão executiva agnóstica de provider/campanha.
         const tabs = [
           { id: 'overview',    label: 'Visão Geral',  icon: 'layout-dashboard', semantic: null },
           { id: 'checkout',    label: 'Checkout',     icon: 'shopping-cart',    semantic: null },
@@ -29,7 +32,9 @@ var DashboardModule = {
           { id: 'alunos',      label: 'Meus Alunos',  icon: 'graduation-cap',   semantic: 'cs',        color: '#6BBEF9' },
           { id: 'meta-ads',    label: 'Meta Ads',     icon: 'megaphone',        semantic: 'marketing', color: '#F472B6' },
           { id: 'google-ads',  label: 'Google Ads',   icon: 'search',           semantic: 'marketing', color: '#F472B6' },
-          { id: 'ga4',         label: 'GA4',          icon: 'line-chart',       semantic: 'marketing', color: '#F472B6' }
+          { id: 'ga4',         label: 'GA4',          icon: 'line-chart',       semantic: 'marketing', color: '#F472B6' },
+          { sep: true },
+          { id: 'tarefas',     label: 'Tarefas',      icon: 'list-checks',      semantic: 'revops',    color: '#AB3ED8' }
         ];
         return `<div class="px-2 pt-2">
           <div class="inline-flex rounded-2xl bg-slate-100 border border-slate-200 p-1 gap-1 mb-4 flex-wrap items-center">

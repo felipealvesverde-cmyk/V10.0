@@ -403,6 +403,8 @@ var State = {
       subStageActiveFilter: null,
       // V35.1.0 — Tab ativa do Dashboard (overview | checkout) e estado da tab Checkout.
       activeDashboardTab: 'overview',
+      tasksDashboardRange: 'all',     // V36.10.3 — sub-tab Tarefas
+      tasksDashboardProvider: 'all',
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
@@ -1099,6 +1101,8 @@ var State = {
       subStageActiveFilter: null,
       // V35.1.0 — Tab ativa do Dashboard (overview | checkout) e estado da tab Checkout.
       activeDashboardTab: 'overview',
+      tasksDashboardRange: 'all',     // V36.10.3 — sub-tab Tarefas
+      tasksDashboardProvider: 'all',
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart

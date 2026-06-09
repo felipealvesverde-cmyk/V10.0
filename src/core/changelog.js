@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.10.3',
+    date: '2026-06-09',
+    title: 'Dashboard ganhou sub-tab "Tarefas" — visão executiva agnóstica de provider e campanha',
+    bullets: [
+      'Nova sub-tab "Tarefas" no Dashboard (cor violet RevOps #AB3ED8, ícone list-checks). Aparece depois de GA4 com separador. Visão MACRO da execução, agnóstica de provider (ClickUp/Trello/Manual/...) e agnóstica de campanha.',
+      'Conteúdo da dash: 5 stat cards (Total / Em dia / Atrasadas / Concluídas / Sem resp.), distribuição por provider (com badge "ON" no conectado), top 10 responsáveis com carga e breakdown, painéis "Próximas 7 dias" e "Top 5 mais atrasadas".',
+      'Filtros: range temporal (Todas / Próximos 7 dias / Próximos 30 dias / Vencidas) + provider específico.',
+      'Empty state quando não há tasks: CTA pra Configurar provider (Integrações) ou abrir Mapa da Receita pra criar tasks via Etapa 4.',
+      'Reusa o mesmo dataset do Acompanhamento da Etapa 5 (ExecutionTaskStore.all()) — mas aqui é macro, sem filtro de campanha. Útil pra ver gargalos de pessoa, distribuição entre providers e tasks vencidas que precisam de ação imediata.'
+    ]
+  },
+  {
     version: 'V36.10.2',
     date: '2026-06-09',
     title: 'Etapa 5 (Acompanhamento): dashboard adaptado pra tema light — mesma régua das outras etapas',
