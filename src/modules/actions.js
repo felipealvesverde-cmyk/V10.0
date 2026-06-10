@@ -113,14 +113,37 @@ var ActionModule = {
       </div>
       <div><label class="text-xs font-black text-slate-500">Descrição da Ação</label><textarea oninput="App.state.actionDraft.objective=this.value; App.save();" placeholder="Qual sinal esta ação precisa gerar?" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold min-h-[80px]">${Utils.escape(d.objective)}</textarea></div>
       ${this.rdEmailFields ? this.rdEmailFields(d, path) : ''}${this.rdKpiMappingPanel ? this.rdKpiMappingPanel(d) : ''}
-      <div class="rounded-3xl bg-slate-50 border border-slate-100 p-4"><div class="flex items-center justify-between gap-3 mb-3"><div><h3 class="font-black">Mailing definido?</h3><p class="text-xs text-slate-500">Ligue para inserir uma base de mailing nesta ação.</p></div><div class="flex rounded-2xl bg-white border border-slate-200 p-1"><button onclick="Actions.setMailingDefined(true)" class="px-4 py-2 rounded-xl text-xs font-black ${d.mailingDefined ? 'bg-slate-900 text-white' : 'text-slate-500'}">Sim</button><button onclick="Actions.setMailingDefined(false)" class="px-4 py-2 rounded-xl text-xs font-black ${!d.mailingDefined ? 'bg-slate-900 text-white' : 'text-slate-500'}">Não</button></div></div><div class="${d.mailingDefined ? '' : 'opacity-40 pointer-events-none select-none'}"><div class="grid grid-cols-3 gap-2"><button onclick="Actions.setLeadInputMode('manual')" class="px-3 py-2 rounded-2xl text-sm font-black ${d.leadInputMode === 'manual' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700'}">Manual</button><button onclick="Actions.setLeadInputMode('csv')" class="px-3 py-2 rounded-2xl text-sm font-black ${d.leadInputMode === 'csv' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700'}">CSV</button><button onclick="Actions.setLeadInputMode('rd')" class="px-3 py-2 rounded-2xl text-sm font-black ${d.leadInputMode === 'rd' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700'}">RD</button></div><div class="mt-3">${this.leadInput()}</div></div></div>${d.mailingDefined ? this.scorePreview() : '<div class="rounded-3xl bg-slate-50 border border-slate-100 p-4 opacity-50"><h3 class="font-black">Preview de mailing desabilitado</h3><p class="text-sm text-slate-500">Ative “Mailing definido?” para inserir base e visualizar o score.</p></div>'}
+      <div class="rounded-3xl bg-slate-50 border border-slate-100 p-4">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <div>
+            <h3 class="font-black">Mailing definido?</h3>
+            <p class="text-xs text-slate-500">Cole leads ad-hoc aqui (Manual/CSV). Pra base grande com dedup, use o Importador completo.</p>
+          </div>
+          <div class="flex rounded-2xl bg-white border border-slate-200 p-1">
+            <button onclick="Actions.setMailingDefined(true)" class="px-4 py-2 rounded-xl text-xs font-black ${d.mailingDefined ? 'bg-slate-900 text-white' : 'text-slate-500'}">Sim</button>
+            <button onclick="Actions.setMailingDefined(false)" class="px-4 py-2 rounded-xl text-xs font-black ${!d.mailingDefined ? 'bg-slate-900 text-white' : 'text-slate-500'}">Não</button>
+          </div>
+        </div>
+        <div class="${d.mailingDefined ? '' : 'opacity-40 pointer-events-none select-none'}">
+          <button onclick="Actions.openLeadImportModal()" class="w-full mb-3 px-3 py-2.5 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-black flex items-center justify-center gap-2 hover:bg-indigo-100">
+            <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> Abrir Importador completo (base grande · dedup · validação · RD real)
+          </button>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="Actions.setLeadInputMode('manual')" class="px-3 py-2 rounded-2xl text-sm font-black ${d.leadInputMode === 'manual' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700'}">Manual</button>
+            <button onclick="Actions.setLeadInputMode('csv')" class="px-3 py-2 rounded-2xl text-sm font-black ${d.leadInputMode === 'csv' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700'}">CSV</button>
+          </div>
+          <div class="mt-3">${this.leadInput()}</div>
+        </div>
+      </div>${d.mailingDefined ? this.scorePreview() : '<div class="rounded-3xl bg-slate-50 border border-slate-100 p-4 opacity-50"><h3 class="font-black">Preview de mailing desabilitado</h3><p class="text-sm text-slate-500">Ative "Mailing definido?" para inserir base e visualizar o score.</p></div>'}
       <button onclick="Actions.createAction()" style="color:#fff!important;" class="w-full px-5 py-3 rounded-2xl bg-slate-900 text-white font-black lj-dark-button">Criar ação plugada</button>
     </div>`;
   },
   okrRow(okr, index) { return `<div class="grid grid-cols-[1fr_74px_74px_auto] gap-2"><input value="${Utils.escape(okr.name)}" oninput="Actions.updateActionDraftOkr(${index}, 'name', this.value)" placeholder="Nome do KPI" class="w-full px-3 py-2.5 rounded-2xl bg-white border border-slate-200 font-semibold text-sm" /><input value="${Utils.escape(okr.target || '')}" oninput="Actions.updateActionDraftOkr(${index}, 'target', this.value)" placeholder="Meta" class="w-full px-3 py-2.5 rounded-2xl bg-white border border-slate-200 font-black text-sm" /><input value="${Utils.escape(okr.current || '')}" oninput="Actions.updateActionDraftOkr(${index}, 'current', this.value)" placeholder="Atual" class="w-full px-3 py-2.5 rounded-2xl bg-white border border-slate-200 font-black text-sm" /><button onclick="Actions.removeActionDraftOkr(${index})" class="px-3 py-2 rounded-2xl bg-white border border-slate-200 text-red-500 font-black">×</button></div>`; },
   leadInput() {
     if (App.state.actionDraft.leadInputMode === 'csv') return `<div class="rounded-3xl bg-slate-50 border border-slate-100 p-4"><div class="flex gap-2 mb-3"><button onclick="Actions.downloadCsvTemplate()" class="px-3 py-2 rounded-2xl bg-white border border-slate-200 font-bold text-sm">Modelo</button><label class="px-3 py-2 rounded-2xl bg-slate-900 text-white font-bold text-sm cursor-pointer">Selecionar CSV<input type="file" accept=".csv" class="hidden" onchange="Actions.handleActionCSV(event)" /></label></div>${this.leadTextArea()}</div>`;
-    if (App.state.actionDraft.leadInputMode === 'rd') return `<div class="rounded-3xl bg-slate-50 border border-slate-100 p-4"><label class="text-xs font-black text-slate-500">Lista RD</label><input value="${Utils.escape(App.state.actionDraft.rdListName)}" oninput="App.state.actionDraft.rdListName=this.value; App.save();" placeholder="Ex: Lista RD - Maio" class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold mb-3" /><button onclick="Actions.importFromRDMock()" class="w-full px-4 py-3 rounded-2xl bg-slate-900 text-white font-black mb-3">Simular importação RD</button>${this.leadTextArea()}</div>`;
+    // V37.0.7 — Modo "RD" removido. Era mock (`importFromRDMock`) que injetava
+    // 2 leads fictícios. Pra RD real, cliente usa o Importador completo
+    // (atalho "Abrir Importador completo" no topo do bloco mailing).
     return `<div class="rounded-3xl bg-slate-50 border border-slate-100 p-4"><div class="flex items-center justify-between gap-2 mb-3"><p class="text-sm text-slate-500">Formato: nome, email, telefone, tags</p><button onclick="Actions.loadLeadExample()" class="px-3 py-2 rounded-2xl bg-white border border-slate-200 font-bold text-sm">Exemplo</button></div>${this.leadTextArea()}</div>`;
   },
   leadTextArea() { return `<textarea oninput="App.state.actionDraft.leadsText=this.value; App.save();" placeholder="Nome do Lead, email@empresa.com, 48999999999, #tag_exemplo" class="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 font-semibold min-h-[150px]">${Utils.escape(App.state.actionDraft.leadsText)}</textarea>`; },

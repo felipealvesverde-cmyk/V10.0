@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.7',
+    date: '2026-06-10',
+    title: 'Limpeza de código morto — Setor da Campanha + modo RD do mailing (mock) saem',
+    bullets: [
+      'Campo "Setor onde nasce" REMOVIDO da criação e edição de Campanha (menu lateral). Era vestigial — a campanha hoje é cross-frente (Marketing+Vendas+CS simultâneos no Mapa Etapa 4). O setor que importa é da AÇÃO, não da campanha. State antigo preserva backward compat.',
+      'Card de listagem de campanha (na tela de Produto) trocou a coluna "Setor: Marketing" por "Mídia: R$ X" (investmentMedia) — info útil pra leitura executiva.',
+      'Modo "RD" do mailing da Ação REMOVIDO. Era stub (`importFromRDMock`) que carregava 2 leads fictícios "Lead RD 1" e "Lead RD 2" sem conectar com a integração RD real. Confundia cliente.',
+      'No lugar, atalho novo "→ Abrir Importador completo (base grande · dedup · validação · RD real)" no topo do bloco Mailing, que abre o Lead Import Wizard 4 steps (V35.3.7) — caminho moderno com dedup e validação.',
+      'Botões de modo agora são 2 (Manual / CSV) em vez de 3 — mais simétrico, sem armadilha.',
+      'Defensivo: setLeadInputMode rejeita "rd" e cai pra "manual" pra cobrir state legacy.'
+    ]
+  },
+  {
     version: 'V37.0.6',
     date: '2026-06-10',
     title: 'Download PDF dos snapshots — fecha a master V37 (Fechamento end-to-end)',
