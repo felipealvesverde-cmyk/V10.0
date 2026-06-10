@@ -7759,6 +7759,11 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  toggleRevopsDreCardMenu(lineId) {
+    App.state.revopsDreCardMenuOpen = (App.state.revopsDreCardMenuOpen === lineId) ? null : lineId;
+    App.save(); App.render();
+  },
+
   // V36.11.0 — Filtros da Visão Geral consolidada.
   setOverviewRange(range) {
     const valid = ['7d', '30d', '90d'];

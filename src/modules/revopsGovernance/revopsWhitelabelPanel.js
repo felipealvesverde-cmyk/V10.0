@@ -1575,69 +1575,113 @@
       </div>`;
     },
 
-    // V36.12.0 — Linha individual de dedução (deduções flat). Igual extra
-    // card mas com label "(−)" em vez de seletor de signal (deduções sempre
-    // subtraem). Variáveis dos Custos viram read-only chips; deducoes_inside
-    // extras viram cards editáveis com input de fórmula.
+    // V36.12.1 — Cards GRID 3-col no padrão Etapa 3 do Mapa (KR-mãe style).
+    // Cada dedução vira card vertical com nome, fórmula, valor calculado e
+    // engrenagem com menu (Djow ajuda + Remover). Slot dashed pra
+    // "Adicionar dedução" no fim do grid.
     _dreFlatDeducoes(productId, variableItems, insideExtras) {
-      const items = [];
+      const cards = [];
+      variableItems.forEach(it => cards.push(this._dreDeducaoCardReadOnly(it)));
+      insideExtras.forEach(l => cards.push(this._dreDeducaoCardEditable(productId, l)));
+      cards.push(this._dreAddDeducaoCard(productId, variableItems.length + insideExtras.length));
 
-      variableItems.forEach(it => {
-        items.push(`<div class="rounded-2xl border border-stone-200 bg-white/40 px-3 py-2 flex items-center justify-between gap-2">
-          <span class="text-[12px] text-stone-700 inline-flex items-center gap-2">
-            <span class="text-rose-600 font-black">−</span>
-            ${Utils.escape(it.name)}
-            <span class="text-[10px] text-stone-400">de Custos · ${Utils.escape(it.groupLabel)}</span>
-          </span>
-          <span class="text-rose-700 font-bold text-[12px] whitespace-nowrap">${this._money(it.value)}</span>
-        </div>`);
-      });
-
-      insideExtras.forEach(l => {
-        const isSelected = this._isDjowSelected(productId, l.id);
-        const selectedRing = isSelected ? 'ring-2 ring-violet-400 ring-offset-1 ring-offset-[#f5f3f0]' : '';
-        items.push(`<div class="rounded-2xl border border-stone-200 bg-white/70 ${selectedRing} px-3 py-2 grid items-center gap-2" style="grid-template-columns: 18px 1fr 1.2fr 100px 28px 28px;">
-          <span class="text-rose-600 font-black text-center">−</span>
-          <input value="${Utils.escape(l.name)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Ex: ISS, Comissão" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[12px] font-bold text-slate-800" />
-          <input value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', 'deducoes_inside')" placeholder="6000 ou =vendas*5" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[12px] font-mono text-slate-800" />
-          <span class="text-right text-rose-700 font-bold text-[12px] whitespace-nowrap">−${this._money(l.value)}</span>
-          <button onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', 'deducoes_inside')" title="Pedir ajuda do Djow" class="px-1.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 inline-flex items-center justify-center"><i data-lucide="sparkles" class="w-3 h-3"></i></button>
-          <button onclick="Actions.deleteDreExtraLine('${productId}', '${l.id}')" title="Remover" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
-        </div>`);
-      });
-
-      if (!variableItems.length && !insideExtras.length) {
-        items.push(`<div class="rounded-2xl border border-dashed border-stone-300 bg-white/30 px-3 py-3 text-center text-[11px] text-stone-500 italic">
-          Nenhuma dedução cadastrada ainda. Use <b>+ Inserir dedução</b> abaixo, ou cadastre custos variáveis em <b>Custos</b>.
-        </div>`);
-      }
-
-      items.push(`<div class="flex justify-start">
-        <button onclick="Actions.addDreExtraLine('${productId}', 'deducoes_inside')" type="button" class="text-[11px] text-violet-700 hover:text-violet-900 font-black inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100">
-          <span class="text-sm leading-none">＋</span> Inserir dedução
-        </button>
-      </div>`);
-
-      return `<div class="space-y-1.5 pl-1 border-l-2 border-rose-200 ml-1">
-        <p class="text-[10px] font-black text-rose-700 uppercase tracking-widest pl-2">Deduções</p>
-        ${items.join('')}
+      return `<div class="space-y-2 pl-1 border-l-2 border-rose-200 ml-1">
+        <div class="flex items-center justify-between pl-2 pr-1">
+          <p class="text-[10px] font-black text-rose-700 uppercase tracking-widest">Deduções</p>
+          <p class="text-[10px] text-stone-500">${variableItems.length + insideExtras.length} item(ns)</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pl-2 pr-1">
+          ${cards.join('')}
+        </div>
       </div>`;
     },
 
+    _dreDeducaoCardReadOnly(it) {
+      return `<div class="rounded-2xl border border-stone-200 bg-white/50 p-3 flex flex-col gap-2 min-h-[110px]">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-[11px] font-black text-slate-900 truncate">${Utils.escape(it.name)}</p>
+            <p class="text-[9px] text-stone-500 uppercase tracking-widest mt-0.5">Custos · ${Utils.escape(it.groupLabel)}</p>
+          </div>
+          <span class="px-1.5 py-0.5 rounded-md bg-stone-100 border border-stone-200 text-[9px] font-black text-stone-600 shrink-0">read-only</span>
+        </div>
+        <div class="mt-auto">
+          <span class="text-rose-700 font-black text-base whitespace-nowrap">−${this._money(it.value)}</span>
+        </div>
+      </div>`;
+    },
+
+    _dreDeducaoCardEditable(productId, l) {
+      const isSelected = this._isDjowSelected(productId, l.id);
+      const selectedRing = isSelected ? 'ring-2 ring-violet-400 ring-offset-1 ring-offset-[#f5f3f0]' : '';
+      const menuOpen = App.state.revopsDreCardMenuOpen === l.id;
+      return `<div class="rounded-2xl border border-stone-200 bg-white/80 ${selectedRing} p-3 flex flex-col gap-2 min-h-[110px] relative">
+        <div class="flex items-start justify-between gap-2">
+          <input value="${Utils.escape(l.name)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Nome da dedução" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
+          <button onclick="Actions.toggleRevopsDreCardMenu('${l.id}')" class="px-1.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 shrink-0" title="Opções">
+            <i data-lucide="settings" class="w-3 h-3"></i>
+          </button>
+          ${menuOpen ? `<div class="absolute top-10 right-2 z-20 rounded-xl bg-white border border-stone-200 shadow-lg p-1 min-w-[140px]">
+            <button onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', 'deducoes_inside'); Actions.toggleRevopsDreCardMenu('${l.id}');" class="w-full text-left px-2 py-1.5 rounded-lg hover:bg-violet-50 text-[11px] text-violet-700 font-bold inline-flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3 h-3"></i> Djow ajuda
+            </button>
+            <button onclick="Actions.deleteDreExtraLine('${productId}', '${l.id}')" class="w-full text-left px-2 py-1.5 rounded-lg hover:bg-rose-50 text-[11px] text-rose-700 font-bold inline-flex items-center gap-1.5">
+              <i data-lucide="trash-2" class="w-3 h-3"></i> Remover
+            </button>
+          </div>` : ''}
+        </div>
+        <input value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', 'deducoes_inside')" placeholder="6000 ou =vendas*5" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-mono text-slate-800" />
+        <div class="mt-auto">
+          <span class="text-rose-700 font-black text-base whitespace-nowrap">−${this._money(l.value)}</span>
+        </div>
+      </div>`;
+    },
+
+    _dreAddDeducaoCard(productId, currentCount) {
+      const microcopy = currentCount === 0 ? 'Comece aqui'
+                     : currentCount === 1 ? 'Cobre melhor o funil'
+                     : currentCount === 2 ? 'Adiciona granularidade'
+                     : 'Outra dedução?';
+      return `<button onclick="Actions.addDreExtraLine('${productId}', 'deducoes_inside')" type="button" class="rounded-2xl border-2 border-dashed border-rose-300 bg-rose-50/40 hover:bg-rose-50/80 hover:border-rose-400 p-3 min-h-[110px] flex flex-col items-center justify-center gap-1 text-rose-700 transition">
+        <span class="text-2xl font-black leading-none">＋</span>
+        <span class="text-[11px] font-black">Adicionar dedução</span>
+        <span class="text-[9px] text-rose-600/70">${Utils.escape(microcopy)}</span>
+      </button>`;
+    },
+
+    // V36.12.1 — Extras (S&M, G&A, etc) também viram cards verticais compactos.
     _dreExtraCard(productId, l) {
       const isSelected = this._isDjowSelected(productId, l.id);
       const selectedRing = isSelected ? 'ring-2 ring-violet-400 ring-offset-1 ring-offset-[#f5f3f0]' : '';
       const positive = l.signal === '+';
-      return `<div class="rounded-2xl border border-stone-200 bg-white/70 ${selectedRing} px-3 py-2 grid items-center gap-2" style="grid-template-columns: 32px 1fr 1.2fr 100px 28px 28px;">
-        <select onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'signal', this.value)" class="px-1 py-0.5 rounded-md bg-white border border-stone-300 text-[11px] font-black text-slate-800">
-          <option value="-" ${!positive ? 'selected' : ''}>−</option>
-          <option value="+" ${positive ? 'selected' : ''}>+</option>
-        </select>
-        <input value="${Utils.escape(l.label === '(sem nome)' ? '' : l.label)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Nome (ex: IR, Receita financeira)" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[12px] font-bold text-slate-800" />
-        <input value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', '${l.afterStep}')" placeholder="6000 ou =fat_bruto*0,03" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[12px] font-mono text-slate-800" />
-        <span class="text-right ${positive ? 'text-emerald-700' : 'text-rose-700'} font-bold text-[12px] whitespace-nowrap">${positive ? '+' : '−'}${this._money(l.value)}</span>
-        <button onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', '${l.afterStep}')" title="Pedir ajuda do Djow" class="px-1.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 inline-flex items-center justify-center"><i data-lucide="sparkles" class="w-3 h-3"></i></button>
-        <button onclick="Actions.deleteDreExtraLine('${productId}', '${l.id}')" title="Remover" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
+      const valueColor = positive ? 'text-emerald-700' : 'text-rose-700';
+      const signalLabel = positive ? '+' : '−';
+      const menuOpen = App.state.revopsDreCardMenuOpen === l.id;
+      return `<div class="rounded-2xl border border-stone-200 bg-white/80 ${selectedRing} p-3 flex flex-col gap-2 min-h-[110px] relative w-full sm:max-w-[300px]">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex items-center gap-1 min-w-0 flex-1">
+            <select onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'signal', this.value)" class="px-1 py-0.5 rounded-md bg-white border border-stone-300 text-[11px] font-black text-slate-800 shrink-0">
+              <option value="-" ${!positive ? 'selected' : ''}>−</option>
+              <option value="+" ${positive ? 'selected' : ''}>+</option>
+            </select>
+            <input value="${Utils.escape(l.label === '(sem nome)' ? '' : l.label)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Nome" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
+          </div>
+          <button onclick="Actions.toggleRevopsDreCardMenu('${l.id}')" class="px-1.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 shrink-0">
+            <i data-lucide="settings" class="w-3 h-3"></i>
+          </button>
+          ${menuOpen ? `<div class="absolute top-10 right-2 z-20 rounded-xl bg-white border border-stone-200 shadow-lg p-1 min-w-[140px]">
+            <button onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', '${l.afterStep}'); Actions.toggleRevopsDreCardMenu('${l.id}');" class="w-full text-left px-2 py-1.5 rounded-lg hover:bg-violet-50 text-[11px] text-violet-700 font-bold inline-flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3 h-3"></i> Djow ajuda
+            </button>
+            <button onclick="Actions.deleteDreExtraLine('${productId}', '${l.id}')" class="w-full text-left px-2 py-1.5 rounded-lg hover:bg-rose-50 text-[11px] text-rose-700 font-bold inline-flex items-center gap-1.5">
+              <i data-lucide="trash-2" class="w-3 h-3"></i> Remover
+            </button>
+          </div>` : ''}
+        </div>
+        <input value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', '${l.afterStep}')" placeholder="6000 ou =fat_bruto*0,03" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-mono text-slate-800" />
+        <div class="mt-auto">
+          <span class="${valueColor} font-black text-base whitespace-nowrap">${signalLabel}${this._money(l.value)}</span>
+        </div>
       </div>`;
     },
 
