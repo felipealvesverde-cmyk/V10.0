@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.14.3',
+    date: '2026-06-09',
+    title: 'Custos: cores dos valores seguem a régua design diretor (redução=rose)',
+    bullets: [
+      'Todo item em Custos é uma redução (é custo). Pela regra: valor = ROSE com prefixo "−".',
+      'Cards de item (Builder e Excel): valor "Calculado" passa de slate-900 (neutro) → rose-700 com prefixo "−". Item travado/Auto LJ também.',
+      'Header de grupo: "Total" passa de slate-900 → rose-700.',
+      'Modo Builder com fórmula avançada: valor calculado sempre rose (status da fórmula continua na borda + badge: verde quando ok, amber quando alerta, rose quando erro).',
+      'Resultado: numa olhada o cliente vê que toda a aba Custos é vermelho/redução. Status de saúde da fórmula independente.'
+    ]
+  },
+  {
     version: 'V36.14.2',
     date: '2026-06-09',
     title: 'RevOps KPIs: correção de cores segundo regra do design diretor (redução=rose / adição=emerald)',

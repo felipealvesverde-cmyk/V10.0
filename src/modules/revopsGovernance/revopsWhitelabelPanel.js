@@ -458,7 +458,7 @@
               <span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${tone.iconBg} ${tone.iconText}">${Utils.escape(bucket.label)}</span>
               ${!isLocked ? `<code class="text-[9px] text-stone-400">${group.id}</code>` : '<span class="text-[9px] font-black text-stone-700 uppercase tracking-widest inline-flex items-center gap-1"><i data-lucide="lock" class="w-3 h-3"></i> Trancado</span>'}
             </div>
-            <p class="text-[10px] text-stone-600 mt-1.5 ml-9">${items.length} item${items.length === 1 ? '' : 'ns'} · Total: <b class="text-slate-900">${this._money(total)}</b></p>
+            <p class="text-[10px] text-stone-600 mt-1.5 ml-9">${items.length} item${items.length === 1 ? '' : 'ns'} · Total: <b class="text-rose-700">${this._money(total)}</b></p>
           </div>
           <div class="flex items-center gap-1 shrink-0">
             ${!isLocked
@@ -511,7 +511,7 @@
           <button onclick="Actions.toggleRevopsHandlePicker('${pickerKey}')" type="button" title="Escolha um número para se basear" class="shrink-0 px-1.5 py-1 rounded-lg bg-violet-50 border border-violet-200 hover:bg-violet-100 text-violet-700"><i data-lucide="${pickerOpen ? 'eye-off' : 'eye'}" class="w-3.5 h-3.5"></i></button>
           <div class="text-right shrink-0 w-24">
             <p class="text-[9px] font-black text-stone-500 uppercase tracking-widest">Calculado</p>
-            <p class="text-xs font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
+            <p class="text-xs font-black text-rose-700 whitespace-nowrap">−${this._money(value)}</p>
           </div>
           ${!isCustom ? `<span class="shrink-0 text-amber-600" title="Editar aqui vira fórmula custom (não dá pra voltar pro Builder fácil)"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i></span>` : ''}
           <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" title="Apagar item" class="px-1.5 py-1 rounded-lg bg-white border border-stone-200 hover:bg-rose-50 hover:border-rose-300 text-stone-600 hover:text-rose-700 shrink-0"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
@@ -537,7 +537,7 @@
             </div>
             <div class="text-right shrink-0 px-2.5 py-1 rounded-lg bg-white border border-amber-200">
               <p class="text-[9px] font-black text-amber-700 uppercase tracking-wider">Auto · LJ</p>
-              <p class="text-sm font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
+              <p class="text-sm font-black text-rose-700 whitespace-nowrap">−${this._money(value)}</p>
             </div>
             <div class="px-1.5 py-1 rounded-lg bg-amber-100 border border-amber-300 text-amber-700 shrink-0 self-start" title="Gerenciado pelo LJ (não pode ser removido aqui)">
               <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
@@ -551,7 +551,7 @@
           <input id="lj-revops-item-${item.id}-name" value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome do item" class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800 focus:border-violet-400" />
           <div class="text-right shrink-0 px-2.5 py-1 rounded-lg bg-white border border-stone-200">
             <p class="text-[9px] font-black text-stone-500 uppercase tracking-widest">Calculado</p>
-            <p class="text-sm font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
+            <p class="text-sm font-black text-rose-700 whitespace-nowrap">−${this._money(value)}</p>
           </div>
           <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" title="Apagar item" class="px-1.5 py-1 rounded-lg bg-white border border-stone-200 hover:bg-rose-50 hover:border-rose-300 text-stone-600 hover:text-rose-700 shrink-0 self-start"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
         </div>
@@ -631,11 +631,13 @@
                        : validation.status === 'warn' ? 'warn'
                        : Math.abs(Number(validation.value || 0)) < 0.01 ? 'zero'
                        : 'ok';
+          // V36.14.3 — Regra design diretor: VALOR sempre rose (é custo /
+          // redução). Status da fórmula sinalizado em borda + badge.
           const statusMap = {
             empty: { border: 'border-stone-300', badge: '', valueColor: 'text-stone-400', valueLabel: '—' },
-            ok:    { border: 'border-emerald-400', badge: '<span class="px-1.5 py-0.5 rounded-md bg-emerald-100 border border-emerald-300 text-[9px] font-black text-emerald-800">✓</span>', valueColor: 'text-emerald-700', valueLabel: this._money(validation.value) },
-            zero:  { border: 'border-amber-400', badge: '<span title="Fórmula computa zero" class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800">?</span>', valueColor: 'text-amber-700', valueLabel: 'R$ 0' },
-            warn:  { border: 'border-amber-400', badge: '<span class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800">!</span>', valueColor: 'text-amber-700', valueLabel: this._money(validation.value) },
+            ok:    { border: 'border-emerald-400', badge: '<span class="px-1.5 py-0.5 rounded-md bg-emerald-100 border border-emerald-300 text-[9px] font-black text-emerald-800">✓</span>', valueColor: 'text-rose-700', valueLabel: `−${this._money(validation.value)}` },
+            zero:  { border: 'border-amber-400', badge: '<span title="Fórmula computa zero" class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800">?</span>', valueColor: 'text-rose-700', valueLabel: '−R$ 0' },
+            warn:  { border: 'border-amber-400', badge: '<span class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800">!</span>', valueColor: 'text-rose-700', valueLabel: `−${this._money(validation.value)}` },
             error: { border: 'border-rose-400', badge: '<span class="px-1.5 py-0.5 rounded-md bg-rose-100 border border-rose-300 text-[9px] font-black text-rose-800">×</span>', valueColor: 'text-rose-700', valueLabel: 'erro' }
           };
           const s = statusMap[status];
