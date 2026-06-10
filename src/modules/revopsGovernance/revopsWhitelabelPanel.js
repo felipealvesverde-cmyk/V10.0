@@ -474,15 +474,29 @@
           </div>
         </div>
 
-        ${isCollapsed ? '' : (items.length === 0
-          ? `<div class="rounded-xl bg-white/40 border-2 border-dashed border-stone-300 px-3 py-4 text-center">
-              <p class="text-[11px] text-stone-500">Sem itens nesse grupo. Clique <b>+ Item</b> pra adicionar.</p>
-            </div>`
-          : `<div class="space-y-2">${items.map(it => excelMode
-              ? this._itemRowExcel(productId, group, it, ev)
-              : this._itemRow(productId, group, it, ev)
-            ).join('')}</div>`)}
+        ${isCollapsed ? '' : (excelMode
+          ? (items.length === 0
+              ? `<div class="rounded-xl bg-white/40 border-2 border-dashed border-stone-300 px-3 py-4 text-center"><p class="text-[11px] text-stone-500">Sem itens. Clique <b>+ Item</b> pra adicionar.</p></div>`
+              : `<div class="space-y-2">${items.map(it => this._itemRowExcel(productId, group, it, ev)).join('')}</div>`)
+          : `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              ${items.map(it => this._itemCard(productId, group, it, ev)).join('')}
+              ${!isLocked ? this._addItemCard(productId, group, items.length) : ''}
+            </div>`)}
       </div>`;
+    },
+
+    // V36.14.4 — Slot "+ Adicionar item" no padrão dos slots do DRE/RevOps:
+    // dashed border, microcopy progressivo.
+    _addItemCard(productId, group, count) {
+      const microcopy = count === 0 ? 'Comece aqui'
+                     : count === 1 ? 'Mais um?'
+                     : count < 5 ? 'Adiciona mais um'
+                     : 'Outro item?';
+      return `<button onclick="Actions.addRevopsItem('${productId}', '${group.id}')" type="button" class="rounded-2xl border-2 border-dashed border-violet-300 bg-violet-50/40 hover:bg-violet-50/80 hover:border-violet-400 p-3 min-h-[140px] flex flex-col items-center justify-center gap-1 text-violet-700 transition">
+        <span class="text-2xl font-black leading-none">＋</span>
+        <span class="text-[11px] font-black">Adicionar item</span>
+        <span class="text-[9px] text-violet-600/70">${Utils.escape(microcopy)}</span>
+      </button>`;
     },
 
     // V32.8.2 — Renderização Modo B (Excel): item vira só uma linha com input
@@ -524,6 +538,99 @@
     // violet, "Calculado" como pill, delete icon Lucide.
     // V35.9.1 — Items travados (auto-gerados pelo LJ) renderizam com cadeado
     // amber, sem possibilidade de rename/delete/mudar modo de cálculo.
+    // V36.14.4 — Card vertical compacto (padrão Mapa Etapa 3 / Composição RevOps
+    // / Deduções DRE). Substitui a linha horizontal _itemRow legacy. Engrenagem
+    // com menu (Djow ajuda + Remover). Layout: nome > seletor de modo > input
+    // do valor > valor calculado em rose embaixo.
+    _itemCard(productId, group, item, ev) {
+      const calc = item.calc || { mode: 'fixed', value: 0 };
+      const value = ev.itemValues[item.id] || 0;
+      const isLocked = Boolean(item.locked);
+      if (isLocked) {
+        return `<div class="rounded-2xl bg-amber-50/50 border border-amber-300 p-3 min-h-[140px] flex flex-col gap-2" title="Item gerenciado pelo LJ — para alterar, desvincule as campanhas Ads no Dashboard.">
+          <div class="flex items-start justify-between gap-2">
+            <span class="text-[11px] font-black text-slate-900 inline-flex items-center gap-1 truncate"><i data-lucide="lock" class="w-3 h-3 text-amber-600 shrink-0"></i>${Utils.escape(item.name)}</span>
+            <span class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800 shrink-0" title="Auto LJ"><i data-lucide="shield-check" class="w-3 h-3 inline"></i></span>
+          </div>
+          <p class="text-[9px] font-black text-amber-700 uppercase tracking-widest">Auto · LJ</p>
+          <p class="text-[10px] text-amber-700/80 italic">Soma do gasto das campanhas Ads vinculadas.</p>
+          <div class="mt-auto">
+            <span class="text-rose-700 font-black text-base whitespace-nowrap">−${this._money(value)}</span>
+          </div>
+        </div>`;
+      }
+      const menuOpen = App.state.revopsDreCardMenuOpen === `revops-item-${item.id}`;
+      return `<div class="rounded-2xl bg-white/80 border border-stone-200 p-3 min-h-[140px] flex flex-col gap-2 relative">
+        <div class="flex items-start justify-between gap-2">
+          <input id="lj-revops-item-${item.id}-name" value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome do item" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
+          <button onclick="Actions.toggleRevopsDreCardMenu('revops-item-${item.id}')" class="px-1.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 shrink-0" title="Opções">
+            <i data-lucide="settings" class="w-3 h-3"></i>
+          </button>
+          ${menuOpen ? `<div class="absolute top-10 right-2 z-20 rounded-xl bg-white border border-stone-200 shadow-lg p-1 min-w-[140px]">
+            <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" class="w-full text-left px-2 py-1.5 rounded-lg hover:bg-rose-50 text-[11px] text-rose-700 font-bold inline-flex items-center gap-1.5">
+              <i data-lucide="trash-2" class="w-3 h-3"></i> Remover
+            </button>
+          </div>` : ''}
+        </div>
+        <select id="lj-revops-item-${item.id}-mode" onchange="Actions.changeRevopsItemMode('${productId}', '${group.id}', '${item.id}', this.value)" class="w-full px-2 py-1 rounded-lg bg-white border border-stone-300 text-[10px] font-bold text-slate-800">
+          ${CALC_MODES.map(m => `<option value="${m.id}" ${calc.mode === m.id ? 'selected' : ''}>${m.label}</option>`).join('')}
+        </select>
+        ${this._calcInputsCompact(productId, group, item, calc)}
+        <div class="mt-auto flex items-center justify-between gap-2 pt-1 border-t border-stone-200">
+          <p class="text-[9px] font-black text-stone-500 uppercase tracking-widest">Calculado</p>
+          <span class="text-rose-700 font-black text-base whitespace-nowrap">−${this._money(value)}</span>
+        </div>
+      </div>`;
+    },
+
+    // V36.14.4 — Versão compacta dos inputs por modo de cálculo, pra caber no
+    // card vertical. Sem labels redundantes, sem badges expandidos.
+    _calcInputsCompact(productId, group, item, calc) {
+      const update = (field) => `Actions.updateRevopsItemCalc('${productId}', '${group.id}', '${item.id}', '${field}', this.value)`;
+      const moneyUpdate = (field) => `Actions.updateRevopsItemCalc('${productId}', '${group.id}', '${item.id}', '${field}', Utils.parseBRL(this.value))`;
+      const baseId = `lj-revops-calc-${item.id}`;
+      switch (calc.mode) {
+        case 'fixed':
+          return `<input id="${baseId}-value" type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(calc.value || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="${moneyUpdate('value')}" placeholder="R$ 0,00" class="w-full px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-bold text-slate-800" />`;
+        case 'percent_self':
+          return `<div class="grid grid-cols-2 gap-1">
+            <input id="${baseId}-baseValue" type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(calc.baseValue || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="${moneyUpdate('baseValue')}" placeholder="Base R$" title="Valor base" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-bold text-slate-800" />
+            <input id="${baseId}-factor" type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${calc.factor || 0}" onchange="${update('factor')}" placeholder="% aplicado" title="% aplicado" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-bold text-slate-800" />
+          </div>`;
+        case 'percent_of': {
+          const handles = RevopsWhitelabelEngine.availableHandles(this._currentConfig(productId));
+          return `<div class="grid grid-cols-2 gap-1">
+            <select id="${baseId}-base" onchange="${update('base')}" title="Base de referência" class="px-1.5 py-1 rounded-lg bg-white border border-stone-300 text-[10px] font-bold text-slate-800">
+              <option value="">— base —</option>
+              ${handles.filter(h => h.id !== item.id).map(h => `<option value="${h.id}" ${calc.base === h.id ? 'selected' : ''}>${h.id}</option>`).join('')}
+            </select>
+            <input id="${baseId}-factor" type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${calc.factor || 0}" onchange="${update('factor')}" placeholder="%" title="% aplicado" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-bold text-slate-800" />
+          </div>`;
+        }
+        case 'derived': {
+          const groups = (this._currentConfig(productId).groups || []).filter(g => g.id !== group.id);
+          return `<select id="${baseId}-groupRef" onchange="${update('groupRef')}" title="Grupo de referência" class="w-full px-2 py-1 rounded-lg bg-white border border-stone-300 text-[10px] font-bold text-slate-800">
+            <option value="">— grupo —</option>
+            ${groups.map(g => `<option value="${g.id}" ${calc.groupRef === g.id ? 'selected' : ''}>${Utils.escape(g.label)}</option>`).join('')}
+          </select>`;
+        }
+        case 'custom_formula': {
+          const cfg = this._currentConfig(productId);
+          const evNow = RevopsWhitelabelEngine.evaluate(cfg);
+          const validation = RevopsWhitelabelEngine.validateFormula(calc.formula, evNow.symbols, item.id);
+          const status = !String(calc.formula || '').trim() || calc.formula === '=0' ? 'empty'
+                       : validation.status === 'error' ? 'error'
+                       : validation.status === 'warn' ? 'warn'
+                       : Math.abs(Number(validation.value || 0)) < 0.01 ? 'zero'
+                       : 'ok';
+          const borderMap = { empty: 'border-stone-300', ok: 'border-emerald-400', zero: 'border-amber-400', warn: 'border-amber-400', error: 'border-rose-400' };
+          return `<input id="${baseId}-formula" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(calc.formula || '=0')}" list="lj-revops-handles" onchange="${update('formula')}" placeholder="=fat_bruto*0,059" title="${Utils.escape(validation.message || '')}" class="w-full px-2 py-1 rounded-lg bg-white border ${borderMap[status]} text-[11px] font-mono text-slate-800" />`;
+        }
+        default:
+          return '';
+      }
+    },
+
     _itemRow(productId, group, item, ev) {
       const calc = item.calc || { mode: 'fixed', value: 0 };
       const value = ev.itemValues[item.id] || 0;
