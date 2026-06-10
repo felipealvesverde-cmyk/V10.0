@@ -419,6 +419,7 @@ var State = {
       governanceClosings: {},         // V37.0.3→V37.0.4 — cache cross-product {loading, loadedAt, error, list[]}
       governanceClosingOpen: null,    // V37.0.3 — id do snapshot aberto na vista detalhada
       fechamentoAssociacao: {},       // V37.0.4 — checkboxes UI por closingId {closingId: [productIds]}
+      customConsolidadoDraft: null,   // V37.0.5 — wizard inline {period, name, productIds[]} ou null
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
@@ -1131,6 +1132,7 @@ var State = {
       governanceClosings: {},         // V37.0.3→V37.0.4 — cache volátil, re-fetch on demand
       governanceClosingOpen: null,    // V37.0.3 — UI state volátil
       fechamentoAssociacao: {},       // V37.0.4 — UI volátil de checkboxes de associação
+      customConsolidadoDraft: null,   // V37.0.5 — wizard inline (volátil)
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart

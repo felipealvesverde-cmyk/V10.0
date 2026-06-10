@@ -275,9 +275,18 @@
         ? `<button onclick="(function(){const n=prompt('Nome opcional pro snapshot custom (ex: ajuste venda 28/06):', ''); if(n!==null) Actions.createProductCustomClosing('${productId}', '${currentPeriod}', n);})()" class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm shrink-0" style="color:#fff!important;">
             <i data-lucide="camera" class="w-3.5 h-3.5"></i> Refechar este produto (${currentPeriod})
           </button>`
-        : `<button disabled title="Custom de consolidado entra em V37.0.5. Mensal consolidado entra em V37.0.4." class="px-3 py-2 rounded-xl bg-stone-200 text-stone-500 text-xs font-black flex items-center gap-1.5 cursor-not-allowed shrink-0">
-            <i data-lucide="camera-off" class="w-3.5 h-3.5"></i> ${scope === 'monthly' ? 'Associar (V37.0.4)' : 'Novo Custom (V37.0.5)'}
-          </button>`;
+        : scope === 'custom'
+          ? `<button onclick="Actions.startCustomConsolidadoDraft()" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm shrink-0" style="color:#fff!important;">
+              <i data-lucide="wand-2" class="w-3.5 h-3.5"></i> Novo Custom Consolidado
+            </button>`
+          : `<button disabled title="Mensal Consolidado é criado pelo cron mensal. Cliente associa produtos no card partial." class="px-3 py-2 rounded-xl bg-stone-200 text-stone-500 text-xs font-black flex items-center gap-1.5 cursor-not-allowed shrink-0">
+              <i data-lucide="zap-off" class="w-3.5 h-3.5"></i> Cron mensal cuida
+            </button>`;
+
+      // V37.0.5 — Se está no escopo custom E tem draft aberto → renderiza wizard
+      if (scope === 'custom' && App.state.customConsolidadoDraft) {
+        return this._fechamentoCustomWizard(cfg);
+      }
 
       return `<div class="space-y-3">
         ${this._tabHeader('Fechamento · Mensal & Consolidados', 'Fechamento do Período', 'Snapshot imutável da governança no fim de cada mês. Auto por produto, consolidado mensal e custom — tudo aqui.', scopeSwitcher)}
@@ -566,6 +575,94 @@
           </div>
           ${mainBlock}
           ${reopensBlock}
+        </section>
+      </div>`;
+    },
+
+    // V37.0.5 — Wizard inline pra criar Custom Consolidado. Substitui a lista
+    // quando draft está aberto. Cliente preenche nome + mês + checkbox produtos.
+    _fechamentoCustomWizard(cfg) {
+      const draft = App.state.customConsolidadoDraft || {};
+      const products = Array.isArray(App.state.products) ? App.state.products : [];
+      const selectedSet = new Set((draft.productIds || []).map(String));
+
+      // Opções de mês: 11 atrás → corrente (cliente normalmente consolida passado)
+      const now = new Date();
+      const monthOpts = [];
+      for (let i = 0; i <= 11; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const p = `${y}-${m}`;
+        let label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        label = label.charAt(0).toUpperCase() + label.slice(1);
+        monthOpts.push({ p, label, isCurrent: i === 0 });
+      }
+
+      const productCards = products.length ? products.map(p => {
+        const checked = selectedSet.has(String(p.id));
+        return `<label class="flex items-start gap-2.5 p-3 rounded-2xl bg-white/70 border ${checked ? 'border-emerald-400 ring-1 ring-emerald-200' : 'border-stone-200'} cursor-pointer hover:border-emerald-300 transition" style="box-shadow:3px 3px 0 0 #e7e5e4;">
+          <input type="checkbox" ${checked ? 'checked' : ''} onchange="Actions.toggleCustomConsolidadoDraftProduct('${p.id}')" class="mt-1 accent-emerald-600" />
+          <div class="min-w-0 flex-1">
+            <p class="text-[12px] font-black text-slate-900 leading-tight">${Utils.escape(p.name || 'Produto sem nome')}</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">${Math.round(Number(p.salesProjection) || 0).toLocaleString('pt-BR')} vendas previstas</p>
+          </div>
+        </label>`;
+      }).join('') : '<p class="text-[12px] text-slate-500 italic">Nenhum produto cadastrado.</p>';
+
+      const selectedCount = (draft.productIds || []).length;
+
+      return `<div class="space-y-3">
+        <div class="flex items-start justify-between gap-3 flex-wrap pb-2 border-b border-slate-100">
+          <div class="min-w-0">
+            <button onclick="Actions.cancelCustomConsolidadoDraft()" class="text-[11px] text-emerald-700 hover:text-emerald-900 font-black inline-flex items-center gap-1 mb-1">
+              <i data-lucide="arrow-left" class="w-3 h-3"></i> Voltar à lista
+            </button>
+            <p class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Novo Custom Consolidado</p>
+            <h3 class="text-base font-black text-slate-900 mt-0.5">Agrupar produtos do mês</h3>
+            <p class="text-[12px] text-slate-500 mt-0.5">Snapshot custom carrega data de geração imutável. Use pra recortes específicos (ex: "Master sem piloto", "Só infoprodutos", etc).</p>
+          </div>
+        </div>
+
+        <section class="rounded-3xl border p-5 shadow-md space-y-4" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+
+          <!-- LINHA 1: Nome + Período -->
+          <div class="grid sm:grid-cols-2 gap-3">
+            <label class="block">
+              <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Nome do consolidado</span>
+              <input id="lj-custom-name" type="text" value="${Utils.escape(draft.name || '')}" oninput="Actions.updateCustomConsolidadoDraftField('name', this.value)" placeholder="Ex: Master sem piloto · Junho/2026" class="mt-0.5 w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800 focus:border-emerald-400 focus:outline-none" />
+            </label>
+            <label class="block">
+              <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Mês de referência</span>
+              <select onchange="Actions.updateCustomConsolidadoDraftField('period', this.value); App.render();" class="mt-0.5 w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800 focus:border-emerald-400 focus:outline-none">
+                ${monthOpts.map(o => `<option value="${o.p}" ${o.p === draft.period ? 'selected' : ''}>${Utils.escape(o.label)}${o.isCurrent ? ' (atual)' : ''}</option>`).join('')}
+              </select>
+            </label>
+          </div>
+
+          <!-- LINHA 2: Checkbox produtos -->
+          <div>
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Produtos a agrupar (${selectedCount} de ${products.length} marcado${selectedCount === 1 ? '' : 's'})</p>
+            <div class="grid sm:grid-cols-2 gap-2">${productCards}</div>
+          </div>
+
+          <!-- HINT -->
+          <div class="rounded-2xl bg-emerald-50/60 border border-emerald-200 p-3 flex items-start gap-2.5">
+            <span class="shrink-0 w-7 h-7 rounded-lg bg-emerald-500/15 grid place-items-center text-emerald-700">
+              <i data-lucide="info" class="w-3.5 h-3.5"></i>
+            </span>
+            <p class="text-[12px] text-slate-700 leading-relaxed">O custom puxa o estado atual da governança de cada produto no momento da criação. Se quer foto exata do que estava no mês passado, refeche antes os produtos individuais e use os customs deles.</p>
+          </div>
+
+          <!-- AÇÕES -->
+          <div class="flex items-center justify-end gap-2 pt-2 border-t border-stone-200">
+            <button onclick="Actions.cancelCustomConsolidadoDraft()" class="px-3 py-2 rounded-xl bg-white border border-stone-300 hover:bg-stone-50 text-slate-700 text-xs font-black">
+              Cancelar
+            </button>
+            <button onclick="Actions.createConsolidatedCustom()" ${selectedCount === 0 ? 'disabled' : ''} class="px-3 py-2 rounded-xl ${selectedCount === 0 ? 'bg-stone-200 text-stone-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'} text-xs font-black inline-flex items-center gap-1.5" ${selectedCount > 0 ? 'style="color:#fff!important;"' : ''}>
+              <i data-lucide="wand-2" class="w-3.5 h-3.5"></i> Criar Custom
+            </button>
+          </div>
         </section>
       </div>`;
     },
