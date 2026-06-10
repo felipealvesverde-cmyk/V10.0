@@ -1490,146 +1490,168 @@
     // VL → LB → S&M → G&A → LL. Entre cada par, botão "+" pra inserir
     // linha extra (handle ou número, signal +/−). Linhas extras persistem
     // em cfg.dreExtraLines. Cálculo cumulativo via Engine.evaluateDRE().
+    // V36.12.0 — DRE refeito com tema light (offwhite #f5f3f0 igual Mapa),
+    // cards no padrão Mapa Etapa 3, deduções FLAT (sem header agregado), e
+    // Djow lateral sticky com apply automático. Espaçamentos enxutos.
     _dreTab(cfg, ev) {
       const productId = cfg.productId;
       const dre = RevopsWhitelabelEngine.evaluateDRE(cfg, ev);
-      const deducoesExpanded = !!App.state.revopsDreDeducoesExpanded?.[productId];
-      // Sub-itens das Deduções = todos itens dos grupos bucket='variable'
+
       const variableItems = [];
       for (const g of (cfg.groups || [])) {
         if (g.bucket !== 'variable') continue;
         for (const it of (g.items || [])) {
-          variableItems.push({
-            id: it.id, name: it.name, groupLabel: g.label,
-            value: ev.itemValues?.[it.id] || 0
-          });
-        }
-      }
-
-      const toneToText = {
-        emerald: 'text-emerald-700', rose: 'text-rose-700',
-        sky: 'text-sky-700', amber: 'text-amber-700', slate: 'text-slate-700'
-      };
-      const renderAddBtn = (afterStep) => `<div class="flex justify-center py-1 border-b border-dashed border-slate-200">
-        <button onclick="Actions.addDreExtraLine('${productId}', '${afterStep}')" type="button" title="Inserir linha entre fases" class="text-[10px] text-slate-400 hover:text-sky-700 font-bold inline-flex items-center gap-1">
-          <span class="text-sm leading-none">＋</span> inserir linha
-        </button>
-      </div>`;
-
-      const renderBaseLine = (l) => {
-        const cls = l.highlight ? 'bg-amber-50' : l.bold ? 'bg-white' : '';
-        const textCls = toneToText[l.tone] || 'text-slate-700';
-        const isDeducoes = l.id === 'deducoes';
-        const chevron = isDeducoes
-          ? `<button onclick="Actions.toggleDreDeducoesExpanded('${productId}')" type="button" class="mr-1 text-slate-500 hover:text-slate-900 text-xs leading-none">${deducoesExpanded ? '▼' : '▶'}</button>`
-          : '';
-        return `<div class="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-slate-200 ${cls}">
-          <span class="${l.bold ? 'font-black text-slate-900' : 'text-slate-600'} text-[13px] inline-flex items-center">
-            ${chevron}${l.label}
-          </span>
-          <span class="${l.bold ? 'font-black text-base' : 'font-bold text-sm'} ${textCls} whitespace-nowrap">${this._money(l.value)}</span>
-        </div>`;
-      };
-
-      // V32.10.10 — Sub-itens da Deduções: itens do bucket variable (read-only,
-      // editáveis em Custos) + extras inseríveis direto na DRE + botão "+".
-      const renderDeducoesSubItems = () => {
-        const fromVariableBucket = variableItems.length > 0
-          ? variableItems.map(it => `<div class="flex items-center justify-between gap-3 px-6 py-1.5 bg-slate-50 border-b border-slate-200 text-[12px]">
-              <span class="text-slate-600">– ${Utils.escape(it.name)} <span class="text-[10px] text-slate-400">(${Utils.escape(it.groupLabel)})</span></span>
-              <span class="text-rose-700 font-bold whitespace-nowrap">${this._money(it.value)}</span>
-            </div>`).join('')
-          : `<div class="px-6 py-2 bg-slate-50 border-b border-slate-200 text-[11px] text-slate-500 italic">
-              Nenhum custo variável cadastrado em <b>Custos</b>. Adicione deduções avulsas abaixo.
-            </div>`;
-
-        const insideExtras = (dre.deducoesInsideExtras || []).map(l => `<div class="grid items-center gap-2 px-6 py-1.5 bg-rose-50/40 border-b border-slate-200" style="grid-template-columns: 32px 1fr 1.2fr 110px 28px;">
-          <select onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'signal', this.value)" class="px-1 py-0.5 rounded-md bg-white border border-slate-300 text-xs font-black text-slate-800">
-            <option value="+" ${l.signal === '+' ? 'selected' : ''}>+</option>
-            <option value="-" ${l.signal === '-' ? 'selected' : ''}>−</option>
-          </select>
-          <input value="${Utils.escape(l.name)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Ex: ISS, Comissão extra" class="px-2 py-1 rounded-lg bg-white border border-slate-300 text-xs font-bold text-slate-800" />
-          <input value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" placeholder="6000 ou =fat_bruto*0,03" class="px-2 py-1 rounded-lg bg-white border border-slate-300 text-xs font-mono text-slate-800" />
-          <span class="text-right ${l.signal === '+' ? 'text-rose-700' : 'text-emerald-700'} font-bold text-xs whitespace-nowrap">${l.signal === '+' ? '+' : '−'}${this._money(l.value)}</span>
-          <button onclick="Actions.deleteDreExtraLine('${productId}', '${l.id}')" title="Remover" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
-        </div>`).join('');
-
-        const addBtn = `<div class="flex justify-start px-6 py-1.5 bg-slate-50 border-b border-slate-200">
-          <button onclick="Actions.addDreExtraLine('${productId}', 'deducoes_inside')" type="button" class="text-[11px] text-sky-700 hover:text-sky-900 font-bold inline-flex items-center gap-1">
-            <span class="text-sm leading-none">＋</span> Inserir dedução
-          </button>
-        </div>`;
-
-        return fromVariableBucket + insideExtras + addBtn;
-      };
-
-      const renderExtraLine = (l) => {
-        const textCls = toneToText[l.tone] || 'text-slate-700';
-        return `<div class="grid items-center gap-2 px-4 py-1.5 border-b border-slate-200 bg-sky-50/30" style="grid-template-columns: 32px 1fr 1.2fr 110px 28px;">
-          <select onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'signal', this.value)" class="px-1 py-0.5 rounded-md bg-white border border-slate-300 text-xs font-black text-slate-800">
-            <option value="-" ${l.signal === '-' ? 'selected' : ''}>−</option>
-            <option value="+" ${l.signal === '+' ? 'selected' : ''}>+</option>
-          </select>
-          <input value="${Utils.escape(l.label === '(sem nome)' ? '' : l.label)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Nome (ex: IR, Receita financeira)" class="px-2 py-1 rounded-lg bg-white border border-slate-300 text-xs font-bold text-slate-800" />
-          <input value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" placeholder="6000 ou =fat_bruto*0,03" class="px-2 py-1 rounded-lg bg-white border border-slate-300 text-xs font-mono text-slate-800" />
-          <span class="text-right ${textCls} font-bold text-xs whitespace-nowrap">${l.signal === '+' ? '+' : '−'}${this._money(l.value)}</span>
-          <button onclick="Actions.deleteDreExtraLine('${productId}', '${l.id}')" title="Remover" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
-        </div>`;
-      };
-
-      // Monta a lista intercalada: linha base + (sub-items se Deduções expandido)
-      // + botão "+" + extras dessa fase.
-      const rows = [];
-      for (const l of dre.lines) {
-        rows.push(renderBaseLine(l));
-        if (l.id === 'deducoes' && deducoesExpanded) {
-          rows.push(renderDeducoesSubItems());
-        }
-        if (l.kind === 'base' && l.id !== 'lucro_liquido') {
-          // Próximas extras desta fase já vêm em sequência via evaluateDRE,
-          // mas precisamos do "+" *depois* delas. Vou tratar inline abaixo.
-        }
-      }
-
-      // Refaz com lógica explícita: para cada base step não-final, mostra
-      // base → extras (já em dre.lines, kind:'extra') → "+".
-      const rowsV2 = [];
-      let i = 0;
-      while (i < dre.lines.length) {
-        const l = dre.lines[i];
-        if (l.kind === 'base') {
-          rowsV2.push(renderBaseLine(l));
-          if (l.id === 'deducoes' && deducoesExpanded) {
-            rowsV2.push(renderDeducoesSubItems());
-          }
-          // Coleta extras subsequentes desta fase
-          let j = i + 1;
-          while (j < dre.lines.length && dre.lines[j].kind === 'extra' && dre.lines[j].afterStep === l.id) {
-            rowsV2.push(renderExtraLine(dre.lines[j]));
-            j++;
-          }
-          // Botão "+" após esta fase (exceto na última)
-          if (l.id !== 'lucro_liquido') {
-            rowsV2.push(renderAddBtn(l.id));
-          }
-          i = j;
-        } else {
-          i++;
+          variableItems.push({ id: it.id, name: it.name, groupLabel: g.label, value: ev.itemValues?.[it.id] || 0 });
         }
       }
 
       const margemCls = dre.margem >= 25 ? 'text-emerald-700' : dre.margem >= 0 ? 'text-amber-700' : 'text-rose-700';
+      const djowPanel = window.DjowRevOpsPanel ? DjowRevOpsPanel.render(productId, 'dre') : '';
 
-      return `<div class="space-y-3">
-        ${this._djowTip('dre')}
-        ${this._tabHeader('DRE · Demonstrativo do Resultado', 'Apuração do Período', 'Faturamento → Deduções → Venda Líquida → Lucro Bruto → S&M → G&A → Lucro Líquido. Use <b>+ inserir linha</b> pra entradas extras (IR, receitas financeiras, participações).')}
-        <div class="rounded-2xl bg-slate-50 border border-slate-200 overflow-hidden">
-          ${rowsV2.join('')}
+      return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
+        <div class="space-y-3 min-w-0">
+          ${this._tabHeader('DRE · Demonstrativo do Resultado', 'Apuração do Período', 'Faturamento → Deduções → Venda Líquida → Lucro Bruto → S&M → G&A → Lucro Líquido. Clique numa linha de fórmula pra pedir ajuda ao Djow na lateral.')}
+          <section class="rounded-3xl border p-5 shadow-md space-y-2" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+            ${this._dreFlatRender(productId, dre, variableItems)}
+          </section>
+          <div class="rounded-2xl border p-3 text-[12px] text-stone-700" style="background:#faf8f5;border-color:#e7e5e0;">
+            <b>Margem Líquida:</b> <b class="${margemCls}">${dre.margem.toFixed(1)}%</b> · Lucro Líquido / Faturamento Bruto.
+          </div>
         </div>
-        <div class="rounded-xl bg-slate-100 border border-slate-200 p-3 text-[11px] text-slate-600">
-          <b>Margem Líquida:</b> <b class="${margemCls}">${dre.margem.toFixed(1)}%</b> · Lucro Líquido / Faturamento Bruto.
-        </div>
+        <aside class="xl:sticky xl:top-4 xl:self-start">${djowPanel}</aside>
       </div>`;
+    },
+
+    // V36.12.0 — Renderiza a DRE light com deduções flat. Cada linha vira
+    // card no padrão Mapa Etapa 3 (bg-white/70 stone-200). Subtotais base
+    // (Faturamento, Venda Líquida, Lucro Bruto, Lucro Líquido) são cards
+    // mais destacados com cor semântica. Deduções variáveis (Custos) ficam
+    // como cards read-only; deduções avulsas (deducoes_inside extras) viram
+    // cards editáveis. Mesmo padrão pra extras de outros steps.
+    _dreFlatRender(productId, dre, variableItems) {
+      const blocks = [];
+      const extrasByStep = {};
+      for (const l of dre.lines) {
+        if (l.kind === 'extra') {
+          (extrasByStep[l.afterStep] = extrasByStep[l.afterStep] || []).push(l);
+        }
+      }
+
+      for (const l of dre.lines) {
+        if (l.kind !== 'base') continue;
+        if (l.id === 'deducoes') {
+          // Flat: sem caixa agregada. Renderiza linhas individuais.
+          blocks.push(this._dreFlatDeducoes(productId, variableItems, dre.deducoesInsideExtras || []));
+          continue;
+        }
+        blocks.push(this._dreBaseCard(productId, l));
+        for (const ex of (extrasByStep[l.id] || [])) {
+          blocks.push(this._dreExtraCard(productId, ex));
+        }
+        if (l.id !== 'lucro_liquido') {
+          blocks.push(this._dreAddLineBtn(productId, l.id));
+        }
+      }
+
+      return blocks.join('');
+    },
+
+    _dreBaseCard(productId, l) {
+      const toneMap = {
+        emerald: { ring: 'border-emerald-300', text: 'text-emerald-700', bg: 'bg-emerald-50/60' },
+        rose:    { ring: 'border-rose-300',    text: 'text-rose-700',    bg: 'bg-rose-50/40'    },
+        sky:     { ring: 'border-sky-300',     text: 'text-sky-700',     bg: 'bg-sky-50/50'     },
+        slate:   { ring: 'border-stone-300',   text: 'text-stone-800',   bg: 'bg-white/70'      }
+      };
+      const t = toneMap[l.tone] || toneMap.slate;
+      const isHighlight = l.highlight;
+      const big = l.bold || isHighlight;
+      const cardCls = isHighlight
+        ? 'rounded-2xl border-2 border-amber-300 bg-amber-50/80 shadow-md'
+        : `rounded-2xl border ${t.ring} ${t.bg} shadow-sm`;
+      return `<div class="${cardCls} flex items-center justify-between gap-3 px-4 py-2.5">
+        <span class="${big ? 'font-black text-slate-900 text-[13px]' : 'text-stone-700 text-[12px] font-bold'}">${l.label}</span>
+        <span class="${big ? `font-black text-base ${t.text}` : `font-bold text-sm ${t.text}`} whitespace-nowrap">${this._money(l.value)}</span>
+      </div>`;
+    },
+
+    // V36.12.0 — Linha individual de dedução (deduções flat). Igual extra
+    // card mas com label "(−)" em vez de seletor de signal (deduções sempre
+    // subtraem). Variáveis dos Custos viram read-only chips; deducoes_inside
+    // extras viram cards editáveis com input de fórmula.
+    _dreFlatDeducoes(productId, variableItems, insideExtras) {
+      const items = [];
+
+      variableItems.forEach(it => {
+        items.push(`<div class="rounded-2xl border border-stone-200 bg-white/40 px-3 py-2 flex items-center justify-between gap-2">
+          <span class="text-[12px] text-stone-700 inline-flex items-center gap-2">
+            <span class="text-rose-600 font-black">−</span>
+            ${Utils.escape(it.name)}
+            <span class="text-[10px] text-stone-400">de Custos · ${Utils.escape(it.groupLabel)}</span>
+          </span>
+          <span class="text-rose-700 font-bold text-[12px] whitespace-nowrap">${this._money(it.value)}</span>
+        </div>`);
+      });
+
+      insideExtras.forEach(l => {
+        const isSelected = this._isDjowSelected(productId, l.id);
+        const selectedRing = isSelected ? 'ring-2 ring-violet-400 ring-offset-1 ring-offset-[#f5f3f0]' : '';
+        items.push(`<div class="rounded-2xl border border-stone-200 bg-white/70 ${selectedRing} px-3 py-2 grid items-center gap-2" style="grid-template-columns: 18px 1fr 1.2fr 100px 28px 28px;">
+          <span class="text-rose-600 font-black text-center">−</span>
+          <input value="${Utils.escape(l.name)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Ex: ISS, Comissão" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[12px] font-bold text-slate-800" />
+          <input value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', 'deducoes_inside')" placeholder="6000 ou =vendas*5" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[12px] font-mono text-slate-800" />
+          <span class="text-right text-rose-700 font-bold text-[12px] whitespace-nowrap">−${this._money(l.value)}</span>
+          <button onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', 'deducoes_inside')" title="Pedir ajuda do Djow" class="px-1.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 inline-flex items-center justify-center"><i data-lucide="sparkles" class="w-3 h-3"></i></button>
+          <button onclick="Actions.deleteDreExtraLine('${productId}', '${l.id}')" title="Remover" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
+        </div>`);
+      });
+
+      if (!variableItems.length && !insideExtras.length) {
+        items.push(`<div class="rounded-2xl border border-dashed border-stone-300 bg-white/30 px-3 py-3 text-center text-[11px] text-stone-500 italic">
+          Nenhuma dedução cadastrada ainda. Use <b>+ Inserir dedução</b> abaixo, ou cadastre custos variáveis em <b>Custos</b>.
+        </div>`);
+      }
+
+      items.push(`<div class="flex justify-start">
+        <button onclick="Actions.addDreExtraLine('${productId}', 'deducoes_inside')" type="button" class="text-[11px] text-violet-700 hover:text-violet-900 font-black inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-violet-50 hover:bg-violet-100">
+          <span class="text-sm leading-none">＋</span> Inserir dedução
+        </button>
+      </div>`);
+
+      return `<div class="space-y-1.5 pl-1 border-l-2 border-rose-200 ml-1">
+        <p class="text-[10px] font-black text-rose-700 uppercase tracking-widest pl-2">Deduções</p>
+        ${items.join('')}
+      </div>`;
+    },
+
+    _dreExtraCard(productId, l) {
+      const isSelected = this._isDjowSelected(productId, l.id);
+      const selectedRing = isSelected ? 'ring-2 ring-violet-400 ring-offset-1 ring-offset-[#f5f3f0]' : '';
+      const positive = l.signal === '+';
+      return `<div class="rounded-2xl border border-stone-200 bg-white/70 ${selectedRing} px-3 py-2 grid items-center gap-2" style="grid-template-columns: 32px 1fr 1.2fr 100px 28px 28px;">
+        <select onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'signal', this.value)" class="px-1 py-0.5 rounded-md bg-white border border-stone-300 text-[11px] font-black text-slate-800">
+          <option value="-" ${!positive ? 'selected' : ''}>−</option>
+          <option value="+" ${positive ? 'selected' : ''}>+</option>
+        </select>
+        <input value="${Utils.escape(l.label === '(sem nome)' ? '' : l.label)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Nome (ex: IR, Receita financeira)" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[12px] font-bold text-slate-800" />
+        <input value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', '${l.afterStep}')" placeholder="6000 ou =fat_bruto*0,03" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[12px] font-mono text-slate-800" />
+        <span class="text-right ${positive ? 'text-emerald-700' : 'text-rose-700'} font-bold text-[12px] whitespace-nowrap">${positive ? '+' : '−'}${this._money(l.value)}</span>
+        <button onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', '${l.afterStep}')" title="Pedir ajuda do Djow" class="px-1.5 py-1 rounded-lg bg-violet-50 hover:bg-violet-100 text-violet-700 inline-flex items-center justify-center"><i data-lucide="sparkles" class="w-3 h-3"></i></button>
+        <button onclick="Actions.deleteDreExtraLine('${productId}', '${l.id}')" title="Remover" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black">×</button>
+      </div>`;
+    },
+
+    _dreAddLineBtn(productId, afterStep) {
+      return `<div class="flex justify-center py-0.5">
+        <button onclick="Actions.addDreExtraLine('${productId}', '${afterStep}')" type="button" title="Inserir linha entre fases" class="text-[10px] text-stone-400 hover:text-violet-700 font-bold inline-flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-white/50">
+          <span class="text-sm leading-none">＋</span> inserir linha
+        </button>
+      </div>`;
+    },
+
+    _isDjowSelected(productId, lineId) {
+      const sel = App.state.revopsDjowSelectedLine;
+      return sel && String(sel.productId) === String(productId) && sel.lineId === lineId;
     },
 
     // ────────────────────────────────────────────────────────────

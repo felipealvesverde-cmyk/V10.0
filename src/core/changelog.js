@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.12.0',
+    date: '2026-06-09',
+    title: 'DRE repaginada — tema light + deduções flat + Djow lateral pra ajudar com fórmulas',
+    bullets: [
+      'Tema light igual o Mapa da Receita: wrapper offwhite #f5f3f0 com cartões internos bg-white/70 e bordas stone. Branco-puro saiu — fundo morno mais confortável pra leitura prolongada.',
+      'Deduções FLAT: tirei o header colapsável "(−) Deduções" com subtotal agregador. Agora cada dedução é uma linha standalone entre Faturamento Bruto e Venda Líquida, marcada com bordinha rose à esquerda. Subtotal continua existindo internamente pro motor calcular, mas não aparece como caixa coletiva.',
+      'Cada linha virou card no padrão Etapa 3 do Mapa (bg-white/70 stone-200, padding enxuto). Inputs menores (py-1 em vez de py-2.5), gaps reduzidos. Visual mais clean.',
+      'Djow lateral sticky à direita da DRE — caixinha sempre aberta com mensagem pré-setada "Como posso te ajudar?". Cliente escreve em PT ("Lara ganha 5 por venda", "15% do faturamento") e o Djow devolve a fórmula no formato certo.',
+      'Apply automático: clique numa linha (input ou ícone violet de sparkles) pra "selecionar" — borda violet aparece. Aí faz a pergunta, Djow propõe fórmula, botão "Aplicar" preenche o input da linha selecionada direto.',
+      'Motor local de sugestão cobre padrões comuns: "X por venda" → =vendas*X, "X% do faturamento" → =fat_bruto*0,X, "X% sobre venda líquida" → =fat_liquido*0,X, "X% do lucro bruto", composto ("5 por venda + 3% do faturamento"), e perguntas conceituais ("o que entra em deduções?").',
+      'S&M, G&A e Custos mantêm a estrutura agrupada atual — refator só atingiu Deduções (a única que Felipe queria flat) e o tema visual do DRE.'
+    ]
+  },
+  {
     version: 'V36.11.1',
     date: '2026-06-09',
     title: 'Visão Geral: tasks ClickUp agora entram no cruzamento por campanha',

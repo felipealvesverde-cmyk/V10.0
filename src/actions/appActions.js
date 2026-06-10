@@ -7719,6 +7719,46 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V36.12.0 — Djow RevOps (painel lateral do DRE).
+  selectDjowRevopsLine(productId, lineId, afterStep) {
+    App.state.revopsDjowSelectedLine = { productId, lineId, afterStep };
+    App.save(); App.render();
+  },
+
+  updateDjowRevopsInput(value) {
+    App.state.revopsDjowInput = String(value || '');
+    // Sem render — preserva foco do textarea.
+  },
+
+  askDjowRevops() {
+    const text = String(App.state.revopsDjowInput || '').trim();
+    if (!text) return;
+    if (!window.DjowRevOpsPanel) return Utils.toast('Djow RevOps não carregado.');
+    const messages = Array.isArray(App.state.revopsDjowMessages) ? [...App.state.revopsDjowMessages] : [];
+    const selected = App.state.revopsDjowSelectedLine;
+    messages.push({ role: 'user', text });
+    const result = DjowRevOpsPanel.resolve(text, selected ? { afterStep: selected.afterStep } : null);
+    messages.push({ role: 'djow', text: result.reply, suggestion: result.suggestion || null });
+    App.state.revopsDjowMessages = messages;
+    App.state.revopsDjowInput = '';
+    App.save(); App.render();
+  },
+
+  applyDjowRevopsSuggestion(messageIdx) {
+    const messages = Array.isArray(App.state.revopsDjowMessages) ? App.state.revopsDjowMessages : [];
+    const msg = messages[messageIdx];
+    const selected = App.state.revopsDjowSelectedLine;
+    if (!msg || !msg.suggestion) return Utils.toast('Mensagem sem fórmula sugerida.');
+    if (!selected) return Utils.toast('Clique numa linha primeiro pra eu aplicar.');
+    Actions.updateDreExtraLine(selected.productId, selected.lineId, 'value', msg.suggestion);
+    Utils.toast('✓ Fórmula aplicada.');
+  },
+
+  clearDjowRevopsHistory() {
+    App.state.revopsDjowMessages = [];
+    App.save(); App.render();
+  },
+
   // V36.11.0 — Filtros da Visão Geral consolidada.
   setOverviewRange(range) {
     const valid = ['7d', '30d', '90d'];
