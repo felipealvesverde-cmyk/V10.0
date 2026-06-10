@@ -69,16 +69,23 @@ window.DjowRevOpsPanel = {
   },
 
   _intro() {
+    const selected = App.state.revopsDjowSelectedLine;
+    const isRevops = selected?.afterStep === 'revops_mcu' || selected?.afterStep === 'revops_msu';
+    const examples = isRevops
+      ? `<li>• <span class="font-mono">"Comissão Hotmart de 5,9% do ticket"</span></li>
+         <li>• <span class="font-mono">"15% do MCU"</span></li>
+         <li>• <span class="font-mono">"Imposto 15% sobre o ticket"</span></li>
+         <li>• <span class="font-mono">"5 reais por venda"</span></li>
+         <li>• <span class="font-mono">"o que é MCU?"</span> / <span class="font-mono">"explica breakeven"</span></li>`
+      : `<li>• <span class="font-mono">"Lara ganha 5 por venda"</span></li>
+         <li>• <span class="font-mono">"15% do faturamento"</span></li>
+         <li>• <span class="font-mono">"ISS de 5% sobre vendas líquidas"</span></li>
+         <li>• <span class="font-mono">"6000 fixos"</span></li>
+         <li>• <span class="font-mono">"O que entra em deduções?"</span> (explico)</li>`;
     return `<div class="rounded-2xl border border-violet-200 bg-violet-50/60 p-3 space-y-1.5">
       <p class="text-[11px] font-black text-violet-900 leading-snug">Quer ajuda com a fórmula ou com o preenchimento?</p>
       <p class="text-[11px] text-stone-700 leading-snug">Escreve em português que eu monto a fórmula no formato certo. Exemplos:</p>
-      <ul class="text-[10px] text-stone-600 space-y-0.5 pl-3">
-        <li>• <span class="font-mono">"Lara ganha 5 por venda"</span></li>
-        <li>• <span class="font-mono">"15% do faturamento"</span></li>
-        <li>• <span class="font-mono">"ISS de 5% sobre vendas líquidas"</span></li>
-        <li>• <span class="font-mono">"6000 fixos"</span></li>
-        <li>• <span class="font-mono">"O que entra em deduções?"</span> (explico)</li>
-      </ul>
+      <ul class="text-[10px] text-stone-600 space-y-0.5 pl-3">${examples}</ul>
     </div>`;
   },
 
@@ -117,7 +124,10 @@ window.DjowRevOpsPanel = {
       venda_liquida: 'Após Venda Líquida',
       lucro_bruto: 'Após Lucro Bruto',
       s_m: 'Após S&M',
-      g_a: 'Após G&A'
+      g_a: 'Após G&A',
+      revops_mcu: 'Composição MCU',
+      revops_msu: 'Composição MSU',
+      group: 'Item de grupo'
     };
     return map[afterStep] || afterStep || 'Linha extra';
   },
@@ -133,10 +143,14 @@ window.DjowRevOpsPanel = {
 
     if (!q) return { reply: 'Escreve algo que eu te ajudo.', suggestion: null };
 
-    // Pergunta conceitual: "o que entra em deduções?"
-    const conceptMatch = q.match(/o que (entra|vai|tem) (em|nas?) (deducoes|deducao|s.?m|s e m|sm|g.?a|g e a|ga|custos|faturamento)/);
+    // Pergunta conceitual: "o que entra em deduções?" / "o que é MCU?" / "explica CAC"
+    const conceptMatch = q.match(/o que (entra|vai|tem|e|eh|é) (em|nas?|um|uma|o|a)?\s*(deducoes|deducao|s.?m|s e m|sm|g.?a|g e a|ga|custos|faturamento|mcu|msu|cac|breakeven|ctc|tm|ticket)/);
     if (conceptMatch) {
       return { reply: this._explainConcept(conceptMatch[3]), suggestion: null };
+    }
+    const explainMatch = q.match(/(?:explica|me explica|explique|o que e|o que eh)\s+(?:o|a|um|uma)?\s*(mcu|msu|cac|breakeven|ctc|tm|ticket|deducoes|deducao|s.?m|sm|g.?a|ga|custos|faturamento)/);
+    if (explainMatch) {
+      return { reply: this._explainConcept(explainMatch[1]), suggestion: null };
     }
 
     // "X reais fixos" / "X por mes" / "X fixo"
@@ -203,6 +217,30 @@ window.DjowRevOpsPanel = {
       };
     }
 
+    // V36.14.0 — Em contexto RevOps (afterStep=revops_mcu/msu), perguntas como
+    // "X% do MCU" / "X% do MSU" / "X% do CAC" viram fórmulas com esses handles.
+    const isRevops = afterStep === 'revops_mcu' || afterStep === 'revops_msu';
+    if (isRevops) {
+      const pctMCU = q.match(/(\d+(?:[\.,]\d+)?)\s*(?:%|por cento)\s*(?:de|do|sobre)?\s*(?:mcu|margem de contribui)/);
+      if (pctMCU) {
+        const pct = Number(pctMCU[1].replace(',', '.'));
+        const dec = (pct / 100).toString().replace('.', ',');
+        return { reply: `${pct}% sobre o MCU (Margem de Contribuição Unitária).`, suggestion: `=mcu*${dec}` };
+      }
+      const pctMSU = q.match(/(\d+(?:[\.,]\d+)?)\s*(?:%|por cento)\s*(?:de|do|sobre)?\s*(?:msu|margem real|margem de seguran)/);
+      if (pctMSU) {
+        const pct = Number(pctMSU[1].replace(',', '.'));
+        const dec = (pct / 100).toString().replace('.', ',');
+        return { reply: `${pct}% sobre o MSU (Margem de Segurança Unitária).`, suggestion: `=msu*${dec}` };
+      }
+      const pctCAC = q.match(/(\d+(?:[\.,]\d+)?)\s*(?:%|por cento)\s*(?:de|do|sobre)?\s*(?:cac|custo de aquisi)/);
+      if (pctCAC) {
+        const pct = Number(pctCAC[1].replace(',', '.'));
+        const dec = (pct / 100).toString().replace('.', ',');
+        return { reply: `${pct}% sobre o CAC (Custo de Aquisição).`, suggestion: `=cac*${dec}` };
+      }
+    }
+
     // Soma de "X por venda mais Y% do faturamento" → composto
     const composite = q.match(/(\d+(?:[\.,]\d+)?)\s*(?:reais|r\$)?\s*(?:por\s*venda).*?(?:mais|\+|e)\s*(\d+(?:[\.,]\d+)?)\s*%.*?(?:faturamento|fat)/);
     if (composite) {
@@ -231,8 +269,15 @@ window.DjowRevOpsPanel = {
       ga: 'Em **G&A (Fixos)** vão custos que não escalam com venda: aluguel, salários de back-office, contabilidade, software de gestão, jurídico. Pagar mesmo com zero venda no mês.',
       gea: 'Em **G&A (Fixos)** vão custos que não escalam com venda: aluguel, back-office, contabilidade, software de gestão.',
       custos: 'Custos no LJ se dividem em 3 buckets: Variáveis (% sobre faturamento — viram Deduções), Aquisição (S&M) e Fixos (G&A). Cadastra em **Custos**, aparece automaticamente nas etapas certas.',
-      faturamento: '**Faturamento Bruto** é o topo da DRE — receita total no período antes de qualquer subtração. Calculado como vendas × ticket médio. Vem de Ofertas + Sales Projection.'
+      faturamento: '**Faturamento Bruto** é o topo da DRE — receita total no período antes de qualquer subtração. Calculado como vendas × ticket médio. Vem de Ofertas + Sales Projection.',
+      mcu: '**MCU = Margem de Contribuição Unitária**. Quanto sobra POR VENDA depois de tirar custos variáveis (impostos, comissões de plataforma, taxa de cartão). Fórmula auto: TM − custos variáveis unitários. Use o handle **mcu** em fórmulas.',
+      msu: '**MSU = Margem de Segurança Unitária**. MCU menos CAC — quanto cada venda contribui DE VERDADE pra pagar custos fixos. É o que sobra por venda depois de tudo que escala (variáveis + aquisição). Handle **msu**.',
+      cac: '**CAC = Custo de Aquisição por Cliente**. CTC (Custo Total de Conversão = soma do bucket S&M) ÷ Total de Vendas. O preço de cada cliente novo. Handle **cac**.',
+      breakeven: '**Breakeven** é o ponto de equilíbrio em vendas: quantas vendas precisa fazer pra empatar o mês. Fórmula: Custo Fixo (G&A) ÷ MSU. Acima dele = lucro; abaixo = prejuízo. Handle **breakeven**.',
+      ctc: '**CTC = Custo Total de Conversão**. Soma de tudo cadastrado em S&M (Aquisição). Vira input do CAC: CTC ÷ vendas.',
+      tm: '**TM = Ticket Médio**. Preço médio ponderado por venda. Vem da aba Ofertas baseado em mix e preços. Handle **tm** (também aceita **ticket**).',
+      ticket: '**Ticket Médio** vem da aba Ofertas. Preço médio ponderado: cada oferta tem preço × mix (% das vendas), soma ponderada = TM. Handle **tm** ou **ticket**.'
     };
-    return map[k] || 'Esse conceito eu ainda não conheço. Pergunta de outro jeito.';
+    return map[k] || 'Esse conceito eu ainda não conheço. Pergunta de outro jeito ou tenta: vendas, ticket, MCU, MSU, CAC, breakeven, deduções, S&M, G&A.';
   }
 };

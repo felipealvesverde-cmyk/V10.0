@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.14.0',
+    date: '2026-06-09',
+    title: 'RevOps KPIs ganhou a mesma régua da DRE — tema light, cards grid, Djow lateral',
+    bullets: [
+      'Tema light igual DRE: wrapper offwhite #f5f3f0 com cartões internos bg-white/70 e bordas stone. Cards da cascata (TM, MCU, MSU, CAC, Custo Fixo, Breakeven) preservaram a identidade visual mas saíram do branco-puro.',
+      'Composição (modo do MCU/MSU) virou GRID 3-col de cards verticais — antes era tabela horizontal apertada. Cada card: nome em cima, fórmula no meio, valor calculado embaixo, engrenagem com menu "Djow ajuda + Remover" (mesmo padrão dos cards de Deduções).',
+      'Slot dashed "+ Adicionar dedução" como último card do grid, com microcopy progressivo.',
+      'Botões de modo (Auto / Valor único / Composição) revisados: padrão executivo, estado ativo violet sólido, hover discreto.',
+      'IDs únicos em todos os inputs da tab pra eliminar o bug clássico de "clica e perde foco" / "digita uma letra e sai" (mesma lei cravada na DRE V36.13.2). Removidos onclick que disparavam render prematuro.',
+      'Validação visual igual DRE: borda emerald + badge ✓ quando fórmula computa valor válido; amber + badge ? quando computa zero (handle errado?); rose + ✕ quando erro de sintaxe; stone + "—" quando vazio.',
+      'Djow lateral sticky igual o da DRE, mas com motor expandido pra RevOps: reconhece "X% do MCU" → =mcu*0,X, "X% do MSU" → =msu*0,X, "X% do CAC" → =cac*0,X. Intro com exemplos contextuais (muda a régua quando estiver editando composição RevOps).',
+      'Djow agora explica conceitos RevOps quando perguntado: "o que é MCU?", "explica breakeven", "o que é CAC?", "MSU explica" — cobre MCU, MSU, CAC, Breakeven, CTC, TM/Ticket além dos termos da DRE.'
+    ]
+  },
+  {
     version: 'V36.13.5',
     date: '2026-06-09',
     title: 'DRE: fix CRÍTICO no cálculo das deduções + renomeado pra EBITDA',
