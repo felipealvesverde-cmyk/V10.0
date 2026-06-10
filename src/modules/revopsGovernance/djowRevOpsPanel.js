@@ -18,6 +18,10 @@
 window.DjowRevOpsPanel = {
 
   render(productId, tabId) {
+    // V36.14.1 — Persiste tabId no state pra _intro saber o contexto.
+    if (App.state.revopsDjowTabContext !== tabId) {
+      App.state.revopsDjowTabContext = tabId;
+    }
     const messages = Array.isArray(App.state.revopsDjowMessages) ? App.state.revopsDjowMessages : [];
     const selected = App.state.revopsDjowSelectedLine;
     const inputVal = App.state.revopsDjowInput || '';
@@ -70,18 +74,29 @@ window.DjowRevOpsPanel = {
 
   _intro() {
     const selected = App.state.revopsDjowSelectedLine;
-    const isRevops = selected?.afterStep === 'revops_mcu' || selected?.afterStep === 'revops_msu';
-    const examples = isRevops
-      ? `<li>• <span class="font-mono">"Comissão Hotmart de 5,9% do ticket"</span></li>
+    const tabContext = App.state.revopsDjowTabContext;
+    const isRevops = selected?.afterStep === 'revops_mcu' || selected?.afterStep === 'revops_msu' || tabContext === 'revops';
+    const isCosts = tabContext === 'costs';
+    let examples;
+    if (isCosts) {
+      examples = `<li>• <span class="font-mono">"6000 fixos por mês"</span> (G&A)</li>
+         <li>• <span class="font-mono">"15% do faturamento"</span> (imposto)</li>
+         <li>• <span class="font-mono">"5,9% do ticket"</span> (Hotmart)</li>
+         <li>• <span class="font-mono">"o que é S&M?"</span> / <span class="font-mono">"diferença entre fixos e variáveis"</span></li>
+         <li>• <span class="font-mono">"qual bucket pra Google Ads?"</span></li>`;
+    } else if (isRevops) {
+      examples = `<li>• <span class="font-mono">"Comissão Hotmart de 5,9% do ticket"</span></li>
          <li>• <span class="font-mono">"15% do MCU"</span></li>
          <li>• <span class="font-mono">"Imposto 15% sobre o ticket"</span></li>
          <li>• <span class="font-mono">"5 reais por venda"</span></li>
-         <li>• <span class="font-mono">"o que é MCU?"</span> / <span class="font-mono">"explica breakeven"</span></li>`
-      : `<li>• <span class="font-mono">"Lara ganha 5 por venda"</span></li>
+         <li>• <span class="font-mono">"o que é MCU?"</span> / <span class="font-mono">"explica breakeven"</span></li>`;
+    } else {
+      examples = `<li>• <span class="font-mono">"Lara ganha 5 por venda"</span></li>
          <li>• <span class="font-mono">"15% do faturamento"</span></li>
          <li>• <span class="font-mono">"ISS de 5% sobre vendas líquidas"</span></li>
          <li>• <span class="font-mono">"6000 fixos"</span></li>
          <li>• <span class="font-mono">"O que entra em deduções?"</span> (explico)</li>`;
+    }
     return `<div class="rounded-2xl border border-violet-200 bg-violet-50/60 p-3 space-y-1.5">
       <p class="text-[11px] font-black text-violet-900 leading-snug">Quer ajuda com a fórmula ou com o preenchimento?</p>
       <p class="text-[11px] text-stone-700 leading-snug">Escreve em português que eu monto a fórmula no formato certo. Exemplos:</p>

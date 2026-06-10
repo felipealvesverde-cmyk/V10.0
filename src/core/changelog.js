@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.14.1',
+    date: '2026-06-09',
+    title: 'Custos ganhou a mesma régua do DRE e RevOps KPIs (tema light + IDs + validação + Djow)',
+    bullets: [
+      'Tema light igual DRE/RevOps: wrapper offwhite #f5f3f0 substituindo o branco-puro, cards de grupo bg-white/70 stone-200, cards de item bg-white/70 também. Empty state em dashed border-stone.',
+      'Layout em grid 2-col com Djow lateral sticky à direita (igual DRE/RevOps).',
+      'TODOS os inputs da aba ganharam ID único — bug clássico de "clica e perde foco" / "digita primeira letra e sai" eliminado também aqui. Aplica em: nome do grupo, nome do item, modo de cálculo (select), valor fixo, valor base, % aplicado, base de referência, grupo de referência, fórmula avançada.',
+      'Validação visual da fórmula avançada agora usa a mesma régua RevOps: ✓ emerald + valor verde quando ok; ? amber + "R$ 0" quando computa zero (handle errado?); × rose + "erro" quando sintaxe inválida; — stone neutro quando vazio.',
+      'Validação visual também no Modo Excel — borda emerald/amber/rose dependendo do status, sem badge expandido pra preservar layout horizontal.',
+      'Djow lateral reconhece a aba "Custos" e mostra exemplos próprios na intro: "6000 fixos por mês", "15% do faturamento", "diferença entre fixos e variáveis", "qual bucket pra Google Ads?".',
+      'Botões revisados: alternador Builder/Excel em white com shadow, ativo em violet sólido. Botão "Novo grupo" em violet sólido.'
+    ]
+  },
+  {
     version: 'V36.14.0',
     date: '2026-06-09',
     title: 'RevOps KPIs ganhou a mesma régua da DRE — tema light, cards grid, Djow lateral',

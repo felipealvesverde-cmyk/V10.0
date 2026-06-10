@@ -229,34 +229,40 @@
     // TAB 1: CUSTOS — grupos dinâmicos + Builder A
     // ────────────────────────────────────────────────────────────
 
+    // V36.14.1 — Custos com mesma régua DRE/RevOps: wrapper offwhite #f5f3f0,
+    // grid 2-col com Djow lateral sticky, cards bg-white/70 stone-200,
+    // espaçamentos enxutos e IDs únicos nos inputs.
     _costsTab(cfg, ev) {
       const groups = cfg.groups || [];
       const productId = cfg.productId;
       const excelMode = !!App.state.revopsExcelMode;
+      const djowPanel = window.DjowRevOpsPanel ? DjowRevOpsPanel.render(productId, 'costs') : '';
       const rightSide = `
-        <div class="inline-flex items-center rounded-xl bg-slate-100 border border-slate-200 p-0.5">
-          <button onclick="Actions.setRevopsExcelMode(false)" class="px-2.5 py-1.5 rounded-lg text-xs font-black inline-flex items-center gap-1 ${!excelMode ? 'bg-violet-600 text-white' : 'text-slate-600'}" ${!excelMode ? 'style="color:#fff!important;"' : ''}><i data-lucide="layout-list" class="w-3 h-3"></i> Builder</button>
-          <button onclick="Actions.setRevopsExcelMode(true)" class="px-2.5 py-1.5 rounded-lg text-xs font-black inline-flex items-center gap-1 ${excelMode ? 'bg-violet-600 text-white' : 'text-slate-600'}" ${excelMode ? 'style="color:#fff!important;"' : ''}><i data-lucide="sigma" class="w-3 h-3"></i> Excel</button>
+        <div class="inline-flex items-center rounded-xl bg-white border border-stone-300 p-0.5 shadow-sm">
+          <button onclick="Actions.setRevopsExcelMode(false)" class="px-3 py-1.5 rounded-lg text-xs font-black inline-flex items-center gap-1 transition ${!excelMode ? 'bg-violet-600 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-50'}" ${!excelMode ? 'style="color:#fff!important;"' : ''}><i data-lucide="layout-list" class="w-3 h-3"></i> Builder</button>
+          <button onclick="Actions.setRevopsExcelMode(true)" class="px-3 py-1.5 rounded-lg text-xs font-black inline-flex items-center gap-1 transition ${excelMode ? 'bg-violet-600 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-50'}" ${excelMode ? 'style="color:#fff!important;"' : ''}><i data-lucide="sigma" class="w-3 h-3"></i> Excel</button>
         </div>
-        <select id="lj-revops-new-bucket" class="px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800">
+        <select id="lj-revops-new-bucket" class="px-3 py-2 rounded-xl bg-white border border-stone-300 text-xs font-bold text-slate-800 shadow-sm">
           ${BUCKETS.map(b => `<option value="${b.id}">${b.label}</option>`).join('')}
         </select>
-        <button onclick="Actions.addRevopsGroup('${productId}', document.getElementById('lj-revops-new-bucket').value)" class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;">
+        <button onclick="Actions.addRevopsGroup('${productId}', document.getElementById('lj-revops-new-bucket').value)" class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm" style="color:#fff!important;">
           <i data-lucide="plus" class="w-3.5 h-3.5"></i> Novo grupo
         </button>`;
-      return `<div class="space-y-4">
-        ${this._djowTip('costs')}
-        ${this._tabHeader('Custos · Operação', 'Custos e Despesas', 'Crie grupos como faz na sua planilha. Cada item pode ser valor fixo, % sobre algo ou fórmula avançada.', rightSide)}
-
-        ${excelMode ? this._handlesLegend(cfg) : ''}
-        ${this._handlesDatalist(cfg)}
-
-        ${groups.length === 0
-          ? `<div class="rounded-2xl bg-amber-50 border border-amber-300 p-5 text-center">
-              <p class="text-sm font-bold text-amber-900 mb-1">Nenhum grupo criado ainda</p>
-              <p class="text-xs text-amber-800">Crie pelo menos um (ex: "Software", "Aquisição") pra começar a montar seu DRE.</p>
-            </div>`
-          : groups.map(g => this._groupCard(productId, g, ev, excelMode)).join('')}
+      return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
+        <div class="space-y-3 min-w-0">
+          ${this._tabHeader('Custos · Operação', 'Custos e Despesas', 'Crie grupos como faz na sua planilha. Cada item pode ser valor fixo, % sobre algo ou fórmula avançada. Clique numa linha de fórmula pra pedir ajuda ao Djow na lateral.', rightSide)}
+          <section class="rounded-3xl border p-5 shadow-md space-y-3" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+            ${excelMode ? this._handlesLegend(cfg) : ''}
+            ${this._handlesDatalist(cfg)}
+            ${groups.length === 0
+              ? `<div class="rounded-2xl bg-amber-50 border-2 border-dashed border-amber-300 p-5 text-center">
+                  <p class="text-sm font-bold text-amber-900 mb-1">Nenhum grupo criado ainda</p>
+                  <p class="text-xs text-amber-800">Crie pelo menos um (ex: "Software", "Aquisição") pra começar a montar seu DRE.</p>
+                </div>`
+              : groups.map(g => this._groupCard(productId, g, ev, excelMode)).join('')}
+          </section>
+        </div>
+        <aside class="xl:sticky xl:top-4 xl:self-start">${djowPanel}</aside>
       </div>`;
     },
 
@@ -271,7 +277,8 @@
       const groupTotals = handles.filter(h => h.kind === 'group_total');
       const items = handles.filter(h => h.kind === 'item');
       const chip = (h) => `<code class="text-[10px] font-mono bg-white border border-slate-200 px-1.5 py-0.5 rounded text-slate-700 hover:border-violet-300 hover:bg-violet-50 transition">${h.id}</code>`;
-      return `<details open class="rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-violet-500 p-3">
+      // V36.14.1 — Tema light: bg-white/70 stone-200 (igual cards do DRE)
+      return `<details open class="rounded-2xl bg-white/70 border border-stone-200 border-l-4 border-l-violet-500 p-3">
         <summary class="cursor-pointer text-[10px] font-black text-violet-700 uppercase tracking-widest flex items-center gap-1.5 select-none">
           <i data-lucide="sigma" class="w-3.5 h-3.5"></i>
           Handles disponíveis no Modo Excel
@@ -279,20 +286,20 @@
         </summary>
         <div class="mt-3 space-y-2.5 text-[11px]">
           <div>
-            <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Especiais (sempre disponíveis)</p>
+            <p class="text-[9px] font-black text-stone-600 uppercase tracking-widest mb-1.5">Especiais (sempre disponíveis)</p>
             <div class="flex flex-wrap gap-1">${specials.map(chip).join('')}</div>
           </div>
           ${groupTotals.length ? `<div>
-            <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Totais de grupo</p>
+            <p class="text-[9px] font-black text-stone-600 uppercase tracking-widest mb-1.5">Totais de grupo</p>
             <div class="flex flex-wrap gap-1">${groupTotals.map(chip).join('')}</div>
           </div>` : ''}
           ${items.length ? `<div>
-            <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider mb-1.5">Itens cadastrados</p>
-            <div class="flex flex-wrap gap-1">${items.slice(0, 30).map(chip).join('')}${items.length > 30 ? `<span class="text-slate-400 text-[10px] self-center">+${items.length - 30}</span>` : ''}</div>
+            <p class="text-[9px] font-black text-stone-600 uppercase tracking-widest mb-1.5">Itens cadastrados</p>
+            <div class="flex flex-wrap gap-1">${items.slice(0, 30).map(chip).join('')}${items.length > 30 ? `<span class="text-stone-400 text-[10px] self-center">+${items.length - 30}</span>` : ''}</div>
           </div>` : ''}
-          <div class="flex items-start gap-1.5 text-slate-500 mt-2 pt-2 border-t border-slate-200">
+          <div class="flex items-start gap-1.5 text-stone-500 mt-2 pt-2 border-t border-stone-200">
             <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
-            <span>Exemplo: <code class="text-[10px] font-mono bg-white px-1.5 py-0.5 rounded border border-slate-200">=fat_bruto * 0.3 + g_software_total</code></span>
+            <span>Exemplo: <code class="text-[10px] font-mono bg-white px-1.5 py-0.5 rounded border border-stone-200">=fat_bruto * 0.3 + g_software_total</code></span>
           </div>
         </div>
       </details>`;
@@ -436,39 +443,40 @@
       const tone = this._cascadeTone(bucket.tone);
       const isLocked = !!App.state.revopsGroupLocked?.[group.id];
       const isCollapsed = isLocked || !!App.state.revopsGroupCollapsed?.[group.id];
+      // V36.14.1 — Tema light: bg-white/70 stone-200 (igual cards DRE/RevOps)
       const cardCls = isLocked
-        ? `rounded-2xl bg-slate-50 border border-slate-300 border-l-4 border-l-slate-500 p-4 opacity-90`
-        : `rounded-2xl bg-white border border-slate-200 ${tone.borderL} p-4 hover:border-slate-300 transition`;
+        ? `rounded-2xl bg-stone-100/60 border border-stone-300 border-l-4 border-l-stone-500 p-4 opacity-90`
+        : `rounded-2xl bg-white/70 border border-stone-200 ${tone.borderL} p-4 shadow-sm`;
       return `<div class="${cardCls}">
         <div class="flex items-start justify-between gap-3 ${isCollapsed ? '' : 'mb-3'}">
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="shrink-0 w-7 h-7 rounded-lg ${isLocked ? 'bg-slate-200 text-slate-600' : tone.iconBg + ' ' + tone.iconText} grid place-items-center">
+              <span class="shrink-0 w-7 h-7 rounded-lg ${isLocked ? 'bg-stone-200 text-stone-600' : tone.iconBg + ' ' + tone.iconText} grid place-items-center">
                 <i data-lucide="${isLocked ? 'lock' : bucket.icon}" class="w-3.5 h-3.5"></i>
               </span>
-              <input value="${Utils.escape(group.label)}" ${isLocked ? 'readonly' : ''} onchange="Actions.renameRevopsGroup('${productId}', '${group.id}', this.value)" class="font-black text-slate-900 text-sm bg-transparent border-b border-transparent ${isLocked ? '' : 'hover:border-slate-300 focus:border-violet-500'} focus:outline-none px-1 py-0.5 min-w-0" />
+              <input id="lj-revops-group-${group.id}-name" value="${Utils.escape(group.label)}" ${isLocked ? 'readonly' : ''} onchange="Actions.renameRevopsGroup('${productId}', '${group.id}', this.value)" class="font-black text-slate-900 text-sm bg-transparent border-b border-transparent ${isLocked ? '' : 'hover:border-stone-300 focus:border-violet-500'} focus:outline-none px-1 py-0.5 min-w-0" />
               <span class="text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded ${tone.iconBg} ${tone.iconText}">${Utils.escape(bucket.label)}</span>
-              ${!isLocked ? `<code class="text-[9px] text-slate-400">${group.id}</code>` : '<span class="text-[9px] font-black text-slate-600 uppercase tracking-wider inline-flex items-center gap-1"><i data-lucide="lock" class="w-3 h-3"></i> Trancado</span>'}
+              ${!isLocked ? `<code class="text-[9px] text-stone-400">${group.id}</code>` : '<span class="text-[9px] font-black text-stone-700 uppercase tracking-widest inline-flex items-center gap-1"><i data-lucide="lock" class="w-3 h-3"></i> Trancado</span>'}
             </div>
-            <p class="text-[10px] text-slate-500 mt-1.5 ml-9">${items.length} item${items.length === 1 ? '' : 'ns'} · Total: <b class="text-slate-800">${this._money(total)}</b></p>
+            <p class="text-[10px] text-stone-600 mt-1.5 ml-9">${items.length} item${items.length === 1 ? '' : 'ns'} · Total: <b class="text-slate-900">${this._money(total)}</b></p>
           </div>
           <div class="flex items-center gap-1 shrink-0">
             ${!isLocked
-              ? `<button onclick="Actions.toggleRevopsGroupCollapsed('${group.id}')" title="${isCollapsed ? 'Expandir' : 'Recolher'}" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-600"><i data-lucide="${isCollapsed ? 'chevron-down' : 'chevron-up'}" class="w-3.5 h-3.5"></i></button>`
+              ? `<button onclick="Actions.toggleRevopsGroupCollapsed('${group.id}')" title="${isCollapsed ? 'Expandir' : 'Recolher'}" class="px-1.5 py-1 rounded-lg bg-white border border-stone-200 hover:bg-stone-50 text-stone-600"><i data-lucide="${isCollapsed ? 'chevron-down' : 'chevron-up'}" class="w-3.5 h-3.5"></i></button>`
               : ''}
             ${isLocked
-              ? `<button onclick="Actions.requestUnlockRevopsGroup('${group.id}')" title="Destravar (pede senha do login)" class="px-2 py-1 rounded-lg bg-slate-700 hover:bg-slate-800 text-white text-[10px] font-black flex items-center gap-1 uppercase tracking-wider" style="color:#fff!important;"><i data-lucide="unlock" class="w-3 h-3"></i> Destravar</button>`
-              : `<button onclick="if(confirm('Trancar este grupo? Só destrava com sua senha de login.')) Actions.lockRevopsGroup('${group.id}')" title="Trancar (pede senha pra destravar)" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-600"><i data-lucide="lock" class="w-3.5 h-3.5"></i></button>`}
-            ${!isLocked ? `<button onclick="Actions.addRevopsItem('${productId}', '${group.id}')" class="px-2 py-1 rounded-lg bg-white border border-slate-200 hover:border-violet-300 hover:bg-violet-50 text-slate-700 text-[10px] font-black flex items-center gap-1 uppercase tracking-wider">
+              ? `<button onclick="Actions.requestUnlockRevopsGroup('${group.id}')" title="Destravar (pede senha do login)" class="px-2 py-1 rounded-lg bg-stone-700 hover:bg-stone-800 text-white text-[10px] font-black flex items-center gap-1 uppercase tracking-widest" style="color:#fff!important;"><i data-lucide="unlock" class="w-3 h-3"></i> Destravar</button>`
+              : `<button onclick="if(confirm('Trancar este grupo? Só destrava com sua senha de login.')) Actions.lockRevopsGroup('${group.id}')" title="Trancar (pede senha pra destravar)" class="px-1.5 py-1 rounded-lg bg-white border border-stone-200 hover:bg-stone-50 text-stone-600"><i data-lucide="lock" class="w-3.5 h-3.5"></i></button>`}
+            ${!isLocked ? `<button onclick="Actions.addRevopsItem('${productId}', '${group.id}')" class="px-2 py-1 rounded-lg bg-white border border-stone-200 hover:border-violet-300 hover:bg-violet-50 text-stone-700 text-[10px] font-black flex items-center gap-1 uppercase tracking-widest">
               <i data-lucide="plus" class="w-3 h-3"></i> Item
             </button>` : ''}
-            ${!isLocked ? `<button onclick="if(confirm('Apagar grupo \\'${Utils.escape(group.label)}\\' e todos os itens?')) Actions.deleteRevopsGroup('${productId}', '${group.id}')" title="Apagar grupo" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>` : ''}
+            ${!isLocked ? `<button onclick="if(confirm('Apagar grupo \\'${Utils.escape(group.label)}\\' e todos os itens?')) Actions.deleteRevopsGroup('${productId}', '${group.id}')" title="Apagar grupo" class="px-1.5 py-1 rounded-lg bg-white border border-stone-200 hover:bg-rose-50 hover:border-rose-300 text-stone-600 hover:text-rose-700"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>` : ''}
           </div>
         </div>
 
         ${isCollapsed ? '' : (items.length === 0
-          ? `<div class="rounded-xl bg-slate-50 border border-dashed border-slate-300 px-3 py-4 text-center">
-              <p class="text-[11px] text-slate-500">Sem itens nesse grupo. Clique <b>+ Item</b> pra adicionar.</p>
+          ? `<div class="rounded-xl bg-white/40 border-2 border-dashed border-stone-300 px-3 py-4 text-center">
+              <p class="text-[11px] text-stone-500">Sem itens nesse grupo. Clique <b>+ Item</b> pra adicionar.</p>
             </div>`
           : `<div class="space-y-2">${items.map(it => excelMode
               ? this._itemRowExcel(productId, group, it, ev)
@@ -485,26 +493,28 @@
       const derivedFormula = RevopsWhitelabelEngine.deriveFormula(item.calc, cfg);
       const value = ev.itemValues[item.id] || 0;
       const isCustom = item.calc?.mode === 'custom_formula';
-      // V32.9.8 — Validação compacta no Modo Excel: só borda colorida + title
-      // tooltip (sem badge expandido pra não quebrar layout horizontal).
       const validation = RevopsWhitelabelEngine.validateFormula(derivedFormula, ev.symbols, item.id);
-      const borderCls = validation.status === 'ok' ? 'border-emerald-300'
-                      : validation.status === 'warn' ? 'border-amber-300'
-                      : 'border-rose-400';
+      // V36.14.1 — Validação visual igual RevOps: ✓ emerald, ? amber, × rose
+      const status = !derivedFormula.trim() ? 'empty'
+                   : validation.status === 'error' ? 'error'
+                   : validation.status === 'warn' ? 'warn'
+                   : Math.abs(Number(value || 0)) < 0.01 ? 'zero'
+                   : 'ok';
+      const borderCls = { empty: 'border-stone-300', ok: 'border-emerald-400', zero: 'border-amber-400', warn: 'border-amber-400', error: 'border-rose-400' }[status];
       const pickerKey = `excel:${productId}:${item.id}`;
       const pickerOpen = App.state.revopsHandlePickerKey === pickerKey;
-      return `<div class="rounded-xl bg-white border border-slate-200 hover:border-slate-300 transition p-2.5">
+      return `<div class="rounded-xl bg-white/70 border border-stone-200 p-2.5">
         <div class="flex items-center gap-2">
-          <input value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome" class="w-40 shrink-0 px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
-          <code class="text-[9px] text-slate-400 shrink-0">${item.id} =</code>
-          <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" title="${Utils.escape(validation.message)}" value="${Utils.escape(derivedFormula)}" list="lj-revops-handles" onchange="Actions.saveRevopsExcelFormula('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="=fat_bruto * 0.3" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-slate-50 border ${borderCls} text-xs font-mono text-slate-800 focus:bg-white focus:border-violet-400" />
+          <input id="lj-revops-excel-${item.id}-name" value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome" class="w-40 shrink-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-xs font-bold text-slate-800 focus:border-violet-400" />
+          <code class="text-[9px] text-stone-400 shrink-0">${item.id} =</code>
+          <input id="lj-revops-excel-${item.id}-formula" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" title="${Utils.escape(validation.message)}" value="${Utils.escape(derivedFormula)}" list="lj-revops-handles" onchange="Actions.saveRevopsExcelFormula('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="=fat_bruto * 0.3" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border ${borderCls} text-xs font-mono text-slate-800 focus:border-violet-500" />
           <button onclick="Actions.toggleRevopsHandlePicker('${pickerKey}')" type="button" title="Escolha um número para se basear" class="shrink-0 px-1.5 py-1 rounded-lg bg-violet-50 border border-violet-200 hover:bg-violet-100 text-violet-700"><i data-lucide="${pickerOpen ? 'eye-off' : 'eye'}" class="w-3.5 h-3.5"></i></button>
           <div class="text-right shrink-0 w-24">
-            <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider">Calculado</p>
+            <p class="text-[9px] font-black text-stone-500 uppercase tracking-widest">Calculado</p>
             <p class="text-xs font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
           </div>
           ${!isCustom ? `<span class="shrink-0 text-amber-600" title="Editar aqui vira fórmula custom (não dá pra voltar pro Builder fácil)"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i></span>` : ''}
-          <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" title="Apagar item" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700 shrink-0"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+          <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" title="Apagar item" class="px-1.5 py-1 rounded-lg bg-white border border-stone-200 hover:bg-rose-50 hover:border-rose-300 text-stone-600 hover:text-rose-700 shrink-0"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
         </div>
         ${pickerOpen ? `<div class="mt-2">${this._handlePickerPopover(cfg)}</div>` : ''}
       </div>`;
@@ -536,20 +546,20 @@
           <p class="text-[10px] text-amber-700/80 mt-2 italic">Soma do gasto das campanhas Ads vinculadas. Pra alterar, vá em Dashboard → Google Ads.</p>
         </div>`;
       }
-      return `<div class="rounded-xl bg-white border border-slate-200 hover:border-slate-300 transition p-3">
+      return `<div class="rounded-xl bg-white/70 border border-stone-200 p-3">
         <div class="flex items-start gap-2 mb-2.5">
-          <input value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome do item" class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
-          <div class="text-right shrink-0 px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200">
-            <p class="text-[9px] font-black text-slate-400 uppercase tracking-wider">Calculado</p>
+          <input id="lj-revops-item-${item.id}-name" value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome do item" class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800 focus:border-violet-400" />
+          <div class="text-right shrink-0 px-2.5 py-1 rounded-lg bg-white border border-stone-200">
+            <p class="text-[9px] font-black text-stone-500 uppercase tracking-widest">Calculado</p>
             <p class="text-sm font-black text-slate-900 whitespace-nowrap">${this._money(value)}</p>
           </div>
-          <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" title="Apagar item" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700 shrink-0 self-start"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+          <button onclick="if(confirm('Apagar item \\'${Utils.escape(item.name)}\\'?')) Actions.deleteRevopsItem('${productId}', '${group.id}', '${item.id}')" title="Apagar item" class="px-1.5 py-1 rounded-lg bg-white border border-stone-200 hover:bg-rose-50 hover:border-rose-300 text-stone-600 hover:text-rose-700 shrink-0 self-start"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-[180px_1fr] gap-2 items-end">
           <div>
-            <label class="text-[9px] font-black text-slate-500 uppercase tracking-wider block mb-1">Tipo de cálculo</label>
-            <select onchange="Actions.changeRevopsItemMode('${productId}', '${group.id}', '${item.id}', this.value)" class="w-full px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:border-violet-400 focus:bg-white">
+            <label class="text-[9px] font-black text-stone-600 uppercase tracking-widest block mb-1">Tipo de cálculo</label>
+            <select id="lj-revops-item-${item.id}-mode" onchange="Actions.changeRevopsItemMode('${productId}', '${group.id}', '${item.id}', this.value)" class="w-full px-2 py-1.5 rounded-lg bg-white border border-stone-300 text-xs font-bold text-slate-800 focus:border-violet-400">
               ${CALC_MODES.map(m => `<option value="${m.id}" ${calc.mode === m.id ? 'selected' : ''}>${m.label}</option>`).join('')}
             </select>
           </div>
@@ -566,76 +576,82 @@
       // parser tolerante no save (Utils.parseBRL). Aceita 115,29 / 1.234,56 /
       // R$ 1.000.000,00 / colado de planilha.
       const moneyUpdate = (field) => `Actions.updateRevopsItemCalc('${productId}', '${group.id}', '${item.id}', '${field}', Utils.parseBRL(this.value))`;
+      // V36.14.1 — IDs únicos em TODOS os inputs do calcInputs (eliminar bug
+      // de foco que perdia primeira letra). Tema light + validação visual.
+      const baseId = `lj-revops-calc-${item.id}`;
       switch (calc.mode) {
         case 'fixed':
           return `<label class="block">
-            <span class="text-[9px] font-black text-slate-500 uppercase">Valor (R$)</span>
-            <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(calc.value || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="${moneyUpdate('value')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+            <span class="text-[9px] font-black text-stone-600 uppercase tracking-widest">Valor (R$)</span>
+            <input id="${baseId}-value" type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(calc.value || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="${moneyUpdate('value')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800" />
           </label>`;
         case 'percent_self':
           return `<div class="grid grid-cols-2 gap-2">
             <label class="block">
-              <span class="text-[9px] font-black text-slate-500 uppercase">Valor base (R$)</span>
-              <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(calc.baseValue || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="${moneyUpdate('baseValue')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+              <span class="text-[9px] font-black text-stone-600 uppercase tracking-widest">Valor base (R$)</span>
+              <input id="${baseId}-baseValue" type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(calc.baseValue || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="${moneyUpdate('baseValue')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800" />
             </label>
             <label class="block">
-              <span class="text-[9px] font-black text-slate-500 uppercase">% aplicado</span>
-              <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${calc.factor || 0}" onchange="${update('factor')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+              <span class="text-[9px] font-black text-stone-600 uppercase tracking-widest">% aplicado</span>
+              <input id="${baseId}-factor" type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${calc.factor || 0}" onchange="${update('factor')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800" />
             </label>
           </div>`;
         case 'percent_of': {
           const handles = RevopsWhitelabelEngine.availableHandles(this._currentConfig(productId));
           return `<div class="grid grid-cols-2 gap-2">
             <label class="block">
-              <span class="text-[9px] font-black text-slate-500 uppercase">Base (referência)</span>
-              <select onchange="${update('base')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800">
+              <span class="text-[9px] font-black text-stone-600 uppercase tracking-widest">Base (referência)</span>
+              <select id="${baseId}-base" onchange="${update('base')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800">
                 <option value="">— escolha —</option>
                 ${handles.filter(h => h.id !== item.id).map(h => `<option value="${h.id}" ${calc.base === h.id ? 'selected' : ''}>${Utils.escape(h.label)} (${h.id})</option>`).join('')}
               </select>
             </label>
             <label class="block">
-              <span class="text-[9px] font-black text-slate-500 uppercase">% aplicado</span>
-              <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${calc.factor || 0}" onchange="${update('factor')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800" />
+              <span class="text-[9px] font-black text-stone-600 uppercase tracking-widest">% aplicado</span>
+              <input id="${baseId}-factor" type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${calc.factor || 0}" onchange="${update('factor')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800" />
             </label>
           </div>`;
         }
         case 'derived': {
           const groups = (this._currentConfig(productId).groups || []).filter(g => g.id !== group.id);
           return `<label class="block">
-            <span class="text-[9px] font-black text-slate-500 uppercase">Grupo de referência</span>
-            <select onchange="${update('groupRef')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800">
+            <span class="text-[9px] font-black text-stone-600 uppercase tracking-widest">Grupo de referência</span>
+            <select id="${baseId}-groupRef" onchange="${update('groupRef')}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800">
               <option value="">— escolha —</option>
               ${groups.map(g => `<option value="${g.id}" ${calc.groupRef === g.id ? 'selected' : ''}>${Utils.escape(g.label)} (total)</option>`).join('')}
             </select>
           </label>`;
         }
         case 'custom_formula': {
-          // V32.9.8 — Validação visual em tempo real: verde=OK, amarelo=resultado 0,
-          // vermelho=erro (handle desconhecido com sugestão, sintaxe, circular ref).
           const cfg = this._currentConfig(productId);
           const evNow = RevopsWhitelabelEngine.evaluate(cfg);
           const validation = RevopsWhitelabelEngine.validateFormula(calc.formula, evNow.symbols, item.id);
-          const borderCls = validation.status === 'ok' ? 'border-emerald-400 ring-1 ring-emerald-200'
-                          : validation.status === 'warn' ? 'border-amber-400 ring-1 ring-amber-200'
-                          : 'border-rose-400 ring-1 ring-rose-200';
-          const badgeCls = validation.status === 'ok' ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                         : validation.status === 'warn' ? 'bg-amber-50 border-amber-200 text-amber-800'
-                         : 'bg-rose-50 border-rose-200 text-rose-800';
-          const badgeIcon = validation.status === 'ok' ? 'check-circle-2' : validation.status === 'warn' ? 'alert-triangle' : 'x-circle';
+          const status = !String(calc.formula || '').trim() || calc.formula === '=0' ? 'empty'
+                       : validation.status === 'error' ? 'error'
+                       : validation.status === 'warn' ? 'warn'
+                       : Math.abs(Number(validation.value || 0)) < 0.01 ? 'zero'
+                       : 'ok';
+          const statusMap = {
+            empty: { border: 'border-stone-300', badge: '', valueColor: 'text-stone-400', valueLabel: '—' },
+            ok:    { border: 'border-emerald-400', badge: '<span class="px-1.5 py-0.5 rounded-md bg-emerald-100 border border-emerald-300 text-[9px] font-black text-emerald-800">✓</span>', valueColor: 'text-emerald-700', valueLabel: this._money(validation.value) },
+            zero:  { border: 'border-amber-400', badge: '<span title="Fórmula computa zero" class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800">?</span>', valueColor: 'text-amber-700', valueLabel: 'R$ 0' },
+            warn:  { border: 'border-amber-400', badge: '<span class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800">!</span>', valueColor: 'text-amber-700', valueLabel: this._money(validation.value) },
+            error: { border: 'border-rose-400', badge: '<span class="px-1.5 py-0.5 rounded-md bg-rose-100 border border-rose-300 text-[9px] font-black text-rose-800">×</span>', valueColor: 'text-rose-700', valueLabel: 'erro' }
+          };
+          const s = statusMap[status];
           const pickerKey = `item:${productId}:${item.id}`;
           return `<div class="block">
             <div class="flex items-center justify-between flex-wrap gap-2">
-              <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Fórmula avançada</span>
+              <span class="text-[9px] font-black text-stone-600 uppercase tracking-widest">Fórmula avançada</span>
               ${this._handlePicker(pickerKey, cfg)}
             </div>
-            <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(calc.formula || '=0')}" list="lj-revops-handles" onchange="${update('formula')}" placeholder="=fat_bruto * 0,059" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border ${borderCls} text-sm font-mono text-slate-800" />
-            <div class="mt-1 px-2 py-1 rounded text-[10px] font-bold border ${badgeCls} inline-flex items-start gap-1.5">
-              <i data-lucide="${badgeIcon}" class="w-3 h-3 mt-0.5 shrink-0"></i>
-              <span>${Utils.escape(validation.message)}${validation.suggestions && validation.suggestions.length
-                ? `<br><span class="font-normal">Quis dizer: ${validation.suggestions.map(s => `<code class="text-[10px] bg-white px-1 rounded">${Utils.escape(s)}</code>`).join(', ')}?</span>`
-                : ''}</span>
+            <input id="${baseId}-formula" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(calc.formula || '=0')}" list="lj-revops-handles" onchange="${update('formula')}" placeholder="=fat_bruto * 0,059" title="${Utils.escape(validation.message)}" class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-white border ${s.border} text-sm font-mono text-slate-800" />
+            <div class="mt-1 flex items-center gap-2">
+              ${s.badge}
+              <span class="${s.valueColor} font-black text-sm">${s.valueLabel}</span>
+              ${validation.suggestions && validation.suggestions.length ? `<span class="text-[10px] text-stone-500">Quis dizer: <code class="bg-white px-1 rounded">${Utils.escape(validation.suggestions[0])}</code>?</span>` : ''}
             </div>
-            <p class="text-[10px] text-slate-500 mt-1 inline-flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i> Vírgula BR (<code>0,059</code>) ou ponto (<code>0.059</code>) — ambos funcionam.</p>
+            <p class="text-[10px] text-stone-500 mt-1 inline-flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i> Vírgula BR (<code>0,059</code>) ou ponto (<code>0.059</code>) — ambos funcionam.</p>
           </div>`;
         }
         default:
