@@ -410,8 +410,7 @@ var App = {
           rdCrmEndStageId: action.rdCrmEndStageId || '',
           flow: window.FlowEngine ? FlowEngine.normalize(action.flow, action) : action.flow
         }));
-        this.state.lpEvents = Array.isArray(this.state.lpEvents) ? this.state.lpEvents : [];
-        this.state.lpRegistry = this.state.lpRegistry && typeof this.state.lpRegistry === 'object' ? this.state.lpRegistry : {};
+        // V37.0.8 — lpEvents/lpRegistry removidos (LP modal vestigial)
         // V24.1.0 — Auto-loops desligados pra escala. Atualização agora
         // é manual (botão "Atualizar dados RD" nas Configurações) ou
         // lazy (ao abrir o painel RD pela primeira vez via _onSettingsModalOpen).

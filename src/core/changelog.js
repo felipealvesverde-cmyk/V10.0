@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.8',
+    date: '2026-06-10',
+    title: 'Limpeza grande — fluxo LP modal vestigial inteiro removido (8 arquivos, ~600 linhas)',
+    bullets: [
+      'Botão "Criar ação LP especializada" REMOVIDO do form de criação de ação. Era vestígio da V15 que abria modal de LP com tracking + checkpoints + score delta — mas nenhum consumidor moderno lia o output (action.lp / lpRegistry). Cliente preenchia e nada acontecia.',
+      'Modal actionLpModal.js deletado (197 linhas) + 10 Actions LP removidas do appActions.js (openLpModal / saveLpAction / addLpCheckpoint / reorderLpCheckpoint / copyLpTrackingScript / validateLpInstallation / pollLpEvents etc).',
+      'Blob de tracking zumbi que dependia do LP modal também saiu: lpRegistry.js / lpAnalyticsEngine.js / flowCheckpointEngine.js / tracking/checkpointEngine.js / eventCollector.js / attributionEngine.js / leadIdentityResolver.js — 8 arquivos deletados no total.',
+      'State limpa: showLpModal, lpDraft, lpEvents, lpRegistry, lpLastPolledAt removidos do initial + normalize. Lista de keys voláteis ajustada.',
+      'EventCollector.poll() removido do refreshAllRdData (era pra puxar /api/lp-events-fetch — endpoint legacy). Toast "RD atualizado" agora não menciona mais "LP".',
+      'PRESERVADO: campaignLpBreakdown + loadCampaignLpBreakdown + /api/campaign-lp-breakdown — esse é parte do Tracking V33 vivo (lê touchpoints reais do snippet embarcável). NÃO conversa com o LP modal morto.',
+      'Pra LP com tracking REAL hoje, fluxo é Tracking V33 (snippet em /api/tracker-snippet → eventos em /api/tracker-event → tabelas lj_visitor_*).'
+    ]
+  },
+  {
     version: 'V37.0.7',
     date: '2026-06-10',
     title: 'Limpeza de código morto — Setor da Campanha + modo RD do mailing (mock) saem',
