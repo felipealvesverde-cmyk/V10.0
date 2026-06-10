@@ -416,8 +416,9 @@ var State = {
       metasResultado: {},             // V37.0.0 — metas {productId: {'YYYY-MM': {vendas, cac}}}
       resultadoPeriod: {},            // V37.0.0 — período visível por produto {productId: 'YYYY-MM'}
       revopsFechamentoScope: {},      // V37.0.1 — escopo da aba Fechamento {productId: 'product'|'monthly'|'custom'}
-      governanceClosings: {},         // V37.0.3 — cache snapshots {productId: {loading, loadedAt, error, list[]}}
+      governanceClosings: {},         // V37.0.3→V37.0.4 — cache cross-product {loading, loadedAt, error, list[]}
       governanceClosingOpen: null,    // V37.0.3 — id do snapshot aberto na vista detalhada
+      fechamentoAssociacao: {},       // V37.0.4 — checkboxes UI por closingId {closingId: [productIds]}
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
@@ -1127,8 +1128,9 @@ var State = {
       metasResultado: (raw.metasResultado && typeof raw.metasResultado === 'object') ? raw.metasResultado : {},
       resultadoPeriod: (raw.resultadoPeriod && typeof raw.resultadoPeriod === 'object') ? raw.resultadoPeriod : {},
       revopsFechamentoScope: (raw.revopsFechamentoScope && typeof raw.revopsFechamentoScope === 'object') ? raw.revopsFechamentoScope : {},
-      governanceClosings: {},         // V37.0.3 — cache volátil, re-fetch on demand
+      governanceClosings: {},         // V37.0.3→V37.0.4 — cache volátil, re-fetch on demand
       governanceClosingOpen: null,    // V37.0.3 — UI state volátil
+      fechamentoAssociacao: {},       // V37.0.4 — UI volátil de checkboxes de associação
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
