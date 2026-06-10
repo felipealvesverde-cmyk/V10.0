@@ -838,100 +838,186 @@
     // TAB 3: RESULTADO
     // ────────────────────────────────────────────────────────────
 
+    // V37.0.0 — Refactor pro layout régua: wrapper offwhite, grid 2-col com Djow
+    // lateral sticky, selector de período (3 meses atrás → 3 à frente), área
+    // dedicada de METAS (Vendas + CAC) com input inline e badge de variância.
+    // Mantém indicadores principais + realizado + simulator + comparador.
     _resultTab(cfg, ev) {
-      const realSales = RevopsFinanceEngine?.productRealSales?.(cfg.productId) || 0;
+      const productId = cfg.productId;
+      const realSales = RevopsFinanceEngine?.productRealSales?.(productId) || 0;
       const realRevenue = realSales * ev.ticket;
 
-      // V32.8.4 — Simulator inline. Recalcula com overrides voláteis e mostra Δ.
+      // Período visível (default = mês corrente)
+      const now = new Date();
+      const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const period = App.state.resultadoPeriod?.[productId] || currentPeriod;
+      const meta = (App.state.metasResultado?.[productId]?.[period]) || { vendas: 0, cac: 0 };
+
+      // Simulator (mantido)
       const sim = App.state.revopsSimulator || { active: false };
       const simSales = sim.active && sim.salesOverride != null ? sim.salesOverride : ev.sales;
       const simTicket = sim.active && sim.ticketOverride != null ? sim.ticketOverride : ev.ticket;
-      const simEv = sim.active
-        ? RevopsWhitelabelEngine.evaluate(cfg, { sales: simSales, ticket: simTicket })
-        : ev;
+      const simEv = sim.active ? RevopsWhitelabelEngine.evaluate(cfg, { sales: simSales, ticket: simTicket }) : ev;
 
-      // V32.9.9 (Felipe) — 4 indicadores principais conforme cravado:
-      //   1. Número Total de Vendas (quantidade, não R$)
-      //   2. Custo Total Comercial (CTC) = soma S&M (= aquisição total)
-      //   3. Custo de Aquisição (CAC) = CTC / Total de vendas
-      //   4. Faturamento Bruto = Total de vendas × TM
-      //
-      // "Total de vendas" interpretado como VENDAS PREVISTAS (input do cliente
-      // no header). Vendas reais (do funil) ficam como cards secundários abaixo
-      // pra cliente ver gap previsto × real.
-      const totalSales = simEv.sales;                          // previstas (input)
-      const ctc = simEv.acquisitionTotal;                       // soma do bucket=acquisition
+      const totalSales = simEv.sales;
+      const ctc = simEv.acquisitionTotal;
       const cac = totalSales > 0 ? ctc / totalSales : 0;
-      const fatBruto = simEv.fatBruto;                          // totalSales × ticket
-
-      // Baseline (sem simulator) pra calcular deltas
+      const fatBruto = simEv.fatBruto;
       const baseTotalSales = ev.sales;
       const baseCtc = ev.acquisitionTotal;
       const baseCac = baseTotalSales > 0 ? baseCtc / baseTotalSales : 0;
       const baseFatBruto = ev.fatBruto;
 
-      const rightSide = `<button onclick="Actions.toggleRevopsSimulator()" class="px-3 py-2 rounded-xl ${sim.active ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} text-xs font-black flex items-center gap-1.5" ${sim.active ? 'style="color:#fff!important;"' : ''}>
+      // CAC realizado (do funil): CTC ÷ vendas reais
+      const realCac = realSales > 0 ? ev.acquisitionTotal / realSales : 0;
+
+      // Selector de período: 3 atrás + corrente + 3 à frente
+      const periodOpts = [];
+      for (let i = -3; i <= 3; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const p = `${y}-${m}`;
+        let label = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace(/\./g, '');
+        label = label.charAt(0).toUpperCase() + label.slice(1);
+        periodOpts.push({ p, label, isCurrent: i === 0 });
+      }
+      const currentPeriodLabel = periodOpts.find(o => o.p === period)?.label || period;
+      const periodSelect = `<select id="lj-resultado-period-${productId}" onchange="Actions.setResultadoPeriod('${productId}', this.value)" class="px-3 py-2 rounded-xl bg-white border border-stone-300 text-xs font-bold text-slate-800 shadow-sm">
+        ${periodOpts.map(o => `<option value="${o.p}" ${o.p === period ? 'selected' : ''}>${Utils.escape(o.label)}${o.isCurrent ? ' (atual)' : ''}</option>`).join('')}
+      </select>`;
+
+      const simBtn = `<button onclick="Actions.toggleRevopsSimulator()" class="px-3 py-2 rounded-xl ${sim.active ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-white border border-stone-300 hover:bg-stone-50 text-slate-700'} text-xs font-black flex items-center gap-1.5 shadow-sm" ${sim.active ? 'style="color:#fff!important;"' : ''}>
         <i data-lucide="${sim.active ? 'pause' : 'flask-conical'}" class="w-3.5 h-3.5"></i>
         ${sim.active ? 'Sair do Simulador' : 'Simular cenário'}
       </button>`;
-      return `<div class="space-y-3">
-        ${this._djowTip('result')}
-        ${this._tabHeader('Resultado · Indicadores', 'Resultado Consolidado', 'Quatro indicadores principais: quantas vendas, quanto custou cada uma, quanto gerou.', rightSide)}
+      const rightSide = `${periodSelect}${simBtn}`;
 
-        ${sim.active ? this._simulatorPanel(cfg, ev, simEv) : ''}
+      const djowPanel = window.DjowRevOpsPanel ? DjowRevOpsPanel.render(productId, 'result') : '';
 
-        <!-- V32.9.9 — 4 indicadores principais (Felipe) -->
-        <div>
-          <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Indicadores principais</p>
-          <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
-            ${this._bigCellWithDelta(
-              'Número Total de Vendas',
-              Math.round(totalSales).toLocaleString('pt-BR'),
-              Math.round(baseTotalSales).toLocaleString('pt-BR'),
-              totalSales, baseTotalSales,
-              'violet', sim.active
-            )}
-            ${this._bigCellWithDelta(
-              'Custo Total Comercial (CTC)',
-              this._money(ctc),
-              this._money(baseCtc),
-              ctc, baseCtc,
-              'rose', sim.active, true
-            )}
-            ${this._bigCellWithDelta(
-              'Custo de Aquisição (CAC)',
-              this._money(cac),
-              this._money(baseCac),
-              cac, baseCac,
-              cac > 0 && cac <= simEv.ticket ? 'emerald' : 'amber',
-              sim.active, true
-            )}
-            ${this._bigCellWithDelta(
-              'Faturamento Bruto',
-              this._money(fatBruto),
-              this._money(baseFatBruto),
-              fatBruto, baseFatBruto,
-              'emerald', sim.active
-            )}
-          </div>
-          <div class="mt-2 grid md:grid-cols-2 gap-2 text-[11px] text-slate-600">
-            <p><b>CAC fórmula:</b> CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = <b class="text-slate-900">${this._money(cac)}</b></p>
-            <p><b>Fat. Bruto fórmula:</b> Total Vendas × TM = ${Math.round(totalSales).toLocaleString('pt-BR')} × ${this._money(simEv.ticket)} = <b class="text-slate-900">${this._money(fatBruto)}</b></p>
+      return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
+        <div class="space-y-3 min-w-0">
+          ${this._tabHeader('Resultado · Indicadores', 'Resultado Consolidado', 'Meta vs realizado de Vendas e CAC, indicadores principais e leitura do funil.', rightSide)}
+          <section class="rounded-3xl border p-5 shadow-md space-y-4" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+            ${sim.active ? this._simulatorPanel(cfg, ev, simEv) : ''}
+
+            <!-- V37.0.0 — METAS DO PERÍODO -->
+            <div>
+              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Metas · ${Utils.escape(currentPeriodLabel)}</p>
+              <div class="grid sm:grid-cols-2 gap-3">
+                ${this._metaCard(productId, period, 'vendas', meta.vendas || 0, realSales)}
+                ${this._metaCard(productId, period, 'cac', meta.cac || 0, realCac)}
+              </div>
+            </div>
+
+            <!-- Indicadores principais -->
+            <div class="pt-2 border-t border-stone-200">
+              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Indicadores principais (cascata RevOps)</p>
+              <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+                ${this._bigCellWithDelta('Número Total de Vendas', Math.round(totalSales).toLocaleString('pt-BR'), Math.round(baseTotalSales).toLocaleString('pt-BR'), totalSales, baseTotalSales, 'violet', sim.active)}
+                ${this._bigCellWithDelta('Custo Total Comercial (CTC)', this._money(ctc), this._money(baseCtc), ctc, baseCtc, 'rose', sim.active, true)}
+                ${this._bigCellWithDelta('Custo de Aquisição (CAC)', this._money(cac), this._money(baseCac), cac, baseCac, cac > 0 && cac <= simEv.ticket ? 'emerald' : 'amber', sim.active, true)}
+                ${this._bigCellWithDelta('Faturamento Bruto', this._money(fatBruto), this._money(baseFatBruto), fatBruto, baseFatBruto, 'emerald', sim.active)}
+              </div>
+              <div class="mt-2 grid md:grid-cols-2 gap-2 text-[11px] text-slate-600">
+                <p><b>CAC fórmula:</b> CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = <b class="text-slate-900">${this._money(cac)}</b></p>
+                <p><b>Fat. Bruto fórmula:</b> Total Vendas × TM = ${Math.round(totalSales).toLocaleString('pt-BR')} × ${this._money(simEv.ticket)} = <b class="text-slate-900">${this._money(fatBruto)}</b></p>
+              </div>
+            </div>
+
+            <!-- Realizado (do funil) -->
+            <div class="pt-2 border-t border-stone-200">
+              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Realizado (lido do funil)</p>
+              <div class="grid md:grid-cols-2 gap-3">
+                ${this._bigCell('Vendas reais (convertidas)', Math.round(realSales).toLocaleString('pt-BR'), 'sky')}
+                ${this._bigCell('Faturamento real', this._money(realRevenue), 'sky')}
+              </div>
+              <p class="text-[11px] text-slate-500 mt-2 italic">Vendas reais vêm dos convertidos no funil das ações. Se previsto × real estiver muito distante, calibre sua projeção.</p>
+            </div>
+
+            ${sim.active ? this._simulatorEbitdaCompare(ev, simEv) : ''}
+            ${this._scenarioCompareBlock(cfg, ev)}
+          </section>
+        </div>
+        <aside class="xl:sticky xl:top-4 xl:self-start">${djowPanel}</aside>
+      </div>`;
+    },
+
+    // V37.0.0 — Card editável de meta (Vendas ou CAC) com badge de variância.
+    // Cores design diretor:
+    //   • Vendas: realizado ≥ meta → emerald (mais é melhor); senão → rose
+    //   • CAC:    realizado ≤ meta → emerald (menos é melhor); senão → rose
+    // ID único no input pra _captureFocus preservar foco entre re-renders.
+    _metaCard(productId, period, kind, metaValue, realizedValue) {
+      const isVendas = kind === 'vendas';
+      const label = isVendas ? 'Meta de Vendas' : 'Meta de CAC';
+      const subtitle = isVendas ? 'Vendas convertidas no mês' : 'Custo de aquisição por venda';
+      const icon = isVendas ? 'target' : 'shield-check';
+      const periodSlug = period.replace('-', '');
+      const inputId = `lj-meta-${kind}-${productId}-${periodSlug}`;
+
+      // Variância
+      let varCls = 'bg-stone-100 border-stone-200 text-stone-600';
+      let varIcon = 'minus';
+      let varLabel = '—';
+      if (metaValue > 0 && realizedValue > 0) {
+        const pct = (realizedValue / metaValue) * 100;
+        const atingiu = isVendas ? realizedValue >= metaValue : realizedValue <= metaValue;
+        varCls = atingiu ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-rose-50 border-rose-200 text-rose-700';
+        if (isVendas) {
+          varIcon = atingiu ? 'trending-up' : 'trending-down';
+        } else {
+          varIcon = atingiu ? 'trending-down' : 'trending-up';
+        }
+        varLabel = `${pct.toFixed(0)}% da meta`;
+      } else if (metaValue > 0 && realizedValue === 0) {
+        varCls = 'bg-amber-50 border-amber-200 text-amber-700';
+        varIcon = 'clock';
+        varLabel = 'Aguardando realizado';
+      } else if (metaValue === 0) {
+        varCls = 'bg-stone-100 border-stone-200 text-stone-500';
+        varIcon = 'edit-3';
+        varLabel = 'Sem meta';
+      }
+
+      const metaDisplay = isVendas
+        ? (metaValue > 0 ? Math.round(metaValue).toLocaleString('pt-BR') : '')
+        : (metaValue > 0 ? Utils.formatCents(metaValue) : '');
+      const realDisplay = isVendas
+        ? Math.round(realizedValue).toLocaleString('pt-BR')
+        : this._money(realizedValue);
+
+      const parser = isVendas
+        ? `Number(String(this.value).replace(/[^0-9]/g, '')) || 0`
+        : `Utils.parseBRL(this.value)`;
+      const inputMode = isVendas ? 'numeric' : 'decimal';
+      const maskAttr = isVendas ? '' : 'oninput="Utils.applyMoneyMask(this)"';
+      const placeholder = isVendas ? '0' : 'R$ 0,00';
+
+      return `<div class="lj-cost-card relative rounded-2xl bg-white/70 border border-stone-200 p-4 transition" style="box-shadow:3px 3px 0 0 #e7e5e4;">
+        <div class="flex items-start gap-2 mb-3">
+          <span class="shrink-0 w-8 h-8 rounded-lg bg-violet-500/15 grid place-items-center text-violet-700">
+            <i data-lucide="${icon}" class="w-4 h-4"></i>
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">${label}</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">${subtitle}</p>
           </div>
         </div>
-
-        <!-- Real (do funil) — secundário, pra cliente comparar previsto × real -->
-        <div class="pt-2 border-t border-slate-200">
-          <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Realizado (lido do funil)</p>
-          <div class="grid md:grid-cols-2 gap-3">
-            ${this._bigCell('Vendas reais (convertidas)', Math.round(realSales).toLocaleString('pt-BR'), 'sky')}
-            ${this._bigCell('Faturamento real', this._money(realRevenue), 'sky')}
+        <label class="block">
+          <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Meta do período</span>
+          <input id="${inputId}" type="text" inputmode="${inputMode}" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${metaDisplay}" ${maskAttr} onchange="Actions.updateMetaResultado('${productId}', '${period}', '${kind}', ${parser})" placeholder="${placeholder}" class="mt-0.5 w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800 focus:border-violet-400 focus:outline-none" />
+        </label>
+        <div class="mt-3 flex items-end justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Realizado</p>
+            <p class="text-xl font-black text-slate-900 mt-0.5">${realDisplay}</p>
           </div>
-          <p class="text-[11px] text-slate-500 mt-2 italic">Vendas reais vêm dos convertidos no funil das ações. Se previsto × real estiver muito distante, sua projeção precisa calibrar.</p>
+          <span class="inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[10px] font-black uppercase tracking-wider ${varCls}">
+            <i data-lucide="${varIcon}" class="w-3 h-3"></i>
+            ${varLabel}
+          </span>
         </div>
-
-        ${sim.active ? this._simulatorEbitdaCompare(ev, simEv) : ''}
-        ${this._scenarioCompareBlock(cfg, ev)}
       </div>`;
     },
 

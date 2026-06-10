@@ -77,6 +77,7 @@ window.DjowRevOpsPanel = {
     const tabContext = App.state.revopsDjowTabContext;
     const isRevops = selected?.afterStep === 'revops_mcu' || selected?.afterStep === 'revops_msu' || tabContext === 'revops';
     const isCosts = tabContext === 'costs';
+    const isResult = tabContext === 'result';
     let examples;
     if (isCosts) {
       examples = `<li>• <span class="font-mono">"6000 fixos por mês"</span> (G&A)</li>
@@ -90,6 +91,12 @@ window.DjowRevOpsPanel = {
          <li>• <span class="font-mono">"Imposto 15% sobre o ticket"</span></li>
          <li>• <span class="font-mono">"5 reais por venda"</span></li>
          <li>• <span class="font-mono">"o que é MCU?"</span> / <span class="font-mono">"explica breakeven"</span></li>`;
+    } else if (isResult) {
+      examples = `<li>• <span class="font-mono">"como definir meta de vendas?"</span></li>
+         <li>• <span class="font-mono">"o que é um CAC saudável?"</span></li>
+         <li>• <span class="font-mono">"por que meu CAC tá maior que a meta?"</span></li>
+         <li>• <span class="font-mono">"diferença entre vendas previstas e realizado"</span></li>
+         <li>• <span class="font-mono">"explica CTC"</span> / <span class="font-mono">"o que é faturamento bruto?"</span></li>`;
     } else {
       examples = `<li>• <span class="font-mono">"Lara ganha 5 por venda"</span></li>
          <li>• <span class="font-mono">"15% do faturamento"</span></li>
@@ -159,13 +166,18 @@ window.DjowRevOpsPanel = {
     if (!q) return { reply: 'Escreve algo que eu te ajudo.', suggestion: null };
 
     // Pergunta conceitual: "o que entra em deduções?" / "o que é MCU?" / "explica CAC"
-    const conceptMatch = q.match(/o que (entra|vai|tem|e|eh|é) (em|nas?|um|uma|o|a)?\s*(deducoes|deducao|s.?m|s e m|sm|g.?a|g e a|ga|custos|faturamento|mcu|msu|cac|breakeven|ctc|tm|ticket)/);
+    const conceptMatch = q.match(/o que (entra|vai|tem|e|eh|é) (em|nas?|um|uma|o|a)?\s*(deducoes|deducao|s.?m|s e m|sm|g.?a|g e a|ga|custos|faturamento|mcu|msu|cac|breakeven|ctc|tm|ticket|meta|vendas|realizado|previsto)/);
     if (conceptMatch) {
       return { reply: this._explainConcept(conceptMatch[3]), suggestion: null };
     }
-    const explainMatch = q.match(/(?:explica|me explica|explique|o que e|o que eh)\s+(?:o|a|um|uma)?\s*(mcu|msu|cac|breakeven|ctc|tm|ticket|deducoes|deducao|s.?m|sm|g.?a|ga|custos|faturamento)/);
+    const explainMatch = q.match(/(?:explica|me explica|explique|o que e|o que eh)\s+(?:o|a|um|uma)?\s*(mcu|msu|cac|breakeven|ctc|tm|ticket|deducoes|deducao|s.?m|sm|g.?a|ga|custos|faturamento|meta|vendas|realizado|previsto)/);
     if (explainMatch) {
       return { reply: this._explainConcept(explainMatch[1]), suggestion: null };
+    }
+    // V37.0.0 — Perguntas sobre meta no contexto Resultado.
+    const metaMatch = q.match(/(como\s+def|definir|setar|crav|ajusta)\w*\s+(uma\s+)?(meta|metas)/);
+    if (metaMatch) {
+      return { reply: this._explainConcept('meta'), suggestion: null };
     }
 
     // "X reais fixos" / "X por mes" / "X fixo"
@@ -291,8 +303,12 @@ window.DjowRevOpsPanel = {
       breakeven: '**Breakeven** é o ponto de equilíbrio em vendas: quantas vendas precisa fazer pra empatar o mês. Fórmula: Custo Fixo (G&A) ÷ MSU. Acima dele = lucro; abaixo = prejuízo. Handle **breakeven**.',
       ctc: '**CTC = Custo Total de Conversão**. Soma de tudo cadastrado em S&M (Aquisição). Vira input do CAC: CTC ÷ vendas.',
       tm: '**TM = Ticket Médio**. Preço médio ponderado por venda. Vem da aba Ofertas baseado em mix e preços. Handle **tm** (também aceita **ticket**).',
-      ticket: '**Ticket Médio** vem da aba Ofertas. Preço médio ponderado: cada oferta tem preço × mix (% das vendas), soma ponderada = TM. Handle **tm** ou **ticket**.'
+      ticket: '**Ticket Médio** vem da aba Ofertas. Preço médio ponderado: cada oferta tem preço × mix (% das vendas), soma ponderada = TM. Handle **tm** ou **ticket**.',
+      meta: '**Meta** é seu compromisso do mês. Pra **Vendas**, o alvo é realizado ≥ meta (mais é melhor — emerald). Pra **CAC**, o alvo é realizado ≤ meta (gastar menos por cliente — emerald). O snapshot mensal congela a meta vigente, então auditoria depois compara meta × realizado.',
+      vendas: '**Vendas** no LJ têm 2 fontes. (1) **Previstas** = input no header do produto, alimenta a cascata RevOps (CAC, MCU, breakeven). (2) **Realizadas** = lidas do funil das ações (convertidos). A aba Resultado cruza meta × realizado e mostra a variância.',
+      realizado: '**Realizado** = vendas convertidas no funil das ações desse produto. É o que efetivamente fechou — não é estimativa.',
+      previsto: '**Previsto** = vendas que você cravou no header. **NÃO é meta** — é só projeção pra cascata RevOps calcular CAC/MCU/breakeven. Meta é outro campo, na aba Resultado.'
     };
-    return map[k] || 'Esse conceito eu ainda não conheço. Pergunta de outro jeito ou tenta: vendas, ticket, MCU, MSU, CAC, breakeven, deduções, S&M, G&A.';
+    return map[k] || 'Esse conceito eu ainda não conheço. Pergunta de outro jeito ou tenta: meta, vendas, ticket, MCU, MSU, CAC, breakeven, deduções, S&M, G&A.';
   }
 };
