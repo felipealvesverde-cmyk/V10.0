@@ -1538,21 +1538,28 @@
         }
       }
 
+      // V36.13.3 — Suprime Lucro Bruto quando == Venda Líquida (não tem
+      // CGV/COGS estruturado no LJ; ficam idênticos e o card duplicado
+      // confunde). Quando cliente inserir grupo/extra entre VL e LB, eles
+      // divergem e Lucro Bruto reaparece automaticamente.
+      const vlVal = dre.totals?.vendaLiquida ?? 0;
+      const lbVal = dre.totals?.lucroBruto ?? 0;
+      const skipLucroBruto = Math.abs(vlVal - lbVal) < 0.01
+                          && !(extrasByStep['venda_liquida'] || []).length
+                          && !(groupsByStep['venda_liquida'] || []).length;
+
       for (const l of dre.lines) {
         if (l.kind !== 'base') continue;
+        if (l.id === 'lucro_bruto' && skipLucroBruto) continue;
         if (l.id === 'deducoes') {
-          // V36.13.1 — Deduções ganha linha-banner ROSE igual S&M/G&A
-          // (fixa, não-editável, sem fórmula própria). Cards filhos abaixo.
           blocks.push(this._dreBaseCard(productId, l));
           blocks.push(this._dreFlatDeducoes(productId, variableItems, dre.deducoesInsideExtras || []));
           continue;
         }
         blocks.push(this._dreBaseCard(productId, l));
-        // Legacy extras (compat): cards verticais soltos
         for (const ex of (extrasByStep[l.id] || [])) {
           blocks.push(this._dreExtraCard(productId, ex));
         }
-        // V36.13.0 — Grupos novos: cada um vira linha-banner laranja + grid de cards filhos
         for (const g of (groupsByStep[l.id] || [])) {
           blocks.push(this._dreExtraGroupBlock(productId, g));
         }
@@ -1622,6 +1629,8 @@
       const isSelected = this._isDjowSelectedItem(productId, groupId, it.id);
       const selectedRing = isSelected ? 'ring-2 ring-violet-400 ring-offset-1 ring-offset-[#f5f3f0]' : '';
       const menuOpen = App.state.revopsDreCardMenuOpen === it.id;
+      const valStatus = this._formulaStatus(it.value, it.computedValue, '');
+      const fallbackValue = `<span class="text-amber-800">${this._money(it.computedValue || 0)}</span>`;
       return `<div class="rounded-2xl border border-stone-200 bg-white/80 ${selectedRing} p-3 flex flex-col gap-2 min-h-[110px] relative">
         <div class="flex items-start justify-between gap-2">
           <input id="lj-dregi-${it.id}-name" value="${Utils.escape(it.name || '')}" onchange="Actions.updateDreExtraGroupItem('${productId}', '${groupId}', '${it.id}', 'name', this.value)" placeholder="Nome do item" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
@@ -1637,9 +1646,10 @@
             </button>
           </div>` : ''}
         </div>
-        <input id="lj-dregi-${it.id}-value" value="${Utils.escape(it.value || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraGroupItem('${productId}', '${groupId}', '${it.id}', 'value', this.value)" placeholder="6000 ou =vendas*5" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-mono text-slate-800" />
-        <div class="mt-auto">
-          <span class="text-amber-800 font-black text-base whitespace-nowrap">${this._money(it.computedValue || 0)}</span>
+        <input id="lj-dregi-${it.id}-value" value="${Utils.escape(it.value || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraGroupItem('${productId}', '${groupId}', '${it.id}', 'value', this.value)" placeholder="6000 ou =vendas*5" title="${valStatus.tooltip}" class="px-2 py-1 rounded-lg bg-white border ${valStatus.border} text-[11px] font-mono text-slate-800" />
+        <div class="mt-auto flex items-center gap-2">
+          ${valStatus.badge}
+          <span class="font-black text-base whitespace-nowrap">${valStatus.valueLabel || fallbackValue}</span>
         </div>
       </div>`;
     },
@@ -1718,6 +1728,7 @@
       const isSelected = this._isDjowSelected(productId, l.id);
       const selectedRing = isSelected ? 'ring-2 ring-violet-400 ring-offset-1 ring-offset-[#f5f3f0]' : '';
       const menuOpen = App.state.revopsDreCardMenuOpen === l.id;
+      const valStatus = this._formulaStatus(l.raw, l.value);
       return `<div class="rounded-2xl border border-stone-200 bg-white/80 ${selectedRing} p-3 flex flex-col gap-2 min-h-[110px] relative">
         <div class="flex items-start justify-between gap-2">
           <input id="lj-dre-${l.id}-name" value="${Utils.escape(l.name)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Nome da dedução" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
@@ -1733,9 +1744,10 @@
             </button>
           </div>` : ''}
         </div>
-        <input id="lj-dre-${l.id}-value" value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" placeholder="6000 ou =vendas*5" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-mono text-slate-800" />
-        <div class="mt-auto">
-          <span class="text-rose-700 font-black text-base whitespace-nowrap">−${this._money(l.value)}</span>
+        <input id="lj-dre-${l.id}-value" value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" placeholder="6000 ou =vendas*5" title="${valStatus.tooltip}" class="px-2 py-1 rounded-lg bg-white border ${valStatus.border} text-[11px] font-mono text-slate-800" />
+        <div class="mt-auto flex items-center gap-2">
+          ${valStatus.badge}
+          <span class="${valStatus.valueColor} font-black text-base whitespace-nowrap">${valStatus.valueLabel || ('−' + this._money(l.value))}</span>
         </div>
       </div>`;
     },
@@ -1800,6 +1812,41 @@
     _isDjowSelected(productId, lineId) {
       const sel = App.state.revopsDjowSelectedLine;
       return sel && String(sel.productId) === String(productId) && sel.lineId === lineId;
+    },
+
+    // V36.13.3 — Status visual da fórmula. Retorna { border, badge, valueLabel,
+    // valueColor, tooltip } baseado em raw (input cru) e computedValue.
+    //   vazio              → neutro, mostra "—"
+    //   preenchido e >0    → rose normal, sem badge
+    //   preenchido e =0    → amber warning, badge "?", tooltip explicativo
+    _formulaStatus(raw, computedValue, defaultSignal = '−') {
+      const rawStr = String(raw || '').trim();
+      if (!rawStr) {
+        return {
+          border: 'border-stone-300',
+          badge: '',
+          valueLabel: '<span class="text-stone-400">—</span>',
+          valueColor: '',
+          tooltip: 'Digite um número fixo (ex: 6000) ou uma fórmula (ex: =vendas*5)'
+        };
+      }
+      const isZero = Math.abs(Number(computedValue || 0)) < 0.01;
+      if (isZero) {
+        return {
+          border: 'border-amber-400',
+          badge: '<span title="Fórmula computa zero — confere o handle ou o número" class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800 uppercase">?</span>',
+          valueLabel: `<span class="text-amber-700">${defaultSignal}R$ 0</span>`,
+          valueColor: '',
+          tooltip: 'A fórmula está retornando zero. Verifique se o handle existe (vendas, fat_bruto, tm, fat_liquido, lucro_bruto) e se o número está com vírgula decimal correta.'
+        };
+      }
+      return {
+        border: 'border-stone-300',
+        badge: '',
+        valueLabel: '',
+        valueColor: 'text-rose-700',
+        tooltip: ''
+      };
     },
 
     // ────────────────────────────────────────────────────────────
