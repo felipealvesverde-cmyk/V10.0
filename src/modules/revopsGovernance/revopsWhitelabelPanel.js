@@ -215,16 +215,16 @@
       const productId = cfg.productId;
       const scope = App.state.revopsFechamentoScope?.[productId] || 'product';
 
-      // V37.0.3 — Auto-fetch on first render
-      const cache = App.state.governanceClosings?.[productId];
-      if (!cache || !cache.loadedAt) {
-        setTimeout(() => Actions.loadGovernanceClosings(productId), 0);
+      // V37.0.3 → V37.0.4 — Cache global cross-product (não mais por productId)
+      const cache = App.state.governanceClosings || {};
+      if (!cache.loadedAt) {
+        setTimeout(() => Actions.loadGovernanceClosings(), 0);
       }
 
       // V37.0.3 — Vista detalhada se snapshot aberto
       const openId = App.state.governanceClosingOpen;
       if (openId) {
-        const openClosing = (cache?.list || []).find(c => Number(c.id) === Number(openId));
+        const openClosing = (cache.list || []).find(c => Number(c.id) === Number(openId));
         if (openClosing) return this._fechamentoSnapshotView(openClosing, cfg);
       }
 
@@ -259,10 +259,13 @@
         custom:  'Agrupamentos arbitrários de produtos dentro de um mesmo mês. Cria quantos quiser. Cada custom tem data de geração imutável.'
       };
 
-      // V37.0.3 — Filtra lista por escopo
-      const allClosings = cache?.list || [];
+      // V37.0.3 → V37.0.4 — Filtra do cache global. 'product' ainda filtra por productId.
+      const allClosings = cache.list || [];
       const closingsByScope = {
-        product: allClosings.filter(c => c.kind === 'product_auto' || c.kind === 'product_custom'),
+        product: allClosings.filter(c =>
+          (c.kind === 'product_auto' || c.kind === 'product_custom') &&
+          Array.isArray(c.product_ids) && c.product_ids.includes(productId)
+        ),
         monthly: allClosings.filter(c => c.kind === 'consolidated_monthly'),
         custom:  allClosings.filter(c => c.kind === 'consolidated_custom')
       };
@@ -410,12 +413,70 @@
         ${reopens > 0 ? `<p class="text-[10px] text-amber-700 mt-1"><i data-lucide="history" class="w-3 h-3 inline"></i> ${reopens} reabertura${reopens === 1 ? '' : 's'}</p>` : ''}
         ${isPartial ? `<p class="text-[10px] text-amber-700 mt-1"><i data-lucide="alert-circle" class="w-3 h-3 inline"></i> Aguardando associação</p>` : ''}
         <div class="mt-3 flex items-center gap-1.5">
-          <button onclick="Actions.openGovernanceClosingView(${closing.id})" class="flex-1 px-2 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black inline-flex items-center justify-center gap-1" style="color:#fff!important;">
-            <i data-lucide="eye" class="w-3 h-3"></i> Abrir
+          <button onclick="Actions.openGovernanceClosingView(${closing.id})" class="flex-1 px-2 py-1.5 rounded-lg ${isPartial ? 'bg-amber-500 hover:bg-amber-600' : 'bg-violet-600 hover:bg-violet-700'} text-white text-[10px] font-black inline-flex items-center justify-center gap-1" style="color:#fff!important;">
+            <i data-lucide="${isPartial ? 'list-checks' : 'eye'}" class="w-3 h-3"></i> ${isPartial ? 'Associar produtos' : 'Abrir'}
           </button>
-          ${closing.kind !== 'product_auto' ? `<button onclick="Actions.reopenGovernanceClosing(${closing.id})" title="Registra reabertura no log de auditoria. Snapshot continua imutável." class="px-2 py-1.5 rounded-lg bg-white border border-stone-300 hover:bg-stone-50 text-stone-700 text-[10px] font-black inline-flex items-center gap-1">
+          ${closing.kind !== 'product_auto' && !isPartial ? `<button onclick="Actions.reopenGovernanceClosing(${closing.id})" title="Registra reabertura no log de auditoria. Snapshot continua imutável." class="px-2 py-1.5 rounded-lg bg-white border border-stone-300 hover:bg-stone-50 text-stone-700 text-[10px] font-black inline-flex items-center gap-1">
             <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
           </button>` : ''}
+        </div>
+      </div>`;
+    },
+
+    // V37.0.4 — Bloco UI de associação pra consolidated_monthly partial.
+    // Mostra checkboxes dos produtos + botão "Confirmar" + "Não consolidar este mês".
+    _fechamentoAssociacaoBlock(closing) {
+      const products = Array.isArray(App.state.products) ? App.state.products : [];
+      if (!products.length) {
+        return `<div class="rounded-2xl bg-stone-100 border border-stone-200 p-4 text-center">
+          <p class="text-[12px] text-slate-600">Nenhum produto cadastrado pra associar.</p>
+        </div>`;
+      }
+      const associacao = App.state.fechamentoAssociacao?.[String(closing.id)];
+      const selectedSet = associacao instanceof Set
+        ? associacao
+        : new Set(Array.isArray(associacao) ? associacao.map(String) : []);
+      const selectedArr = Array.from(selectedSet);
+      const selectedJsonStr = JSON.stringify(selectedArr).replace(/"/g, '&quot;');
+      const productCards = products.map(p => {
+        const checked = selectedSet.has(String(p.id));
+        return `<label class="flex items-start gap-2.5 p-3 rounded-2xl bg-white/70 border ${checked ? 'border-violet-400 ring-1 ring-violet-200' : 'border-stone-200'} cursor-pointer hover:border-violet-300 transition" style="box-shadow:3px 3px 0 0 #e7e5e4;">
+          <input type="checkbox" ${checked ? 'checked' : ''} onchange="Actions.toggleFechamentoAssociacaoProduct(${closing.id}, '${p.id}')" class="mt-1 accent-violet-600" />
+          <div class="min-w-0 flex-1">
+            <p class="text-[12px] font-black text-slate-900 leading-tight">${Utils.escape(p.name || 'Produto sem nome')}</p>
+            <p class="text-[10px] text-slate-500 mt-0.5">${Math.round(Number(p.salesProjection) || 0).toLocaleString('pt-BR')} vendas previstas</p>
+          </div>
+        </label>`;
+      }).join('');
+
+      return `<div class="space-y-3">
+        <div class="rounded-2xl bg-amber-50 border-2 border-amber-300 p-4">
+          <div class="flex items-start gap-2.5 mb-2">
+            <span class="shrink-0 w-9 h-9 rounded-xl bg-amber-500/15 grid place-items-center text-amber-700">
+              <i data-lucide="alert-circle" class="w-4 h-4"></i>
+            </span>
+            <div class="min-w-0">
+              <p class="text-[10px] font-black text-amber-800 uppercase tracking-widest">Fechamento parcial · aguardando decisão</p>
+              <p class="text-[12px] text-slate-700 leading-snug mt-0.5">Marque os produtos que entram no consolidado do mês. Ou confirme que não quer consolidar agora — fica registrado pro histórico.</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Produtos do tenant (${products.length})</p>
+          <div class="grid sm:grid-cols-2 gap-2">${productCards}</div>
+        </div>
+
+        <div class="flex items-center justify-between gap-2 flex-wrap pt-2 border-t border-stone-200">
+          <p class="text-[11px] text-slate-600"><b>${selectedArr.length}</b> de ${products.length} produto${products.length === 1 ? '' : 's'} marcado${selectedArr.length === 1 ? '' : 's'}</p>
+          <div class="flex items-center gap-2">
+            <button onclick="if(confirm('Confirmar que NÃO quer consolidar ${closing.period}? Fica registrado como decisão consciente.')) Actions.associateMonthlyConsolidated(${closing.id}, [], true)" class="px-3 py-2 rounded-xl bg-white border border-stone-300 hover:bg-stone-50 text-slate-700 text-xs font-black inline-flex items-center gap-1.5">
+              <i data-lucide="x-circle" class="w-3.5 h-3.5"></i> Não consolidar este mês
+            </button>
+            <button onclick="Actions.associateMonthlyConsolidated(${closing.id}, JSON.parse('${selectedJsonStr}'), false)" ${selectedArr.length === 0 ? 'disabled' : ''} class="px-3 py-2 rounded-xl ${selectedArr.length === 0 ? 'bg-stone-200 text-stone-500 cursor-not-allowed' : 'bg-violet-600 hover:bg-violet-700 text-white'} text-xs font-black inline-flex items-center gap-1.5" ${selectedArr.length > 0 ? 'style="color:#fff!important;"' : ''}>
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Confirmar associação
+            </button>
+          </div>
         </div>
       </div>`;
     },
@@ -433,9 +494,13 @@
       const closedDate = closing.closed_at ? new Date(closing.closed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
       const snap = closing.snapshot_json || {};
       const isProduct = closing.kind === 'product_auto' || closing.kind === 'product_custom';
+      const isPartialMonthly = closing.kind === 'consolidated_monthly' && closing.status === 'partial';
 
       let mainBlock = '';
-      if (isProduct) {
+      if (isPartialMonthly) {
+        // V37.0.4 — Vista de associação pra partial (substitui display dos inputs)
+        mainBlock = this._fechamentoAssociacaoBlock(closing);
+      } else if (isProduct) {
         const meta = snap.metas || { vendas: 0, cac: 0 };
         const groups = Array.isArray(snap.revopsConfig?.groups) ? snap.revopsConfig.groups : [];
         const offers = Array.isArray(snap.revopsConfig?.offers) ? snap.revopsConfig.offers : [];

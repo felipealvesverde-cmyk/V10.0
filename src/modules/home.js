@@ -227,6 +227,11 @@ window.HomeModule = {
     if (sessionOk && App.state.ga4Status === null && window.Actions?.loadGa4Status) {
       setTimeout(() => Actions.loadGa4Status(), 350);
     }
+    // V37.0.4 — Carrega snapshots da governança pra alimentar pendências
+    // (consolidated_monthly partial → bolinha no sininho). TTL interno 60s.
+    if (sessionOk && window.Actions?.loadGovernanceClosings) {
+      setTimeout(() => Actions.loadGovernanceClosings(), 400);
+    }
     return `<div class="lj-home-greeting">
       <div>
         <h1 class="lj-home-title">${greeting}, ${Utils.escape(name)} <span class="lj-home-wave"><i data-lucide="hand" class="lj-home-wave-icon"></i></span></h1>
@@ -245,13 +250,16 @@ window.HomeModule = {
           const releaseCount = unseenReleases.length;
           const adsOrphanCount = Number(window.Actions?.getAdsOrphanBellCount?.() || 0);
           const ga4AlertCount = Number(window.Actions?.getGa4AlertCount?.() || 0);
-          const count = reconCount + importCount + releaseCount + adsOrphanCount + ga4AlertCount;
+          // V37.0.4 — Pendências de fechamento mensal (consolidated_monthly partial)
+          const monthlyPendingCount = Number(window.Actions?.getMonthlyClosingPendingCount?.() || 0);
+          const count = reconCount + importCount + releaseCount + adsOrphanCount + ga4AlertCount + monthlyPendingCount;
           const titleParts = [];
           if (reconCount) titleParts.push(`${reconCount} conciliação(ões) RD`);
           if (importCount) titleParts.push(`${importCount} relatório(s) de import`);
           if (releaseCount) titleParts.push(`${releaseCount} atualização(ões) do LJ`);
           if (adsOrphanCount) titleParts.push(`${adsOrphanCount} campanha(s) Ads sem Campanha LJ`);
           if (ga4AlertCount) titleParts.push(`${ga4AlertCount} alerta(s) GA4`);
+          if (monthlyPendingCount) titleParts.push(`${monthlyPendingCount} fechamento(s) mensal aguardando`);
           const title = count > 0 ? titleParts.join(' · ') + ' — clique pra ver' : 'Nenhuma notificação pendente';
           // V35.9.3 — Click sempre abre o modal de Notificações com 2 abas
           // (Atualizações / Alertas). Tab inicial decide pela presença de

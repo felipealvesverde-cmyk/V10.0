@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.4',
+    date: '2026-06-10',
+    title: 'Mensal Consolidado funcional + sininho avisa pendências de fechamento',
+    bullets: [
+      'Sininho da Home agora soma "fechamentos mensais aguardando consolidação" — bolinha vermelha não some até cliente resolver cada mês parcial.',
+      'Alerta no modal de Notificações com microcopy claro: lista até 3 períodos parciais + atalho "Abrir Fechamento" que joga direto pra aba.',
+      'Card de Mensal Consolidado partial tem botão amber "Associar produtos" no topo (cor de aviso, não viola design diretor — partial é exceção pendente).',
+      'Vista detalhada do partial mostra grid de checkboxes dos produtos do tenant + 2 botões: "Confirmar associação" (com 1+ marcados) e "Não consolidar este mês" (vira complete com intentionally_empty=true pra auditoria).',
+      'Cache de snapshots agora é GLOBAL por user (não mais por produto) — reduz round-trips, alimenta sininho cross-produto de uma chamada só. Filtragem do escopo "Este produto" feita no front.',
+      'Greeting bar carrega snapshots em background (TTL 60s) pra alimentar pendências sem cliente abrir a aba.',
+      'Action openGovernanceClosingFromAlert pula direto pro snapshot certo a partir do alerta — escolhe primeiro produto do tenant + escopo Mensal + abre vista detalhada já em modo associação.',
+      'PATCH action=associate no backend já estava pronto (V37.0.2) — só faltava UI. Cron mensal continua o mesmo: cria partial, cliente fecha o ciclo.'
+    ]
+  },
+  {
     version: 'V37.0.3',
     date: '2026-06-10',
     title: 'Aba Fechamento conecta no backend — lista, refechar manual, vista detalhada',

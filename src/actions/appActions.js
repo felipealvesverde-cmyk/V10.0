@@ -682,7 +682,48 @@ var Actions = {
             severity
           });
         }
+
+        // V37.0.4 — Pendências de Fechamento Mensal (consolidated_monthly partial)
+        const govList = App.state.governanceClosings?.list || [];
+        const monthlyPartials = govList.filter(c => c.kind === 'consolidated_monthly' && c.status === 'partial');
+        if (monthlyPartials.length > 0) {
+          const periods = monthlyPartials.map(c => c.period).sort().reverse().slice(0, 3).join(', ');
+          const more = monthlyPartials.length > 3 ? ` +${monthlyPartials.length - 3} mais` : '';
+          const firstId = monthlyPartials[0].id;
+          alerts.push({
+            id: 'governance-monthly-partial',
+            icon: 'calendar-check',
+            title: `${monthlyPartials.length} fechamento${monthlyPartials.length === 1 ? '' : 's'} mensal aguardando consolidação`,
+            description: `Mês(es) parcialmente fechado(s): ${periods}${more}. Associe os produtos que entram no consolidado ou confirme "não consolidar este mês" pra fechar a decisão.`,
+            action: `Actions.openGovernanceClosingFromAlert(${firstId})`,
+            actionLabel: 'Abrir Fechamento',
+            severity: 'warning'
+          });
+        }
+
         return alerts;
+      },
+
+      // V37.0.4 — Atalho do alerta de pendência: abre o snapshot direto
+      openGovernanceClosingFromAlert(closingId) {
+        // Fecha modal de notificações (se aberto)
+        if (App.state.importReportsModalOpen) {
+          App.state.importReportsModalOpen = false;
+        }
+        // Garante que está na view RevOps Whitelabel + aba Fechamento
+        const products = Array.isArray(App.state.products) ? App.state.products : [];
+        const firstProductId = products[0]?.id;
+        if (firstProductId) {
+          App.state.activeProductId = firstProductId;
+        }
+        App.state.activeView = 'revopsWhitelabel';
+        App.state.revopsWhitelabelActiveTab = 'fechamento';
+        if (firstProductId) {
+          App.state.revopsFechamentoScope = App.state.revopsFechamentoScope || {};
+          App.state.revopsFechamentoScope[firstProductId] = 'monthly';
+        }
+        App.state.governanceClosingOpen = Number(closingId);
+        App.save(); App.render();
       },
 
       // V35.11.0 — Carrega summary das falhas de webhook RD pro sininho.
@@ -7828,36 +7869,35 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
-  // V37.0.3 — Carrega snapshots da governança do user (fetch /api/governance-closings).
-  // Filtros opcionais (period, kind). `force=true` re-fetcha mesmo se cache fresco.
-  // Cache TTL: 60s (volátil — não persiste em DB).
-  async loadGovernanceClosings(productId, opts = {}) {
-    if (!productId) return;
-    App.state.governanceClosings = App.state.governanceClosings || {};
-    const cache = App.state.governanceClosings[productId];
-    const fresh = cache && cache.loadedAt && (Date.now() - cache.loadedAt) < 60_000;
+  // V37.0.3 → V37.0.4 — Carrega TODOS os snapshots do user (sem filtro de
+  // produto). Frontend filtra por escopo + produto. Cache TTL 60s.
+  // Cache shape: App.state.governanceClosings = { loading, loadedAt, error, list }
+  // (NÃO mais por productId — simplifica sininho e escopo consolidado.)
+  async loadGovernanceClosings(productIdLegacy, opts = {}) {
+    // Compat com chamadas antigas (V37.0.3) que passavam productId — ignorado agora.
+    if (typeof productIdLegacy === 'object' && productIdLegacy !== null) {
+      opts = productIdLegacy;
+    }
+    const cache = App.state.governanceClosings || {};
+    const fresh = cache.loadedAt && (Date.now() - cache.loadedAt) < 60_000;
     if (fresh && !opts.force) return;
-    App.state.governanceClosings[productId] = { ...(cache || {}), loading: true, error: null };
+    App.state.governanceClosings = { ...cache, loading: true, error: null };
     App.render();
     try {
       const token = localStorage.getItem('lj_jwt');
-      const params = new URLSearchParams();
-      params.set('product_id', String(productId));
-      if (opts.period) params.set('period', String(opts.period));
-      if (opts.kind) params.set('kind', String(opts.kind));
-      const r = await fetch(`/api/governance-closings?${params.toString()}`, {
+      const r = await fetch('/api/governance-closings', {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await r.json();
       if (!r.ok || !data.ok) {
-        App.state.governanceClosings[productId] = {
+        App.state.governanceClosings = {
           loading: false,
           loadedAt: Date.now(),
           error: data?.message || `HTTP ${r.status}`,
-          list: cache?.list || []
+          list: cache.list || []
         };
       } else {
-        App.state.governanceClosings[productId] = {
+        App.state.governanceClosings = {
           loading: false,
           loadedAt: Date.now(),
           error: null,
@@ -7865,14 +7905,20 @@ Object.assign(Actions, {
         };
       }
     } catch (err) {
-      App.state.governanceClosings[productId] = {
+      App.state.governanceClosings = {
         loading: false,
         loadedAt: Date.now(),
         error: err.message,
-        list: cache?.list || []
+        list: cache.list || []
       };
     }
     App.render();
+  },
+
+  // V37.0.4 — Conta consolidated_monthly status=partial (pra sininho de pendências)
+  getMonthlyClosingPendingCount() {
+    const list = App.state.governanceClosings?.list || [];
+    return list.filter(c => c.kind === 'consolidated_monthly' && c.status === 'partial').length;
   },
 
   // V37.0.3 — Cria snapshot kind='product_custom' do produto no período. Cliente
@@ -7900,10 +7946,70 @@ Object.assign(Actions, {
         return Utils.toast(`Erro ao refechar: ${data?.message || 'falha desconhecida'}`);
       }
       Utils.toast(`✓ Snapshot custom criado pra ${period}`);
-      await Actions.loadGovernanceClosings(productId, { force: true });
+      await Actions.loadGovernanceClosings({ force: true });
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     }
+  },
+
+  // V37.0.4 — Associa produtos a um consolidated_monthly partial → vira complete.
+  // productIds vazio + intentionallyEmpty=true → "não consolidar este mês".
+  async associateMonthlyConsolidated(closingId, productIds, intentionallyEmpty) {
+    if (!closingId) return;
+    const ids = Array.isArray(productIds) ? productIds.map(String) : [];
+    const empty = !!intentionallyEmpty;
+    if (!ids.length && !empty) {
+      return Utils.toast('Marque ao menos 1 produto OU confirme "não consolidar este mês".');
+    }
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(`/api/governance-closings?id=${closingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'associate', product_ids: ids })
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) {
+        return Utils.toast(`Erro: ${data?.message || 'falha desconhecida'}`);
+      }
+      Utils.toast(empty ? '✓ Fechamento mensal salvo (sem consolidação)' : `✓ ${ids.length} produto(s) consolidado(s)`);
+      App.state.fechamentoAssociacao = null;
+      await Actions.loadGovernanceClosings({ force: true });
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V37.0.4 — UI: marca/desmarca produto no card de associação (consolidated_monthly partial)
+  toggleFechamentoAssociacaoProduct(closingId, productId) {
+    App.state.fechamentoAssociacao = App.state.fechamentoAssociacao || {};
+    const key = String(closingId);
+    App.state.fechamentoAssociacao[key] = App.state.fechamentoAssociacao[key] || new Set();
+    const set = App.state.fechamentoAssociacao[key];
+    // Set não persiste em JSON — convertemos pra array nos saves. Aqui só UI volátil.
+    if (set instanceof Set) {
+      if (set.has(String(productId))) set.delete(String(productId)); else set.add(String(productId));
+    } else {
+      const arr = Array.isArray(set) ? [...set] : [];
+      const idx = arr.indexOf(String(productId));
+      if (idx >= 0) arr.splice(idx, 1); else arr.push(String(productId));
+      App.state.fechamentoAssociacao[key] = arr;
+    }
+    App.render();
+  },
+
+  // V37.0.4 — Atalho pro sininho: pula pra produto X aba Fechamento escopo monthly
+  openFechamentoMonthlyFromBell(productId) {
+    Actions.closeNotificationsModal?.();
+    // Seleciona produto se diferente do atual
+    if (productId && App.state.activeProductId !== productId) {
+      App.state.activeProductId = productId;
+    }
+    App.state.activeView = 'revopsWhitelabel';
+    App.state.revopsWhitelabelActiveTab = 'fechamento';
+    App.state.revopsFechamentoScope = App.state.revopsFechamentoScope || {};
+    if (productId) App.state.revopsFechamentoScope[productId] = 'monthly';
+    App.save(); App.render();
   },
 
   // V37.0.3 — Reabre um snapshot. Pra product_*: registra log de reabertura
@@ -7924,8 +8030,7 @@ Object.assign(Actions, {
         return Utils.toast(`Erro ao reabrir: ${data?.message || 'falha desconhecida'}`);
       }
       Utils.toast('✓ Reabertura registrada');
-      const productId = App.RevopsWhitelabel?._currentProductId?.() || (window.RevopsWhitelabelPanel?._currentProductId?.());
-      if (productId) await Actions.loadGovernanceClosings(productId, { force: true });
+      await Actions.loadGovernanceClosings({ force: true });
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     }
