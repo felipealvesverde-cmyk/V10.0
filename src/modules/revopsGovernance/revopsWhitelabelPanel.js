@@ -478,8 +478,8 @@
           ? (items.length === 0
               ? `<div class="rounded-xl bg-white/40 border-2 border-dashed border-stone-300 px-3 py-4 text-center"><p class="text-[11px] text-stone-500">Sem itens. Clique <b>+ Item</b> pra adicionar.</p></div>`
               : `<div class="space-y-2">${items.map(it => this._itemRowExcel(productId, group, it, ev)).join('')}</div>`)
-          : `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              ${items.map(it => this._itemCard(productId, group, it, ev)).join('')}
+          : `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              ${[...items].sort((a, b) => (ev.itemValues[b.id] || 0) - (ev.itemValues[a.id] || 0)).map(it => this._itemCard(productId, group, it, ev)).join('')}
               ${!isLocked ? this._addItemCard(productId, group, items.length) : ''}
             </div>`)}
       </div>`;
@@ -546,22 +546,31 @@
       const calc = item.calc || { mode: 'fixed', value: 0 };
       const value = ev.itemValues[item.id] || 0;
       const isLocked = Boolean(item.locked);
+      // V36.14.5 — Letra watermark da inicial (sem cor, stone-300/40 atrás do
+      // conteúdo) + sombra sólida chapada stone-200 + hover-lift sutil
+      // (translate -2px + sombra cresce). Ordenação por valor decrescente
+      // resolvida no _groupCard antes do map.
+      const initial = (String(item.name || '?').trim().charAt(0) || '?').toUpperCase();
+      const watermark = `<span class="absolute right-3 bottom-2 text-[56px] font-black text-stone-300/40 leading-none pointer-events-none select-none" style="font-family:'Inter','system-ui',sans-serif;">${Utils.escape(initial)}</span>`;
+      const cardShellCls = 'lj-cost-card relative overflow-hidden';
       if (isLocked) {
-        return `<div class="rounded-2xl bg-amber-50/50 border border-amber-300 p-3 min-h-[140px] flex flex-col gap-2" title="Item gerenciado pelo LJ — para alterar, desvincule as campanhas Ads no Dashboard.">
-          <div class="flex items-start justify-between gap-2">
+        return `<div class="${cardShellCls} rounded-2xl bg-amber-50/50 border border-amber-300 p-3 min-h-[140px] flex flex-col gap-2" title="Item gerenciado pelo LJ — para alterar, desvincule as campanhas Ads no Dashboard." style="box-shadow:3px 3px 0 0 #fde68a;">
+          ${watermark}
+          <div class="relative flex items-start justify-between gap-2">
             <span class="text-[11px] font-black text-slate-900 inline-flex items-center gap-1 truncate"><i data-lucide="lock" class="w-3 h-3 text-amber-600 shrink-0"></i>${Utils.escape(item.name)}</span>
             <span class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800 shrink-0" title="Auto LJ"><i data-lucide="shield-check" class="w-3 h-3 inline"></i></span>
           </div>
-          <p class="text-[9px] font-black text-amber-700 uppercase tracking-widest">Auto · LJ</p>
-          <p class="text-[10px] text-amber-700/80 italic">Soma do gasto das campanhas Ads vinculadas.</p>
-          <div class="mt-auto">
+          <p class="relative text-[9px] font-black text-amber-700 uppercase tracking-widest">Auto · LJ</p>
+          <p class="relative text-[10px] text-amber-700/80 italic">Soma do gasto das campanhas Ads vinculadas.</p>
+          <div class="relative mt-auto">
             <span class="text-rose-700 font-black text-base whitespace-nowrap">−${this._money(value)}</span>
           </div>
         </div>`;
       }
       const menuOpen = App.state.revopsDreCardMenuOpen === `revops-item-${item.id}`;
-      return `<div class="rounded-2xl bg-white/80 border border-stone-200 p-3 min-h-[140px] flex flex-col gap-2 relative">
-        <div class="flex items-start justify-between gap-2">
+      return `<div class="${cardShellCls} rounded-2xl bg-white/80 border border-stone-200 p-3 min-h-[140px] flex flex-col gap-2" style="box-shadow:3px 3px 0 0 #e7e5e4;">
+        ${watermark}
+        <div class="relative flex items-start justify-between gap-2">
           <input id="lj-revops-item-${item.id}-name" value="${Utils.escape(item.name)}" onchange="Actions.renameRevopsItem('${productId}', '${group.id}', '${item.id}', this.value)" placeholder="Nome do item" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
           <button onclick="Actions.toggleRevopsDreCardMenu('revops-item-${item.id}')" class="px-1.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 shrink-0" title="Opções">
             <i data-lucide="settings" class="w-3 h-3"></i>
@@ -572,11 +581,11 @@
             </button>
           </div>` : ''}
         </div>
-        <select id="lj-revops-item-${item.id}-mode" onchange="Actions.changeRevopsItemMode('${productId}', '${group.id}', '${item.id}', this.value)" class="w-full px-2 py-1 rounded-lg bg-white border border-stone-300 text-[10px] font-bold text-slate-800">
+        <select id="lj-revops-item-${item.id}-mode" onchange="Actions.changeRevopsItemMode('${productId}', '${group.id}', '${item.id}', this.value)" class="relative w-full px-2 py-1 rounded-lg bg-white border border-stone-300 text-[10px] font-bold text-slate-800">
           ${CALC_MODES.map(m => `<option value="${m.id}" ${calc.mode === m.id ? 'selected' : ''}>${m.label}</option>`).join('')}
         </select>
-        ${this._calcInputsCompact(productId, group, item, calc)}
-        <div class="mt-auto flex items-center justify-between gap-2 pt-1 border-t border-stone-200">
+        <div class="relative">${this._calcInputsCompact(productId, group, item, calc)}</div>
+        <div class="relative mt-auto flex items-center justify-between gap-2 pt-1 border-t border-stone-200">
           <p class="text-[9px] font-black text-stone-500 uppercase tracking-widest">Calculado</p>
           <span class="text-rose-700 font-black text-base whitespace-nowrap">−${this._money(value)}</span>
         </div>

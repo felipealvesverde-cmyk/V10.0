@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.14.5',
+    date: '2026-06-09',
+    title: 'Custos: cards ganham ritmo visual (sombra + hover-lift + ordenação + letra watermark)',
+    bullets: [
+      'Grupos com muitos items (Software com 14, por ex.) ganharam diferenciação discreta sem usar cor estridente:',
+      'Sombra sólida chapada stone-200 (3px 3px 0 0) em cada card pra dar ritmo no grid sem competir pela atenção.',
+      'Hover-lift sutil: ao passar mouse o card sobe 2px e a sombra cresce pra stone-300 (5px 5px 0 0). Transição 150ms. Sinaliza foco rápido em qual card está ativo.',
+      'Ordenação por VALOR decrescente dentro de cada grupo. Google Cloud R$ 1.372 vai pro topo, Eleven Labs R$ 81 pro rodapé. Cliente lê de cima pra baixo já em ordem de prioridade.',
+      'Letra inicial em WATERMARK no canto inferior direito (text-stone-300/40, font-black, 56px). Quase invisível mas dá pista periférica pro cérebro decodificar mais rápido qual card é qual. Zero cor — só tom neutro do tema light.',
+      'Item travado (Auto LJ) preserva mesma régua mas com sombra amber-200.'
+    ]
+  },
+  {
     version: 'V36.14.4',
     date: '2026-06-09',
     title: 'Custos: items viram GRID 3-col de cards verticais (entrega que faltou)',
