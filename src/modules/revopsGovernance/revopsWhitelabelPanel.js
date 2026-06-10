@@ -562,8 +562,8 @@
             <h3 class="text-base font-black text-slate-900 mt-0.5">${Utils.escape(periodLabel)}${closing.name ? ' · ' + Utils.escape(closing.name) : ''}</h3>
             <p class="text-[12px] text-slate-500 mt-0.5">Criado em ${closedDate} · ${closing.source === 'auto' ? 'Automático (cron)' : 'Manual'}</p>
           </div>
-          <button disabled title="Export PDF entra em V37.0.6" class="px-3 py-2 rounded-xl bg-stone-200 text-stone-500 text-xs font-black flex items-center gap-1.5 cursor-not-allowed shrink-0">
-            <i data-lucide="file-down" class="w-3.5 h-3.5"></i> Baixar PDF (em breve)
+          <button onclick="Actions.exportGovernanceClosingPdf(${closing.id})" class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5 shrink-0 shadow-sm" style="color:#fff!important;">
+            <i data-lucide="file-down" class="w-3.5 h-3.5"></i> Baixar PDF
           </button>
         </div>
         <section class="rounded-3xl border p-5 shadow-md space-y-4" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
