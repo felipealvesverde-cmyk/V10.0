@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.13.1',
+    date: '2026-06-09',
+    title: 'DRE: Deduções ganha linha-banner vermelha (simetria com S&M e G&A)',
+    bullets: [
+      'Deduções agora tem linha-banner ROSE simétrica com S&M (Aquisição) e G&A (Fixos). Antes era só um label "Deduções" pequeno acima do grid de cards — quebrava a régua visual das outras subtotais.',
+      'A linha-banner de Deduções é FIXA: cliente não pode renomear, não tem signal (sempre subtrai), não tem engrenagem de remover. Ela é estrutural da DRE.',
+      'Deduções não tem fórmula própria — o valor da linha é a soma dos cards filhos (custos variáveis read-only + deduções avulsas). Cliente continua adicionando deduções via "+ Adicionar dedução" no slot dashed.'
+    ]
+  },
+  {
     version: 'V36.13.0',
     date: '2026-06-09',
     title: 'DRE: "+ inserir linha" cria linha-banner laranja com cards filhos',
