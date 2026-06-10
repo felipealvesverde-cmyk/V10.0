@@ -7998,6 +7998,131 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V37.0.6 — Exporta snapshot da governança em PDF (frontend via html2pdf).
+  // Monta HTML standalone com layout executivo (inline styles, sem dep Tailwind
+  // no PDF) e dispara download. 1 PDF = 1 snapshot.
+  async exportGovernanceClosingPdf(closingId) {
+    if (!closingId) return;
+    if (typeof window.html2pdf !== 'function') {
+      return Utils.toast('Biblioteca de PDF não carregada. Recarrega a página e tenta de novo.');
+    }
+    const list = App.state.governanceClosings?.list || [];
+    const closing = list.find(c => Number(c.id) === Number(closingId));
+    if (!closing) return Utils.toast('Snapshot não encontrado.');
+
+    const periodLabel = (() => {
+      try {
+        const [y, m] = String(closing.period).split('-').map(Number);
+        const d = new Date(y, m - 1, 1);
+        let lbl = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        return lbl.charAt(0).toUpperCase() + lbl.slice(1);
+      } catch (_) { return closing.period; }
+    })();
+    const closedDate = closing.closed_at ? new Date(closing.closed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+    const snap = closing.snapshot_json || {};
+    const isProduct = closing.kind === 'product_auto' || closing.kind === 'product_custom';
+    const kindLabel = {
+      product_auto: 'Snapshot Automático · Produto',
+      product_custom: 'Snapshot Custom · Produto',
+      consolidated_monthly: closing.status === 'partial' ? 'Mensal Consolidado · Parcial' : 'Mensal Consolidado · Completo',
+      consolidated_custom: 'Custom Consolidado'
+    }[closing.kind] || closing.kind;
+
+    const fmtMoney = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(Number(v) || 0);
+    const fmtNum = (v) => Math.round(Number(v) || 0).toLocaleString('pt-BR');
+
+    // Bloco principal: inputs do snapshot
+    let mainBlock = '';
+    if (isProduct) {
+      const meta = snap.metas || { vendas: 0, cac: 0 };
+      const groups = Array.isArray(snap.revopsConfig?.groups) ? snap.revopsConfig.groups : [];
+      const offers = Array.isArray(snap.revopsConfig?.offers) ? snap.revopsConfig.offers : [];
+      const itemsCount = groups.reduce((acc, g) => acc + ((g.items || []).length), 0);
+      const ticketMedio = snap.revopsConfig?.ticketMedio || 0;
+      const cell = (label, value) => `<div style="border:1px solid #e7e5e4;border-radius:8px;padding:12px;background:#fafaf9;">
+        <p style="font-size:9px;font-weight:900;color:#78716c;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 4px;">${label}</p>
+        <p style="font-size:18px;font-weight:900;color:#1c1917;margin:0;">${value}</p>
+      </div>`;
+      mainBlock = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+        ${cell('Produto', Utils.escape(snap.productName || '—'))}
+        ${cell('Vendas previstas', fmtNum(snap.salesProjection))}
+        ${cell('Meta de Vendas', fmtNum(meta.vendas))}
+        ${cell('Meta de CAC', fmtMoney(meta.cac))}
+        ${cell('Ticket Médio (input)', ticketMedio > 0 ? fmtMoney(ticketMedio) : '—')}
+        ${cell('Grupos de custos', String(groups.length))}
+        ${cell('Items totais', String(itemsCount))}
+        ${cell('Ofertas cadastradas', String(offers.length))}
+      </div>`;
+    } else {
+      const products = Array.isArray(snap.products) ? snap.products : [];
+      const productRows = products.length ? products.map(p => `<div style="border:1px solid #e7e5e4;border-radius:8px;padding:10px;background:#fafaf9;margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:start;gap:10px;">
+          <div>
+            <p style="font-size:13px;font-weight:900;color:#1c1917;margin:0;">${Utils.escape(p.productName || p.productId)}</p>
+            <p style="font-size:10px;color:#57534e;margin:2px 0 0;">Meta: ${fmtNum(p.metas?.vendas)} vendas · CAC ${fmtMoney(p.metas?.cac)}</p>
+          </div>
+          <p style="font-size:11px;font-weight:900;color:#7c3aed;margin:0;white-space:nowrap;">${fmtNum(p.salesProjection)} previstas</p>
+        </div>
+      </div>`).join('') : '<p style="font-size:12px;color:#78716c;font-style:italic;">Nenhum produto associado (cliente optou por não consolidar este mês).</p>';
+      mainBlock = `<div style="margin-bottom:16px;">
+        <p style="font-size:10px;font-weight:900;color:#78716c;text-transform:uppercase;letter-spacing:0.05em;margin:0 0 8px;">Produtos consolidados (${products.length})</p>
+        ${productRows}
+      </div>`;
+    }
+
+    const reopens = Array.isArray(closing.reopens_log) ? closing.reopens_log : [];
+    const reopensBlock = reopens.length ? `<div style="border:1px solid #fcd34d;background:#fffbeb;border-radius:8px;padding:10px;margin-top:12px;">
+      <p style="font-size:10px;font-weight:900;color:#92400e;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 4px;">Log de Reabertura</p>
+      <ul style="margin:0;padding-left:14px;font-size:11px;color:#78350f;line-height:1.4;">
+        ${reopens.map(r => `<li>${new Date(r.at).toLocaleString('pt-BR')}${r.reason ? ' — ' + Utils.escape(r.reason) : ''}</li>`).join('')}
+      </ul>
+    </div>` : '';
+
+    const generatedAt = new Date().toLocaleString('pt-BR');
+
+    const html = `<div style="font-family:'Inter',system-ui,-apple-system,sans-serif;padding:24px;color:#1c1917;max-width:700px;">
+      <div style="border-bottom:2px solid #7c3aed;padding-bottom:12px;margin-bottom:16px;">
+        <p style="font-size:10px;font-weight:900;color:#7c3aed;text-transform:uppercase;letter-spacing:0.1em;margin:0;">LeadJourney · Fechamento</p>
+        <h1 style="font-size:24px;font-weight:900;margin:6px 0 4px;color:#1c1917;">${Utils.escape(periodLabel)}</h1>
+        ${closing.name ? `<p style="font-size:14px;font-weight:700;color:#44403c;margin:0;">${Utils.escape(closing.name)}</p>` : ''}
+        <p style="font-size:11px;color:#78716c;margin:6px 0 0;">${kindLabel} · Criado em ${closedDate} · Fonte: ${closing.source === 'auto' ? 'Automática (cron)' : 'Manual'}</p>
+      </div>
+
+      <div style="background:#f5f3f0;border:1px solid #e7e5e0;border-radius:10px;padding:14px;margin-bottom:14px;">
+        <p style="font-size:11px;color:#44403c;margin:0;line-height:1.5;"><b>Snapshot imutável</b> — foto dos inputs da governança no instante do fechamento. Reconstrução completa de DRE/KPIs/Custos com cálculo no front em vista interativa.</p>
+      </div>
+
+      ${mainBlock}
+      ${reopensBlock}
+
+      <div style="margin-top:24px;padding-top:10px;border-top:1px solid #e7e5e4;">
+        <p style="font-size:9px;color:#a8a29e;text-align:center;margin:0;">Gerado por LeadJourney em ${generatedAt} · v${window.LJVersion || '37.x'}</p>
+      </div>
+    </div>`;
+
+    const container = document.createElement('div');
+    container.style.position = 'fixed';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.innerHTML = html;
+    document.body.appendChild(container);
+    try {
+      const filename = `fechamento-${closing.period}-${closing.kind}-${closing.id}.pdf`;
+      await window.html2pdf().set({
+        margin: 10,
+        filename,
+        image: { type: 'jpeg', quality: 0.92 },
+        html2canvas: { scale: 2, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(container.firstChild).save();
+      Utils.toast(`✓ PDF baixado: ${filename}`);
+    } catch (err) {
+      Utils.toast(`Erro ao gerar PDF: ${err.message}`);
+    } finally {
+      document.body.removeChild(container);
+    }
+  },
+
   // V37.0.5 — Inicia draft de Custom Consolidado. Default: mês anterior.
   startCustomConsolidadoDraft() {
     const now = new Date();

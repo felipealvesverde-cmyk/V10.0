@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.6',
+    date: '2026-06-10',
+    title: 'Download PDF dos snapshots — fecha a master V37 (Fechamento end-to-end)',
+    bullets: [
+      'Botão "Baixar PDF" na vista detalhada de qualquer snapshot agora gera download local (frontend, html2pdf.js via CDN). Zero infra nova.',
+      'Layout executivo: header violet com período + nome opcional + tipo + criado em + fonte. Bloco principal com grid 2-col dos inputs (pra product) ou lista de produtos (pra consolidated). Log de reabertura amber se houver. Rodapé com versão do LJ.',
+      'PDF é A4 portrait, inline styles (sem dependência Tailwind no print), nome do arquivo: fechamento-YYYY-MM-{kind}-{id}.pdf.',
+      'Snapshot resta SEMPRE imutável — PDF é só renderização do JSON congelado. Pode baixar 100 vezes que sai igual.',
+      'Master V37 fecha o ciclo: Fechamento mensal end-to-end de produto → consolidado → custom → PDF. Cron mensal pendente de setup externo (V37.0.2 documenta).',
+      'Próximas masters voltam pro ritmo normal de evolução. V37.0.x foi 7 ondas em 1 dia — Resultado layout régua + Fechamento completo (backend + UI + sininho + PDF).'
+    ]
+  },
+  {
     version: 'V37.0.5',
     date: '2026-06-10',
     title: 'Custom Consolidado funcional — agrupamentos arbitrários por mês',
