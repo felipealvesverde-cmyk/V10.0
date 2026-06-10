@@ -20,11 +20,12 @@
   // Icon = lucide name (carregado via data-lucide=). Tom executivo unificado
   // com Home/Mapa.
   const TABS = [
-    { id: 'costs',    label: 'Custos',         icon: 'wallet',      alwaysOpen: true  },
-    { id: 'offers',   label: 'Ofertas',        icon: 'target',      alwaysOpen: true  },
-    { id: 'result',   label: 'Resultado',      icon: 'bar-chart-3', alwaysOpen: false },
-    { id: 'revops',   label: 'RevOps KPIs',    icon: 'sparkles',    alwaysOpen: false },
-    { id: 'dre',      label: 'DRE',            icon: 'file-text',   alwaysOpen: false }
+    { id: 'fechamento', label: 'Fechamento',     icon: 'calendar-check', alwaysOpen: true  }, // V37.0.1
+    { id: 'costs',      label: 'Custos',         icon: 'wallet',         alwaysOpen: true  },
+    { id: 'offers',     label: 'Ofertas',        icon: 'target',         alwaysOpen: true  },
+    { id: 'result',     label: 'Resultado',      icon: 'bar-chart-3',    alwaysOpen: false },
+    { id: 'revops',     label: 'RevOps KPIs',    icon: 'sparkles',       alwaysOpen: false },
+    { id: 'dre',        label: 'DRE',            icon: 'file-text',      alwaysOpen: false }
   ];
 
   const CALC_MODES = [
@@ -191,6 +192,7 @@
         return this._lockedTabContent(tabId, unlocked);
       }
       switch (tabId) {
+        case 'fechamento': return this._fechamentoTab(cfg, ev);
         case 'costs':  return this._costsTab(cfg, ev);
         case 'offers': return this._offersTab(cfg, ev);
         case 'result': return this._resultTab(cfg, ev);
@@ -198,6 +200,140 @@
         case 'dre':    return this._dreTab(cfg, ev);
         default:       return '';
       }
+    },
+
+    // ────────────────────────────────────────────────────────────
+    // TAB 0 (1ª): FECHAMENTO — placeholder pra V37.0.x
+    // ────────────────────────────────────────────────────────────
+    //
+    // V37.0.1 — Estrutura visual + switcher de escopo. Lista sempre vazia até
+    // o backend entrar (cron mensal + tabela governance_closings na V37.0.2).
+    // Conteúdo aqui é educativo + sinaliza o que vem.
+    _fechamentoTab(cfg, ev) {
+      const productId = cfg.productId;
+      const scope = App.state.revopsFechamentoScope?.[productId] || 'product';
+
+      // Mês corrente em PT-BR
+      const now = new Date();
+      let monthLabel = now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      monthLabel = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
+      // Countdown até o último dia do mês (snapshot vira no dia 1 do próximo)
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const today = now.getDate();
+      const daysLeft = Math.max(0, lastDay - today);
+      const closesPhrase = daysLeft === 0
+        ? 'Fecha hoje, à virada do mês'
+        : daysLeft === 1
+          ? 'Fecha amanhã, à virada do mês'
+          : `Fecha em ${daysLeft} dias`;
+
+      const scopeBtn = (id, label, icon) => `<button onclick="Actions.setRevopsFechamentoScope('${productId}', '${id}')" class="px-3 py-1.5 rounded-lg text-xs font-black inline-flex items-center gap-1.5 transition ${scope === id ? 'bg-violet-600 text-white shadow-sm' : 'text-stone-600 hover:bg-stone-50'}" ${scope === id ? 'style="color:#fff!important;"' : ''}>
+        <i data-lucide="${icon}" class="w-3 h-3"></i> ${label}
+      </button>`;
+
+      const scopeSwitcher = `<div class="inline-flex items-center rounded-xl bg-white border border-stone-300 p-0.5 shadow-sm">
+        ${scopeBtn('product', 'Este produto', 'package')}
+        ${scopeBtn('monthly', 'Mensal Consolidado', 'layers')}
+        ${scopeBtn('custom', 'Custom', 'wand-2')}
+      </div>`;
+
+      const scopeIntros = {
+        product: 'Snapshots automáticos deste produto, mês a mês. Cron fecha no fim do mês — você pode reabrir e gerar versão custom dentro do mesmo mês.',
+        monthly: 'Um fechamento por mês agregando os produtos que você escolher. Nasce parcial — quando você associa os produtos no card de pendência, vira completo.',
+        custom:  'Agrupamentos arbitrários de produtos dentro de um mesmo mês. Cria quantos quiser. Cada custom tem data de geração imutável.'
+      };
+
+      return `<div class="space-y-3">
+        ${this._tabHeader('Fechamento · Mensal & Consolidados', 'Fechamento do Período', 'Snapshot imutável da governança no fim de cada mês. Auto por produto, consolidado mensal e custom — tudo aqui.', scopeSwitcher)}
+
+        <section class="rounded-3xl border p-5 shadow-md space-y-4" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+
+          <!-- CARD MÊS CORRENTE -->
+          <div class="rounded-2xl bg-white border border-stone-200 border-l-4 border-l-violet-500 p-4 shadow-sm">
+            <div class="flex items-start justify-between gap-3 flex-wrap">
+              <div class="flex items-start gap-3 min-w-0">
+                <span class="shrink-0 w-10 h-10 rounded-xl bg-violet-500/15 grid place-items-center text-violet-700">
+                  <i data-lucide="calendar-clock" class="w-5 h-5"></i>
+                </span>
+                <div class="min-w-0">
+                  <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">Mês corrente</p>
+                  <h4 class="text-base font-black text-slate-900">${Utils.escape(monthLabel)}</h4>
+                  <p class="text-[12px] text-slate-600 mt-0.5">${closesPhrase}. Snapshot automático às 00:00 BRT do dia 1 do próximo mês.</p>
+                </div>
+              </div>
+              <button disabled title="Cron mensal entra em V37.0.2 — fechamento manual antes disso fica desabilitado pra evitar foto incompleta." class="px-3 py-2 rounded-xl bg-stone-200 text-stone-500 text-xs font-black flex items-center gap-1.5 cursor-not-allowed shrink-0">
+                <i data-lucide="camera-off" class="w-3.5 h-3.5"></i> Fechar manualmente (em breve)
+              </button>
+            </div>
+          </div>
+
+          <!-- INTRO DO ESCOPO -->
+          <div class="rounded-2xl bg-violet-50/60 border border-violet-200 p-3 flex items-start gap-2.5">
+            <span class="shrink-0 w-7 h-7 rounded-lg bg-violet-500/15 grid place-items-center text-violet-700">
+              <i data-lucide="info" class="w-3.5 h-3.5"></i>
+            </span>
+            <p class="text-[12px] text-slate-700 leading-relaxed">${Utils.escape(scopeIntros[scope])}</p>
+          </div>
+
+          <!-- LISTA DE SNAPSHOTS — vazia até backend entrar -->
+          <div>
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Snapshots ${scope === 'product' ? 'deste produto' : scope === 'monthly' ? 'mensais consolidados' : 'customs'}</p>
+            <div class="rounded-2xl border-2 border-dashed border-stone-300 bg-white/50 p-8 text-center">
+              <div class="w-12 h-12 rounded-full bg-stone-100 grid place-items-center mx-auto mb-3">
+                <i data-lucide="archive" class="w-5 h-5 text-stone-400"></i>
+              </div>
+              <p class="text-sm font-black text-slate-700 mb-1">Nenhum snapshot ainda</p>
+              <p class="text-[12px] text-slate-500 max-w-md mx-auto">O primeiro snapshot deste produto nasce no dia 1 do próximo mês, automaticamente. ${scope === 'monthly' ? 'O consolidado mensal nasce junto e abre uma pendência no sininho pra você associar os produtos.' : scope === 'custom' ? 'Customs você cria à mão depois que o mês fecha — agrupando produtos da forma que quiser.' : 'Você poderá reabrir e gerar versão custom dentro do mesmo mês.'}</p>
+            </div>
+          </div>
+
+          <!-- COMO FUNCIONA -->
+          <div class="pt-2 border-t border-stone-200">
+            <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Como o fechamento funciona</p>
+            <div class="grid sm:grid-cols-3 gap-3">
+              ${this._fechamentoConceptCard('package', 'Snapshot por produto', 'AUTO', 'violet', 'Cron mensal congela DRE, KPIs RevOps, Custos, Ofertas e metas de cada produto. Um por produto, por mês. Imutável.')}
+              ${this._fechamentoConceptCard('layers', 'Mensal Consolidado', 'AUTO + ASSOC', 'sky', 'Nasce parcial junto com os snapshots. Você associa os produtos que entram → vira completo. Um único por mês.')}
+              ${this._fechamentoConceptCard('wand-2', 'Consolidado Custom', 'MANUAL', 'emerald', 'Você cria quando quiser: escolhe N produtos do mês, dá nome, gera. Data de criação fica fixa. Útil pra recortes específicos.')}
+            </div>
+          </div>
+
+          <!-- ROADMAP -->
+          <div class="rounded-2xl bg-stone-100 border border-stone-200 p-3">
+            <p class="text-[10px] font-black text-stone-600 uppercase tracking-widest mb-1.5">Roadmap V37</p>
+            <ul class="text-[11px] text-slate-600 space-y-0.5 leading-relaxed">
+              <li>• <b>V37.0.1</b> — estrutura visual + switcher (você está aqui)</li>
+              <li>• <b>V37.0.2</b> — backend: tabela governance_closings + cron Vercel mensal (00:00 BRT dia 1)</li>
+              <li>• <b>V37.0.3</b> — UI snapshot detalhado + reabertura</li>
+              <li>• <b>V37.0.4</b> — fluxo do Mensal Consolidado (parcial → completo) + sininho de Pendências</li>
+              <li>• <b>V37.0.5</b> — Custom Consolidado livre</li>
+              <li>• <b>V37.0.6</b> — download PDF</li>
+            </ul>
+          </div>
+        </section>
+      </div>`;
+    },
+
+    // V37.0.1 — Helper pra cards educativos da seção "Como funciona"
+    _fechamentoConceptCard(icon, title, badge, tone, description) {
+      const tones = {
+        violet: { bg: 'bg-violet-500/15', text: 'text-violet-700', border: 'border-violet-200' },
+        sky:    { bg: 'bg-sky-500/15',    text: 'text-sky-700',    border: 'border-sky-200' },
+        emerald:{ bg: 'bg-emerald-500/15', text: 'text-emerald-700', border: 'border-emerald-200' }
+      };
+      const t = tones[tone] || tones.violet;
+      return `<div class="rounded-2xl bg-white/70 border ${t.border} p-3" style="box-shadow:3px 3px 0 0 #e7e5e4;">
+        <div class="flex items-start gap-2 mb-2">
+          <span class="shrink-0 w-8 h-8 rounded-lg ${t.bg} grid place-items-center ${t.text}">
+            <i data-lucide="${icon}" class="w-4 h-4"></i>
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="text-[11px] font-black text-slate-900 leading-tight">${title}</p>
+            <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded border ${t.border} ${t.text} text-[9px] font-black uppercase tracking-widest">${badge}</span>
+          </div>
+        </div>
+        <p class="text-[11px] text-slate-600 leading-snug">${description}</p>
+      </div>`;
     },
 
     _lockedTabContent(tabId, unlocked) {

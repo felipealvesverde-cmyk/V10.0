@@ -415,6 +415,7 @@ var State = {
       revopsDjowTabContext: null,     // V36.14.1 — tab atual pro Djow (dre/revops/costs/result)
       metasResultado: {},             // V37.0.0 — metas {productId: {'YYYY-MM': {vendas, cac}}}
       resultadoPeriod: {},            // V37.0.0 — período visível por produto {productId: 'YYYY-MM'}
+      revopsFechamentoScope: {},      // V37.0.1 — escopo da aba Fechamento {productId: 'product'|'monthly'|'custom'}
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
@@ -1123,6 +1124,7 @@ var State = {
       revopsDjowTabContext: null,     // V36.14.1 — tab atual pro Djow (dre/revops/costs/result)
       metasResultado: (raw.metasResultado && typeof raw.metasResultado === 'object') ? raw.metasResultado : {},
       resultadoPeriod: (raw.resultadoPeriod && typeof raw.resultadoPeriod === 'object') ? raw.resultadoPeriod : {},
+      revopsFechamentoScope: (raw.revopsFechamentoScope && typeof raw.revopsFechamentoScope === 'object') ? raw.revopsFechamentoScope : {},
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart

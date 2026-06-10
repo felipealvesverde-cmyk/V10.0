@@ -7818,6 +7818,16 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V37.0.1 — Switcher de escopo na aba Fechamento: 'product' | 'monthly' | 'custom'
+  setRevopsFechamentoScope(productId, scope) {
+    if (!productId) return;
+    const valid = ['product', 'monthly', 'custom'];
+    if (!valid.includes(scope)) return;
+    App.state.revopsFechamentoScope = App.state.revopsFechamentoScope || {};
+    App.state.revopsFechamentoScope[productId] = scope;
+    App.save(); App.render();
+  },
+
   // V37.0.0 — Edita meta de Vendas ou CAC do produto pra um período YYYY-MM.
   // field: 'vendas' | 'cac'. Valor numérico (parseado pelo caller).
   updateMetaResultado(productId, period, field, value) {

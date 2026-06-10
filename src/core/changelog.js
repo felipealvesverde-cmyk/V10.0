@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.1',
+    date: '2026-06-10',
+    title: 'Nasce a aba Fechamento (1ª posição) — estrutura visual + switcher de escopo',
+    bullets: [
+      'Nova aba "Fechamento" entra como 1ª tab do painel RevOps Whitelabel (antes de Custos). Mesma régua: offwhite, cards bg-white com sombra chapada, IDs únicos.',
+      'Card "Mês corrente · Junho 2026" no topo com countdown ("Fecha em X dias") e nota de que o snapshot auto vai rolar 00:00 BRT do dia 1.',
+      'Switcher de escopo no header: Este produto / Mensal Consolidado / Custom. Cada escopo tem microcopy explicando o que é. State persiste por produto.',
+      'Seção educativa "Como o fechamento funciona" com 3 cards (AUTO / AUTO+ASSOC / MANUAL) explicando os 3 tipos de snapshot que vão existir.',
+      'Lista de snapshots fica vazia por enquanto (placeholder honesto) — backend cron + tabela governance_closings entram na V37.0.2.',
+      'Botão "Fechar manualmente" desabilitado de propósito até backend nascer (evita gerar foto incompleta).',
+      'Roadmap da master V37 listado dentro da aba (V37.0.2 → V37.0.6) pra cliente entender o que vem.'
+    ]
+  },
+  {
     version: 'V37.0.0',
     date: '2026-06-10',
     title: 'Master V37 abre — Resultado ganha layout régua + metas mensais de Vendas e CAC',
