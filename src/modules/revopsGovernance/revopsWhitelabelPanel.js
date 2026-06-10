@@ -1069,42 +1069,45 @@
       const ebitdaProjetado = folgaVendas * msu;
 
       const customKpis = cfg.customKpis || [];
+      const djowPanel = window.DjowRevOpsPanel ? DjowRevOpsPanel.render(productId, 'revops') : '';
 
-      return `<div class="space-y-4">
-        ${this._djowTip('revops')}
-        ${this._tabHeader('RevOps · Cascata', 'Equilíbrio da Operação', 'Lê de cima pra baixo. Cada linha mostra o que sai a cada etapa até o Breakeven — quantas vendas pra empatar o mês.')}
+      // V36.14.0 — Tema light igual DRE + grid 2-col com Djow lateral sticky.
+      return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
+        <div class="space-y-3 min-w-0">
+          ${this._tabHeader('RevOps · Cascata', 'Equilíbrio da Operação', 'Lê de cima pra baixo. Cada linha mostra o que sai a cada etapa até o Breakeven — quantas vendas pra empatar o mês. Clique numa linha de fórmula pra pedir ajuda ao Djow na lateral.')}
+          <section class="rounded-3xl border p-5 shadow-md space-y-2" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+            ${this._cascadeLine('coins', 'PONTO DE PARTIDA', 'TM · Ticket Médio', this._money(tm), 'sky',
+              'Receita média por venda. Vem da tab Ofertas (média ponderada).')}
+            ${this._cascadeArrow('↓')}
 
-        <div>
-          ${this._cascadeLine('coins', 'PONTO DE PARTIDA', 'TM · Ticket Médio', this._money(tm), 'sky',
-            'Receita média por venda. Vem da tab Ofertas (média ponderada).')}
-          ${this._cascadeArrow('↓')}
+            ${this._cascadeMcu(productId, mcuAuto, mcuOverride, mcuResolved, ev)}
+            ${this._cascadeArrow('↓')}
 
-          ${this._cascadeMcu(productId, mcuAuto, mcuOverride, mcuResolved, ev)}
-          ${this._cascadeArrow('↓')}
+            ${this._cascadeLine('minus-circle', 'SUBTRAÇÃO', 'CAC · Custo de Aquisição', this._money(cac), 'amber',
+              `Fórmula: CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = ${this._money(cac)}. O preço de cada cliente novo.`)}
+            ${this._cascadeArrow('↓')}
 
-          ${this._cascadeLine('minus-circle', 'SUBTRAÇÃO', 'CAC · Custo de Aquisição', this._money(cac), 'amber',
-            `Fórmula: CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = ${this._money(cac)}. O preço de cada cliente novo.`)}
-          ${this._cascadeArrow('↓')}
+            ${this._cascadeMsu(productId, msuAuto, msuOverride, msuResolved, mcu, cac, ev)}
+            ${this._cascadeArrow('÷')}
 
-          ${this._cascadeMsu(productId, msuAuto, msuOverride, msuResolved, mcu, cac, ev)}
-          ${this._cascadeArrow('÷')}
+            ${this._cascadeLine('shield', 'BARREIRA FIXA', 'Custo Fixo de Operação', this._money(fixedTotal), 'rose',
+              'Soma do bucket Fixos (G&A). Mensalidade pra existir — independe de vender 0 ou 10.000.')}
+            ${this._cascadeArrow('↓')}
 
-          ${this._cascadeLine('shield', 'BARREIRA FIXA', 'Custo Fixo de Operação', this._money(fixedTotal), 'rose',
-            'Soma do bucket Fixos (G&A). Mensalidade pra existir — independe de vender 0 ou 10.000.')}
-          ${this._cascadeArrow('↓')}
+            ${this._cascadeBreakeven(breakeven, msu, fixedTotal, bkHealth, folgaVendas, ebitdaProjetado)}
+          </section>
 
-          ${this._cascadeBreakeven(breakeven, msu, fixedTotal, bkHealth, folgaVendas, ebitdaProjetado)}
-        </div>
-
-        <div class="rounded-2xl bg-rose-50/50 border border-rose-200 p-3 mt-5">
-          <div class="flex items-center justify-between mb-2">
-            <p class="text-[11px] font-black text-rose-700 uppercase tracking-wider">KPIs Custom (fórmula livre)</p>
-            <button onclick="Actions.addRevopsCustomKpi('${cfg.productId}')" class="px-2 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-black" style="color:#fff!important;">+ KPI</button>
+          <div class="rounded-2xl border p-3" style="background:#faf8f5;border-color:#e7e5e0;">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-[11px] font-black text-stone-700 uppercase tracking-widest">KPIs Custom (fórmula livre)</p>
+              <button onclick="Actions.addRevopsCustomKpi('${cfg.productId}')" class="px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black" style="color:#fff!important;">+ KPI</button>
+            </div>
+            ${customKpis.length === 0
+              ? '<p class="text-[11px] text-stone-500 italic">Crie KPIs personalizados como % crescimento receita, NRR, etc.</p>'
+              : customKpis.map(k => this._customKpiRow(cfg.productId, k, ev)).join('')}
           </div>
-          ${customKpis.length === 0
-            ? '<p class="text-[11px] text-rose-700/70 italic">Crie KPIs personalizados como % crescimento receita, NRR, etc.</p>'
-            : customKpis.map(k => this._customKpiRow(cfg.productId, k, ev)).join('')}
         </div>
+        <aside class="xl:sticky xl:top-4 xl:self-start">${djowPanel}</aside>
       </div>`;
     },
 
@@ -1115,7 +1118,8 @@
     // Argumento `icon` agora é nome do Lucide (não emoji).
     _cascadeLine(iconLucide, badge, name, value, color, hint) {
       const tone = this._cascadeTone(color);
-      return `<div class="rounded-2xl bg-white border border-slate-200 ${tone.borderL} overflow-hidden">
+      // V36.14.0 — Tema light: bg-white/70 stone-200 ao invés de bg-white slate-200
+      return `<div class="rounded-2xl bg-white/70 border border-stone-200 ${tone.borderL} overflow-hidden shadow-sm">
         <div class="p-4">
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-2.5 min-w-0">
@@ -1129,7 +1133,7 @@
             </div>
             <p class="text-2xl font-black ${tone.text} whitespace-nowrap shrink-0">${value}</p>
           </div>
-          ${hint ? `<div class="mt-2 flex items-start gap-1.5 text-[11px] text-slate-500">
+          ${hint ? `<div class="mt-2 flex items-start gap-1.5 text-[11px] text-stone-600">
             <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
             <span>${hint}</span>
           </div>` : ''}
@@ -1177,7 +1181,7 @@
       const diffHint = isOverride && Math.abs(diff) > 0.5
         ? `<p class="text-[10px] text-violet-700 mt-1 font-bold">Auto seria ${this._money(mcuAuto.value)} · diferença ${diff > 0 ? '+' : ''}${this._money(diff)}</p>`
         : '';
-      return `<div class="rounded-2xl bg-white border border-slate-200 ${tone.borderL} overflow-hidden">
+      return `<div class="rounded-2xl bg-white/70 border border-stone-200 ${tone.borderL} overflow-hidden shadow-sm">
         <div class="p-4">
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-2.5 min-w-0">
@@ -1187,7 +1191,7 @@
               <div class="min-w-0">
                 <p class="text-[10px] font-black ${tone.pill} uppercase tracking-widest">= Margem por Venda</p>
                 <p class="text-sm font-black text-slate-900 leading-tight">MCU · Margem de Contribuição Unitária</p>
-                <p class="text-[10px] text-slate-500">após custos variáveis</p>
+                <p class="text-[10px] text-stone-500">após custos variáveis</p>
               </div>
             </div>
             <div class="text-right shrink-0">
@@ -1196,12 +1200,12 @@
               ${diffHint}
             </div>
           </div>
-          <div class="mt-2 flex items-start gap-1.5 text-[11px] text-slate-500">
+          <div class="mt-2 flex items-start gap-1.5 text-[11px] text-stone-600">
             <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
             <span>Quanto sobra por venda depois de tirar custos que escalam com receita (impostos, comissões, taxa de plataforma).</span>
           </div>
         </div>
-        <div class="border-t border-slate-100 ${tone.softBg}">
+        <div class="border-t border-stone-200 bg-white/40">
           ${this._cascadeEditPanel(productId, 'mcu', override, mcuAuto)}
         </div>
       </div>`;
@@ -1223,7 +1227,7 @@
         : tmPct >= 25
         ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-500/10 border border-amber-400/30 text-amber-700 uppercase tracking-wider"><i data-lucide="alert-triangle" class="w-3 h-3"></i> ${tmPct.toFixed(0)}% do TM · Apertada</span>`
         : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-500/10 border border-rose-400/30 text-rose-700 uppercase tracking-wider"><i data-lucide="x-circle" class="w-3 h-3"></i> ${tmPct.toFixed(0)}% do TM · Crítica</span>`;
-      return `<div class="rounded-2xl bg-white border border-slate-200 ${tone.borderL} overflow-hidden shadow-sm">
+      return `<div class="rounded-2xl bg-white/70 border border-stone-200 ${tone.borderL} overflow-hidden shadow-sm">
         <div class="p-4">
           <div class="flex items-start justify-between gap-3">
             <div class="flex items-center gap-2.5 min-w-0">
@@ -1233,7 +1237,7 @@
               <div class="min-w-0">
                 <p class="text-[10px] font-black ${tone.pill} uppercase tracking-widest">= Margem Real</p>
                 <p class="text-sm font-black text-slate-900 leading-tight">MSU · Margem de Segurança Unitária</p>
-                <p class="text-[10px] text-slate-500">após CAC · Fórmula: MCU (${this._money(mcu)}) − CAC (${this._money(cac)})</p>
+                <p class="text-[10px] text-stone-500">após CAC · Fórmula: MCU (${this._money(mcu)}) − CAC (${this._money(cac)})</p>
               </div>
             </div>
             <div class="text-right shrink-0">
@@ -1242,27 +1246,29 @@
               ${diffHint}
             </div>
           </div>
-          <div class="mt-2 flex items-start gap-1.5 text-[11px] text-slate-500">
+          <div class="mt-2 flex items-start gap-1.5 text-[11px] text-stone-600">
             <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
             <span>Quanto cada venda contribui DE VERDADE pra pagar os custos fixos.</span>
           </div>
           <div class="mt-2">${healthPill}</div>
         </div>
-        <div class="border-t border-slate-100 ${tone.softBg}">
+        <div class="border-t border-stone-200 bg-white/40">
           ${this._cascadeEditPanel(productId, 'msu', override, msuAuto)}
         </div>
       </div>`;
     },
 
-    // V32.10.0 — Painel de edição shared MCU/MSU: 3 abas (Auto / Valor único / Composição).
+    // V36.14.0 — Painel de edição shared MCU/MSU: 3 modos (Auto / Valor único / Composição).
+    // Botões revisados, IDs únicos nos inputs, composição em GRID de cards verticais
+    // (mesmo padrão dos cards de dedução do DRE).
     _cascadeEditPanel(productId, kpi, override, autoData) {
       const mode = override.mode || 'auto';
       const tabBtn = (m, label) => {
         const active = mode === m;
         return `<button onclick="Actions.setRevopsKpiOverrideMode('${productId}', '${kpi}', '${m}')"
-          class="px-2.5 py-1 rounded-lg text-[10px] font-black ${active
-            ? 'bg-violet-600 text-white'
-            : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'}" ${active ? 'style="color:#fff!important;"' : ''}>${label}</button>`;
+          class="px-3 py-1.5 rounded-lg text-[11px] font-black transition ${active
+            ? 'bg-violet-600 text-white shadow-sm'
+            : 'bg-white border border-stone-300 text-stone-700 hover:bg-stone-50'}" ${active ? 'style="color:#fff!important;"' : ''}>${label}</button>`;
       };
       let body = '';
       if (mode === 'manual') {
@@ -1271,11 +1277,11 @@
         const pickerKey = `manual:${productId}:${kpi}`;
         body = `<div>
           <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
-            <label class="text-[10px] font-black text-slate-500 uppercase">Valor manual (número ou =fórmula)</label>
+            <label class="text-[10px] font-black text-stone-600 uppercase tracking-widest">Valor manual (número ou =fórmula)</label>
             ${this._handlePicker(pickerKey, cfgNow)}
           </div>
-          <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(value)}" list="lj-revops-handles" onchange="Actions.setRevopsKpiOverrideValue('${productId}', '${kpi}', this.value)" placeholder="220 ou =tm*0,55" class="w-full px-2 py-1.5 rounded-lg bg-white border border-slate-300 text-sm font-mono text-slate-800" />
-          <p class="text-[10px] text-slate-500 mt-1">Use número direto (<code>220</code>) ou fórmula (<code>=tm*0,55</code>, <code>=tm-180</code>, <code>=fat_bruto/sales</code>).</p>
+          <input id="lj-revops-${productId}-${kpi}-manual" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(value)}" list="lj-revops-handles" onchange="Actions.setRevopsKpiOverrideValue('${productId}', '${kpi}', this.value)" placeholder="220 ou =tm*0,55" class="w-full px-2 py-1.5 rounded-lg bg-white border border-stone-300 text-sm font-mono text-slate-800" />
+          <p class="text-[10px] text-stone-500 mt-1">Use número direto (<code>220</code>) ou fórmula (<code>=tm*0,55</code>, <code>=tm-180</code>, <code>=fat_bruto/sales</code>).</p>
         </div>`;
       } else if (mode === 'composed') {
         // V32.10.3 (Felipe) — Refator UX: labels persistentes acima dos campos,
@@ -1303,23 +1309,25 @@
             <i data-lucide="wand-2" class="w-3 h-3"></i> Corrigir tod${monthlyScaleCount > 1 ? 'as' : 'a'}
           </button>
         </div>` : '';
+        // V36.14.0 — Composição agora vira GRID 3-col de cards verticais
+        // (mesmo padrão dos cards de dedução do DRE). Cada card: nome em cima,
+        // fórmula no meio, valor calculado embaixo, engrenagem com menu.
+        const componentCards = components.map((c, idx) => this._composedDeductionCard(productId, kpi, idx, c, evNow.symbols)).join('');
+        const addCard = `<button onclick="Actions.addRevopsKpiComponent('${productId}', '${kpi}')" type="button" class="rounded-2xl border-2 border-dashed border-violet-300 bg-violet-50/40 hover:bg-violet-50/80 hover:border-violet-400 p-3 min-h-[110px] flex flex-col items-center justify-center gap-1 text-violet-700 transition">
+          <span class="text-2xl font-black leading-none">＋</span>
+          <span class="text-[11px] font-black">Adicionar dedução</span>
+          <span class="text-[9px] text-violet-600/70">${components.length === 0 ? 'Comece aqui' : 'Mais um componente?'}</span>
+        </button>`;
         body = `<div class="space-y-2">
           ${scaleBanner}
           <div class="flex items-center justify-between flex-wrap gap-2">
-            <p class="text-[10px] font-black text-slate-500 uppercase">Composição (cada linha é uma dedução do valor base)</p>
+            <p class="text-[10px] font-black text-stone-600 uppercase tracking-widest">Composição · cada card é uma dedução do valor base</p>
             ${this._handlePicker(pickerKey, cfgNow)}
           </div>
-          ${components.length === 0
-            ? '<p class="text-[11px] text-slate-400 italic">Nenhuma dedução. Clique "+ Dedução" pra adicionar.</p>'
-            : `<div class="grid gap-1.5 px-1" style="grid-template-columns: 12px 1fr 1.4fr 90px 28px;">
-                <div></div>
-                <div class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Nome</div>
-                <div class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Valor (R$ ou =fórmula)</div>
-                <div class="text-[9px] font-black text-slate-500 uppercase tracking-wider text-right">Resultado</div>
-                <div></div>
-              </div>`}
-          ${components.map((c, idx) => this._composedDeductionRow(productId, kpi, idx, c, evNow.symbols)).join('')}
-          <button onclick="Actions.addRevopsKpiComponent('${productId}', '${kpi}')" class="mt-2 px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-[10px] font-black" style="color:#fff!important;">+ Dedução</button>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            ${componentCards}
+            ${addCard}
+          </div>
         </div>`;
       } else if (mode === 'auto' && autoData?.breakdown && autoData.breakdown.length > 0) {
         body = `<details class="text-[11px]">
@@ -1353,61 +1361,67 @@
       </div>`;
     },
 
-    // V32.10.3 — Linha de dedução no modo Composição (MCU/MSU).
-    // Layout grid alinhado com headers (Nome | Valor | Resultado | ×).
-    // Features:
-    //  - Labels persistentes acima (no header da composição)
-    //  - Detecção de fórmula no campo Nome → warning amber + botão "Mover →"
-    //  - Validação por dedução: borda verde/amarela/vermelha no campo Valor
-    //  - Mini-resultado calculado por linha à direita
-    _composedDeductionRow(productId, kpi, idx, c, symbols) {
+    // V36.14.0 — Card vertical de dedução no modo Composição (MCU/MSU).
+    // Substitui o _composedDeductionRow horizontal. Mesmo padrão dos cards
+    // de dedução do DRE: nome no topo, fórmula no meio, valor calculado
+    // embaixo, engrenagem com menu Djow/Remover. IDs únicos pro foco.
+    _composedDeductionCard(productId, kpi, idx, c, symbols) {
       const nameRaw = String(c.name || '');
       const valueRaw = String(c.value || '');
-      // Detecta fórmula no nome (vetor de erro Felipe)
       const nameLooksLikeFormula = /^=/.test(nameRaw.trim()) || /=\s*[a-z_]/i.test(nameRaw);
-      // V36.8.4 — MCU e MSU são métricas POR VENDA. Passar unitContext:true
-      // pra validateFormula emitir warning quando fórmula usa fat_bruto/fat_liquido
-      // (auto-corrigido pelo resolveOverride, mas avisa pro cliente).
       const isUnitKpi = kpi === 'mcu' || kpi === 'msu';
       const validation = RevopsWhitelabelEngine.validateFormula(valueRaw, symbols, null, { unitContext: isUnitKpi });
-      const borderCls = validation.status === 'ok' ? 'border-emerald-400'
-                      : validation.status === 'warn' ? 'border-amber-400'
-                      : 'border-rose-400';
-      const resultCls = validation.status === 'ok' ? 'text-emerald-700'
-                      : validation.status === 'warn' ? 'text-amber-700'
-                      : 'text-rose-700';
-      const resultIcon = validation.status === 'ok' ? 'check-circle-2' : validation.status === 'warn' ? 'alert-triangle' : 'x-circle';
-      const resultLabel = validation.status === 'error'
-        ? '— erro'
-        : '−' + this._money(validation.value);
 
-      return `<div class="grid gap-1.5 items-start" style="grid-template-columns: 12px 1fr 1.4fr 90px 28px;">
-        <span class="text-slate-500 font-black text-xs pt-1.5">−</span>
-        <div>
-          <input value="${Utils.escape(nameRaw)}" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'name', this.value); App.render();" placeholder="Imposto, Comissão, etc" class="w-full px-2 py-1.5 rounded-lg bg-slate-50 border ${nameLooksLikeFormula ? 'border-amber-400 ring-1 ring-amber-200' : 'border-slate-200'} text-xs font-bold text-slate-800" />
-          ${nameLooksLikeFormula ? `<div class="mt-1 flex items-center gap-1.5 text-[10px] text-amber-800">
-            <i data-lucide="alert-triangle" class="w-3 h-3 shrink-0"></i>
-            <span>Isso parece fórmula — campo errado.</span>
-            <button onclick="Actions.moveRevopsComponentFormulaToValue('${productId}', '${kpi}', ${idx})" class="px-1.5 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-black inline-flex items-center gap-0.5" style="color:#fff!important;">Mover <i data-lucide="arrow-right" class="w-2.5 h-2.5"></i></button>
+      // Status → estilo do card (igual DRE: verde quando ok com valor, amber
+      // quando warn ou computa zero, rose quando erro de sintaxe, neutro vazio).
+      const status = !valueRaw.trim() ? 'empty'
+                   : validation.status === 'error' ? 'error'
+                   : validation.status === 'warn' ? 'warn'
+                   : Math.abs(Number(validation.value || 0)) < 0.01 ? 'zero'
+                   : 'ok';
+      const statusMap = {
+        empty: { border: 'border-stone-300',  badge: '',                                                                                                                          valueColor: 'text-stone-400',  valueLabel: '—'                                                  },
+        ok:    { border: 'border-emerald-400', badge: '<span title="Fórmula válida" class="px-1.5 py-0.5 rounded-md bg-emerald-100 border border-emerald-300 text-[9px] font-black text-emerald-800 uppercase">✓</span>', valueColor: 'text-emerald-700', valueLabel: `−${this._money(validation.value)}` },
+        zero:  { border: 'border-amber-400',  badge: '<span title="Fórmula computa zero — confere o handle ou o número" class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800 uppercase">?</span>', valueColor: 'text-amber-700', valueLabel: `−R$ 0` },
+        warn:  { border: 'border-amber-400',  badge: '<span title="Atenção" class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800 uppercase">!</span>',           valueColor: 'text-amber-700', valueLabel: `−${this._money(validation.value)}`  },
+        error: { border: 'border-rose-400',   badge: '<span title="Erro de sintaxe" class="px-1.5 py-0.5 rounded-md bg-rose-100 border border-rose-300 text-[9px] font-black text-rose-800 uppercase">×</span>',     valueColor: 'text-rose-700',  valueLabel: 'erro'                                              }
+      };
+      const s = statusMap[status];
+      const menuOpen = App.state.revopsDreCardMenuOpen === `revops-${kpi}-${idx}`;
+
+      return `<div class="rounded-2xl border border-stone-200 bg-white/80 p-3 flex flex-col gap-2 min-h-[110px] relative">
+        <div class="flex items-start justify-between gap-2">
+          <input id="lj-revops-${productId}-${kpi}-${idx}-name" value="${Utils.escape(nameRaw)}" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'name', this.value)" placeholder="Imposto, Comissão" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border ${nameLooksLikeFormula ? 'border-amber-400' : 'border-stone-300'} text-[11px] font-black text-slate-900" />
+          <button onclick="Actions.toggleRevopsDreCardMenu('revops-${kpi}-${idx}')" class="px-1.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 shrink-0" title="Opções">
+            <i data-lucide="settings" class="w-3 h-3"></i>
+          </button>
+          ${menuOpen ? `<div class="absolute top-10 right-2 z-20 rounded-xl bg-white border border-stone-200 shadow-lg p-1 min-w-[140px]">
+            <button onclick="Actions.selectDjowRevopsComponent('${productId}', '${kpi}', ${idx}); Actions.toggleRevopsDreCardMenu('revops-${kpi}-${idx}');" class="w-full text-left px-2 py-1.5 rounded-lg hover:bg-violet-50 text-[11px] text-violet-700 font-bold inline-flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3 h-3"></i> Djow ajuda
+            </button>
+            <button onclick="Actions.deleteRevopsKpiComponent('${productId}', '${kpi}', ${idx})" class="w-full text-left px-2 py-1.5 rounded-lg hover:bg-rose-50 text-[11px] text-rose-700 font-bold inline-flex items-center gap-1.5">
+              <i data-lucide="trash-2" class="w-3 h-3"></i> Remover
+            </button>
           </div>` : ''}
         </div>
-        <div>
-          <input type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(valueRaw)}" title="${Utils.escape(validation.message)}" list="lj-revops-handles" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'value', this.value); App.render();" placeholder="60 ou =tm*0,15" class="w-full px-2 py-1.5 rounded-lg bg-white border ${borderCls} text-xs font-mono text-slate-800" />
-          ${validation.status === 'error' && validation.suggestions && validation.suggestions.length
-            ? `<p class="text-[9px] text-rose-700 mt-0.5">${Utils.escape(validation.message)} · sugestão: <code class="text-[9px] bg-white px-1 rounded">${Utils.escape(validation.suggestions[0])}</code></p>`
-            : validation.status === 'error'
-            ? `<p class="text-[9px] text-rose-700 mt-0.5">${Utils.escape(validation.message)}</p>`
-            : ''}
-          ${validation.scaleWarning ? `<div class="mt-1 flex items-center gap-1.5 text-[10px] text-amber-800 bg-amber-50 px-1.5 py-1 rounded border border-amber-200">
-            <i data-lucide="info" class="w-3 h-3 shrink-0"></i>
-            <span class="flex-1">Forma correta: <code class="bg-white px-1 rounded font-mono text-[10px]">${Utils.escape(validation.correctedFormula || '')}</code></span>
-            <button onclick="Actions.applyRevopsScaleFix('${productId}', '${kpi}', ${idx})" class="px-1.5 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-black inline-flex items-center gap-0.5 shrink-0" style="color:#fff!important;">Aplicar <i data-lucide="check" class="w-2.5 h-2.5"></i></button>
-          </div>` : ''}
+        ${nameLooksLikeFormula ? `<div class="flex items-center gap-1.5 text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-1 rounded-lg">
+          <i data-lucide="alert-triangle" class="w-3 h-3 shrink-0"></i>
+          <span class="flex-1">Isso parece fórmula — campo errado.</span>
+          <button onclick="Actions.moveRevopsComponentFormulaToValue('${productId}', '${kpi}', ${idx})" class="px-1.5 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-black inline-flex items-center gap-0.5" style="color:#fff!important;">Mover ↓</button>
+        </div>` : ''}
+        <input id="lj-revops-${productId}-${kpi}-${idx}-value" type="text" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.escape(valueRaw)}" title="${Utils.escape(validation.message || '')}" list="lj-revops-handles" onchange="Actions.updateRevopsKpiComponent('${productId}', '${kpi}', ${idx}, 'value', this.value)" placeholder="60 ou =tm*0,15" class="w-full px-2 py-1 rounded-lg bg-white border ${s.border} text-[11px] font-mono text-slate-800" />
+        ${validation.status === 'error' && validation.suggestions && validation.suggestions.length
+          ? `<p class="text-[9px] text-rose-700 -mt-1">${Utils.escape(validation.message)} · sugestão: <code class="bg-white px-1 rounded">${Utils.escape(validation.suggestions[0])}</code></p>`
+          : ''}
+        ${validation.scaleWarning ? `<div class="flex items-center gap-1.5 text-[10px] text-amber-800 bg-amber-50 px-1.5 py-1 rounded border border-amber-200">
+          <i data-lucide="info" class="w-3 h-3 shrink-0"></i>
+          <span class="flex-1 truncate">Use: <code class="bg-white px-1 rounded font-mono">${Utils.escape(validation.correctedFormula || '')}</code></span>
+          <button onclick="Actions.applyRevopsScaleFix('${productId}', '${kpi}', ${idx})" class="px-1.5 py-0.5 rounded bg-amber-600 hover:bg-amber-700 text-white text-[9px] font-black shrink-0" style="color:#fff!important;">Aplicar</button>
+        </div>` : ''}
+        <div class="mt-auto flex items-center gap-2">
+          ${s.badge}
+          <span class="${s.valueColor} font-black text-base whitespace-nowrap">${s.valueLabel}</span>
         </div>
-        <div class="text-right pt-1.5">
-          <span class="text-xs font-black ${resultCls} whitespace-nowrap inline-flex items-center gap-1 justify-end"><i data-lucide="${resultIcon}" class="w-3 h-3"></i> ${resultLabel}</span>
-        </div>
-        <button onclick="Actions.deleteRevopsKpiComponent('${productId}', '${kpi}', ${idx})" class="px-1.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-black self-start mt-0.5">×</button>
       </div>`;
     },
 

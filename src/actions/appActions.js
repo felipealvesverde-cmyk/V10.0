@@ -7803,6 +7803,12 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V36.14.0 — Seleção de componente da Composição RevOps (MCU/MSU).
+  selectDjowRevopsComponent(productId, kpi, idx) {
+    App.state.revopsDjowSelectedLine = { productId, kpi, componentIdx: idx, afterStep: `revops_${kpi}` };
+    App.save(); App.render();
+  },
+
   updateDjowRevopsInput(value) {
     App.state.revopsDjowInput = String(value || '');
     // Sem render — preserva foco do textarea.
@@ -7828,7 +7834,9 @@ Object.assign(Actions, {
     const selected = App.state.revopsDjowSelectedLine;
     if (!msg || !msg.suggestion) return Utils.toast('Mensagem sem fórmula sugerida.');
     if (!selected) return Utils.toast('Clique numa linha primeiro pra eu aplicar.');
-    if (selected.groupId) {
+    if (selected.kpi && typeof selected.componentIdx === 'number') {
+      Actions.updateRevopsKpiComponent(selected.productId, selected.kpi, selected.componentIdx, 'value', msg.suggestion);
+    } else if (selected.groupId) {
       Actions.updateDreExtraGroupItem(selected.productId, selected.groupId, selected.lineId, 'value', msg.suggestion);
     } else {
       Actions.updateDreExtraLine(selected.productId, selected.lineId, 'value', msg.suggestion);
