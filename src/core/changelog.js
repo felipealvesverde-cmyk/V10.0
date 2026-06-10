@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.5',
+    date: '2026-06-10',
+    title: 'Custom Consolidado funcional — agrupamentos arbitrários por mês',
+    bullets: [
+      'Escopo "Custom" da aba Fechamento ganha botão verde "Novo Custom Consolidado" no header (estava desabilitado).',
+      'Clique no botão abre wizard inline (substitui a lista) com: nome do consolidado, dropdown de mês (12 últimos), grid de checkboxes dos produtos.',
+      'Cliente cria quantos customs quiser por mês — agrupa A+B, A sozinho, B+C, sem limite. Cada custom tem data de geração imutável e nome próprio.',
+      'POST kind=consolidated_custom no backend (já existia desde V37.0.2) — só faltava UI.',
+      'Microcopy explica: custom puxa o estado ATUAL da governança de cada produto no momento de criação. Pra foto retroativa, refeche os produtos individuais antes.',
+      'Wizard tem 2 botões: Cancelar (volta pra lista) e Criar Custom (desabilitado até ter 1+ produto marcado).',
+      'Input do nome usa update sem render pra preservar foco enquanto digita. Selector de mês re-renderiza pra refletir mudança.',
+      'Fluxo: Fechamento → Custom → Novo Custom → preenche → cria. Cards verticais aparecem na lista normal depois.'
+    ]
+  },
+  {
     version: 'V37.0.4',
     date: '2026-06-10',
     title: 'Mensal Consolidado funcional + sininho avisa pendências de fechamento',

@@ -7998,6 +7998,81 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V37.0.5 — Inicia draft de Custom Consolidado. Default: mês anterior.
+  startCustomConsolidadoDraft() {
+    const now = new Date();
+    const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const y = prev.getFullYear();
+    const m = String(prev.getMonth() + 1).padStart(2, '0');
+    App.state.customConsolidadoDraft = {
+      period: `${y}-${m}`,
+      name: '',
+      productIds: []
+    };
+    App.save(); App.render();
+  },
+
+  // V37.0.5 — Atualiza campo do draft (sem render pra preservar foco em inputs)
+  updateCustomConsolidadoDraftField(field, value) {
+    if (!App.state.customConsolidadoDraft) return;
+    if (field === 'name') {
+      App.state.customConsolidadoDraft.name = String(value || '').slice(0, 200);
+    } else if (field === 'period') {
+      const v = String(value || '');
+      if (/^\d{4}-\d{2}$/.test(v)) App.state.customConsolidadoDraft.period = v;
+    }
+    // Sem render — input mantém foco
+  },
+
+  // V37.0.5 — Toggle produto no draft (com render — é checkbox)
+  toggleCustomConsolidadoDraftProduct(productId) {
+    if (!App.state.customConsolidadoDraft) return;
+    const ids = Array.isArray(App.state.customConsolidadoDraft.productIds) ? [...App.state.customConsolidadoDraft.productIds] : [];
+    const pid = String(productId);
+    const idx = ids.indexOf(pid);
+    if (idx >= 0) ids.splice(idx, 1); else ids.push(pid);
+    App.state.customConsolidadoDraft.productIds = ids;
+    App.render();
+  },
+
+  cancelCustomConsolidadoDraft() {
+    App.state.customConsolidadoDraft = null;
+    App.save(); App.render();
+  },
+
+  // V37.0.5 — Cria snapshot kind='consolidated_custom' (POST /api/governance-closings).
+  // Cliente já preencheu nome + período + selecionou produtos.
+  async createConsolidatedCustom() {
+    const draft = App.state.customConsolidadoDraft;
+    if (!draft) return;
+    const productIds = Array.isArray(draft.productIds) ? draft.productIds.map(String) : [];
+    if (!productIds.length) return Utils.toast('Escolha ao menos 1 produto.');
+    if (!/^\d{4}-\d{2}$/.test(String(draft.period))) return Utils.toast('Período inválido.');
+    const name = String(draft.name || '').trim() || `Custom · ${draft.period}`;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/governance-closings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          kind: 'consolidated_custom',
+          period: draft.period,
+          product_ids: productIds,
+          name
+        })
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) {
+        return Utils.toast(`Erro ao criar custom: ${data?.message || 'falha desconhecida'}`);
+      }
+      Utils.toast(`✓ Custom "${name}" criado (${productIds.length} produtos)`);
+      App.state.customConsolidadoDraft = null;
+      await Actions.loadGovernanceClosings({ force: true });
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V37.0.4 — Atalho pro sininho: pula pra produto X aba Fechamento escopo monthly
   openFechamentoMonthlyFromBell(productId) {
     Actions.closeNotificationsModal?.();
