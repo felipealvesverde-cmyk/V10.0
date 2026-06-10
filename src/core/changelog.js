@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.13.4',
+    date: '2026-06-09',
+    title: 'DRE: Venda Líquida suprimida por default (subtotal intermediário desnecessário)',
+    bullets: [
+      'Venda Líquida deixa de aparecer como card no meio da DRE por default. Pra leitura executiva, o fluxo agora é direto: Faturamento → Deduções → S&M → G&A → Lucro Líquido.',
+      'Volta a aparecer automaticamente quando cliente inserir grupo/extra customizado ancorado em afterStep="venda_liquida" — porque aí o subtotal faz diferença pra leitura.',
+      'Mesma régua já cravada na V36.13.3 pro Lucro Bruto. Filosofia: subtotal intermediário só aparece quando carrega informação.'
+    ]
+  },
+  {
     version: 'V36.13.3',
     date: '2026-06-09',
     title: 'DRE: validação visual da fórmula + Lucro Bruto duplicado suprimido',
