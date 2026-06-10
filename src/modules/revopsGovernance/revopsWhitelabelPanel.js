@@ -1510,12 +1510,12 @@
 
       return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
         <div class="space-y-3 min-w-0">
-          ${this._tabHeader('DRE · Demonstrativo do Resultado', 'Apuração do Período', 'Faturamento → Deduções → Venda Líquida → Lucro Bruto → S&M → G&A → Lucro Líquido. Clique numa linha de fórmula pra pedir ajuda ao Djow na lateral.')}
+          ${this._tabHeader('DRE · Demonstrativo do Resultado', 'Apuração do Período', 'Faturamento → Deduções → S&M → G&A → EBITDA. Clique numa linha de fórmula pra pedir ajuda ao Djow na lateral.')}
           <section class="rounded-3xl border p-5 shadow-md space-y-2" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
             ${this._dreFlatRender(productId, dre, variableItems)}
           </section>
-          <div class="rounded-2xl border p-3 text-[12px] text-stone-700" style="background:#faf8f5;border-color:#e7e5e0;">
-            <b>Margem Líquida:</b> <b class="${margemCls}">${dre.margem.toFixed(1)}%</b> · Lucro Líquido / Faturamento Bruto.
+          <div class="rounded-2xl border p-3 text-[12px] text-stone-700" style="background:#faf8f5;border-color:#e7e5e0;" title="EBITDA = Resultado antes de juros, impostos sobre lucro, depreciação e amortização. Pra infoproduto digital sem essas linhas, equivale ao seu resultado operacional do período.">
+            <b>Margem EBITDA:</b> <b class="${margemCls}">${dre.margem.toFixed(1)}%</b> · EBITDA / Faturamento Bruto. <span class="text-stone-500">(passe o mouse pra entender o termo)</span>
           </div>
         </div>
         <aside class="xl:sticky xl:top-4 xl:self-start">${djowPanel}</aside>
@@ -1688,8 +1688,15 @@
       const cardCls = isHighlight
         ? 'rounded-2xl border-2 border-amber-300 bg-amber-50/80 shadow-md'
         : `rounded-2xl border ${t.ring} ${t.bg} shadow-sm`;
-      return `<div class="${cardCls} flex items-center justify-between gap-3 px-4 py-2.5">
-        <span class="${big ? 'font-black text-slate-900 text-[13px]' : 'text-stone-700 text-[12px] font-bold'}">${l.label}</span>
+      // V36.13.5 — Tooltip educativo no EBITDA (linha final, highlight=true)
+      const tooltip = l.id === 'lucro_liquido'
+        ? 'EBITDA = Resultado antes de juros, impostos sobre lucro, depreciação e amortização. Pra infoproduto digital sem essas linhas, equivale ao seu resultado operacional do período.'
+        : '';
+      const helpHint = l.id === 'lucro_liquido'
+        ? '<span class="text-[10px] text-amber-700/80 font-bold ml-1.5">ⓘ</span>'
+        : '';
+      return `<div class="${cardCls} flex items-center justify-between gap-3 px-4 py-2.5" ${tooltip ? `title="${tooltip}"` : ''}>
+        <span class="${big ? 'font-black text-slate-900 text-[13px]' : 'text-stone-700 text-[12px] font-bold'} inline-flex items-center">${l.label}${helpHint}</span>
         <span class="${big ? `font-black text-base ${t.text}` : `font-bold text-sm ${t.text}`} whitespace-nowrap">${this._money(l.value)}</span>
       </div>`;
     },

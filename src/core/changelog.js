@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.13.5',
+    date: '2026-06-09',
+    title: 'DRE: fix CRÍTICO no cálculo das deduções + renomeado pra EBITDA',
+    bullets: [
+      '🚨 Fix crítico de matemática: deduções estavam sendo NEGADAS DUAS VEZES no engine. Bug aparecia desde V36.12.0 (deduções flat), mas só ficou visível agora porque o seletor de sinal sumiu do card. Resultado: Lucro Líquido inflava (chegava a aparecer maior que o Faturamento, margem 132%). Causa: signal default "−" pra deducoes_inside era interpretado como "crédito que REDUZ a categoria" pelo engine legacy.',
+      'Fix em 2 camadas: addDreExtraLine agora usa signal "+" como default pra deducoes_inside (entrada SOMA à categoria, como esperado); normalize do whitelabel migra silenciosamente linhas legacy com signal "−" → "+" pra deducoes_inside.',
+      'Lucro Líquido renomeado pra EBITDA (tecnicamente correto: o card final representa receita após Deduções, S&M e G&A, mas SEM depreciação, IR/CSLL ou juros). Pra infoproduto digital sem essas linhas, equivale ao resultado operacional do período.',
+      'Tooltip educativo no card EBITDA e no rodapé (Margem EBITDA): passe o mouse pra ler "EBITDA = Resultado antes de juros, impostos sobre lucro, depreciação e amortização." Termina com nota de que pra negócio digital equivale ao operacional do período.',
+      'Indicador ⓘ discreto ao lado do label "EBITDA" pro cliente saber que tem mais contexto pelo hover.'
+    ]
+  },
+  {
     version: 'V36.13.4',
     date: '2026-06-09',
     title: 'DRE: Venda Líquida suprimida por default (subtotal intermediário desnecessário)',
