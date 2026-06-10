@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.13.3',
+    date: '2026-06-09',
+    title: 'DRE: validação visual da fórmula + Lucro Bruto duplicado suprimido',
+    bullets: [
+      'Cards de fórmula agora têm 3 estados visuais: VAZIO mostra "—" neutro em vez de "−R$ 0"; PREENCHIDO E VÁLIDO fica como antes (rose); PREENCHIDO MAS COMPUTA ZERO mostra borda amber + badge "?" + tooltip explicando que o handle ou número pode estar errado.',
+      'Tooltip do input ajuda também: passa o mouse e mostra "Digite um número fixo (ex: 6000) ou uma fórmula (ex: =vendas*5)" no estado vazio, ou explica o problema no estado amber.',
+      'Lucro Bruto SUPRIMIDO quando idêntico a Venda Líquida — pra negócio digital típico (Sansone) sem CGV/COGS estruturado, Venda Líquida = Lucro Bruto e o card duplicado confundia. Quando cliente inserir grupo/extra entre VL e LB, eles divergem e Lucro Bruto reaparece automaticamente.',
+      'Aplicado a deduções avulsas (deducoes_inside) e a items de grupo (extras com pais laranja). Cards read-only de custos variáveis seguem com mesma régua de cor.'
+    ]
+  },
+  {
     version: 'V36.13.2',
     date: '2026-06-09',
     title: 'DRE: fix do bug de foco — inputs perdiam foco ao clicar / digitar',
