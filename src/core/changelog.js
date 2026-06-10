@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.3',
+    date: '2026-06-10',
+    title: 'Aba Fechamento conecta no backend — lista, refechar manual, vista detalhada',
+    bullets: [
+      'Aba Fechamento deixa de ser placeholder e vira UI viva: auto-fetch GET /api/governance-closings ao abrir (cache 60s).',
+      'Botão "Refechar este produto" funcional pro escopo "Este produto" — cria snapshot kind=product_custom com nome opcional. Use pra ajustar venda retroativa antes do mês fechar de vez.',
+      'Cards verticais por snapshot com badge tonal (AUTO violet · Custom emerald · Parcial amber · Completo sky). Mostra mês, criação, contagem de produtos, log de reabertura.',
+      'Vista detalhada (clica em Abrir): grid 4-col mostra produto, vendas previstas, meta vendas, meta CAC, TM, # grupos custos, # items, # ofertas. Log de reabertura listado.',
+      'Botão "Reabrir" pra snapshot custom/consolidado registra ato no log de auditoria (snapshot continua imutável). product_auto não dá pra reabrir (é foto pura do cron).',
+      'Trata erro de tabela ainda não migrada: mostra aviso amber "Rode Migrar Schema em Administrar" ao invés de erro técnico.',
+      'Escopos "Mensal Consolidado" e "Custom" listam mas com botão de criar desabilitado (V37.0.4 / V37.0.5).'
+    ]
+  },
+  {
     version: 'V37.0.2',
     date: '2026-06-10',
     title: 'Backend de Fechamento — tabela + endpoints CRUD + cron mensal',

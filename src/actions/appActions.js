@@ -7828,6 +7828,120 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V37.0.3 — Carrega snapshots da governança do user (fetch /api/governance-closings).
+  // Filtros opcionais (period, kind). `force=true` re-fetcha mesmo se cache fresco.
+  // Cache TTL: 60s (volátil — não persiste em DB).
+  async loadGovernanceClosings(productId, opts = {}) {
+    if (!productId) return;
+    App.state.governanceClosings = App.state.governanceClosings || {};
+    const cache = App.state.governanceClosings[productId];
+    const fresh = cache && cache.loadedAt && (Date.now() - cache.loadedAt) < 60_000;
+    if (fresh && !opts.force) return;
+    App.state.governanceClosings[productId] = { ...(cache || {}), loading: true, error: null };
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const params = new URLSearchParams();
+      params.set('product_id', String(productId));
+      if (opts.period) params.set('period', String(opts.period));
+      if (opts.kind) params.set('kind', String(opts.kind));
+      const r = await fetch(`/api/governance-closings?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) {
+        App.state.governanceClosings[productId] = {
+          loading: false,
+          loadedAt: Date.now(),
+          error: data?.message || `HTTP ${r.status}`,
+          list: cache?.list || []
+        };
+      } else {
+        App.state.governanceClosings[productId] = {
+          loading: false,
+          loadedAt: Date.now(),
+          error: null,
+          list: Array.isArray(data.closings) ? data.closings : []
+        };
+      }
+    } catch (err) {
+      App.state.governanceClosings[productId] = {
+        loading: false,
+        loadedAt: Date.now(),
+        error: err.message,
+        list: cache?.list || []
+      };
+    }
+    App.render();
+  },
+
+  // V37.0.3 — Cria snapshot kind='product_custom' do produto no período. Cliente
+  // ajusta os dados live ANTES de clicar (não há edição histórica retroativa).
+  // Snapshot captura o estado atual do state.products[productId].
+  async createProductCustomClosing(productId, period, name) {
+    if (!productId || !period) return;
+    if (!/^\d{4}-\d{2}$/.test(String(period))) {
+      return Utils.toast('Período inválido (use YYYY-MM).');
+    }
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/governance-closings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          kind: 'product_custom',
+          period: String(period),
+          product_ids: [String(productId)],
+          name: name ? String(name).slice(0, 200) : null
+        })
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) {
+        return Utils.toast(`Erro ao refechar: ${data?.message || 'falha desconhecida'}`);
+      }
+      Utils.toast(`✓ Snapshot custom criado pra ${period}`);
+      await Actions.loadGovernanceClosings(productId, { force: true });
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V37.0.3 — Reabre um snapshot. Pra product_*: registra log de reabertura
+  // (snapshot continua imutável). Pra consolidated_monthly: volta status pra
+  // partial pra cliente associar de novo.
+  async reopenGovernanceClosing(closingId, reason) {
+    if (!closingId) return;
+    if (!confirm('Reabrir este fechamento? O snapshot original fica imutável — o ato fica registrado no log de auditoria.')) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch(`/api/governance-closings?id=${closingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'reopen', reason: reason || null })
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) {
+        return Utils.toast(`Erro ao reabrir: ${data?.message || 'falha desconhecida'}`);
+      }
+      Utils.toast('✓ Reabertura registrada');
+      const productId = App.RevopsWhitelabel?._currentProductId?.() || (window.RevopsWhitelabelPanel?._currentProductId?.());
+      if (productId) await Actions.loadGovernanceClosings(productId, { force: true });
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V37.0.3 — Abre vista detalhada do snapshot (renderiza o snapshot_json congelado).
+  openGovernanceClosingView(closingId) {
+    App.state.governanceClosingOpen = closingId ? Number(closingId) : null;
+    App.render();
+  },
+
+  closeGovernanceClosingView() {
+    App.state.governanceClosingOpen = null;
+    App.render();
+  },
+
   // V37.0.0 — Edita meta de Vendas ou CAC do produto pra um período YYYY-MM.
   // field: 'vendas' | 'cac'. Valor numérico (parseado pelo caller).
   updateMetaResultado(productId, period, field, value) {
