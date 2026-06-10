@@ -7809,6 +7809,28 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V37.0.0 — Selector de período na aba Resultado. Cliente vê/edita meta de
+  // qualquer mês (passado, corrente, futuro). Default = mês corrente.
+  setResultadoPeriod(productId, period) {
+    if (!productId || !period) return;
+    App.state.resultadoPeriod = App.state.resultadoPeriod || {};
+    App.state.resultadoPeriod[productId] = String(period);
+    App.save(); App.render();
+  },
+
+  // V37.0.0 — Edita meta de Vendas ou CAC do produto pra um período YYYY-MM.
+  // field: 'vendas' | 'cac'. Valor numérico (parseado pelo caller).
+  updateMetaResultado(productId, period, field, value) {
+    if (!productId || !period) return;
+    if (field !== 'vendas' && field !== 'cac') return;
+    App.state.metasResultado = App.state.metasResultado || {};
+    App.state.metasResultado[productId] = App.state.metasResultado[productId] || {};
+    App.state.metasResultado[productId][period] = App.state.metasResultado[productId][period] || { vendas: 0, cac: 0 };
+    const num = Number(value) || 0;
+    App.state.metasResultado[productId][period][field] = num < 0 ? 0 : num;
+    App.save(); App.render();
+  },
+
   updateDjowRevopsInput(value) {
     App.state.revopsDjowInput = String(value || '');
     // Sem render — preserva foco do textarea.

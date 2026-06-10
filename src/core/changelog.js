@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.0',
+    date: '2026-06-10',
+    title: 'Master V37 abre — Resultado ganha layout régua + metas mensais de Vendas e CAC',
+    bullets: [
+      'Aba Resultado entra na mesma régua de DRE / RevOps / Custos: wrapper offwhite, grid 2-col com Djow lateral sticky, sombra chapada nos cards, IDs únicos nos inputs (sem mais bug de "clica e sai foco" durante digitação).',
+      'Selector de período no topo (3 meses atrás → mês corrente → 3 à frente). Cliente vê e edita meta de qualquer mês sem precisar viajar no tempo. Default = mês atual.',
+      'Bloco novo "Metas · [Mês]" com 2 cards editáveis: Meta de Vendas (quantidade) e Meta de CAC (R$). Cada um mostra Realizado lido do funil + badge de variância.',
+      'Cores design diretor: Vendas atingida (realizado ≥ meta) = emerald; abaixo = rose. CAC dentro (realizado ≤ meta) = emerald (gastou menos); estourou = rose.',
+      'Djow lateral aprende contexto "result": exemplos viram perguntas sobre meta, CAC saudável, diferença previsto×realizado. Reconhece conceitos meta / vendas / realizado / previsto.',
+      'Indicadores principais (Vendas, CTC, CAC, Fat. Bruto), Realizado do funil, Simulator e Comparador de cenários: tudo preservado, só recolocado dentro da nova régua.',
+      'Estado novo persiste por (produto, período YYYY-MM): metasResultado e resultadoPeriod. Snapshot de fechamento (próximas ondas V37.0.x) vai congelar essas metas naturalmente.'
+    ]
+  },
+  {
     version: 'V36.14.5',
     date: '2026-06-09',
     title: 'Custos: cards ganham ritmo visual (sombra + hover-lift + ordenação + letra watermark)',

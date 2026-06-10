@@ -412,7 +412,9 @@ var State = {
       revopsDjowInput: '',
       revopsDreCardMenuOpen: null,    // V36.12.1 — engrenagem aberta no card DRE
       revopsDreGroupMenuOpen: null,   // V36.13.0 — engrenagem aberta na linha-banner
-      revopsDjowTabContext: null,     // V36.14.1 — tab atual pro Djow (dre/revops/costs)
+      revopsDjowTabContext: null,     // V36.14.1 — tab atual pro Djow (dre/revops/costs/result)
+      metasResultado: {},             // V37.0.0 — metas {productId: {'YYYY-MM': {vendas, cac}}}
+      resultadoPeriod: {},            // V37.0.0 — período visível por produto {productId: 'YYYY-MM'}
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
@@ -1118,7 +1120,9 @@ var State = {
       revopsDjowInput: '',
       revopsDreCardMenuOpen: null,    // V36.12.1 — engrenagem aberta no card DRE
       revopsDreGroupMenuOpen: null,   // V36.13.0 — engrenagem aberta na linha-banner
-      revopsDjowTabContext: null,     // V36.14.1 — tab atual pro Djow (dre/revops/costs)
+      revopsDjowTabContext: null,     // V36.14.1 — tab atual pro Djow (dre/revops/costs/result)
+      metasResultado: (raw.metasResultado && typeof raw.metasResultado === 'object') ? raw.metasResultado : {},
+      resultadoPeriod: (raw.resultadoPeriod && typeof raw.resultadoPeriod === 'object') ? raw.resultadoPeriod : {},
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
