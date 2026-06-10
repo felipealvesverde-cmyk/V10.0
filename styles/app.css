@@ -444,3 +444,14 @@ body:has(.lj-session-banner) #pageHeader {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
 }
+
+/* V36.14.5 — Custos: hover-lift sutil nos cards de item.
+   Sombra base inline no card (style="box-shadow:3px 3px 0 0 #e7e5e4").
+   Ao hover: levanta 2px + sombra cresce. Sem cor, só ritmo. */
+.lj-cost-card {
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+.lj-cost-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 5px 5px 0 0 #d6d3d1 !important;
+}
