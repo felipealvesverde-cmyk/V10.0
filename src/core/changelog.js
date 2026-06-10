@@ -18,6 +18,43 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.14.3',
+    date: '2026-06-09',
+    title: 'Custos: cores dos valores seguem a régua design diretor (redução=rose)',
+    bullets: [
+      'Todo item em Custos é uma redução (é custo). Pela regra: valor = ROSE com prefixo "−".',
+      'Cards de item (Builder e Excel): valor "Calculado" passa de slate-900 (neutro) → rose-700 com prefixo "−". Item travado/Auto LJ também.',
+      'Header de grupo: "Total" passa de slate-900 → rose-700.',
+      'Modo Builder com fórmula avançada: valor calculado sempre rose (status da fórmula continua na borda + badge: verde quando ok, amber quando alerta, rose quando erro).',
+      'Resultado: numa olhada o cliente vê que toda a aba Custos é vermelho/redução. Status de saúde da fórmula independente.'
+    ]
+  },
+  {
+    version: 'V36.14.2',
+    date: '2026-06-09',
+    title: 'RevOps KPIs: correção de cores segundo regra do design diretor (redução=rose / adição=emerald)',
+    bullets: [
+      'TM (Ticket Médio) era sky → agora EMERALD. É o "Faturamento" da cascata, ponto de partida positivo (entrada que SOMA — análogo ao Faturamento Bruto do DRE).',
+      'CAC (Custo de Aquisição) era amber → agora ROSE. É SUBTRAÇÃO clara na cascata, regra do design diretor manda vermelho.',
+      'Valor calculado nos cards de Composição (MCU/MSU) era emerald quando válido → agora ROSE. Razão: o valor representa uma redução (prefixo −). A SAÚDE DA FÓRMULA continua sinalizada na borda + badge (verde quando ok, amber quando alerta, rose quando erro).',
+      'Resultado: cliente vê numa olhada quais valores são redução (vermelho) vs adição/resultado (verde). Status da fórmula fica independente do tipo de operação.'
+    ]
+  },
+  {
+    version: 'V36.14.1',
+    date: '2026-06-09',
+    title: 'Custos ganhou a mesma régua do DRE e RevOps KPIs (tema light + IDs + validação + Djow)',
+    bullets: [
+      'Tema light igual DRE/RevOps: wrapper offwhite #f5f3f0 substituindo o branco-puro, cards de grupo bg-white/70 stone-200, cards de item bg-white/70 também. Empty state em dashed border-stone.',
+      'Layout em grid 2-col com Djow lateral sticky à direita (igual DRE/RevOps).',
+      'TODOS os inputs da aba ganharam ID único — bug clássico de "clica e perde foco" / "digita primeira letra e sai" eliminado também aqui. Aplica em: nome do grupo, nome do item, modo de cálculo (select), valor fixo, valor base, % aplicado, base de referência, grupo de referência, fórmula avançada.',
+      'Validação visual da fórmula avançada agora usa a mesma régua RevOps: ✓ emerald + valor verde quando ok; ? amber + "R$ 0" quando computa zero (handle errado?); × rose + "erro" quando sintaxe inválida; — stone neutro quando vazio.',
+      'Validação visual também no Modo Excel — borda emerald/amber/rose dependendo do status, sem badge expandido pra preservar layout horizontal.',
+      'Djow lateral reconhece a aba "Custos" e mostra exemplos próprios na intro: "6000 fixos por mês", "15% do faturamento", "diferença entre fixos e variáveis", "qual bucket pra Google Ads?".',
+      'Botões revisados: alternador Builder/Excel em white com shadow, ativo em violet sólido. Botão "Novo grupo" em violet sólido.'
+    ]
+  },
+  {
     version: 'V36.14.0',
     date: '2026-06-09',
     title: 'RevOps KPIs ganhou a mesma régua da DRE — tema light, cards grid, Djow lateral',

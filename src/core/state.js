@@ -412,6 +412,7 @@ var State = {
       revopsDjowInput: '',
       revopsDreCardMenuOpen: null,    // V36.12.1 — engrenagem aberta no card DRE
       revopsDreGroupMenuOpen: null,   // V36.13.0 — engrenagem aberta na linha-banner
+      revopsDjowTabContext: null,     // V36.14.1 — tab atual pro Djow (dre/revops/costs)
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
@@ -1117,6 +1118,7 @@ var State = {
       revopsDjowInput: '',
       revopsDreCardMenuOpen: null,    // V36.12.1 — engrenagem aberta no card DRE
       revopsDreGroupMenuOpen: null,   // V36.13.0 — engrenagem aberta na linha-banner
+      revopsDjowTabContext: null,     // V36.14.1 — tab atual pro Djow (dre/revops/costs)
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
