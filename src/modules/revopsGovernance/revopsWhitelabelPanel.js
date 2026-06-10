@@ -206,12 +206,27 @@
     // TAB 0 (1ª): FECHAMENTO — placeholder pra V37.0.x
     // ────────────────────────────────────────────────────────────
     //
-    // V37.0.1 — Estrutura visual + switcher de escopo. Lista sempre vazia até
-    // o backend entrar (cron mensal + tabela governance_closings na V37.0.2).
-    // Conteúdo aqui é educativo + sinaliza o que vem.
+    // V37.0.1 — Estrutura visual + switcher de escopo.
+    // V37.0.3 — Conecta no backend: auto-fetch GET /api/governance-closings,
+    // lista snapshots filtrada por escopo, vista detalhada do snapshot_json,
+    // botão "Refechar este produto" funcional (POST product_custom),
+    // botão "Reabrir" registra auditoria (PATCH action=reopen).
     _fechamentoTab(cfg, ev) {
       const productId = cfg.productId;
       const scope = App.state.revopsFechamentoScope?.[productId] || 'product';
+
+      // V37.0.3 — Auto-fetch on first render
+      const cache = App.state.governanceClosings?.[productId];
+      if (!cache || !cache.loadedAt) {
+        setTimeout(() => Actions.loadGovernanceClosings(productId), 0);
+      }
+
+      // V37.0.3 — Vista detalhada se snapshot aberto
+      const openId = App.state.governanceClosingOpen;
+      if (openId) {
+        const openClosing = (cache?.list || []).find(c => Number(c.id) === Number(openId));
+        if (openClosing) return this._fechamentoSnapshotView(openClosing, cfg);
+      }
 
       // Mês corrente em PT-BR
       const now = new Date();
@@ -244,6 +259,23 @@
         custom:  'Agrupamentos arbitrários de produtos dentro de um mesmo mês. Cria quantos quiser. Cada custom tem data de geração imutável.'
       };
 
+      // V37.0.3 — Filtra lista por escopo
+      const allClosings = cache?.list || [];
+      const closingsByScope = {
+        product: allClosings.filter(c => c.kind === 'product_auto' || c.kind === 'product_custom'),
+        monthly: allClosings.filter(c => c.kind === 'consolidated_monthly'),
+        custom:  allClosings.filter(c => c.kind === 'consolidated_custom')
+      };
+      const scopedList = closingsByScope[scope] || [];
+      const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const refecharBtn = scope === 'product'
+        ? `<button onclick="(function(){const n=prompt('Nome opcional pro snapshot custom (ex: ajuste venda 28/06):', ''); if(n!==null) Actions.createProductCustomClosing('${productId}', '${currentPeriod}', n);})()" class="px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm shrink-0" style="color:#fff!important;">
+            <i data-lucide="camera" class="w-3.5 h-3.5"></i> Refechar este produto (${currentPeriod})
+          </button>`
+        : `<button disabled title="Custom de consolidado entra em V37.0.5. Mensal consolidado entra em V37.0.4." class="px-3 py-2 rounded-xl bg-stone-200 text-stone-500 text-xs font-black flex items-center gap-1.5 cursor-not-allowed shrink-0">
+            <i data-lucide="camera-off" class="w-3.5 h-3.5"></i> ${scope === 'monthly' ? 'Associar (V37.0.4)' : 'Novo Custom (V37.0.5)'}
+          </button>`;
+
       return `<div class="space-y-3">
         ${this._tabHeader('Fechamento · Mensal & Consolidados', 'Fechamento do Período', 'Snapshot imutável da governança no fim de cada mês. Auto por produto, consolidado mensal e custom — tudo aqui.', scopeSwitcher)}
 
@@ -262,9 +294,7 @@
                   <p class="text-[12px] text-slate-600 mt-0.5">${closesPhrase}. Snapshot automático às 00:00 BRT do dia 1 do próximo mês.</p>
                 </div>
               </div>
-              <button disabled title="Cron mensal entra em V37.0.2 — fechamento manual antes disso fica desabilitado pra evitar foto incompleta." class="px-3 py-2 rounded-xl bg-stone-200 text-stone-500 text-xs font-black flex items-center gap-1.5 cursor-not-allowed shrink-0">
-                <i data-lucide="camera-off" class="w-3.5 h-3.5"></i> Fechar manualmente (em breve)
-              </button>
+              ${refecharBtn}
             </div>
           </div>
 
@@ -276,17 +306,8 @@
             <p class="text-[12px] text-slate-700 leading-relaxed">${Utils.escape(scopeIntros[scope])}</p>
           </div>
 
-          <!-- LISTA DE SNAPSHOTS — vazia até backend entrar -->
-          <div>
-            <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Snapshots ${scope === 'product' ? 'deste produto' : scope === 'monthly' ? 'mensais consolidados' : 'customs'}</p>
-            <div class="rounded-2xl border-2 border-dashed border-stone-300 bg-white/50 p-8 text-center">
-              <div class="w-12 h-12 rounded-full bg-stone-100 grid place-items-center mx-auto mb-3">
-                <i data-lucide="archive" class="w-5 h-5 text-stone-400"></i>
-              </div>
-              <p class="text-sm font-black text-slate-700 mb-1">Nenhum snapshot ainda</p>
-              <p class="text-[12px] text-slate-500 max-w-md mx-auto">O primeiro snapshot deste produto nasce no dia 1 do próximo mês, automaticamente. ${scope === 'monthly' ? 'O consolidado mensal nasce junto e abre uma pendência no sininho pra você associar os produtos.' : scope === 'custom' ? 'Customs você cria à mão depois que o mês fecha — agrupando produtos da forma que quiser.' : 'Você poderá reabrir e gerar versão custom dentro do mesmo mês.'}</p>
-            </div>
-          </div>
+          <!-- LISTA DE SNAPSHOTS -->
+          ${this._fechamentoSnapshotsList(scope, scopedList, cache)}
 
           <!-- COMO FUNCIONA -->
           <div class="pt-2 border-t border-stone-200">
@@ -297,20 +318,211 @@
               ${this._fechamentoConceptCard('wand-2', 'Consolidado Custom', 'MANUAL', 'emerald', 'Você cria quando quiser: escolhe N produtos do mês, dá nome, gera. Data de criação fica fixa. Útil pra recortes específicos.')}
             </div>
           </div>
-
-          <!-- ROADMAP -->
-          <div class="rounded-2xl bg-stone-100 border border-stone-200 p-3">
-            <p class="text-[10px] font-black text-stone-600 uppercase tracking-widest mb-1.5">Roadmap V37</p>
-            <ul class="text-[11px] text-slate-600 space-y-0.5 leading-relaxed">
-              <li>• <b>V37.0.1</b> — estrutura visual + switcher (você está aqui)</li>
-              <li>• <b>V37.0.2</b> — backend: tabela governance_closings + cron Vercel mensal (00:00 BRT dia 1)</li>
-              <li>• <b>V37.0.3</b> — UI snapshot detalhado + reabertura</li>
-              <li>• <b>V37.0.4</b> — fluxo do Mensal Consolidado (parcial → completo) + sininho de Pendências</li>
-              <li>• <b>V37.0.5</b> — Custom Consolidado livre</li>
-              <li>• <b>V37.0.6</b> — download PDF</li>
-            </ul>
-          </div>
         </section>
+      </div>`;
+    },
+
+    // V37.0.3 — Lista filtrada por escopo + estados (loading/error/empty/lista)
+    _fechamentoSnapshotsList(scope, list, cache) {
+      const scopeLabel = scope === 'product' ? 'deste produto' : scope === 'monthly' ? 'mensais consolidados' : 'customs';
+      const header = `<p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Snapshots ${scopeLabel}</p>`;
+
+      if (cache?.loading) {
+        return `<div>${header}
+          <div class="rounded-2xl bg-white/50 border border-stone-200 p-6 text-center">
+            <p class="text-[12px] text-slate-500"><i data-lucide="loader" class="w-3.5 h-3.5 inline mr-1"></i> Carregando snapshots…</p>
+          </div>
+        </div>`;
+      }
+      if (cache?.error) {
+        const isMissingTable = String(cache.error).toLowerCase().includes('does not exist') || String(cache.error).toLowerCase().includes('lj_governance_closings');
+        return `<div>${header}
+          <div class="rounded-2xl bg-amber-50 border border-amber-200 p-4">
+            <p class="text-[12px] font-black text-amber-900 mb-1"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 inline mr-1"></i> ${isMissingTable ? 'Tabela ainda não migrada' : 'Erro ao carregar snapshots'}</p>
+            <p class="text-[11px] text-amber-800 leading-snug">${isMissingTable ? 'Rode "Migrar Schema" em Administrar (master) ou nas Configurações do tenant pra criar a tabela lj_governance_closings.' : Utils.escape(String(cache.error))}</p>
+          </div>
+        </div>`;
+      }
+      if (!list.length) {
+        return `<div>${header}
+          <div class="rounded-2xl border-2 border-dashed border-stone-300 bg-white/50 p-8 text-center">
+            <div class="w-12 h-12 rounded-full bg-stone-100 grid place-items-center mx-auto mb-3">
+              <i data-lucide="archive" class="w-5 h-5 text-stone-400"></i>
+            </div>
+            <p class="text-sm font-black text-slate-700 mb-1">Nenhum snapshot ainda</p>
+            <p class="text-[12px] text-slate-500 max-w-md mx-auto">${scope === 'product' ? 'O primeiro snapshot deste produto nasce no dia 1 do próximo mês, automaticamente. Ou clique em "Refechar este produto" pra criar um custom agora.' : scope === 'monthly' ? 'O consolidado mensal nasce junto com os snapshots por produto (cron dia 1).' : 'Customs você cria à mão depois que o mês fecha — agrupando produtos da forma que quiser.'}</p>
+          </div>
+        </div>`;
+      }
+
+      return `<div>${header}
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          ${list.map(c => this._fechamentoClosingCard(c)).join('')}
+        </div>
+      </div>`;
+    },
+
+    // V37.0.3 — Card vertical de um snapshot
+    _fechamentoClosingCard(closing) {
+      const kindMeta = {
+        product_auto:         { label: 'Auto',     tone: 'violet',  icon: 'zap'      },
+        product_custom:       { label: 'Custom',   tone: 'emerald', icon: 'wand-2'   },
+        consolidated_monthly: { label: closing.status === 'partial' ? 'Parcial' : 'Completo', tone: closing.status === 'partial' ? 'amber' : 'sky', icon: 'layers' },
+        consolidated_custom:  { label: 'Custom',   tone: 'emerald', icon: 'wand-2'   }
+      };
+      const k = kindMeta[closing.kind] || { label: closing.kind, tone: 'stone', icon: 'archive' };
+      const tones = {
+        violet:  { bg: 'bg-violet-500/15',  text: 'text-violet-700',  border: 'border-violet-200',  badgeBg: 'bg-violet-50',  badgeText: 'text-violet-800' },
+        emerald: { bg: 'bg-emerald-500/15', text: 'text-emerald-700', border: 'border-emerald-200', badgeBg: 'bg-emerald-50', badgeText: 'text-emerald-800' },
+        amber:   { bg: 'bg-amber-500/15',   text: 'text-amber-700',   border: 'border-amber-200',   badgeBg: 'bg-amber-50',   badgeText: 'text-amber-800' },
+        sky:     { bg: 'bg-sky-500/15',     text: 'text-sky-700',     border: 'border-sky-200',     badgeBg: 'bg-sky-50',     badgeText: 'text-sky-800' },
+        stone:   { bg: 'bg-stone-200',      text: 'text-stone-700',   border: 'border-stone-300',   badgeBg: 'bg-stone-100',  badgeText: 'text-stone-700' }
+      };
+      const t = tones[k.tone] || tones.stone;
+      const periodLabel = (() => {
+        try {
+          const [y, m] = String(closing.period).split('-').map(Number);
+          const d = new Date(y, m - 1, 1);
+          let label = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace(/\./g, '');
+          return label.charAt(0).toUpperCase() + label.slice(1);
+        } catch (_) { return closing.period; }
+      })();
+      const closedDate = closing.closed_at ? new Date(closing.closed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+      const productCount = Array.isArray(closing.product_ids) ? closing.product_ids.length : 0;
+      const reopens = Array.isArray(closing.reopens_log) ? closing.reopens_log.length : 0;
+      const isPartial = closing.kind === 'consolidated_monthly' && closing.status === 'partial';
+
+      return `<div class="lj-cost-card relative rounded-2xl bg-white/70 border ${t.border} p-4 transition" style="box-shadow:3px 3px 0 0 #e7e5e4;">
+        <div class="flex items-start justify-between gap-2 mb-2">
+          <div class="flex items-start gap-2 min-w-0 flex-1">
+            <span class="shrink-0 w-8 h-8 rounded-lg ${t.bg} grid place-items-center ${t.text}">
+              <i data-lucide="${k.icon}" class="w-4 h-4"></i>
+            </span>
+            <div class="min-w-0">
+              <p class="text-[11px] font-black text-slate-900 leading-tight">${Utils.escape(periodLabel)}</p>
+              <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded border ${t.border} ${t.badgeText} ${t.badgeBg} text-[9px] font-black uppercase tracking-widest">${k.label}</span>
+            </div>
+          </div>
+        </div>
+        ${closing.name ? `<p class="text-[11px] text-slate-700 leading-snug mb-1"><b>${Utils.escape(closing.name)}</b></p>` : ''}
+        <p class="text-[10px] text-slate-500">Criado em ${closedDate}</p>
+        ${productCount > 0 && (closing.kind === 'consolidated_monthly' || closing.kind === 'consolidated_custom') ? `<p class="text-[10px] text-slate-500">${productCount} produto${productCount === 1 ? '' : 's'} associado${productCount === 1 ? '' : 's'}</p>` : ''}
+        ${reopens > 0 ? `<p class="text-[10px] text-amber-700 mt-1"><i data-lucide="history" class="w-3 h-3 inline"></i> ${reopens} reabertura${reopens === 1 ? '' : 's'}</p>` : ''}
+        ${isPartial ? `<p class="text-[10px] text-amber-700 mt-1"><i data-lucide="alert-circle" class="w-3 h-3 inline"></i> Aguardando associação</p>` : ''}
+        <div class="mt-3 flex items-center gap-1.5">
+          <button onclick="Actions.openGovernanceClosingView(${closing.id})" class="flex-1 px-2 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black inline-flex items-center justify-center gap-1" style="color:#fff!important;">
+            <i data-lucide="eye" class="w-3 h-3"></i> Abrir
+          </button>
+          ${closing.kind !== 'product_auto' ? `<button onclick="Actions.reopenGovernanceClosing(${closing.id})" title="Registra reabertura no log de auditoria. Snapshot continua imutável." class="px-2 py-1.5 rounded-lg bg-white border border-stone-300 hover:bg-stone-50 text-stone-700 text-[10px] font-black inline-flex items-center gap-1">
+            <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+          </button>` : ''}
+        </div>
+      </div>`;
+    },
+
+    // V37.0.3 — Vista detalhada do snapshot (renderiza snapshot_json congelado)
+    _fechamentoSnapshotView(closing, cfg) {
+      const periodLabel = (() => {
+        try {
+          const [y, m] = String(closing.period).split('-').map(Number);
+          const d = new Date(y, m - 1, 1);
+          let label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+          return label.charAt(0).toUpperCase() + label.slice(1);
+        } catch (_) { return closing.period; }
+      })();
+      const closedDate = closing.closed_at ? new Date(closing.closed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+      const snap = closing.snapshot_json || {};
+      const isProduct = closing.kind === 'product_auto' || closing.kind === 'product_custom';
+
+      let mainBlock = '';
+      if (isProduct) {
+        const meta = snap.metas || { vendas: 0, cac: 0 };
+        const groups = Array.isArray(snap.revopsConfig?.groups) ? snap.revopsConfig.groups : [];
+        const offers = Array.isArray(snap.revopsConfig?.offers) ? snap.revopsConfig.offers : [];
+        const itemsCount = groups.reduce((acc, g) => acc + ((g.items || []).length), 0);
+        const ticketMedio = snap.revopsConfig?.ticketMedio || 0;
+        mainBlock = `<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          ${this._snapInfoCard('Produto', Utils.escape(snap.productName || '—'), 'package', 'violet')}
+          ${this._snapInfoCard('Vendas previstas', Math.round(snap.salesProjection || 0).toLocaleString('pt-BR'), 'target', 'violet')}
+          ${this._snapInfoCard('Meta de Vendas', Math.round(meta.vendas || 0).toLocaleString('pt-BR'), 'flag', 'emerald')}
+          ${this._snapInfoCard('Meta de CAC', this._money(meta.cac || 0), 'shield-check', 'emerald')}
+          ${this._snapInfoCard('TM (input)', ticketMedio > 0 ? this._money(ticketMedio) : '—', 'tag', 'sky')}
+          ${this._snapInfoCard('Grupos de custos', String(groups.length), 'wallet', 'rose')}
+          ${this._snapInfoCard('Items totais', String(itemsCount), 'layers', 'rose')}
+          ${this._snapInfoCard('Ofertas', String(offers.length), 'shopping-bag', 'amber')}
+        </div>`;
+      } else {
+        const products = Array.isArray(snap.products) ? snap.products : [];
+        const productList = products.length
+          ? `<div class="space-y-2">${products.map(p => `<div class="rounded-xl bg-white/60 border border-stone-200 p-3">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="text-[12px] font-black text-slate-900">${Utils.escape(p.productName || p.productId)}</p>
+                  <p class="text-[10px] text-slate-500">Meta: ${Math.round(p.metas?.vendas || 0).toLocaleString('pt-BR')} vendas · CAC ${this._money(p.metas?.cac || 0)}</p>
+                </div>
+                <span class="text-[10px] font-black text-violet-700">${Math.round(p.salesProjection || 0).toLocaleString('pt-BR')} previstas</span>
+              </div>
+            </div>`).join('')}</div>`
+          : '<p class="text-[12px] text-slate-500 italic">Nenhum produto associado.</p>';
+        mainBlock = `<div>
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Produtos consolidados (${products.length})</p>
+          ${productList}
+        </div>`;
+      }
+
+      const reopens = Array.isArray(closing.reopens_log) ? closing.reopens_log : [];
+      const reopensBlock = reopens.length ? `<div class="rounded-2xl bg-amber-50 border border-amber-200 p-3">
+        <p class="text-[10px] font-black text-amber-900 uppercase tracking-widest mb-1.5"><i data-lucide="history" class="w-3 h-3 inline"></i> Log de reabertura</p>
+        <ul class="text-[11px] text-amber-800 space-y-0.5">
+          ${reopens.map(r => `<li>• ${new Date(r.at).toLocaleString('pt-BR')}${r.reason ? ' — ' + Utils.escape(r.reason) : ''}</li>`).join('')}
+        </ul>
+      </div>` : '';
+
+      return `<div class="space-y-3">
+        <div class="flex items-start justify-between gap-3 flex-wrap pb-2 border-b border-slate-100">
+          <div class="min-w-0">
+            <button onclick="Actions.closeGovernanceClosingView()" class="text-[11px] text-violet-700 hover:text-violet-900 font-black inline-flex items-center gap-1 mb-1">
+              <i data-lucide="arrow-left" class="w-3 h-3"></i> Voltar à lista
+            </button>
+            <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">Fechamento · ${closing.kind.replace(/_/g, ' ').toUpperCase()}</p>
+            <h3 class="text-base font-black text-slate-900 mt-0.5">${Utils.escape(periodLabel)}${closing.name ? ' · ' + Utils.escape(closing.name) : ''}</h3>
+            <p class="text-[12px] text-slate-500 mt-0.5">Criado em ${closedDate} · ${closing.source === 'auto' ? 'Automático (cron)' : 'Manual'}</p>
+          </div>
+          <button disabled title="Export PDF entra em V37.0.6" class="px-3 py-2 rounded-xl bg-stone-200 text-stone-500 text-xs font-black flex items-center gap-1.5 cursor-not-allowed shrink-0">
+            <i data-lucide="file-down" class="w-3.5 h-3.5"></i> Baixar PDF (em breve)
+          </button>
+        </div>
+        <section class="rounded-3xl border p-5 shadow-md space-y-4" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+          <div class="rounded-2xl bg-violet-50/60 border border-violet-200 p-3 flex items-start gap-2.5">
+            <span class="shrink-0 w-7 h-7 rounded-lg bg-violet-500/15 grid place-items-center text-violet-700">
+              <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+            </span>
+            <p class="text-[12px] text-slate-700 leading-relaxed">Foto imutável dos <b>inputs</b> da governança no instante do fechamento. Reconstrução completa de DRE / KPIs / Custos + export PDF entra em V37.0.6.</p>
+          </div>
+          ${mainBlock}
+          ${reopensBlock}
+        </section>
+      </div>`;
+    },
+
+    // V37.0.3 — Card de info do snapshot (label + valor + ícone tonal)
+    _snapInfoCard(label, value, icon, tone) {
+      const tones = {
+        violet:  { bg: 'bg-violet-500/15',  text: 'text-violet-700',  border: 'border-violet-200' },
+        emerald: { bg: 'bg-emerald-500/15', text: 'text-emerald-700', border: 'border-emerald-200' },
+        sky:     { bg: 'bg-sky-500/15',     text: 'text-sky-700',     border: 'border-sky-200' },
+        rose:    { bg: 'bg-rose-500/15',    text: 'text-rose-700',    border: 'border-rose-200' },
+        amber:   { bg: 'bg-amber-500/15',   text: 'text-amber-700',   border: 'border-amber-200' }
+      };
+      const t = tones[tone] || tones.violet;
+      return `<div class="rounded-2xl bg-white/70 border ${t.border} p-3" style="box-shadow:3px 3px 0 0 #e7e5e4;">
+        <div class="flex items-start gap-2 mb-1">
+          <span class="shrink-0 w-7 h-7 rounded-lg ${t.bg} grid place-items-center ${t.text}">
+            <i data-lucide="${icon}" class="w-3.5 h-3.5"></i>
+          </span>
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider leading-tight mt-1">${label}</p>
+        </div>
+        <p class="text-base font-black text-slate-900 mt-1">${value}</p>
       </div>`;
     },
 
