@@ -1974,122 +1974,14 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
-  // V15 — Landing Page actions
-  openLpModal(actionId = null) {
-    const action = actionId ? (App.state.actions || []).find(a => Number(a.id) === Number(actionId)) : null;
-    App.state.lpDraft = window.LpRegistry ? LpRegistry.draftFromAction(action) : null;
-    App.state.showLpModal = true;
-    App.save(); App.render();
-  },
-
-  closeLpModal() {
-    App.state.showLpModal = false;
-    App.state.lpDraft = null;
-    App.save(); App.render();
-  },
-
-  updateLpDraftFieldSilent(field, value) {
-    if (!App.state.lpDraft) return;
-    App.state.lpDraft[field] = value;
-    App.save();
-  },
-
-  updateLpDraftField(field, value) {
-    if (!App.state.lpDraft) return;
-    App.state.lpDraft[field] = value;
-    App.save(); App.render();
-  },
-
-  addLpCheckpoint() {
-    if (!App.state.lpDraft || !window.FlowCheckpointEngine) return;
-    App.state.lpDraft.checkpoints = [...(App.state.lpDraft.checkpoints || []), FlowCheckpointEngine.emptyCheckpoint()];
-    App.save(); App.render();
-  },
-
-  removeLpCheckpoint(checkpointId) {
-    if (!App.state.lpDraft) return;
-    App.state.lpDraft.checkpoints = (App.state.lpDraft.checkpoints || []).filter(c => c.id !== checkpointId);
-    App.save(); App.render();
-  },
-
-  updateLpCheckpointSilent(checkpointId, field, value) {
-    if (!App.state.lpDraft) return;
-    App.state.lpDraft.checkpoints = (App.state.lpDraft.checkpoints || []).map(c => {
-      if (c.id !== checkpointId) return c;
-      return { ...c, [field]: field === 'scoreDelta' ? Number(value || 0) : value };
-    });
-    App.save();
-  },
-
-  updateLpCheckpoint(checkpointId, field, value) {
-    this.updateLpCheckpointSilent(checkpointId, field, value);
-    App.render();
-  },
-
-  reorderLpCheckpoint(checkpointId, direction) {
-    if (!App.state.lpDraft) return;
-    const list = App.state.lpDraft.checkpoints || [];
-    const index = list.findIndex(c => c.id === checkpointId);
-    if (index < 0) return;
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= list.length) return;
-    const next = [...list];
-    [next[index], next[newIndex]] = [next[newIndex], next[index]];
-    App.state.lpDraft.checkpoints = next;
-    App.save(); App.render();
-  },
-
-  saveLpAction() {
-    const draft = App.state.lpDraft;
-    if (!draft) return;
-    if (!String(draft.name || '').trim()) return Utils.toast('Dê um nome à LP.');
-    if (!draft.url || !/^https?:\/\//i.test(draft.url)) return Utils.toast('Informe uma URL válida (http:// ou https://).');
-    if (!draft.campaignId) return Utils.toast('Selecione uma campanha.');
-
-    const isEdit = Boolean(draft.actionId);
-    if (isEdit) {
-      App.state.actions = (App.state.actions || []).map(action => {
-        if (Number(action.id) !== Number(draft.actionId)) return action;
-        return LpRegistry.applyDraftToAction(action, draft);
-      });
-    } else {
-      const action = LpRegistry.buildActionFromDraft(draft);
-      App.state.actions = [action, ...(App.state.actions || [])];
-      App.state.selectedActionId = action.id;
-    }
-    App.state.lpRegistry = App.state.lpRegistry || {};
-    App.state.lpRegistry[draft.lpId] = LpRegistry.buildRegistryEntry(draft);
-    App.state.showLpModal = false;
-    App.state.lpDraft = null;
-    App.save(); App.render();
-    Utils.toast(isEdit ? 'LP atualizada.' : 'LP criada.');
-  },
-
-  copyLpTrackingScript() {
-    const draft = App.state.lpDraft;
-    if (!draft || !window.LpRegistry) return;
-    const script = LpRegistry.buildTrackingScript(draft);
-    if (navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(script).then(() => Utils.toast('✓ Script copiado. Cole no <head> da LP no RD.'));
-    } else {
-      Utils.toast('Selecione o script manualmente e copie.');
-    }
-  },
-
-  async validateLpInstallation() {
-    const draft = App.state.lpDraft;
-    if (!draft || !window.LpRegistry) return;
-    Utils.toast('Verificando eventos recebidos da LP...');
-    const status = await LpRegistry.checkInstallation(draft);
-    Utils.toast(status.message);
-    App.render();
-  },
-
-  async pollLpEvents() {
-    if (!window.EventCollector) return;
-    const result = await EventCollector.poll();
-    if (result?.applied) Utils.toast(`✓ ${result.applied} evento(s) RD aplicados.`);
-  },
+  // V37.0.8 — Bloco "Landing Page actions" (V15 — openLpModal, closeLpModal,
+  // updateLpDraftField/Silent, addLpCheckpoint, removeLpCheckpoint,
+  // updateLpCheckpoint/Silent, reorderLpCheckpoint, saveLpAction,
+  // copyLpTrackingScript, validateLpInstallation, pollLpEvents) REMOVIDO.
+  //
+  // Caminho era vestigial pré-Tracking V33: cliente preenchia draft + checkpoints
+  // mas nenhum consumidor moderno lia o output (action.lp / lpRegistry). Pra LP
+  // com tracking real hoje, fluxo é Tracking V33 (snippet → /api/tracker-event).
 
   // V15 — RD CRM actions
   _ensureRdCrmConfig() {
@@ -4353,7 +4245,7 @@ Object.assign(Actions, {
     if (App.state.rdRefreshing) return;
     App.state.rdRefreshing = true;
     if (!silent) App.render();
-    let crmOk = 0, marketingOk = 0, webhookOk = 0, lpEventsOk = 0;
+    let crmOk = 0, marketingOk = 0, webhookOk = 0;
     const errors = [];
     try {
       if (window.RdCrmLiveSyncEngine?.runOnce) {
@@ -4366,10 +4258,8 @@ Object.assign(Actions, {
           errors.push(`RD live: ${r.reason}`);
         }
       }
-      if (window.EventCollector?.poll) {
-        const r = await EventCollector.poll();
-        if (r?.ok) lpEventsOk = r.applied || 0;
-      }
+      // V37.0.8 — EventCollector.poll() removido (era pra polling de
+      // /api/lp-events-fetch — endpoint legacy do fluxo LP modal vestigial).
     } catch (err) {
       errors.push(`Erro: ${err?.message || err}`);
     } finally {
@@ -4383,7 +4273,6 @@ Object.assign(Actions, {
       if (crmOk) parts.push(`${crmOk} CRM`);
       if (marketingOk) parts.push(`${marketingOk} Marketing`);
       if (webhookOk) parts.push(`${webhookOk} webhook`);
-      if (lpEventsOk) parts.push(`${lpEventsOk} LP`);
       const summary = parts.length ? parts.join(' · ') : 'nada novo';
       Utils.toast(`RD atualizado · ${summary}${errors.length ? ' · ' + errors[0] : ''}`);
     }

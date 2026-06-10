@@ -160,11 +160,8 @@ var State = {
       actionEditDraft: null,
       showFlowBuilderModal: false,
       flowBuilderCampaignId: null,
-      showLpModal: false,
-      lpDraft: null,
-      lpEvents: [],
-      lpRegistry: {},
-      lpLastPolledAt: '',
+      // V37.0.8 — showLpModal/lpDraft/lpEvents/lpRegistry/lpLastPolledAt REMOVIDOS
+      // (fluxo LP modal vestigial pré-Tracking V33, sem consumidor moderno).
       showCampaignFlowModal: false,
       campaignFlowModalId: null,
       showProductRevenueOverview: false,
@@ -941,11 +938,7 @@ var State = {
       actionEditDraft: null,
       showFlowBuilderModal: false,
       flowBuilderCampaignId: null,
-      showLpModal: false,
-      lpDraft: null,
-      lpEvents: Array.isArray(raw.lpEvents) ? raw.lpEvents : [],
-      lpRegistry: raw.lpRegistry && typeof raw.lpRegistry === 'object' ? raw.lpRegistry : {},
-      lpLastPolledAt: raw.lpLastPolledAt || '',
+      // V37.0.8 — campos LP modal removidos
       showCampaignFlowModal: Boolean(raw.showCampaignFlowModal),
       campaignFlowModalId: raw.campaignFlowModalId || null,
       showProductRevenueOverview: Boolean(raw.showProductRevenueOverview),
@@ -1631,7 +1624,7 @@ var State = {
         // V32.4.0 — flags V11 railway/database removidas.
         // V32.4.1 — flags V16.3 DjowModal removidas (showDjowModal, djowModalActionId, etc).
         'showActionEditModal','actionEditDraft','showFlowBuilderModal','flowBuilderCampaignId',
-        'showLpModal','lpDraft','djowSending','djowContext',
+        'djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',
         'showQuickActionModal','quickActionContext','quickActionDraft','showStrategicOverview',

@@ -11,8 +11,8 @@ var ActionModule = {
       ${ActionFlowModal.render()}
       ${window.ActionEditModal ? ActionEditModal.render() : ''}
       ${window.ActionFlowBuilder ? ActionFlowBuilder.render(App.state.flowBuilderCampaignId) : ''}
-      ${window.ActionLpModal ? ActionLpModal.render() : ''}
       ${/* V32.4.1 (Geraldo Item 1) — DjowModal V16.3 aposentado. DjowAIModal global cobre. */ ''}
+      ${/* V37.0.8 — ActionLpModal removido (era vestigial pré-Tracking V33). */ ''}
       ${window.TasksModal ? TasksModal.render() : ''}
       ${window.StrategicMapModal ? StrategicMapModal.render() : ''}
     </div>`;
@@ -73,7 +73,12 @@ var ActionModule = {
   },
 
   _manualCreatePanel() {
-    return `${this.form()}<div class="mt-4 pt-4 border-t border-slate-100"><button onclick="Actions.openLpModal()" class="w-full px-4 py-3 rounded-2xl bg-sky-600 hover:bg-sky-700 text-white font-black text-sm flex items-center justify-center gap-2" style="color:#fff!important;"><i data-lucide="layout" class="w-4 h-4"></i> Criar ação LP especializada</button><p class="text-[11px] text-slate-400 mt-2 text-center">Use o modal de LP quando a ação for uma página com tracking, checkpoints e movimentação automática.</p></div>`;
+    // V37.0.8 — Removido botão "Criar ação LP especializada". O modal LP
+    // (actionLpModal + lpRegistry + flowCheckpointEngine + lpAnalyticsEngine
+    // + tracking/checkpointEngine) era código vestigial pré-Tracking V33 que
+    // produzia draft mas nenhum consumidor no LJ moderno lia o output.
+    // Pra LP com tracking real hoje, fluxo é: snippet embarcável (V33) → /api/tracker-event.
+    return this.form();
   },
 
   _aiCreatePanel() {
