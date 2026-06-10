@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.13.0',
+    date: '2026-06-09',
+    title: 'DRE: "+ inserir linha" cria linha-banner laranja com cards filhos',
+    bullets: [
+      'Nova mecânica de inserção: o botão "+ inserir linha" entre marcos base (Faturamento, Venda Líquida, Lucro Bruto, S&M, G&A) agora cria uma LINHA-BANNER laranja personalizada com nome editável, badge "personalizada", engrenagem com opção de remover, e seu próprio valor agregado.',
+      'Simetria com os marcos base: a linha-banner laranja tem a mesma altura/forma das linhas verdes (Faturamento) / sky (Venda Líquida, Lucro Bruto) / amber (Lucro Líquido) que já existiam. Fica visualmente claro que é uma fase customizada na DRE.',
+      'Depois que o cliente dá nome à linha, libera GRID 3-col de cards filhos abaixo. Cada card é um item com nome e fórmula (mesma régua dos cards de Deduções).',
+      'Valor da linha-banner = soma dos cards filhos. Engrenagem do card abre menu "Djow ajuda + Remover" (mesma régua), engrenagem da linha tem "Remover linha" (apaga a categoria inteira com os cards filhos).',
+      'Compat: linhas extras legacy (criadas pré-V36.13.0) continuam funcionando como cards individuais. Novas inserções viram grupos.',
+      'Sinal +/− na linha-banner controla se o total entra somando ou subtraindo no fluxo da DRE (ex: "+ Receitas Financeiras" soma após Lucro Bruto; "− Bônus pagos extras" subtrai).',
+      'Djow lateral reconhece quando cliente clica num card filho de grupo e aplica fórmula direto no item (não na linha-pai).'
+    ]
+  },
+  {
     version: 'V36.12.1',
     date: '2026-06-09',
     title: 'DRE: deduções viram GRID de cards verticais (padrão Etapa 3 do Mapa)',

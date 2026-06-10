@@ -5486,6 +5486,72 @@ Object.assign(Actions, {
     });
   },
 
+  // V36.13.0 — CRUD de grupos extras (linha-banner laranja + cards filhos).
+  addDreExtraGroup(productId, afterStep) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      if (!Array.isArray(cfg.dreExtraGroups)) cfg.dreExtraGroups = [];
+      cfg.dreExtraGroups.push({
+        id: `dreg_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(2,5)}`,
+        name: '',
+        signal: '+',
+        afterStep: String(afterStep || 'lucro_bruto'),
+        items: []
+      });
+    });
+  },
+
+  updateDreExtraGroup(productId, groupId, field, value) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const g = (cfg.dreExtraGroups || []).find(x => x.id === groupId);
+      if (!g) return;
+      if (field === 'signal') g.signal = value === '+' ? '+' : '-';
+      else if (field === 'name') g.name = String(value || '');
+    });
+  },
+
+  deleteDreExtraGroup(productId, groupId) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      cfg.dreExtraGroups = (cfg.dreExtraGroups || []).filter(g => g.id !== groupId);
+    });
+  },
+
+  addDreExtraGroupItem(productId, groupId) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const g = (cfg.dreExtraGroups || []).find(x => x.id === groupId);
+      if (!g) return;
+      if (!Array.isArray(g.items)) g.items = [];
+      g.items.push({
+        id: `dregi_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(2,5)}`,
+        name: '',
+        value: ''
+      });
+    });
+  },
+
+  updateDreExtraGroupItem(productId, groupId, itemId, field, value) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const g = (cfg.dreExtraGroups || []).find(x => x.id === groupId);
+      if (!g) return;
+      const it = (g.items || []).find(i => i.id === itemId);
+      if (!it) return;
+      if (field === 'name') it.name = String(value || '');
+      else if (field === 'value') it.value = String(value || '');
+    });
+  },
+
+  deleteDreExtraGroupItem(productId, groupId, itemId) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      const g = (cfg.dreExtraGroups || []).find(x => x.id === groupId);
+      if (!g) return;
+      g.items = (g.items || []).filter(i => i.id !== itemId);
+    });
+  },
+
+  toggleRevopsDreGroupMenu(groupId) {
+    App.state.revopsDreGroupMenuOpen = (App.state.revopsDreGroupMenuOpen === groupId) ? null : groupId;
+    App.save(); App.render();
+  },
+
   toggleDreDeducoesExpanded(productId) {
     if (!App.state.revopsDreDeducoesExpanded) App.state.revopsDreDeducoesExpanded = {};
     const cur = !!App.state.revopsDreDeducoesExpanded[productId];
@@ -7721,7 +7787,13 @@ Object.assign(Actions, {
 
   // V36.12.0 — Djow RevOps (painel lateral do DRE).
   selectDjowRevopsLine(productId, lineId, afterStep) {
-    App.state.revopsDjowSelectedLine = { productId, lineId, afterStep };
+    App.state.revopsDjowSelectedLine = { productId, lineId, afterStep, groupId: null };
+    App.save(); App.render();
+  },
+
+  // V36.13.0 — Seleção de item DENTRO de um grupo (linha-banner).
+  selectDjowRevopsGroupItem(productId, groupId, itemId) {
+    App.state.revopsDjowSelectedLine = { productId, groupId, lineId: itemId, afterStep: 'group' };
     App.save(); App.render();
   },
 
@@ -7750,7 +7822,11 @@ Object.assign(Actions, {
     const selected = App.state.revopsDjowSelectedLine;
     if (!msg || !msg.suggestion) return Utils.toast('Mensagem sem fórmula sugerida.');
     if (!selected) return Utils.toast('Clique numa linha primeiro pra eu aplicar.');
-    Actions.updateDreExtraLine(selected.productId, selected.lineId, 'value', msg.suggestion);
+    if (selected.groupId) {
+      Actions.updateDreExtraGroupItem(selected.productId, selected.groupId, selected.lineId, 'value', msg.suggestion);
+    } else {
+      Actions.updateDreExtraLine(selected.productId, selected.lineId, 'value', msg.suggestion);
+    }
     Utils.toast('✓ Fórmula aplicada.');
   },
 

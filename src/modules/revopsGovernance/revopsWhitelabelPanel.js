@@ -1531,6 +1531,7 @@
     _dreFlatRender(productId, dre, variableItems) {
       const blocks = [];
       const extrasByStep = {};
+      const groupsByStep = dre.groupsByStep || {};
       for (const l of dre.lines) {
         if (l.kind === 'extra') {
           (extrasByStep[l.afterStep] = extrasByStep[l.afterStep] || []).push(l);
@@ -1540,13 +1541,17 @@
       for (const l of dre.lines) {
         if (l.kind !== 'base') continue;
         if (l.id === 'deducoes') {
-          // Flat: sem caixa agregada. Renderiza linhas individuais.
           blocks.push(this._dreFlatDeducoes(productId, variableItems, dre.deducoesInsideExtras || []));
           continue;
         }
         blocks.push(this._dreBaseCard(productId, l));
+        // Legacy extras (compat): cards verticais soltos
         for (const ex of (extrasByStep[l.id] || [])) {
           blocks.push(this._dreExtraCard(productId, ex));
+        }
+        // V36.13.0 — Grupos novos: cada um vira linha-banner laranja + grid de cards filhos
+        for (const g of (groupsByStep[l.id] || [])) {
+          blocks.push(this._dreExtraGroupBlock(productId, g));
         }
         if (l.id !== 'lucro_liquido') {
           blocks.push(this._dreAddLineBtn(productId, l.id));
@@ -1554,6 +1559,103 @@
       }
 
       return blocks.join('');
+    },
+
+    // V36.13.0 — Bloco do grupo: linha-banner laranja + grid de cards filhos.
+    // Estrutura simétrica aos marcos base (verde/sky/rose) mas em laranja
+    // pra marcar "personalizado". Cards filhos só aparecem após cliente
+    // dar nome ao grupo. Engrenagem na linha edita signal/nome ou deleta.
+    _dreExtraGroupBlock(productId, g) {
+      const hasName = String(g.name || '').trim().length > 0;
+      const banner = this._dreExtraGroupBanner(productId, g, hasName);
+      if (!hasName) {
+        // Sem nome: mostra banner com input em destaque + hint
+        return `<div class="space-y-2 pl-1 border-l-2 border-amber-300 ml-1">
+          ${banner}
+          <div class="pl-2 pr-1">
+            <div class="rounded-2xl border border-dashed border-amber-300 bg-amber-50/30 p-3 text-center text-[11px] text-stone-500 italic">
+              Dê um nome à linha pra liberar os cards de fórmula.
+            </div>
+          </div>
+        </div>`;
+      }
+      const cards = [];
+      (g.items || []).forEach(it => cards.push(this._dreExtraGroupItemCard(productId, g.id, it)));
+      cards.push(this._dreAddGroupItemCard(productId, g.id, (g.items || []).length));
+      return `<div class="space-y-2 pl-1 border-l-2 border-amber-300 ml-1">
+        ${banner}
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pl-2 pr-1">
+          ${cards.join('')}
+        </div>
+      </div>`;
+    },
+
+    _dreExtraGroupBanner(productId, g, hasName) {
+      const positive = g.signal === '+';
+      const valueColor = positive ? 'text-emerald-700' : 'text-rose-700';
+      const signalLabel = positive ? '+' : '−';
+      const menuOpen = App.state.revopsDreGroupMenuOpen === g.id;
+      const total = Number(g.total || 0);
+      return `<div class="rounded-2xl border-2 border-amber-300 shadow-sm flex items-center gap-3 px-4 py-2.5 relative" style="background:#fef3c7;color-scheme:light;">
+        <select onchange="Actions.updateDreExtraGroup('${productId}', '${g.id}', 'signal', this.value)" class="px-1.5 py-0.5 rounded-md bg-white border border-amber-300 text-[11px] font-black text-slate-800 shrink-0">
+          <option value="-" ${!positive ? 'selected' : ''}>−</option>
+          <option value="+" ${positive ? 'selected' : ''}>+</option>
+        </select>
+        <input value="${Utils.escape(g.name || '')}" onchange="Actions.updateDreExtraGroup('${productId}', '${g.id}', 'name', this.value)" placeholder="Nome da linha (ex: Receitas financeiras)" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-amber-300 text-[12px] font-black text-slate-900" />
+        <span class="px-2 py-0.5 rounded-md bg-amber-200 border border-amber-400 text-[9px] font-black text-amber-900 uppercase tracking-widest shrink-0">personalizada</span>
+        ${hasName ? `<span class="${valueColor} font-black text-[14px] whitespace-nowrap shrink-0">${signalLabel}${this._money(total)}</span>` : ''}
+        <button onclick="Actions.toggleRevopsDreGroupMenu('${g.id}')" class="px-1.5 py-1 rounded-lg bg-white hover:bg-amber-100 border border-amber-300 text-amber-800 shrink-0" title="Opções da linha">
+          <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+        </button>
+        ${menuOpen ? `<div class="absolute top-12 right-2 z-20 rounded-xl bg-white border border-stone-200 shadow-lg p-1 min-w-[160px]">
+          <button onclick="Actions.deleteDreExtraGroup('${productId}', '${g.id}')" class="w-full text-left px-2 py-1.5 rounded-lg hover:bg-rose-50 text-[11px] text-rose-700 font-bold inline-flex items-center gap-1.5">
+            <i data-lucide="trash-2" class="w-3 h-3"></i> Remover linha
+          </button>
+        </div>` : ''}
+      </div>`;
+    },
+
+    _dreExtraGroupItemCard(productId, groupId, it) {
+      const isSelected = this._isDjowSelectedItem(productId, groupId, it.id);
+      const selectedRing = isSelected ? 'ring-2 ring-violet-400 ring-offset-1 ring-offset-[#f5f3f0]' : '';
+      const menuOpen = App.state.revopsDreCardMenuOpen === it.id;
+      return `<div class="rounded-2xl border border-stone-200 bg-white/80 ${selectedRing} p-3 flex flex-col gap-2 min-h-[110px] relative">
+        <div class="flex items-start justify-between gap-2">
+          <input value="${Utils.escape(it.name || '')}" onchange="Actions.updateDreExtraGroupItem('${productId}', '${groupId}', '${it.id}', 'name', this.value)" placeholder="Nome do item" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
+          <button onclick="Actions.toggleRevopsDreCardMenu('${it.id}')" class="px-1.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 shrink-0" title="Opções">
+            <i data-lucide="settings" class="w-3 h-3"></i>
+          </button>
+          ${menuOpen ? `<div class="absolute top-10 right-2 z-20 rounded-xl bg-white border border-stone-200 shadow-lg p-1 min-w-[140px]">
+            <button onclick="Actions.selectDjowRevopsGroupItem('${productId}', '${groupId}', '${it.id}'); Actions.toggleRevopsDreCardMenu('${it.id}');" class="w-full text-left px-2 py-1.5 rounded-lg hover:bg-violet-50 text-[11px] text-violet-700 font-bold inline-flex items-center gap-1.5">
+              <i data-lucide="sparkles" class="w-3 h-3"></i> Djow ajuda
+            </button>
+            <button onclick="Actions.deleteDreExtraGroupItem('${productId}', '${groupId}', '${it.id}')" class="w-full text-left px-2 py-1.5 rounded-lg hover:bg-rose-50 text-[11px] text-rose-700 font-bold inline-flex items-center gap-1.5">
+              <i data-lucide="trash-2" class="w-3 h-3"></i> Remover
+            </button>
+          </div>` : ''}
+        </div>
+        <input value="${Utils.escape(it.value || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraGroupItem('${productId}', '${groupId}', '${it.id}', 'value', this.value)" onclick="Actions.selectDjowRevopsGroupItem('${productId}', '${groupId}', '${it.id}')" placeholder="6000 ou =vendas*5" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-mono text-slate-800" />
+        <div class="mt-auto">
+          <span class="text-amber-800 font-black text-base whitespace-nowrap">${this._money(it.computedValue || 0)}</span>
+        </div>
+      </div>`;
+    },
+
+    _dreAddGroupItemCard(productId, groupId, count) {
+      const microcopy = count === 0 ? 'Comece aqui'
+                     : count === 1 ? 'Mais um item?'
+                     : count === 2 ? 'Adiciona granularidade'
+                     : 'Outro item?';
+      return `<button onclick="Actions.addDreExtraGroupItem('${productId}', '${groupId}')" type="button" class="rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/40 hover:bg-amber-50/80 hover:border-amber-400 p-3 min-h-[110px] flex flex-col items-center justify-center gap-1 text-amber-700 transition">
+        <span class="text-2xl font-black leading-none">＋</span>
+        <span class="text-[11px] font-black">Adicionar item</span>
+        <span class="text-[9px] text-amber-600/70">${Utils.escape(microcopy)}</span>
+      </button>`;
+    },
+
+    _isDjowSelectedItem(productId, groupId, itemId) {
+      const sel = App.state.revopsDjowSelectedLine;
+      return sel && String(sel.productId) === String(productId) && sel.groupId === groupId && sel.lineId === itemId;
     },
 
     _dreBaseCard(productId, l) {
@@ -1686,8 +1788,9 @@
     },
 
     _dreAddLineBtn(productId, afterStep) {
+      // V36.13.0 — agora cria GRUPO (linha-banner laranja + cards filhos)
       return `<div class="flex justify-center py-0.5">
-        <button onclick="Actions.addDreExtraLine('${productId}', '${afterStep}')" type="button" title="Inserir linha entre fases" class="text-[10px] text-stone-400 hover:text-violet-700 font-bold inline-flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-white/50">
+        <button onclick="Actions.addDreExtraGroup('${productId}', '${afterStep}')" type="button" title="Inserir linha personalizada entre fases" class="text-[10px] text-stone-400 hover:text-amber-700 font-bold inline-flex items-center gap-1 px-3 py-1 rounded-lg hover:bg-amber-50/50">
           <span class="text-sm leading-none">＋</span> inserir linha
         </button>
       </div>`;

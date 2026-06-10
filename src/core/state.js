@@ -411,6 +411,7 @@ var State = {
       revopsDjowSelectedLine: null,
       revopsDjowInput: '',
       revopsDreCardMenuOpen: null,    // V36.12.1 — engrenagem aberta no card DRE
+      revopsDreGroupMenuOpen: null,   // V36.13.0 — engrenagem aberta na linha-banner
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
@@ -1115,6 +1116,7 @@ var State = {
       revopsDjowSelectedLine: null,
       revopsDjowInput: '',
       revopsDreCardMenuOpen: null,    // V36.12.1 — engrenagem aberta no card DRE
+      revopsDreGroupMenuOpen: null,   // V36.13.0 — engrenagem aberta na linha-banner
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
