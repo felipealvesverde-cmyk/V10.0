@@ -407,6 +407,9 @@ var State = {
       tasksDashboardProvider: 'all',
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
       overviewBranchFilter: 'all',
+      revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
+      revopsDjowSelectedLine: null,
+      revopsDjowInput: '',
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
@@ -1107,6 +1110,9 @@ var State = {
       tasksDashboardProvider: 'all',
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
       overviewBranchFilter: 'all',
+      revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
+      revopsDjowSelectedLine: null,
+      revopsDjowInput: '',
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
