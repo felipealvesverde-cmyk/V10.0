@@ -317,15 +317,23 @@
           formula: String(k.formula || '=0'),
           unit: ['BRL', 'percent', 'unit'].includes(k.unit) ? k.unit : 'BRL'
         })) : [],
-        dreExtraLines: Array.isArray(raw.dreExtraLines) ? raw.dreExtraLines.map(l => ({
-          id: String(l.id || `dre_${Date.now().toString(36).slice(-4)}`),
-          name: String(l.name || '').trim(),
-          value: String(l.value || ''),
-          signal: l.signal === '+' ? '+' : '-',
-          // V32.10.10 — 'deducoes_inside' é especial: extras aparecem DENTRO
-          // do bloco Deduções expandido e somam ao total de Deduções.
-          afterStep: ['fat_bruto', 'deducoes_inside', 'deducoes', 'venda_liquida', 'lucro_bruto', 's_m', 'g_a'].includes(l.afterStep) ? l.afterStep : 'lucro_bruto'
-        })) : [],
+        dreExtraLines: Array.isArray(raw.dreExtraLines) ? raw.dreExtraLines.map(l => {
+          const afterStep = ['fat_bruto', 'deducoes_inside', 'deducoes', 'venda_liquida', 'lucro_bruto', 's_m', 'g_a'].includes(l.afterStep) ? l.afterStep : 'lucro_bruto';
+          let signal = l.signal === '+' ? '+' : '-';
+          // V36.13.5 — Migração silenciosa: deducoes_inside criados pré-fix
+          // tinham signal '-' default, que invertia matemática (cliente digita
+          // 78075 → sistema entende crédito de 78075 → infla Lucro Líquido).
+          // Converte pra '+' silenciosamente. Risco baixo: créditos intencionais
+          // são raros e cliente mudaria de qualquer jeito após ver o número errado.
+          if (afterStep === 'deducoes_inside' && signal === '-') signal = '+';
+          return {
+            id: String(l.id || `dre_${Date.now().toString(36).slice(-4)}`),
+            name: String(l.name || '').trim(),
+            value: String(l.value || ''),
+            signal,
+            afterStep
+          };
+        }) : [],
         // V36.13.0 — Linha-banner laranja personalizada com cards filhos. Cada
         // grupo vira uma linha customizada na DRE; seu valor é a soma dos items
         // (que carregam fórmula). afterStep posiciona o grupo no fluxo. Cliente
@@ -1197,7 +1205,11 @@
       pushExtrasAfter('s_m');
       pushBase('g_a',           '(−) G&A (Fixos)',         ga,           { signal: '-', tone: 'rose' });
       pushExtrasAfter('g_a');
-      pushBase('lucro_liquido', '(=) Lucro Líquido',       lucroLiquido, { tone: lucroLiquido >= 0 ? 'emerald' : 'rose', bold: true, highlight: true, isSubtotal: true });
+      // V36.13.5 — Renomeado pra EBITDA (tecnicamente correto: receita após
+      // S&M e G&A, mas SEM depreciação, IR/CSLL, juros). Pra infoproduto
+      // digital sem essas linhas, equivale ao resultado operacional do
+      // período. Tooltip educa o cliente no card final do panel.
+      pushBase('lucro_liquido', '(=) EBITDA',              lucroLiquido, { tone: lucroLiquido >= 0 ? 'emerald' : 'rose', bold: true, highlight: true, isSubtotal: true });
 
       return {
         lines,

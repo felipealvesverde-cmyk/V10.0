@@ -5460,12 +5460,18 @@ Object.assign(Actions, {
   addDreExtraLine(productId, afterStep) {
     Actions._revopsV2Mutate(productId, cfg => {
       if (!Array.isArray(cfg.dreExtraLines)) cfg.dreExtraLines = [];
+      const step = String(afterStep || 'lucro_bruto');
+      // V36.13.5 — Fix crítico: pra 'deducoes_inside', signal default '+' (item
+      // SOMA à categoria deduções). Antes era '-' que invertia matemática e
+      // fazia Lucro Líquido inflar. Outros afterStep mantêm '-' (custo extra
+      // entre fases por default).
+      const defaultSignal = step === 'deducoes_inside' ? '+' : '-';
       cfg.dreExtraLines.push({
         id: `dre_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(2,5)}`,
         name: '',
         value: '',
-        signal: '-',
-        afterStep: String(afterStep || 'lucro_bruto')
+        signal: defaultSignal,
+        afterStep: step
       });
     });
   },
