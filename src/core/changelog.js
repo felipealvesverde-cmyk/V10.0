@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.14.2',
+    date: '2026-06-09',
+    title: 'RevOps KPIs: correção de cores segundo regra do design diretor (redução=rose / adição=emerald)',
+    bullets: [
+      'TM (Ticket Médio) era sky → agora EMERALD. É o "Faturamento" da cascata, ponto de partida positivo (entrada que SOMA — análogo ao Faturamento Bruto do DRE).',
+      'CAC (Custo de Aquisição) era amber → agora ROSE. É SUBTRAÇÃO clara na cascata, regra do design diretor manda vermelho.',
+      'Valor calculado nos cards de Composição (MCU/MSU) era emerald quando válido → agora ROSE. Razão: o valor representa uma redução (prefixo −). A SAÚDE DA FÓRMULA continua sinalizada na borda + badge (verde quando ok, amber quando alerta, rose quando erro).',
+      'Resultado: cliente vê numa olhada quais valores são redução (vermelho) vs adição/resultado (verde). Status da fórmula fica independente do tipo de operação.'
+    ]
+  },
+  {
     version: 'V36.14.1',
     date: '2026-06-09',
     title: 'Custos ganhou a mesma régua do DRE e RevOps KPIs (tema light + IDs + validação + Djow)',

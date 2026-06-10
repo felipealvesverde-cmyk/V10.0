@@ -1092,14 +1092,14 @@
         <div class="space-y-3 min-w-0">
           ${this._tabHeader('RevOps · Cascata', 'Equilíbrio da Operação', 'Lê de cima pra baixo. Cada linha mostra o que sai a cada etapa até o Breakeven — quantas vendas pra empatar o mês. Clique numa linha de fórmula pra pedir ajuda ao Djow na lateral.')}
           <section class="rounded-3xl border p-5 shadow-md space-y-2" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
-            ${this._cascadeLine('coins', 'PONTO DE PARTIDA', 'TM · Ticket Médio', this._money(tm), 'sky',
+            ${this._cascadeLine('coins', 'PONTO DE PARTIDA', 'TM · Ticket Médio', this._money(tm), 'emerald',
               'Receita média por venda. Vem da tab Ofertas (média ponderada).')}
             ${this._cascadeArrow('↓')}
 
             ${this._cascadeMcu(productId, mcuAuto, mcuOverride, mcuResolved, ev)}
             ${this._cascadeArrow('↓')}
 
-            ${this._cascadeLine('minus-circle', 'SUBTRAÇÃO', 'CAC · Custo de Aquisição', this._money(cac), 'amber',
+            ${this._cascadeLine('minus-circle', 'SUBTRAÇÃO', 'CAC · Custo de Aquisição', this._money(cac), 'rose',
               `Fórmula: CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = ${this._money(cac)}. O preço de cada cliente novo.`)}
             ${this._cascadeArrow('↓')}
 
@@ -1395,11 +1395,14 @@
                    : validation.status === 'warn' ? 'warn'
                    : Math.abs(Number(validation.value || 0)) < 0.01 ? 'zero'
                    : 'ok';
+      // V36.14.2 — Regra do design diretor: VALOR sempre rose (é redução do
+      // valor base do KPI). Borda + badge sinalizam status da fórmula
+      // (verde=ok, amber=warn/zero, rose=erro) — independente da cor do valor.
       const statusMap = {
         empty: { border: 'border-stone-300',  badge: '',                                                                                                                          valueColor: 'text-stone-400',  valueLabel: '—'                                                  },
-        ok:    { border: 'border-emerald-400', badge: '<span title="Fórmula válida" class="px-1.5 py-0.5 rounded-md bg-emerald-100 border border-emerald-300 text-[9px] font-black text-emerald-800 uppercase">✓</span>', valueColor: 'text-emerald-700', valueLabel: `−${this._money(validation.value)}` },
-        zero:  { border: 'border-amber-400',  badge: '<span title="Fórmula computa zero — confere o handle ou o número" class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800 uppercase">?</span>', valueColor: 'text-amber-700', valueLabel: `−R$ 0` },
-        warn:  { border: 'border-amber-400',  badge: '<span title="Atenção" class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800 uppercase">!</span>',           valueColor: 'text-amber-700', valueLabel: `−${this._money(validation.value)}`  },
+        ok:    { border: 'border-emerald-400', badge: '<span title="Fórmula válida" class="px-1.5 py-0.5 rounded-md bg-emerald-100 border border-emerald-300 text-[9px] font-black text-emerald-800 uppercase">✓</span>', valueColor: 'text-rose-700', valueLabel: `−${this._money(validation.value)}` },
+        zero:  { border: 'border-amber-400',  badge: '<span title="Fórmula computa zero — confere o handle ou o número" class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800 uppercase">?</span>', valueColor: 'text-rose-700', valueLabel: `−R$ 0` },
+        warn:  { border: 'border-amber-400',  badge: '<span title="Atenção" class="px-1.5 py-0.5 rounded-md bg-amber-100 border border-amber-300 text-[9px] font-black text-amber-800 uppercase">!</span>',           valueColor: 'text-rose-700', valueLabel: `−${this._money(validation.value)}`  },
         error: { border: 'border-rose-400',   badge: '<span title="Erro de sintaxe" class="px-1.5 py-0.5 rounded-md bg-rose-100 border border-rose-300 text-[9px] font-black text-rose-800 uppercase">×</span>',     valueColor: 'text-rose-700',  valueLabel: 'erro'                                              }
       };
       const s = statusMap[status];
