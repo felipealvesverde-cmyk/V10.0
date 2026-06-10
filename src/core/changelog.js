@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.13.2',
+    date: '2026-06-09',
+    title: 'DRE: fix do bug de foco — inputs perdiam foco ao clicar / digitar',
+    bullets: [
+      'Bug clássico de foco: o input de fórmula dos cards tinha um onclick que disparava Actions.selectDjowRevopsLine — isso fazia App.render() rolar no momento exato do clique, matando o input e tirando o cliente fora. Resultado: "clica e sai".',
+      'Fix: removi o onclick de seleção dos inputs de fórmula. Seleção da linha pro Djow agora é só via menu engrenagem → "Djow ajuda" (caminho intencional, sem ambiguidade).',
+      'Todos os inputs dos cards do DRE (linha-banner, cards de dedução, cards de extras, cards de grupo) ganharam id único. O motor de captura de foco do LJ (_captureFocus / _restoreFocus) consegue agora restaurar foco e cursor após qualquer re-render colateral.',
+      'Memória cravada V36.8.1 reforçada: todo input em UI com re-render precisa de id pra sobreviver ao ciclo render → reparse.'
+    ]
+  },
+  {
     version: 'V36.13.1',
     date: '2026-06-09',
     title: 'DRE: Deduções ganha linha-banner vermelha (simetria com S&M e G&A)',

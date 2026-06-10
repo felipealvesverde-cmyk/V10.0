@@ -1604,7 +1604,7 @@
           <option value="-" ${!positive ? 'selected' : ''}>−</option>
           <option value="+" ${positive ? 'selected' : ''}>+</option>
         </select>
-        <input value="${Utils.escape(g.name || '')}" onchange="Actions.updateDreExtraGroup('${productId}', '${g.id}', 'name', this.value)" placeholder="Nome da linha (ex: Receitas financeiras)" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-amber-300 text-[12px] font-black text-slate-900" />
+        <input id="lj-dreg-${g.id}-name" value="${Utils.escape(g.name || '')}" onchange="Actions.updateDreExtraGroup('${productId}', '${g.id}', 'name', this.value)" placeholder="Nome da linha (ex: Receitas financeiras)" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-amber-300 text-[12px] font-black text-slate-900" />
         <span class="px-2 py-0.5 rounded-md bg-amber-200 border border-amber-400 text-[9px] font-black text-amber-900 uppercase tracking-widest shrink-0">personalizada</span>
         ${hasName ? `<span class="${valueColor} font-black text-[14px] whitespace-nowrap shrink-0">${signalLabel}${this._money(total)}</span>` : ''}
         <button onclick="Actions.toggleRevopsDreGroupMenu('${g.id}')" class="px-1.5 py-1 rounded-lg bg-white hover:bg-amber-100 border border-amber-300 text-amber-800 shrink-0" title="Opções da linha">
@@ -1624,7 +1624,7 @@
       const menuOpen = App.state.revopsDreCardMenuOpen === it.id;
       return `<div class="rounded-2xl border border-stone-200 bg-white/80 ${selectedRing} p-3 flex flex-col gap-2 min-h-[110px] relative">
         <div class="flex items-start justify-between gap-2">
-          <input value="${Utils.escape(it.name || '')}" onchange="Actions.updateDreExtraGroupItem('${productId}', '${groupId}', '${it.id}', 'name', this.value)" placeholder="Nome do item" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
+          <input id="lj-dregi-${it.id}-name" value="${Utils.escape(it.name || '')}" onchange="Actions.updateDreExtraGroupItem('${productId}', '${groupId}', '${it.id}', 'name', this.value)" placeholder="Nome do item" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
           <button onclick="Actions.toggleRevopsDreCardMenu('${it.id}')" class="px-1.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 shrink-0" title="Opções">
             <i data-lucide="settings" class="w-3 h-3"></i>
           </button>
@@ -1637,7 +1637,7 @@
             </button>
           </div>` : ''}
         </div>
-        <input value="${Utils.escape(it.value || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraGroupItem('${productId}', '${groupId}', '${it.id}', 'value', this.value)" onclick="Actions.selectDjowRevopsGroupItem('${productId}', '${groupId}', '${it.id}')" placeholder="6000 ou =vendas*5" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-mono text-slate-800" />
+        <input id="lj-dregi-${it.id}-value" value="${Utils.escape(it.value || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraGroupItem('${productId}', '${groupId}', '${it.id}', 'value', this.value)" placeholder="6000 ou =vendas*5" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-mono text-slate-800" />
         <div class="mt-auto">
           <span class="text-amber-800 font-black text-base whitespace-nowrap">${this._money(it.computedValue || 0)}</span>
         </div>
@@ -1720,7 +1720,7 @@
       const menuOpen = App.state.revopsDreCardMenuOpen === l.id;
       return `<div class="rounded-2xl border border-stone-200 bg-white/80 ${selectedRing} p-3 flex flex-col gap-2 min-h-[110px] relative">
         <div class="flex items-start justify-between gap-2">
-          <input value="${Utils.escape(l.name)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Nome da dedução" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
+          <input id="lj-dre-${l.id}-name" value="${Utils.escape(l.name)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Nome da dedução" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
           <button onclick="Actions.toggleRevopsDreCardMenu('${l.id}')" class="px-1.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 shrink-0" title="Opções">
             <i data-lucide="settings" class="w-3 h-3"></i>
           </button>
@@ -1733,7 +1733,7 @@
             </button>
           </div>` : ''}
         </div>
-        <input value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', 'deducoes_inside')" placeholder="6000 ou =vendas*5" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-mono text-slate-800" />
+        <input id="lj-dre-${l.id}-value" value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" placeholder="6000 ou =vendas*5" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-mono text-slate-800" />
         <div class="mt-auto">
           <span class="text-rose-700 font-black text-base whitespace-nowrap">−${this._money(l.value)}</span>
         </div>
@@ -1767,7 +1767,7 @@
               <option value="-" ${!positive ? 'selected' : ''}>−</option>
               <option value="+" ${positive ? 'selected' : ''}>+</option>
             </select>
-            <input value="${Utils.escape(l.label === '(sem nome)' ? '' : l.label)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Nome" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
+            <input id="lj-drex-${l.id}-name" value="${Utils.escape(l.label === '(sem nome)' ? '' : l.label)}" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'name', this.value)" placeholder="Nome" class="flex-1 min-w-0 px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-black text-slate-900" />
           </div>
           <button onclick="Actions.toggleRevopsDreCardMenu('${l.id}')" class="px-1.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-600 shrink-0">
             <i data-lucide="settings" class="w-3 h-3"></i>
@@ -1781,7 +1781,7 @@
             </button>
           </div>` : ''}
         </div>
-        <input value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" onclick="Actions.selectDjowRevopsLine('${productId}', '${l.id}', '${l.afterStep}')" placeholder="6000 ou =fat_bruto*0,03" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-mono text-slate-800" />
+        <input id="lj-drex-${l.id}-value" value="${Utils.escape(l.raw || '')}" list="lj-revops-handles" onchange="Actions.updateDreExtraLine('${productId}', '${l.id}', 'value', this.value)" placeholder="6000 ou =fat_bruto*0,03" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-[11px] font-mono text-slate-800" />
         <div class="mt-auto">
           <span class="${valueColor} font-black text-base whitespace-nowrap">${signalLabel}${this._money(l.value)}</span>
         </div>
