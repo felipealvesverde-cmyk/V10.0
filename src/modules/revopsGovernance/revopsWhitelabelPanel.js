@@ -1541,6 +1541,9 @@
       for (const l of dre.lines) {
         if (l.kind !== 'base') continue;
         if (l.id === 'deducoes') {
+          // V36.13.1 — Deduções ganha linha-banner ROSE igual S&M/G&A
+          // (fixa, não-editável, sem fórmula própria). Cards filhos abaixo.
+          blocks.push(this._dreBaseCard(productId, l));
           blocks.push(this._dreFlatDeducoes(productId, variableItems, dre.deducoesInsideExtras || []));
           continue;
         }
@@ -1687,12 +1690,10 @@
       insideExtras.forEach(l => cards.push(this._dreDeducaoCardEditable(productId, l)));
       cards.push(this._dreAddDeducaoCard(productId, variableItems.length + insideExtras.length));
 
+      // V36.13.1 — Header local "Deduções" removido (a linha-banner rose
+      // acima já cumpre esse papel, em simetria com S&M e G&A).
       return `<div class="space-y-2 pl-1 border-l-2 border-rose-200 ml-1">
-        <div class="flex items-center justify-between pl-2 pr-1">
-          <p class="text-[10px] font-black text-rose-700 uppercase tracking-widest">Deduções</p>
-          <p class="text-[10px] text-stone-500">${variableItems.length + insideExtras.length} item(ns)</p>
-        </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pl-2 pr-1">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 pl-2 pr-1 pt-1">
           ${cards.join('')}
         </div>
       </div>`;
