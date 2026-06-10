@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.14.4',
+    date: '2026-06-09',
+    title: 'Custos: items viram GRID 3-col de cards verticais (entrega que faltou)',
+    bullets: [
+      'Faltou esse pedaço na V36.14.1: os items continuavam em linha horizontal empilhada quando o pedido era grid de cards verticais (mesmo padrão do DRE Deduções e RevOps Composição). Corrigido.',
+      'Cada item agora é um card vertical compacto: nome + engrenagem no topo, seletor de tipo de cálculo, input do valor, e valor calculado embaixo destacado em rose (regra design diretor).',
+      'Engrenagem abre menu com "Remover" — padrão dos outros cards.',
+      'Slot dashed "+ Adicionar item" como último card do grid, com microcopy progressivo.',
+      'Items travados (Auto LJ das campanhas Ads) preservados com card próprio em amber.',
+      'Modo Excel mantido como linha horizontal — ele é otimizado pra ver muitas fórmulas em sequência, faz sentido continuar tabular.'
+    ]
+  },
+  {
     version: 'V36.14.3',
     date: '2026-06-09',
     title: 'Custos: cores dos valores seguem a régua design diretor (redução=rose)',
