@@ -410,6 +410,7 @@ var State = {
       revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
       revopsDjowSelectedLine: null,
       revopsDjowInput: '',
+      revopsDreCardMenuOpen: null,    // V36.12.1 — engrenagem aberta no card DRE
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
@@ -1113,6 +1114,7 @@ var State = {
       revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
       revopsDjowSelectedLine: null,
       revopsDjowInput: '',
+      revopsDreCardMenuOpen: null,    // V36.12.1 — engrenagem aberta no card DRE
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart

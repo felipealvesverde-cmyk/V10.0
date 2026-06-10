@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V36.12.1',
+    date: '2026-06-09',
+    title: 'DRE: deduções viram GRID de cards verticais (padrão Etapa 3 do Mapa)',
+    bullets: [
+      'Cards de dedução agora são verticais em GRID 3-col (Mapa Etapa 3 style), não mais linhas horizontais. Nome em cima, fórmula no meio, valor calculado embaixo.',
+      'Engrenagem no canto superior direito de cada card abre menu compacto com "Djow ajuda" + "Remover". Mesmo padrão dos KR-mãe cards do Mapa.',
+      'Slot dashed "+ Adicionar dedução" como último card do grid, com microcopy progressiva ("Comece aqui" / "Cobre melhor o funil" / "Adiciona granularidade" / "Outra dedução?").',
+      'Custos variáveis (cadastrados em Custos) viram cards read-only com badge "read-only" no canto, pra cliente entender que pra editar tem que ir na aba Custos.',
+      'Extras de outros steps (S&M, G&A) também viram cards verticais compactos com mesma engrenagem.'
+    ]
+  },
+  {
     version: 'V36.12.0',
     date: '2026-06-09',
     title: 'DRE repaginada — tema light + deduções flat + Djow lateral pra ajudar com fórmulas',
