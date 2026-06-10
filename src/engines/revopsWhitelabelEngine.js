@@ -326,6 +326,21 @@
           // do bloco Deduções expandido e somam ao total de Deduções.
           afterStep: ['fat_bruto', 'deducoes_inside', 'deducoes', 'venda_liquida', 'lucro_bruto', 's_m', 'g_a'].includes(l.afterStep) ? l.afterStep : 'lucro_bruto'
         })) : [],
+        // V36.13.0 — Linha-banner laranja personalizada com cards filhos. Cada
+        // grupo vira uma linha customizada na DRE; seu valor é a soma dos items
+        // (que carregam fórmula). afterStep posiciona o grupo no fluxo. Cliente
+        // cria grupos via "+ inserir linha" nos cantos entre marcos base.
+        dreExtraGroups: Array.isArray(raw.dreExtraGroups) ? raw.dreExtraGroups.map(g => ({
+          id: String(g.id || `dreg_${Date.now().toString(36).slice(-4)}`),
+          name: String(g.name || '').trim(),
+          signal: g.signal === '+' ? '+' : '-',
+          afterStep: ['fat_bruto', 'venda_liquida', 'lucro_bruto', 's_m', 'g_a'].includes(g.afterStep) ? g.afterStep : 'lucro_bruto',
+          items: Array.isArray(g.items) ? g.items.map(it => ({
+            id: String(it.id || `dregi_${Date.now().toString(36).slice(-4)}`),
+            name: String(it.name || '').trim(),
+            value: String(it.value || '')
+          })) : []
+        })) : [],
         savedAt: raw.savedAt || null
       };
     },
@@ -1070,14 +1085,15 @@
     evaluateDRE(cfg, ev) {
       const symbols = ev.symbols || {};
       const extras = Array.isArray(cfg.dreExtraLines) ? cfg.dreExtraLines : [];
+      const extraGroups = Array.isArray(cfg.dreExtraGroups) ? cfg.dreExtraGroups : [];
 
       // Valores base (auto, vêm de evaluate())
       const fb = ev.fatBruto;
       const sm = ev.acquisitionTotal;
       const ga = ev.fixedTotal;
 
-      // Resolve valor de uma extra line. value pode ser número, string-número
-      // ou fórmula '=expr'. Retorna número.
+      // Resolve valor de uma extra line/item. value pode ser número, string-
+      // número ou fórmula '=expr'. Retorna número.
       const resolveExtra = (l) => {
         const raw = String(l.value || '').trim();
         if (!raw) return 0;
@@ -1092,34 +1108,49 @@
           .reduce((s, l) => s + (l.signal === '+' ? resolveExtra(l) : -resolveExtra(l)), 0);
       };
 
+      // V36.13.0 — Soma grupos de um step. Cada grupo tem items[]; total do
+      // grupo = soma dos resolveExtra(item). Signal do grupo controla se
+      // adiciona ou subtrai esse total do running.
+      const sumGroups = (afterStep) => {
+        return extraGroups
+          .filter(g => g.afterStep === afterStep)
+          .reduce((s, g) => {
+            const groupTotal = (g.items || []).reduce((ss, it) => ss + resolveExtra(it), 0);
+            return s + (g.signal === '+' ? groupTotal : -groupTotal);
+          }, 0);
+      };
+
+      // V36.13.0 — Snapshot enriquecido dos grupos por step (pra UI renderizar
+      // banner + cards filhos). Cada grupo com items[{...item, value: number}]
+      // e total computado.
+      const groupsByStep = {};
+      extraGroups.forEach(g => {
+        const itemsEvaluated = (g.items || []).map(it => ({ ...it, computedValue: resolveExtra(it) }));
+        const total = itemsEvaluated.reduce((s, it) => s + it.computedValue, 0);
+        (groupsByStep[g.afterStep] = groupsByStep[g.afterStep] || []).push({
+          ...g, items: itemsEvaluated, total
+        });
+      });
+
       // V32.10.10 — Deduções = soma do bucket variable + extras inseridas DENTRO
       // do bloco Deduções na DRE (afterStep='deducoes_inside'). Signal das
       // extras_inside: '+' soma à dedução (custo extra), '-' reduz (crédito).
       const deducoesExtrasInside = sumExtras('deducoes_inside');
       const deducoes = ev.variableTotal + deducoesExtrasInside;
 
-      // Cálculo cumulativo
+      // Cálculo cumulativo. Cada step soma extras legacy E grupos novos.
       let running = fb;
-      // Extras after fat_bruto
-      running += sumExtras('fat_bruto');
-      // Aplica deduções (já inclui deducoes_inside)
+      running += sumExtras('fat_bruto') + sumGroups('fat_bruto');
       running -= deducoes;
-      // Extras after deducoes
-      running += sumExtras('deducoes');
+      running += sumExtras('deducoes') + sumGroups('deducoes');
       const vendaLiquida = running;
-      // Extras after venda_liquida
-      running += sumExtras('venda_liquida');
+      running += sumExtras('venda_liquida') + sumGroups('venda_liquida');
       const lucroBruto = running;
-      // Extras after lucro_bruto
-      running += sumExtras('lucro_bruto');
-      // Aplica S&M
+      running += sumExtras('lucro_bruto') + sumGroups('lucro_bruto');
       running -= sm;
-      // Extras after s_m
-      running += sumExtras('s_m');
-      // Aplica G&A
+      running += sumExtras('s_m') + sumGroups('s_m');
       running -= ga;
-      // Extras after g_a
-      running += sumExtras('g_a');
+      running += sumExtras('g_a') + sumGroups('g_a');
       const lucroLiquido = running;
 
       // Renderiza linhas em ordem. Cada linha base intercalada com suas extras.
@@ -1171,6 +1202,7 @@
       return {
         lines,
         deducoesInsideExtras,
+        groupsByStep,
         totals: { fb, deducoes, vendaLiquida, lucroBruto, sm, ga, lucroLiquido },
         margem: fb > 0 ? (lucroLiquido / fb) * 100 : 0
       };
