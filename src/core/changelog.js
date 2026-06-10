@@ -18,6 +18,22 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.2',
+    date: '2026-06-10',
+    title: 'Backend de Fechamento — tabela + endpoints CRUD + cron mensal',
+    bullets: [
+      'Nasce a tabela lj_governance_closings (Postgres) — 4 tipos de snapshot coexistem na mesma tabela: product_auto, product_custom, consolidated_monthly, consolidated_custom.',
+      'Schema bumpa pra v37.0.2-governance-closings. Master ou tenant próprio precisam rodar /api/admin-migrate-schema (botão "Migrar Schema" em Administrar) pra criar a tabela em produção.',
+      'Unique index garante 1 product_auto por (user, produto, mês) e 1 consolidated_monthly por (user, mês). Cron pode rodar 2x no mesmo dia sem duplicar.',
+      'Endpoint /api/governance-closings (GET list / POST cria custom / PATCH reabre ou associa) com filtros por período, tipo e produto.',
+      'Endpoint /api/cron-monthly-closing — auth X-Cron-Token, itera users aprovados, congela snapshot por produto + cria consolidated_monthly partial pra o cliente associar depois.',
+      'Cron externo (cron-job.org ou Railway) precisa ser configurado: schedule "0 3 1 * *" UTC = 00:00 BRT do dia 1 de cada mês. Body vazio, header X-Cron-Token.',
+      'Snapshot congela INPUTS (revopsConfig + metas + salesProjection do produto). Engine roda no front quando renderiza — snapshot resiliente a refator do engine.',
+      'Reabertura registra log auditável: { at, by_user_id, reason } no campo reopens_log do snapshot.',
+      'Frontend ainda não consome — UI de listagem e refechamento manual vem na V37.0.3. Até lá a aba Fechamento segue mostrando placeholder.'
+    ]
+  },
+  {
     version: 'V37.0.1',
     date: '2026-06-10',
     title: 'Nasce a aba Fechamento (1ª posição) — estrutura visual + switcher de escopo',

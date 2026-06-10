@@ -881,6 +881,54 @@ CREATE TABLE IF NOT EXISTS lj_ga4_reports_daily (
 CREATE INDEX IF NOT EXISTS idx_ga4_daily_user_date ON lj_ga4_reports_daily(user_id, property_id, date DESC);
 
 -- ============================================================================
+-- V37.0.2 — GOVERNANCE CLOSINGS (snapshots imutáveis da governança RevOps)
+-- ============================================================================
+-- Cada linha = uma foto congelada da governança de UM produto (ou consolidado
+-- de N produtos) num mês específico. 4 tipos coexistem:
+--
+--   kind='product_auto'         → 1 por (user, product, period). Cron mensal cria.
+--                                 Imutável depois de criado.
+--   kind='product_custom'       → N por (user, product, period). Cliente cria
+--                                 ao reabrir + refechar. Data fixa, imutável.
+--   kind='consolidated_monthly' → 1 por (user, period). Cron cria status=partial.
+--                                 Cliente associa produtos → vira complete.
+--                                 Imutável após complete.
+--   kind='consolidated_custom'  → N por (user, period). Cliente cria agrupando
+--                                 produtos do mesmo mês. Imutável.
+--
+-- product_ids: array de IDs dos produtos. 1 elemento pra product_*; N pra
+-- consolidated_*. snapshot_json congela a governança inteira (DRE, KPIs RevOps,
+-- Custos, Ofertas, Resultado, Metas) no instante do fechamento.
+--
+-- status: 'partial' | 'complete' — só relevante pra consolidated_monthly.
+-- intentionally_empty: true quando cliente confirmou "não consolidar este mês".
+--
+CREATE TABLE IF NOT EXISTS lj_governance_closings (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  period VARCHAR(7) NOT NULL,                                     -- 'YYYY-MM'
+  kind VARCHAR(32) NOT NULL,                                      -- product_auto | product_custom | consolidated_monthly | consolidated_custom
+  product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,                 -- ['prod-1', 'prod-2', ...]
+  name TEXT,                                                      -- label opcional (auto-gerado ou custom do cliente)
+  status VARCHAR(16) NOT NULL DEFAULT 'complete',                 -- partial | complete
+  intentionally_empty BOOLEAN NOT NULL DEFAULT FALSE,             -- só vale pra consolidated_monthly
+  snapshot_json JSONB NOT NULL DEFAULT '{}'::jsonb,               -- foto congelada
+  source VARCHAR(16) NOT NULL DEFAULT 'manual',                   -- auto | manual
+  closed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),                   -- data de criação (imutável)
+  completed_at TIMESTAMPTZ,                                       -- quando consolidated_monthly virou complete
+  reopens_log JSONB NOT NULL DEFAULT '[]'::jsonb,                 -- [{at, by_user_id, reason}] — auditoria
+  CONSTRAINT lj_gov_closings_period_fmt CHECK (period ~ '^[0-9]{4}-[0-9]{2}$')
+);
+
+CREATE INDEX IF NOT EXISTS idx_gov_closings_user_period ON lj_governance_closings(user_id, period DESC);
+CREATE INDEX IF NOT EXISTS idx_gov_closings_user_kind ON lj_governance_closings(user_id, kind, period DESC);
+-- Garante unicidade de product_auto e consolidated_monthly por (user, period)
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_gov_product_auto ON lj_governance_closings(user_id, period, (product_ids->>0))
+  WHERE kind = 'product_auto';
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_gov_monthly_consolidated ON lj_governance_closings(user_id, period)
+  WHERE kind = 'consolidated_monthly';
+
+-- ============================================================================
 -- META (versão do schema, pra migrations futuras saberem onde estão)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS tenant_schema_meta (
@@ -889,5 +937,5 @@ CREATE TABLE IF NOT EXISTS tenant_schema_meta (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v35.14.0-ga4-config')
+INSERT INTO tenant_schema_meta (key, value) VALUES ('schema_version', 'v37.0.2-governance-closings')
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
