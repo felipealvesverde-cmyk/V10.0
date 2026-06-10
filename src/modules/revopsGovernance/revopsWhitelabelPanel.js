@@ -1538,18 +1538,22 @@
         }
       }
 
-      // V36.13.3 — Suprime Lucro Bruto quando == Venda Líquida (não tem
-      // CGV/COGS estruturado no LJ; ficam idênticos e o card duplicado
-      // confunde). Quando cliente inserir grupo/extra entre VL e LB, eles
-      // divergem e Lucro Bruto reaparece automaticamente.
+      // V36.13.3 — Suprime Lucro Bruto quando == Venda Líquida.
+      // V36.13.4 — Suprime Venda Líquida também por default (subtotal
+      // intermediário não ajuda na leitura executiva). Aparecem de volta
+      // quando cliente inserir grupo/extra ancorado em afterStep correspondente.
+      const hasExtrasOrGroupsAt = (step) =>
+        (extrasByStep[step] || []).length > 0 || (groupsByStep[step] || []).length > 0;
       const vlVal = dre.totals?.vendaLiquida ?? 0;
       const lbVal = dre.totals?.lucroBruto ?? 0;
-      const skipLucroBruto = Math.abs(vlVal - lbVal) < 0.01
-                          && !(extrasByStep['venda_liquida'] || []).length
-                          && !(groupsByStep['venda_liquida'] || []).length;
+      const skipVendaLiquida = !hasExtrasOrGroupsAt('venda_liquida');
+      const skipLucroBruto = !hasExtrasOrGroupsAt('venda_liquida')
+                          && !hasExtrasOrGroupsAt('lucro_bruto')
+                          && Math.abs(vlVal - lbVal) < 0.01;
 
       for (const l of dre.lines) {
         if (l.kind !== 'base') continue;
+        if (l.id === 'venda_liquida' && skipVendaLiquida) continue;
         if (l.id === 'lucro_bruto' && skipLucroBruto) continue;
         if (l.id === 'deducoes') {
           blocks.push(this._dreBaseCard(productId, l));
