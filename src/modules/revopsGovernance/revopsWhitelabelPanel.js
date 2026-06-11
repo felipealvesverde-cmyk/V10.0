@@ -139,7 +139,7 @@
         rose:    'bg-rose-500/15    border-rose-400/30    text-rose-100'
       }[tone] || 'bg-slate-500/15 border-slate-400/30 text-slate-100';
       return `<div class="rounded-xl border ${toneCls} px-3.5 py-2.5 backdrop-blur-sm flex flex-col justify-between gap-1.5 min-h-[72px]">
-        <p class="text-[9px] font-black uppercase tracking-wider opacity-70 leading-tight">${label}</p>
+        <p class="text-[11px] font-black uppercase tracking-wider opacity-75 leading-tight">${label}</p>
         <p class="text-xl font-black truncate">${value}</p>
       </div>`;
     },

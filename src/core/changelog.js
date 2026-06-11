@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.13',
+    date: '2026-06-11',
+    title: 'Header CFO: nome do indicador um tico maior (9px → 11px)',
+    bullets: [
+      'Label dos 5 cards de KPI subiu de text-[9px] pra text-[11px] (~22% maior). Ainda compacto, mas legível sem precisar aproximar o olho.',
+      'Opacidade ajustada de 70 pra 75 pra compensar a tipografia maior sem virar protagonista — o valor segue dominante em text-xl.'
+    ]
+  },
+  {
     version: 'V37.0.12',
     date: '2026-06-11',
     title: 'Header CFO: cards de KPI uniformes e número 1.5x maior',
