@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.2.0',
+    date: '2026-06-11',
+    title: 'Tarefas Por Pessoa: distribuição real por start/due + adherência + slots livres + próxima entrega',
+    bullets: [
+      'O empilhamento de carga deixa de assumir "tudo começa hoje" e passa a usar as datas reais de cada tarefa. Cada task aloca avg_hours uniformemente entre start_date e due_date — dia 16/jun mostra a soma das tarefas que ocupam esse dia, não a fila acumulada.',
+      'Tarefas atrasadas (due_date < hoje) continuam jogando todas as horas no dia de hoje — transbordo de atraso.',
+      'Tarefas SEM start_date ou SEM due_date não entram no empilhamento. Card mostra badge âmbar "X tarefas sem data" pra cliente decidir preencher ou ignorar.',
+      'Escala dinâmica das barras: quando algum dia estoura 100% por concentração futura (ex: 12h alocadas), a linha guia 8h desce na visualização e a parte excedente vira sobreposição rose. Não mente sobre sobrecarga.',
+      'Card recolhido ganha linha "Próxima entrega 16/jun (em 3d)" com cor âmbar quando vencendo em até 3 dias, sky quando mais distante.',
+      'Modal ganha 3 novos sinais: badge "Y horas livres" (soma de capacidade livre nas 2 semanas úteis), linha "Próximo dia livre: Qua 17/jun (8h)" e bloco "Adherência ao prazo" com % no prazo + deriva média em dias.',
+      'Backend retorna agora: daily_load distribuído (não mais sequencial), tasks_scheduled/tasks_late/tasks_without_dates/tasks_outside_horizon, free_hours_total, next_free_day, next_delivery, adherence_pct, deriva_avg_days, on_time_count, late_done_count, adherence_evaluated_count.',
+      'Logs Railway expandidos: open=80 done=50 late=73 sched=46 no_dates=2 workload=200h overflow=120h free=34h adherence=68% deriva=1.2d next=2026-06-15(3).'
+    ]
+  },
+  {
     version: 'V37.1.10',
     date: '2026-06-11',
     title: 'Capacidade: barras coloridas por contexto LJ + % na barra + HOJE + linha guia 8h',

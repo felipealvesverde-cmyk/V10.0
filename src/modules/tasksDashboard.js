@@ -381,6 +381,25 @@ window.TasksDashboard = {
               </span>
             </div>
           ` : ''}
+          ${u.next_delivery ? (() => {
+            const nd = u.next_delivery;
+            const ndDate = new Date(nd.date + 'T00:00:00');
+            const today = new Date(); today.setHours(0,0,0,0);
+            const daysAhead = Math.round((ndDate - today) / (24 * 3600 * 1000));
+            const urgent = daysAhead <= 3;
+            const tone = urgent ? 'amber' : 'sky';
+            const daysLabel = daysAhead <= 0 ? 'hoje' : daysAhead === 1 ? 'amanhã' : `em ${daysAhead}d`;
+            const dateLabel = ndDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+            return `
+              <div class="flex items-center gap-1.5 pt-1">
+                <i data-lucide="calendar" class="w-3 h-3 text-${tone}-600 shrink-0"></i>
+                <span class="text-[10px] text-stone-600">
+                  Próxima entrega <span class="font-bold text-${tone}-700">${dateLabel}</span>
+                  <span class="text-stone-500">(${daysLabel}${nd.count > 1 ? ` · ${nd.count} tasks` : ''})</span>
+                </span>
+              </div>
+            `;
+          })() : ''}
         </div>
       </div>
 
@@ -451,16 +470,23 @@ window.TasksDashboard = {
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 overflow-y-auto flex-1">
 
           <section class="space-y-3">
-            <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
               <h3 class="text-[11px] font-black text-stone-700 uppercase tracking-widest inline-flex items-center gap-1.5">
                 <i data-lucide="calendar-range" class="w-3.5 h-3.5 text-violet-600"></i>
                 Capacidade · jornada ${journeyHours}h/dia
               </h3>
-              ${u.total_workload_hours > 0 ? `
-                <span class="text-[11px] text-stone-700 font-bold" title="Total da fila: ${u.total_workload_hours}h (${grandTotal} tarefas × ${u.task_hours_used}h)">
-                  ${u.total_workload_hours.toString().replace('.', ',')}h fila
-                </span>
-              ` : ''}
+              <div class="flex items-center gap-2">
+                ${u.total_workload_hours > 0 ? `
+                  <span class="text-[10px] text-stone-700 font-bold inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-stone-100" title="Total da fila distribuída: ${u.total_workload_hours}h">
+                    <i data-lucide="briefcase" class="w-2.5 h-2.5"></i>${u.total_workload_hours.toString().replace('.', ',')}h fila
+                  </span>
+                ` : ''}
+                ${(u.free_hours_total || 0) > 0 ? `
+                  <span class="text-[10px] text-emerald-800 font-bold inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200" title="Soma de slots livres em todos os dias úteis do horizonte">
+                    <i data-lucide="circle-dot" class="w-2.5 h-2.5"></i>${u.free_hours_total.toString().replace('.', ',')}h livres
+                  </span>
+                ` : ''}
+              </div>
             </div>
             ${(() => {
               const composition = this._computeComposition(u);
@@ -469,9 +495,13 @@ window.TasksDashboard = {
                 const y = t.getFullYear(), m = String(t.getMonth() + 1).padStart(2, '0'), d = String(t.getDate()).padStart(2, '0');
                 return `${y}-${m}-${d}`;
               })();
+              // V37.2.0 — escala compartilhada pelas 2 semanas pra comparabilidade.
+              const allDayKeys = [...weekCurrent, ...weekNext];
+              const maxHours = allDayKeys.reduce((m, d) => Math.max(m, (u.daily_load || {})[d] || 0), 0);
+              const scaleMaxRatio = Math.max(1, maxHours / journeyHours);
               return `
-                ${weekCurrent.length ? this._weekBlock('Esta semana', weekCurrent, u.daily_load || {}, journeyHours, taskUnit, composition, todayKey) : ''}
-                ${weekNext.length ? this._weekBlock('Próxima semana', weekNext, u.daily_load || {}, journeyHours, taskUnit, composition, todayKey) : ''}
+                ${weekCurrent.length ? this._weekBlock('Esta semana', weekCurrent, u.daily_load || {}, journeyHours, taskUnit, composition, todayKey, scaleMaxRatio) : ''}
+                ${weekNext.length ? this._weekBlock('Próxima semana', weekNext, u.daily_load || {}, journeyHours, taskUnit, composition, todayKey, scaleMaxRatio) : ''}
                 ${composition.length ? `
                   <div class="flex items-center gap-2 flex-wrap text-[9px] text-stone-600 pt-1">
                     ${composition.map(s => `<span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:${s.color}"></span>${Utils.escape(s.label)} ${Math.round(s.fraction*100)}%</span>`).join('')}
@@ -479,6 +509,19 @@ window.TasksDashboard = {
                 ` : ''}
               `;
             })()}
+            ${u.next_free_day ? (() => {
+              const fd = new Date(u.next_free_day + 'T00:00:00');
+              const dateLabel = fd.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+              return `
+                <div class="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 flex items-center gap-2">
+                  <i data-lucide="calendar-check" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+                  <p class="text-[11px] text-emerald-800">
+                    Próximo dia livre: <span class="font-black">${dateLabel}</span>
+                    <span class="text-emerald-700 text-[10px]">(${u.next_free_day_hours.toString().replace('.', ',')}h disponíveis)</span>
+                  </p>
+                </div>
+              `;
+            })() : ''}
             ${u.overflow_hours > 0 ? `
               <div class="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2.5 flex items-center gap-2">
                 <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-600 shrink-0"></i>
@@ -489,6 +532,15 @@ window.TasksDashboard = {
                 </p>
               </div>
             ` : ''}
+            ${(u.tasks_without_dates || 0) > 0 ? `
+              <div class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 flex items-center gap-2">
+                <i data-lucide="calendar-x" class="w-4 h-4 text-amber-600 shrink-0"></i>
+                <p class="text-[11px] text-amber-800">
+                  <span class="font-bold">${u.tasks_without_dates}</span> tarefa${u.tasks_without_dates === 1 ? '' : 's'} sem data de início ou entrega — fora do empilhamento.
+                </p>
+              </div>
+            ` : ''}
+            ${this._adherenceBlock(u)}
           </section>
 
           <section class="space-y-3">
@@ -501,6 +553,43 @@ window.TasksDashboard = {
 
         </div>
 
+      </div>
+    </div>`;
+  },
+
+  // V37.2.0 — Bloco Adherência ao prazo (% no prazo + deriva média).
+  // Renderiza só se houve closed tasks COM due_date preenchido (evaluated_count >= 1).
+  _adherenceBlock(u) {
+    const evaluated = u.adherence_evaluated_count || 0;
+    if (evaluated < 1 || u.adherence_pct == null) {
+      return '';
+    }
+    const pct = u.adherence_pct;
+    const tone = pct >= 80 ? 'emerald' : pct >= 50 ? 'amber' : 'rose';
+    const deriva = u.deriva_avg_days;
+    const derivaLabel = deriva == null ? '—' :
+                       deriva <= 0 ? `${Math.abs(deriva).toString().replace('.', ',')}d antes` :
+                       `+${deriva.toString().replace('.', ',')}d depois`;
+    const derivaTone = deriva == null ? 'stone' : deriva <= 0 ? 'emerald' : deriva <= 2 ? 'amber' : 'rose';
+    return `<div class="rounded-xl bg-white border border-stone-200 p-3 space-y-2 mt-2">
+      <div class="flex items-center justify-between gap-2">
+        <h4 class="text-[10px] font-black text-stone-700 uppercase tracking-widest inline-flex items-center gap-1.5">
+          <i data-lucide="target" class="w-3 h-3 text-violet-600"></i>
+          Adherência ao prazo
+          <span class="text-stone-500 normal-case tracking-normal text-[10px] font-normal ml-1">(${evaluated} fechadas com due_date)</span>
+        </h4>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="rounded-lg bg-${tone}-50 border border-${tone}-200 p-2.5">
+          <p class="text-[9px] font-black text-${tone}-800 uppercase tracking-widest">No prazo</p>
+          <p class="text-xl font-black text-slate-900 mt-0.5">${pct}%</p>
+          <p class="text-[10px] text-stone-600 mt-0.5">${u.on_time_count} de ${evaluated} fechadas</p>
+        </div>
+        <div class="rounded-lg bg-${derivaTone}-50 border border-${derivaTone}-200 p-2.5">
+          <p class="text-[9px] font-black text-${derivaTone}-800 uppercase tracking-widest">Deriva média</p>
+          <p class="text-xl font-black text-slate-900 mt-0.5">${derivaLabel}</p>
+          <p class="text-[10px] text-stone-600 mt-0.5">do prazo previsto</p>
+        </div>
       </div>
     </div>`;
   },
@@ -642,13 +731,13 @@ window.TasksDashboard = {
     return segments;
   },
 
-  _weekBlock(label, days, dailyLoad, journeyHours, avgHours, composition, todayKey) {
+  _weekBlock(label, days, dailyLoad, journeyHours, avgHours, composition, todayKey, scaleMaxRatio) {
     if (!days.length) return '';
     const summary = this._summarizeLoad(days, dailyLoad, journeyHours, avgHours);
     return `<div class="space-y-1.5">
       <p class="text-[10px] font-bold text-stone-700 uppercase tracking-wider">${label}</p>
       <div class="rounded-xl bg-white border border-stone-200 p-3">
-        ${this._barsSvg(days, dailyLoad, journeyHours, composition, todayKey)}
+        ${this._barsSvg(days, dailyLoad, journeyHours, composition, todayKey, scaleMaxRatio)}
       </div>
       ${summary ? `<p class="text-[11px] text-stone-700 leading-snug pl-0.5">${summary}</p>` : ''}
     </div>`;
@@ -676,9 +765,11 @@ window.TasksDashboard = {
     </svg>`;
   },
 
-  _barsSvg(days, dailyLoad, journeyHours, composition, todayKey) {
-    // V37.1.10 — Barras empilhadas por composição de contexto LJ + linha
-    // guia 8h + % sutil dentro da barra + marca HOJE no primeiro dia que bate.
+  _barsSvg(days, dailyLoad, journeyHours, composition, todayKey, scaleMaxRatio) {
+    // V37.2.0 — escala dinâmica baseada em scaleMaxRatio (>=1).
+    //   scaleMaxRatio=1 → comportamento clássico (barH = jornada)
+    //   scaleMaxRatio=1.5 → barH = 150% da jornada; linha guia em 1/1.5 = 67% da altura
+    //   Barras > journey extrapolam acima da linha guia, visualmente honesto.
     const barH = 72;
     const barW = 36;
     const gap = 10;
@@ -690,20 +781,23 @@ window.TasksDashboard = {
     const fmtNum = (n) => (Math.round(n * 10) / 10).toString().replace('.', ',');
     const segs = Array.isArray(composition) && composition.length ? composition : [{ color: '#d4d4d8', fraction: 1, label: 'Sem composição' }];
     const yToday = todayKey || null;
+    const scaleMax = Math.max(1, scaleMaxRatio || 1);
 
     const bars = days.map((d, i) => {
       const date = new Date(d + 'T00:00:00');
       const hours = dailyLoad[d] || 0;
       const free = Math.max(0, journeyHours - hours);
       const ratio = journeyHours > 0 ? hours / journeyHours : 0;
-      const fillRatio = Math.min(ratio, 1);
-      const barFillH = fillRatio * barH;
+      // V37.2.0 — fillRatio agora pode ultrapassar journey visualmente.
+      // Cap em scaleMax (mesma escala pra todas as semanas pra comparabilidade).
+      const fillRatio = Math.min(ratio, scaleMax);
+      const barFillH = (fillRatio / scaleMax) * barH;
       const dowIdx = date.getDay();
       const label = dayLabels[dowIdx] || '';
       const isToday = yToday && d === yToday;
       const isOverflow = ratio > 1;
       const pctLabel = Math.round(ratio * 100) + '%';
-      const tooltip = `${date.toLocaleDateString('pt-BR')} · ${fmtNum(hours)}h ocupadas · ${fmtNum(free)}h disponíveis`;
+      const tooltip = `${date.toLocaleDateString('pt-BR')} · ${fmtNum(hours)}h ocupadas · ${fmtNum(free)}h disponíveis${isOverflow ? ' · sobrecarga' : ''}`;
 
       // Empilhamento dos segmentos (composição) dentro do barFillH.
       let yCursor = barH;
@@ -712,6 +806,10 @@ window.TasksDashboard = {
         yCursor -= segH;
         return `<rect x="0" y="${yCursor.toFixed(2)}" width="${barW}" height="${segH.toFixed(2)}" fill="${seg.color}"><title>${tooltip} — ${Utils.escape(seg.label)}: ${Math.round(seg.fraction*100)}%</title></rect>`;
       }).join('');
+
+      // Faixa de sobrecarga: parte da barra acima da linha guia (>journey) ganha sobreposição rose escuro.
+      const guideYInBar = barH - (1 / scaleMax) * barH;
+      const overflowOverlay = isOverflow ? `<rect x="0" y="${(barH - barFillH).toFixed(2)}" width="${barW}" height="${(guideYInBar - (barH - barFillH)).toFixed(2)}" fill="rgba(190, 18, 60, 0.35)" />` : '';
 
       // % label dentro da barra (sutil) — branco semi se barFillH grande, stone se pequeno.
       const pctY = barFillH >= 18 ? (barH - barFillH + 11) : (barH - barFillH - 4);
@@ -724,9 +822,6 @@ window.TasksDashboard = {
       // Borda destacada se HOJE.
       const borderRect = isToday ? `<rect x="-1.5" y="-1.5" width="${barW + 3}" height="${barH + 3}" fill="none" stroke="#7c3aed" stroke-width="1.5" rx="5" />` : '';
 
-      // Indicador de overflow (faixa rose no topo).
-      const overflowMark = isOverflow ? `<rect x="0" y="0" width="${barW}" height="3" fill="#be123c" rx="1.5" />` : '';
-
       return `<g transform="translate(${i * (barW + gap)}, 0)">
         ${borderRect}
         <rect x="0" y="0" width="${barW}" height="${barH}" fill="#f5f5f4" rx="4">
@@ -734,19 +829,20 @@ window.TasksDashboard = {
         </rect>
         <g clip-path="inset(0 round 4px)">
           ${segRects}
+          ${overflowOverlay}
         </g>
-        ${overflowMark}
         <text x="${barW/2}" y="${pctY}" text-anchor="middle" font-size="9" font-weight="${pctWeight}" fill="${pctFill}">${pctLabel}</text>
         <text x="${barW/2}" y="${barH + labelH - 2}" text-anchor="middle" font-size="9" font-weight="700" fill="#57534e">${label}</text>
         ${todayMark}
       </g>`;
     }).join('');
 
-    // Linha guia da jornada (8h = topo do barH).
-    const guideY = 0.5;
-    const guideLine = `<line x1="-4" y1="${guideY}" x2="${totalW + 4}" y2="${guideY}" stroke="#7c3aed" stroke-width="1" stroke-dasharray="3,3" opacity="0.45" />`;
+    // Linha guia da jornada (8h). Posicionada pela escala — abaixo do topo quando há sobrecarga.
+    const guideY = barH - (1 / scaleMax) * barH;
+    const guideLine = `<line x1="-4" y1="${guideY.toFixed(2)}" x2="${totalW + 4}" y2="${guideY.toFixed(2)}" stroke="#7c3aed" stroke-width="1" stroke-dasharray="3,3" opacity="0.55" />`;
+    const guideLabel = scaleMax > 1 ? `<text x="${totalW + 6}" y="${(guideY + 3).toFixed(2)}" font-size="8" font-weight="700" fill="#7c3aed" opacity="0.8">${journeyHours}h</text>` : '';
 
-    return `<svg width="${totalW + 8}" height="${totalH}" viewBox="-4 0 ${totalW + 8} ${totalH}">${guideLine}${bars}</svg>`;
+    return `<svg width="${totalW + 24}" height="${totalH}" viewBox="-4 0 ${totalW + 24} ${totalH}">${guideLine}${guideLabel}${bars}</svg>`;
   },
 
   _summarizeLoad(days, dailyLoad, journeyHours, avgHours) {
