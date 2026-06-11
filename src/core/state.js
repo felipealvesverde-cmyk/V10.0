@@ -415,6 +415,7 @@ var State = {
       governanceClosingOpen: null,    // V37.0.3 — id do snapshot aberto na vista detalhada
       fechamentoAssociacao: {},       // V37.0.4 — checkboxes UI por closingId {closingId: [productIds]}
       customConsolidadoDraft: null,   // V37.0.5 — wizard inline {period, name, productIds[]} ou null
+      revopsCollapsed: {},            // V37.0.10 — collapse de linhas DRE/RevOps {productId: {key: bool}}
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
@@ -1124,6 +1125,7 @@ var State = {
       governanceClosingOpen: null,    // V37.0.3 — UI state volátil
       fechamentoAssociacao: {},       // V37.0.4 — UI volátil de checkboxes de associação
       customConsolidadoDraft: null,   // V37.0.5 — wizard inline (volátil)
+      revopsCollapsed: (raw.revopsCollapsed && typeof raw.revopsCollapsed === 'object') ? raw.revopsCollapsed : {},
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart

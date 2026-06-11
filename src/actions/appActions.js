@@ -8014,6 +8014,17 @@ Object.assign(Actions, {
     }
   },
 
+  // V37.0.10 — Recolhe/expande linha-banner DRE ou card RevOps.
+  // key: 'dre:fat_bruto' | 'dre:deducoes' | 'dre:s_m' | 'dre:g_a' |
+  //      'dre:group_<id>' | 'revops:mcu' | 'revops:msu'. Default open.
+  toggleRevopsCollapsed(productId, key) {
+    if (!productId || !key) return;
+    App.state.revopsCollapsed = App.state.revopsCollapsed || {};
+    App.state.revopsCollapsed[productId] = App.state.revopsCollapsed[productId] || {};
+    App.state.revopsCollapsed[productId][key] = !App.state.revopsCollapsed[productId][key];
+    App.save(); App.render();
+  },
+
   // V37.0.5 — Inicia draft de Custom Consolidado. Default: mês anterior.
   startCustomConsolidadoDraft() {
     const now = new Date();

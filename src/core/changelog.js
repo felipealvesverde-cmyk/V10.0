@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.10',
+    date: '2026-06-11',
+    title: 'DRE e RevOps — chevron de recolher nas linhas-banner e cards MCU/MSU',
+    bullets: [
+      'Linhas-banner do DRE com conteúdo abaixo (Faturamento Bruto, Deduções, S&M, G&A e linhas extras laranja personalizadas) ganham chevron no canto direito pra recolher/expandir o que vem embaixo. EBITDA não tem chevron (nada abaixo).',
+      'Cards MCU e MSU do RevOps KPIs ganham chevron de tamanho médio no canto direito, recolhem o painel de edição inteiro (Auto / Valor único / Composição + grid de cards). Header com nome/valor/badge fica visível.',
+      'Estado persiste por (productId, key) em App.state.revopsCollapsed — F5 mantém o que tava recolhido. Default open pra não esconder nada de surpresa.',
+      'Group banners laranja (linhas customizadas no DRE) também ganham chevron quando tem nome — recolhe os cards de fórmula. Sem nome, chevron não aparece (cliente ainda tá configurando).',
+      'Cores tonais: chevron casa com a cor da linha (emerald em Faturamento/MCU/MSU, rose em Deduções/S&M/G&A, amber em group banners). Hover sutil no bg.',
+      'TM, CAC, Custo Fixo e Breakeven não recebem chevron — só têm hint inline curto, não vale esconder.'
+    ]
+  },
+  {
     version: 'V37.0.9',
     date: '2026-06-11',
     title: 'Form de criação de ação fica enxuto — bloco "Mailing definido?" inteiro sai',
