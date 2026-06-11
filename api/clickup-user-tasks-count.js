@@ -139,24 +139,129 @@ async function fetchUserLateTasks(db, userId, teamId, assigneeId) {
   return { tasks: out, truncated };
 }
 
-// V37.1.4 — capacity planning: total = open × avg_hours, empilha 8h/dia
-// sequencialmente nos dias do horizonte. overflow = sobra.
-function buildSequentialLoad(openCount, taskHours, horizonDays, journeyHours) {
-  const total = openCount * taskHours;
+// V37.2.0 — distribui tasks por [start_date, due_date] em dias úteis.
+// Cada task aloca taskHours uniforme nos dias úteis do intervalo total.
+// Tasks atrasadas (due < hoje) jogam taskHours inteiro no dia de hoje.
+// Tasks sem ambas datas: ignoradas (contam pra workload_no_dates_count).
+// Overflow honesto: dias podem passar de journeyHours (sobreposição é vista).
+function buildDistributedLoad(openTasks, taskHours, horizonDays, journeyHours, todayStr) {
   const out = Object.fromEntries(horizonDays.map(d => [d, 0]));
-  let remaining = total;
-  for (const day of horizonDays) {
-    if (remaining <= 0) break;
-    const alloc = Math.min(remaining, journeyHours);
-    out[day] = Math.round(alloc * 10) / 10;
-    remaining -= alloc;
+  const horizonEnd = horizonDays[horizonDays.length - 1];
+  let totalWorkload = 0;
+  let allocatedInHorizon = 0;
+  let tasksWithoutDates = 0;
+  let tasksLate = 0;
+  let tasksScheduled = 0;
+  let tasksOutsideHorizon = 0;
+
+  const fmtDay = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  for (const t of openTasks) {
+    const start = Number(t.start_date) || null;
+    const due = Number(t.due_date) || null;
+    if (!start || !due) { tasksWithoutDates++; continue; }
+    totalWorkload += taskHours;
+
+    const dueDate = new Date(due);
+    const dueKey = fmtDay(dueDate);
+
+    // Atrasada: due < hoje → tudo no dia de hoje
+    if (dueKey < todayStr) {
+      out[todayStr] = (out[todayStr] || 0) + taskHours;
+      allocatedInHorizon += taskHours;
+      tasksLate++;
+      continue;
+    }
+
+    const startDate = new Date(start);
+    const startKey = fmtDay(startDate);
+
+    // Task completamente além do horizonte
+    if (startKey > horizonEnd) { tasksOutsideHorizon++; continue; }
+
+    // Calcula dias úteis NO INTERVALO TOTAL [start, due] — não só os do horizonte.
+    // Pra task de 10 dias úteis, hoursPerDay = taskHours / 10. Aloca só os que
+    // caem no horizonte; o resto vira overflow.
+    const fullRangeStart = new Date(Math.max(start, Date.now() - 90 * 24 * 3600 * 1000));
+    const fullRangeStartKey = fmtDay(fullRangeStart);
+    const effectiveStart = fullRangeStartKey < todayStr ? todayStr : fullRangeStartKey;
+    const businessDaysInFullRange = countBusinessDaysBetween(Date.parse(effectiveStart + 'T00:00:00'), due);
+    if (businessDaysInFullRange < 1) continue;
+
+    const hoursPerDay = taskHours / businessDaysInFullRange;
+    let allocatedHere = 0;
+    for (const d of horizonDays) {
+      if (d < effectiveStart) continue;
+      if (d > dueKey) break;
+      out[d] = (out[d] || 0) + hoursPerDay;
+      allocatedHere += hoursPerDay;
+    }
+    allocatedInHorizon += allocatedHere;
+    tasksScheduled++;
   }
-  const overflow = Math.max(0, Math.round(remaining * 10) / 10);
+
+  for (const k of Object.keys(out)) out[k] = Math.round(out[k] * 10) / 10;
+
   return {
     dailyLoad: out,
-    overflowHours: overflow,
-    totalWorkloadHours: Math.round(total * 10) / 10
+    overflowHours: Math.max(0, Math.round((totalWorkload - allocatedInHorizon) * 10) / 10),
+    totalWorkloadHours: Math.round(totalWorkload * 10) / 10,
+    tasksScheduled,
+    tasksLate,
+    tasksWithoutDates,
+    tasksOutsideHorizon
   };
+}
+
+// V37.2.0 — Adherence (% no prazo + deriva média em dias úteis).
+function computeAdherence(closedTasks) {
+  const withDue = closedTasks.filter(t => Number(t.due_date) > 0 && Number(t.date_done) > 0);
+  if (!withDue.length) return { adherence_pct: null, deriva_avg_days: null, on_time_count: 0, late_done_count: 0, evaluated_count: 0 };
+  let onTime = 0;
+  let derivaSum = 0;
+  for (const t of withDue) {
+    const due = Number(t.due_date);
+    const done = Number(t.date_done);
+    if (done <= due) onTime++;
+    derivaSum += (done - due) / (24 * 3600 * 1000);
+  }
+  return {
+    adherence_pct: Math.round((onTime / withDue.length) * 100),
+    deriva_avg_days: Math.round((derivaSum / withDue.length) * 10) / 10,
+    on_time_count: onTime,
+    late_done_count: withDue.length - onTime,
+    evaluated_count: withDue.length
+  };
+}
+
+// V37.2.0 — Próxima entrega: due_date mais próximo a partir de hoje.
+function computeNextDelivery(openTasks, todayStr) {
+  const fmtDay = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+  let minDue = null;
+  let count = 0;
+  for (const t of openTasks) {
+    const due = Number(t.due_date);
+    if (!due) continue;
+    const dueKey = fmtDay(new Date(due));
+    if (dueKey < todayStr) continue;
+    if (minDue == null || dueKey < minDue) {
+      minDue = dueKey;
+      count = 1;
+    } else if (dueKey === minDue) {
+      count++;
+    }
+  }
+  return minDue ? { date: minDue, count } : null;
 }
 
 function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonDays, journeyHours, availableHoursInLookback) {
@@ -222,10 +327,31 @@ function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonD
   }
 
   const taskHours = avgHours != null ? avgHours : DEFAULT_TASK_HOURS_FALLBACK;
-  const totalOpen = lj.open + ext.open;
-  const { dailyLoad, overflowHours, totalWorkloadHours } = buildSequentialLoad(
-    totalOpen, taskHours, horizonDays, journeyHours
-  );
+  const todayStr = horizonDays[0];
+
+  // V37.2.0 — distribuição real por [start_date, due_date]
+  const dist = buildDistributedLoad(openTasks, taskHours, horizonDays, journeyHours, todayStr);
+
+  // Slots livres: soma de horas disponíveis em cada dia do horizonte
+  let freeHoursTotal = 0;
+  let nextFreeDay = null;
+  let nextFreeDayHours = 0;
+  for (const d of horizonDays) {
+    const occupied = dist.dailyLoad[d] || 0;
+    const free = Math.max(0, journeyHours - occupied);
+    freeHoursTotal += free;
+    if (free > 0 && nextFreeDay == null) {
+      nextFreeDay = d;
+      nextFreeDayHours = Math.round(free * 10) / 10;
+    }
+  }
+  freeHoursTotal = Math.round(freeHoursTotal * 10) / 10;
+
+  // V37.2.0 — adherence sobre closed com due preenchido
+  const adherence = computeAdherence(closedTasks);
+
+  // V37.2.0 — próxima entrega (open tasks ordenadas por due_date >= hoje)
+  const nextDelivery = computeNextDelivery(openTasks, todayStr);
 
   return {
     lj_open: lj.open, lj_done: lj.done, lj_late: lj.late,
@@ -239,9 +365,23 @@ function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonD
     available_hours_in_lookback: availableHoursInLookback,
     sample_size: doneTotal,
     closed_returned: closedTasks.length,
-    total_workload_hours: totalWorkloadHours,
-    overflow_hours: overflowHours,
-    daily_load: dailyLoad,
+    total_workload_hours: dist.totalWorkloadHours,
+    overflow_hours: dist.overflowHours,
+    daily_load: dist.dailyLoad,
+    tasks_scheduled: dist.tasksScheduled,
+    tasks_late: dist.tasksLate,
+    tasks_without_dates: dist.tasksWithoutDates,
+    tasks_outside_horizon: dist.tasksOutsideHorizon,
+    free_hours_total: freeHoursTotal,
+    next_free_day: nextFreeDay,
+    next_free_day_hours: nextFreeDayHours,
+    horizon_capacity_hours: horizonDays.length * journeyHours,
+    next_delivery: nextDelivery,
+    adherence_pct: adherence.adherence_pct,
+    deriva_avg_days: adherence.deriva_avg_days,
+    on_time_count: adherence.on_time_count,
+    late_done_count: adherence.late_done_count,
+    adherence_evaluated_count: adherence.evaluated_count,
     by_lj_folder: byLjFolder,
     by_lj_list: byLjList
   };
@@ -318,7 +458,7 @@ module.exports = async function handler(req, res) {
       const openTasks = openResult.tasks;
       const lateTasks = lateResult.tasks;
       const agg = aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonDays, journeyHours, availableHoursInLookback);
-      console.log(`[user-tasks-count] ${userLabel}: open=${openTasks.length}${openResult.truncated ? '+' : ''} done=${agg.done_count} late=${lateTasks.length}${lateResult.truncated ? '+' : ''} avg=${agg.avg_hours == null ? '—(fallback ' + agg.task_hours_used + 'h)' : agg.avg_hours + 'h (' + availableHoursInLookback + 'h/' + agg.done_count + ')'} workload=${agg.total_workload_hours}h overflow=${agg.overflow_hours}h`);
+      console.log(`[user-tasks-count] ${userLabel}: open=${openTasks.length}${openResult.truncated ? '+' : ''} done=${agg.done_count} late=${lateTasks.length}${lateResult.truncated ? '+' : ''} avg=${agg.avg_hours == null ? '—(fallback ' + agg.task_hours_used + 'h)' : agg.avg_hours + 'h'} sched=${agg.tasks_scheduled} no_dates=${agg.tasks_without_dates} workload=${agg.total_workload_hours}h overflow=${agg.overflow_hours}h free=${agg.free_hours_total}h adherence=${agg.adherence_pct == null ? '—' : agg.adherence_pct + '%'} deriva=${agg.deriva_avg_days == null ? '—' : agg.deriva_avg_days + 'd'} next=${agg.next_delivery ? agg.next_delivery.date + '(' + agg.next_delivery.count + ')' : '—'}`);
       return {
         user_id: uid,
         name: m?.name || `User ${uid}`,
@@ -347,6 +487,12 @@ module.exports = async function handler(req, res) {
         total_workload_hours: 0, overflow_hours: 0,
         open_truncated: false, late_truncated: false,
         daily_load: {}, by_lj_folder: [], by_lj_list: [],
+        tasks_scheduled: 0, tasks_late: 0, tasks_without_dates: 0, tasks_outside_horizon: 0,
+        free_hours_total: 0, next_free_day: null, next_free_day_hours: 0,
+        horizon_capacity_hours: horizonDays.length * journeyHours,
+        next_delivery: null,
+        adherence_pct: null, deriva_avg_days: null, on_time_count: 0, late_done_count: 0,
+        adherence_evaluated_count: 0,
         error: err.message
       };
     }
