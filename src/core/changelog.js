@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.1.9',
+    date: '2026-06-11',
+    title: 'Tarefas Por Pessoa: modal de detalhe + dedicação por produto/campanha LJ',
+    bullets: [
+      'Card recolhido vira clique único — toda a área do card abre um modal central com detalhamento completo. Sem mais chevron de expandir inline.',
+      'Modal central com 2 colunas: Capacidade (esta + próxima semana + backlog) e Dedicação LJ por contexto (produto e campanha agrupados).',
+      'Header do modal traz 4 KPIs em destaque (Pendentes, Concluídas 30d, Atrasadas, Média por tarefa) com a fórmula explícita "176h ÷ 50" no subtexto da Média.',
+      'Dedicação LJ por contexto: agrupado por produto (folder ClickUp), cada produto expande as campanhas (lists). Barra de progresso violet visualiza a proporção. Ex: "Marketing > Black Friday: 32 tarefas" + barra cheia, "Vendas > Inbound: 5" + barra menor.',
+      'Tarefas externas (fora do Space LJ) entram como linha "Outros projetos (fora do LJ)" no fim — visibilidade da dedicação sem expor títulos.',
+      'Backend agrega by_lj_folder (produtos) e by_lj_list (campanhas) com nomes vindo do ClickUp. Folders escondidos ("folderless lists") agrupam como "Sem produto".'
+    ]
+  },
+  {
     version: 'V37.1.8',
     date: '2026-06-11',
     title: 'Tarefas Por Pessoa: média de tarefa derivada da capacidade real',

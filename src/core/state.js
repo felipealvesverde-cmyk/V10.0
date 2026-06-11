@@ -406,10 +406,13 @@ var State = {
       tasksDashboardSubTab: 'geral',
       // Cache do POST /api/clickup-user-tasks-count. TTL 5min, volátil.
       // users[] tem { user_id, name, initials, lj_open, lj_done, ext_open, ext_done,
-      // avg_hours, sample_size, daily_load: { 'YYYY-MM-DD': hours, ... } }
+      // avg_hours, sample_size, daily_load: { 'YYYY-MM-DD': hours, ... },
+      // by_lj_folder, by_lj_list (V37.1.9) }
       tasksPersonCache: { fetchedAt: null, users: [], horizonDays: [], loading: false, error: null, journeyHours: 8 },
-      // Quais cards de pessoa estão expandidos (persiste pra preferência sobreviver F5).
-      tasksPersonExpanded: {},
+      // V37.1.9 — Modal de detalhe da pessoa. null = fechado, string user_id = aberto.
+      // Substitui tasksPersonExpanded inline (V37.1.0). Modal central 2 colunas
+      // (capacidade + dedicação LJ por produto/campanha).
+      tasksPersonModalUserId: null,
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
       overviewBranchFilter: 'all',
       revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
@@ -1120,10 +1123,11 @@ var State = {
       activeDashboardTab: 'overview',
       tasksDashboardRange: 'all',     // V36.10.3 — sub-tab Tarefas
       tasksDashboardProvider: 'all',
-      // V37.1.0 — sub-tab Tarefas Por Pessoa (cache volátil, expand persiste)
+      // V37.1.0 — sub-tab Tarefas Por Pessoa (cache volátil)
       tasksDashboardSubTab: ['geral', 'porPessoa'].includes(raw.tasksDashboardSubTab) ? raw.tasksDashboardSubTab : 'geral',
       tasksPersonCache: { fetchedAt: null, users: [], horizonDays: [], loading: false, error: null, journeyHours: 8 },
-      tasksPersonExpanded: (raw.tasksPersonExpanded && typeof raw.tasksPersonExpanded === 'object') ? raw.tasksPersonExpanded : {},
+      // V37.1.9 — Modal volátil (não persiste).
+      tasksPersonModalUserId: null,
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
       overviewBranchFilter: 'all',
       revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)

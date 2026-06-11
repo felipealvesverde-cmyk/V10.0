@@ -7734,11 +7734,15 @@ Object.assign(Actions, {
     App.render();
   },
 
-  toggleTasksPersonExpanded(userId) {
-    if (!App.state.tasksPersonExpanded) App.state.tasksPersonExpanded = {};
-    const key = String(userId);
-    App.state.tasksPersonExpanded[key] = !App.state.tasksPersonExpanded[key];
-    App.save(); App.render();
+  // V37.1.9 — Modal de detalhe da pessoa substitui o expand inline (V37.1.0).
+  openTasksPersonModal(userId) {
+    App.state.tasksPersonModalUserId = String(userId || '');
+    App.render();
+  },
+
+  closeTasksPersonModal() {
+    App.state.tasksPersonModalUserId = null;
+    App.render();
   },
 
   async loadTasksPersonData(force = false) {
