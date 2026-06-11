@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.1.3',
+    date: '2026-06-11',
+    title: 'Tarefas Por Pessoa: contagens alinham com ClickUp + logs no Railway',
+    bullets: [
+      'Discrepância: ClickUp UI mostrava "Felipe Alves: 8 atrasadas", LJ mostrava 32. Causa: meu fetch usava subtasks=true — cada subtask de execução virava +1 na conta. Pedro/Stephano/Thiago batiam exatos 300 do cap por isso.',
+      'Strategy C aplicada: 3 fetches por pessoa rodando em paralelo, todos com subtasks=false. (1) open pra counts e agenda, (2) closed pra média, (3) late dedicado via filtro server-side due_date_lt. Counts agora batem com o que cliente vê na "Hoje e atrasadas" do próprio ClickUp.',
+      'Logs no backend Railway por pessoa (ex: "Pedro Henrique: open=47 closed=23(ts=18) late=8 sample=18 avg=4.2h") — abre View Logs no Railway pra acompanhar o pull em tempo real.',
+      'Fallback transparente da média: se ClickUp não preencheu timestamps em algumas closed, cliente vê "— X/Y concluídas têm data válida" no lugar de "amostra insuficiente". Diferencia falta de histórico de problema de dado.',
+      'Bonus: com subtasks fora, ninguém mais deve bater o cap de 300 — o número total volta a refletir a realidade.'
+    ]
+  },
+  {
     version: 'V37.1.2',
     date: '2026-06-11',
     title: 'Tarefas Por Pessoa: média de conclusão agora calcula (fix amostra insuficiente)',

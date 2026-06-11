@@ -1,10 +1,15 @@
-// V37.1.0 — POST /api/clickup-user-tasks-count
+// V37.1.0 → V37.1.3 — POST /api/clickup-user-tasks-count
 // Agrega tasks por pessoa cross-space (mesmo workspace ClickUp). Pra cada user_id:
 //   - particiona em LJ (space.id === lj_space_id) vs Externos
-//   - conta open/done por bucket
+//   - conta open/done por bucket (TOP-LEVEL apenas — alinha com UI ClickUp)
 //   - calcula avg_hours (últimas 20 closed do POOL inteiro: LJ + Ext)
+//   - late_total via fetch dedicado (due_date_lt server-side)
 //   - daily_load: 14 dias (hoje..hoje+13) somando (time_estimate_h || avg_hours)
-//     pra cada task com due_date no dia. Atrasadas vão pro dia de hoje.
+//
+// V37.1.3 — Strategy C: 3 fetches em paralelo por user, todos com subtasks=false.
+//   Antes (V37.1.2): subtasks=true inflava contagem (Felipe vê 8 atrasadas no
+//   ClickUp UI, LJ mostrava 32 porque contava subtasks). Agora top-level only.
+//   Logs por user no Railway pra diagnosticar volumes em prod.
 //
 // Privacy: títulos de tasks externas nunca saem do backend. Só counts e cargas.
 //
@@ -12,12 +17,13 @@
 // Retorna: { ok, users: [...], fetched_at, sample_min: 5 }
 const { clickupFetch } = require('../lib/clickup-client');
 
-const MAX_PAGES_OPEN = 3;              // 300 tasks open max
-const MAX_PAGES_CLOSED = 2;            // 200 closed máx (sobra muito pros 20 da avg)
-const CLOSED_LOOKBACK_DAYS = 365;      // V37.1.2 — só último ano pra média
-const SAMPLE_MIN = 5;                  // < 5 closed = avg_hours null
-const SAMPLE_TARGET = 20;              // 20 mais recentes pra média
-const DAILY_HORIZON = 14;              // 2 semanas
+const MAX_PAGES_OPEN = 3;              // 300 tasks open max (top-level)
+const MAX_PAGES_CLOSED = 3;            // 300 closed max
+const MAX_PAGES_LATE = 2;              // 200 late max (já filtrado server-side)
+const CLOSED_LOOKBACK_DAYS = 365;      // último ano pra média
+const SAMPLE_MIN = 5;
+const SAMPLE_TARGET = 20;
+const DAILY_HORIZON = 14;
 
 function ymd(date) {
   const y = date.getFullYear();
@@ -37,14 +43,11 @@ function buildHorizon(now, days) {
   return out;
 }
 
-// V37.1.2 — Split em 2 fetches por user (antes era 1 fetch include_closed=true).
-// Motivo: ClickUp ordena por date_updated DESC. Tasks abertas dominam as primeiras
-// 300 (porque movimentam mais), closed quase não aparecem na cota — resultado era
-// "amostra insuficiente" pra TODOS os users com volume.
+// V37.1.3 — Strategy C: 3 fetches dedicados, todos top-level only.
 async function fetchUserOpenTasks(db, userId, teamId, assigneeId) {
   const out = [];
   for (let page = 0; page < MAX_PAGES_OPEN; page++) {
-    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=false&subtasks=true&page=${page}`;
+    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=false&subtasks=false&page=${page}`;
     const r = await clickupFetch(db, userId, 'GET', path);
     if (!r.ok) break;
     const tasks = Array.isArray(r.data?.tasks) ? r.data.tasks : [];
@@ -55,60 +58,71 @@ async function fetchUserOpenTasks(db, userId, teamId, assigneeId) {
 }
 
 async function fetchUserClosedTasks(db, userId, teamId, assigneeId) {
-  // date_done_gt filtra do lado do servidor — só vem tasks com date_done preenchido.
   const lookbackMs = Date.now() - (CLOSED_LOOKBACK_DAYS * 24 * 3600 * 1000);
   const out = [];
   for (let page = 0; page < MAX_PAGES_CLOSED; page++) {
-    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=true&subtasks=true&date_done_gt=${lookbackMs}&page=${page}`;
+    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=true&subtasks=false&date_done_gt=${lookbackMs}&page=${page}`;
     const r = await clickupFetch(db, userId, 'GET', path);
     if (!r.ok) break;
     const tasks = Array.isArray(r.data?.tasks) ? r.data.tasks : [];
     out.push(...tasks);
     if (tasks.length < 100) break;
   }
-  // Guard defensivo: filter só as que realmente estão closed.
+  // Guard defensivo: garantir que são closed.
   return out.filter(t => t.status?.type === 'closed');
 }
 
-function aggregateForUser(openTasks, closedTasks, ljSpaceId, horizonDays, avgHoursFallback) {
+async function fetchUserLateTasks(db, userId, teamId, assigneeId) {
+  // Tasks open com due_date < hoje 00:00. ClickUp filtra server-side.
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const todayMs = now.getTime();
+  const out = [];
+  for (let page = 0; page < MAX_PAGES_LATE; page++) {
+    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=false&subtasks=false&due_date_lt=${todayMs}&page=${page}`;
+    const r = await clickupFetch(db, userId, 'GET', path);
+    if (!r.ok) break;
+    const tasks = Array.isArray(r.data?.tasks) ? r.data.tasks : [];
+    out.push(...tasks);
+    if (tasks.length < 100) break;
+  }
+  return out;
+}
+
+function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonDays, avgHoursFallback) {
   const lj = { open: 0, done: 0, late: 0 };
   const ext = { open: 0, done: 0, late: 0 };
-  const closedSorted = [];
+  const closedWithTimestamps = [];
   const dailyLoad = Object.fromEntries(horizonDays.map(d => [d, 0]));
 
   const todayStr = horizonDays[0];
-  const todayStart = new Date(todayStr + 'T00:00:00');
   const horizonEnd = new Date(horizonDays[horizonDays.length - 1] + 'T23:59:59');
 
-  // Tasks abertas: counts + late + (depois) daily_load.
   for (const t of openTasks) {
     const isLj = String(t.space?.id || '') === String(ljSpaceId);
-    const bucket = isLj ? lj : ext;
-    bucket.open++;
-    if (t.due_date) {
-      const due = new Date(Number(t.due_date));
-      if (!isNaN(due.getTime()) && due < todayStart) bucket.late++;
-    }
+    (isLj ? lj : ext).open++;
   }
 
-  // Tasks fechadas: counts done + amostra avg.
   for (const t of closedTasks) {
     const isLj = String(t.space?.id || '') === String(ljSpaceId);
-    const bucket = isLj ? lj : ext;
-    bucket.done++;
+    (isLj ? lj : ext).done++;
 
     if (t.date_done && t.date_created) {
       const start = Number(t.date_created);
       const end = Number(t.date_done);
       if (end > start) {
-        const hours = (end - start) / 3600000;
-        closedSorted.push({ done: end, hours });
+        closedWithTimestamps.push({ done: end, hours: (end - start) / 3600000 });
       }
     }
   }
 
-  closedSorted.sort((a, b) => b.done - a.done);
-  const sample = closedSorted.slice(0, SAMPLE_TARGET);
+  for (const t of lateTasks) {
+    const isLj = String(t.space?.id || '') === String(ljSpaceId);
+    (isLj ? lj : ext).late++;
+  }
+
+  closedWithTimestamps.sort((a, b) => b.done - a.done);
+  const sample = closedWithTimestamps.slice(0, SAMPLE_TARGET);
   let avgHours = null;
   if (sample.length >= SAMPLE_MIN) {
     avgHours = sample.reduce((s, x) => s + x.hours, 0) / sample.length;
@@ -142,6 +156,8 @@ function aggregateForUser(openTasks, closedTasks, ljSpaceId, horizonDays, avgHou
     late_total: lj.late + ext.late,
     avg_hours: avgHours == null ? null : Math.round(avgHours * 10) / 10,
     sample_size: sample.length,
+    closed_returned: closedTasks.length,
+    closed_with_timestamps: closedWithTimestamps.length,
     daily_load: dailyLoad
   };
 }
@@ -196,14 +212,19 @@ module.exports = async function handler(req, res) {
   const now = new Date();
   const horizonDays = buildHorizon(now, DAILY_HORIZON);
 
+  console.log(`[user-tasks-count] iniciando agregação pra ${targetIds.length} pessoa(s) · team=${teamId} · lj_space=${ljSpaceId}`);
+
   const results = await Promise.all(targetIds.map(async (uid) => {
+    const m = memberById.get(uid);
+    const userLabel = m?.name || `User ${uid}`;
     try {
-      const [openTasks, closedTasks] = await Promise.all([
+      const [openTasks, closedTasks, lateTasks] = await Promise.all([
         fetchUserOpenTasks(req.tenantDb, userId, teamId, uid),
-        fetchUserClosedTasks(req.tenantDb, userId, teamId, uid)
+        fetchUserClosedTasks(req.tenantDb, userId, teamId, uid),
+        fetchUserLateTasks(req.tenantDb, userId, teamId, uid)
       ]);
-      const agg = aggregateForUser(openTasks, closedTasks, ljSpaceId, horizonDays, 4);
-      const m = memberById.get(uid);
+      const agg = aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonDays, 4);
+      console.log(`[user-tasks-count] ${userLabel}: open=${openTasks.length} closed=${closedTasks.length}(ts=${agg.closed_with_timestamps}) late=${lateTasks.length} sample=${agg.sample_size} avg=${agg.avg_hours == null ? '—' : agg.avg_hours + 'h'}`);
       return {
         user_id: uid,
         name: m?.name || `User ${uid}`,
@@ -213,17 +234,19 @@ module.exports = async function handler(req, res) {
         ...agg
       };
     } catch (err) {
-      const m = memberById.get(uid);
+      console.error(`[user-tasks-count] ${userLabel}: ERRO ${err.message}`);
       return {
         user_id: uid,
-        name: m?.name || `User ${uid}`,
+        name: userLabel,
         email: m?.email || null,
         initials: m?.initials || '??',
         color: m?.color || null,
         lj_open: 0, lj_done: 0, lj_late: 0,
         ext_open: 0, ext_done: 0, ext_late: 0,
         late_total: 0,
-        avg_hours: null, sample_size: 0, daily_load: {},
+        avg_hours: null, sample_size: 0,
+        closed_returned: 0, closed_with_timestamps: 0,
+        daily_load: {},
         error: err.message
       };
     }
