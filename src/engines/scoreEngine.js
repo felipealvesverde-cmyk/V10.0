@@ -16,10 +16,10 @@ var ScoreEngine = {
       },
       calculateLeadScore(lead, scoreId) {
         // V31.0.1 — Defensivo contra App.state null durante boot.
-        const defaultScoreId = (window.App && App.state && App.state.actionDraft && App.state.actionDraft.scoreId);
-        const effectiveId = scoreId !== undefined ? scoreId : defaultScoreId;
+        // V37.0.9 — actionDraft.scoreId não existe mais; fallback agora é
+        // direto pra scores[0] / Config.defaultScore.
         const scores = (window.App && App.state && App.state.scores) || [];
-        const scorePreset = this.getById(effectiveId) || scores[0] || Config.defaultScore;
+        const scorePreset = this.getById(scoreId) || scores[0] || Config.defaultScore;
         return this._scoreWithRules(lead, this._compileRules(scorePreset));
       },
       _scoreWithRules(lead, compiledRules) {

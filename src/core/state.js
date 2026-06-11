@@ -15,11 +15,9 @@ var State = {
       conversionObjective: '',
       expectedConversion: 0,
       okrs: OkrSuggestionEngine.defaultFor('Marketing', 'MOF', 'Instagram Orgânico', 'Post'),
-      mailingDefined: false,
-      leadInputMode: 'manual',
-      leadsText: '',
-      rdListName: '',
-      scoreId: null,
+      // V37.0.9 — mailingDefined/leadInputMode/leadsText/rdListName/scoreId
+      // REMOVIDOS do draft (mailing inline saiu do form). createAction agora
+      // sempre nasce com leads:[] + mailingDefined:false + scoreId default.
       rdEmailConfig: window.RDConfig ? RDConfig.emailDefaults() : {},
       kpis: []
     };
