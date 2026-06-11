@@ -25,12 +25,13 @@ const MAX_PAGES_OPEN = 6;              // 600 open max top-level
 const MAX_PAGES_CLOSED = 3;            // 300 closed max
 const MAX_PAGES_LATE = 5;              // 500 late max
 const ACTIVITY_LOOKBACK_DAYS = 30;     // V37.1.6 — só tasks mexidas/fechadas nos últimos 30d
-const SAMPLE_MIN = 5;
-const SAMPLE_TARGET = 20;
+const SAMPLE_MIN = 5;                  // mínimo de done_count pra calcular avg
 const BUSINESS_DAYS_HORIZON = 10;      // 2 semanas úteis (Seg-Sex × 2)
 const DEFAULT_JOURNEY_HOURS = 8;
 const DEFAULT_TASK_HOURS_FALLBACK = 4;
-const TASK_HOURS_CAP = 8;              // V37.1.5 — cap por task antes de virar amostra
+// V37.1.8 — avg_hours agora é capacity_derived:
+//   horas úteis disponíveis no lookback ÷ tarefas concluídas no lookback
+// Não usa mais (date_done - date_created) que media idade calendário.
 
 function ymd(date) {
   const y = date.getFullYear();
@@ -56,6 +57,24 @@ function buildBusinessHorizon(now, businessDays) {
     guard++;
   }
   return out;
+}
+
+// V37.1.8 — conta dias úteis (Seg-Sex) num range. Usado pra calcular
+// horas úteis disponíveis no lookback: business_days × 8h.
+function countBusinessDaysBetween(startMs, endMs) {
+  const start = new Date(startMs);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(endMs);
+  end.setHours(0, 0, 0, 0);
+  let count = 0;
+  const d = new Date(start);
+  let guard = 0;
+  while (d <= end && guard < 366) {
+    if (isWeekday(d)) count++;
+    d.setDate(d.getDate() + 1);
+    guard++;
+  }
+  return count;
 }
 
 // V37.1.6 — todos os fetches filtram por atividade nos últimos 30 dias.
@@ -140,32 +159,18 @@ function buildSequentialLoad(openCount, taskHours, horizonDays, journeyHours) {
   };
 }
 
-function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonDays, journeyHours) {
+function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonDays, journeyHours, availableHoursInLookback) {
   const lj = { open: 0, done: 0, late: 0 };
   const ext = { open: 0, done: 0, late: 0 };
-  const closedWithTimestamps = [];
 
   for (const t of openTasks) {
     const isLj = String(t.space?.id || '') === String(ljSpaceId);
     (isLj ? lj : ext).open++;
   }
 
-  // V37.1.5 — closedTasks já filtrado por date_done > 0 (V37.1.4).
-  // Cap por task em TASK_HOURS_CAP=8h pra cortar outliers (task ficou
-  // 30 dias em "aguardando aprovação" ainda conta como 8h de trabalho).
   for (const t of closedTasks) {
     const isLj = String(t.space?.id || '') === String(ljSpaceId);
     (isLj ? lj : ext).done++;
-
-    if (t.date_created) {
-      const start = Number(t.date_created);
-      const end = Number(t.date_done);
-      if (Number.isFinite(start) && end > start) {
-        const rawHours = (end - start) / 3600000;
-        const cappedHours = Math.min(rawHours, TASK_HOURS_CAP);
-        closedWithTimestamps.push({ done: end, hours: cappedHours, rawHours });
-      }
-    }
   }
 
   for (const t of lateTasks) {
@@ -173,20 +178,15 @@ function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonD
     (isLj ? lj : ext).late++;
   }
 
-  closedWithTimestamps.sort((a, b) => b.done - a.done);
-  const sample = closedWithTimestamps.slice(0, SAMPLE_TARGET);
-  // V37.1.5 — mediana em vez de média aritmética. Estável contra
-  // outliers que escapam do cap (caso uma task batido cap consistentemente).
+  // V37.1.8 — capacity_derived: horas úteis no lookback ÷ tarefas concluídas
+  // no lookback. Não mede mais idade calendário da task — mede a cadência
+  // REAL da pessoa no período. Realista por construção.
+  const doneTotal = lj.done + ext.done;
   let avgHours = null;
-  if (sample.length >= SAMPLE_MIN) {
-    const sortedHours = sample.map(s => s.hours).sort((a, b) => a - b);
-    const mid = Math.floor(sortedHours.length / 2);
-    avgHours = sortedHours.length % 2 === 0
-      ? (sortedHours[mid - 1] + sortedHours[mid]) / 2
-      : sortedHours[mid];
+  if (doneTotal >= SAMPLE_MIN) {
+    avgHours = availableHoursInLookback / doneTotal;
   }
 
-  // V37.1.4 — capacity planning sequencial (não usa due_date).
   const taskHours = avgHours != null ? avgHours : DEFAULT_TASK_HOURS_FALLBACK;
   const totalOpen = lj.open + ext.open;
   const { dailyLoad, overflowHours, totalWorkloadHours } = buildSequentialLoad(
@@ -199,12 +199,12 @@ function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonD
     late_total: lj.late + ext.late,
     avg_hours: avgHours == null ? null : Math.round(avgHours * 10) / 10,
     task_hours_used: Math.round(taskHours * 10) / 10,
-    task_hours_cap: TASK_HOURS_CAP,
     avg_hours_is_fallback: avgHours == null,
-    avg_method: 'median_capped',
-    sample_size: sample.length,
+    avg_method: 'capacity_derived',
+    done_count: doneTotal,
+    available_hours_in_lookback: availableHoursInLookback,
+    sample_size: doneTotal,
     closed_returned: closedTasks.length,
-    closed_with_timestamps: closedWithTimestamps.length,
     total_workload_hours: totalWorkloadHours,
     overflow_hours: overflowHours,
     daily_load: dailyLoad
@@ -262,7 +262,13 @@ module.exports = async function handler(req, res) {
   const horizonDays = buildBusinessHorizon(now, BUSINESS_DAYS_HORIZON);
   const journeyHours = DEFAULT_JOURNEY_HOURS;
 
-  console.log(`[user-tasks-count] iniciando agregação pra ${targetIds.length} pessoa(s) · team=${teamId} · lj_space=${ljSpaceId} · horizonte=${horizonDays.length}d úteis`);
+  // V37.1.8 — calcula horas úteis disponíveis no lookback period (30 dias).
+  // Será base do avg_hours (capacity_derived): available / done_count.
+  const lookbackStartMs = Date.now() - (ACTIVITY_LOOKBACK_DAYS * 24 * 3600 * 1000);
+  const businessDaysInLookback = countBusinessDaysBetween(lookbackStartMs, Date.now() - 24 * 3600 * 1000);
+  const availableHoursInLookback = businessDaysInLookback * journeyHours;
+
+  console.log(`[user-tasks-count] iniciando agregação pra ${targetIds.length} pessoa(s) · team=${teamId} · lj_space=${ljSpaceId} · horizonte=${horizonDays.length}d úteis · lookback=${businessDaysInLookback}d úteis (${availableHoursInLookback}h disponíveis)`);
 
   const results = await Promise.all(targetIds.map(async (uid) => {
     const m = memberById.get(uid);
@@ -275,11 +281,8 @@ module.exports = async function handler(req, res) {
       ]);
       const openTasks = openResult.tasks;
       const lateTasks = lateResult.tasks;
-      const agg = aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonDays, journeyHours);
-      const truncatedFlags = [];
-      if (openResult.truncated) truncatedFlags.push('open');
-      if (lateResult.truncated) truncatedFlags.push('late');
-      console.log(`[user-tasks-count] ${userLabel}: open=${openTasks.length}${openResult.truncated ? '+' : ''} closed=${closedTasks.length}(ts=${agg.closed_with_timestamps}) late=${lateTasks.length}${lateResult.truncated ? '+' : ''} sample=${agg.sample_size} avg=${agg.avg_hours == null ? '—(fallback ' + agg.task_hours_used + 'h)' : agg.avg_hours + 'h'} workload=${agg.total_workload_hours}h overflow=${agg.overflow_hours}h`);
+      const agg = aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonDays, journeyHours, availableHoursInLookback);
+      console.log(`[user-tasks-count] ${userLabel}: open=${openTasks.length}${openResult.truncated ? '+' : ''} done=${agg.done_count} late=${lateTasks.length}${lateResult.truncated ? '+' : ''} avg=${agg.avg_hours == null ? '—(fallback ' + agg.task_hours_used + 'h)' : agg.avg_hours + 'h (' + availableHoursInLookback + 'h/' + agg.done_count + ')'} workload=${agg.total_workload_hours}h overflow=${agg.overflow_hours}h`);
       return {
         user_id: uid,
         name: m?.name || `User ${uid}`,
@@ -301,9 +304,10 @@ module.exports = async function handler(req, res) {
         lj_open: 0, lj_done: 0, lj_late: 0,
         ext_open: 0, ext_done: 0, ext_late: 0,
         late_total: 0,
-        avg_hours: null, task_hours_used: DEFAULT_TASK_HOURS_FALLBACK, task_hours_cap: TASK_HOURS_CAP,
-        avg_hours_is_fallback: true, avg_method: 'median_capped',
-        sample_size: 0, closed_returned: 0, closed_with_timestamps: 0,
+        avg_hours: null, task_hours_used: DEFAULT_TASK_HOURS_FALLBACK,
+        avg_hours_is_fallback: true, avg_method: 'capacity_derived',
+        done_count: 0, available_hours_in_lookback: availableHoursInLookback,
+        sample_size: 0, closed_returned: 0,
         total_workload_hours: 0, overflow_hours: 0,
         open_truncated: false, late_truncated: false,
         daily_load: {},
