@@ -102,6 +102,8 @@ window.DjowRevOpsPanel = {
          <li>• <span class="font-mono">"15% do faturamento"</span></li>
          <li>• <span class="font-mono">"ISS de 5% sobre vendas líquidas"</span></li>
          <li>• <span class="font-mono">"6000 fixos"</span></li>
+         <li class="text-emerald-700 font-bold">• <span class="font-mono">"cria dedução de Parceria Fulano = 15% do faturamento"</span> ⚡</li>
+         <li class="text-emerald-700 font-bold">• <span class="font-mono">"adiciona item Hotmart em variáveis = 5,9% do ticket"</span> ⚡</li>
          <li>• <span class="font-mono">"O que entra em deduções?"</span> (explico)</li>`;
     }
     return `<div class="rounded-2xl border border-violet-200 bg-violet-50/60 p-3 space-y-1.5">
@@ -120,10 +122,15 @@ window.DjowRevOpsPanel = {
       </div>`;
     }
     const sugg = m.suggestion;
+    const create = m.createCommand;
+    // V37.0.11 — Render markdown leve no reply (**X** → bold, `X` → code)
+    const replyHtml = Utils.escape(m.text || '')
+      .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+      .replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-stone-100 text-[10px] font-mono text-slate-800">$1</code>');
     return `<div class="flex justify-start">
       <div class="max-w-[90%] space-y-1.5">
         <div class="rounded-2xl rounded-tl-md bg-white border border-violet-200 px-3 py-2">
-          <p class="text-[11px] text-slate-800 whitespace-pre-line leading-snug">${Utils.escape(m.text)}</p>
+          <p class="text-[11px] text-slate-800 whitespace-pre-line leading-snug">${replyHtml}</p>
         </div>
         ${sugg ? `<div class="rounded-2xl border border-violet-300 bg-violet-50 px-3 py-2 flex items-center justify-between gap-2">
           <div class="min-w-0 flex-1">
@@ -133,6 +140,24 @@ window.DjowRevOpsPanel = {
           <button onclick="Actions.applyDjowRevopsSuggestion(${idx})" class="px-2.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black inline-flex items-center gap-1 shrink-0" style="color:#fff!important;">
             <i data-lucide="check" class="w-3 h-3"></i> Aplicar
           </button>
+        </div>` : ''}
+        ${create ? `<div class="rounded-2xl border-2 border-emerald-300 bg-emerald-50 px-3 py-2.5 space-y-2">
+          <div class="flex items-start gap-1.5">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-700 mt-0.5"></i>
+            <div class="min-w-0 flex-1">
+              <p class="text-[9px] font-black text-emerald-800 uppercase tracking-widest">Criação automática</p>
+              <p class="text-[11px] text-slate-800 mt-0.5"><b>${Utils.escape(create.name)}</b></p>
+              <p class="text-[10px] font-mono text-slate-700 mt-0.5 break-all">${Utils.escape(create.formula)}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button onclick="Actions.applyDjowRevopsCreate(${idx})" ${m.createApplied ? 'disabled' : ''} class="flex-1 px-2.5 py-1.5 rounded-lg ${m.createApplied ? 'bg-stone-300 text-stone-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white'} text-[10px] font-black inline-flex items-center justify-center gap-1" ${!m.createApplied ? 'style="color:#fff!important;"' : ''}>
+              <i data-lucide="${m.createApplied ? 'check-check' : 'plus-circle'}" class="w-3 h-3"></i> ${m.createApplied ? 'Criado' : 'Confirmar criação'}
+            </button>
+            ${!m.createApplied ? `<button onclick="Actions.dismissDjowRevopsCreate(${idx})" class="px-2 py-1.5 rounded-lg bg-white border border-stone-300 hover:bg-stone-50 text-stone-600 text-[10px] font-black">
+              Cancelar
+            </button>` : ''}
+          </div>
         </div>` : ''}
       </div>
     </div>`;
@@ -156,7 +181,9 @@ window.DjowRevOpsPanel = {
 
   // ============================================================
   // MOTOR LOCAL DE SUGESTÃO — regex-based.
-  // Retorna { reply, suggestion } a partir de uma pergunta livre.
+  // Retorna { reply, suggestion, createCommand } a partir de pergunta livre.
+  // V37.0.11 — createCommand permite autonomia pra CRIAR linha/item via comando
+  // natural (não só editar fórmula de linha selecionada).
   // ============================================================
   resolve(question, ctx) {
     const q = String(question || '').trim().toLowerCase()
@@ -164,6 +191,18 @@ window.DjowRevOpsPanel = {
     const afterStep = ctx?.afterStep || 'deducoes_inside';
 
     if (!q) return { reply: 'Escreve algo que eu te ajudo.', suggestion: null };
+
+    // V37.0.11 — Tenta intent CREATE antes de tudo. Se reconhece, retorna
+    // createCommand pro UI mostrar preview + botão "Confirmar criação".
+    const createCmd = this._parseCreateCommand(q);
+    if (createCmd) {
+      const targetLabel = this._createTargetLabel(createCmd);
+      return {
+        reply: `Vou criar **${createCmd.name}** em ${targetLabel} com fórmula \`${createCmd.formula}\`. Confirma?`,
+        suggestion: null,
+        createCommand: createCmd
+      };
+    }
 
     // Pergunta conceitual: "o que entra em deduções?" / "o que é MCU?" / "explica CAC"
     const conceptMatch = q.match(/o que (entra|vai|tem|e|eh|é) (em|nas?|um|uma|o|a)?\s*(deducoes|deducao|s.?m|s e m|sm|g.?a|g e a|ga|custos|faturamento|mcu|msu|cac|breakeven|ctc|tm|ticket|meta|vendas|realizado|previsto)/);
@@ -281,9 +320,109 @@ window.DjowRevOpsPanel = {
     }
 
     return {
-      reply: `Não captei. Tenta de novo nesse formato:\n• "5 por venda"\n• "15% do faturamento"\n• "3% sobre venda líquida"\n• "6000 fixos"\nOu pergunta o conceito: "o que entra em deduções?"`,
+      reply: `Não captei. Tenta de novo nesse formato:\n• "5 por venda"\n• "15% do faturamento"\n• "3% sobre venda líquida"\n• "6000 fixos"\nOu pergunta o conceito: "o que entra em deduções?"\n\n**Também posso criar do zero:** "cria dedução de Parceria Fulano = 15% do faturamento" ou "adiciona item Hotmart em variáveis = 5,9% do ticket".`,
       suggestion: null
     };
+  },
+
+  // V37.0.11 — Parse intent CREATE: tenta extrair {kind, destino, nome,
+  // fórmula} de uma frase tipo "cria dedução de Parceria Fulano = 15% do
+  // faturamento" ou "adiciona item Hotmart em variáveis = 5,9% do ticket".
+  // Retorna null se não é intent CREATE ou não conseguiu extrair tudo.
+  _parseCreateCommand(q) {
+    const verbMatch = q.match(/\b(cria|insere|adiciona|p[ôo]e|coloca|novo|nova)\b/);
+    if (!verbMatch) return null;
+
+    // Destino — primeiro reconhece o tipo de entidade.
+    let target = null;
+    if (/(?:no|do)\s+mcu\b|componente\s+(?:no\s+)?mcu/.test(q)) target = { kind: 'revops_component', kpi: 'mcu' };
+    else if (/(?:no|do)\s+msu\b|componente\s+(?:no\s+)?msu/.test(q)) target = { kind: 'revops_component', kpi: 'msu' };
+    else if (/(?:em\s+)?(?:custos?\s+)?vari[áa]vei?s?/.test(q)) target = { kind: 'revops_item', bucket: 'variable' };
+    else if (/(?:em\s+)?(?:custos?\s+)?aquisi[çc][ãa]o\b/.test(q) && !/dre|dedu/.test(q)) target = { kind: 'revops_item', bucket: 'acquisition' };
+    else if (/(?:em\s+)?(?:custos?\s+)?fixos?\b|(?:em\s+)?g\W?a\b/.test(q) && /(?:item|custo|categoria|despesa)/.test(q)) target = { kind: 'revops_item', bucket: 'fixed' };
+    else if (/(?:em\s+)?dedu[çc][ãoõe]+s?/.test(q) || /^(?:cria|insere|adiciona|p[ôo]e|coloca|nov[oa])\s+(?:uma?\s+)?dedu[çc][ãa]o/.test(q)) target = { kind: 'dre_line', afterStep: 'deducoes_inside' };
+    else if (/(?:em\s+)?s\W?m\b|(?:em\s+)?(?:linha\s+)?(?:de\s+)?marketing\b/.test(q)) target = { kind: 'dre_line', afterStep: 's_m' };
+    else if (/(?:em\s+)?g\W?a\b|(?:em\s+)?fixos?\b/.test(q)) target = { kind: 'dre_line', afterStep: 'g_a' };
+    if (!target) return null;
+
+    // Fórmula — reusa heurística:
+    let formula = null;
+    // X% de/do/sobre <handle>
+    const pctMatch = q.match(/(\d+(?:[\.,]\d+)?)\s*%\s*(?:de|do|da|sobre|em|no)\s+(faturamento\s+bruto|fat[\s_]?bruto|faturamento\s+l[íi]quido|fat[\s_]?liquido|venda\s+l[íi]quida|vendas?\s+l[íi]quidas?|ticket|tm|vendas|mcu|msu|lucro\s+bruto)/);
+    if (pctMatch) {
+      const v = (Number(pctMatch[1].replace('.', '').replace(',', '.')) / 100).toString().replace('.', ',');
+      const handleRaw = pctMatch[2].toLowerCase().replace(/\s+/g, '_');
+      const handleMap = {
+        faturamento_bruto: 'fat_bruto', fat_bruto: 'fat_bruto',
+        faturamento_liquido: 'fat_liquido', faturamento_líquido: 'fat_liquido', fat_liquido: 'fat_liquido', fat_líquido: 'fat_liquido',
+        venda_liquida: 'fat_liquido', venda_líquida: 'fat_liquido', vendas_liquidas: 'fat_liquido', vendas_líquidas: 'fat_liquido',
+        ticket: 'tm', tm: 'tm',
+        vendas: 'vendas', mcu: 'mcu', msu: 'msu',
+        lucro_bruto: 'lucro_bruto'
+      };
+      const h = handleMap[handleRaw] || 'fat_bruto';
+      formula = `=${h}*${v}`;
+    }
+    // X por venda
+    if (!formula) {
+      const perSale = q.match(/(\d+(?:[\.,]\d+)?)\s*(?:reais|r\$)?\s*(?:por|cada|p\/)\s*venda/);
+      if (perSale) {
+        const v = perSale[1].replace('.', '').replace(',', '.');
+        formula = `=vendas*${v.replace('.', ',')}`;
+      }
+    }
+    // valor fixo (4+ dígitos sem porcento nem "por venda")
+    if (!formula) {
+      const fixed = q.match(/(?:=|igual|consome|gasta|equivale|por)\s+(\d{2,}(?:[\.,]\d+)?)\s*(?:reais|r\$|brl)?\s*(?:fixos?|por mes|mensais?)?(?!\s*%)/);
+      if (fixed) {
+        formula = fixed[1].replace('.', '').replace(',', '.').replace('.', ',');
+      }
+    }
+    if (!formula) return null;
+
+    // Nome — entre "de/chamada/chamado/com" e a fórmula ou conector.
+    let name = null;
+    // Tenta "chamada/chamado/com nome X"
+    let m = q.match(/(?:chamada|chamado|com\s+nome|nomeada|nomeado)\s+(.+?)(?=\s+(?:=|igual|consome|gasta|equivale|com\s+\d|\bvai\b|\bque\b|\d))/);
+    if (m) name = m[1];
+    if (!name) {
+      // Tenta "dedução/item/linha de NOME" (capturar até a fórmula/conector)
+      m = q.match(/(?:dedu[çc][ãa]o|linha|item|custo|componente|despesa|categoria)\s+(?:de\s+|do\s+|da\s+|com\s+)?([a-z0-9à-ÿ][a-z0-9à-ÿ\s\.\-]{1,60}?)(?=\s+(?:=|igual|consome|gasta|equivale|que|\d+\s*%|\d{3,}))/);
+      if (m) name = m[1];
+    }
+    if (!name) {
+      // Última tentativa: pega 1-4 palavras antes da fórmula
+      m = q.match(/([a-zà-ÿ][a-zà-ÿ\s\.\-]{2,30})(?=\s+(?:=|igual|consome|gasta|equivale|\d+\s*%))/);
+      if (m) name = m[1];
+    }
+
+    // Cleanup
+    if (name) {
+      name = name
+        .replace(/\b(?:em|no|nos|na|nas|dos|das|do|da|de|com|que|consome|gasta|equivale|igual|uma?|um|os|as|cria|insere|adiciona|p[ôo]e|coloca|novo|nova|linha|item|dedu[çc][ãa]o|custo|categoria|despesa|componente|fixos?|vari[áa]vei?s?|aquisi[çc][ãa]o|marketing|mcu|msu|s\W?m|g\W?a|dre)\b/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      // Title case
+      if (name) {
+        name = name.split(' ').filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      }
+    }
+    if (!name || name.length < 2) name = 'Nova entrada';
+
+    return { ...target, name, formula };
+  },
+
+  _createTargetLabel(cmd) {
+    if (cmd.kind === 'revops_component') return cmd.kpi === 'mcu' ? '**MCU** (componente)' : '**MSU** (componente)';
+    if (cmd.kind === 'revops_item') {
+      const m = { variable: '**Custos Variáveis**', acquisition: '**Aquisição (S&M)** dos Custos', fixed: '**Fixos (G&A)** dos Custos', custom: '**Outros Custos**' };
+      return m[cmd.bucket] || '**Custos**';
+    }
+    if (cmd.kind === 'dre_line') {
+      const m = { deducoes_inside: '**Deduções** (DRE)', s_m: '**S&M (Aquisição)** (DRE)', g_a: '**G&A (Fixos)** (DRE)' };
+      return m[cmd.afterStep] || '**DRE**';
+    }
+    return cmd.kind;
   },
 
   _explainConcept(key) {
