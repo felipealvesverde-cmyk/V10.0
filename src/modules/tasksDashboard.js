@@ -279,16 +279,22 @@ window.TasksDashboard = {
     const ageLabel = !fetched ? 'Não carregado' :
                      ageMin < 1 ? 'agora mesmo' :
                      ageMin === 1 ? 'há 1 min' : `há ${ageMin} min`;
-    return `<div class="flex items-center justify-between gap-3 flex-wrap">
-      <p class="text-[11px] text-stone-600 inline-flex items-center gap-1.5">
-        <i data-lucide="clock" class="w-3 h-3"></i>
-        ${userCount} pessoa${userCount === 1 ? '' : 's'} · atualizado ${ageLabel}
+    return `<div class="space-y-2">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <p class="text-[11px] text-stone-600 inline-flex items-center gap-1.5">
+          <i data-lucide="clock" class="w-3 h-3"></i>
+          ${userCount} pessoa${userCount === 1 ? '' : 's'} · atualizado ${ageLabel}
+        </p>
+        <button onclick="Actions.refreshTasksPersonData()" ${cache.loading ? 'disabled' : ''}
+          class="px-3 py-1.5 rounded-lg bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 text-[11px] font-bold inline-flex items-center gap-1.5 ${cache.loading ? 'opacity-50 cursor-wait' : ''}">
+          <i data-lucide="${cache.loading ? 'loader-2' : 'refresh-cw'}" class="w-3 h-3 ${cache.loading ? 'animate-spin' : ''}"></i>
+          ${cache.loading ? 'Atualizando...' : 'Atualizar'}
+        </button>
+      </div>
+      <p class="text-[10px] text-stone-500 inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-stone-100 border border-stone-200 w-fit">
+        <i data-lucide="filter" class="w-2.5 h-2.5"></i>
+        Considera apenas tarefas mexidas ou concluídas nos últimos 30 dias (tasks zumbi ficam fora)
       </p>
-      <button onclick="Actions.refreshTasksPersonData()" ${cache.loading ? 'disabled' : ''}
-        class="px-3 py-1.5 rounded-lg bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 text-[11px] font-bold inline-flex items-center gap-1.5 ${cache.loading ? 'opacity-50 cursor-wait' : ''}">
-        <i data-lucide="${cache.loading ? 'loader-2' : 'refresh-cw'}" class="w-3 h-3 ${cache.loading ? 'animate-spin' : ''}"></i>
-        ${cache.loading ? 'Atualizando...' : 'Atualizar'}
-      </button>
     </div>`;
   },
 

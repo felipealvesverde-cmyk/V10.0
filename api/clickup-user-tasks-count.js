@@ -24,12 +24,12 @@ const { clickupFetch } = require('../lib/clickup-client');
 const MAX_PAGES_OPEN = 6;              // 600 open max top-level
 const MAX_PAGES_CLOSED = 3;            // 300 closed max
 const MAX_PAGES_LATE = 5;              // 500 late max
-const CLOSED_LOOKBACK_DAYS = 365;
+const ACTIVITY_LOOKBACK_DAYS = 30;     // V37.1.6 — só tasks mexidas/fechadas nos últimos 30d
 const SAMPLE_MIN = 5;
 const SAMPLE_TARGET = 20;
 const BUSINESS_DAYS_HORIZON = 10;      // 2 semanas úteis (Seg-Sex × 2)
 const DEFAULT_JOURNEY_HOURS = 8;
-const DEFAULT_TASK_HOURS_FALLBACK = 4; // usado quando avg_hours == null
+const DEFAULT_TASK_HOURS_FALLBACK = 4;
 const TASK_HOURS_CAP = 8;              // V37.1.5 — cap por task antes de virar amostra
 
 function ymd(date) {
@@ -58,11 +58,19 @@ function buildBusinessHorizon(now, businessDays) {
   return out;
 }
 
+// V37.1.6 — todos os fetches filtram por atividade nos últimos 30 dias.
+// Tasks zumbi (criadas há meses, nunca mais mexidas) saem do escopo.
+// "Mexida" = date_updated_gt; "Fechada" = date_done_gt.
+function lookbackMs() {
+  return Date.now() - (ACTIVITY_LOOKBACK_DAYS * 24 * 3600 * 1000);
+}
+
 async function fetchUserOpenTasks(db, userId, teamId, assigneeId) {
   const out = [];
   let truncated = false;
+  const lb = lookbackMs();
   for (let page = 0; page < MAX_PAGES_OPEN; page++) {
-    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=false&subtasks=false&page=${page}`;
+    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=false&subtasks=false&date_updated_gt=${lb}&page=${page}`;
     const r = await clickupFetch(db, userId, 'GET', path);
     if (!r.ok) break;
     const tasks = Array.isArray(r.data?.tasks) ? r.data.tasks : [];
@@ -74,10 +82,10 @@ async function fetchUserOpenTasks(db, userId, teamId, assigneeId) {
 }
 
 async function fetchUserClosedTasks(db, userId, teamId, assigneeId) {
-  const lookbackMs = Date.now() - (CLOSED_LOOKBACK_DAYS * 24 * 3600 * 1000);
+  const lb = lookbackMs();
   const out = [];
   for (let page = 0; page < MAX_PAGES_CLOSED; page++) {
-    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=true&subtasks=false&date_done_gt=${lookbackMs}&page=${page}`;
+    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=true&subtasks=false&date_done_gt=${lb}&page=${page}`;
     const r = await clickupFetch(db, userId, 'GET', path);
     if (!r.ok) break;
     const tasks = Array.isArray(r.data?.tasks) ? r.data.tasks : [];
@@ -95,10 +103,13 @@ async function fetchUserLateTasks(db, userId, teamId, assigneeId) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const todayMs = now.getTime();
+  const lb = lookbackMs();
   const out = [];
   let truncated = false;
   for (let page = 0; page < MAX_PAGES_LATE; page++) {
-    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=false&subtasks=false&due_date_lt=${todayMs}&page=${page}`;
+    // V37.1.6 — só late mexidas nos últimos 30d. Tasks atrasadas há 6 meses
+    // sem nenhum movimento saem do badge "X atrasadas".
+    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=false&subtasks=false&due_date_lt=${todayMs}&date_updated_gt=${lb}&page=${page}`;
     const r = await clickupFetch(db, userId, 'GET', path);
     if (!r.ok) break;
     const tasks = Array.isArray(r.data?.tasks) ? r.data.tasks : [];
@@ -311,6 +322,7 @@ module.exports = async function handler(req, res) {
     sample_min: SAMPLE_MIN,
     sample_target: SAMPLE_TARGET,
     journey_hours: journeyHours,
-    business_days_horizon: BUSINESS_DAYS_HORIZON
+    business_days_horizon: BUSINESS_DAYS_HORIZON,
+    activity_lookback_days: ACTIVITY_LOOKBACK_DAYS
   });
 };
