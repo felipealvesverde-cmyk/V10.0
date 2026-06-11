@@ -324,7 +324,6 @@ module.exports = async function handler(req, res) {
     horizon_days: horizonDays,
     fetched_at: new Date().toISOString(),
     sample_min: SAMPLE_MIN,
-    sample_target: SAMPLE_TARGET,
     journey_hours: journeyHours,
     business_days_horizon: BUSINESS_DAYS_HORIZON,
     activity_lookback_days: ACTIVITY_LOOKBACK_DAYS
