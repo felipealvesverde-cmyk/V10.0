@@ -327,10 +327,12 @@ window.TasksDashboard = {
 
   _personCard(u, horizonDays, journeyHours) {
     const expanded = Boolean(App.state.tasksPersonExpanded?.[u.user_id]);
-    const ljTotal = (u.lj_open || 0) + (u.lj_done || 0);
-    const extTotal = (u.ext_open || 0) + (u.ext_done || 0);
-    const grandTotal = ljTotal + extTotal;
-    const ljPct = grandTotal ? Math.round((ljTotal / grandTotal) * 100) : 0;
+    // V37.1.7 — Total Ativo = só OPEN (carga atual). Done sai pra linha própria.
+    const ljActive = u.lj_open || 0;
+    const extActive = u.ext_open || 0;
+    const grandTotal = ljActive + extActive;
+    const ljPct = grandTotal ? Math.round((ljActive / grandTotal) * 100) : 0;
+    const doneTotal = (u.lj_done || 0) + (u.ext_done || 0);
     const avgLabel = (() => {
       if (u.avg_hours != null) return `${u.avg_hours.toString().replace('.', ',')}h por tarefa`;
       const returned = u.closed_returned || 0;
@@ -354,17 +356,17 @@ window.TasksDashboard = {
       </button>
 
       <div class="px-4 pb-4 flex items-center gap-4">
-        ${this._donutSvg(ljTotal, extTotal, 64, ljPct)}
+        ${this._donutSvg(ljActive, extActive, 64, ljPct)}
         <div class="min-w-0 flex-1 space-y-1">
           <div class="flex items-center gap-2">
             <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:#7c3aed;"></span>
             <span class="text-[11px] font-bold text-slate-900">LeadJourney</span>
-            <span class="text-[11px] text-stone-600 ml-auto">${ljTotal}</span>
+            <span class="text-[11px] text-stone-600 ml-auto">${ljActive}</span>
           </div>
           <div class="flex items-center gap-2">
             <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:#d4d4d8;"></span>
             <span class="text-[11px] font-bold text-slate-900">Outros projetos</span>
-            <span class="text-[11px] text-stone-600 ml-auto">${extTotal}</span>
+            <span class="text-[11px] text-stone-600 ml-auto">${extActive}</span>
           </div>
           <div class="pt-1.5 border-t border-stone-100 mt-1.5 flex items-end justify-between gap-2">
             <div>
@@ -378,6 +380,15 @@ window.TasksDashboard = {
               </span>
             ` : ''}
           </div>
+          ${doneTotal > 0 ? `
+            <div class="flex items-center gap-1.5 pt-1">
+              <i data-lucide="check-circle-2" class="w-3 h-3 text-emerald-600 shrink-0"></i>
+              <span class="text-[10px] text-stone-600">
+                <span class="font-bold text-emerald-700">${doneTotal}</span>
+                concluída${doneTotal === 1 ? '' : 's'} nos últimos 30 dias
+              </span>
+            </div>
+          ` : ''}
         </div>
       </div>
 
