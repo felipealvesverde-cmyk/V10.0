@@ -489,6 +489,25 @@ window.TasksDashboard = {
               </div>
             </div>
             ${(() => {
+              // V37.2.1 — Contador "X de Y têm datas" + alerta se empilhamento parcial.
+              const scheduled = u.tasks_scheduled || 0;
+              const withoutDates = u.tasks_without_dates || 0;
+              const totalConsidered = scheduled + withoutDates;
+              if (totalConsidered === 0) return '';
+              const pctWithDates = Math.round((scheduled / totalConsidered) * 100);
+              const isPartial = pctWithDates < 60;
+              const toneCls = isPartial ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-stone-50 border-stone-200 text-stone-700';
+              return `
+                <div class="rounded-lg ${toneCls} border px-2.5 py-1.5 flex items-center gap-2">
+                  <i data-lucide="${isPartial ? 'alert-circle' : 'info'}" class="w-3.5 h-3.5 shrink-0"></i>
+                  <p class="text-[10px] leading-snug">
+                    <span class="font-black">${scheduled} de ${totalConsidered}</span> tarefas abertas têm início + entrega preenchidos
+                    ${isPartial ? `· <span class="font-bold">empilhamento parcial</span> (${pctWithDates}%)` : ''}
+                  </p>
+                </div>
+              `;
+            })()}
+            ${(() => {
               const composition = this._computeComposition(u);
               const todayKey = (() => {
                 const t = new Date();
@@ -511,12 +530,17 @@ window.TasksDashboard = {
             })()}
             ${u.next_free_day ? (() => {
               const fd = new Date(u.next_free_day + 'T00:00:00');
-              const dateLabel = fd.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+              const today = new Date(); today.setHours(0,0,0,0);
+              const isToday = fd.getTime() === today.getTime();
+              const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+              const isTomorrow = fd.getTime() === tomorrow.getTime();
+              const dateFull = fd.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short' });
+              const dateLabel = isToday ? `Ainda hoje (${dateFull})` : isTomorrow ? `Amanhã (${dateFull})` : dateFull;
               return `
                 <div class="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 flex items-center gap-2">
                   <i data-lucide="calendar-check" class="w-4 h-4 text-emerald-600 shrink-0"></i>
                   <p class="text-[11px] text-emerald-800">
-                    Próximo dia livre: <span class="font-black">${dateLabel}</span>
+                    Próximo slot livre: <span class="font-black">${dateLabel}</span>
                     <span class="text-emerald-700 text-[10px]">(${u.next_free_day_hours.toString().replace('.', ',')}h disponíveis)</span>
                   </p>
                 </div>
@@ -610,8 +634,21 @@ window.TasksDashboard = {
   _dedicationBlock(u) {
     const byList = Array.isArray(u.by_lj_list) ? u.by_lj_list : [];
     const extOpen = u.ext_open || 0;
+    const ljOpen = u.lj_open || 0;
     if (byList.length === 0 && extOpen === 0) {
-      return `<p class="text-[12px] text-stone-500 italic">Nenhuma tarefa LJ pendente.</p>`;
+      return `<p class="text-[12px] text-stone-500 italic">Nenhuma tarefa pendente.</p>`;
+    }
+    // V37.2.1 — Mensagem clara quando 100% das ativas estão fora do LJ.
+    if (ljOpen === 0 && extOpen > 0) {
+      return `<div class="rounded-xl bg-stone-50 border border-stone-200 p-4 flex items-start gap-3">
+        <span class="shrink-0 w-9 h-9 rounded-lg bg-white border border-stone-300 grid place-items-center text-stone-500">
+          <i data-lucide="moon" class="w-4 h-4"></i>
+        </span>
+        <div>
+          <p class="text-[12px] font-black text-slate-900">Esta pessoa não tem tarefas LJ ativas</p>
+          <p class="text-[11px] text-stone-600 mt-0.5">Toda a carga atual está em outros projetos do workspace ClickUp (<span class="font-bold">${extOpen}</span> tarefa${extOpen === 1 ? '' : 's'} fora do espaço LJ).</p>
+        </div>
+      </div>`;
     }
     const maxCount = Math.max(...byList.map(l => l.count), extOpen, 1);
     // Agrupa por folder_name (produto). Folderless = "Sem produto".
