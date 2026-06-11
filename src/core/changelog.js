@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.1.6',
+    date: '2026-06-11',
+    title: 'Tarefas Por Pessoa: janela móvel de 30 dias (tasks zumbi ficam fora)',
+    bullets: [
+      'Todos os números do card agora consideram apenas tarefas mexidas ou concluídas nos últimos 30 dias. Tarefas criadas há meses e nunca mais tocadas saem do escopo — não inflam os totais.',
+      'Pedro Henrique vai cair de 664 abertas pra ~80-100 (o que realmente tá vivo no operacional dele). Stephano/Thiago idem.',
+      'Filtros aplicados no ClickUp via date_updated_gt (open + late) e date_done_gt (closed). 3 endpoints novos rodam com o filtro server-side.',
+      'Card ganha micro-badge no header da sub-aba explicando: "Considera apenas tarefas mexidas ou concluídas nos últimos 30 dias (tasks zumbi ficam fora)" — sem cliente confundir com "tudo no ClickUp".',
+      'A capacity (fila + backlog overflow) reflete operacional REAL — quem tem 80 tarefas ativas vai ter ~320h de fila, não milhares.'
+    ]
+  },
+  {
     version: 'V37.1.5',
     date: '2026-06-11',
     title: 'Tarefas Por Pessoa: média robusta — cap 8h por tarefa + mediana',
