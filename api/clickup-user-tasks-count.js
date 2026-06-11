@@ -12,7 +12,9 @@
 // Retorna: { ok, users: [...], fetched_at, sample_min: 5 }
 const { clickupFetch } = require('../lib/clickup-client');
 
-const MAX_PAGES_PER_USER = 3;          // 300 tasks max
+const MAX_PAGES_OPEN = 3;              // 300 tasks open max
+const MAX_PAGES_CLOSED = 2;            // 200 closed máx (sobra muito pros 20 da avg)
+const CLOSED_LOOKBACK_DAYS = 365;      // V37.1.2 — só último ano pra média
 const SAMPLE_MIN = 5;                  // < 5 closed = avg_hours null
 const SAMPLE_TARGET = 20;              // 20 mais recentes pra média
 const DAILY_HORIZON = 14;              // 2 semanas
@@ -35,20 +37,40 @@ function buildHorizon(now, days) {
   return out;
 }
 
-async function fetchUserTasks(db, userId, teamId, assigneeId) {
+// V37.1.2 — Split em 2 fetches por user (antes era 1 fetch include_closed=true).
+// Motivo: ClickUp ordena por date_updated DESC. Tasks abertas dominam as primeiras
+// 300 (porque movimentam mais), closed quase não aparecem na cota — resultado era
+// "amostra insuficiente" pra TODOS os users com volume.
+async function fetchUserOpenTasks(db, userId, teamId, assigneeId) {
   const out = [];
-  for (let page = 0; page < MAX_PAGES_PER_USER; page++) {
-    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=true&subtasks=true&page=${page}`;
+  for (let page = 0; page < MAX_PAGES_OPEN; page++) {
+    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=false&subtasks=true&page=${page}`;
     const r = await clickupFetch(db, userId, 'GET', path);
     if (!r.ok) break;
     const tasks = Array.isArray(r.data?.tasks) ? r.data.tasks : [];
     out.push(...tasks);
-    if (tasks.length < 100) break; // página final
+    if (tasks.length < 100) break;
   }
   return out;
 }
 
-function aggregateForUser(tasks, ljSpaceId, horizonDays, avgHoursFallback) {
+async function fetchUserClosedTasks(db, userId, teamId, assigneeId) {
+  // date_done_gt filtra do lado do servidor — só vem tasks com date_done preenchido.
+  const lookbackMs = Date.now() - (CLOSED_LOOKBACK_DAYS * 24 * 3600 * 1000);
+  const out = [];
+  for (let page = 0; page < MAX_PAGES_CLOSED; page++) {
+    const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=true&subtasks=true&date_done_gt=${lookbackMs}&page=${page}`;
+    const r = await clickupFetch(db, userId, 'GET', path);
+    if (!r.ok) break;
+    const tasks = Array.isArray(r.data?.tasks) ? r.data.tasks : [];
+    out.push(...tasks);
+    if (tasks.length < 100) break;
+  }
+  // Guard defensivo: filter só as que realmente estão closed.
+  return out.filter(t => t.status?.type === 'closed');
+}
+
+function aggregateForUser(openTasks, closedTasks, ljSpaceId, horizonDays, avgHoursFallback) {
   const lj = { open: 0, done: 0, late: 0 };
   const ext = { open: 0, done: 0, late: 0 };
   const closedSorted = [];
@@ -58,21 +80,24 @@ function aggregateForUser(tasks, ljSpaceId, horizonDays, avgHoursFallback) {
   const todayStart = new Date(todayStr + 'T00:00:00');
   const horizonEnd = new Date(horizonDays[horizonDays.length - 1] + 'T23:59:59');
 
-  for (const t of tasks) {
+  // Tasks abertas: counts + late + (depois) daily_load.
+  for (const t of openTasks) {
     const isLj = String(t.space?.id || '') === String(ljSpaceId);
-    const isClosed = t.status?.type === 'closed';
     const bucket = isLj ? lj : ext;
-    if (isClosed) {
-      bucket.done++;
-    } else {
-      bucket.open++;
-      if (t.due_date) {
-        const due = new Date(Number(t.due_date));
-        if (!isNaN(due.getTime()) && due < todayStart) bucket.late++;
-      }
+    bucket.open++;
+    if (t.due_date) {
+      const due = new Date(Number(t.due_date));
+      if (!isNaN(due.getTime()) && due < todayStart) bucket.late++;
     }
+  }
 
-    if (isClosed && t.date_done && t.date_created) {
+  // Tasks fechadas: counts done + amostra avg.
+  for (const t of closedTasks) {
+    const isLj = String(t.space?.id || '') === String(ljSpaceId);
+    const bucket = isLj ? lj : ext;
+    bucket.done++;
+
+    if (t.date_done && t.date_created) {
       const start = Number(t.date_created);
       const end = Number(t.date_done);
       if (end > start) {
@@ -90,8 +115,7 @@ function aggregateForUser(tasks, ljSpaceId, horizonDays, avgHoursFallback) {
   }
 
   const taskHours = avgHours || avgHoursFallback;
-  for (const t of tasks) {
-    if (t.status?.type === 'closed') continue;
+  for (const t of openTasks) {
     if (!t.due_date) continue;
     const due = new Date(Number(t.due_date));
     if (isNaN(due.getTime())) continue;
@@ -174,8 +198,11 @@ module.exports = async function handler(req, res) {
 
   const results = await Promise.all(targetIds.map(async (uid) => {
     try {
-      const tasks = await fetchUserTasks(req.tenantDb, userId, teamId, uid);
-      const agg = aggregateForUser(tasks, ljSpaceId, horizonDays, 4);
+      const [openTasks, closedTasks] = await Promise.all([
+        fetchUserOpenTasks(req.tenantDb, userId, teamId, uid),
+        fetchUserClosedTasks(req.tenantDb, userId, teamId, uid)
+      ]);
+      const agg = aggregateForUser(openTasks, closedTasks, ljSpaceId, horizonDays, 4);
       const m = memberById.get(uid);
       return {
         user_id: uid,

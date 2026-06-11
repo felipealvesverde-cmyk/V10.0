@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.1.2',
+    date: '2026-06-11',
+    title: 'Tarefas Por Pessoa: média de conclusão agora calcula (fix amostra insuficiente)',
+    bullets: [
+      'Cards mostravam "— amostra insuficiente (0/5)" pra praticamente todo mundo. Causa: o endpoint fazia 1 fetch só pra cada pessoa com cap de 300 tasks, e o ClickUp ordena por date_updated DESC. Tasks abertas movimentam muito mais — dominavam as 300 primeiras e quase nenhuma closed entrava.',
+      'Fix: agora são 2 fetches independentes por pessoa rodando em paralelo. Um traz só as abertas (counts + agenda + atrasadas), outro usa filtro server-side date_done_gt e traz só as concluídas no último ano (até 200 — sobra de monte pros 20 que viram a amostra da média).',
+      'Resultado prático: pessoas que tinham 0/5 ou 1/5 amostra agora aparecem com "X,Yh por tarefa" assim que tiverem >= 5 closed em 365 dias.',
+      'Custo: 2x chamadas ClickUp por pessoa, mas dentro do rate limit (100 req/min) com folga mesmo pra team grande.'
+    ]
+  },
+  {
     version: 'V37.1.1',
     date: '2026-06-11',
     title: 'Tarefas Por Pessoa: cor violet do LJ, badge de atrasadas e legenda fora',
