@@ -325,9 +325,14 @@ window.TasksDashboard = {
     const extTotal = (u.ext_open || 0) + (u.ext_done || 0);
     const grandTotal = ljTotal + extTotal;
     const ljPct = grandTotal ? Math.round((ljTotal / grandTotal) * 100) : 0;
-    const avgLabel = u.avg_hours != null
-      ? `${u.avg_hours.toString().replace('.', ',')}h por tarefa`
-      : `— amostra insuficiente (${u.sample_size || 0}/${5})`;
+    const avgLabel = (() => {
+      if (u.avg_hours != null) return `${u.avg_hours.toString().replace('.', ',')}h por tarefa`;
+      const returned = u.closed_returned || 0;
+      const withTs = u.closed_with_timestamps || 0;
+      if (returned === 0) return `— sem tarefas concluídas no último ano`;
+      if (withTs < 5 && returned >= 5) return `— ${withTs}/${returned} concluídas têm data válida (ClickUp não preencheu)`;
+      return `— amostra insuficiente (${withTs}/5)`;
+    })();
 
     const { weekCurrent, weekNext } = this._splitHorizonWeeks(horizonDays);
 
