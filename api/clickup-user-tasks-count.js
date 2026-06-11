@@ -1,29 +1,35 @@
-// V37.1.0 → V37.1.3 — POST /api/clickup-user-tasks-count
+// V37.1.0 → V37.1.4 — POST /api/clickup-user-tasks-count
 // Agrega tasks por pessoa cross-space (mesmo workspace ClickUp). Pra cada user_id:
 //   - particiona em LJ (space.id === lj_space_id) vs Externos
-//   - conta open/done por bucket (TOP-LEVEL apenas — alinha com UI ClickUp)
+//   - conta open/done/late top-level (sem subtasks)
 //   - calcula avg_hours (últimas 20 closed do POOL inteiro: LJ + Ext)
-//   - late_total via fetch dedicado (due_date_lt server-side)
-//   - daily_load: 14 dias (hoje..hoje+13) somando (time_estimate_h || avg_hours)
+//   - daily_load: capacity planning — empilha (open_count × avg_hours) em 8h/dia
+//     SEQUENCIALMENTE a partir de hoje, pulando sábado/domingo.
 //
-// V37.1.3 — Strategy C: 3 fetches em paralelo por user, todos com subtasks=false.
-//   Antes (V37.1.2): subtasks=true inflava contagem (Felipe vê 8 atrasadas no
-//   ClickUp UI, LJ mostrava 32 porque contava subtasks). Agora top-level only.
-//   Logs por user no Railway pra diagnosticar volumes em prod.
+// V37.1.3 — Strategy C: 3 fetches paralelos (open + closed + late), subtasks=false.
+// V37.1.4 — Mudanças cravadas:
+//   1. Filter "concluída" passa de status.type==='closed' pra date_done>0.
+//      Workspace Sansone usa status custom ("Concluído", "Entregue") que não
+//      marca status.type='closed' mas SIM date_done preenchido.
+//   2. Caps maiores: OPEN 3→6 páginas (600 max), LATE 2→5 (500 max). Flags
+//      open_truncated / late_truncated indicam quando bate teto.
+//   3. Horizonte vira 10 dias úteis (Seg-Sex), pulando fins de semana.
+//   4. daily_load deixa de usar due_date — agora é capacity planning sequencial.
+//      total_workload_hours = open_count × avg_hours. Empilha 8h/dia.
+//      overflow_hours = sobra que não coube nos 10 dias úteis.
 //
-// Privacy: títulos de tasks externas nunca saem do backend. Só counts e cargas.
-//
-// Body: { user_ids: [123, 456, ...] }   // opcional. omitido = todos do team
-// Retorna: { ok, users: [...], fetched_at, sample_min: 5 }
+// Privacy: títulos de tasks externas nunca saem do backend.
 const { clickupFetch } = require('../lib/clickup-client');
 
-const MAX_PAGES_OPEN = 3;              // 300 tasks open max (top-level)
+const MAX_PAGES_OPEN = 6;              // 600 open max top-level
 const MAX_PAGES_CLOSED = 3;            // 300 closed max
-const MAX_PAGES_LATE = 2;              // 200 late max (já filtrado server-side)
-const CLOSED_LOOKBACK_DAYS = 365;      // último ano pra média
+const MAX_PAGES_LATE = 5;              // 500 late max
+const CLOSED_LOOKBACK_DAYS = 365;
 const SAMPLE_MIN = 5;
 const SAMPLE_TARGET = 20;
-const DAILY_HORIZON = 14;
+const BUSINESS_DAYS_HORIZON = 10;      // 2 semanas úteis (Seg-Sex × 2)
+const DEFAULT_JOURNEY_HOURS = 8;
+const DEFAULT_TASK_HOURS_FALLBACK = 4; // usado quando avg_hours == null
 
 function ymd(date) {
   const y = date.getFullYear();
@@ -32,20 +38,28 @@ function ymd(date) {
   return `${y}-${m}-${d}`;
 }
 
-function buildHorizon(now, days) {
+function isWeekday(date) {
+  const dow = date.getDay();
+  return dow !== 0 && dow !== 6;
+}
+
+// V37.1.4 — gera próximos N dias úteis a partir de hoje (pula sáb/dom).
+function buildBusinessHorizon(now, businessDays) {
   const out = [];
-  for (let i = 0; i < days; i++) {
-    const d = new Date(now);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() + i);
-    out.push(ymd(d));
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  let guard = 0;
+  while (out.length < businessDays && guard < 365) {
+    if (isWeekday(d)) out.push(ymd(d));
+    d.setDate(d.getDate() + 1);
+    guard++;
   }
   return out;
 }
 
-// V37.1.3 — Strategy C: 3 fetches dedicados, todos top-level only.
 async function fetchUserOpenTasks(db, userId, teamId, assigneeId) {
   const out = [];
+  let truncated = false;
   for (let page = 0; page < MAX_PAGES_OPEN; page++) {
     const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=false&subtasks=false&page=${page}`;
     const r = await clickupFetch(db, userId, 'GET', path);
@@ -53,8 +67,9 @@ async function fetchUserOpenTasks(db, userId, teamId, assigneeId) {
     const tasks = Array.isArray(r.data?.tasks) ? r.data.tasks : [];
     out.push(...tasks);
     if (tasks.length < 100) break;
+    if (page === MAX_PAGES_OPEN - 1 && tasks.length === 100) truncated = true;
   }
-  return out;
+  return { tasks: out, truncated };
 }
 
 async function fetchUserClosedTasks(db, userId, teamId, assigneeId) {
@@ -68,16 +83,19 @@ async function fetchUserClosedTasks(db, userId, teamId, assigneeId) {
     out.push(...tasks);
     if (tasks.length < 100) break;
   }
-  // Guard defensivo: garantir que são closed.
-  return out.filter(t => t.status?.type === 'closed');
+  // V37.1.4 — filter por date_done > 0 (universal, cobre status custom).
+  return out.filter(t => {
+    const dd = Number(t.date_done);
+    return Number.isFinite(dd) && dd > 0;
+  });
 }
 
 async function fetchUserLateTasks(db, userId, teamId, assigneeId) {
-  // Tasks open com due_date < hoje 00:00. ClickUp filtra server-side.
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const todayMs = now.getTime();
   const out = [];
+  let truncated = false;
   for (let page = 0; page < MAX_PAGES_LATE; page++) {
     const path = `/team/${teamId}/task?assignees[]=${assigneeId}&include_closed=false&subtasks=false&due_date_lt=${todayMs}&page=${page}`;
     const r = await clickupFetch(db, userId, 'GET', path);
@@ -85,32 +103,50 @@ async function fetchUserLateTasks(db, userId, teamId, assigneeId) {
     const tasks = Array.isArray(r.data?.tasks) ? r.data.tasks : [];
     out.push(...tasks);
     if (tasks.length < 100) break;
+    if (page === MAX_PAGES_LATE - 1 && tasks.length === 100) truncated = true;
   }
-  return out;
+  return { tasks: out, truncated };
 }
 
-function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonDays, avgHoursFallback) {
+// V37.1.4 — capacity planning: total = open × avg_hours, empilha 8h/dia
+// sequencialmente nos dias do horizonte. overflow = sobra.
+function buildSequentialLoad(openCount, taskHours, horizonDays, journeyHours) {
+  const total = openCount * taskHours;
+  const out = Object.fromEntries(horizonDays.map(d => [d, 0]));
+  let remaining = total;
+  for (const day of horizonDays) {
+    if (remaining <= 0) break;
+    const alloc = Math.min(remaining, journeyHours);
+    out[day] = Math.round(alloc * 10) / 10;
+    remaining -= alloc;
+  }
+  const overflow = Math.max(0, Math.round(remaining * 10) / 10);
+  return {
+    dailyLoad: out,
+    overflowHours: overflow,
+    totalWorkloadHours: Math.round(total * 10) / 10
+  };
+}
+
+function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonDays, journeyHours) {
   const lj = { open: 0, done: 0, late: 0 };
   const ext = { open: 0, done: 0, late: 0 };
   const closedWithTimestamps = [];
-  const dailyLoad = Object.fromEntries(horizonDays.map(d => [d, 0]));
-
-  const todayStr = horizonDays[0];
-  const horizonEnd = new Date(horizonDays[horizonDays.length - 1] + 'T23:59:59');
 
   for (const t of openTasks) {
     const isLj = String(t.space?.id || '') === String(ljSpaceId);
     (isLj ? lj : ext).open++;
   }
 
+  // closedTasks já vem filtrado por date_done > 0 (V37.1.4)
   for (const t of closedTasks) {
     const isLj = String(t.space?.id || '') === String(ljSpaceId);
     (isLj ? lj : ext).done++;
 
-    if (t.date_done && t.date_created) {
+    if (t.date_created) {
       const start = Number(t.date_created);
       const end = Number(t.date_done);
-      if (end > start) {
+      if (Number.isFinite(start) && end > start) {
         closedWithTimestamps.push({ done: end, hours: (end - start) / 3600000 });
       }
     }
@@ -128,36 +164,25 @@ function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonD
     avgHours = sample.reduce((s, x) => s + x.hours, 0) / sample.length;
   }
 
-  const taskHours = avgHours || avgHoursFallback;
-  for (const t of openTasks) {
-    if (!t.due_date) continue;
-    const due = new Date(Number(t.due_date));
-    if (isNaN(due.getTime())) continue;
-    const taskEstimateH = t.time_estimate ? (Number(t.time_estimate) / 3600000) : taskHours;
-    let dayKey;
-    if (due > horizonEnd) continue;
-    if (ymd(due) < todayStr) {
-      dayKey = todayStr;
-    } else {
-      dayKey = ymd(due);
-    }
-    if (dailyLoad[dayKey] !== undefined) {
-      dailyLoad[dayKey] += taskEstimateH;
-    }
-  }
-
-  for (const k of Object.keys(dailyLoad)) {
-    dailyLoad[k] = Math.round(dailyLoad[k] * 10) / 10;
-  }
+  // V37.1.4 — capacity planning sequencial (não usa due_date).
+  const taskHours = avgHours != null ? avgHours : DEFAULT_TASK_HOURS_FALLBACK;
+  const totalOpen = lj.open + ext.open;
+  const { dailyLoad, overflowHours, totalWorkloadHours } = buildSequentialLoad(
+    totalOpen, taskHours, horizonDays, journeyHours
+  );
 
   return {
     lj_open: lj.open, lj_done: lj.done, lj_late: lj.late,
     ext_open: ext.open, ext_done: ext.done, ext_late: ext.late,
     late_total: lj.late + ext.late,
     avg_hours: avgHours == null ? null : Math.round(avgHours * 10) / 10,
+    task_hours_used: Math.round(taskHours * 10) / 10,
+    avg_hours_is_fallback: avgHours == null,
     sample_size: sample.length,
     closed_returned: closedTasks.length,
     closed_with_timestamps: closedWithTimestamps.length,
+    total_workload_hours: totalWorkloadHours,
+    overflow_hours: overflowHours,
     daily_load: dailyLoad
   };
 }
@@ -210,27 +235,35 @@ module.exports = async function handler(req, res) {
   }
 
   const now = new Date();
-  const horizonDays = buildHorizon(now, DAILY_HORIZON);
+  const horizonDays = buildBusinessHorizon(now, BUSINESS_DAYS_HORIZON);
+  const journeyHours = DEFAULT_JOURNEY_HOURS;
 
-  console.log(`[user-tasks-count] iniciando agregação pra ${targetIds.length} pessoa(s) · team=${teamId} · lj_space=${ljSpaceId}`);
+  console.log(`[user-tasks-count] iniciando agregação pra ${targetIds.length} pessoa(s) · team=${teamId} · lj_space=${ljSpaceId} · horizonte=${horizonDays.length}d úteis`);
 
   const results = await Promise.all(targetIds.map(async (uid) => {
     const m = memberById.get(uid);
     const userLabel = m?.name || `User ${uid}`;
     try {
-      const [openTasks, closedTasks, lateTasks] = await Promise.all([
+      const [openResult, closedTasks, lateResult] = await Promise.all([
         fetchUserOpenTasks(req.tenantDb, userId, teamId, uid),
         fetchUserClosedTasks(req.tenantDb, userId, teamId, uid),
         fetchUserLateTasks(req.tenantDb, userId, teamId, uid)
       ]);
-      const agg = aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonDays, 4);
-      console.log(`[user-tasks-count] ${userLabel}: open=${openTasks.length} closed=${closedTasks.length}(ts=${agg.closed_with_timestamps}) late=${lateTasks.length} sample=${agg.sample_size} avg=${agg.avg_hours == null ? '—' : agg.avg_hours + 'h'}`);
+      const openTasks = openResult.tasks;
+      const lateTasks = lateResult.tasks;
+      const agg = aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonDays, journeyHours);
+      const truncatedFlags = [];
+      if (openResult.truncated) truncatedFlags.push('open');
+      if (lateResult.truncated) truncatedFlags.push('late');
+      console.log(`[user-tasks-count] ${userLabel}: open=${openTasks.length}${openResult.truncated ? '+' : ''} closed=${closedTasks.length}(ts=${agg.closed_with_timestamps}) late=${lateTasks.length}${lateResult.truncated ? '+' : ''} sample=${agg.sample_size} avg=${agg.avg_hours == null ? '—(fallback ' + agg.task_hours_used + 'h)' : agg.avg_hours + 'h'} workload=${agg.total_workload_hours}h overflow=${agg.overflow_hours}h`);
       return {
         user_id: uid,
         name: m?.name || `User ${uid}`,
         email: m?.email || null,
         initials: m?.initials || (m?.name ? m.name.slice(0, 2).toUpperCase() : '??'),
         color: m?.color || null,
+        open_truncated: openResult.truncated,
+        late_truncated: lateResult.truncated,
         ...agg
       };
     } catch (err) {
@@ -244,8 +277,10 @@ module.exports = async function handler(req, res) {
         lj_open: 0, lj_done: 0, lj_late: 0,
         ext_open: 0, ext_done: 0, ext_late: 0,
         late_total: 0,
-        avg_hours: null, sample_size: 0,
-        closed_returned: 0, closed_with_timestamps: 0,
+        avg_hours: null, task_hours_used: DEFAULT_TASK_HOURS_FALLBACK, avg_hours_is_fallback: true,
+        sample_size: 0, closed_returned: 0, closed_with_timestamps: 0,
+        total_workload_hours: 0, overflow_hours: 0,
+        open_truncated: false, late_truncated: false,
         daily_load: {},
         error: err.message
       };
@@ -261,6 +296,7 @@ module.exports = async function handler(req, res) {
     fetched_at: new Date().toISOString(),
     sample_min: SAMPLE_MIN,
     sample_target: SAMPLE_TARGET,
-    journey_hours: 8
+    journey_hours: journeyHours,
+    business_days_horizon: BUSINESS_DAYS_HORIZON
   });
 };

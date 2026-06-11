@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.1.4',
+    date: '2026-06-11',
+    title: 'Tarefas Por Pessoa: capacity planning sequencial + status custom + caps maiores',
+    bullets: [
+      'Modelo de carga semanal mudou de "alocar por due_date" pra capacity planning: pega total = open × média de fechamento e empilha 8h/dia sequencialmente. Pulamos sábado e domingo — horizonte vira 10 dias úteis (Seg-Sex × 2).',
+      'Exemplo: Pedro com 10 tarefas × 1h média começando hoje quinta → quinta cheia, sexta com 2h preenchidas, restante livre. Era o que tu pediu.',
+      'Quando a fila não cabe nas 2 semanas úteis, um badge novo aparece no expand: "+Xh em backlog além das 2 semanas (~N dias úteis extras)". Pedro com 200h de fila vai mostrar quanto sobra.',
+      'Tooltip ao passar mouse na barra do dia: "Sex 13/06 · 6h ocupadas · 2h disponíveis". Antes era "6h, 75%".',
+      'Fix do "Pedro com 0 concluídas": filtro de closed deixou de exigir status.type==="closed" e passa a aceitar QUALQUER task com date_done preenchido. Workspace que usa status custom ("Concluído", "Entregue", "Aprovado") agora entra na amostra.',
+      'Caps subiram pra evitar bater teto: open 300→600, late 200→500. Quando bate cap mesmo assim, número ganha "+" no card (ex: "200+ atrasadas") + tooltip explicando.',
+      'Labels Seg/Sex passam a usar 2 letras (Se, Te, Qa, Qi, Sx) pra não confundir as iniciais idênticas.'
+    ]
+  },
+  {
     version: 'V37.1.3',
     date: '2026-06-11',
     title: 'Tarefas Por Pessoa: contagens alinham com ClickUp + logs no Railway',
