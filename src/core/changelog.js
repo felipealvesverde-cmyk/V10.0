@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.1.5',
+    date: '2026-06-11',
+    title: 'Tarefas Por Pessoa: média robusta — cap 8h por tarefa + mediana',
+    bullets: [
+      'V37.1.4 expôs problema enorme: tasks da Sansone ficam abertas semanas no ClickUp ("aguardando aprovação", parqueadas em backlog). Meu cálculo (date_done − date_created) mediu idade calendário, não tempo de trabalho. Resultado absurdo: Pedro com 669h por tarefa, Thiago 868h.',
+      'Fix: cada task individual ganha cap de 8h (uma jornada inteira). Task que ficou 30 dias em status custom ainda conta como 8h máximo. Outliers extremos não dominam mais.',
+      'Substituí média aritmética por mediana das 20 últimas concluídas. Mediana é estável quando metade da amostra fechou no mesmo dia e a outra metade ficou no cap — o valor central vira o representativo.',
+      'Efeito esperado: médias caem pra faixa realista (1-8h). Pedro 664 tasks × 4h = ~2.600h de fila (~325 dias úteis) em vez de 444 mil horas absurdas.',
+      'Limitação: ClickUp não distingue "horas trabalhadas" de "tempo em aberto" sem time tracking manual. Esse cap+mediana é o melhor heurístico possível sem dado extra. Custom por cliente fica em backlog.'
+    ]
+  },
+  {
     version: 'V37.1.4',
     date: '2026-06-11',
     title: 'Tarefas Por Pessoa: capacity planning sequencial + status custom + caps maiores',

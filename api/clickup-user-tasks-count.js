@@ -30,6 +30,7 @@ const SAMPLE_TARGET = 20;
 const BUSINESS_DAYS_HORIZON = 10;      // 2 semanas úteis (Seg-Sex × 2)
 const DEFAULT_JOURNEY_HOURS = 8;
 const DEFAULT_TASK_HOURS_FALLBACK = 4; // usado quando avg_hours == null
+const TASK_HOURS_CAP = 8;              // V37.1.5 — cap por task antes de virar amostra
 
 function ymd(date) {
   const y = date.getFullYear();
@@ -138,7 +139,9 @@ function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonD
     (isLj ? lj : ext).open++;
   }
 
-  // closedTasks já vem filtrado por date_done > 0 (V37.1.4)
+  // V37.1.5 — closedTasks já filtrado por date_done > 0 (V37.1.4).
+  // Cap por task em TASK_HOURS_CAP=8h pra cortar outliers (task ficou
+  // 30 dias em "aguardando aprovação" ainda conta como 8h de trabalho).
   for (const t of closedTasks) {
     const isLj = String(t.space?.id || '') === String(ljSpaceId);
     (isLj ? lj : ext).done++;
@@ -147,7 +150,9 @@ function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonD
       const start = Number(t.date_created);
       const end = Number(t.date_done);
       if (Number.isFinite(start) && end > start) {
-        closedWithTimestamps.push({ done: end, hours: (end - start) / 3600000 });
+        const rawHours = (end - start) / 3600000;
+        const cappedHours = Math.min(rawHours, TASK_HOURS_CAP);
+        closedWithTimestamps.push({ done: end, hours: cappedHours, rawHours });
       }
     }
   }
@@ -159,9 +164,15 @@ function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonD
 
   closedWithTimestamps.sort((a, b) => b.done - a.done);
   const sample = closedWithTimestamps.slice(0, SAMPLE_TARGET);
+  // V37.1.5 — mediana em vez de média aritmética. Estável contra
+  // outliers que escapam do cap (caso uma task batido cap consistentemente).
   let avgHours = null;
   if (sample.length >= SAMPLE_MIN) {
-    avgHours = sample.reduce((s, x) => s + x.hours, 0) / sample.length;
+    const sortedHours = sample.map(s => s.hours).sort((a, b) => a - b);
+    const mid = Math.floor(sortedHours.length / 2);
+    avgHours = sortedHours.length % 2 === 0
+      ? (sortedHours[mid - 1] + sortedHours[mid]) / 2
+      : sortedHours[mid];
   }
 
   // V37.1.4 — capacity planning sequencial (não usa due_date).
@@ -177,7 +188,9 @@ function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonD
     late_total: lj.late + ext.late,
     avg_hours: avgHours == null ? null : Math.round(avgHours * 10) / 10,
     task_hours_used: Math.round(taskHours * 10) / 10,
+    task_hours_cap: TASK_HOURS_CAP,
     avg_hours_is_fallback: avgHours == null,
+    avg_method: 'median_capped',
     sample_size: sample.length,
     closed_returned: closedTasks.length,
     closed_with_timestamps: closedWithTimestamps.length,
@@ -277,7 +290,8 @@ module.exports = async function handler(req, res) {
         lj_open: 0, lj_done: 0, lj_late: 0,
         ext_open: 0, ext_done: 0, ext_late: 0,
         late_total: 0,
-        avg_hours: null, task_hours_used: DEFAULT_TASK_HOURS_FALLBACK, avg_hours_is_fallback: true,
+        avg_hours: null, task_hours_used: DEFAULT_TASK_HOURS_FALLBACK, task_hours_cap: TASK_HOURS_CAP,
+        avg_hours_is_fallback: true, avg_method: 'median_capped',
         sample_size: 0, closed_returned: 0, closed_with_timestamps: 0,
         total_workload_hours: 0, overflow_hours: 0,
         open_truncated: false, late_truncated: false,
