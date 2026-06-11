@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.1.8',
+    date: '2026-06-11',
+    title: 'Tarefas Por Pessoa: média de tarefa derivada da capacidade real',
+    bullets: [
+      'Felipe sacou: se o mês tem ~22 dias úteis × 8h = 176h disponíveis, e a pessoa fechou 69 tarefas, então a média REAL é 176/69 ≈ 2,5h por tarefa. Bem diferente das "8h" que mostrávamos.',
+      'Substituí o cálculo antigo (date_done − date_created) por capacity_derived: horas úteis disponíveis no período ÷ tarefas concluídas. Não mede mais idade calendário, mede cadência real.',
+      'Pra quem fechou pouco (< 5 no mês) a média continua "—" — amostra pequena dá número não confiável.',
+      'Sumiram do código o cap por task (8h), a mediana e o pool de timestamps. Não precisa mais — a fórmula é direta e auto-corrigida.',
+      'Efeito colateral: fila do empilhamento fica MUITO mais realista. Pedro com 80 abertas × 2,5h média = 200h fila ≈ 25 dias úteis. Não os 1000h+ absurdos de antes.',
+      'Logs Railway agora mostram a fórmula explícita: "avg=2.5h (176h/69)" — fica auditável.'
+    ]
+  },
+  {
     version: 'V37.1.7',
     date: '2026-06-11',
     title: 'Tarefas Por Pessoa: Total Ativo agora é só pendente + linha de concluídas',
