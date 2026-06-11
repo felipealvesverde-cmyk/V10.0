@@ -1911,6 +1911,10 @@
       const diffHint = isOverride && Math.abs(diff) > 0.5
         ? `<p class="text-[10px] text-violet-700 mt-1 font-bold">Auto seria ${this._money(mcuAuto.value)} · diferença ${diff > 0 ? '+' : ''}${this._money(diff)}</p>`
         : '';
+      // V37.0.10 — Chevron de collapse do painel de edição.
+      const collapseKey = 'revops:mcu';
+      const isCollapsed = this._isCollapsed(productId, collapseKey);
+      const chevron = this._chevronToggle(productId, collapseKey, { tone: 'emerald', size: 'md' });
       return `<div class="rounded-2xl bg-white/70 border border-stone-200 ${tone.borderL} overflow-hidden shadow-sm">
         <div class="p-4">
           <div class="flex items-start justify-between gap-3">
@@ -1924,10 +1928,13 @@
                 <p class="text-[10px] text-stone-500">após custos variáveis</p>
               </div>
             </div>
-            <div class="text-right shrink-0">
-              <p class="text-2xl font-black ${tone.text} whitespace-nowrap">${this._money(value)}</p>
-              <div class="mt-1">${this._cascadeOverrideBadge(override.mode)}</div>
-              ${diffHint}
+            <div class="flex items-start gap-2 shrink-0">
+              <div class="text-right">
+                <p class="text-2xl font-black ${tone.text} whitespace-nowrap">${this._money(value)}</p>
+                <div class="mt-1">${this._cascadeOverrideBadge(override.mode)}</div>
+                ${diffHint}
+              </div>
+              ${chevron}
             </div>
           </div>
           <div class="mt-2 flex items-start gap-1.5 text-[11px] text-stone-600">
@@ -1935,9 +1942,9 @@
             <span>Quanto sobra por venda depois de tirar custos que escalam com receita (impostos, comissões, taxa de plataforma).</span>
           </div>
         </div>
-        <div class="border-t border-stone-200 bg-white/40">
+        ${isCollapsed ? '' : `<div class="border-t border-stone-200 bg-white/40">
           ${this._cascadeEditPanel(productId, 'mcu', override, mcuAuto)}
-        </div>
+        </div>`}
       </div>`;
     },
 
@@ -1957,6 +1964,10 @@
         : tmPct >= 25
         ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-500/10 border border-amber-400/30 text-amber-700 uppercase tracking-wider"><i data-lucide="alert-triangle" class="w-3 h-3"></i> ${tmPct.toFixed(0)}% do TM · Apertada</span>`
         : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-rose-500/10 border border-rose-400/30 text-rose-700 uppercase tracking-wider"><i data-lucide="x-circle" class="w-3 h-3"></i> ${tmPct.toFixed(0)}% do TM · Crítica</span>`;
+      // V37.0.10 — Chevron de collapse do painel de edição.
+      const collapseKey = 'revops:msu';
+      const isCollapsed = this._isCollapsed(productId, collapseKey);
+      const chevron = this._chevronToggle(productId, collapseKey, { tone: 'emerald', size: 'md' });
       return `<div class="rounded-2xl bg-white/70 border border-stone-200 ${tone.borderL} overflow-hidden shadow-sm">
         <div class="p-4">
           <div class="flex items-start justify-between gap-3">
@@ -1970,10 +1981,13 @@
                 <p class="text-[10px] text-stone-500">após CAC · Fórmula: MCU (${this._money(mcu)}) − CAC (${this._money(cac)})</p>
               </div>
             </div>
-            <div class="text-right shrink-0">
-              <p class="text-2xl font-black ${tone.text} whitespace-nowrap">${this._money(value)}</p>
-              <div class="mt-1">${this._cascadeOverrideBadge(override.mode)}</div>
-              ${diffHint}
+            <div class="flex items-start gap-2 shrink-0">
+              <div class="text-right">
+                <p class="text-2xl font-black ${tone.text} whitespace-nowrap">${this._money(value)}</p>
+                <div class="mt-1">${this._cascadeOverrideBadge(override.mode)}</div>
+                ${diffHint}
+              </div>
+              ${chevron}
             </div>
           </div>
           <div class="mt-2 flex items-start gap-1.5 text-[11px] text-stone-600">
@@ -1982,9 +1996,9 @@
           </div>
           <div class="mt-2">${healthPill}</div>
         </div>
-        <div class="border-t border-stone-200 bg-white/40">
+        ${isCollapsed ? '' : `<div class="border-t border-stone-200 bg-white/40">
           ${this._cascadeEditPanel(productId, 'msu', override, msuAuto)}
-        </div>
+        </div>`}
       </div>`;
     },
 
@@ -2298,16 +2312,25 @@
                           && !hasExtrasOrGroupsAt('lucro_bruto')
                           && Math.abs(vlVal - lbVal) < 0.01;
 
+      // V37.0.10 — Linhas-banner que TÊM conteúdo abaixo recebem chevron de collapse.
+      // EBITDA (lucro_liquido) não recebe — nada abaixo dela.
+      const COLLAPSIBLE_LINES = new Set(['fat_bruto', 'deducoes', 'venda_liquida', 'lucro_bruto', 's_m', 'g_a']);
+
       for (const l of dre.lines) {
         if (l.kind !== 'base') continue;
         if (l.id === 'venda_liquida' && skipVendaLiquida) continue;
         if (l.id === 'lucro_bruto' && skipLucroBruto) continue;
+        const collapseKey = COLLAPSIBLE_LINES.has(l.id) ? `dre:${l.id}` : null;
+        const isCollapsed = collapseKey ? this._isCollapsed(productId, collapseKey) : false;
         if (l.id === 'deducoes') {
-          blocks.push(this._dreBaseCard(productId, l));
-          blocks.push(this._dreFlatDeducoes(productId, variableItems, dre.deducoesInsideExtras || []));
+          blocks.push(this._dreBaseCard(productId, l, collapseKey));
+          if (!isCollapsed) {
+            blocks.push(this._dreFlatDeducoes(productId, variableItems, dre.deducoesInsideExtras || []));
+          }
           continue;
         }
-        blocks.push(this._dreBaseCard(productId, l));
+        blocks.push(this._dreBaseCard(productId, l, collapseKey));
+        if (isCollapsed) continue;
         for (const ex of (extrasByStep[l.id] || [])) {
           blocks.push(this._dreExtraCard(productId, ex));
         }
@@ -2328,7 +2351,9 @@
     // dar nome ao grupo. Engrenagem na linha edita signal/nome ou deleta.
     _dreExtraGroupBlock(productId, g) {
       const hasName = String(g.name || '').trim().length > 0;
-      const banner = this._dreExtraGroupBanner(productId, g, hasName);
+      const collapseKey = hasName ? `dre:group_${g.id}` : null;
+      const isCollapsed = collapseKey ? this._isCollapsed(productId, collapseKey) : false;
+      const banner = this._dreExtraGroupBanner(productId, g, hasName, collapseKey);
       if (!hasName) {
         // Sem nome: mostra banner com input em destaque + hint
         return `<div class="space-y-2 pl-1 border-l-2 border-amber-300 ml-1">
@@ -2339,6 +2364,10 @@
             </div>
           </div>
         </div>`;
+      }
+      if (isCollapsed) {
+        // Collapsed: só banner
+        return `<div class="space-y-2 pl-1 border-l-2 border-amber-300 ml-1">${banner}</div>`;
       }
       const cards = [];
       (g.items || []).forEach(it => cards.push(this._dreExtraGroupItemCard(productId, g.id, it)));
@@ -2351,12 +2380,14 @@
       </div>`;
     },
 
-    _dreExtraGroupBanner(productId, g, hasName) {
+    _dreExtraGroupBanner(productId, g, hasName, collapseKey) {
       const positive = g.signal === '+';
       const valueColor = positive ? 'text-emerald-700' : 'text-rose-700';
       const signalLabel = positive ? '+' : '−';
       const menuOpen = App.state.revopsDreGroupMenuOpen === g.id;
       const total = Number(g.total || 0);
+      // V37.0.10 — Chevron de collapse (só quando linha tem nome)
+      const chevron = collapseKey ? this._chevronToggle(productId, collapseKey, { tone: 'amber' }) : '';
       return `<div class="rounded-2xl border-2 border-amber-300 shadow-sm flex items-center gap-3 px-4 py-2.5 relative" style="background:#fef3c7;color-scheme:light;">
         <select onchange="Actions.updateDreExtraGroup('${productId}', '${g.id}', 'signal', this.value)" class="px-1.5 py-0.5 rounded-md bg-white border border-amber-300 text-[11px] font-black text-slate-800 shrink-0">
           <option value="-" ${!positive ? 'selected' : ''}>−</option>
@@ -2368,6 +2399,7 @@
         <button onclick="Actions.toggleRevopsDreGroupMenu('${g.id}')" class="px-1.5 py-1 rounded-lg bg-white hover:bg-amber-100 border border-amber-300 text-amber-800 shrink-0" title="Opções da linha">
           <i data-lucide="settings" class="w-3.5 h-3.5"></i>
         </button>
+        ${chevron}
         ${menuOpen ? `<div class="absolute top-12 right-2 z-20 rounded-xl bg-white border border-stone-200 shadow-lg p-1 min-w-[160px]">
           <button onclick="Actions.deleteDreExtraGroup('${productId}', '${g.id}')" class="w-full text-left px-2 py-1.5 rounded-lg hover:bg-rose-50 text-[11px] text-rose-700 font-bold inline-flex items-center gap-1.5">
             <i data-lucide="trash-2" class="w-3 h-3"></i> Remover linha
@@ -2422,12 +2454,12 @@
       return sel && String(sel.productId) === String(productId) && sel.groupId === groupId && sel.lineId === itemId;
     },
 
-    _dreBaseCard(productId, l) {
+    _dreBaseCard(productId, l, collapseKey) {
       const toneMap = {
-        emerald: { ring: 'border-emerald-300', text: 'text-emerald-700', bg: 'bg-emerald-50/60' },
-        rose:    { ring: 'border-rose-300',    text: 'text-rose-700',    bg: 'bg-rose-50/40'    },
-        sky:     { ring: 'border-sky-300',     text: 'text-sky-700',     bg: 'bg-sky-50/50'     },
-        slate:   { ring: 'border-stone-300',   text: 'text-stone-800',   bg: 'bg-white/70'      }
+        emerald: { ring: 'border-emerald-300', text: 'text-emerald-700', bg: 'bg-emerald-50/60', tone: 'emerald' },
+        rose:    { ring: 'border-rose-300',    text: 'text-rose-700',    bg: 'bg-rose-50/40',    tone: 'rose'    },
+        sky:     { ring: 'border-sky-300',     text: 'text-sky-700',     bg: 'bg-sky-50/50',     tone: 'sky'     },
+        slate:   { ring: 'border-stone-300',   text: 'text-stone-800',   bg: 'bg-white/70',      tone: 'slate'   }
       };
       const t = toneMap[l.tone] || toneMap.slate;
       const isHighlight = l.highlight;
@@ -2442,9 +2474,14 @@
       const helpHint = l.id === 'lucro_liquido'
         ? '<span class="text-[10px] text-amber-700/80 font-bold ml-1.5">ⓘ</span>'
         : '';
+      // V37.0.10 — Chevron de collapse opcional (linhas com conteúdo abaixo)
+      const chevron = collapseKey ? this._chevronToggle(productId, collapseKey, { tone: t.tone }) : '';
       return `<div class="${cardCls} flex items-center justify-between gap-3 px-4 py-2.5" ${tooltip ? `title="${tooltip}"` : ''}>
         <span class="${big ? 'font-black text-slate-900 text-[13px]' : 'text-stone-700 text-[12px] font-bold'} inline-flex items-center">${l.label}${helpHint}</span>
-        <span class="${big ? `font-black text-base ${t.text}` : `font-bold text-sm ${t.text}`} whitespace-nowrap">${this._money(l.value)}</span>
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="${big ? `font-black text-base ${t.text}` : `font-bold text-sm ${t.text}`} whitespace-nowrap">${this._money(l.value)}</span>
+          ${chevron}
+        </div>
       </div>`;
     },
 
@@ -2661,6 +2698,30 @@
     _money(value) {
       const n = Number(value) || 0;
       return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(n);
+    },
+
+    // V37.0.10 — Helpers de collapse pra linhas DRE e cards RevOps.
+    _isCollapsed(productId, key) {
+      return Boolean(App.state.revopsCollapsed?.[productId]?.[key]);
+    },
+
+    _chevronToggle(productId, key, opts) {
+      const isOpen = !this._isCollapsed(productId, key);
+      const size = opts?.size || 'sm';
+      const tone = opts?.tone || 'slate';
+      const tones = {
+        slate:   'text-stone-500 hover:text-stone-900 hover:bg-stone-100',
+        emerald: 'text-emerald-700 hover:bg-emerald-100',
+        rose:    'text-rose-700 hover:bg-rose-100',
+        amber:   'text-amber-700 hover:bg-amber-100',
+        sky:     'text-sky-700 hover:bg-sky-100'
+      };
+      const cls = tones[tone] || tones.slate;
+      const px = size === 'md' ? 'w-7 h-7' : 'w-6 h-6';
+      const ic = size === 'md' ? 'w-4 h-4' : 'w-3.5 h-3.5';
+      return `<button onclick="event.stopPropagation(); Actions.toggleRevopsCollapsed('${productId}', '${key}')" title="${isOpen ? 'Recolher' : 'Expandir'}" class="${px} rounded-lg ${cls} grid place-items-center transition shrink-0">
+        <i data-lucide="${isOpen ? 'chevron-up' : 'chevron-down'}" class="${ic}"></i>
+      </button>`;
     }
   };
 
