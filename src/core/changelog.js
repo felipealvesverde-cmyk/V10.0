@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.1.1',
+    date: '2026-06-11',
+    title: 'Tarefas Por Pessoa: cor violet do LJ, badge de atrasadas e legenda fora',
+    bullets: [
+      'Donut do card agora usa violet (#7c3aed) pra fatia LJ — alinhado com a cor temática do Dashboard. Externos seguem em cinza (#d4d4d8) pra contraste.',
+      'Badge "X atrasadas" entra no card ao lado do "Total ativo" — soma LJ + externos abertas com due_date vencido. Visível tanto recolhido quanto expandido. Só aparece quando há atraso.',
+      'Legenda colorida embaixo das barras (>100% / 60–100% / <60%) saiu — a própria barra já comunica a faixa pela cor, legenda virou ruído visual.'
+    ]
+  },
+  {
     version: 'V37.1.0',
     date: '2026-06-11',
     title: 'Dashboard → Tarefas → Por Pessoa: carga LJ vs outros projetos + agenda da semana',

@@ -346,18 +346,26 @@ window.TasksDashboard = {
         ${this._donutSvg(ljTotal, extTotal, 64, ljPct)}
         <div class="min-w-0 flex-1 space-y-1">
           <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:#F6DB5C;"></span>
+            <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:#7c3aed;"></span>
             <span class="text-[11px] font-bold text-slate-900">LeadJourney</span>
             <span class="text-[11px] text-stone-600 ml-auto">${ljTotal}</span>
           </div>
           <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:#d6d3d1;"></span>
+            <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:#d4d4d8;"></span>
             <span class="text-[11px] font-bold text-slate-900">Outros projetos</span>
             <span class="text-[11px] text-stone-600 ml-auto">${extTotal}</span>
           </div>
-          <div class="pt-1.5 border-t border-stone-100 mt-1.5">
-            <p class="text-[10px] text-stone-500 uppercase tracking-wider font-bold">Total ativo</p>
-            <p class="text-[14px] font-black text-slate-900">${grandTotal}</p>
+          <div class="pt-1.5 border-t border-stone-100 mt-1.5 flex items-end justify-between gap-2">
+            <div>
+              <p class="text-[10px] text-stone-500 uppercase tracking-wider font-bold">Total ativo</p>
+              <p class="text-[14px] font-black text-slate-900">${grandTotal}</p>
+            </div>
+            ${(u.late_total || 0) > 0 ? `
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-100 border border-rose-300 text-rose-800 text-[11px] font-black" title="Tarefas abertas com data de entrega vencida (LJ + externos)">
+                <i data-lucide="alert-triangle" class="w-3 h-3"></i>
+                ${u.late_total} atrasada${u.late_total === 1 ? '' : 's'}
+              </span>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -377,12 +385,6 @@ window.TasksDashboard = {
 
         ${weekCurrent.length ? this._weekBlock('Esta semana', weekCurrent, u.daily_load || {}, journeyHours, u.avg_hours || 4) : ''}
         ${weekNext.length ? this._weekBlock('Próxima semana', weekNext, u.daily_load || {}, journeyHours, u.avg_hours || 4) : ''}
-
-        <div class="flex items-center gap-3 text-[9px] text-stone-600 pt-1">
-          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:#fb7185;"></span>>100%</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:#fbbf24;"></span>60–100%</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:#34d399;"></span>&lt;60%</span>
-        </div>
       </div>
       ` : ''}
     </div>`;
@@ -423,8 +425,8 @@ window.TasksDashboard = {
     }
     const ljArc = circumference * (ljCount / total);
     return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="shrink-0">
-      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#d6d3d1" stroke-width="7" />
-      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#F6DB5C" stroke-width="7"
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#d4d4d8" stroke-width="7" />
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#7c3aed" stroke-width="7"
         stroke-dasharray="${ljArc.toFixed(2)} ${circumference.toFixed(2)}"
         stroke-linecap="round"
         transform="rotate(-90 ${c} ${c})" />

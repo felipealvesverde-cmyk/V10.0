@@ -49,19 +49,28 @@ async function fetchUserTasks(db, userId, teamId, assigneeId) {
 }
 
 function aggregateForUser(tasks, ljSpaceId, horizonDays, avgHoursFallback) {
-  const lj = { open: 0, done: 0 };
-  const ext = { open: 0, done: 0 };
+  const lj = { open: 0, done: 0, late: 0 };
+  const ext = { open: 0, done: 0, late: 0 };
   const closedSorted = [];
   const dailyLoad = Object.fromEntries(horizonDays.map(d => [d, 0]));
 
   const todayStr = horizonDays[0];
+  const todayStart = new Date(todayStr + 'T00:00:00');
   const horizonEnd = new Date(horizonDays[horizonDays.length - 1] + 'T23:59:59');
 
   for (const t of tasks) {
     const isLj = String(t.space?.id || '') === String(ljSpaceId);
     const isClosed = t.status?.type === 'closed';
     const bucket = isLj ? lj : ext;
-    if (isClosed) bucket.done++; else bucket.open++;
+    if (isClosed) {
+      bucket.done++;
+    } else {
+      bucket.open++;
+      if (t.due_date) {
+        const due = new Date(Number(t.due_date));
+        if (!isNaN(due.getTime()) && due < todayStart) bucket.late++;
+      }
+    }
 
     if (isClosed && t.date_done && t.date_created) {
       const start = Number(t.date_created);
@@ -104,8 +113,9 @@ function aggregateForUser(tasks, ljSpaceId, horizonDays, avgHoursFallback) {
   }
 
   return {
-    lj_open: lj.open, lj_done: lj.done,
-    ext_open: ext.open, ext_done: ext.done,
+    lj_open: lj.open, lj_done: lj.done, lj_late: lj.late,
+    ext_open: ext.open, ext_done: ext.done, ext_late: ext.late,
+    late_total: lj.late + ext.late,
     avg_hours: avgHours == null ? null : Math.round(avgHours * 10) / 10,
     sample_size: sample.length,
     daily_load: dailyLoad
@@ -183,7 +193,9 @@ module.exports = async function handler(req, res) {
         email: m?.email || null,
         initials: m?.initials || '??',
         color: m?.color || null,
-        lj_open: 0, lj_done: 0, ext_open: 0, ext_done: 0,
+        lj_open: 0, lj_done: 0, lj_late: 0,
+        ext_open: 0, ext_done: 0, ext_late: 0,
+        late_total: 0,
         avg_hours: null, sample_size: 0, daily_load: {},
         error: err.message
       };
