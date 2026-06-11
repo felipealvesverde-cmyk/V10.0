@@ -163,9 +163,40 @@ function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonD
   const lj = { open: 0, done: 0, late: 0 };
   const ext = { open: 0, done: 0, late: 0 };
 
+  // V37.1.9 — breakdown por folder (produto LJ) e list (campanha LJ).
+  // Folder hidden true = "folderless list" — agrupa como "Sem produto".
+  const byFolder = new Map();  // folder_id → { folder_name, count }
+  const byList = new Map();    // list_id → { list_name, folder_id, folder_name, count }
+
   for (const t of openTasks) {
     const isLj = String(t.space?.id || '') === String(ljSpaceId);
     (isLj ? lj : ext).open++;
+
+    if (isLj) {
+      const folderId = String(t.folder?.id || '');
+      const folderHidden = Boolean(t.folder?.hidden);
+      const folderName = folderHidden ? null : (t.folder?.name || null);
+      const listId = String(t.list?.id || '');
+      const listName = t.list?.name || null;
+
+      if (folderId && folderName && !folderHidden) {
+        if (!byFolder.has(folderId)) byFolder.set(folderId, { folder_id: folderId, folder_name: folderName, count: 0 });
+        byFolder.get(folderId).count++;
+      }
+
+      if (listId && listName) {
+        if (!byList.has(listId)) {
+          byList.set(listId, {
+            list_id: listId,
+            list_name: listName,
+            folder_id: folderHidden ? null : (folderId || null),
+            folder_name: folderName,
+            count: 0
+          });
+        }
+        byList.get(listId).count++;
+      }
+    }
   }
 
   for (const t of closedTasks) {
@@ -177,6 +208,9 @@ function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonD
     const isLj = String(t.space?.id || '') === String(ljSpaceId);
     (isLj ? lj : ext).late++;
   }
+
+  const byLjFolder = Array.from(byFolder.values()).sort((a, b) => b.count - a.count);
+  const byLjList = Array.from(byList.values()).sort((a, b) => b.count - a.count);
 
   // V37.1.8 — capacity_derived: horas úteis no lookback ÷ tarefas concluídas
   // no lookback. Não mede mais idade calendário da task — mede a cadência
@@ -207,7 +241,9 @@ function aggregateForUser(openTasks, closedTasks, lateTasks, ljSpaceId, horizonD
     closed_returned: closedTasks.length,
     total_workload_hours: totalWorkloadHours,
     overflow_hours: overflowHours,
-    daily_load: dailyLoad
+    daily_load: dailyLoad,
+    by_lj_folder: byLjFolder,
+    by_lj_list: byLjList
   };
 }
 
@@ -310,7 +346,7 @@ module.exports = async function handler(req, res) {
         sample_size: 0, closed_returned: 0,
         total_workload_hours: 0, overflow_hours: 0,
         open_truncated: false, late_truncated: false,
-        daily_load: {},
+        daily_load: {}, by_lj_folder: [], by_lj_list: [],
         error: err.message
       };
     }

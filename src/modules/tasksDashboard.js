@@ -19,6 +19,7 @@ window.TasksDashboard = {
     return `<div class="p-2 lg:p-4 space-y-4">
       ${this._headerWithTabs(allTasks.length, subTab)}
       ${subTab === 'porPessoa' ? this._renderPorPessoa() : this._renderGeral(allTasks)}
+      ${App.state.tasksPersonModalUserId ? this._personModal() : ''}
     </div>`;
   },
 
@@ -326,34 +327,25 @@ window.TasksDashboard = {
   },
 
   _personCard(u, horizonDays, journeyHours) {
-    const expanded = Boolean(App.state.tasksPersonExpanded?.[u.user_id]);
-    // V37.1.7 — Total Ativo = só OPEN (carga atual). Done sai pra linha própria.
+    // V37.1.9 — Card simplificado: visão sintética + click anywhere → modal.
     const ljActive = u.lj_open || 0;
     const extActive = u.ext_open || 0;
     const grandTotal = ljActive + extActive;
     const ljPct = grandTotal ? Math.round((ljActive / grandTotal) * 100) : 0;
     const doneTotal = (u.lj_done || 0) + (u.ext_done || 0);
-    const avgLabel = (() => {
-      if (u.avg_hours != null) return `${u.avg_hours.toString().replace('.', ',')}h por tarefa`;
-      const returned = u.closed_returned || 0;
-      const withTs = u.closed_with_timestamps || 0;
-      if (returned === 0) return `— sem tarefas concluídas no último ano`;
-      if (withTs < 5 && returned >= 5) return `— ${withTs}/${returned} concluídas têm data válida (ClickUp não preencheu)`;
-      return `— amostra insuficiente (${withTs}/5)`;
-    })();
+    const avgLabel = this._avgLabelFor(u);
 
-    const { weekCurrent, weekNext } = this._splitHorizonWeeks(horizonDays);
-
-    return `<div class="rounded-2xl bg-white border border-stone-200 shadow-sm overflow-hidden">
-      <button onclick="Actions.toggleTasksPersonExpanded('${u.user_id}')" class="w-full text-left p-4 hover:bg-stone-50 transition flex items-start gap-3">
+    return `<div onclick="Actions.openTasksPersonModal('${u.user_id}')"
+        class="rounded-2xl bg-white border border-stone-200 shadow-sm overflow-hidden cursor-pointer hover:border-violet-300 hover:shadow-md transition">
+      <div class="p-4 flex items-start gap-3">
         <span class="shrink-0 w-10 h-10 rounded-xl grid place-items-center text-white text-[11px] font-black shadow-sm"
           style="background:${u.color || '#7c3aed'};color:#fff!important;">${Utils.escape(u.initials || '??')}</span>
         <div class="min-w-0 flex-1">
           <p class="text-[13px] font-black text-slate-900 truncate" title="${Utils.escape(u.name)}">${Utils.escape(u.name)}</p>
           ${u.email ? `<p class="text-[10px] text-stone-500 truncate">${Utils.escape(u.email)}</p>` : ''}
         </div>
-        <i data-lucide="${expanded ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 text-stone-400 shrink-0 mt-0.5"></i>
-      </button>
+        <i data-lucide="chevron-right" class="w-4 h-4 text-stone-400 shrink-0 mt-0.5"></i>
+      </div>
 
       <div class="px-4 pb-4 flex items-center gap-4">
         ${this._donutSvg(ljActive, extActive, 64, ljPct)}
@@ -374,7 +366,7 @@ window.TasksDashboard = {
               <p class="text-[14px] font-black text-slate-900">${grandTotal}${u.open_truncated ? '+' : ''}</p>
             </div>
             ${(u.late_total || 0) > 0 ? `
-              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-100 border border-rose-300 text-rose-800 text-[11px] font-black" title="${u.late_truncated ? 'Pelo menos ' + u.late_total + ' tarefas abertas vencidas (cap atingido — pode haver mais)' : 'Tarefas abertas com data de entrega vencida (LJ + externos)'}">
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-100 border border-rose-300 text-rose-800 text-[11px] font-black">
                 <i data-lucide="alert-triangle" class="w-3 h-3"></i>
                 ${u.late_total}${u.late_truncated ? '+' : ''} atrasada${u.late_total === 1 && !u.late_truncated ? '' : 's'}
               </span>
@@ -397,35 +389,164 @@ window.TasksDashboard = {
         <span class="font-bold">Média de conclusão:</span>
         <span>${avgLabel}</span>
       </div>
+    </div>`;
+  },
 
-      ${expanded ? `
-      <div class="px-4 pb-4 pt-3 space-y-3 border-t border-stone-100 bg-gradient-to-b from-stone-50/50 to-white">
-        <div class="flex items-center justify-between gap-2">
-          <p class="text-[10px] font-black text-stone-600 uppercase tracking-widest inline-flex items-center gap-1.5">
-            <i data-lucide="calendar-range" class="w-3 h-3"></i>
-            Capacidade · jornada ${journeyHours}h/dia
-          </p>
-          ${u.total_workload_hours > 0 ? `
-            <span class="text-[10px] text-stone-600 font-bold" title="Total: ${u.total_workload_hours}h (${u.lj_open + u.ext_open} tarefas × ${u.task_hours_used}h ${u.avg_hours_is_fallback ? 'fallback' : 'média'})">
-              ${u.total_workload_hours.toString().replace('.', ',')}h fila
-            </span>
-          ` : ''}
+  // V37.1.9 — helper compartilhado (card e modal usam o mesmo cálculo).
+  _avgLabelFor(u) {
+    if (u.avg_hours != null) return `${u.avg_hours.toString().replace('.', ',')}h por tarefa`;
+    const doneCount = u.done_count || 0;
+    if (doneCount === 0) return `— sem tarefas concluídas no período`;
+    return `— amostra pequena (${doneCount}/5 concluídas)`;
+  },
+
+  // V37.1.9 — Modal central de detalhe da pessoa. Click fora fecha.
+  _personModal() {
+    const userId = App.state.tasksPersonModalUserId;
+    const cache = App.state.tasksPersonCache || {};
+    const u = (cache.users || []).find(x => String(x.user_id) === String(userId));
+    if (!u) {
+      return `<div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm grid place-items-center p-4"
+          onclick="Actions.closeTasksPersonModal()">
+        <div class="rounded-2xl bg-white p-6" onclick="event.stopPropagation()">
+          <p class="text-sm text-stone-600">Pessoa não encontrada. <button onclick="Actions.closeTasksPersonModal()" class="text-violet-600 font-bold">Fechar</button></p>
+        </div>
+      </div>`;
+    }
+    const horizonDays = Array.isArray(cache.horizonDays) ? cache.horizonDays : [];
+    const journeyHours = cache.journeyHours || 8;
+    const ljActive = u.lj_open || 0;
+    const extActive = u.ext_open || 0;
+    const grandTotal = ljActive + extActive;
+    const ljPct = grandTotal ? Math.round((ljActive / grandTotal) * 100) : 0;
+    const doneTotal = (u.lj_done || 0) + (u.ext_done || 0);
+    const avgLabel = this._avgLabelFor(u);
+    const { weekCurrent, weekNext } = this._splitHorizonWeeks(horizonDays);
+    const taskUnit = u.task_hours_used || u.avg_hours || 4;
+
+    return `<div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm grid place-items-center p-4"
+        onclick="Actions.closeTasksPersonModal()">
+      <div class="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
+           onclick="event.stopPropagation()">
+
+        <div class="flex items-start gap-4 p-6 border-b border-stone-200">
+          <span class="shrink-0 w-14 h-14 rounded-2xl grid place-items-center text-white text-[14px] font-black shadow-sm"
+            style="background:${u.color || '#7c3aed'};color:#fff!important;">${Utils.escape(u.initials || '??')}</span>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-xl font-black text-slate-900 truncate">${Utils.escape(u.name)}</h2>
+            ${u.email ? `<p class="text-[12px] text-stone-500 truncate">${Utils.escape(u.email)}</p>` : ''}
+          </div>
+          <button onclick="Actions.closeTasksPersonModal()" class="w-9 h-9 rounded-lg hover:bg-stone-100 grid place-items-center text-stone-600 transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
         </div>
 
-        ${weekCurrent.length ? this._weekBlock('Esta semana', weekCurrent, u.daily_load || {}, journeyHours, u.task_hours_used || u.avg_hours || 4) : ''}
-        ${weekNext.length ? this._weekBlock('Próxima semana', weekNext, u.daily_load || {}, journeyHours, u.task_hours_used || u.avg_hours || 4) : ''}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 p-6 bg-stone-50 border-b border-stone-200">
+          ${this._modalKpiCard('Pendentes', `${grandTotal}${u.open_truncated ? '+' : ''}`, 'list-checks', 'violet', `${ljActive} LJ · ${extActive} externos`)}
+          ${this._modalKpiCard('Concluídas (30d)', String(doneTotal), 'check-circle-2', 'emerald', 'Histórico do mês')}
+          ${this._modalKpiCard('Atrasadas', `${u.late_total || 0}${u.late_truncated ? '+' : ''}`, 'alert-triangle', 'rose', 'Vencidas e abertas')}
+          ${this._modalKpiCard('Média por tarefa', avgLabel.startsWith('—') ? '—' : avgLabel.split(' ')[0], 'timer', 'sky', u.avg_hours != null && u.done_count ? `${u.available_hours_in_lookback}h ÷ ${u.done_count}` : 'Amostra pequena')}
+        </div>
 
-        ${u.overflow_hours > 0 ? `
-          <div class="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 flex items-center gap-2">
-            <i data-lucide="alert-octagon" class="w-3.5 h-3.5 text-rose-600 shrink-0"></i>
-            <p class="text-[11px] text-rose-800">
-              <span class="font-black">+${u.overflow_hours.toString().replace('.', ',')}h</span>
-              em backlog além das 2 semanas úteis
-              <span class="text-rose-600 text-[10px]">(~${Math.ceil(u.overflow_hours / journeyHours)} dias úteis extras)</span>
-            </p>
-          </div>
-        ` : ''}
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 overflow-y-auto flex-1">
+
+          <section class="space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="text-[11px] font-black text-stone-700 uppercase tracking-widest inline-flex items-center gap-1.5">
+                <i data-lucide="calendar-range" class="w-3.5 h-3.5 text-violet-600"></i>
+                Capacidade · jornada ${journeyHours}h/dia
+              </h3>
+              ${u.total_workload_hours > 0 ? `
+                <span class="text-[11px] text-stone-700 font-bold" title="Total da fila: ${u.total_workload_hours}h (${grandTotal} tarefas × ${u.task_hours_used}h)">
+                  ${u.total_workload_hours.toString().replace('.', ',')}h fila
+                </span>
+              ` : ''}
+            </div>
+            ${weekCurrent.length ? this._weekBlock('Esta semana', weekCurrent, u.daily_load || {}, journeyHours, taskUnit) : ''}
+            ${weekNext.length ? this._weekBlock('Próxima semana', weekNext, u.daily_load || {}, journeyHours, taskUnit) : ''}
+            ${u.overflow_hours > 0 ? `
+              <div class="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2.5 flex items-center gap-2">
+                <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-600 shrink-0"></i>
+                <p class="text-[12px] text-rose-800">
+                  <span class="font-black">+${u.overflow_hours.toString().replace('.', ',')}h</span>
+                  em backlog além das 2 semanas úteis
+                  <span class="text-rose-600 text-[10px]">(~${Math.ceil(u.overflow_hours / journeyHours)} dias úteis extras)</span>
+                </p>
+              </div>
+            ` : ''}
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-[11px] font-black text-stone-700 uppercase tracking-widest inline-flex items-center gap-1.5">
+              <i data-lucide="layout-grid" class="w-3.5 h-3.5 text-violet-600"></i>
+              Dedicação LJ por contexto
+            </h3>
+            ${this._dedicationBlock(u)}
+          </section>
+
+        </div>
+
       </div>
+    </div>`;
+  },
+
+  _modalKpiCard(label, value, icon, tone, sub) {
+    return `<div class="rounded-xl bg-white border border-${tone}-200 shadow-sm p-3">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="w-7 h-7 rounded-lg bg-${tone}-100 border border-${tone}-200 grid place-items-center text-${tone}-700">
+          <i data-lucide="${icon}" class="w-3.5 h-3.5"></i>
+        </span>
+        <p class="text-[9px] font-black text-${tone}-800 uppercase tracking-widest leading-tight">${label}</p>
+      </div>
+      <p class="text-2xl font-black text-slate-900">${value}</p>
+      ${sub ? `<p class="text-[10px] text-stone-500 mt-0.5">${Utils.escape(sub)}</p>` : ''}
+    </div>`;
+  },
+
+  _dedicationBlock(u) {
+    const byList = Array.isArray(u.by_lj_list) ? u.by_lj_list : [];
+    const extOpen = u.ext_open || 0;
+    if (byList.length === 0 && extOpen === 0) {
+      return `<p class="text-[12px] text-stone-500 italic">Nenhuma tarefa LJ pendente.</p>`;
+    }
+    const maxCount = Math.max(...byList.map(l => l.count), extOpen, 1);
+    // Agrupa por folder_name (produto). Folderless = "Sem produto".
+    const groups = new Map();
+    for (const item of byList) {
+      const key = item.folder_name || '__folderless__';
+      if (!groups.has(key)) groups.set(key, { folder_name: item.folder_name, lists: [] });
+      groups.get(key).lists.push(item);
+    }
+    const groupArr = Array.from(groups.values()).sort((a, b) => {
+      const ca = a.lists.reduce((s, l) => s + l.count, 0);
+      const cb = b.lists.reduce((s, l) => s + l.count, 0);
+      return cb - ca;
+    });
+
+    const renderItem = (label, count, isMain) => {
+      const pct = Math.round((count / maxCount) * 100);
+      return `<div class="flex items-center gap-2 ${isMain ? 'mt-2' : 'pl-3'}">
+        <span class="text-[11px] ${isMain ? 'font-black text-slate-900' : 'text-slate-700'} truncate flex-1" title="${Utils.escape(label)}">${Utils.escape(label)}</span>
+        <span class="text-[11px] font-bold text-slate-900 tabular-nums">${count}</span>
+        <div class="w-20 h-1.5 rounded-full bg-stone-100 overflow-hidden shrink-0">
+          <div class="h-full bg-violet-500" style="width:${pct}%;"></div>
+        </div>
+      </div>`;
+    };
+
+    return `<div class="rounded-xl bg-white border border-stone-200 p-3 space-y-1">
+      ${groupArr.map(g => {
+        const folderTotal = g.lists.reduce((s, l) => s + l.count, 0);
+        const folderLabel = g.folder_name || 'Sem produto (folderless)';
+        return `
+          ${renderItem(folderLabel, folderTotal, true)}
+          ${g.lists.map(l => renderItem(l.list_name, l.count, false)).join('')}
+        `;
+      }).join('')}
+      ${extOpen > 0 ? `
+        <div class="pt-2 mt-2 border-t border-stone-100">
+          ${renderItem('Outros projetos (fora do LJ)', extOpen, true)}
+        </div>
       ` : ''}
     </div>`;
   },
