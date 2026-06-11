@@ -144,26 +144,23 @@ var Actions = {
         App.save(); App.render();
       },
       selectCampaignFromActions(id) { App.state.selectedCampaignId = id; App.state.actionDraft.campaignId = id; App.state.selectedActionId = null; App.save(); App.render(); },
-      // V37.0.7 — Modo 'rd' removido (era mock importFromRDMock). Defensivo:
-      // se state legacy tinha 'rd', cai pra 'manual'.
-      setLeadInputMode(mode) {
-        const valid = ['manual', 'csv'];
-        App.state.actionDraft.leadInputMode = valid.includes(mode) ? mode : 'manual';
-        App.save(); App.render();
-      },
-  setMailingDefined(value) { App.state.actionDraft.mailingDefined = Boolean(value); if (!value) App.state.actionDraft.leadsText = ''; App.save(); App.render(); },
+      // V37.0.9 — setLeadInputMode e setMailingDefined REMOVIDAS junto com o
+      // bloco "Mailing definido?" do form. Importação inline saiu — base de
+      // leads agora só via Actions.openLeadImportModal (Lead Import Wizard).
       updateActionChannel(id, channel) { App.state.actions = App.state.actions.map(action => action.id === id ? { ...action, channel, connected: false, connectionStatus: 'ready', status: 'Canal selecionado' } : action); App.save(); App.render(); Utils.toast('Canal atualizado. Conecte novamente.'); },
       connectAction(id) { App.state.actions = App.state.actions.map(action => action.id === id ? { ...action, connected: true, connectionStatus: 'ready', status: `Conectada ao ${action.channel}` } : action); App.save(); App.render(); Utils.toast('Canal conectado. Ação pronta para ativar.'); },
       toggleActionTransfer(id) { App.state.actions = App.state.actions.map(action => { if (action.id !== id || !action.connected) return action; const next = action.connectionStatus === 'active' ? 'idle' : 'active'; return { ...action, connectionStatus: next, status: next === 'active' ? `Ativa: trocando dados com ${action.channel}` : 'Sem troca de dados' }; }); App.save(); App.render(); Utils.toast('Status da troca atualizado.'); },
       openActionResult(id) { App.state.selectedActionId = id; App.state.activeTab = 'results'; App.save(); App.render(); },
+      // V37.0.9 — prepareNextActionFromResult: tirados leadInputMode/leadsText/
+      // rdListName/scoreId (campos do antigo mailing inline). Ação nova nasce
+      // limpa; cliente anexa base pelo Lead Import Wizard se quiser.
       prepareNextActionFromResult(id) {
         const action = App.state.actions.find(item => item.id === id);
         if (!action) return;
-        const hot = ScoreEngine.actionLeads(action).filter(lead => Number(lead.score || 0) >= 45);
-        App.state.actionDraft = { campaignId: action.campaignId, name: `Próxima ação após ${action.name}`, channel: 'Meta Ads', objective: 'Continuar a jornada com os leads de maior score desta ação.', leadInputMode: 'manual', leadsText: hot.map(lead => `${lead.name}, ${lead.email}, ${lead.phone || ''}, ${lead.tags || ''}`).join('\n'), rdListName: '', scoreId: action.scoreId };
+        App.state.actionDraft = { campaignId: action.campaignId, name: `Próxima ação após ${action.name}`, channel: 'Meta Ads', objective: 'Continuar a jornada com os leads de maior score desta ação.' };
         App.state.selectedCampaignId = action.campaignId;
         App.state.activeTab = 'actions';
-        App.save(); App.render(); Utils.toast('Nova ação preparada com leads filtrados do resultado.');
+        App.save(); App.render(); Utils.toast('Nova ação preparada.');
       },
       createScorePreset() {
         const d = App.state.scoreDraft;
@@ -181,12 +178,9 @@ var Actions = {
       removeScoreTag(id, index) { App.state.scores = App.state.scores.map(score => Number(score.id) === Number(id) ? { ...score, tagRules: score.tagRules.filter((_, i) => i !== index) } : score); App.save(); App.render(); },
       addScoreDraftTag() { App.state.scoreDraft.tagRules.push({ tag: '#nova', score: 0 }); App.save(); App.render(); },
       removeScoreDraftTag(index) { App.state.scoreDraft.tagRules.splice(index, 1); App.save(); App.render(); },
-      loadLeadExample() { App.state.actionDraft.leadsText = ['Nome do Lead, email@empresa.com, 48999999999, #tag_exemplo', 'Outro Lead, outro@email.com, 48988888888, #cta #mof'].join('\n'); App.save(); App.render(); },
-      handleActionCSV(event) { const file = event.target.files?.[0]; if (!file) return; const reader = new FileReader(); reader.onload = e => { App.state.actionDraft.leadsText = String(e.target.result || '').trim(); App.save(); App.render(); Utils.toast('CSV importado.'); }; reader.readAsText(file); event.target.value = ''; },
-      downloadCsvTemplate() { const csv = ['name,email,phone,tags', 'Nome do Lead,email@empresa.com,48999999999,#tag_exemplo', 'Outro Lead,outro@email.com,48988888888,#cta'].join('\n'); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = 'modelo_leads_acao.csv'; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url); },
-      // V37.0.7 — importFromRDMock removido: era stub que injetava 2 leads
-      // fictícios sem conectar com a integração RD real. Pra RD real, cliente
-      // usa Actions.openLeadImportModal() (Importador completo 4 steps).
+      // V37.0.9 — loadLeadExample, handleActionCSV, downloadCsvTemplate
+      // REMOVIDAS junto com o mailing inline. Caminho moderno é o Lead Import
+      // Wizard (Actions.openLeadImportModal) com dedup + validação.
       openDashboardCampaign(id) { App.state.selectedDashboardCampaignId = id; App.save(); App.render(); },
       openLead(id) { App.state.selectedLeadId = id; App.state.activeTab = 'leads'; App.save(); App.render(); },
       // V35.3.7 — Lead Import Wizard substitui o modal único antigo.
@@ -1030,6 +1024,9 @@ var Actions = {
         App.save(); App.render();
         Utils.toast('Perfil limpo.');
       },
+      // V37.0.9 — Sem mais preencher leadsText/leadInputMode/rdListName/scoreId
+      // no draft (mailing inline removido). Cliente cria a ação a partir do
+      // perfil e anexa base depois pelo Lead Import Wizard se quiser.
       createActionFromProfile() {
         const allLeads = LeadsModule.getGlobalLeads();
         const filtered = ProfileFinder.applyFilters(allLeads, App.state.profileFilters);
@@ -1039,15 +1036,11 @@ var Actions = {
           campaignId: App.state.selectedCampaignId,
           name: `Ação: ${filtersDesc}`.substring(0, 60),
           channel: 'Meta Ads',
-          objective: `Ação direcionada ao perfil: ${filtersDesc}`,
-          leadInputMode: 'manual',
-          leadsText: filtered.map(l => `${l.name}, ${l.email}, ${l.phone || ''}, ${l.tags.join(' ')}`).join('\n'),
-          rdListName: '',
-          scoreId: App.state.scores[0]?.id || 1
+          objective: `Ação direcionada ao perfil: ${filtersDesc}`
         };
         App.state.activeTab = 'actions';
         App.save(); App.render();
-        Utils.toast(`${filtered.length} lead(s) carregados na nova ação.`);
+        Utils.toast(`Perfil de ${filtered.length} lead(s) selecionado. Ação preparada.`);
       },
       createCampaignFromProfile() {
         const filtersDesc = App.state.profileFilters.map(f => f.label).join(', ');
@@ -1159,11 +1152,12 @@ Object.assign(Actions, {
   },
   addActionDraftOkr() { App.state.actionDraft.okrs = [...(App.state.actionDraft.okrs || []), { name: 'Novo OKR', target: '', current: '', unit: '', benchmark: '', trend: 'stable', health: 'Atenção' }]; App.save(); App.render(); },
   removeActionDraftOkr(index) { App.state.actionDraft.okrs = (App.state.actionDraft.okrs || []).filter((_, i) => i !== index); App.save(); App.render(); },
+  // V37.0.9 — Sem mais parse de leadsText do mailing inline (removido). Ação
+  // nasce com leads:[] e mailingDefined:false. Cliente anexa base depois via
+  // Lead Import Wizard. Ações antigas com leads[] preservadas no normalize.
   createAction() {
     const d = App.state.actionDraft;
     if (!d.name.trim()) return Utils.toast('Digite o nome da ação.');
-    const parsed = LeadParser.parse(d.leadsText, d.scoreId);
-    const clean = LeadIdentityEngine.mergeMany([], parsed.map(({ score, ...lead }) => ({ ...lead, score })), d.name.trim()).map(({ score, ...lead }) => lead);
     const sector = d.sector || 'Marketing';
     const funnel = d.funnel || 'MOF';
     const originSector = d.originSector || sector;
@@ -1183,20 +1177,20 @@ Object.assign(Actions, {
       conversionObjective: d.conversionObjective || d.objective || '',
       objective: d.objective.trim(),
       expectedConversion: Number(d.expectedConversion || 25),
-      mailingDefined: Boolean(d.mailingDefined),
+      mailingDefined: false,
       okrs: baseOkrs.map(okr => ({ ...okr, stageId: okr.stageId || flowPath[0] })),
       flowPath,
-      scoreId: d.scoreId,
+      scoreId: App.state.scores?.[0]?.id || 1,
       connected: false,
       connectionStatus: 'ready',
       status: 'Pronta para conectar',
-      leads: d.mailingDefined ? clean : [],
+      leads: [],
       flowConfig: FlowResolutionEngine.buildDefaultFlowConfig(flowPath, d.channel),
       createdAt: new Date().toISOString()
     };
     App.state.actions.unshift(action);
     App.state.selectedActionId = action.id;
-    App.state.actionDraft = { ...State.initialActionDraft(), campaignId: App.state.selectedCampaignId, scoreId: App.state.scores[0]?.id || 1 };
+    App.state.actionDraft = { ...State.initialActionDraft(), campaignId: App.state.selectedCampaignId };
     App.save(); App.render(); Utils.toast('Ação criada com OKRs e fluxo operacional.');
   },
   async importManualLeadsFromText() {

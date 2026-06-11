@@ -61,7 +61,10 @@ var LeadParser = {
     return ScoreEngine?.withScore ? ScoreEngine.withScore(lead, scoreId) : lead;
   },
 
-  parse(text, scoreId = App.state.actionDraft.scoreId) {
+  // V37.0.9 — Default scoreId não vem mais do actionDraft (campo removido com
+  // mailing inline). Quando caller não passa, fica undefined e ScoreEngine
+  // cai pro scores[0] ou Config.defaultScore.
+  parse(text, scoreId) {
     const skipRegex = this._headerSkipRegex;
     const rows = [];
     const lines = String(text || '').split(/\r?\n/);

@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.9',
+    date: '2026-06-11',
+    title: 'Form de criação de ação fica enxuto — bloco "Mailing definido?" inteiro sai',
+    bullets: [
+      'Bloco "Mailing definido?" REMOVIDO do form de criação de ação. Toggle Sim/Não + Manual/CSV + textarea + Preview de score — tudo saiu. Form agora vai direto: contexto operacional → travessia → descrição → criar.',
+      'No lugar, card discreto azul "Base de leads" com microcopy "Cria a ação primeiro. Depois anexa base pelo Importador (4 steps · dedup · validação · RD real)" + botão "Abrir Importador" violet. Caminho canônico desde V35.3.7.',
+      'Funções helpers internas removidas do módulo: leadInput, leadTextArea, scorePreview. 5 Actions órfãs também: setMailingDefined, setLeadInputMode, loadLeadExample, handleActionCSV, downloadCsvTemplate.',
+      'createAction simplificado: ação nasce sempre com leads:[] + mailingDefined:false + scoreId padrão (scores[0]). Sem mais LeadParser.parse de textarea inline.',
+      'actionDraft limpo: mailingDefined, leadInputMode, leadsText, rdListName, scoreId saíram do initial. Cliente que vinha do fluxo "Profile → Criar ação" também ganhou form simplificado.',
+      'BACKWARD COMPAT preservada: ações antigas com action.leads[] continuam sendo lidas em todos os cards e dashboards. LeadParser engine + ScoreEngine intactos (usados em leads manuais, profile CSV, etc).',
+      'Engines tiveram default param ajustado pra não referenciar mais actionDraft.scoreId (campo removido): LeadParser.parse e ScoreEngine.calculateLeadScore agora caem direto pra scores[0] ou Config.defaultScore.'
+    ]
+  },
+  {
     version: 'V37.0.8',
     date: '2026-06-10',
     title: 'Limpeza grande — fluxo LP modal vestigial inteiro removido (8 arquivos, ~600 linhas)',
