@@ -126,6 +126,10 @@
     // V32.11.0 — Leonardo: métricas sobre fundo escuro. Padrão violet-500/15
     // bg + violet-400/30 border + text-violet-100 (cores semânticas seguem
     // mesma sintaxe pra emerald/sky/amber/rose).
+    // V37.0.12 — flex column + justify-between + min-h fixo: cards do mesmo
+    // tamanho com label SEMPRE no topo e valor SEMPRE no fundo (alinhamento
+    // vertical idêntico mesmo quando label quebra em 2 linhas). Número subiu
+    // de text-sm pra text-xl pra dominar visualmente.
     _metricCell(label, value, tone) {
       const toneCls = {
         violet:  'bg-violet-500/15  border-violet-400/30  text-violet-100',
@@ -134,9 +138,9 @@
         amber:   'bg-amber-500/15   border-amber-400/30   text-amber-100',
         rose:    'bg-rose-500/15    border-rose-400/30    text-rose-100'
       }[tone] || 'bg-slate-500/15 border-slate-400/30 text-slate-100';
-      return `<div class="rounded-xl border ${toneCls} px-3 py-2 backdrop-blur-sm">
-        <p class="text-[9px] font-black uppercase tracking-wider opacity-70">${label}</p>
-        <p class="text-sm font-black mt-0.5 truncate">${value}</p>
+      return `<div class="rounded-xl border ${toneCls} px-3.5 py-2.5 backdrop-blur-sm flex flex-col justify-between gap-1.5 min-h-[72px]">
+        <p class="text-[9px] font-black uppercase tracking-wider opacity-70 leading-tight">${label}</p>
+        <p class="text-xl font-black truncate">${value}</p>
       </div>`;
     },
 

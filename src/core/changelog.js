@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.12',
+    date: '2026-06-11',
+    title: 'Header CFO: cards de KPI uniformes e número 1.5x maior',
+    bullets: [
+      'Os 5 cards do header do RevOps & Governança (Ticket Médio / Faturamento Bruto / Faturamento Líquido / EBITDA / Margem EBITDA) viviam com alinhamento vertical inconsistente: quando o label quebrava em 2 linhas (ex: "Faturamento Bruto (Mensal)"), o número descia. Quando era curto ("Ticket Médio"), o número colava no topo. Cada card parecia ter disposição diferente.',
+      'Fix: card vira flex column com justify-between + min-h 72px fixo. Label SEMPRE no topo, valor SEMPRE no fundo — todos os 5 cards alinham vertical idêntico independente do tamanho do label.',
+      'Número subiu de text-sm (14px) pra text-xl (~20px) — dominante visualmente, como executivo espera de KPI no topo. Label segue compacto pra não competir.',
+      'Padding ajustado px-3.5 py-2.5 + gap-1.5 pra dar respiro ao número maior. leading-tight no label evita que quebra de linha estique demais.'
+    ]
+  },
+  {
     version: 'V37.0.11',
     date: '2026-06-11',
     title: 'Djow ganha autonomia — cria linhas DRE e itens RevOps via comando natural',
