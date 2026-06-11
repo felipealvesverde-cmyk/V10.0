@@ -7723,6 +7723,73 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V37.1.0 — Sub-aba "Por Pessoa" da aba Tarefas (cross-space ClickUp).
+  setTasksDashboardSubTab(tab) {
+    const valid = ['geral', 'porPessoa'];
+    App.state.tasksDashboardSubTab = valid.includes(tab) ? tab : 'geral';
+    App.save();
+    if (App.state.tasksDashboardSubTab === 'porPessoa') {
+      Actions.loadTasksPersonData();
+    }
+    App.render();
+  },
+
+  toggleTasksPersonExpanded(userId) {
+    if (!App.state.tasksPersonExpanded) App.state.tasksPersonExpanded = {};
+    const key = String(userId);
+    App.state.tasksPersonExpanded[key] = !App.state.tasksPersonExpanded[key];
+    App.save(); App.render();
+  },
+
+  async loadTasksPersonData(force = false) {
+    const cache = App.state.tasksPersonCache = App.state.tasksPersonCache || { fetchedAt: null, users: [], horizonDays: [], loading: false, error: null, journeyHours: 8 };
+    const TTL = 5 * 60 * 1000;
+    if (!force && cache.fetchedAt && (Date.now() - cache.fetchedAt) < TTL) return;
+    if (cache.loading) return;
+
+    if (!App.state.clickupStatus?.connected) {
+      cache.error = 'ClickUp não conectado.';
+      App.render();
+      return;
+    }
+
+    const allTasks = window.ExecutionTaskStore ? (ExecutionTaskStore.all() || []) : [];
+    const userIdSet = new Set();
+    allTasks.forEach(t => {
+      (Array.isArray(t.assignees) ? t.assignees : []).forEach(aid => userIdSet.add(String(aid)));
+    });
+    const userIds = Array.from(userIdSet);
+
+    cache.loading = true;
+    cache.error = null;
+    App.render();
+
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/clickup-user-tasks-count', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ user_ids: userIds.length ? userIds : null })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao carregar tarefas por pessoa.');
+      cache.users = data.users || [];
+      cache.horizonDays = data.horizon_days || [];
+      cache.journeyHours = data.journey_hours || 8;
+      cache.fetchedAt = Date.now();
+      cache.loading = false;
+      App.render();
+    } catch (err) {
+      cache.error = err.message;
+      cache.loading = false;
+      App.render();
+    }
+  },
+
+  refreshTasksPersonData() {
+    Actions.loadTasksPersonData(true);
+  },
+
   // V36.12.0 — Djow RevOps (painel lateral do DRE).
   selectDjowRevopsLine(productId, lineId, afterStep) {
     App.state.revopsDjowSelectedLine = { productId, lineId, afterStep, groupId: null };

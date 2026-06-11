@@ -1,18 +1,13 @@
-// V36.10.3 — Tasks Dashboard
+// V36.10.3 → V37.1.0 — Tasks Dashboard
 // Sub-tab "Tarefas" do Dashboard. Visão executiva AGNÓSTICA de provider
-// (ClickUp/Trello/Manual/...) e AGNÓSTICA de campanha. Mostra a carga
-// operacional macro do sistema. Diferente do Acompanhamento da Etapa 5 do
-// Mapa que é por campanha — aqui é tudo agregado.
+// (ClickUp/Trello/Manual/...) e AGNÓSTICA de campanha.
 //
-// Layout:
-//   1. Filtros (range + provider)
-//   2. Stat cards (Total / Em dia / Atrasadas / Concluídas / Sem resp.)
-//   3. Distribuição por provider
-//   4. Top 10 responsáveis (carga)
-//   5. Próximas 7 dias + Top 5 mais atrasadas
-//
-// State: tasksDashboardRange, tasksDashboardProvider
-// Actions: setTasksDashboardRange, setTasksDashboardProvider
+// V37.1.0 — Duas sub-abas internas:
+//   • Geral (legado) — stat cards + por provider + top responsáveis
+//   • Por Pessoa     — cards individuais com donut LJ% vs Externos %,
+//                      média de conclusão, agenda semana atual + próxima.
+//                      Privacy: nomes/títulos de tasks externas nunca aparecem.
+//                      Endpoint /api/clickup-user-tasks-count (TTL 5min).
 
 window.TasksDashboard = {
   render() {
@@ -20,6 +15,41 @@ window.TasksDashboard = {
     if (allTasks.length === 0) {
       return this._emptyState();
     }
+    const subTab = App.state.tasksDashboardSubTab || 'geral';
+    return `<div class="p-2 lg:p-4 space-y-4">
+      ${this._headerWithTabs(allTasks.length, subTab)}
+      ${subTab === 'porPessoa' ? this._renderPorPessoa() : this._renderGeral(allTasks)}
+    </div>`;
+  },
+
+  _headerWithTabs(total, subTab) {
+    const tab = (id, label, icon) => `<button onclick="Actions.setTasksDashboardSubTab('${id}')"
+      class="px-3 py-1.5 rounded-lg text-[11px] font-black inline-flex items-center gap-1.5 transition ${
+        subTab === id
+          ? 'bg-violet-600 text-white shadow-sm'
+          : 'bg-white hover:bg-violet-50 text-violet-700 border border-violet-200'
+      }" ${subTab === id ? 'style="color:#fff!important;"' : ''}>
+        <i data-lucide="${icon}" class="w-3 h-3"></i>${label}
+      </button>`;
+    return `<div class="rounded-3xl bg-gradient-to-br from-violet-50 to-fuchsia-50 border border-violet-200 p-5 shadow-sm">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div class="min-w-0 flex-1">
+          <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-1">Visão executiva da execução</p>
+          <h2 class="text-2xl font-black text-slate-900">Tarefas</h2>
+          <p class="text-[13px] text-stone-700 mt-1">Carga operacional do sistema independente de provider e campanha. ${total} task${total === 1 ? '' : 's'} no total.</p>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          ${tab('geral', 'Geral', 'layout-grid')}
+          ${tab('porPessoa', 'Por Pessoa', 'users')}
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // ============================================================
+  // SUB-TAB GERAL (legado V36.10.3)
+  // ============================================================
+  _renderGeral(allTasks) {
     const range = App.state.tasksDashboardRange || 'all';
     const provider = App.state.tasksDashboardProvider || 'all';
     const filtered = this._filterTasks(allTasks, range, provider);
@@ -29,9 +59,8 @@ window.TasksDashboard = {
     const upcoming = this._upcomingTasks(filtered, 7);
     const topOverdue = this._topOverdueTasks(filtered, 5);
 
-    return `<div class="p-2 lg:p-4 space-y-4">
-      ${this._header(allTasks.length, filtered.length)}
-      ${this._filters(range, provider, byProvider)}
+    return `<div class="space-y-4">
+      ${this._filters(range, provider, byProvider, allTasks.length, filtered.length)}
       ${this._statCards(stats)}
       ${this._providerDistribution(byProvider)}
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -44,16 +73,7 @@ window.TasksDashboard = {
     </div>`;
   },
 
-  _header(total, filtered) {
-    const filteredLabel = filtered === total ? `${total} task${total === 1 ? '' : 's'}` : `${filtered} de ${total}`;
-    return `<div class="rounded-3xl bg-gradient-to-br from-violet-50 to-fuchsia-50 border border-violet-200 p-5 shadow-sm">
-      <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-1">Visão executiva da execução</p>
-      <h2 class="text-2xl font-black text-slate-900">Tarefas</h2>
-      <p class="text-[13px] text-stone-700 mt-1">Carga operacional do sistema independente de provider e campanha. ${filteredLabel} no escopo atual.</p>
-    </div>`;
-  },
-
-  _filters(range, provider, byProvider) {
+  _filters(range, provider, byProvider, total, filtered) {
     const rangeOptions = [
       { id: 'all',     label: 'Todas' },
       { id: '7d',      label: 'Próximos 7 dias' },
@@ -64,7 +84,9 @@ window.TasksDashboard = {
       { id: 'all',     label: 'Todos providers' },
       ...byProvider.map(p => ({ id: p.id, label: this._providerLabel(p.id) }))
     ];
+    const escope = filtered === total ? `${total} task${total === 1 ? '' : 's'}` : `${filtered} de ${total}`;
     return `<div class="flex items-center gap-3 flex-wrap">
+      <span class="text-[11px] text-stone-600">${escope} no escopo atual</span>
       <label class="inline-flex items-center gap-2">
         <span class="text-[10px] font-black text-stone-600 uppercase tracking-widest">Range</span>
         <select onchange="Actions.setTasksDashboardRange(this.value)" class="px-3 py-2 rounded-lg bg-white border border-stone-300 text-slate-900 text-[12px] font-bold">
@@ -222,6 +244,273 @@ window.TasksDashboard = {
     </button>`;
   },
 
+  // ============================================================
+  // SUB-TAB POR PESSOA (V37.1.0)
+  // ============================================================
+  _renderPorPessoa() {
+    const cache = App.state.tasksPersonCache || {};
+    const horizonDays = Array.isArray(cache.horizonDays) ? cache.horizonDays : [];
+    const journeyHours = cache.journeyHours || 8;
+    const users = Array.isArray(cache.users) ? cache.users : [];
+
+    if (App.state.clickupStatus?.connected && !cache.fetchedAt && !cache.loading && !cache.error) {
+      setTimeout(() => Actions.loadTasksPersonData(), 0);
+    }
+
+    if (!App.state.clickupStatus?.connected) {
+      return `<div class="rounded-3xl bg-white border border-stone-200 p-8 text-center">
+        <i data-lucide="plug-zap" class="w-10 h-10 text-stone-400 mx-auto mb-3"></i>
+        <p class="text-[13px] text-stone-700 mb-3">Conecte o ClickUp pra ver carga por pessoa cross-projeto.</p>
+        <button onclick="Actions.openSettingsModal(); Actions.setSettingsSection('integrations')" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+          <i data-lucide="settings" class="w-3.5 h-3.5"></i> Configurar ClickUp
+        </button>
+      </div>`;
+    }
+
+    return `<div class="space-y-3">
+      ${this._porPessoaHeader(cache, users.length)}
+      ${this._porPessoaBody(cache, users, horizonDays, journeyHours)}
+    </div>`;
+  },
+
+  _porPessoaHeader(cache, userCount) {
+    const fetched = cache.fetchedAt ? new Date(cache.fetchedAt) : null;
+    const ageMin = fetched ? Math.round((Date.now() - cache.fetchedAt) / 60000) : null;
+    const ageLabel = !fetched ? 'Não carregado' :
+                     ageMin < 1 ? 'agora mesmo' :
+                     ageMin === 1 ? 'há 1 min' : `há ${ageMin} min`;
+    return `<div class="flex items-center justify-between gap-3 flex-wrap">
+      <p class="text-[11px] text-stone-600 inline-flex items-center gap-1.5">
+        <i data-lucide="clock" class="w-3 h-3"></i>
+        ${userCount} pessoa${userCount === 1 ? '' : 's'} · atualizado ${ageLabel}
+      </p>
+      <button onclick="Actions.refreshTasksPersonData()" ${cache.loading ? 'disabled' : ''}
+        class="px-3 py-1.5 rounded-lg bg-white hover:bg-stone-50 border border-stone-300 text-stone-700 text-[11px] font-bold inline-flex items-center gap-1.5 ${cache.loading ? 'opacity-50 cursor-wait' : ''}">
+        <i data-lucide="${cache.loading ? 'loader-2' : 'refresh-cw'}" class="w-3 h-3 ${cache.loading ? 'animate-spin' : ''}"></i>
+        ${cache.loading ? 'Atualizando...' : 'Atualizar'}
+      </button>
+    </div>`;
+  },
+
+  _porPessoaBody(cache, users, horizonDays, journeyHours) {
+    if (cache.loading && !users.length) {
+      return `<div class="rounded-3xl bg-white border border-stone-200 p-8 text-center">
+        <i data-lucide="loader-2" class="w-8 h-8 text-violet-500 mx-auto mb-2 animate-spin"></i>
+        <p class="text-[12px] text-stone-600">Puxando tarefas do ClickUp...</p>
+      </div>`;
+    }
+    if (cache.error) {
+      return `<div class="rounded-3xl bg-rose-50 border border-rose-200 p-5">
+        <p class="text-[11px] font-black text-rose-700 uppercase tracking-widest mb-1">Erro ao carregar</p>
+        <p class="text-[12px] text-rose-800">${Utils.escape(cache.error)}</p>
+        <button onclick="Actions.refreshTasksPersonData()" class="mt-3 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[11px] font-bold inline-flex items-center gap-1.5" style="color:#fff!important;">
+          <i data-lucide="refresh-cw" class="w-3 h-3"></i> Tentar novamente
+        </button>
+      </div>`;
+    }
+    if (!users.length) {
+      return `<div class="rounded-3xl bg-white border border-stone-200 p-8 text-center">
+        <i data-lucide="user-x" class="w-10 h-10 text-stone-400 mx-auto mb-3"></i>
+        <p class="text-[13px] text-stone-700">Nenhuma pessoa com tarefas LJ atribuídas ainda.</p>
+      </div>`;
+    }
+    return `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+      ${users.map(u => this._personCard(u, horizonDays, journeyHours)).join('')}
+    </div>`;
+  },
+
+  _personCard(u, horizonDays, journeyHours) {
+    const expanded = Boolean(App.state.tasksPersonExpanded?.[u.user_id]);
+    const ljTotal = (u.lj_open || 0) + (u.lj_done || 0);
+    const extTotal = (u.ext_open || 0) + (u.ext_done || 0);
+    const grandTotal = ljTotal + extTotal;
+    const ljPct = grandTotal ? Math.round((ljTotal / grandTotal) * 100) : 0;
+    const avgLabel = u.avg_hours != null
+      ? `${u.avg_hours.toString().replace('.', ',')}h por tarefa`
+      : `— amostra insuficiente (${u.sample_size || 0}/${5})`;
+
+    const { weekCurrent, weekNext } = this._splitHorizonWeeks(horizonDays);
+
+    return `<div class="rounded-2xl bg-white border border-stone-200 shadow-sm overflow-hidden">
+      <button onclick="Actions.toggleTasksPersonExpanded('${u.user_id}')" class="w-full text-left p-4 hover:bg-stone-50 transition flex items-start gap-3">
+        <span class="shrink-0 w-10 h-10 rounded-xl grid place-items-center text-white text-[11px] font-black shadow-sm"
+          style="background:${u.color || '#7c3aed'};color:#fff!important;">${Utils.escape(u.initials || '??')}</span>
+        <div class="min-w-0 flex-1">
+          <p class="text-[13px] font-black text-slate-900 truncate" title="${Utils.escape(u.name)}">${Utils.escape(u.name)}</p>
+          ${u.email ? `<p class="text-[10px] text-stone-500 truncate">${Utils.escape(u.email)}</p>` : ''}
+        </div>
+        <i data-lucide="${expanded ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 text-stone-400 shrink-0 mt-0.5"></i>
+      </button>
+
+      <div class="px-4 pb-4 flex items-center gap-4">
+        ${this._donutSvg(ljTotal, extTotal, 64, ljPct)}
+        <div class="min-w-0 flex-1 space-y-1">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:#F6DB5C;"></span>
+            <span class="text-[11px] font-bold text-slate-900">LeadJourney</span>
+            <span class="text-[11px] text-stone-600 ml-auto">${ljTotal}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:#d6d3d1;"></span>
+            <span class="text-[11px] font-bold text-slate-900">Outros projetos</span>
+            <span class="text-[11px] text-stone-600 ml-auto">${extTotal}</span>
+          </div>
+          <div class="pt-1.5 border-t border-stone-100 mt-1.5">
+            <p class="text-[10px] text-stone-500 uppercase tracking-wider font-bold">Total ativo</p>
+            <p class="text-[14px] font-black text-slate-900">${grandTotal}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-4 pb-4 flex items-center gap-2 text-[11px] text-stone-700 bg-stone-50/50 -mx-px py-2 border-t border-stone-100">
+        <i data-lucide="timer" class="w-3 h-3 text-stone-500"></i>
+        <span class="font-bold">Média de conclusão:</span>
+        <span>${avgLabel}</span>
+      </div>
+
+      ${expanded ? `
+      <div class="px-4 pb-4 pt-3 space-y-3 border-t border-stone-100 bg-gradient-to-b from-stone-50/50 to-white">
+        <p class="text-[10px] font-black text-stone-600 uppercase tracking-widest inline-flex items-center gap-1.5">
+          <i data-lucide="calendar-range" class="w-3 h-3"></i>
+          Capacidade · jornada ${journeyHours}h/dia
+        </p>
+
+        ${weekCurrent.length ? this._weekBlock('Esta semana', weekCurrent, u.daily_load || {}, journeyHours, u.avg_hours || 4) : ''}
+        ${weekNext.length ? this._weekBlock('Próxima semana', weekNext, u.daily_load || {}, journeyHours, u.avg_hours || 4) : ''}
+
+        <div class="flex items-center gap-3 text-[9px] text-stone-600 pt-1">
+          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:#fb7185;"></span>>100%</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:#fbbf24;"></span>60–100%</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:#34d399;"></span>&lt;60%</span>
+        </div>
+      </div>
+      ` : ''}
+    </div>`;
+  },
+
+  _splitHorizonWeeks(horizonDays) {
+    if (!horizonDays.length) return { weekCurrent: [], weekNext: [] };
+    const today = new Date(horizonDays[0] + 'T00:00:00');
+    const dow = today.getDay(); // 0=dom..6=sab
+    const daysToSunday = 6 - dow + 1; // dias restantes até segunda da próxima semana
+    const weekCurrent = horizonDays.slice(0, daysToSunday);
+    const weekNext = horizonDays.slice(daysToSunday, daysToSunday + 7);
+    return { weekCurrent, weekNext };
+  },
+
+  _weekBlock(label, days, dailyLoad, journeyHours, avgHours) {
+    if (!days.length) return '';
+    const summary = this._summarizeLoad(days, dailyLoad, journeyHours, avgHours);
+    return `<div class="space-y-1.5">
+      <p class="text-[10px] font-bold text-stone-700 uppercase tracking-wider">${label}</p>
+      <div class="rounded-xl bg-white border border-stone-200 p-2.5">
+        ${this._barsSvg(days, dailyLoad, journeyHours)}
+      </div>
+      ${summary ? `<p class="text-[11px] text-stone-700 leading-snug pl-0.5">${summary}</p>` : ''}
+    </div>`;
+  },
+
+  _donutSvg(ljCount, extCount, size, ljPct) {
+    const total = ljCount + extCount;
+    const r = 22;
+    const c = size / 2;
+    const circumference = 2 * Math.PI * r;
+    if (total === 0) {
+      return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="shrink-0">
+        <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#e7e5e4" stroke-width="7" />
+        <text x="${c}" y="${c+1}" text-anchor="middle" dominant-baseline="central" font-size="10" font-weight="900" fill="#a8a29e">—</text>
+      </svg>`;
+    }
+    const ljArc = circumference * (ljCount / total);
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="shrink-0">
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#d6d3d1" stroke-width="7" />
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#F6DB5C" stroke-width="7"
+        stroke-dasharray="${ljArc.toFixed(2)} ${circumference.toFixed(2)}"
+        stroke-linecap="round"
+        transform="rotate(-90 ${c} ${c})" />
+      <text x="${c}" y="${c+1}" text-anchor="middle" dominant-baseline="central" font-size="11" font-weight="900" fill="#0f172a">${ljPct}%</text>
+    </svg>`;
+  },
+
+  _barsSvg(days, dailyLoad, journeyHours) {
+    const barH = 56;
+    const barW = 22;
+    const gap = 6;
+    const labelH = 14;
+    const totalW = (barW + gap) * days.length - gap;
+    const totalH = barH + labelH + 2;
+    const dayLabels = ['D','S','T','Q','Q','S','S'];
+    const bars = days.map((d, i) => {
+      const date = new Date(d + 'T00:00:00');
+      const hours = dailyLoad[d] || 0;
+      const ratio = hours / journeyHours;
+      const fillRatio = Math.min(ratio, 1);
+      const barFillH = fillRatio * barH;
+      let color;
+      if (ratio > 1) color = '#fb7185';
+      else if (ratio >= 0.6) color = '#fbbf24';
+      else if (ratio >= 0.05) color = '#34d399';
+      else color = '#e7e5e4';
+      const cap = ratio > 1
+        ? `<rect x="0" y="0" width="${barW}" height="3" fill="#be123c" rx="1.5" />`
+        : '';
+      const dowIdx = date.getDay();
+      const labelColor = (dowIdx === 0 || dowIdx === 6) ? '#a8a29e' : '#57534e';
+      return `<g transform="translate(${i * (barW + gap)}, 0)">
+        <rect x="0" y="0" width="${barW}" height="${barH}" fill="#f5f5f4" rx="4" />
+        <rect x="0" y="${barH - barFillH}" width="${barW}" height="${barFillH}" fill="${color}" rx="4">
+          <title>${date.toLocaleDateString('pt-BR')} · ${hours.toString().replace('.', ',')}h (${Math.round(ratio*100)}%)</title>
+        </rect>
+        ${cap}
+        <text x="${barW/2}" y="${barH + labelH - 2}" text-anchor="middle" font-size="9" font-weight="700" fill="${labelColor}">${dayLabels[dowIdx]}</text>
+      </g>`;
+    }).join('');
+    return `<svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">${bars}</svg>`;
+  },
+
+  _summarizeLoad(days, dailyLoad, journeyHours, avgHours) {
+    const dayNames = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+    const taskUnit = avgHours > 0 ? avgHours : 4;
+    const buckets = days.map(d => {
+      const hours = dailyLoad[d] || 0;
+      const ratio = hours / journeyHours;
+      let level;
+      if (ratio >= 1) level = 'full';
+      else if (ratio >= 0.6) level = 'high';
+      else if (ratio >= 0.3) level = 'mid';
+      else level = 'free';
+      const date = new Date(d + 'T00:00:00');
+      return { day: d, label: dayNames[date.getDay()], hours, ratio, level };
+    });
+    const groups = [];
+    for (const b of buckets) {
+      const last = groups[groups.length - 1];
+      if (last && last.level === b.level) {
+        last.endLabel = b.label;
+        last.endRatio = b.ratio;
+        last.endHours = b.hours;
+      } else {
+        groups.push({ level: b.level, startLabel: b.label, endLabel: b.label, startRatio: b.ratio, endRatio: b.ratio, startHours: b.hours, endHours: b.hours });
+      }
+    }
+    const phraseFor = (g) => {
+      const range = (g.startLabel === g.endLabel) ? g.startLabel : `${g.startLabel}–${g.endLabel}`;
+      if (g.level === 'full') {
+        return `<span class="font-bold text-rose-700">${range}</span> sem espaço`;
+      }
+      if (g.level === 'high') {
+        const fits = Math.max(0, Math.floor((journeyHours - g.startHours) / taskUnit));
+        const fitsLabel = fits > 0 ? ` (cabe ~${fits} tarefa${fits === 1 ? '' : 's'})` : '';
+        return `<span class="font-bold text-amber-700">${range}</span> ${Math.round(g.startRatio*100)}%${fitsLabel}`;
+      }
+      if (g.level === 'mid') {
+        return `<span class="font-bold text-emerald-700">${range}</span> ${Math.round(g.startRatio*100)}%`;
+      }
+      return `<span class="font-bold text-emerald-700">${range}</span> livre${range.includes('–') ? 's' : ''}`;
+    };
+    return groups.map(phraseFor).join(' · ');
+  },
+
   _emptyState() {
     return `<div class="p-2 lg:p-4">
       <div class="rounded-3xl bg-gradient-to-br from-violet-50 to-fuchsia-50 border border-violet-200 p-8 text-center shadow-sm">
@@ -320,7 +609,6 @@ window.TasksDashboard = {
         });
       }
     });
-    // Resolve usernames via ClickUp members
     const members = App.state.clickupMeta?.members || [];
     const entries = Array.from(map.values()).map(b => {
       const m = members.find(mem => String(mem.id) === b.userId);

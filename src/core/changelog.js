@@ -18,6 +18,22 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.1.0',
+    date: '2026-06-11',
+    title: 'Dashboard → Tarefas → Por Pessoa: carga LJ vs outros projetos + agenda da semana',
+    bullets: [
+      'Aba Tarefas do Dashboard ganha duas sub-abas: Geral (visão existente) e Por Pessoa (nova).',
+      'Por Pessoa lista cada membro do ClickUp que tem tarefas LJ — recolhido por padrão mostra avatar, nome, donut LJ% vs Outros% e média de conclusão por tarefa.',
+      'Expandido revela duas barras de capacidade: esta semana (do dia atual até domingo) e próxima semana (Seg–Dom). Cada barra é colorida por faixa: rosé >100%, âmbar 60–100%, verde <60%.',
+      'Resumo textual abaixo das barras agrupa dias consecutivos no mesmo nível — ex: "Seg–Ter sem espaço · Qua 80% (cabe ~1 tarefa) · Qui–Dom livres".',
+      'Cálculo da média: pega as últimas 20 tasks concluídas da pessoa em TODOS os projetos do workspace (LJ + externos), faz média de (date_done − date_created) em horas. Se amostra < 5, mostra "—" com tooltip.',
+      'Cálculo da capacidade: pra cada task aberta com due_date nos próximos 14 dias, usa time_estimate da task se preenchido, senão a média da pessoa. Tasks atrasadas viram sobrecarga no dia de hoje. Jornada fixa de 8h/dia.',
+      'Privacy preservada: títulos de tarefas externas nunca aparecem na UI — só counts e horas agregadas. Cliente vê quanto Pedro trabalha fora do LJ, não em quê.',
+      'Cache de 5 minutos no frontend. Botão Atualizar no header da sub-aba força refresh. Endpoint /api/clickup-user-tasks-count pagina até 300 tasks por pessoa.',
+      'Pré-requisito: ClickUp conectado E Space LJ definido (Setup Wizard). Sem ClickUp, sub-aba mostra CTA pra configurar.'
+    ]
+  },
+  {
     version: 'V37.0.13',
     date: '2026-06-11',
     title: 'Header CFO: nome do indicador um tico maior (9px → 11px)',
