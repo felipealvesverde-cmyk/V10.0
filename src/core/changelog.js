@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.1.7',
+    date: '2026-06-11',
+    title: 'Tarefas Por Pessoa: Total Ativo agora é só pendente + linha de concluídas',
+    bullets: [
+      'Bug visual: o "Total ativo" do card somava abertas + concluídas, mas a fila do empilhamento usava só abertas. Causava confusão (Pedro 130 total vs 640h fila = 80 tasks × 8h).',
+      'Total Ativo passa a contar SÓ tarefas pendentes (open). O número agora bate com a fila: Total × média = horas de fila.',
+      'Linha nova "X concluídas nos últimos 30 dias" entra abaixo do Total — mostra produtividade do mês sem misturar com carga atual. Ícone check verde pra diferenciar.',
+      'Donut LJ% vs Outros% também passa a usar só open (consistência com Total Ativo). Reflete divisão da carga PENDENTE, não do histórico misturado.'
+    ]
+  },
+  {
     version: 'V37.1.6',
     date: '2026-06-11',
     title: 'Tarefas Por Pessoa: janela móvel de 30 dias (tasks zumbi ficam fora)',
