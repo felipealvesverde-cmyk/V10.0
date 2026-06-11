@@ -400,6 +400,16 @@ var State = {
       activeDashboardTab: 'overview',
       tasksDashboardRange: 'all',     // V36.10.3 — sub-tab Tarefas
       tasksDashboardProvider: 'all',
+      // V37.1.0 — Sub-aba da aba Tarefas no Dashboard ('geral' | 'porPessoa').
+      // Por Pessoa puxa cross-space do ClickUp pra mostrar carga LJ vs Externos
+      // + agenda da semana atual e próxima por pessoa.
+      tasksDashboardSubTab: 'geral',
+      // Cache do POST /api/clickup-user-tasks-count. TTL 5min, volátil.
+      // users[] tem { user_id, name, initials, lj_open, lj_done, ext_open, ext_done,
+      // avg_hours, sample_size, daily_load: { 'YYYY-MM-DD': hours, ... } }
+      tasksPersonCache: { fetchedAt: null, users: [], horizonDays: [], loading: false, error: null, journeyHours: 8 },
+      // Quais cards de pessoa estão expandidos (persiste pra preferência sobreviver F5).
+      tasksPersonExpanded: {},
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
       overviewBranchFilter: 'all',
       revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
@@ -1110,6 +1120,10 @@ var State = {
       activeDashboardTab: 'overview',
       tasksDashboardRange: 'all',     // V36.10.3 — sub-tab Tarefas
       tasksDashboardProvider: 'all',
+      // V37.1.0 — sub-tab Tarefas Por Pessoa (cache volátil, expand persiste)
+      tasksDashboardSubTab: ['geral', 'porPessoa'].includes(raw.tasksDashboardSubTab) ? raw.tasksDashboardSubTab : 'geral',
+      tasksPersonCache: { fetchedAt: null, users: [], horizonDays: [], loading: false, error: null, journeyHours: 8 },
+      tasksPersonExpanded: (raw.tasksPersonExpanded && typeof raw.tasksPersonExpanded === 'object') ? raw.tasksPersonExpanded : {},
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
       overviewBranchFilter: 'all',
       revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
