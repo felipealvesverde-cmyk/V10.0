@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.2.1',
+    date: '2026-06-11',
+    title: 'Tarefas Por Pessoa: refinos visuais (hoje + cobertura + sem LJ ativas)',
+    bullets: [
+      '"Próximo slot livre" agora diferencia "Ainda hoje", "Amanhã" e dias específicos. Antes mostrava "qui., 11 de jun." mesmo quando era o próprio dia que tu tava — confuso. Agora fica claro que tem janela aproveitável já no dia em curso.',
+      'Header da Capacidade ganha contador "X de Y tarefas abertas têm início + entrega preenchidos". Quando menos de 60% das tarefas têm datas, aparece com tom âmbar e marca "empilhamento parcial (Z%)" — cliente entende que o gráfico só reflete uma fatia dos dados.',
+      'Quando a pessoa tem 0 tarefas LJ ativas (toda carga em outros projetos), a coluna Dedicação LJ mostra card sutil com ícone lua: "Esta pessoa não tem tarefas LJ ativas — toda a carga está em outros projetos do workspace ClickUp". Substitui a barra cinza solitária que parecia bug.',
+      'Etiqueta mudou de "Próximo dia livre" pra "Próximo slot livre" — reflete melhor a granularidade (pode ser horas no meio do dia, não necessariamente um dia inteiro).'
+    ]
+  },
+  {
     version: 'V37.2.0',
     date: '2026-06-11',
     title: 'Tarefas Por Pessoa: distribuição real por start/due + adherência + slots livres + próxima entrega',
