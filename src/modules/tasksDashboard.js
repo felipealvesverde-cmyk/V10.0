@@ -363,12 +363,12 @@ window.TasksDashboard = {
           <div class="pt-1.5 border-t border-stone-100 mt-1.5 flex items-end justify-between gap-2">
             <div>
               <p class="text-[10px] text-stone-500 uppercase tracking-wider font-bold">Total ativo</p>
-              <p class="text-[14px] font-black text-slate-900">${grandTotal}</p>
+              <p class="text-[14px] font-black text-slate-900">${grandTotal}${u.open_truncated ? '+' : ''}</p>
             </div>
             ${(u.late_total || 0) > 0 ? `
-              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-100 border border-rose-300 text-rose-800 text-[11px] font-black" title="Tarefas abertas com data de entrega vencida (LJ + externos)">
+              <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-100 border border-rose-300 text-rose-800 text-[11px] font-black" title="${u.late_truncated ? 'Pelo menos ' + u.late_total + ' tarefas abertas vencidas (cap atingido — pode haver mais)' : 'Tarefas abertas com data de entrega vencida (LJ + externos)'}">
                 <i data-lucide="alert-triangle" class="w-3 h-3"></i>
-                ${u.late_total} atrasada${u.late_total === 1 ? '' : 's'}
+                ${u.late_total}${u.late_truncated ? '+' : ''} atrasada${u.late_total === 1 && !u.late_truncated ? '' : 's'}
               </span>
             ` : ''}
           </div>
@@ -383,25 +383,54 @@ window.TasksDashboard = {
 
       ${expanded ? `
       <div class="px-4 pb-4 pt-3 space-y-3 border-t border-stone-100 bg-gradient-to-b from-stone-50/50 to-white">
-        <p class="text-[10px] font-black text-stone-600 uppercase tracking-widest inline-flex items-center gap-1.5">
-          <i data-lucide="calendar-range" class="w-3 h-3"></i>
-          Capacidade · jornada ${journeyHours}h/dia
-        </p>
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-[10px] font-black text-stone-600 uppercase tracking-widest inline-flex items-center gap-1.5">
+            <i data-lucide="calendar-range" class="w-3 h-3"></i>
+            Capacidade · jornada ${journeyHours}h/dia
+          </p>
+          ${u.total_workload_hours > 0 ? `
+            <span class="text-[10px] text-stone-600 font-bold" title="Total: ${u.total_workload_hours}h (${u.lj_open + u.ext_open} tarefas × ${u.task_hours_used}h ${u.avg_hours_is_fallback ? 'fallback' : 'média'})">
+              ${u.total_workload_hours.toString().replace('.', ',')}h fila
+            </span>
+          ` : ''}
+        </div>
 
-        ${weekCurrent.length ? this._weekBlock('Esta semana', weekCurrent, u.daily_load || {}, journeyHours, u.avg_hours || 4) : ''}
-        ${weekNext.length ? this._weekBlock('Próxima semana', weekNext, u.daily_load || {}, journeyHours, u.avg_hours || 4) : ''}
+        ${weekCurrent.length ? this._weekBlock('Esta semana', weekCurrent, u.daily_load || {}, journeyHours, u.task_hours_used || u.avg_hours || 4) : ''}
+        ${weekNext.length ? this._weekBlock('Próxima semana', weekNext, u.daily_load || {}, journeyHours, u.task_hours_used || u.avg_hours || 4) : ''}
+
+        ${u.overflow_hours > 0 ? `
+          <div class="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 flex items-center gap-2">
+            <i data-lucide="alert-octagon" class="w-3.5 h-3.5 text-rose-600 shrink-0"></i>
+            <p class="text-[11px] text-rose-800">
+              <span class="font-black">+${u.overflow_hours.toString().replace('.', ',')}h</span>
+              em backlog além das 2 semanas úteis
+              <span class="text-rose-600 text-[10px]">(~${Math.ceil(u.overflow_hours / journeyHours)} dias úteis extras)</span>
+            </p>
+          </div>
+        ` : ''}
       </div>
       ` : ''}
     </div>`;
   },
 
   _splitHorizonWeeks(horizonDays) {
+    // V37.1.4 — horizonte agora é só dias úteis. Split por semana ISO baseado
+    // na segunda-feira de cada dia. Mesma semana do firstDay → weekCurrent.
     if (!horizonDays.length) return { weekCurrent: [], weekNext: [] };
-    const today = new Date(horizonDays[0] + 'T00:00:00');
-    const dow = today.getDay(); // 0=dom..6=sab
-    const daysToSunday = 6 - dow + 1; // dias restantes até segunda da próxima semana
-    const weekCurrent = horizonDays.slice(0, daysToSunday);
-    const weekNext = horizonDays.slice(daysToSunday, daysToSunday + 7);
+    const firstDay = new Date(horizonDays[0] + 'T00:00:00');
+    const dow = firstDay.getDay() || 7; // dom=7 (não acontece no horizonte útil)
+    const monday = new Date(firstDay);
+    monday.setDate(firstDay.getDate() - (dow - 1));
+    const sundayKey = (() => {
+      const s = new Date(monday);
+      s.setDate(monday.getDate() + 6);
+      const y = s.getFullYear();
+      const m = String(s.getMonth() + 1).padStart(2, '0');
+      const d = String(s.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    })();
+    const weekCurrent = horizonDays.filter(d => d <= sundayKey);
+    const weekNext = horizonDays.filter(d => d > sundayKey);
     return { weekCurrent, weekNext };
   },
 
@@ -440,43 +469,47 @@ window.TasksDashboard = {
   },
 
   _barsSvg(days, dailyLoad, journeyHours) {
+    // V37.1.4 — só dias úteis no horizonte. Labels 2 letras pra diferenciar Seg/Sex.
     const barH = 56;
-    const barW = 22;
+    const barW = 24;
     const gap = 6;
     const labelH = 14;
     const totalW = (barW + gap) * days.length - gap;
     const totalH = barH + labelH + 2;
-    const dayLabels = ['D','S','T','Q','Q','S','S'];
+    // dow: 1=Seg .. 5=Sex
+    const dayLabels = { 1: 'Se', 2: 'Te', 3: 'Qa', 4: 'Qi', 5: 'Sx' };
+    const fmtNum = (n) => (Math.round(n * 10) / 10).toString().replace('.', ',');
     const bars = days.map((d, i) => {
       const date = new Date(d + 'T00:00:00');
       const hours = dailyLoad[d] || 0;
-      const ratio = hours / journeyHours;
+      const free = Math.max(0, journeyHours - hours);
+      const ratio = journeyHours > 0 ? hours / journeyHours : 0;
       const fillRatio = Math.min(ratio, 1);
       const barFillH = fillRatio * barH;
       let color;
-      if (ratio > 1) color = '#fb7185';
+      if (ratio >= 1) color = '#fb7185';
       else if (ratio >= 0.6) color = '#fbbf24';
       else if (ratio >= 0.05) color = '#34d399';
       else color = '#e7e5e4';
-      const cap = ratio > 1
-        ? `<rect x="0" y="0" width="${barW}" height="3" fill="#be123c" rx="1.5" />`
-        : '';
       const dowIdx = date.getDay();
-      const labelColor = (dowIdx === 0 || dowIdx === 6) ? '#a8a29e' : '#57534e';
+      const label = dayLabels[dowIdx] || '';
+      const tooltip = `${date.toLocaleDateString('pt-BR')} · ${fmtNum(hours)}h ocupadas · ${fmtNum(free)}h disponíveis`;
       return `<g transform="translate(${i * (barW + gap)}, 0)">
-        <rect x="0" y="0" width="${barW}" height="${barH}" fill="#f5f5f4" rx="4" />
-        <rect x="0" y="${barH - barFillH}" width="${barW}" height="${barFillH}" fill="${color}" rx="4">
-          <title>${date.toLocaleDateString('pt-BR')} · ${hours.toString().replace('.', ',')}h (${Math.round(ratio*100)}%)</title>
+        <rect x="0" y="0" width="${barW}" height="${barH}" fill="#f5f5f4" rx="4">
+          <title>${tooltip}</title>
         </rect>
-        ${cap}
-        <text x="${barW/2}" y="${barH + labelH - 2}" text-anchor="middle" font-size="9" font-weight="700" fill="${labelColor}">${dayLabels[dowIdx]}</text>
+        <rect x="0" y="${barH - barFillH}" width="${barW}" height="${barFillH}" fill="${color}" rx="4">
+          <title>${tooltip}</title>
+        </rect>
+        <text x="${barW/2}" y="${barH + labelH - 2}" text-anchor="middle" font-size="9" font-weight="700" fill="#57534e">${label}</text>
       </g>`;
     }).join('');
     return `<svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">${bars}</svg>`;
   },
 
   _summarizeLoad(days, dailyLoad, journeyHours, avgHours) {
-    const dayNames = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+    // V37.1.4 — Só dias úteis. Labels 3 letras pra resumo textual.
+    const dayNames = { 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex' };
     const taskUnit = avgHours > 0 ? avgHours : 4;
     const buckets = days.map(d => {
       const hours = dailyLoad[d] || 0;
@@ -487,7 +520,7 @@ window.TasksDashboard = {
       else if (ratio >= 0.3) level = 'mid';
       else level = 'free';
       const date = new Date(d + 'T00:00:00');
-      return { day: d, label: dayNames[date.getDay()], hours, ratio, level };
+      return { day: d, label: dayNames[date.getDay()] || '?', hours, ratio, level };
     });
     const groups = [];
     for (const b of buckets) {
