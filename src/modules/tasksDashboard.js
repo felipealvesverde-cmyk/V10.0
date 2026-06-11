@@ -462,8 +462,23 @@ window.TasksDashboard = {
                 </span>
               ` : ''}
             </div>
-            ${weekCurrent.length ? this._weekBlock('Esta semana', weekCurrent, u.daily_load || {}, journeyHours, taskUnit) : ''}
-            ${weekNext.length ? this._weekBlock('Próxima semana', weekNext, u.daily_load || {}, journeyHours, taskUnit) : ''}
+            ${(() => {
+              const composition = this._computeComposition(u);
+              const todayKey = (() => {
+                const t = new Date();
+                const y = t.getFullYear(), m = String(t.getMonth() + 1).padStart(2, '0'), d = String(t.getDate()).padStart(2, '0');
+                return `${y}-${m}-${d}`;
+              })();
+              return `
+                ${weekCurrent.length ? this._weekBlock('Esta semana', weekCurrent, u.daily_load || {}, journeyHours, taskUnit, composition, todayKey) : ''}
+                ${weekNext.length ? this._weekBlock('Próxima semana', weekNext, u.daily_load || {}, journeyHours, taskUnit, composition, todayKey) : ''}
+                ${composition.length ? `
+                  <div class="flex items-center gap-2 flex-wrap text-[9px] text-stone-600 pt-1">
+                    ${composition.map(s => `<span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:${s.color}"></span>${Utils.escape(s.label)} ${Math.round(s.fraction*100)}%</span>`).join('')}
+                  </div>
+                ` : ''}
+              `;
+            })()}
             ${u.overflow_hours > 0 ? `
               <div class="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2.5 flex items-center gap-2">
                 <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-600 shrink-0"></i>
@@ -523,13 +538,15 @@ window.TasksDashboard = {
       return cb - ca;
     });
 
-    const renderItem = (label, count, isMain) => {
+    // V37.1.10 — cor por folder (consistência com barras de capacidade).
+    const renderItem = (label, count, isMain, color) => {
       const pct = Math.round((count / maxCount) * 100);
       return `<div class="flex items-center gap-2 ${isMain ? 'mt-2' : 'pl-3'}">
+        <span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:${color}"></span>
         <span class="text-[11px] ${isMain ? 'font-black text-slate-900' : 'text-slate-700'} truncate flex-1" title="${Utils.escape(label)}">${Utils.escape(label)}</span>
         <span class="text-[11px] font-bold text-slate-900 tabular-nums">${count}</span>
         <div class="w-20 h-1.5 rounded-full bg-stone-100 overflow-hidden shrink-0">
-          <div class="h-full bg-violet-500" style="width:${pct}%;"></div>
+          <div class="h-full" style="width:${pct}%;background:${color};"></div>
         </div>
       </div>`;
     };
@@ -538,25 +555,27 @@ window.TasksDashboard = {
       ${groupArr.map(g => {
         const folderTotal = g.lists.reduce((s, l) => s + l.count, 0);
         const folderLabel = g.folder_name || 'Sem produto (folderless)';
+        const folderColor = this._colorForFolder(g.folder_name || folderLabel);
         return `
-          ${renderItem(folderLabel, folderTotal, true)}
-          ${g.lists.map(l => renderItem(l.list_name, l.count, false)).join('')}
+          ${renderItem(folderLabel, folderTotal, true, folderColor)}
+          ${g.lists.map(l => renderItem(l.list_name, l.count, false, folderColor)).join('')}
         `;
       }).join('')}
       ${extOpen > 0 ? `
         <div class="pt-2 mt-2 border-t border-stone-100">
-          ${renderItem('Outros projetos (fora do LJ)', extOpen, true)}
+          ${renderItem('Outros projetos (fora do LJ)', extOpen, true, this._EXT_COLOR)}
         </div>
       ` : ''}
     </div>`;
   },
 
   _splitHorizonWeeks(horizonDays) {
-    // V37.1.4 — horizonte agora é só dias úteis. Split por semana ISO baseado
-    // na segunda-feira de cada dia. Mesma semana do firstDay → weekCurrent.
+    // V37.1.4 — horizonte é só dias úteis. Split por semana ISO.
+    // V37.1.10 — weekNext limitado a 5 dias úteis (Seg-Sex). Excedente
+    // vira backlog (já reportado pelo badge overflow_hours).
     if (!horizonDays.length) return { weekCurrent: [], weekNext: [] };
     const firstDay = new Date(horizonDays[0] + 'T00:00:00');
-    const dow = firstDay.getDay() || 7; // dom=7 (não acontece no horizonte útil)
+    const dow = firstDay.getDay() || 7;
     const monday = new Date(firstDay);
     monday.setDate(firstDay.getDate() - (dow - 1));
     const sundayKey = (() => {
@@ -568,17 +587,68 @@ window.TasksDashboard = {
       return `${y}-${m}-${d}`;
     })();
     const weekCurrent = horizonDays.filter(d => d <= sundayKey);
-    const weekNext = horizonDays.filter(d => d > sundayKey);
+    const weekNext = horizonDays.filter(d => d > sundayKey).slice(0, 5);
     return { weekCurrent, weekNext };
   },
 
-  _weekBlock(label, days, dailyLoad, journeyHours, avgHours) {
+  // V37.1.10 — Palette por produto LJ. Cor derivada do nome do folder
+  // (deterministic hash). Externos sempre cinza zinc-400.
+  _LJ_PALETTE: [
+    '#F472B6', '#00CBCC', '#6BBEF9', '#F6DB5C', '#AB3ED8',
+    '#FB923C', '#34D399', '#F87171', '#A78BFA', '#22D3EE'
+  ],
+  _EXT_COLOR: '#a1a1aa',
+
+  _colorForFolder(name) {
+    if (!name) return '#94a3b8';
+    let h = 0;
+    const s = String(name);
+    for (let i = 0; i < s.length; i++) {
+      h = ((h << 5) - h) + s.charCodeAt(i);
+      h |= 0;
+    }
+    return this._LJ_PALETTE[Math.abs(h) % this._LJ_PALETTE.length];
+  },
+
+  _computeComposition(u) {
+    // Agrupa by_lj_list por folder_name (1 segmento por produto LJ).
+    // Adiciona externos como segmento final (cinza). Soma das fractions = 1.
+    const ljOpen = u.lj_open || 0;
+    const extOpen = u.ext_open || 0;
+    const totalOpen = ljOpen + extOpen;
+    if (totalOpen === 0) return [];
+
+    const segments = [];
+    const groups = new Map();
+    for (const item of (u.by_lj_list || [])) {
+      const key = item.folder_name || '__folderless__';
+      if (!groups.has(key)) groups.set(key, { name: item.folder_name, count: 0 });
+      groups.get(key).count += item.count;
+    }
+    Array.from(groups.values()).sort((a, b) => b.count - a.count).forEach(g => {
+      segments.push({
+        label: g.name || 'Sem produto LJ',
+        fraction: g.count / totalOpen,
+        color: this._colorForFolder(g.name || g.label)
+      });
+    });
+    if (extOpen > 0) {
+      segments.push({
+        label: 'Outros projetos',
+        fraction: extOpen / totalOpen,
+        color: this._EXT_COLOR
+      });
+    }
+    return segments;
+  },
+
+  _weekBlock(label, days, dailyLoad, journeyHours, avgHours, composition, todayKey) {
     if (!days.length) return '';
     const summary = this._summarizeLoad(days, dailyLoad, journeyHours, avgHours);
     return `<div class="space-y-1.5">
       <p class="text-[10px] font-bold text-stone-700 uppercase tracking-wider">${label}</p>
-      <div class="rounded-xl bg-white border border-stone-200 p-2.5">
-        ${this._barsSvg(days, dailyLoad, journeyHours)}
+      <div class="rounded-xl bg-white border border-stone-200 p-3">
+        ${this._barsSvg(days, dailyLoad, journeyHours, composition, todayKey)}
       </div>
       ${summary ? `<p class="text-[11px] text-stone-700 leading-snug pl-0.5">${summary}</p>` : ''}
     </div>`;
@@ -606,17 +676,21 @@ window.TasksDashboard = {
     </svg>`;
   },
 
-  _barsSvg(days, dailyLoad, journeyHours) {
-    // V37.1.4 — só dias úteis no horizonte. Labels 2 letras pra diferenciar Seg/Sex.
-    const barH = 56;
-    const barW = 24;
-    const gap = 6;
+  _barsSvg(days, dailyLoad, journeyHours, composition, todayKey) {
+    // V37.1.10 — Barras empilhadas por composição de contexto LJ + linha
+    // guia 8h + % sutil dentro da barra + marca HOJE no primeiro dia que bate.
+    const barH = 72;
+    const barW = 36;
+    const gap = 10;
     const labelH = 14;
+    const todayH = 12;
     const totalW = (barW + gap) * days.length - gap;
-    const totalH = barH + labelH + 2;
-    // dow: 1=Seg .. 5=Sex
+    const totalH = barH + labelH + todayH + 4;
     const dayLabels = { 1: 'Se', 2: 'Te', 3: 'Qa', 4: 'Qi', 5: 'Sx' };
     const fmtNum = (n) => (Math.round(n * 10) / 10).toString().replace('.', ',');
+    const segs = Array.isArray(composition) && composition.length ? composition : [{ color: '#d4d4d8', fraction: 1, label: 'Sem composição' }];
+    const yToday = todayKey || null;
+
     const bars = days.map((d, i) => {
       const date = new Date(d + 'T00:00:00');
       const hours = dailyLoad[d] || 0;
@@ -624,25 +698,55 @@ window.TasksDashboard = {
       const ratio = journeyHours > 0 ? hours / journeyHours : 0;
       const fillRatio = Math.min(ratio, 1);
       const barFillH = fillRatio * barH;
-      let color;
-      if (ratio >= 1) color = '#fb7185';
-      else if (ratio >= 0.6) color = '#fbbf24';
-      else if (ratio >= 0.05) color = '#34d399';
-      else color = '#e7e5e4';
       const dowIdx = date.getDay();
       const label = dayLabels[dowIdx] || '';
+      const isToday = yToday && d === yToday;
+      const isOverflow = ratio > 1;
+      const pctLabel = Math.round(ratio * 100) + '%';
       const tooltip = `${date.toLocaleDateString('pt-BR')} · ${fmtNum(hours)}h ocupadas · ${fmtNum(free)}h disponíveis`;
+
+      // Empilhamento dos segmentos (composição) dentro do barFillH.
+      let yCursor = barH;
+      const segRects = segs.map(seg => {
+        const segH = barFillH * seg.fraction;
+        yCursor -= segH;
+        return `<rect x="0" y="${yCursor.toFixed(2)}" width="${barW}" height="${segH.toFixed(2)}" fill="${seg.color}"><title>${tooltip} — ${Utils.escape(seg.label)}: ${Math.round(seg.fraction*100)}%</title></rect>`;
+      }).join('');
+
+      // % label dentro da barra (sutil) — branco semi se barFillH grande, stone se pequeno.
+      const pctY = barFillH >= 18 ? (barH - barFillH + 11) : (barH - barFillH - 4);
+      const pctFill = barFillH >= 18 ? 'rgba(255,255,255,0.92)' : '#57534e';
+      const pctWeight = barFillH >= 18 ? '900' : '800';
+
+      // Marca HOJE abaixo do label do dia.
+      const todayMark = isToday ? `<text x="${barW/2}" y="${barH + labelH + todayH - 1}" text-anchor="middle" font-size="8" font-weight="900" fill="#7c3aed">HOJE</text>` : '';
+
+      // Borda destacada se HOJE.
+      const borderRect = isToday ? `<rect x="-1.5" y="-1.5" width="${barW + 3}" height="${barH + 3}" fill="none" stroke="#7c3aed" stroke-width="1.5" rx="5" />` : '';
+
+      // Indicador de overflow (faixa rose no topo).
+      const overflowMark = isOverflow ? `<rect x="0" y="0" width="${barW}" height="3" fill="#be123c" rx="1.5" />` : '';
+
       return `<g transform="translate(${i * (barW + gap)}, 0)">
+        ${borderRect}
         <rect x="0" y="0" width="${barW}" height="${barH}" fill="#f5f5f4" rx="4">
           <title>${tooltip}</title>
         </rect>
-        <rect x="0" y="${barH - barFillH}" width="${barW}" height="${barFillH}" fill="${color}" rx="4">
-          <title>${tooltip}</title>
-        </rect>
+        <g clip-path="inset(0 round 4px)">
+          ${segRects}
+        </g>
+        ${overflowMark}
+        <text x="${barW/2}" y="${pctY}" text-anchor="middle" font-size="9" font-weight="${pctWeight}" fill="${pctFill}">${pctLabel}</text>
         <text x="${barW/2}" y="${barH + labelH - 2}" text-anchor="middle" font-size="9" font-weight="700" fill="#57534e">${label}</text>
+        ${todayMark}
       </g>`;
     }).join('');
-    return `<svg width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">${bars}</svg>`;
+
+    // Linha guia da jornada (8h = topo do barH).
+    const guideY = 0.5;
+    const guideLine = `<line x1="-4" y1="${guideY}" x2="${totalW + 4}" y2="${guideY}" stroke="#7c3aed" stroke-width="1" stroke-dasharray="3,3" opacity="0.45" />`;
+
+    return `<svg width="${totalW + 8}" height="${totalH}" viewBox="-4 0 ${totalW + 8} ${totalH}">${guideLine}${bars}</svg>`;
   },
 
   _summarizeLoad(days, dailyLoad, journeyHours, avgHours) {
