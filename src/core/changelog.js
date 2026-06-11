@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.1.10',
+    date: '2026-06-11',
+    title: 'Capacidade: barras coloridas por contexto LJ + % na barra + HOJE + linha guia 8h',
+    bullets: [
+      'Cada barra de dia ganha empilhamento por composição: Marketing rosa, Vendas ciano, Externos cinza, etc. Mesma proporção em todos os dias (até V37.2 trazer datas por task), mas cliente vê visualmente onde a carga vai.',
+      'Cores derivadas do nome do produto (folder ClickUp) via hash determinístico. Paleta com 10 cores distintas — mesmos produtos sempre ganham a mesma cor. Externos sempre zinc-400.',
+      '% de ocupação sutil dentro da barra: número branco semi-transparente quando barra alta, stone quando barra baixa. Cliente não precisa hover pra ler.',
+      'Linha tracejada violet horizontal marca a jornada de 8h — referência visual fixa.',
+      'Marca "HOJE" violet abaixo da barra do dia atual + borda violet 1.5px destacando o card. Cliente identifica imediatamente onde está no tempo.',
+      'Bug fix do split: "Próxima semana" estava mostrando 8 barras (5 da próxima + 3 da semana seguinte). Agora limita a 5 dias úteis (Seg-Sex) — excedente vira backlog visível no badge overflow.',
+      'Dedicação LJ por contexto: bolinha de cor antes do nome + barra de progresso da mesma cor. Consistência visual com as barras de capacidade — cliente liga cor da barra com produto na hora.',
+      'Legenda compacta abaixo das barras lista todas as cores ativas + % cada uma representa no total ativo da pessoa.'
+    ]
+  },
+  {
     version: 'V37.1.9',
     date: '2026-06-11',
     title: 'Tarefas Por Pessoa: modal de detalhe + dedicação por produto/campanha LJ',
