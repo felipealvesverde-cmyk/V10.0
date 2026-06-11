@@ -18,6 +18,22 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.0.11',
+    date: '2026-06-11',
+    title: 'Djow ganha autonomia — cria linhas DRE e itens RevOps via comando natural',
+    bullets: [
+      'Antes: Djow lateral só editava fórmula de linha já existente (cliente tinha que clicar engrenagem → Djow ajuda). Agora também CRIA do zero.',
+      'Exemplos que funcionam: "cria dedução de Parceria Fulano = 15% do faturamento" / "adiciona item Hotmart em variáveis = 5,9% do ticket" / "novo componente MCU Comissão Lara = 5 por venda" / "põe linha em S&M chamada Black Friday = 8000".',
+      '4 destinos cobertos: Deduções/S&M/G&A do DRE (linhas extras), Custos Variáveis/Aquisição/Fixos (itens dentro de grupos), Componentes do MCU/MSU (composição).',
+      'Motor reconhece 3 partes da frase: intent CREATE (cria/insere/adiciona/põe), destino (categoria), nome (entre verbo e fórmula) e fórmula (reusa parsers existentes de % e por venda).',
+      'UX: cliente escreve, Djow propõe preview "Vou criar X em Y com fórmula Z. Confirma?" + 2 botões (Confirmar criação emerald / Cancelar). Sem auto-execução — sempre passa pela confirmação.',
+      'Reply do Djow agora renderiza markdown leve no chat: **negrito** e `código inline` ficam estilizados.',
+      'Bucket de Custos: se não existe grupo no bucket alvo, cria automaticamente com label padrão. Item nasce em modo "fixed" (se fórmula é número puro) ou "custom_formula" (se tem handle).',
+      'Componente MCU/MSU criado automaticamente vira modo "composed" no override.',
+      'Frase mal-formada cai no fallback de fórmula sugerida ou no "Não captei". Cliente pode tentar reformular ou usar caminho manual (engrenagem da linha).'
+    ]
+  },
+  {
     version: 'V37.0.10',
     date: '2026-06-11',
     title: 'DRE e RevOps — chevron de recolher nas linhas-banner e cards MCU/MSU',

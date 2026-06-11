@@ -8175,7 +8175,15 @@ Object.assign(Actions, {
     const selected = App.state.revopsDjowSelectedLine;
     messages.push({ role: 'user', text });
     const result = DjowRevOpsPanel.resolve(text, selected ? { afterStep: selected.afterStep } : null);
-    messages.push({ role: 'djow', text: result.reply, suggestion: result.suggestion || null });
+    // V37.0.11 — Preserva createCommand junto com reply pra o UI renderizar
+    // o card de "Confirmar criação".
+    messages.push({
+      role: 'djow',
+      text: result.reply,
+      suggestion: result.suggestion || null,
+      createCommand: result.createCommand || null,
+      createApplied: false
+    });
     App.state.revopsDjowMessages = messages;
     App.state.revopsDjowInput = '';
     App.save(); App.render();
@@ -8195,6 +8203,87 @@ Object.assign(Actions, {
       Actions.updateDreExtraLine(selected.productId, selected.lineId, 'value', msg.suggestion);
     }
     Utils.toast('✓ Fórmula aplicada.');
+  },
+
+  // V37.0.11 — Executa o createCommand de uma mensagem Djow.
+  applyDjowRevopsCreate(messageIdx) {
+    const messages = Array.isArray(App.state.revopsDjowMessages) ? App.state.revopsDjowMessages : [];
+    const msg = messages[messageIdx];
+    if (!msg || !msg.createCommand) return Utils.toast('Mensagem sem comando de criação.');
+    if (msg.createApplied) return Utils.toast('Esse comando já foi aplicado.');
+    const productId = (typeof RevopsWhitelabelPanel !== 'undefined' && RevopsWhitelabelPanel._currentProductId)
+      ? RevopsWhitelabelPanel._currentProductId()
+      : (App.state.products?.[0]?.id);
+    if (!productId) return Utils.toast('Nenhum produto selecionado.');
+    try {
+      Actions._djowExecuteCreate(productId, msg.createCommand);
+      msg.createApplied = true;
+      Utils.toast(`✓ ${msg.createCommand.name} criado.`);
+      App.save(); App.render();
+    } catch (err) {
+      Utils.toast(`Erro ao criar: ${err.message}`);
+    }
+  },
+
+  // V37.0.11 — Cancela o createCommand de uma mensagem (descarta sem executar).
+  dismissDjowRevopsCreate(messageIdx) {
+    const messages = Array.isArray(App.state.revopsDjowMessages) ? App.state.revopsDjowMessages : [];
+    const msg = messages[messageIdx];
+    if (!msg || !msg.createCommand) return;
+    msg.createCommand = null;
+    App.save(); App.render();
+  },
+
+  // V37.0.11 — Executa a criação física no cfg do produto. Cobre 3 kinds:
+  //   - dre_line: nova linha extra no DRE (afterStep deducoes_inside/s_m/g_a)
+  //   - revops_item: novo item de Custos no bucket apropriado (cria grupo se faltar)
+  //   - revops_component: novo componente do MCU/MSU (vira modo composed)
+  _djowExecuteCreate(productId, cmd) {
+    if (!cmd || !cmd.kind) throw new Error('createCommand inválido.');
+
+    if (cmd.kind === 'revops_component') {
+      const o = Actions._revopsGetOverride(productId, cmd.kpi);
+      o.mode = 'composed';
+      if (!Array.isArray(o.components)) o.components = [];
+      o.components.push({ name: cmd.name, value: cmd.formula });
+      App.save(); App.render();
+      return;
+    }
+
+    Actions._revopsV2Mutate(productId, cfg => {
+      if (cmd.kind === 'dre_line') {
+        if (!Array.isArray(cfg.dreExtraLines)) cfg.dreExtraLines = [];
+        const step = String(cmd.afterStep || 'deducoes_inside');
+        cfg.dreExtraLines.push({
+          id: `dre_${Date.now().toString(36).slice(-4)}_${Math.random().toString(36).slice(2,5)}`,
+          name: cmd.name,
+          value: cmd.formula,
+          signal: step === 'deducoes_inside' ? '+' : '-',
+          afterStep: step
+        });
+      } else if (cmd.kind === 'revops_item') {
+        // Acha grupo existente do bucket (primeiro) OU cria novo
+        let g = (cfg.groups || []).find(x => x.bucket === cmd.bucket);
+        if (!g && window.RevopsWhitelabelEngine) {
+          const labels = { fixed: 'Fixos (G&A)', acquisition: 'Aquisição (S&M)', variable: 'Variáveis', custom: 'Outros' };
+          g = RevopsWhitelabelEngine.emptyGroup(labels[cmd.bucket] || 'Novo grupo', cmd.bucket);
+          cfg.groups = [...(cfg.groups || []), g];
+        }
+        if (!g) throw new Error('Engine RevOps não carregado.');
+        // Cria item com fórmula avançada (custom_formula). Se formula é só
+        // número, usa fixed. Senão custom_formula.
+        const isFixed = /^\d+(?:[\.,]\d+)?$/.test(cmd.formula);
+        const item = RevopsWhitelabelEngine.emptyItem(cmd.name);
+        if (isFixed) {
+          item.calc = { mode: 'fixed', value: Number(cmd.formula.replace(',', '.')) || 0 };
+        } else {
+          item.calc = { mode: 'custom_formula', formula: cmd.formula };
+        }
+        g.items = [...(g.items || []), item];
+      } else {
+        throw new Error(`Kind desconhecido: ${cmd.kind}`);
+      }
+    });
   },
 
   clearDjowRevopsHistory() {
