@@ -25,10 +25,9 @@ window.PinUp = {
   bellButton() {
     const active = Boolean(App.state.pinModeActive);
     return `<button onclick="Actions.togglePinMode()"
-        class="relative inline-flex items-center justify-center w-6 h-6 rounded-lg transition hover:scale-105 ${active ? 'bg-violet-600 ring-2 ring-violet-300' : 'bg-stone-100 border border-stone-300'}"
-        style="${active ? 'color:#fff!important;' : ''}"
+        class="relative inline-flex items-center justify-center w-8 h-8 rounded-xl transition hover:scale-105 ${active ? 'bg-violet-600 ring-2 ring-violet-300 border border-violet-700' : 'bg-slate-800 border border-slate-700 hover:bg-slate-700'}"
         title="Pin-Up (Alt+P) — cravar comentário no contexto">
-      <i data-lucide="map-pin" class="w-3 h-3" style="color:${active ? '#fff' : '#7c3aed'}"></i>
+      <i data-lucide="map-pin" class="w-3.5 h-3.5" style="color:${active ? '#fff' : '#a78bfa'}"></i>
     </button>`;
   },
 
