@@ -59,7 +59,33 @@ window.BomDiaCard = {
     }
   },
 
+  // V37.4.15 — card big-bang substituído por chip discreto. Compatibilidade
+  // mantida: render() agora retorna o chip pra continuar funcionando se chamado.
   render() {
+    return this.renderChip();
+  },
+
+  renderChip() {
+    if (App.state.bomDiaDismissed) return '';
+    const summary = App.state.bomDiaSummary;
+    if (!summary) {
+      setTimeout(() => this.ensureLoaded(), 0);
+      return '';
+    }
+    if (summary.loading) return '';
+    const total = summary.overall?.total || 0;
+    if (total === 0) return '';
+
+    return `<button onclick="Actions.openNotificationsFromBomDia()"
+        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/15 border border-violet-400/30 text-violet-100 text-[11px] font-bold hover:bg-violet-500/25 transition mb-3">
+      <i data-lucide="bell" class="w-3 h-3"></i>
+      <span>${total} atualização${total === 1 ? '' : 'ões'} desde ontem</span>
+      <i data-lucide="arrow-right" class="w-3 h-3 opacity-60"></i>
+    </button>`;
+  },
+
+  // Versão antiga (renderFull) mantida pra histórico mas não chamada.
+  renderFull_DEPRECATED_V37_4_15() {
     if (!this.shouldShow()) return '';
     if (App.state.bomDiaDismissed) return '';
 
