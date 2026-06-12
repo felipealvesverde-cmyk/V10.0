@@ -9,8 +9,21 @@
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
-  if (!req.user.isMaster) return res.status(403).json({ ok: false, message: 'Apenas Master LJ.' });
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
+  // V37.4.14 — Aceita Master LJ OU owner de QUALQUER tenant. Migration é
+  // idempotente (IF NOT EXISTS em todas as DDLs) e só adiciona coluna +
+  // cria tabela tenant_invites — não modifica dados existentes.
+  if (!req.user.isMaster) {
+    const tenantId = req.user.tenantId;
+    if (!tenantId) return res.status(403).json({ ok: false, message: 'Sem tenant ativo.' });
+    const m = await req.db.query(
+      'SELECT role FROM tenant_members WHERE tenant_id = $1 AND user_id = $2',
+      [tenantId, req.user.sub]
+    );
+    if (!m.rows.length || String(m.rows[0].role).toLowerCase() !== 'owner') {
+      return res.status(403).json({ ok: false, message: 'Apenas Master LJ ou Admin Master de algum tenant.' });
+    }
+  }
 
   const results = [];
 
