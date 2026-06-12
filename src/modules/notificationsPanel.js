@@ -20,15 +20,15 @@ window.NotificationsPanel = {
     const cache = App.state.notificationsCache || {};
     const counts = cache.counts || { criticalUnread: 0, warningUnread: 0, infoUnread: 0, inbox: 0 };
 
-    // V37.5.1 — Agrega legacy counts (RD/ads/import/releases/GA4/monthly) + V2 inbox.
-    // Sininho único: o que antes era 2 botões agora é 1 só, somando tudo.
+    // V37.5.1 — Agrega legacy counts (RD/ads/import/GA4/monthly) + V2 inbox.
+    // V37.4.16 — releaseCount removido daqui: cada release agora vira notification
+    // individual via NotificationSync._checkReleases, então já tá contado em counts.inbox.
     const reconCount = Number(App.state.pendingReconciliationCount || 0);
     const importCount = Number(App.state.pendingLeadImportReports || 0);
-    const releaseCount = (window.Actions?._getUnseenReleases?.() || []).length;
     const adsOrphanCount = Number(window.Actions?.getAdsOrphanBellCount?.() || 0);
     const ga4AlertCount = Number(window.Actions?.getGa4AlertCount?.() || 0);
     const monthlyPendingCount = Number(window.Actions?.getMonthlyClosingPendingCount?.() || 0);
-    const legacyTotal = reconCount + importCount + releaseCount + adsOrphanCount + ga4AlertCount + monthlyPendingCount;
+    const legacyTotal = reconCount + importCount + adsOrphanCount + ga4AlertCount + monthlyPendingCount;
 
     const total = (counts.inbox || 0) + legacyTotal;
     // Severity decision: críticas do V2 > legacy/warning > info > empty
