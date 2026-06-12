@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.39',
+    date: '2026-06-12',
+    title: 'Fix Pin-Up: pins agora carregam no F5 (não precisa criar outro pra ver os antigos)',
+    bullets: [
+      'Bug: depois de F5 os pins sumiam da tela. Quando você cravava um pin novo, os antigos voltavam — porque o submitPin chamava loadPinsForCurrentUrl no fim e re-fetchava tudo.',
+      'Causa: a chamada de loadPinsForCurrentUrl no boot só existia dentro de _refreshCurrentUserInfo (que roda em plug DB / save name), nunca no init normal do app. F5 = state zerado, sem load = tela vazia.',
+      'Fix: main.js init() agora chama loadPinsForCurrentUrl 100ms após render (mesmo padrão de loadMyPermissions V37.4.23).'
+    ]
+  },
+  {
     version: 'V37.4.38',
     date: '2026-06-12',
     title: 'Pin-Up: criador pode Editar e Remover o próprio pin',
