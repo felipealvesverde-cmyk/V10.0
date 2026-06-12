@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.0.1',
+    date: '2026-06-12',
+    title: 'Fix Pin-Up: pin não vaza mais entre abas do LJ',
+    bullets: [
+      'Bug: pin cravado na Home aparecia em Ações da campanha (e em qualquer outra aba) no mesmo X/Y. Causa: o LJ é SPA, window.location.pathname é sempre "/" — o targetUrl ficava igual em todas as abas.',
+      'Fix: scope do pin agora inclui a aba ativa via #tab=<activeTab>. Cada aba ganha seu próprio namespace. Pin cravado na Home só aparece na Home; pin nas Ações da campanha só lá.',
+      'Click em notificação de pin agora switch a aba in-place (sem recarregar a página) quando o pathname é o mesmo. Antes, qualquer clique em notif forçava reload.',
+      'Bonus: overlay detecta mudança de aba em runtime e re-fetcha os pins do scope novo — sem precisar de F5.'
+    ]
+  },
+  {
     version: 'V38.0.0',
     date: '2026-06-12',
     title: 'Master V38 — Tenant compartilhado de verdade: state, integrações e operação colaborativa',

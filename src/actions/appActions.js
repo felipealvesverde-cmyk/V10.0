@@ -8352,12 +8352,27 @@ Object.assign(Actions, {
     if (n.kind === 'handoff.pin_mentioned' && n.data?.targetUrl && n.data?.pinId) {
       Actions.updateNotification(id, 'read');
       Actions.closeNotificationsPanel();
-      const currentUrl = window.location.pathname + window.location.search;
-      if (currentUrl === n.data.targetUrl) {
+      // V38.0.1 — targetUrl agora vem como `${pathname}#tab=<activeTab>`.
+      // Se for só mudança de aba (mesmo pathname), faz switch sem reload.
+      const target = String(n.data.targetUrl || '');
+      const currentScope = window.PinUp?._currentPinScope?.() || (window.location.pathname + window.location.search);
+      if (currentScope === target) {
         setTimeout(() => Actions.openPinView(Number(n.data.pinId)), 100);
       } else {
-        sessionStorage.setItem('lj_pin_to_open_after_nav', String(n.data.pinId));
-        window.location.href = n.data.targetUrl;
+        const hashIdx = target.indexOf('#tab=');
+        const targetPath = hashIdx >= 0 ? target.slice(0, hashIdx) : target;
+        const targetTab = hashIdx >= 0 ? target.slice(hashIdx + 5) : null;
+        // Mesmo pathname → só troca aba in-place e abre pin.
+        if (targetPath === window.location.pathname && targetTab) {
+          App.state.activeTab = targetTab;
+          App.save();
+          App.render();
+          setTimeout(() => Actions.openPinView(Number(n.data.pinId)), 200);
+        } else {
+          // Pathname diferente (caso futuro multi-route) — recarrega.
+          sessionStorage.setItem('lj_pin_to_open_after_nav', String(n.data.pinId));
+          window.location.href = target;
+        }
       }
       return;
     }
@@ -8478,7 +8493,9 @@ Object.assign(Actions, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          targetUrl: window.location.pathname + window.location.search,
+          // V38.0.1 — Scope inclui aba ativa (`pathname#tab=<activeTab>`) — antes
+          // pins vazavam entre abas porque LJ é SPA.
+          targetUrl: window.PinUp?._currentPinScope?.() || (window.location.pathname + window.location.search),
           anchorXPct: modal.xPct,
           anchorYPct: modal.yPct,
           text: modal.text.trim(),
@@ -8501,7 +8518,8 @@ Object.assign(Actions, {
     App.state.pinUp = App.state.pinUp || { pinsForCurrentUrl: [], createModal: null, viewModal: null, clusterExpanded: false };
     try {
       const token = localStorage.getItem('lj_jwt');
-      const url = window.location.pathname + window.location.search;
+      // V38.0.1 — Scope inclui aba ativa (vide PinUp._currentPinScope).
+      const url = window.PinUp?._currentPinScope?.() || (window.location.pathname + window.location.search);
       const r = await fetch(`/api/pins-list?targetUrl=${encodeURIComponent(url)}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
