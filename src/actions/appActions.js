@@ -3088,6 +3088,103 @@ Object.assign(Actions, {
     }
   },
 
+  // V37.4.24 — Trocar email (self-service).
+  openChangeEmailModal() {
+    App.state.changeEmailModal = { newEmail: '', currentPassword: '', saving: false, error: null };
+    App.render();
+  },
+  closeChangeEmailModal() {
+    App.state.changeEmailModal = null;
+    App.render();
+  },
+  updateChangeEmailField(field, value) {
+    if (!App.state.changeEmailModal) return;
+    App.state.changeEmailModal[field] = String(value || '');
+    App.state.changeEmailModal.error = null;
+  },
+  async submitChangeEmail() {
+    const m = App.state.changeEmailModal;
+    if (!m) return;
+    const newEmail = String(m.newEmail || '').trim().toLowerCase();
+    const currentPassword = String(m.currentPassword || '');
+    if (!newEmail.includes('@')) { m.error = 'Email inválido.'; App.render(); return; }
+    if (!currentPassword) { m.error = 'Senha atual obrigatória.'; App.render(); return; }
+    m.saving = true; m.error = null; App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/auth-change-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ newEmail, currentPassword })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        m.error = data.message || 'Falha ao trocar email.';
+        m.saving = false; App.render();
+        return;
+      }
+      Utils.toast(`✓ ${data.message}`);
+      App.state.changeEmailModal = null;
+      await this._refreshCurrentUserInfo();
+      App.render();
+    } catch (err) {
+      m.error = `Erro: ${err.message}`; m.saving = false; App.render();
+    }
+  },
+
+  // V37.4.24 — Trocar senha (self-service).
+  openChangePasswordModal() {
+    App.state.changePasswordModal = { currentPassword: '', newPassword: '', confirmPassword: '', saving: false, error: null };
+    App.render();
+  },
+  closeChangePasswordModal() {
+    App.state.changePasswordModal = null;
+    App.render();
+  },
+  updateChangePasswordField(field, value) {
+    if (!App.state.changePasswordModal) return;
+    App.state.changePasswordModal[field] = String(value || '');
+    App.state.changePasswordModal.error = null;
+  },
+  async submitChangePassword() {
+    const m = App.state.changePasswordModal;
+    if (!m) return;
+    const { currentPassword, newPassword, confirmPassword } = m;
+    if (!currentPassword) { m.error = 'Senha atual obrigatória.'; App.render(); return; }
+    if (!newPassword || newPassword.length < 8) { m.error = 'Nova senha precisa de no mínimo 8 caracteres.'; App.render(); return; }
+    if (newPassword !== confirmPassword) { m.error = 'Nova senha e confirmação não batem.'; App.render(); return; }
+    m.saving = true; m.error = null; App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/auth-change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        m.error = data.message || 'Falha ao trocar senha.';
+        m.saving = false; App.render();
+        return;
+      }
+      Utils.toast(`✓ ${data.message}`);
+      App.state.changePasswordModal = null;
+      App.render();
+    } catch (err) {
+      m.error = `Erro: ${err.message}`; m.saving = false; App.render();
+    }
+  },
+
+  // V37.4.24 — Ver minhas permissões (read-only).
+  openMyPermissionsModal() {
+    App.state.myPermissionsModal = true;
+    App.render();
+  },
+  closeMyPermissionsModal() {
+    App.state.myPermissionsModal = false;
+    App.render();
+  },
+
   // V32.1.1 — Helper: re-fetch auth-me pra atualizar App.currentUser (tenantDbPlugged etc).
   async _refreshCurrentUserInfo() {
     const token = localStorage.getItem('lj_jwt');

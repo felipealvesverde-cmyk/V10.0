@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.24',
+    date: '2026-06-12',
+    title: 'Minha Conta: trocar email + trocar senha + ver permissões',
+    bullets: [
+      'Trocar email de login agora é self-service. Configurações → Minha Conta → botão "Trocar" no campo E-mail. Modal sobreposto pede novo email + senha atual pra confirmar. Antes era "peça pro admin global".',
+      'Trocar senha igual: botão "Trocar" no campo Senha → modal pede senha atual + nova (8+ chars) + confirmação.',
+      'Bloco "Minhas permissões" mostra seu role e permissões customizadas. Botão "Ver detalhes" abre modal read-only com checklist categorizado (Visualização / Edição / Operações / Administração) marcando ✓ liberado ou ✗ bloqueado. Linha amarela = customização do Admin Master.',
+      'Tudo passa por confirmação de senha atual antes de salvar. Rate limit de 5 tentativas por 15min em troca de senha.'
+    ]
+  },
+  {
     version: 'V37.4.23',
     date: '2026-06-12',
     title: 'Permissions agora carregam no boot — abas role-gated aparecem direto',
