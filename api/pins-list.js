@@ -56,7 +56,10 @@ module.exports = async function handler(req, res) {
       pins: pins.map(row => {
         const u = creatorMap.get(row.creator_user_id) || {};
         return {
-          id: row.id,
+          // V37.4.37 — Cast id pra Number. BIGSERIAL volta como string do pg driver,
+          // mas frontend chama Actions.openPinView(${p.id}) — vira number. O find
+          // `p.id === id` falha (string vs number) e o modal nunca abre.
+          id: Number(row.id),
           creatorUserId: row.creator_user_id,
           creatorName: u.display_name || u.username || u.email || `User #${row.creator_user_id}`,
           targetUrl: row.target_url,
