@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.11',
+    date: '2026-06-12',
+    title: 'Migrations tenant-scoped aceitam Owner do tenant (não só Master LJ)',
+    bullets: [
+      'admin-migrate-notifications, admin-migrate-pins e admin-migrate-notification-prefs deixam de exigir Master LJ global e aceitam Owner do tenant ativo. Faz sentido: as 3 migrations criam schema no DB do PRÓPRIO tenant que o user opera.',
+      'admin-migrate-permissions continua Master only porque mexe em control plane (users + tenants).',
+      'Bloqueio que travava o Felipe (logado como Sansone, owner do tenant Sansone) — agora ele consegue rodar as 3 migrations e o sininho V2 funciona end-to-end.'
+    ]
+  },
+  {
     version: 'V37.4.10',
     date: '2026-06-12',
     title: 'TopBar enfim na direita — movida pra root próprio fora do #app',
