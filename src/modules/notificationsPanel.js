@@ -288,7 +288,7 @@ window.NotificationsPanel = {
                      `${Math.round(ageMin/1440)}d`;
 
     return `<div class="group relative px-4 py-3 hover:bg-stone-50 transition cursor-pointer ${isUnread ? 'bg-white' : 'bg-stone-50/30'}"
-        onclick="Actions.updateNotification(${n.id}, 'read')">
+        onclick="Actions.handleNotificationClick(${n.id})">
       <div class="flex items-start gap-3">
         <span class="shrink-0 mt-1 w-2 h-2 rounded-full" style="background:${sev.dot}" title="${n.severity}"></span>
         <div class="min-w-0 flex-1">

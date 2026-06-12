@@ -8133,6 +8133,33 @@ Object.assign(Actions, {
     }
   },
 
+  // V37.5.2 — Handler universal de click numa notification.
+  // Special-case pra handoff.pin_mentioned: marca read + navega pra URL do pin
+  // + persiste pinId pra abrir após nav. Default: só mark as read.
+  handleNotificationClick(id) {
+    const cache = App.state.notificationsCache;
+    const n = (cache?.items || []).find(x => x.id === id);
+    if (!n) return Actions.updateNotification(id, 'read');
+
+    if (n.kind === 'handoff.pin_mentioned' && n.data?.targetUrl && n.data?.pinId) {
+      Actions.updateNotification(id, 'read');
+      Actions.closeNotificationsPanel();
+      const currentUrl = window.location.pathname + window.location.search;
+      if (currentUrl === n.data.targetUrl) {
+        // Mesma página — só abre o pin + scroll
+        setTimeout(() => Actions.openPinView(Number(n.data.pinId)), 100);
+      } else {
+        // Navega + persiste pinId pra abrir após carga
+        sessionStorage.setItem('lj_pin_to_open_after_nav', String(n.data.pinId));
+        window.location.href = n.data.targetUrl;
+      }
+      return;
+    }
+
+    // Default: só mark as read
+    Actions.updateNotification(id, 'read');
+  },
+
   // ============================================================
   // V37.5.0 — Pin-Up MVP
   // ============================================================
@@ -8223,7 +8250,7 @@ Object.assign(Actions, {
   },
 
   async loadPinsForCurrentUrl() {
-    App.state.pinUp = App.state.pinUp || { pinsForCurrentUrl: [], createModal: null, viewModal: null };
+    App.state.pinUp = App.state.pinUp || { pinsForCurrentUrl: [], createModal: null, viewModal: null, clusterExpanded: false };
     try {
       const token = localStorage.getItem('lj_jwt');
       const url = window.location.pathname + window.location.search;
@@ -8233,11 +8260,24 @@ Object.assign(Actions, {
       const data = await r.json();
       if (data.ok) {
         App.state.pinUp.pinsForCurrentUrl = data.pins || [];
+        // V37.5.2 — Se voltou de navegação via notification, abre o pin solicitado
+        const pinToOpen = sessionStorage.getItem('lj_pin_to_open_after_nav');
+        if (pinToOpen) {
+          sessionStorage.removeItem('lj_pin_to_open_after_nav');
+          setTimeout(() => Actions.openPinView(Number(pinToOpen)), 200);
+        }
         App.render();
       }
     } catch (err) {
       console.warn('[loadPinsForCurrentUrl]', err.message);
     }
+  },
+
+  // V37.5.2 — Toggle cluster expansion (quando >5 pins)
+  togglePinCluster() {
+    if (!App.state.pinUp) return;
+    App.state.pinUp.clusterExpanded = !App.state.pinUp.clusterExpanded;
+    App.render();
   },
 
   openPinView(id) {
