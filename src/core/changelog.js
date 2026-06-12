@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.20',
+    date: '2026-06-12',
+    title: 'Self-healing de membership pra logins legados (pré-V37.3)',
+    bullets: [
+      'Users criados antes do V37.3 não tinham row em tenant_members — só apareciam em users com default_tenant_id. Resultado: nenhuma permissão efetiva, aba "Membros do Tenant" sumia do menu de Configurações mesmo pro dono.',
+      'Boot detecta esse estado (role=null sem isMaster) e roda backfill self-service: cria a row faltante. Se ninguém mais é owner do tenant, promove pra owner; senão, vira user (owner promove depois).',
+      'Resultado: dono do tenant logado pela primeira vez pós-V37.3 já cai com role=owner e enxerga gestão de membros sem precisar de SQL manual.'
+    ]
+  },
+  {
     version: 'V37.4.19',
     date: '2026-06-12',
     title: 'Clusters de notificação ganham label humano por tipo + recolher fácil',
