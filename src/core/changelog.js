@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.2.5',
+    date: '2026-06-12',
+    title: 'Cards de pessoa ganham side accent (cor do avatar) + hover com movimento',
+    bullets: [
+      'Cada card de pessoa no grid Tarefas › Por Pessoa ganha faixa lateral esquerda de 4px com a cor do avatar do ClickUp. Identidade visual da pessoa aparece tanto no avatar quanto na borda — cliente identifica de relance.',
+      'Hover sutil: card sobe 2px e ganha sombra mais densa em 200ms. Comunica que é clicável sem agressividade.',
+      'Lei do design diretor cravada na memória: TODO card novo no LJ a partir de agora recebe side accent seguindo a paleta semântica (Marketing rosa, Vendas ciano, CS azul, Receita amarelo, RevOps roxo). Cards neutros usam violet default. Cards antigos podem ser migrados aos poucos.'
+    ]
+  },
+  {
     version: 'V37.2.4',
     date: '2026-06-12',
     title: 'Tarefas Por Pessoa: contador de cobertura agora bate com Total Ativo',
