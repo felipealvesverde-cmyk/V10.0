@@ -581,7 +581,7 @@ window.TasksDashboard = {
     </div>`;
   },
 
-  // V37.2.0 — Bloco Adherência ao prazo (% no prazo + deriva média).
+  // V37.2.0 — Bloco Aderência ao prazo (% no prazo + deriva média).
   // Renderiza só se houve closed tasks COM due_date preenchido (evaluated_count >= 1).
   _adherenceBlock(u) {
     const evaluated = u.adherence_evaluated_count || 0;
@@ -599,7 +599,7 @@ window.TasksDashboard = {
       <div class="flex items-center justify-between gap-2">
         <h4 class="text-[10px] font-black text-stone-700 uppercase tracking-widest inline-flex items-center gap-1.5">
           <i data-lucide="target" class="w-3 h-3 text-violet-600"></i>
-          Adherência ao prazo
+          Aderência ao prazo
           <span class="text-stone-500 normal-case tracking-normal text-[10px] font-normal ml-1">(${evaluated} fechadas com due_date)</span>
         </h4>
       </div>
@@ -879,7 +879,8 @@ window.TasksDashboard = {
     const guideLine = `<line x1="-4" y1="${guideY.toFixed(2)}" x2="${totalW + 4}" y2="${guideY.toFixed(2)}" stroke="#7c3aed" stroke-width="1" stroke-dasharray="3,3" opacity="0.55" />`;
     const guideLabel = scaleMax > 1 ? `<text x="${totalW + 6}" y="${(guideY + 3).toFixed(2)}" font-size="8" font-weight="700" fill="#7c3aed" opacity="0.8">${journeyHours}h</text>` : '';
 
-    return `<svg width="${totalW + 24}" height="${totalH}" viewBox="-4 0 ${totalW + 24} ${totalH}">${guideLine}${guideLabel}${bars}</svg>`;
+    // V37.2.2 — viewBox com padding pra borda HOJE (1.5px acima e ao redor).
+    return `<svg width="${totalW + 28}" height="${totalH + 6}" viewBox="-6 -4 ${totalW + 28} ${totalH + 6}">${guideLine}${guideLabel}${bars}</svg>`;
   },
 
   _summarizeLoad(days, dailyLoad, journeyHours, avgHours) {
