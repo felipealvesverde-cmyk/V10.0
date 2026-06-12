@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.23',
+    date: '2026-06-12',
+    title: 'Permissions agora carregam no boot — abas role-gated aparecem direto',
+    bullets: [
+      'Bug: loadMyPermissions() só era chamado quando user plugava DB ou salvava nome. No boot normal nunca rodava, e App.state.userPermissions ficava null. Resultado: aba "Membros do Tenant" sumia de Configurações no F5 mesmo pra owner.',
+      'Fix: main.js init() agora chama Actions.loadMyPermissions() 100ms depois do render inicial, em background. Também sincroniza App.state.user com App.currentUser.',
+      'Resultado: F5 → permissões carregam sozinhas → abas role-gated aparecem sem precisar rodar comando manual no console.'
+    ]
+  },
+  {
     version: 'V37.4.21',
     date: '2026-06-12',
     title: 'Permission resolver lê default_tenant_id quando JWT é pré-V37',

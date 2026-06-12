@@ -142,6 +142,23 @@ var App = {
         this.state.activeTab = 'home';
         this.runTests();
         this.render();
+        // V37.4.23 — Sincroniza App.state.user + carrega permissions no boot.
+        // _checkSession populou App.currentUser mas não tocou em App.state.user,
+        // e _refreshCurrentUserInfo (que chamava loadMyPermissions) só rodava em
+        // ações específicas (plug DB, salvar nome). Sem isso, App.state.userPermissions
+        // ficava null e Configurações escondia abas role-gated mesmo pra owner —
+        // exatamente o bug do Sansone reportado em V37.4.22.
+        if (this.currentUser) {
+          this.state.user = this.state.user || {};
+          this.state.user.id = this.currentUser.id;
+          this.state.user.email = this.currentUser.email;
+          this.state.user.displayName = this.currentUser.displayName;
+          this.state.user.isMaster = this.currentUser.isMaster;
+          this.state.user.tenantId = this.currentUser.tenantId;
+          if (window.Actions?.loadMyPermissions) {
+            setTimeout(() => Actions.loadMyPermissions(), 100);
+          }
+        }
         // V32.4.0 (Geraldo Item 6) — hydrateFromConfiguredDatabase removida (V11 folder).
         // V26.0.0 — Atalho global Ctrl+K (Cmd+K) abre modal Djow AI.
         // Funciona em qualquer aba. ESC fecha (tratado dentro do modal).
