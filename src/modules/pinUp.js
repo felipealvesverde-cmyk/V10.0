@@ -52,7 +52,8 @@ window.PinUp = {
     return `${active ? this._captureOverlay() : ''}
             ${pins.length > 0 ? (clusterMode ? this._clusterBadge(pins) : this._pinsLayer(pins)) : ''}
             ${App.state.pinUp?.createModal ? this._createModal(App.state.pinUp.createModal) : ''}
-            ${App.state.pinUp?.viewModal ? this._viewModal(App.state.pinUp.viewModal) : ''}`;
+            ${App.state.pinUp?.viewModal ? this._viewModal(App.state.pinUp.viewModal) : ''}
+            ${App.state.pinUp?.editModal ? this._editModal(App.state.pinUp.editModal) : ''}`;
   },
 
   _captureOverlay() {
@@ -214,12 +215,86 @@ window.PinUp = {
         <div class="px-5 py-4 border-t border-stone-200 bg-stone-50 flex items-center justify-between gap-3">
           ${p.seenByMe ? '<span class="text-[10px] text-emerald-700 font-bold">✓ Você já marcou como visto</span>' : `<button onclick="Actions.markPinSeen(${p.id})" class="text-[11px] text-violet-600 hover:text-violet-800 font-bold">Marcar como visto</button>`}
           <div class="flex items-center gap-2">
-            <button onclick="Actions.archivePin(${p.id})"
-              class="px-3 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 border border-rose-300 text-rose-800 text-[11px] font-bold inline-flex items-center gap-1.5">
-              <i data-lucide="archive" class="w-3 h-3"></i>
-              Arquivar
-            </button>
+            ${p.amICreator ? `
+              <button onclick="Actions.openPinEdit(${p.id})"
+                class="px-3 py-1.5 rounded-lg bg-violet-100 hover:bg-violet-200 border border-violet-300 text-violet-800 text-[11px] font-bold inline-flex items-center gap-1.5">
+                <i data-lucide="pencil" class="w-3 h-3"></i>
+                Editar
+              </button>
+              <button onclick="Actions.deletePin(${p.id})"
+                class="px-3 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 border border-rose-300 text-rose-800 text-[11px] font-bold inline-flex items-center gap-1.5">
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                Remover
+              </button>
+            ` : `
+              <button onclick="Actions.archivePin(${p.id})"
+                class="px-3 py-1.5 rounded-lg bg-rose-100 hover:bg-rose-200 border border-rose-300 text-rose-800 text-[11px] font-bold inline-flex items-center gap-1.5">
+                <i data-lucide="archive" class="w-3 h-3"></i>
+                Arquivar
+              </button>
+            `}
           </div>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // ============================================================
+  // V37.4.38 — Modal de EDITAR pin (só pro creator)
+  // ============================================================
+  _editModal(draft) {
+    const members = App.state.membersCache?.members || [];
+    return `<div class="fixed inset-0 z-[70] bg-slate-900/60 backdrop-blur-sm grid place-items-center p-4"
+        onclick="Actions.closePinEdit()">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col" style="border-left:4px solid #7c3aed;"
+           onclick="event.stopPropagation()">
+        <div class="flex items-start gap-3 p-5 border-b border-stone-200">
+          <span class="shrink-0 w-10 h-10 rounded-xl bg-violet-100 border border-violet-200 grid place-items-center text-violet-700">
+            <i data-lucide="pencil" class="w-5 h-5"></i>
+          </span>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-[15px] font-black text-slate-900">Editar pin</h2>
+            <p class="text-[11px] text-stone-500">Posição original mantida.</p>
+          </div>
+          <button onclick="Actions.closePinEdit()" class="w-8 h-8 rounded-lg hover:bg-stone-100 grid place-items-center text-stone-600">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div class="p-5 space-y-3 max-h-[60vh] overflow-y-auto">
+          <div>
+            <label class="block text-[10px] font-black text-stone-700 uppercase tracking-widest mb-1.5">Marcar quem?</label>
+            ${members.length === 0 ? `
+              <p class="text-[11px] text-stone-500 italic">Nenhum membro carregado. Tente atualizar a página.</p>
+            ` : `
+              <div class="rounded-lg border border-stone-200 max-h-48 overflow-y-auto bg-white">
+                ${members.map(m => {
+                  const checked = (draft.audienceUserIds || []).includes(m.userId);
+                  return `<label class="flex items-center gap-2 px-3 py-2 hover:bg-stone-50 cursor-pointer border-b border-stone-100 last:border-0">
+                    <input type="checkbox" ${checked ? 'checked' : ''}
+                      onchange="Actions.togglePinEditAudience(${m.userId}, this.checked)"
+                      class="w-3.5 h-3.5 accent-violet-600">
+                    <span class="text-[11px] ${checked ? 'font-bold text-slate-900' : 'text-stone-700'}">${Utils.escape(m.displayName || m.username || m.email)}</span>
+                  </label>`;
+                }).join('')}
+              </div>
+            `}
+          </div>
+          <div>
+            <label class="block text-[10px] font-black text-stone-700 uppercase tracking-widest mb-1.5">Mensagem</label>
+            <textarea id="pinEditTextInput" maxlength="400" rows="4"
+              oninput="Actions.updatePinEditField('text', this.value)"
+              class="w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-slate-900 text-[13px] font-medium resize-none"
+              placeholder="O que precisa anotar aqui?">${Utils.escape(draft.text || '')}</textarea>
+            <p class="text-[10px] text-stone-500 mt-1">${(draft.text || '').length}/400</p>
+          </div>
+        </div>
+        <div class="px-5 py-4 border-t border-stone-200 bg-stone-50 flex items-center justify-end gap-3">
+          <button onclick="Actions.closePinEdit()" class="px-3 py-2 rounded-lg bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 text-[12px] font-bold">Cancelar</button>
+          <button onclick="Actions.submitPinEdit()" ${draft.saving ? 'disabled' : ''}
+            class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+            <i data-lucide="${draft.saving ? 'loader-2' : 'check'}" class="w-3.5 h-3.5 ${draft.saving ? 'animate-spin' : ''}"></i>
+            ${draft.saving ? 'Salvando...' : 'Salvar'}
+          </button>
         </div>
       </div>
     </div>`;
