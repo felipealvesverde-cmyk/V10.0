@@ -118,17 +118,23 @@ module.exports = async function handler(req, res) {
       }
     })();
 
+    const smtpOn = isSmtpConfigured();
+    const sentReal = emailResult.ok && !emailResult.simulated;
+    const failedAtResend = smtpOn && !sentReal && !emailResult.simulated;
+
     return res.status(200).json({
       ok: true,
       token,
       acceptUrl,
       expiresAt: expiresAt.toISOString(),
-      emailSent: emailResult.ok && !emailResult.simulated,
+      emailSent: sentReal,
       emailSimulated: Boolean(emailResult.simulated),
-      smtpConfigured: isSmtpConfigured(),
-      message: emailResult.ok && !emailResult.simulated
-        ? 'Convite enviado por email.'
-        : 'Convite criado — SMTP não configurado, copie o link manualmente.'
+      smtpConfigured: smtpOn,
+      emailError: failedAtResend ? (emailResult.error || 'Erro desconhecido na Resend.') : null,
+      emailErrorStatus: failedAtResend ? (emailResult.status || null) : null,
+      message: sentReal ? 'Convite enviado por email.'
+             : failedAtResend ? 'SMTP configurado mas Resend recusou o envio. Copie o link.'
+             : 'SMTP não configurado. Copie o link.'
     });
   } catch (err) {
     console.error('[tenant-invite-create]', err);

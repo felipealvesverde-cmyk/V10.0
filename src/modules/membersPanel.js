@@ -91,21 +91,33 @@ window.MembersPanel = {
 
   _inviteResult(result) {
     const isEmailReal = result.emailSent && !result.emailSimulated;
+    const smtpOn = result.smtpConfigured;
+    const resendError = result.emailError;
+    // V37.4.25 — 3 estados distintos: sucesso, SMTP off, SMTP on mas Resend falhou.
+    const banner = isEmailReal ? `
+      <div class="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2.5 flex items-center gap-2">
+        <i data-lucide="mail-check" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+        <p class="text-[12px] text-emerald-800"><span class="font-black">Convite enviado por email.</span></p>
+      </div>`
+    : (smtpOn && resendError) ? `
+      <div class="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2.5 flex items-start gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i>
+        <div class="min-w-0">
+          <p class="text-[12px] text-rose-800 font-black">SMTP configurado mas Resend recusou o envio.</p>
+          <p class="text-[11px] text-rose-700 mt-0.5 break-words"><span class="font-bold">Motivo:</span> ${Utils.escape(resendError)}${result.emailErrorStatus ? ` <span class="opacity-70">(HTTP ${result.emailErrorStatus})</span>` : ''}</p>
+          <p class="text-[11px] text-rose-700 mt-1.5">Dica comum: usando <code class="font-mono">onboarding@resend.dev</code> (sandbox)? Resend só entrega pro email dono da conta. Verifique um domínio próprio em resend.com pra enviar pra qualquer endereço.</p>
+        </div>
+      </div>`
+    : `
+      <div class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
+        <div>
+          <p class="text-[12px] text-amber-800 font-black">SMTP não configurado.</p>
+          <p class="text-[11px] text-amber-700 mt-0.5">Copie o link abaixo e envie pelo seu canal preferido (WhatsApp, Slack, etc).</p>
+        </div>
+      </div>`;
     return `<div class="p-5 space-y-3">
-      ${isEmailReal ? `
-        <div class="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2.5 flex items-center gap-2">
-          <i data-lucide="mail-check" class="w-4 h-4 text-emerald-600 shrink-0"></i>
-          <p class="text-[12px] text-emerald-800"><span class="font-black">Convite enviado por email.</span></p>
-        </div>
-      ` : `
-        <div class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2">
-          <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
-          <div>
-            <p class="text-[12px] text-amber-800 font-black">SMTP não configurado.</p>
-            <p class="text-[11px] text-amber-700 mt-0.5">Copie o link abaixo e envie pelo seu canal preferido (WhatsApp, Slack, etc).</p>
-          </div>
-        </div>
-      `}
+      ${banner}
       <div>
         <label class="block text-[10px] font-black text-stone-700 uppercase tracking-widest mb-1.5">Link de aceite</label>
         <div class="rounded-lg bg-stone-50 border border-stone-200 px-3 py-2.5">
