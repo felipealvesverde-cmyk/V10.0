@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.25',
+    date: '2026-06-12',
+    title: 'Convite: feedback honesto quando Resend recusa o envio',
+    bullets: [
+      'Antes: SMTP configurado mas Resend recusava → UI dizia "SMTP não configurado" (mentira). Comum no sandbox @resend.dev que só entrega pro email dono da conta.',
+      'Agora: 3 estados explícitos no resultado do convite. Verde = enviado. Vermelho = Resend recusou (mostra motivo + status HTTP + dica do sandbox). Amarelo = SMTP não configurado.',
+      'Backend devolve emailError + emailErrorStatus separadamente pra UI rotular certo.'
+    ]
+  },
+  {
     version: 'V37.4.24',
     date: '2026-06-12',
     title: 'Minha Conta: trocar email + trocar senha + ver permissões',
