@@ -66,7 +66,7 @@ window.NotificationsPanel = {
     const cache = App.state.notificationsCache || {};
     const items = cache.items || [];
 
-    return `<div class="fixed inset-0 z-40 bg-slate-900/30 backdrop-blur-sm"
+    return `<div class="fixed inset-0 z-[60] bg-slate-900/30 backdrop-blur-sm"
         onclick="Actions.closeNotificationsPanel()">
       <aside class="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-white shadow-2xl overflow-hidden flex flex-col"
              onclick="event.stopPropagation()" style="border-left:4px solid #7c3aed;">
