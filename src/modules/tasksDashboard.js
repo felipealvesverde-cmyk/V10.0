@@ -336,7 +336,8 @@ window.TasksDashboard = {
     const avgLabel = this._avgLabelFor(u);
 
     return `<div onclick="Actions.openTasksPersonModal('${u.user_id}')"
-        class="rounded-2xl bg-white border border-stone-200 shadow-sm overflow-hidden cursor-pointer hover:border-violet-300 hover:shadow-md transition">
+        class="rounded-2xl bg-white border border-stone-200 shadow-sm overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200"
+        style="border-left: 4px solid ${u.color || '#7c3aed'};">
       <div class="p-4 flex items-start gap-3">
         <span class="shrink-0 w-10 h-10 rounded-xl grid place-items-center text-white text-[11px] font-black shadow-sm"
           style="background:${u.color || '#7c3aed'};color:#fff!important;">${Utils.escape(u.initials || '??')}</span>
