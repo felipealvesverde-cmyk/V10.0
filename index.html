@@ -52,6 +52,9 @@
   <!-- V26.0.4 — Djow modal sempre num root próprio fora de #app pra que
        position:fixed funcione (parent #app tem transform via card-enter). -->
   <div id="djowModalRoot"></div>
+  <!-- V37.4.10 — TopBar (search + sininho + pin + data) também fora do #app
+       pelo mesmo motivo: fixed dentro do #app respeita o transform. -->
+  <div id="topBarRoot"></div>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
