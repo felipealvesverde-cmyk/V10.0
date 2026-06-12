@@ -271,6 +271,7 @@ window.HomeModule = {
             ${count > 0 ? `<span class="lj-home-bell-badge">${count > 99 ? '99+' : count}</span>` : ''}
           </button>`;
         })()}
+        ${window.NotificationsPanel ? NotificationsPanel.bellButton() : ''}
         <div class="lj-home-date">
           <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
           <span>${Utils.escape(this._today())}</span>

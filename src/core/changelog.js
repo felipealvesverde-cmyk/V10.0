@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.2',
+    date: '2026-06-12',
+    title: 'Sininho refatorado — drawer estilo Linear com 3 abas, filtros, triagem rápida',
+    bullets: [
+      'Sininho V2 aparece ao lado do sininho atual no header — coexistem por enquanto. Quando os alertas existentes forem migrados pro modelo novo (V37.4.1), o antigo sai.',
+      'Cor do badge muda conforme severidade do que tem dentro: cinza vazio, azul info, âmbar warning, rosé pulsante quando há crítico não lido. Cliente olha de longe e já sabe se "tem incêndio".',
+      'Click no sininho abre drawer lateral à direita com 3 abas: Caixa de entrada / Salvos / Arquivo. Filtros por categoria (handoff/eventos/estado/operacional/integração/saúde) + severidade.',
+      'Triagem rápida estilo Linear: hover na notificação mostra 3 ações (salvar, adiar, marcar como feito). Click marca como lido. Snooze pergunta entre 1h / amanhã 9h / segunda 9h / 1 semana.',
+      'Botão "Marcar tudo como lido" no rodapé. Contador "X ativas · Y arquivadas". Empty states amigáveis por aba (caixa vazia, sem salvos, sem arquivo).',
+      'Mais nada está GERANDO notification ainda — a infra está pronta mas precisa V37.4.3 disparar events nos 40+ pontos do app. Mesmo assim, hoje cliente já pode VER o sininho V2 funcionando (vazio).'
+    ]
+  },
+  {
     version: 'V37.4.0',
     date: '2026-06-12',
     title: 'Sininho expandido — infra de notifications (tabela + engine + endpoints)',

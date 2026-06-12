@@ -8090,6 +8090,33 @@ Object.assign(Actions, {
     }
   },
 
+  snoozeNotificationPrompt(id) {
+    // Snooze rápido: oferece presets em modal simples via prompt.
+    // V37.4.4 pode evoluir pra dropdown elegante.
+    const choice = prompt('Adiar por: 1=1h, 2=amanhã 9h, 3=próxima segunda 9h, 4=1 semana');
+    if (!choice) return;
+    const now = new Date();
+    let until = null;
+    if (choice === '1') {
+      until = new Date(now.getTime() + 60 * 60 * 1000);
+    } else if (choice === '2') {
+      until = new Date(now);
+      until.setDate(until.getDate() + 1);
+      until.setHours(9, 0, 0, 0);
+    } else if (choice === '3') {
+      until = new Date(now);
+      const dow = until.getDay();
+      const daysToMon = ((1 - dow + 7) % 7) || 7;
+      until.setDate(until.getDate() + daysToMon);
+      until.setHours(9, 0, 0, 0);
+    } else if (choice === '4') {
+      until = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    } else {
+      return Utils.toast('Opção inválida.');
+    }
+    Actions.updateNotification(id, 'snooze', until.toISOString());
+  },
+
   async markAllNotificationsAsRead() {
     try {
       const token = localStorage.getItem('lj_jwt');
