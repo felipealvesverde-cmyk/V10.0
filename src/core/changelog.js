@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.37',
+    date: '2026-06-12',
+    title: 'Fix Pin-Up: clicar no pin não abria o modal (BIGSERIAL retornava como string)',
+    bullets: [
+      'Bug: pin.id era BIGSERIAL no DB, o pg driver retornava como string ("1"). Frontend chamava Actions.openPinView(${p.id}) e o template interpolava como number (1). O find(p => p.id === id) virava "1" === 1 = false. Modal nunca abria → sem como marcar visto, arquivar ou remover.',
+      'Fix: backend cast id pra Number antes de retornar. Frontend e backend agora falam o mesmo tipo.',
+      'Nota: editar texto de pin não existe ainda como feature. Por hora dá pra arquivar (que some pra todo mundo) — equivalente a remover.'
+    ]
+  },
+  {
     version: 'V37.4.36',
     date: '2026-06-12',
     title: 'Fix Pin-Up: pins não apareciam pra ninguém em tenant com DB próprio',
