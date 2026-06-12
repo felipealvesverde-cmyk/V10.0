@@ -64,12 +64,32 @@ module.exports = async function handler(req, res) {
   try {
     // V32.0.7 — Busca default_tenant_id pra incluir no JWT.
     // V37.4.31 — Busca também flag password_reset_pending pra interceptar antes de senha.
-    const result = await req.db.query(
-      `SELECT id, username, email, password_hash, is_master, is_approved, mode, default_tenant_id,
-              password_reset_pending, password_reset_expires_at
-         FROM users WHERE LOWER(username) = $1`,
-      [username]
-    );
+    // V37.4.33 — Fallback defensivo: se migration password_reset_flag ainda não rodou
+    // (colunas inexistentes), faz o SELECT antigo. Sem isso, login fica refém da
+    // migration manual — toda mudança de schema em users vira catch-22 (mesma
+    // família do bug feedback_migrations_silent_failure_V37_4_22).
+    let result;
+    try {
+      result = await req.db.query(
+        `SELECT id, username, email, password_hash, is_master, is_approved, mode, default_tenant_id,
+                password_reset_pending, password_reset_expires_at
+           FROM users WHERE LOWER(username) = $1`,
+        [username]
+      );
+    } catch (schemaErr) {
+      if (String(schemaErr.message || '').includes('password_reset_pending') ||
+          String(schemaErr.message || '').includes('password_reset_expires_at')) {
+        console.warn('[auth-login] V37.4.33 fallback — migration password_reset_flag não rodou. Logando sem flag.');
+        result = await req.db.query(
+          `SELECT id, username, email, password_hash, is_master, is_approved, mode, default_tenant_id,
+                  FALSE AS password_reset_pending, NULL AS password_reset_expires_at
+             FROM users WHERE LOWER(username) = $1`,
+          [username]
+        );
+      } else {
+        throw schemaErr;
+      }
+    }
     const user = result.rows[0];
     if (!user) {
       recordFailure(ip);
