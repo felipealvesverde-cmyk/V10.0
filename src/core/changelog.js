@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.33',
+    date: '2026-06-12',
+    title: 'Hotfix: login não fica refém da migration de password_reset_flag',
+    bullets: [
+      'V37.4.31 quebrou o login em qualquer ambiente onde a migration /api/admin-migrate-password-reset-flag ainda não tinha rodado (column "password_reset_pending" does not exist). Como pra rodar a migration precisa estar logado, ficou catch-22.',
+      'Hotfix: auth-login pega exceção da coluna ausente e refaz o SELECT antigo (sem as colunas novas). Login passa a funcionar mesmo antes da migration.',
+      '⚠ Master: ainda precisa rodar /api/admin-migrate-password-reset-flag pra o fluxo de reset de senha funcionar. Sem a migration, o botão "Resetar senha" no Editar Membro vai dar 500 — mas o login normal volta a funcionar.'
+    ]
+  },
+  {
     version: 'V37.4.32',
     date: '2026-06-12',
     title: 'Banner "X atualizações desde ontem" foi pra dentro de Alertas Importantes',
