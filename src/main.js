@@ -158,6 +158,12 @@ var App = {
           if (window.Actions?.loadMyPermissions) {
             setTimeout(() => Actions.loadMyPermissions(), 100);
           }
+          // V37.4.39 — Carrega pins ativos pra URL atual no boot.
+          // Antes só rodava em _refreshCurrentUserInfo (plug DB, save name) —
+          // depois de F5 os pins sumiam até qualquer dessas actions disparar.
+          if (window.Actions?.loadPinsForCurrentUrl) {
+            setTimeout(() => Actions.loadPinsForCurrentUrl(), 100);
+          }
         }
         // V32.4.0 (Geraldo Item 6) — hydrateFromConfiguredDatabase removida (V11 folder).
         // V26.0.0 — Atalho global Ctrl+K (Cmd+K) abre modal Djow AI.
