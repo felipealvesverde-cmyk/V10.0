@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.16',
+    date: '2026-06-12',
+    title: 'Releases viram notification individual + badge não soma releases duas vezes',
+    bullets: [
+      'Badge mostrava 22 e drawer 1 porque _checkReleases criava só 1 notification (a mais recente) e o bellButton somava releases_unseen (22) no total. Discrepância gritante.',
+      '_checkReleases agora itera as 5 releases mais recentes não vistas e cria 1 notification pra cada (entityId=versão, dedup garante que não duplica em runs subsequentes). Depois marca lastSeenVersion como a mais recente pra não acumular release ancestrais.',
+      'bellButton removeu releaseCount do somatório legacy — cada release agora está em counts.inbox via notification real, não precisa contar 2 vezes.'
+    ]
+  },
+  {
     version: 'V37.4.15',
     date: '2026-06-12',
     title: 'Card "Bom Dia" big-bang vira chip discreto',
