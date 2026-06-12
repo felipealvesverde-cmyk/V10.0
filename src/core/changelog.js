@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.10',
+    date: '2026-06-12',
+    title: 'TopBar enfim na direita — movida pra root próprio fora do #app',
+    bullets: [
+      'A TopBar com search/sininho/pin/data estava aparecendo no canto superior esquerdo (em cima do logo) em vez do direito. Causa: parent #app tem transform de card-enter animation, e position:fixed dentro de elemento com transform passa a ser relativo ao elemento, não ao viewport.',
+      'Mesma armadilha que o Djow caiu em V26.0.4. Solução igual: novo div #topBarRoot fora do #app pra renderizar a TopBar separadamente.',
+      'main.js agora renderiza a TopBar em #topBarRoot ao invés de prepend no #app.innerHTML. Position fixed volta a funcionar relativo ao viewport.'
+    ]
+  },
+  {
     version: 'V37.4.9',
     date: '2026-06-12',
     title: 'Sininho V2: migração completa dos 5 alertas legados + click roteia pra ação certa',
