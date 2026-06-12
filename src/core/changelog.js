@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.27',
+    date: '2026-06-12',
+    title: 'Cancelar convite pendente',
+    bullets: [
+      'Lista de "Convites pendentes" ganhou botão "Cancelar" vermelho ao lado de "Copiar link". Confirma antes de deletar.',
+      'Cancelar invalida o link de aceite imediatamente — útil pra limpar tentativas de teste, emails errados ou convites que não vão mais ser aceitos.',
+      'Endpoint POST /api/tenant-invite-cancel: Master ou owner do tenant. Rejeita se convite já foi aceito (manda usar painel de Membros pra remover).'
+    ]
+  },
+  {
     version: 'V37.4.26',
     date: '2026-06-12',
     title: 'Fix crítico: aceite de convite estava bloqueado por auth',
