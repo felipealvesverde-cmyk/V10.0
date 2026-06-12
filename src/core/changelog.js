@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.21',
+    date: '2026-06-12',
+    title: 'Permission resolver lê default_tenant_id quando JWT é pré-V37',
+    bullets: [
+      'Helper resolveUserPermissions/checkPermission caía em "Sem tenant ativo" quando o JWT do user foi emitido antes do tenantId virar parte do payload. Apenas Sansone batia nisso porque o login dele é antigo.',
+      'Fix: fallback pra users.default_tenant_id quando req.user.tenantId vem vazio. Continua o fluxo normal e enxerga membership.',
+      'Resultado: aba "Membros do Tenant" volta a aparecer pro Sansone sem precisar deslogar/relogar pra gerar JWT novo.'
+    ]
+  },
+  {
     version: 'V37.4.20',
     date: '2026-06-12',
     title: 'Self-healing de membership pra logins legados (pré-V37.3)',
