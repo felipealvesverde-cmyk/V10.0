@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.5.2',
+    date: '2026-06-12',
+    title: 'Pin-Up — click na notificação navega pro pin + cluster quando >5 na tela',
+    bullets: [
+      'Click na notificação "Pin cravado pra você" agora navega pra URL do pin. Se já está na mesma página, só abre o modal direto. Se está em outra, persiste o pinId no sessionStorage e abre o modal após a página carregar.',
+      'Cluster de pins: quando há mais de 5 pins na mesma tela, em vez de poluir com marcadores espalhados aparece um único badge violet no topo-direito: "X pins nesta tela" + count de não-vistos. Click expande dropdown com lista de todos os pins (creator + preview do texto + dot violet se não-visto).',
+      '"Mostrar todos no mapa" no header do dropdown volta pra visualização dos marcadores individuais — útil quando o cliente quer ver a posição geográfica de cada pin na tela.',
+      'Pin lido vs não-lido: dot violet pequeno indica quem ainda não foi marcado como visto. Click no item do dropdown abre o modal completo e auto-marca como visto.',
+      'Action nova Actions.handleNotificationClick(id) é o entry point universal pra click em notification — special-case pra pin, default mark as read pro resto. Vai escalar pra mais kinds futuros (mention em comentário, KR transferido, etc).'
+    ]
+  },
+  {
     version: 'V37.5.1',
     date: '2026-06-12',
     title: 'Sininho único (V2 absorve contadores legados) + TopBar global em todas as páginas',

@@ -48,8 +48,9 @@ window.PinUp = {
   overlay() {
     const active = Boolean(App.state.pinModeActive);
     const pins = App.state.pinUp?.pinsForCurrentUrl || [];
+    const clusterMode = pins.length > 5 && !App.state.pinUp?.clusterExpanded;
     return `${active ? this._captureOverlay() : ''}
-            ${pins.length > 0 ? this._pinsLayer(pins) : ''}
+            ${pins.length > 0 ? (clusterMode ? this._clusterBadge(pins) : this._pinsLayer(pins)) : ''}
             ${App.state.pinUp?.createModal ? this._createModal(App.state.pinUp.createModal) : ''}
             ${App.state.pinUp?.viewModal ? this._viewModal(App.state.pinUp.viewModal) : ''}`;
   },
@@ -66,6 +67,45 @@ window.PinUp = {
   _pinsLayer(pins) {
     return `<div class="fixed inset-0 pointer-events-none z-[55]">
       ${pins.map(p => this._pinMarker(p)).join('')}
+      ${pins.length > 5 ? `
+        <div class="fixed top-16 right-4 pointer-events-auto">
+          <button onclick="Actions.togglePinCluster()" class="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-black inline-flex items-center gap-1.5 shadow-lg" style="color:#fff!important;">
+            <i data-lucide="layers" class="w-3 h-3"></i>
+            Agrupar ${pins.length} pins
+          </button>
+        </div>
+      ` : ''}
+    </div>`;
+  },
+
+  // V37.5.2 — Cluster: badge único + dropdown com lista quando >5 pins.
+  _clusterBadge(pins) {
+    const unseenCount = pins.filter(p => !p.seenByMe).length;
+    return `<div class="fixed top-16 right-4 z-[55]">
+      <button onclick="Actions.togglePinCluster()" class="relative px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-black inline-flex items-center gap-2 shadow-xl border-2 border-violet-300" style="color:#fff!important;">
+        <i data-lucide="map-pin" class="w-4 h-4"></i>
+        <span>${pins.length} pins nesta tela</span>
+        ${unseenCount > 0 ? `<span class="ml-1 min-w-[18px] h-[18px] px-1 rounded-full bg-white text-violet-700 text-[10px] grid place-items-center font-black">${unseenCount}</span>` : ''}
+      </button>
+      <div class="mt-2 w-80 rounded-2xl bg-white shadow-2xl border border-stone-200 overflow-hidden" style="border-left:4px solid #7c3aed;">
+        <div class="px-4 py-2.5 border-b border-stone-200 bg-violet-50 flex items-center justify-between">
+          <p class="text-[11px] font-black text-violet-700 uppercase tracking-wider">Pins nesta página</p>
+          <button onclick="Actions.togglePinCluster()" class="text-[10px] text-violet-700 hover:text-violet-900 font-bold">Mostrar todos no mapa</button>
+        </div>
+        <div class="max-h-80 overflow-y-auto divide-y divide-stone-100">
+          ${pins.map(p => {
+            const unread = !p.seenByMe;
+            return `<button onclick="Actions.openPinView(${p.id})" class="w-full text-left px-4 py-2.5 hover:bg-stone-50 transition flex items-start gap-2.5 ${unread ? 'bg-violet-50/30' : ''}">
+              <span class="shrink-0 w-7 h-7 rounded-lg bg-violet-100 border border-violet-200 grid place-items-center text-violet-700 text-[10px] font-black">${Utils.escape((p.creatorName || '?').slice(0, 2).toUpperCase())}</span>
+              <div class="min-w-0 flex-1">
+                <p class="text-[11px] font-black text-slate-900 truncate">${Utils.escape(p.creatorName || 'Alguém')}</p>
+                <p class="text-[10px] text-stone-600 truncate">${Utils.escape((p.text || '').slice(0, 80))}${(p.text || '').length > 80 ? '...' : ''}</p>
+              </div>
+              ${unread ? '<span class="shrink-0 mt-1 w-1.5 h-1.5 rounded-full bg-violet-600"></span>' : ''}
+            </button>`;
+          }).join('')}
+        </div>
+      </div>
     </div>`;
   },
 
