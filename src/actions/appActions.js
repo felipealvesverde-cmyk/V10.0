@@ -7745,6 +7745,196 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // ============================================================
+  // V37.3.2 — Membros do tenant (UI gerenciar)
+  // ============================================================
+  async loadTenantMembers(force = false) {
+    const cache = App.state.membersCache = App.state.membersCache || { loading: false, error: null, members: [], pendingInvites: [], loadedAt: null };
+    if (!force && cache.loadedAt && (Date.now() - cache.loadedAt) < 60_000) return;
+    if (cache.loading) return;
+    cache.loading = true; cache.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/tenant-members-list', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao listar membros.');
+      cache.members = data.members || [];
+      cache.pendingInvites = data.pendingInvites || [];
+      cache.loadedAt = Date.now();
+      cache.loading = false;
+      App.render();
+    } catch (err) {
+      cache.error = err.message;
+      cache.loading = false;
+      App.render();
+    }
+  },
+
+  refreshTenantMembers() {
+    Actions.loadTenantMembers(true);
+  },
+
+  openMemberEditModal(userId) {
+    const member = (App.state.membersCache?.members || []).find(m => m.userId === userId);
+    if (!member) return Utils.toast('Membro não encontrado.');
+    App.state.memberEditModal = {
+      userId,
+      saving: false,
+      draft: {
+        role: member.role,
+        overrides: { ...(member.permissionsOverrides || {}) },
+        effective: this._computeEffectivePermissionsFromTemplate(member.role, member.permissionsOverrides || {})
+      }
+    };
+    App.render();
+  },
+
+  closeMemberEditModal() {
+    App.state.memberEditModal = null;
+    App.render();
+  },
+
+  updateMemberEditDraft(field, value) {
+    const modal = App.state.memberEditModal;
+    if (!modal) return;
+    if (field === 'role') {
+      modal.draft.role = value;
+      modal.draft.effective = this._computeEffectivePermissionsFromTemplate(value, modal.draft.overrides);
+    }
+    App.render();
+  },
+
+  toggleMemberPermissionOverride(key, value) {
+    const modal = App.state.memberEditModal;
+    if (!modal) return;
+    modal.draft.overrides = { ...(modal.draft.overrides || {}), [key]: Boolean(value) };
+    modal.draft.effective = this._computeEffectivePermissionsFromTemplate(modal.draft.role, modal.draft.overrides);
+    App.render();
+  },
+
+  clearMemberPermissionOverride(key) {
+    const modal = App.state.memberEditModal;
+    if (!modal) return;
+    const next = { ...(modal.draft.overrides || {}) };
+    delete next[key];
+    modal.draft.overrides = next;
+    modal.draft.effective = this._computeEffectivePermissionsFromTemplate(modal.draft.role, modal.draft.overrides);
+    App.render();
+  },
+
+  async saveMemberEdit() {
+    const modal = App.state.memberEditModal;
+    if (!modal || modal.saving) return;
+    modal.saving = true; App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/tenant-member-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          tenantId: App.state.user?.tenantId,
+          userId: modal.userId,
+          role: modal.draft.role,
+          permissionsOverrides: modal.draft.overrides
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao salvar.');
+      Utils.toast('✓ Permissões atualizadas.');
+      App.state.memberEditModal = null;
+      await Actions.refreshTenantMembers();
+    } catch (err) {
+      modal.saving = false;
+      Utils.toast(`Erro: ${err.message}`);
+      App.render();
+    }
+  },
+
+  async removeTenantMember(userId, email) {
+    if (!confirm(`Remover ${email} do tenant? O usuário fica cadastrado, mas perde acesso a este workspace.`)) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/tenant-member-remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenantId: App.state.user?.tenantId, userId })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao remover.');
+      Utils.toast('✓ Membro removido.');
+      await Actions.refreshTenantMembers();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // Helper: aplica template base + overrides pra preview de permissões efetivas.
+  // Mantém em sincronia com lib/permission-engine.js (cópia client-side).
+  _computeEffectivePermissionsFromTemplate(role, overrides) {
+    const TEMPLATES = {
+      owner: {
+        'view.dashboard': true, 'view.mapa': true, 'view.dre': true,
+        'view.revops': true, 'view.financeiro': true, 'view.score': true,
+        'view.leads': true, 'view.checkout': true, 'view.tarefas': true,
+        'edit.mapa': true, 'edit.campanha': true, 'edit.acao': true,
+        'edit.produto': true, 'edit.score': true, 'edit.kpi': true, 'edit.kr': true,
+        'ops.integracoes': true, 'ops.lead_import': true, 'ops.lead_export': true,
+        'ops.rd_sync': true, 'ops.tasks': true,
+        'admin.convidar_membro': true, 'admin.editar_role': true,
+        'admin.remover_membro': true, 'admin.editar_billing': true,
+        'admin.editar_db_tenant': true, 'djow': true
+      },
+      manager: {
+        'view.dashboard': true, 'view.mapa': true, 'view.dre': true,
+        'view.revops': true, 'view.financeiro': true, 'view.score': true,
+        'view.leads': true, 'view.checkout': true, 'view.tarefas': true,
+        'edit.mapa': true, 'edit.campanha': true, 'edit.acao': true,
+        'edit.produto': true, 'edit.score': false, 'edit.kpi': true, 'edit.kr': true,
+        'ops.integracoes': false, 'ops.lead_import': true, 'ops.lead_export': true,
+        'ops.rd_sync': true, 'ops.tasks': true,
+        'admin.convidar_membro': false, 'admin.editar_role': false,
+        'admin.remover_membro': false, 'admin.editar_billing': false,
+        'admin.editar_db_tenant': false, 'djow': true
+      },
+      user: {
+        'view.dashboard': true, 'view.mapa': true, 'view.dre': false,
+        'view.revops': false, 'view.financeiro': false, 'view.score': false,
+        'view.leads': false, 'view.checkout': false, 'view.tarefas': true,
+        'edit.mapa': false, 'edit.campanha': false, 'edit.acao': false,
+        'edit.produto': false, 'edit.score': false, 'edit.kpi': false, 'edit.kr': false,
+        'ops.integracoes': false, 'ops.lead_import': false, 'ops.lead_export': false,
+        'ops.rd_sync': false, 'ops.tasks': true,
+        'admin.convidar_membro': false, 'admin.editar_role': false,
+        'admin.remover_membro': false, 'admin.editar_billing': false,
+        'admin.editar_db_tenant': false, 'djow': true
+      }
+    };
+    const base = TEMPLATES[role] || TEMPLATES.user;
+    const out = { ...base };
+    if (overrides && typeof overrides === 'object') {
+      for (const [k, v] of Object.entries(overrides)) {
+        if (typeof v === 'boolean') out[k] = v;
+      }
+    }
+    return out;
+  },
+
+  // V37.3.3 — Convite (stub, complete em V37.3.3)
+  openInviteMemberModal() {
+    App.state.inviteModal = { email: '', role: 'user', saving: false, lastInviteUrl: null };
+    App.render();
+  },
+
+  closeInviteMemberModal() {
+    App.state.inviteModal = null;
+    App.render();
+  },
+
+  copyInviteLink(inviteId) {
+    Utils.toast('Link de convite — V37.3.3 traz o "Copiar Link" completo.');
+  },
+
   async loadTasksPersonData(force = false) {
     const cache = App.state.tasksPersonCache = App.state.tasksPersonCache || { fetchedAt: null, users: [], horizonDays: [], loading: false, error: null, journeyHours: 8 };
     const TTL = 5 * 60 * 1000;

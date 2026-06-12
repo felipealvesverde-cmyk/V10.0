@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.3.2',
+    date: '2026-06-12',
+    title: 'Configurações → Membros do Tenant: listar, editar role, ajustar permissões custom',
+    bullets: [
+      'Nova seção "Membros do Tenant" no menu Configurações. Lista todos os membros ativos com avatar, email, role (Admin Master / Gerente / Usuário) e quantas permissões custom estão configuradas.',
+      'Click em "Editar" abre modal com seleção de role base + checkboxes de cada permissão. Linhas amarelas indicam quando uma permissão foi sobrescrita do template do role — clica "resetar" pra voltar ao default.',
+      'Botão "Remover" libera tirar membro do tenant (usuário fica cadastrado mas perde acesso). Protegido: Admin Master do tenant não pode ser removido nem rebaixado por aqui.',
+      'Convites pendentes (V37.3.3) aparecem em card amber separado com prazo de expiração e botão "Copiar link" (V37.3.3 traz o link funcional).',
+      'Endpoints novos: GET /api/tenant-members-list, POST /api/tenant-member-update, POST /api/tenant-member-remove. Todos checam permissão Master OU owner do tenant.'
+    ]
+  },
+  {
     version: 'V37.3.1',
     date: '2026-06-12',
     title: 'Permission system: 3 roles (Master/Gerente/Usuário) + overrides granulares + DB',

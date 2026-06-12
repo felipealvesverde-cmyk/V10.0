@@ -413,6 +413,12 @@ var State = {
       // Substitui tasksPersonExpanded inline (V37.1.0). Modal central 2 colunas
       // (capacidade + dedicação LJ por produto/campanha).
       tasksPersonModalUserId: null,
+      // V37.3.x — Sistema de membros + permissões.
+      membersCache: { loading: false, error: null, members: [], pendingInvites: [], loadedAt: null },
+      memberEditModal: null,
+      userPermissions: null,
+      user: null,
+      inviteModal: null,
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
       overviewBranchFilter: 'all',
       revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
@@ -1128,6 +1134,12 @@ var State = {
       tasksPersonCache: { fetchedAt: null, users: [], horizonDays: [], loading: false, error: null, journeyHours: 8 },
       // V37.1.9 — Modal volátil (não persiste).
       tasksPersonModalUserId: null,
+      // V37.3.x — Membros + permissões (volátil, re-fetch).
+      membersCache: { loading: false, error: null, members: [], pendingInvites: [], loadedAt: null },
+      memberEditModal: null,
+      userPermissions: null,
+      user: null,
+      inviteModal: null,
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
       overviewBranchFilter: 'all',
       revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
