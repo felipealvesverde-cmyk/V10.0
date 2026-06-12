@@ -29,6 +29,12 @@ window.NotificationSync = {
       await this._checkClickup();
       await this._checkRdWebhooks();
       await this._checkReconciliation();
+      // V37.4.9 — migração completa do sininho legado
+      await this._checkLeadImportReports();
+      await this._checkReleases();
+      await this._checkAdsOrphans();
+      await this._checkGa4Alerts();
+      await this._checkMonthlyClosingPending();
     } catch (err) {
       console.warn('[NotificationSync] erro:', err.message);
     }
@@ -79,8 +85,94 @@ window.NotificationSync = {
       severity: 'warning',
       title: `${counts.totalUnread} divergência${counts.totalUnread === 1 ? '' : 's'} RD ↔ LJ`,
       body: 'Stage ou deal divergente entre RD e LJ. Reveja e resolva.',
-      data: counts,
+      data: { action: 'open_recon', counts },
       entityKind: 'reconciliation',
+      entityId: 'pending'
+    });
+  },
+
+  // V37.4.9 — Lead import reports não vistos
+  async _checkLeadImportReports() {
+    const count = Number(App.state.pendingLeadImportReports || 0);
+    if (!count) return;
+    await window.LJEmitDedup({
+      audience: { role: 'owner' },
+      kind: 'operational.lead_import_reports',
+      category: 'operational',
+      severity: 'info',
+      title: `${count} relatório${count === 1 ? '' : 's'} de import de leads`,
+      body: 'Há relatórios de import recente sem revisão.',
+      data: { action: 'open_import_reports', count },
+      entityKind: 'lead_imports',
+      entityId: 'pending'
+    });
+  },
+
+  // V37.4.9 — Releases (changelog) ainda não vistas pelo user
+  async _checkReleases() {
+    const unseen = (window.Actions?._getUnseenReleases?.() || []);
+    if (!unseen.length) return;
+    const latest = unseen[0];
+    await window.LJEmitDedup({
+      audience: { role: 'owner' },
+      kind: 'event.lj_release',
+      category: 'event',
+      severity: 'info',
+      title: `LeadJourney ${latest.version}`,
+      body: latest.title || 'Nova versão disponível.',
+      data: { action: 'open_releases', version: latest.version, total: unseen.length },
+      entityKind: 'release',
+      entityId: latest.version
+    });
+  },
+
+  // V37.4.9 — Ads órfãs (Google Ads não vinculadas a Campanha LJ)
+  async _checkAdsOrphans() {
+    const count = Number(window.Actions?.getAdsOrphanBellCount?.() || 0);
+    if (!count) return;
+    await window.LJEmitDedup({
+      audience: { role: 'owner' },
+      kind: 'operational.ads_orphans',
+      category: 'operational',
+      severity: 'warning',
+      title: `${count} campanha${count === 1 ? '' : 's'} Ads sem vínculo LJ`,
+      body: 'Vincule pra que apareçam no RevOps e no Mapa.',
+      data: { action: 'open_ads_orphans', count },
+      entityKind: 'ads_orphans',
+      entityId: 'pending'
+    });
+  },
+
+  // V37.4.9 — GA4 alertas (sync falhou, customs novos, etc)
+  async _checkGa4Alerts() {
+    const count = Number(window.Actions?.getGa4AlertCount?.() || 0);
+    if (!count) return;
+    await window.LJEmitDedup({
+      audience: { role: 'owner' },
+      kind: 'integration.ga4_alerts',
+      category: 'integration',
+      severity: 'warning',
+      title: `${count} alerta${count === 1 ? '' : 's'} GA4`,
+      body: 'Configure ou reveja a integração com GA4.',
+      data: { action: 'open_ga4', count },
+      entityKind: 'ga4',
+      entityId: 'alerts'
+    });
+  },
+
+  // V37.4.9 — Fechamento mensal pendente
+  async _checkMonthlyClosingPending() {
+    const count = Number(window.Actions?.getMonthlyClosingPendingCount?.() || 0);
+    if (!count) return;
+    await window.LJEmitDedup({
+      audience: { role: 'owner' },
+      kind: 'operational.monthly_closing_pending',
+      category: 'operational',
+      severity: 'warning',
+      title: `${count} fechamento${count === 1 ? '' : 's'} mensal pendente${count === 1 ? '' : 's'}`,
+      body: 'Snapshot consolidado aguardando finalização.',
+      data: { action: 'open_monthly_closing', count },
+      entityKind: 'monthly_closing',
       entityId: 'pending'
     });
   }

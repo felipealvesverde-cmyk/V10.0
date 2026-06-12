@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.9',
+    date: '2026-06-12',
+    title: 'Sininho V2: migração completa dos 5 alertas legados + click roteia pra ação certa',
+    bullets: [
+      'Migração que faltava da V37.4.5: NotificationSync agora cobre TODOS os alertas que viviam no sininho legado. Cada um vira notification de verdade no drawer V2, com payload de action no data.',
+      'Lead Import Reports → operational/info. Releases LJ (changelog) → event/info. Ads órfãs → operational/warning. GA4 alertas → integration/warning. Fechamento mensal pendente → operational/warning.',
+      'Actions.handleNotificationClick ganha switch por data.action: open_recon abre modal de conciliação, open_import_reports abre wizard de import, open_releases abre changelog, open_ads_orphans navega pro Dashboard de Ads, open_ga4 abre wizard GA4, open_monthly_closing leva pro RevOps.',
+      'Como NotificationSync roda a cada 1min e usa dedup de 24h, esses alertas vão sendo criados sem duplicar. Cliente clica e cai exatamente onde deveria — não fica mais sem destino.',
+      'Posição da TopBar: travada com inline style (position:fixed;top:12px;right:16px;z-index:50) pra garantir o canto direito mesmo se algum CSS de ancestor tentar mudar containing block.'
+    ]
+  },
+  {
     version: 'V37.4.8',
     date: '2026-06-12',
     title: 'TopBar sem faixa de fundo — ícones flutuam livres no canto',

@@ -34,7 +34,7 @@ window.TopBar = {
         setTimeout(() => Actions.loadGovernanceClosings(), 400);
       }
     }
-    return `<div class="lj-topbar fixed top-3 right-4 z-50 flex items-center gap-2">
+    return `<div class="lj-topbar flex items-center gap-2" style="position:fixed;top:12px;right:16px;z-index:50;">
       <button onclick="Actions.openProfileFinder && Actions.openProfileFinder()" class="w-8 h-8 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700 backdrop-blur-sm grid place-items-center text-slate-300 transition shadow-md" title="Buscar">
         <i data-lucide="search" class="w-3.5 h-3.5"></i>
       </button>
