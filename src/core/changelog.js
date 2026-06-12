@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.3.3',
+    date: '2026-06-12',
+    title: 'Convite de membros via link mágico — email automático quando SMTP ativo, fallback "Copiar link"',
+    bullets: [
+      'Admin Master clica em "Convidar membro", preenche email + role, e o sistema gera link mágico com 7 dias de validade. Se SMTP estiver configurado, vai email automático com identidade visual LJ. Senão, mostra o link pra cliente copiar e enviar pelo canal preferido (WhatsApp, Slack, etc).',
+      'Página /accept-invite.html é standalone — convidado abre, escolhe username + senha (mínimo 8 chars) e nome de exibição. Ao confirmar, conta é criada + adicionada como membro do tenant com role e permissões custom do convite. Login automático após aceitar.',
+      'Re-emitir convite pendente: card de convite tem botão "Copiar link" que gera novo token + retorna URL. Token antigo é substituído (não duplica linha na tabela).',
+      'Proteções: email já membro do tenant retorna 409. Username já em uso retorna 409. Email tem conta existente com senha → bloqueia o accept e pede login normal (não dá pra resetar senha via convite). Convite expirado → 410.',
+      '3 endpoints novos: POST /api/tenant-invite-create (auth Master/Owner), GET /api/tenant-invite-info?token=xxx (público), POST /api/tenant-invite-accept (público).',
+      'Sem dependência do Resend ativo — convite funciona 100% mesmo com SMTP off. Quando Felipe plugar a RESEND_API_KEY no Railway, o email automático destrava sozinho.'
+    ]
+  },
+  {
     version: 'V37.3.2',
     date: '2026-06-12',
     title: 'Configurações → Membros do Tenant: listar, editar role, ajustar permissões custom',
