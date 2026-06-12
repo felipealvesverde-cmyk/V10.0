@@ -8133,26 +8133,66 @@ Object.assign(Actions, {
     }
   },
 
-  // V37.5.2 — Handler universal de click numa notification.
-  // Special-case pra handoff.pin_mentioned: marca read + navega pra URL do pin
-  // + persiste pinId pra abrir após nav. Default: só mark as read.
+  // V37.5.2 + V37.4.9 — Handler universal de click numa notification.
+  // Switch por kind + data.action pra rotear pra ação certa do app.
   handleNotificationClick(id) {
     const cache = App.state.notificationsCache;
     const n = (cache?.items || []).find(x => x.id === id);
     if (!n) return Actions.updateNotification(id, 'read');
 
+    // Special-case Pin-Up
     if (n.kind === 'handoff.pin_mentioned' && n.data?.targetUrl && n.data?.pinId) {
       Actions.updateNotification(id, 'read');
       Actions.closeNotificationsPanel();
       const currentUrl = window.location.pathname + window.location.search;
       if (currentUrl === n.data.targetUrl) {
-        // Mesma página — só abre o pin + scroll
         setTimeout(() => Actions.openPinView(Number(n.data.pinId)), 100);
       } else {
-        // Navega + persiste pinId pra abrir após carga
         sessionStorage.setItem('lj_pin_to_open_after_nav', String(n.data.pinId));
         window.location.href = n.data.targetUrl;
       }
+      return;
+    }
+
+    // V37.4.9 — Routing por data.action (alertas legados migrados)
+    const action = n.data?.action;
+    if (action) {
+      Actions.updateNotification(id, 'read');
+      Actions.closeNotificationsPanel();
+      setTimeout(() => {
+        switch (action) {
+          case 'open_recon':
+            if (window.Actions?.openReconciliationModal) Actions.openReconciliationModal();
+            else if (window.Actions?.openNotificationsModal) Actions.openNotificationsModal();
+            break;
+          case 'open_import_reports':
+            if (window.Actions?.openLeadImportReportsModal) Actions.openLeadImportReportsModal();
+            else if (window.Actions?.openLeadImportWizard) Actions.openLeadImportWizard();
+            break;
+          case 'open_releases':
+            if (window.Actions?.openReleasesModal) Actions.openReleasesModal();
+            else if (window.Actions?.openNotificationsModal) Actions.openNotificationsModal();
+            break;
+          case 'open_ads_orphans':
+            if (window.Actions?.setView) Actions.setView('dashboard');
+            App.state.googleAdsDashboardSubTab = 'orphans';
+            App.render();
+            break;
+          case 'open_ga4':
+            if (window.Actions?.openGa4Wizard) Actions.openGa4Wizard();
+            else if (window.Actions?.openSettingsModal) {
+              Actions.openSettingsModal();
+              Actions.setSettingsSection?.('integrations');
+            }
+            break;
+          case 'open_monthly_closing':
+            if (window.Actions?.setView) Actions.setView('revops');
+            App.render();
+            break;
+          default:
+            console.warn('[handleNotificationClick] action desconhecida:', action);
+        }
+      }, 100);
       return;
     }
 
