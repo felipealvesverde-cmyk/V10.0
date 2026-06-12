@@ -8677,6 +8677,28 @@ Object.assign(Actions, {
     }
   },
 
+  // V37.4.27 — Cancela convite pendente.
+  async cancelInvite(inviteId) {
+    const cache = App.state.membersCache;
+    const invite = (cache?.pendingInvites || []).find(i => i.id === inviteId);
+    if (!invite) return Utils.toast('Convite não encontrado.');
+    if (!confirm(`Cancelar convite pra ${invite.email}?\n\nO link de aceite vira inválido imediatamente.`)) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/tenant-invite-cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ inviteId })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao cancelar.');
+      Utils.toast(`✓ ${data.message}`);
+      await Actions.refreshTenantMembers();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   async loadTasksPersonData(force = false) {
     const cache = App.state.tasksPersonCache = App.state.tasksPersonCache || { fetchedAt: null, users: [], horizonDays: [], loading: false, error: null, journeyHours: 8 };
     const TTL = 5 * 60 * 1000;

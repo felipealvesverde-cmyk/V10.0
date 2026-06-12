@@ -225,7 +225,12 @@ window.MembersPanel = {
             <p class="text-[12px] font-bold text-slate-900 truncate">${Utils.escape(i.email)}</p>
             <p class="text-[10px] text-amber-800">Role: ${i.role} · ${i.expired ? 'expirado' : 'pendente'}</p>
           </div>
-          <button onclick="Actions.copyInviteLink(${i.id})" class="text-[11px] text-violet-600 hover:text-violet-800 font-bold">Copiar link</button>
+          <div class="flex items-center gap-3 shrink-0">
+            <button onclick="Actions.copyInviteLink(${i.id})" class="text-[11px] text-violet-600 hover:text-violet-800 font-bold">Copiar link</button>
+            <button onclick="Actions.cancelInvite(${i.id})" class="text-[11px] text-rose-600 hover:text-rose-800 font-bold inline-flex items-center gap-1">
+              <i data-lucide="trash-2" class="w-3 h-3"></i>Cancelar
+            </button>
+          </div>
         </div>`).join('')}
       </div>
     </div>`;
