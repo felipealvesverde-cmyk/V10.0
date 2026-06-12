@@ -8131,6 +8131,28 @@ Object.assign(Actions, {
     }
   },
 
+  // V37.4.4 — Cluster expand toggle
+  toggleClusterExpanded(key) {
+    if (!App.state.notificationClusterExpanded) App.state.notificationClusterExpanded = {};
+    App.state.notificationClusterExpanded[key] = !App.state.notificationClusterExpanded[key];
+    App.render();
+  },
+
+  // V37.4.4 — Bom Dia card actions
+  dismissBomDia() {
+    if (window.BomDiaCard) window.BomDiaCard.markAsSeen();
+    App.state.bomDiaDismissed = true;
+    App.render();
+  },
+
+  openNotificationsFromBomDia() {
+    if (window.BomDiaCard) window.BomDiaCard.markAsSeen();
+    App.state.bomDiaDismissed = true;
+    App.state.notificationsPanelOpen = true;
+    Actions.loadNotifications(true);
+    App.render();
+  },
+
   snoozeNotificationPrompt(id) {
     // Snooze rápido: oferece presets em modal simples via prompt.
     // V37.4.4 pode evoluir pra dropdown elegante.

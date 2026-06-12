@@ -154,10 +154,84 @@ window.NotificationsPanel = {
     }
     if (!items.length) return this._emptyState(cache);
 
+    // V37.4.4 — Cluster: agrupa 3+ items mesma (source + category) em ≤4h.
+    const clustered = this._clusterItems(items);
+
     return `<div class="flex-1 overflow-y-auto">
       <div class="divide-y divide-stone-100">
-        ${items.map(n => this._row(n)).join('')}
+        ${clustered.map(c => c.type === 'cluster' ? this._cluster(c) : this._row(c.item)).join('')}
       </div>
+    </div>`;
+  },
+
+  _clusterItems(items) {
+    const CLUSTER_WINDOW_MS = 4 * 60 * 60 * 1000;
+    const groups = new Map();
+    const out = [];
+    items.forEach((n, idx) => {
+      const key = `${n.sourceUserId || 'system'}::${n.category}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({ n, idx });
+    });
+    const grouped = new Set();
+    groups.forEach((arr, key) => {
+      if (arr.length < 3) return;
+      // checa janela de 4h
+      const first = new Date(arr[0].n.createdAt).getTime();
+      const last = new Date(arr[arr.length-1].n.createdAt).getTime();
+      if (Math.abs(first - last) > CLUSTER_WINDOW_MS) return;
+      arr.forEach(a => grouped.add(a.idx));
+    });
+    items.forEach((n, idx) => {
+      if (grouped.has(idx)) {
+        const key = `${n.sourceUserId || 'system'}::${n.category}`;
+        if (out.find(x => x.type === 'cluster' && x.key === key)) return;
+        const clusterItems = items.filter((_, i) => grouped.has(i) &&
+          `${items[i].sourceUserId || 'system'}::${items[i].category}` === key);
+        out.push({ type: 'cluster', key, items: clusterItems });
+      } else {
+        out.push({ type: 'single', item: n });
+      }
+    });
+    return out;
+  },
+
+  _cluster(c) {
+    const sevColors = {
+      info:     { dot: '#0ea5e9', bg: '#f0f9ff', border: '#bae6fd' },
+      warning:  { dot: '#f59e0b', bg: '#fffbeb', border: '#fde68a' },
+      critical: { dot: '#ef4444', bg: '#fef2f2', border: '#fecaca' }
+    };
+    const catLabels = {
+      handoff: 'Handoff', event: 'Evento', state: 'Estado',
+      operational: 'Operacional', integration: 'Integração', health: 'Saúde'
+    };
+    const items = c.items || [];
+    const first = items[0] || {};
+    const sev = sevColors[first.severity] || sevColors.info;
+    const isExpanded = App.state.notificationClusterExpanded?.[c.key];
+    const sourceLabel = first.sourceUserId ? 'Alguém' : 'Sistema';
+
+    return `<div class="bg-stone-50/40">
+      <div class="px-4 py-3 cursor-pointer hover:bg-stone-100 transition" onclick="Actions.toggleClusterExpanded('${Utils.escape(c.key)}')">
+        <div class="flex items-start gap-3">
+          <span class="shrink-0 mt-1 w-2 h-2 rounded-full" style="background:${sev.dot}"></span>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 mb-0.5">
+              <span class="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded" style="background:${sev.bg};color:${sev.dot};border:1px solid ${sev.border}">${catLabels[first.category] || first.category}</span>
+              <span class="text-[9px] font-black text-violet-700 bg-violet-50 border border-violet-200 px-1.5 py-0.5 rounded uppercase tracking-wider">${items.length} agrupados</span>
+            </div>
+            <p class="text-[12px] font-black text-slate-900 leading-snug">
+              ${items.length} ${catLabels[first.category]?.toLowerCase() || 'eventos'} ${first.sourceUserId ? 'da mesma fonte' : 'do sistema'} nas últimas 4h
+            </p>
+            <p class="text-[10px] text-stone-500 mt-0.5">${isExpanded ? 'Click pra agrupar' : 'Click pra expandir e ver cada um'}</p>
+          </div>
+          <i data-lucide="${isExpanded ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 text-stone-400 shrink-0 mt-1"></i>
+        </div>
+      </div>
+      ${isExpanded ? `<div class="bg-white border-t border-stone-100 divide-y divide-stone-100">
+        ${items.map(item => this._row(item)).join('')}
+      </div>` : ''}
     </div>`;
   },
 

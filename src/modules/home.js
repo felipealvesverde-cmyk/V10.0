@@ -766,6 +766,7 @@ window.HomeModule = {
     // então abrir o Mapa pela Home não pintava nada no DOM.
     return `<div class="lj-home">
       ${this._greetingBar()}
+      ${window.BomDiaCard ? BomDiaCard.render() : ''}
       ${this._kpiSlots()}
       <div class="lj-home-main">
         <div class="lj-home-main-col">
