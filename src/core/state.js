@@ -432,6 +432,8 @@ var State = {
       bomDiaSummary: null,
       bomDiaDismissed: false,
       notificationClusterExpanded: {},
+      // V37.4.35 — Cache de snapshots remotos (Configurações → Backup). Volátil.
+      remoteSnapshotsCache: null,
       // V37.5.0 — Pin-Up (volátil)
       pinModeActive: false,
       pinUp: { pinsForCurrentUrl: [], createModal: null, viewModal: null },
@@ -1165,6 +1167,8 @@ var State = {
       bomDiaSummary: null,
       bomDiaDismissed: false,
       notificationClusterExpanded: {},
+      // V37.4.35 — Cache de snapshots remotos. Sempre null no boot (re-fetch sob demanda).
+      remoteSnapshotsCache: null,
       // V37.5.0 — Pin-Up volátil
       pinModeActive: false,
       pinUp: { pinsForCurrentUrl: [], createModal: null, viewModal: null },
