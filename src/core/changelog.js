@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.3.1',
+    date: '2026-06-12',
+    title: 'Permission system: 3 roles (Master/Gerente/Usuário) + overrides granulares + DB',
+    bullets: [
+      'Backend ganha lib/permission-engine.js com 3 templates de role: owner (tudo), manager (sem integrações/Score Engine + edita Mapa) e user (só leitura no Mapa + tasks próprias).',
+      'Overrides granulares por user — Master pode pegar um Usuário e dar acesso de leitura ao DRE, ou pegar um Gerente e tirar acesso ao Mapa. Armazenado em tenant_members.permissions_overrides JSONB.',
+      'lib/permission-check.js expõe checkPermission(req, res, key) pra usar em endpoints API. Master LJ (felipealvesverde@) bypassa TUDO. Tenant Member tem role checado contra a chave pedida.',
+      'Migration cravada em /api/admin-migrate-permissions (só Master roda): adiciona coluna permissions_overrides em tenant_members + cria tabela tenant_invites pra próximo passo do convite.',
+      '26 permission keys cobrindo visualização, edição, operações, administração e Djow. Ver lib/permission-engine.js → PERMISSION_KEYS.'
+    ]
+  },
+  {
     version: 'V37.3.0',
     date: '2026-06-12',
     title: 'SMTP infra (Resend) — stub plug-and-play + templates de convite e recovery',
