@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.17',
+    date: '2026-06-12',
+    title: 'NotificationSync.forceRun() ignora cooldown — pra populate manual',
+    bullets: [
+      'run() padrão respeita cooldown de 5min entre execuções pra não bombardear a API. Mas travava o reset manual quando o user queria popular histórico pelo console.',
+      'forceRun() pula o shouldRun check e roda os 8 _check imediatamente.',
+      'Uso: window.NotificationSync.forceRun() em vez de .run()'
+    ]
+  },
+  {
     version: 'V37.4.16',
     date: '2026-06-12',
     title: 'Releases viram notification individual + badge não soma releases duas vezes',
