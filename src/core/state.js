@@ -120,6 +120,10 @@ var State = {
       tenantDbPlugError: '',
       // V32.1.2 — Section "Minha Conta": draft do display_name editável.
       profileDisplayNameDraft: '',
+      // V37.4.24 — Modais self-service de Minha Conta.
+      changeEmailModal: null,        // { newEmail, currentPassword, saving, error }
+      changePasswordModal: null,     // { currentPassword, newPassword, confirmPassword, saving, error }
+      myPermissionsModal: false,     // boolean — modal read-only com permissões efetivas
       // V32.5.7 — Sub-aba ativa em Configurações → Minha Conta.
       // 'identity' = perfil (display name, email, tenant)
       // 'products' = gerenciamento de produtos (arquivar/reativar/deletar)
@@ -1601,6 +1605,10 @@ var State = {
       tenantDbPlugError: '',
       // V32.1.2 — draft do nome em "Minha Conta".
       profileDisplayNameDraft: typeof raw.profileDisplayNameDraft === 'string' ? raw.profileDisplayNameDraft : '',
+      // V37.4.24 — Modais self-service nunca persistem (sempre fechados no boot).
+      changeEmailModal: null,
+      changePasswordModal: null,
+      myPermissionsModal: false,
       // V32.5.7 — sub-aba ativa em Minha Conta
       myAccountTab: (raw.myAccountTab === 'products') ? 'products' : 'identity',
       // V32.1.3 — Modal de list-picker do ClickUp. Modal sempre fechado no boot;

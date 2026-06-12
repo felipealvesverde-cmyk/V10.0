@@ -2757,8 +2757,47 @@ var SettingsModal = {
 
         <div>
           <label class="text-xs font-black text-slate-500 uppercase tracking-wide">E-mail (login)</label>
-          <input type="text" value="${Utils.escape(user.username || user.email || '')}" disabled class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 font-semibold cursor-not-allowed" />
-          <p class="text-[11px] text-slate-400 mt-1">Pra trocar de e-mail (login), peça pro admin global.</p>
+          <div class="mt-1 flex items-stretch gap-2">
+            <input type="text" value="${Utils.escape(user.username || user.email || '')}" disabled class="flex-1 px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 font-semibold cursor-not-allowed" />
+            <button onclick="Actions.openChangeEmailModal()" class="px-4 py-3 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-sm inline-flex items-center gap-1.5">
+              <i data-lucide="mail" class="w-4 h-4"></i>Trocar
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Trocar exige confirmar com a senha atual.</p>
+        </div>
+
+        <div>
+          <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Senha</label>
+          <div class="mt-1 flex items-stretch gap-2">
+            <input type="password" value="••••••••••" disabled class="flex-1 px-4 py-3 rounded-2xl bg-slate-100 text-slate-700 font-semibold cursor-not-allowed font-mono" />
+            <button onclick="Actions.openChangePasswordModal()" class="px-4 py-3 rounded-2xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-sm inline-flex items-center gap-1.5">
+              <i data-lucide="key" class="w-4 h-4"></i>Trocar
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Mínimo 8 caracteres.</p>
+        </div>
+
+        <div>
+          <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Minhas permissões</label>
+          <div class="mt-1 flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-slate-50 border border-slate-200">
+            <div class="flex items-center gap-2">
+              ${(() => {
+                const perms = App.state.userPermissions;
+                const role = perms?.isMaster ? 'Master LJ' :
+                             perms?.role === 'owner' ? 'Admin Master' :
+                             perms?.role === 'manager' ? 'Gerente' :
+                             perms?.role === 'user' ? 'Usuário' : 'Sem role';
+                const color = perms?.isMaster ? 'violet' : perms?.role === 'owner' ? 'violet' : perms?.role === 'manager' ? 'sky' : 'stone';
+                const overrides = Object.keys(perms?.overrides || {}).length;
+                return `<span class="text-[11px] font-black bg-${color}-100 text-${color}-700 border border-${color}-200 px-2 py-0.5 rounded uppercase tracking-wider">${role}</span>
+                  ${overrides > 0 ? `<span class="text-[10px] text-amber-700 font-bold">+ ${overrides} customizada${overrides === 1 ? '' : 's'}</span>` : ''}`;
+              })()}
+            </div>
+            <button onclick="Actions.openMyPermissionsModal()" class="text-[12px] font-bold text-violet-700 hover:text-violet-900 inline-flex items-center gap-1.5">
+              <i data-lucide="eye" class="w-3.5 h-3.5"></i>Ver detalhes
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">Pra mudar, peça pro Admin Master do tenant.</p>
         </div>
 
         <div>
@@ -4553,6 +4592,182 @@ var SettingsModal = {
           </section>
         </main>
       </section>
+      ${App.state.changeEmailModal ? this._changeEmailModal(App.state.changeEmailModal) : ''}
+      ${App.state.changePasswordModal ? this._changePasswordModal(App.state.changePasswordModal) : ''}
+      ${App.state.myPermissionsModal ? this._myPermissionsModal() : ''}
+    </div>`;
+  },
+
+  // V37.4.24 — Modal sobreposto pra trocar email do próprio user.
+  _changeEmailModal(m) {
+    return `<div class="fixed inset-0 z-[60] bg-slate-900/70 backdrop-blur-sm grid place-items-center p-4"
+        onclick="Actions.closeChangeEmailModal()">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col"
+           onclick="event.stopPropagation()" style="border-left:4px solid #7c3aed;">
+        <div class="flex items-start gap-3 p-5 border-b border-stone-200">
+          <span class="shrink-0 w-10 h-10 rounded-xl bg-violet-100 border border-violet-200 grid place-items-center text-violet-700">
+            <i data-lucide="mail" class="w-5 h-5"></i>
+          </span>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-[15px] font-black text-slate-900">Trocar email de login</h2>
+            <p class="text-[11px] text-stone-500">Da próxima vez que logar, use o novo email.</p>
+          </div>
+          <button onclick="Actions.closeChangeEmailModal()" class="w-8 h-8 rounded-lg hover:bg-stone-100 grid place-items-center text-stone-600">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div class="p-5 space-y-3">
+          <div>
+            <label class="block text-[10px] font-black text-stone-700 uppercase tracking-widest mb-1.5">Novo email</label>
+            <input type="email" id="changeEmailNew" value="${Utils.escape(m.newEmail || '')}"
+              oninput="Actions.updateChangeEmailField('newEmail', this.value)"
+              placeholder="ex: joao@empresa.com.br" autocomplete="off"
+              class="w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-slate-900 text-[13px] font-medium">
+          </div>
+          <div>
+            <label class="block text-[10px] font-black text-stone-700 uppercase tracking-widest mb-1.5">Senha atual</label>
+            <input type="password" id="changeEmailPassword" value="${Utils.escape(m.currentPassword || '')}"
+              oninput="Actions.updateChangeEmailField('currentPassword', this.value)"
+              placeholder="••••••••" autocomplete="current-password"
+              class="w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-slate-900 text-[13px] font-medium">
+            <p class="text-[10px] text-stone-500 mt-1.5">Confirma que é você quem está trocando.</p>
+          </div>
+          ${m.error ? `<div class="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] text-rose-800 font-bold">${Utils.escape(m.error)}</div>` : ''}
+        </div>
+        <div class="px-5 py-4 border-t border-stone-200 bg-stone-50 flex items-center justify-between gap-3">
+          <button onclick="Actions.closeChangeEmailModal()" class="px-3 py-2 rounded-lg bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 text-[12px] font-bold">Cancelar</button>
+          <button onclick="Actions.submitChangeEmail()" ${m.saving ? 'disabled' : ''}
+            class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+            <i data-lucide="${m.saving ? 'loader-2' : 'check'}" class="w-3.5 h-3.5 ${m.saving ? 'animate-spin' : ''}"></i>
+            ${m.saving ? 'Salvando...' : 'Trocar email'}
+          </button>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V37.4.24 — Modal sobreposto pra trocar senha do próprio user.
+  _changePasswordModal(m) {
+    return `<div class="fixed inset-0 z-[60] bg-slate-900/70 backdrop-blur-sm grid place-items-center p-4"
+        onclick="Actions.closeChangePasswordModal()">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col"
+           onclick="event.stopPropagation()" style="border-left:4px solid #7c3aed;">
+        <div class="flex items-start gap-3 p-5 border-b border-stone-200">
+          <span class="shrink-0 w-10 h-10 rounded-xl bg-violet-100 border border-violet-200 grid place-items-center text-violet-700">
+            <i data-lucide="key" class="w-5 h-5"></i>
+          </span>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-[15px] font-black text-slate-900">Trocar senha</h2>
+            <p class="text-[11px] text-stone-500">Mínimo 8 caracteres.</p>
+          </div>
+          <button onclick="Actions.closeChangePasswordModal()" class="w-8 h-8 rounded-lg hover:bg-stone-100 grid place-items-center text-stone-600">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div class="p-5 space-y-3">
+          <div>
+            <label class="block text-[10px] font-black text-stone-700 uppercase tracking-widest mb-1.5">Senha atual</label>
+            <input type="password" id="changePwdCurrent" value="${Utils.escape(m.currentPassword || '')}"
+              oninput="Actions.updateChangePasswordField('currentPassword', this.value)"
+              placeholder="••••••••" autocomplete="current-password"
+              class="w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-slate-900 text-[13px] font-medium">
+          </div>
+          <div>
+            <label class="block text-[10px] font-black text-stone-700 uppercase tracking-widest mb-1.5">Nova senha</label>
+            <input type="password" id="changePwdNew" value="${Utils.escape(m.newPassword || '')}"
+              oninput="Actions.updateChangePasswordField('newPassword', this.value)"
+              placeholder="8+ caracteres" autocomplete="new-password"
+              class="w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-slate-900 text-[13px] font-medium">
+          </div>
+          <div>
+            <label class="block text-[10px] font-black text-stone-700 uppercase tracking-widest mb-1.5">Confirmar nova senha</label>
+            <input type="password" id="changePwdConfirm" value="${Utils.escape(m.confirmPassword || '')}"
+              oninput="Actions.updateChangePasswordField('confirmPassword', this.value)"
+              placeholder="repita a nova" autocomplete="new-password"
+              class="w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-slate-900 text-[13px] font-medium">
+          </div>
+          ${m.error ? `<div class="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2 text-[11px] text-rose-800 font-bold">${Utils.escape(m.error)}</div>` : ''}
+        </div>
+        <div class="px-5 py-4 border-t border-stone-200 bg-stone-50 flex items-center justify-between gap-3">
+          <button onclick="Actions.closeChangePasswordModal()" class="px-3 py-2 rounded-lg bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 text-[12px] font-bold">Cancelar</button>
+          <button onclick="Actions.submitChangePassword()" ${m.saving ? 'disabled' : ''}
+            class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+            <i data-lucide="${m.saving ? 'loader-2' : 'check'}" class="w-3.5 h-3.5 ${m.saving ? 'animate-spin' : ''}"></i>
+            ${m.saving ? 'Salvando...' : 'Trocar senha'}
+          </button>
+        </div>
+      </div>
+    </div>`;
+  },
+
+  // V37.4.24 — Modal sobreposto read-only com permissões efetivas do user.
+  _myPermissionsModal() {
+    const perms = App.state.userPermissions || {};
+    const effective = perms.effective || {};
+    const overrides = perms.overrides || {};
+    const PE = window.PermissionEngineClient || null;
+    const PERMISSION_KEYS = PE?.PERMISSION_KEYS || Object.keys(effective);
+
+    const groups = {};
+    PERMISSION_KEYS.forEach(k => {
+      const group = k.startsWith('view.') ? 'Visualização'
+                  : k.startsWith('edit.') ? 'Edição'
+                  : k.startsWith('ops.') ? 'Operações'
+                  : k.startsWith('admin.') ? 'Administração' : 'Outros';
+      groups[group] = groups[group] || [];
+      groups[group].push(k);
+    });
+
+    const role = perms.isMaster ? 'Master LJ' :
+                 perms.role === 'owner' ? 'Admin Master' :
+                 perms.role === 'manager' ? 'Gerente' :
+                 perms.role === 'user' ? 'Usuário' : 'Sem role';
+
+    return `<div class="fixed inset-0 z-[60] bg-slate-900/70 backdrop-blur-sm grid place-items-center p-4"
+        onclick="Actions.closeMyPermissionsModal()">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
+           onclick="event.stopPropagation()" style="border-left:4px solid #7c3aed;">
+        <div class="flex items-start gap-3 p-5 border-b border-stone-200">
+          <span class="shrink-0 w-10 h-10 rounded-xl bg-violet-100 border border-violet-200 grid place-items-center text-violet-700">
+            <i data-lucide="shield-check" class="w-5 h-5"></i>
+          </span>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-[15px] font-black text-slate-900">Minhas permissões</h2>
+            <p class="text-[11px] text-stone-500">Role: <span class="font-black text-violet-700">${role}</span> · só leitura. Pra alterar, peça pro Admin Master do tenant.</p>
+          </div>
+          <button onclick="Actions.closeMyPermissionsModal()" class="w-8 h-8 rounded-lg hover:bg-stone-100 grid place-items-center text-stone-600">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div class="p-5 overflow-y-auto flex-1 space-y-4">
+          ${Object.entries(groups).map(([groupName, keys]) => `
+            <div>
+              <p class="text-[10px] font-black text-stone-500 uppercase tracking-widest mb-2">${groupName}</p>
+              <div class="space-y-1">
+                ${keys.map(k => {
+                  const enabled = Boolean(effective[k]);
+                  const isOverride = Object.prototype.hasOwnProperty.call(overrides, k);
+                  const label = PE?.permissionLabel ? PE.permissionLabel(k) : k;
+                  return `<div class="flex items-center justify-between px-3 py-1.5 rounded ${isOverride ? 'bg-amber-50 border border-amber-200' : 'bg-stone-50'}">
+                    <span class="text-[12px] ${enabled ? 'text-slate-900 font-medium' : 'text-stone-500'}">${Utils.escape(label)}</span>
+                    <span class="text-[10px] font-black uppercase tracking-wider ${enabled ? 'text-emerald-700' : 'text-rose-700'}">
+                      ${enabled ? '✓ Liberado' : '✗ Bloqueado'}
+                    </span>
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>
+          `).join('')}
+          ${Object.keys(overrides).length > 0 ? `
+            <div class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-800">
+              <span class="font-black">Linha amarela:</span> permissão customizada pelo Admin (sobrescreve o template do role).
+            </div>
+          ` : ''}
+        </div>
+        <div class="px-5 py-4 border-t border-stone-200 bg-stone-50 flex justify-end">
+          <button onclick="Actions.closeMyPermissionsModal()" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-black" style="color:#fff!important;">Fechar</button>
+        </div>
+      </div>
     </div>`;
   }
 };
