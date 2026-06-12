@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.5.1',
+    date: '2026-06-12',
+    title: 'Sininho único (V2 absorve contadores legados) + TopBar global em todas as páginas',
+    bullets: [
+      'Os 2 sininhos do header viraram 1 só. O sininho V2 agora soma no badge: notifications novas (V37.4) + contadores legados (conciliação RD + import + releases LJ + Ads órfãs + GA4 + fechamento mensal). Click abre o drawer V2 estilo Linear — modal antigo de notificações some.',
+      'Severity color do badge prioriza V2 critical, depois warning (V2 ou legado), info do V2 e cinza quando vazio.',
+      'Menu de search + sininho + pin + data movido pra TopBar.js global — agora aparece em TODAS as páginas (Home, Produtos, Campanhas, Ações, Resultados, Leads, Dashboard, RevOps). Antes só existia na Home.',
+      'TopBar fixo no topo-direito (fixed, top:3, right:4, z-30) com fundo slate-900/90 backdrop blur. Hidratação dos counters (reconciliation, RD webhook, KR snapshots, GA4, governance) também migrou pro TopBar — atualizado em qualquer página, não só na Home.',
+      'Botões compactados pra caber bem na barra: sininho 32px, pin 32px, search 32px, data pill. Cores escuras pra contrastar com fundo dark.'
+    ]
+  },
+  {
     version: 'V37.5.0',
     date: '2026-06-12',
     title: 'Pin-Up MVP — comentários cravados no contexto, estilo Figma',
