@@ -489,28 +489,34 @@ window.TasksDashboard = {
               </div>
             </div>
             ${(() => {
-              // V37.2.1 — Contador "X de Y têm datas" + alerta se empilhamento parcial.
+              // V37.2.4 — Contador inclui scheduled + late + outsideHorizon (todos
+              // com datas) + withoutDates. Total bate com grandTotal (Pendentes).
               const scheduled = u.tasks_scheduled || 0;
+              const late = u.tasks_late || 0;
+              const outsideHorizon = u.tasks_outside_horizon || 0;
               const withoutDates = u.tasks_without_dates || 0;
-              const totalConsidered = scheduled + withoutDates;
+              const withDates = scheduled + late + outsideHorizon;
+              const totalConsidered = withDates + withoutDates;
               if (totalConsidered === 0) return '';
-              const pctWithDates = Math.round((scheduled / totalConsidered) * 100);
+              const pctWithDates = Math.round((withDates / totalConsidered) * 100);
               const isPartial = pctWithDates < 60;
               const toneCls = isPartial ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-stone-50 border-stone-200 text-stone-700';
               return `
                 <div class="rounded-lg ${toneCls} border px-2.5 py-1.5 flex items-center gap-2">
                   <i data-lucide="${isPartial ? 'alert-circle' : 'info'}" class="w-3.5 h-3.5 shrink-0"></i>
                   <p class="text-[10px] leading-snug">
-                    <span class="font-black">${scheduled} de ${totalConsidered}</span> tarefas abertas têm início + entrega preenchidos
+                    <span class="font-black">${withDates} de ${totalConsidered}</span> tarefas abertas têm início + entrega preenchidos
                     ${isPartial ? `· <span class="font-bold">empilhamento parcial</span> (${pctWithDates}%)` : ''}
                   </p>
                 </div>
               `;
             })()}
             ${(() => {
-              // V37.2.3 — se zero tasks com datas, placeholder em vez de barras vazias.
-              const tasksScheduled = u.tasks_scheduled || 0;
-              if (tasksScheduled === 0) {
+              // V37.2.4 — Placeholder só aparece quando NENHUMA task tem ambas
+              // datas: scheduled + late + outsideHorizon = 0. Antes só checava
+              // scheduled — perdia o caso de 1 atrasada que joga carga em HOJE.
+              const tasksWithDates = (u.tasks_scheduled || 0) + (u.tasks_late || 0) + (u.tasks_outside_horizon || 0);
+              if (tasksWithDates === 0) {
                 return `
                   <div class="rounded-xl bg-stone-50 border border-stone-200 p-5 text-center">
                     <div class="w-12 h-12 mx-auto rounded-2xl bg-white border border-stone-200 grid place-items-center mb-2">
