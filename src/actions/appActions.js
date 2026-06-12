@@ -3057,6 +3057,15 @@ Object.assign(Actions, {
       if (data?.ok && data?.user) {
         App.currentUser = data.user;
         localStorage.setItem('lj_user', JSON.stringify(data.user));
+        // V37.3.4 — Sincroniza App.state.user (usado pelo membersPanel)
+        App.state.user = App.state.user || {};
+        App.state.user.id = data.user.id;
+        App.state.user.email = data.user.email;
+        App.state.user.displayName = data.user.displayName;
+        App.state.user.isMaster = data.user.isMaster;
+        App.state.user.tenantId = data.user.tenantId;
+        // V37.3.4 — Carrega permissões efetivas em background (não bloqueia render)
+        Actions.loadMyPermissions();
       }
     } catch (_) { /* silencioso */ }
   },
@@ -7992,6 +8001,28 @@ Object.assign(Actions, {
       ta.select(); document.execCommand('copy');
       ta.remove();
       Utils.toast('✓ Link copiado.');
+    }
+  },
+
+  // V37.3.4 — Carrega permissões efetivas do user logado no tenant ativo.
+  // Chamado no boot (depois de auth-me). Popula App.state.userPermissions
+  // que window.LJCan(key) consome em toda a UI.
+  async loadMyPermissions() {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      if (!token) return;
+      const r = await fetch('/api/my-permissions', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (data.ok && data.permissions) {
+        App.state.userPermissions = data.permissions;
+        // Atualiza tb App.state.user pro membersPanel checar role
+        if (!App.state.user) App.state.user = {};
+        App.state.user.tenantId = App.currentUser?.tenantId || App.state.user.tenantId;
+        App.state.user.isMaster = data.permissions.isMaster;
+        App.render();
+      }
+    } catch (err) {
+      console.warn('[loadMyPermissions] erro silencioso:', err.message);
     }
   },
 

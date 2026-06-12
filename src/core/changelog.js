@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.3.4',
+    date: '2026-06-12',
+    title: 'Frontend role-gating — menu de configurações esconde por permissão',
+    bullets: [
+      'src/core/permissionsClient.js expõe window.LJCan(key), window.LJRole(), window.LJIsMaster() — helpers globais pra qualquer template checar permissão antes de renderizar botão/seção.',
+      'GET /api/my-permissions retorna role + overrides + effective do user logado. Backend usa resolveUserPermissions() do lib/permission-check.js.',
+      'Action loadMyPermissions() chamada automaticamente em _refreshCurrentUserInfo (boot pós-auth-me). Popula App.state.userPermissions sem bloquear render — fallback permissivo (LJCan retorna true) enquanto não carrega pra evitar flash de UI bloqueada.',
+      'Menu lateral de Configurações começa a esconder seções por permissão: "Membros do Tenant" só pra Master ou Owner; "Integrações" e "Agentes Externos" só pra quem tem ops.integracoes; "IA" (Score Engine config) só pra quem tem edit.score; "Meu Banco" só pra quem tem admin.editar_db_tenant.',
+      'Próximos pontos do role-gating ficam pra V37.3.5+ conforme demanda: botões de editar no Mapa, seção DRE no Dashboard, etc. Infra está pronta — basta usar LJCan() onde precisar.'
+    ]
+  },
+  {
     version: 'V37.3.3',
     date: '2026-06-12',
     title: 'Convite de membros via link mágico — email automático quando SMTP ativo, fallback "Copiar link"',
