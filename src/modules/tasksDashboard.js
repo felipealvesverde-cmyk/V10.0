@@ -440,7 +440,7 @@ window.TasksDashboard = {
     const ljPct = grandTotal ? Math.round((ljActive / grandTotal) * 100) : 0;
     const doneTotal = (u.lj_done || 0) + (u.ext_done || 0);
     const avgLabel = this._avgLabelFor(u);
-    const { weekCurrent, weekNext } = this._splitHorizonWeeks(horizonDays);
+    const { weekCurrent, weekNext, pastInCurrentWeek } = this._splitHorizonWeeks(horizonDays);
     const taskUnit = u.task_hours_used || u.avg_hours || 4;
 
     return `<div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm grid place-items-center p-4"
@@ -508,6 +508,22 @@ window.TasksDashboard = {
               `;
             })()}
             ${(() => {
+              // V37.2.3 — se zero tasks com datas, placeholder em vez de barras vazias.
+              const tasksScheduled = u.tasks_scheduled || 0;
+              if (tasksScheduled === 0) {
+                return `
+                  <div class="rounded-xl bg-stone-50 border border-stone-200 p-5 text-center">
+                    <div class="w-12 h-12 mx-auto rounded-2xl bg-white border border-stone-200 grid place-items-center mb-2">
+                      <i data-lucide="calendar-x" class="w-6 h-6 text-stone-400"></i>
+                    </div>
+                    <p class="text-[12px] font-black text-slate-900 mb-1">Nenhuma tarefa com agenda</p>
+                    <p class="text-[11px] text-stone-600 leading-relaxed max-w-xs mx-auto">
+                      Pra ver capacidade visualizada por dia, preencha <span class="font-bold">data de início</span> e
+                      <span class="font-bold">data de entrega</span> nas tarefas do ClickUp.
+                    </p>
+                  </div>
+                `;
+              }
               const composition = this._computeComposition(u);
               const todayKey = (() => {
                 const t = new Date();
@@ -519,8 +535,8 @@ window.TasksDashboard = {
               const maxHours = allDayKeys.reduce((m, d) => Math.max(m, (u.daily_load || {})[d] || 0), 0);
               const scaleMaxRatio = Math.max(1, maxHours / journeyHours);
               return `
-                ${weekCurrent.length ? this._weekBlock('Esta semana', weekCurrent, u.daily_load || {}, journeyHours, taskUnit, composition, todayKey, scaleMaxRatio) : ''}
-                ${weekNext.length ? this._weekBlock('Próxima semana', weekNext, u.daily_load || {}, journeyHours, taskUnit, composition, todayKey, scaleMaxRatio) : ''}
+                ${weekCurrent.length ? this._weekBlock('Esta semana', weekCurrent, u.daily_load || {}, journeyHours, taskUnit, composition, todayKey, scaleMaxRatio, pastInCurrentWeek) : ''}
+                ${weekNext.length ? this._weekBlock('Próxima semana', weekNext, u.daily_load || {}, journeyHours, taskUnit, composition, todayKey, scaleMaxRatio, []) : ''}
                 ${composition.length ? `
                   <div class="flex items-center gap-2 flex-wrap text-[9px] text-stone-600 pt-1">
                     ${composition.map(s => `<span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-sm" style="background:${s.color}"></span>${Utils.escape(s.label)} ${Math.round(s.fraction*100)}%</span>`).join('')}
@@ -768,13 +784,16 @@ window.TasksDashboard = {
     return segments;
   },
 
-  _weekBlock(label, days, dailyLoad, journeyHours, avgHours, composition, todayKey, scaleMaxRatio) {
+  _weekBlock(label, days, dailyLoad, journeyHours, avgHours, composition, todayKey, scaleMaxRatio, pastDays) {
     if (!days.length) return '';
-    const summary = this._summarizeLoad(days, dailyLoad, journeyHours, avgHours);
+    // V37.2.3 — summary só sobre dias ativos (não passados).
+    const pastArr = Array.isArray(pastDays) ? pastDays : [];
+    const activeDays = days.filter(d => !pastArr.includes(d));
+    const summary = this._summarizeLoad(activeDays, dailyLoad, journeyHours, avgHours);
     return `<div class="space-y-1.5">
       <p class="text-[10px] font-bold text-stone-700 uppercase tracking-wider">${label}</p>
       <div class="rounded-xl bg-white border border-stone-200 p-3">
-        ${this._barsSvg(days, dailyLoad, journeyHours, composition, todayKey, scaleMaxRatio)}
+        ${this._barsSvg(days, dailyLoad, journeyHours, composition, todayKey, scaleMaxRatio, pastDays)}
       </div>
       ${summary ? `<p class="text-[11px] text-stone-700 leading-snug pl-0.5">${summary}</p>` : ''}
     </div>`;
@@ -802,11 +821,8 @@ window.TasksDashboard = {
     </svg>`;
   },
 
-  _barsSvg(days, dailyLoad, journeyHours, composition, todayKey, scaleMaxRatio) {
-    // V37.2.0 — escala dinâmica baseada em scaleMaxRatio (>=1).
-    //   scaleMaxRatio=1 → comportamento clássico (barH = jornada)
-    //   scaleMaxRatio=1.5 → barH = 150% da jornada; linha guia em 1/1.5 = 67% da altura
-    //   Barras > journey extrapolam acima da linha guia, visualmente honesto.
+  _barsSvg(days, dailyLoad, journeyHours, composition, todayKey, scaleMaxRatio, pastDays) {
+    // V37.2.0 — escala dinâmica. V37.2.3 — pastDays apagados + livres tracejado verde.
     const barH = 72;
     const barW = 36;
     const gap = 10;
@@ -819,24 +835,54 @@ window.TasksDashboard = {
     const segs = Array.isArray(composition) && composition.length ? composition : [{ color: '#d4d4d8', fraction: 1, label: 'Sem composição' }];
     const yToday = todayKey || null;
     const scaleMax = Math.max(1, scaleMaxRatio || 1);
+    const pastSet = new Set(Array.isArray(pastDays) ? pastDays : []);
 
     const bars = days.map((d, i) => {
       const date = new Date(d + 'T00:00:00');
+      const dowIdx = date.getDay();
+      const label = dayLabels[dowIdx] || '';
+      const isPast = pastSet.has(d);
+
+      // V37.2.3 — Dia passado: render apagado, sem composição, sem %.
+      if (isPast) {
+        const tooltipPast = `${date.toLocaleDateString('pt-BR')} · já passou`;
+        return `<g transform="translate(${i * (barW + gap)}, 0)" opacity="0.4">
+          <rect x="0" y="0" width="${barW}" height="${barH}" fill="#f5f5f4" rx="4">
+            <title>${tooltipPast}</title>
+          </rect>
+          <text x="${barW/2}" y="${barH + labelH - 2}" text-anchor="middle" font-size="9" font-weight="600" fill="#a8a29e">${label}</text>
+        </g>`;
+      }
+
       const hours = dailyLoad[d] || 0;
       const free = Math.max(0, journeyHours - hours);
       const ratio = journeyHours > 0 ? hours / journeyHours : 0;
-      // V37.2.0 — fillRatio agora pode ultrapassar journey visualmente.
-      // Cap em scaleMax (mesma escala pra todas as semanas pra comparabilidade).
       const fillRatio = Math.min(ratio, scaleMax);
       const barFillH = (fillRatio / scaleMax) * barH;
-      const dowIdx = date.getDay();
-      const label = dayLabels[dowIdx] || '';
       const isToday = yToday && d === yToday;
       const isOverflow = ratio > 1;
+      const isFree = hours === 0;
+
+      const todayMark = isToday ? `<text x="${barW/2}" y="${barH + labelH + todayH - 1}" text-anchor="middle" font-size="8" font-weight="900" fill="#7c3aed">HOJE</text>` : '';
+      const borderRect = isToday ? `<rect x="-1.5" y="-1.5" width="${barW + 3}" height="${barH + 3}" fill="none" stroke="#7c3aed" stroke-width="1.5" rx="5" />` : '';
+
+      // V37.2.3 — Dia livre (hours=0): borda tracejada emerald + "Livre" no centro.
+      if (isFree) {
+        const tooltipFree = `${date.toLocaleDateString('pt-BR')} · livre (${journeyHours}h disponíveis pra agendamento)`;
+        return `<g transform="translate(${i * (barW + gap)}, 0)">
+          ${borderRect}
+          <rect x="0" y="0" width="${barW}" height="${barH}" fill="rgba(16, 185, 129, 0.06)" stroke="#34d399" stroke-width="1.4" stroke-dasharray="4,3" rx="4">
+            <title>${tooltipFree}</title>
+          </rect>
+          <text x="${barW/2}" y="${barH/2 + 3}" text-anchor="middle" font-size="9" font-weight="700" fill="#059669">Livre</text>
+          <text x="${barW/2}" y="${barH + labelH - 2}" text-anchor="middle" font-size="9" font-weight="700" fill="#57534e">${label}</text>
+          ${todayMark}
+        </g>`;
+      }
+
       const pctLabel = Math.round(ratio * 100) + '%';
       const tooltip = `${date.toLocaleDateString('pt-BR')} · ${fmtNum(hours)}h ocupadas · ${fmtNum(free)}h disponíveis${isOverflow ? ' · sobrecarga' : ''}`;
 
-      // Empilhamento dos segmentos (composição) dentro do barFillH.
       let yCursor = barH;
       const segRects = segs.map(seg => {
         const segH = barFillH * seg.fraction;
@@ -844,20 +890,12 @@ window.TasksDashboard = {
         return `<rect x="0" y="${yCursor.toFixed(2)}" width="${barW}" height="${segH.toFixed(2)}" fill="${seg.color}"><title>${tooltip} — ${Utils.escape(seg.label)}: ${Math.round(seg.fraction*100)}%</title></rect>`;
       }).join('');
 
-      // Faixa de sobrecarga: parte da barra acima da linha guia (>journey) ganha sobreposição rose escuro.
       const guideYInBar = barH - (1 / scaleMax) * barH;
       const overflowOverlay = isOverflow ? `<rect x="0" y="${(barH - barFillH).toFixed(2)}" width="${barW}" height="${(guideYInBar - (barH - barFillH)).toFixed(2)}" fill="rgba(190, 18, 60, 0.35)" />` : '';
 
-      // % label dentro da barra (sutil) — branco semi se barFillH grande, stone se pequeno.
       const pctY = barFillH >= 18 ? (barH - barFillH + 11) : (barH - barFillH - 4);
       const pctFill = barFillH >= 18 ? 'rgba(255,255,255,0.92)' : '#57534e';
       const pctWeight = barFillH >= 18 ? '900' : '800';
-
-      // Marca HOJE abaixo do label do dia.
-      const todayMark = isToday ? `<text x="${barW/2}" y="${barH + labelH + todayH - 1}" text-anchor="middle" font-size="8" font-weight="900" fill="#7c3aed">HOJE</text>` : '';
-
-      // Borda destacada se HOJE.
-      const borderRect = isToday ? `<rect x="-1.5" y="-1.5" width="${barW + 3}" height="${barH + 3}" fill="none" stroke="#7c3aed" stroke-width="1.5" rx="5" />` : '';
 
       return `<g transform="translate(${i * (barW + gap)}, 0)">
         ${borderRect}
