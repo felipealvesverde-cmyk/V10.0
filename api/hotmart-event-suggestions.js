@@ -6,6 +6,7 @@
 // Cliente mantém soberania — nada é criado automaticamente.
 
 const { EVENT_MAP, REASON_MAP } = require('../lib/lj-hotmart-service');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 const FIXED_STAGES = new Set([
   'marketing-tof', 'marketing-mof', 'marketing-bof',
@@ -72,7 +73,8 @@ module.exports = async function handler(req, res) {
   // SOMENTE pros que passaram do threshold de volume (5+ em 60 dias)
   if (parentStage === 'vendas-bof' && req.tenantDb) {
     try {
-      const userId = Number(req.user.sub || req.user.id);
+      // V37.4.34 — Purchases vivem na linha do OWNER do tenant.
+      const userId = Number(await resolveCredentialOwnerId(req));
       const sinceDate = new Date(Date.now() - REASON_LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
       const r = await req.tenantDb.query(
         `SELECT cancellation_reason, COUNT(*) AS count

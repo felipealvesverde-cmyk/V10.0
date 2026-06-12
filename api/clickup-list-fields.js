@@ -13,13 +13,15 @@
 //
 // Cacheável no frontend por sessão — fields raramente mudam.
 const { clickupFetch } = require('../lib/clickup-client');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
 
-  const userId = req.user.sub;
+  // V37.4.34 — Credenciais ClickUp vivem na linha do owner do tenant.
+  const userId = await resolveCredentialOwnerId(req);
   const listId = String(req.query?.list_id || '').trim();
   if (!listId) return res.status(400).json({ ok: false, message: 'list_id obrigatório.' });
 

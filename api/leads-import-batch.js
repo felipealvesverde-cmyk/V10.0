@@ -24,6 +24,7 @@
 
 const crypto = require('crypto');
 const { mergeVisitors } = require('../lib/visitor-merge');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 function normalizePhone(s) {
   return String(s || '').replace(/\D/g, '');
@@ -34,7 +35,8 @@ module.exports = async function handler(req, res) {
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
 
-  const userId = req.user.sub;
+  // V37.4.34 — Import vive na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
 
   let body = req.body;
   if (typeof body === 'string') {

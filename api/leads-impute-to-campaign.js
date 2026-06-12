@@ -30,12 +30,15 @@ function slugify(s) {
     .replace(/-+/g, '-');
 }
 
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+
 module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
 
-  const userId = req.user.sub;
+  // V37.4.34 — Imputação vive na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
 
   let body = req.body;
   if (typeof body === 'string') {

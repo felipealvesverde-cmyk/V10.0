@@ -5,13 +5,15 @@
 // DELETE /api/hotmart-config       → remove config
 
 const { encrypt, decrypt, isConfigured: isEncryptionReady } = require('../lib/clickup-crypto');
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!isEncryptionReady()) return res.status(503).json({ ok: false, message: 'ENCRYPTION_KEY não configurada.' });
 
-  const userId = req.user.sub;
+  // V37.4.34 — Credenciais Hotmart vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
 
   if (req.method === 'GET') {
     try {
@@ -54,6 +56,8 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
+    try { await assertCanWriteCredentials(req); }
+    catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
     let body = req.body;
     if (typeof body === 'string') {
       try { body = JSON.parse(body); } catch (_) { body = {}; }
@@ -96,6 +100,8 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
+    try { await assertCanWriteCredentials(req); }
+    catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
     try {
       await req.tenantDb.query(`DELETE FROM hotmart_config WHERE user_id = $1`, [userId]);
       return res.status(200).json({ ok: true, message: 'Hotmart desconectado.' });

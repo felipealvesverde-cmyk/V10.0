@@ -10,13 +10,15 @@
 
 const { rdFetch } = require('../lib/rd-contact-sync-engine');
 const { getRdCredential } = require('../lib/rd-credentials');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Dados e credenciais vivem na linha do OWNER do tenant.
+  const userId = Number(await resolveCredentialOwnerId(req));
 
   let token = null;
   try {

@@ -11,13 +11,15 @@
 // Retorna: { ok, providerTaskId, externalUrl, listId, mirror }
 const { clickupFetch } = require('../lib/clickup-client');
 const { prepareTaskBody } = require('../lib/clickup-task-creator');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
 
-  const userId = req.user.sub;
+  // V37.4.34 — Cred ClickUp vive na linha do owner do tenant (qualquer membro pode criar task).
+  const userId = await resolveCredentialOwnerId(req);
   const {
     name, description, markdown_content,
     assignees, assignee,

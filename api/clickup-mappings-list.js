@@ -6,13 +6,14 @@
 //   { ok, products: [], campaigns: [], actions: [], lj_space_id, lj_space_name? }
 const { listMappings } = require('../lib/clickup-mirror');
 const { clickupFetch } = require('../lib/clickup-client');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
 
-  const userId = req.user.sub;
+  const userId = await resolveCredentialOwnerId(req);
 
   try {
     // V32.6.0 — lê lj_root_id/kind/name (com fallback lj_space_id pra cliente pré-V32.6.0).

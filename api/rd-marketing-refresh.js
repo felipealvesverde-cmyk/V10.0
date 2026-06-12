@@ -20,6 +20,7 @@
 //   5. Retorna sucesso
 
 const { encrypt, decrypt } = require('../lib/clickup-crypto');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 const RD_TOKEN_URL = 'https://api.rd.services/auth/token';
 const REFRESH_MARGIN_MS = 10 * 60 * 1000; // renova se faltar menos de 10 min
@@ -30,7 +31,8 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Credenciais RD vivem na linha do OWNER do tenant.
+  const userId = Number(await resolveCredentialOwnerId(req));
   const force = Boolean(req.body?.force);
 
   try {

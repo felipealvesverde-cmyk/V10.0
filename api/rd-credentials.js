@@ -11,6 +11,7 @@
 //
 // DELETE query ?token_type=X (ou sem param pra apagar todos do user)
 const { encrypt, decrypt, isConfigured: isEncryptionReady } = require('../lib/clickup-crypto');
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
 
 const VALID_TYPES = new Set(['crm_pat', 'marketing_oauth', 'crm_oauth']);
 
@@ -38,7 +39,10 @@ function rowToCred(row) {
 module.exports = async function handler(req, res) {
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
-  const userId = req.user.sub;
+
+  // V37.4.34 — Credenciais RD vivem na linha do OWNER do tenant.
+  // Qualquer membro do tenant resolve pro mesmo user_id.
+  const userId = await resolveCredentialOwnerId(req);
 
   if (req.method === 'GET') {
     try {
@@ -53,6 +57,8 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
+    try { await assertCanWriteCredentials(req); }
+    catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
     if (!isEncryptionReady()) {
       return res.status(503).json({ ok: false, message: 'ENCRYPTION_KEY ausente no servidor.' });
     }
@@ -106,6 +112,8 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
+    try { await assertCanWriteCredentials(req); }
+    catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
     const tokenType = String(req.query?.token_type || '');
     try {
       if (tokenType && VALID_TYPES.has(tokenType)) {

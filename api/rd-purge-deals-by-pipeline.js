@@ -10,6 +10,7 @@
 
 const { rdFetch } = require('../lib/rd-contact-sync-engine');
 const { getRdCredential } = require('../lib/rd-credentials');
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -25,7 +26,8 @@ module.exports = async function handler(req, res) {
 
   const pipelineId = String(body.pipeline_id || '').trim();
   const confirm = String(body.confirm || '').trim();
-  const myId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Deals + credenciais vivem na linha do OWNER do tenant.
+  const myId = Number(await resolveCredentialOwnerId(req));
   const scopeUserId = req.user.isMaster && body.user_id
     ? Number(body.user_id)
     : myId;
@@ -35,6 +37,10 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, message: 'confirm: "DELETAR DEALS" obrigatório no body (proteção contra rodar por acidente).' });
   }
   if (!scopeUserId) return res.status(400).json({ ok: false, message: 'JWT sem user id.' });
+
+  // V37.4.34 — Operação destrutiva: só owner ou master pode rodar.
+  try { await assertCanWriteCredentials(req); }
+  catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
 
   // Pega token RD CRM do user scope
   let token = null;

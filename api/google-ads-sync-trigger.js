@@ -7,6 +7,7 @@
 // passar por endpoint (server.js setInterval).
 
 const { syncForUser } = require('../lib/google-ads-sync');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -14,7 +15,8 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Credenciais Google Ads vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
   try {
     const result = await syncForUser(req.tenantDb, userId);
     // Marca last_sync_at e last_sync_result em lj_google_ads_config.

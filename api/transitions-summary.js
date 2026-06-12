@@ -2,13 +2,16 @@
 // Retorna count de movimentações por par (from_stage, to_stage) nos últimos 7 dias
 // da campanha. Usado no modal de Triggers pra mostrar "X movimentações em 7d".
 
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Transições vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
   const campaignId = Number(req.query?.campaign_id || 0);
   if (!campaignId) return res.status(400).json({ ok: false, message: 'campaign_id obrigatório.' });
 

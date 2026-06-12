@@ -13,13 +13,17 @@
 //
 // Idempotente: se entity não tá mapeada no ClickUp ainda, retorna ok + skipped.
 const { renameMirroredEntity } = require('../lib/clickup-mirror');
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
 
-  const userId = req.user.sub;
+  try { await assertCanWriteCredentials(req); }
+  catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
+
+  const userId = await resolveCredentialOwnerId(req);
   const ljKind = String(req.body?.lj_kind || '').trim();
   const ljId = Number(req.body?.lj_id);
   const newName = String(req.body?.new_name || '').trim();

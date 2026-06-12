@@ -7,6 +7,8 @@
 //
 // Permissão: master only pra escrita (cliente comum só lê).
 
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
+
 const ALLOWED_TYPES = ['tag', 'pageview', 'form', 'cta', 'payment', 'event', 'time', 'score'];
 const ALLOWED_CATEGORIES = ['engagement', 'fit', 'intent', null];
 
@@ -15,9 +17,8 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  // V34.9.10.3 — Qualquer user autenticado opera no próprio escopo.
-  // (Antes: requireMaster bloqueava cliente comum de cadastrar regras.)
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Score rules vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
 
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
@@ -34,6 +35,8 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      try { await assertCanWriteCredentials(req); }
+      catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
       const triggerType = String(body.trigger_type || '').toLowerCase();
       if (!ALLOWED_TYPES.includes(triggerType)) {
         return res.status(400).json({ ok: false, message: `trigger_type inválido (use ${ALLOWED_TYPES.join('|')}).` });
@@ -61,6 +64,8 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'PATCH') {
+      try { await assertCanWriteCredentials(req); }
+      catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
       const id = Number(body.id);
       if (!id) return res.status(400).json({ ok: false, message: 'id obrigatório.' });
       const sets = [];
@@ -85,6 +90,8 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
+      try { await assertCanWriteCredentials(req); }
+      catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
       const id = Number(body.id || req.query?.id);
       if (!id) return res.status(400).json({ ok: false, message: 'id obrigatório.' });
       const r = await req.tenantDb.query(

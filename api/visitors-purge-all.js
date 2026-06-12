@@ -7,11 +7,17 @@
 // Body: { confirm: "DELETAR TUDO" }
 // Auth: JWT autenticado (self-scope). Master pode passar user_id pra outro tenant.
 
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
+
+  // V37.4.34 — Purga destrutiva: só owner ou master pode disparar.
+  try { await assertCanWriteCredentials(req); }
+  catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
 
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
@@ -22,7 +28,8 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, message: 'confirm: "DELETAR TUDO" obrigatório no body.' });
   }
 
-  const myId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Resolve owner do tenant. Master pode override via body.user_id.
+  const myId = await resolveCredentialOwnerId(req);
   const scopeUserId = req.user.isMaster && body.user_id ? Number(body.user_id) : myId;
   if (!scopeUserId) return res.status(400).json({ ok: false, message: 'JWT sem user id.' });
 

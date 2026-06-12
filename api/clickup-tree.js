@@ -22,13 +22,14 @@
 // N /folderless, M /folder/{id}/list). Resultado pode demorar 1-3s em
 // workspaces grandes. Frontend deve mostrar loading state.
 const { clickupFetch } = require('../lib/clickup-client');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
 
-  const userId = req.user.sub;
+  const userId = await resolveCredentialOwnerId(req);
   try {
     // Pega credenciais do tenant plane + workspace já salvo
     const cred = await req.tenantDb.query(

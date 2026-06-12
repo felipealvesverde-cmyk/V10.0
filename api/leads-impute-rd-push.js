@@ -24,6 +24,7 @@
 //   - Salva external_rd_contact_id + external_rd_deal_id em lj_visitors
 
 const { getRdCredential } = require('../lib/rd-credentials');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 // V34.6.x — RD CRM API legacy base com ?token=X query param.
 const RD_API_BASE = 'https://crm.rdstation.com/api/v1';
@@ -102,7 +103,8 @@ module.exports = async function handler(req, res) {
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
 
-  const userId = req.user.sub;
+  // V37.4.34 — Credenciais + visitors vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
 
   let body = req.body;
   if (typeof body === 'string') {

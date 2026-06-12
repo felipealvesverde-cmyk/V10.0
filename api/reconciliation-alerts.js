@@ -13,12 +13,15 @@
 // Badge unread conta apenas alerts não-lidos + counts brutos dos pending (sempre
 // visíveis até processarem). Master pode ?user_id=X pra inspecionar outro tenant.
 
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const myId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Alertas vivem na linha do OWNER do tenant. Master pode override ?user_id=X.
+  const myId = await resolveCredentialOwnerId(req);
   const scopeUserId = (req.user.isMaster && req.query?.user_id) ? Number(req.query.user_id) : myId;
   if (!scopeUserId) return res.status(401).json({ ok: false, message: 'JWT sem user id.' });
 

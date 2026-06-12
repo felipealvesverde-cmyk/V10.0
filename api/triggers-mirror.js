@@ -8,6 +8,8 @@
 // Body: { source_campaign_id, target_campaign_id }
 // Permissão: master only.
 
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
@@ -19,7 +21,8 @@ module.exports = async function handler(req, res) {
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
   body = body || {};
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Triggers vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
   const sourceId = Number(body.source_campaign_id);
   const targetId = Number(body.target_campaign_id);
   if (!sourceId || !targetId) {

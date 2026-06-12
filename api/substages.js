@@ -7,6 +7,7 @@
 // Self-scope: user vê/edita só seus próprios sub-stages.
 
 const { listSubstagesWithCounts, syncSubstageCacheForBolinha } = require('../lib/substage-engine');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 const FIXED_STAGES = new Set([
   'marketing-tof', 'marketing-mof', 'marketing-bof',
@@ -19,7 +20,8 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Substages vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
 
   try {
     if (req.method === 'GET') {

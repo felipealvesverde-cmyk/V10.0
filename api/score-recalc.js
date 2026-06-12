@@ -13,6 +13,7 @@
 //   { ok, processed, results: [{ visitorId, globalScore, ... }] }
 
 const { applyEvent, applyDecayBatch } = require('../lib/score-engine');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 function authorize(req) {
   if (req.user) return { ok: true, source: 'jwt' };
@@ -34,7 +35,10 @@ module.exports = async function handler(req, res) {
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
   body = body || {};
 
-  const userId = Number(body.user_id || req.user?.sub || 0);
+  // V37.4.34 — Cron passa body.user_id (já é o owner). JWT resolve via tenant.
+  const userId = body.user_id
+    ? Number(body.user_id)
+    : (req.user ? await resolveCredentialOwnerId(req) : 0);
   if (!userId) return res.status(400).json({ ok: false, message: 'user_id obrigatório.' });
 
   const visitorId = body.visitor_id ? String(body.visitor_id) : null;

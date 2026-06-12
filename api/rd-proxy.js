@@ -22,6 +22,7 @@
 //   }
 const { getRdCredential } = require('../lib/rd-credentials');
 const { encrypt, decrypt } = require('../lib/clickup-crypto');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 const API_BASE = 'https://api.rd.services';
 const LEGACY_BASE = 'https://crm.rdstation.com/api/v1';
@@ -102,14 +103,16 @@ module.exports = async function handler(req, res) {
   if (token_source && VALID_SOURCES.has(token_source) && req.user && req.tenantDb) {
     try {
       // V32.0.10 — rd_credentials vivem no tenant plane.
-      const cred = await getRdCredential(req.tenantDb, req.user.sub, token_source);
+      // V37.4.34 — Credenciais vivem na linha do OWNER do tenant; resolve quem é.
+      const credUserId = await resolveCredentialOwnerId(req);
+      const cred = await getRdCredential(req.tenantDb, credUserId, token_source);
       // V36.6.0 — Auto-refresh inline pro marketing_oauth.
       // Se faltar < 10 min pra expirar, renova ANTES de usar o token.
       if (token_source === 'marketing_oauth' && cred.expiresAt) {
         const msToExpiry = new Date(cred.expiresAt).getTime() - Date.now();
         if (msToExpiry < REFRESH_MARGIN_MS) {
           try {
-            const refreshResult = await refreshMarketingTokenInline(req.tenantDb, req.user.sub);
+            const refreshResult = await refreshMarketingTokenInline(req.tenantDb, credUserId);
             if (refreshResult.refreshed) {
               effectiveToken = refreshResult.newAccess;
               usedSource = 'db-refreshed';

@@ -15,13 +15,17 @@
 //     ou deixa coexistir — produto operacional decide depois)
 //   - Retorna contagem: { foldersCreated, listsCreated, taskParentsCreated }
 const mirror = require('../lib/clickup-mirror');
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
 
-  const userId = req.user.sub;
+  try { await assertCanWriteCredentials(req); }
+  catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
+
+  const userId = await resolveCredentialOwnerId(req);
 
   // V32.6.0 — usa lj_root_id/kind (com fallback lj_space_id pra cliente pré-V32.6.0).
   const credRow = await req.tenantDb.query(

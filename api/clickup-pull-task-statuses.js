@@ -19,13 +19,14 @@
 //   statusType='open' + status contém 'progress'/'doing' → 'in_progress'
 //   resto (todo, open default) → 'pending'
 const { clickupFetch } = require('../lib/clickup-client');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
 
-  const userId = req.user.sub;
+  const userId = await resolveCredentialOwnerId(req);
   const taskIds = Array.isArray(req.body?.task_ids) ? req.body.task_ids.filter(Boolean).map(String) : [];
   if (!taskIds.length) return res.status(400).json({ ok: false, message: 'task_ids (array) obrigatório.' });
 

@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.34',
+    date: '2026-06-12',
+    title: 'Integrações agora seguem o owner do tenant (não o user logado)',
+    bullets: [
+      'Antes: ClickUp, RD Station, Hotmart, Google Ads, GA4 e todas as configs de tenant (score, ICP, tags, governance, triggers) eram amarradas ao user_id de quem conectou. Quando você convidava um membro novo pro tenant, ele logava e via TUDO desconectado — porque a query filtrava pelo user_id dele (que nunca conectou nada).',
+      'Agora: ~60 endpoints resolvem o user_id "dono das credenciais" pra ser o owner do tenant. Owner do Sansone conectou ClickUp → todo manager/user do tenant Sansone vê e usa o mesmo ClickUp. Mesmo pra RD, Hotmart, Google Ads, GA4, score-rules, governance-closings, triggers etc.',
+      'Permissões: manager/user pode LER e USAR (criar tasks, sincronizar leads, ver dashboards), mas NÃO pode trocar token, desconectar nem ver PAT em texto cru. Só owner (ou master LJ) tem acesso de escrita.',
+      'Helper centralizado lib/credentials-owner.js: resolveCredentialOwnerId(req) + assertCanWriteCredentials(req). Pattern fica simples pra próximas integrações.',
+      'Sem migration de schema — o owner é resolvido em runtime via tenant_members. Histórico Djow continua pessoal por user (não compartilhado no tenant).'
+    ]
+  },
+  {
     version: 'V37.4.33',
     date: '2026-06-12',
     title: 'Hotfix: login não fica refém da migration de password_reset_flag',
