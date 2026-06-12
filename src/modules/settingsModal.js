@@ -4529,8 +4529,8 @@ var SettingsModal = {
         <main class="grid lg:grid-cols-[260px_1fr] min-h-[620px]">
           <aside class="bg-white border-r border-slate-200 p-5 space-y-3">
             ${this.sectionButton('myAccount','Minha Conta','user')}
-            ${this.sectionButton('members','Membros do Tenant','users')}
-            ${App.currentUser?.tenantId ? this.sectionButton('myDb','Meu Banco','hard-drive-download') : ''}
+            ${(window.LJIsMaster?.() || App.state.userPermissions?.role === 'owner') ? this.sectionButton('members','Membros do Tenant','users') : ''}
+            ${App.currentUser?.tenantId && window.LJCan?.('admin.editar_db_tenant') !== false ? this.sectionButton('myDb','Meu Banco','hard-drive-download') : ''}
             ${/* V35.6.0-alpha2 — "Conexão RD Station" removida do sidebar.
                 RD agora vive como card em Integrações > Iterar. Section 'rd' preservada
                 porque ainda é acessada via deep-link openSettingsModal('rd'). */ ''}
@@ -4538,9 +4538,9 @@ var SettingsModal = {
             ${/* V32.5.7 — Section 'Execução Operacional' removida do sidebar (Felipe).
                 executionPanel() preservado pra callers indiretos (e.g. botão
                 "Configurar" no banner do provider). */ ''}
-            ${this.sectionButton('integrations','Integrações','link')}
-            ${this.sectionButton('agents','Agentes Externos','cpu')}
-            ${this.sectionButton('ai','IA','sparkles')}
+            ${window.LJCan?.('ops.integracoes') !== false ? this.sectionButton('integrations','Integrações','link') : ''}
+            ${window.LJCan?.('ops.integracoes') !== false ? this.sectionButton('agents','Agentes Externos','cpu') : ''}
+            ${window.LJCan?.('edit.score') !== false ? this.sectionButton('ai','IA','sparkles') : ''}
             ${this.sectionButton('backup','Backup','archive')}
             ${App.currentUser?.isMaster ? `<div class="border-t border-slate-200 my-3"></div>${this.sectionButton('admin','Administrar Lead Journey','shield-alert')}${this.sectionButton('tenants','Tenants (Global Mode)','layers')}` : ''}
           </aside>
