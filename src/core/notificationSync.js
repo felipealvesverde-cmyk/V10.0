@@ -24,12 +24,21 @@ window.NotificationSync = {
 
   async run() {
     if (!this.shouldRun()) return;
+    return this._runChecks();
+  },
+
+  // V37.4.17 — Bypassa cooldown. Use pra forçar populate manual via console.
+  async forceRun() {
+    this._lastRun = Date.now();
+    return this._runChecks();
+  },
+
+  async _runChecks() {
     this._lastRun = Date.now();
     try {
       await this._checkClickup();
       await this._checkRdWebhooks();
       await this._checkReconciliation();
-      // V37.4.9 — migração completa do sininho legado
       await this._checkLeadImportReports();
       await this._checkReleases();
       await this._checkAdsOrphans();
