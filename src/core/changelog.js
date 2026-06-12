@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.19',
+    date: '2026-06-12',
+    title: 'Clusters de notificação ganham label humano por tipo + recolher fácil',
+    bullets: [
+      'Cluster genérico "4 eventos da mesma fonte" virou texto específico por tipo: "4 atualizações do LeadJourney", "3 campanhas criadas", "5 pins pra você". Cada kind tem seu próprio label.',
+      'Agrupamento mudou de (source + categoria) pra (source + KIND). Antes 1 product_created + 1 campaign_created juntos viravam "2 eventos" — agora ficam separados porque são tipos diferentes.',
+      'Cluster expandido mostra rodapé com "Mostrando X de Y" + botão "Recolher" explícito. Antes precisava re-clicar no header pra fechar.',
+      'Chip "Expandido" violet aparece no header quando o cluster está aberto pra deixar visível o estado atual.'
+    ]
+  },
+  {
     version: 'V37.4.17',
     date: '2026-06-12',
     title: 'NotificationSync.forceRun() ignora cooldown — pra populate manual',
