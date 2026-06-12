@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.5.0',
+    date: '2026-06-12',
+    title: 'Pin-Up MVP — comentários cravados no contexto, estilo Figma',
+    bullets: [
+      'Atalho Alt+P (ou click no botão de pin ao lado do sininho) ativa o modo "colocar pin". Cursor vira crosshair, overlay violet com instrução aparece no topo. Click em qualquer ponto da tela captura coordenadas relativas (x,y%).',
+      'Modal de criar abre: multiselect dos membros do tenant + textarea 400 chars + botões Cancelar / Cravar pin. Submit salva no banco e dispara notification handoff/warning pros marcados.',
+      'Quem é marcado recebe alerta no sininho V2 ("Pin cravado pra você"). Por enquanto, quem entra na página vê o pin como marcador violet com iniciais do criador.',
+      'Click no pin abre modal de visualização: nome de quem cravou, data, texto completo, botão "Marcar como visto" + "Arquivar". Auto-marca como visto quando abre.',
+      'Visível só pros marcados + criador. Auto-expira em 7 dias (server-side expires_at). Arquivar manualmente esconde pra todos.',
+      'ESC cancela o modo de colocar pin. Pin já aplicado é renderizado em overlay fixed acima do conteúdo, com pointer-events controlados pra não atrapalhar interação com a UI por baixo.',
+      'Endpoints novos: POST /api/pin-create (com notification emit automática), GET /api/pins-list?targetUrl=, POST /api/pin-action (mark_seen | archive). Migration em /api/admin-migrate-pins (Master roda uma vez).'
+    ]
+  },
+  {
     version: 'V37.4.5',
     date: '2026-06-12',
     title: 'Sininho V2 absorve alertas legados (ClickUp/RD/Reconciliation) com dedup automático',
