@@ -4474,7 +4474,7 @@ var SettingsModal = {
     // Mantemos o alias 'rdCrm' redirecionando p/ 'rd' por compat de bookmarks/links.
     const resolvedActive = active === 'rdCrm' ? 'rd' : active;
     // V32.4.0 (Geraldo Item 6) — 'database' (legacy V11) removida. Default agora 'myAccount'.
-    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários', admin: 'Administrar Lead Journey', tenants: 'Tenants (Global Mode)', myDb: 'Meu Banco', myAccount: 'Minha Conta', ai: 'IA', members: 'Membros do Tenant' };
+    const titleMap = { rd: 'Conexão RD Station', backup: 'Backup', execution: 'Execução Operacional', integrations: 'Integrações', agents: 'Agentes Externos', users: 'Usuários', admin: 'Administrar Lead Journey', tenants: 'Tenants (Global Mode)', myDb: 'Meu Banco', myAccount: 'Minha Conta', ai: 'IA', members: 'Membros do Tenant', notifications: 'Notificações' };
     const subtitleMap = {
       rd: 'Token CRM, pipelines por campanha, sincronização de leads e (opcional) RD Marketing — tudo em um lugar.',
       backup: 'Prepare snapshots, restauração e segurança dos dados.',
@@ -4487,7 +4487,8 @@ var SettingsModal = {
       myDb: 'V32.1.1 — Plug seu próprio Postgres pra isolar 100% seus dados. Connection string fica criptografada no servidor.',
       myAccount: 'V32.1.2 — Personalize seu nome de exibição. Login (e-mail) e tenant são imutáveis aqui.',
       ai: 'V34.7.h — Configure sua própria chave Anthropic (Claude). Se o master liberou o saldo dele pra você, esta seção é informativa — você já pode usar Djow, Enriquecer e Sync RD.',
-      members: 'V37.3.2 — Convide membros, edite roles (Master/Gerente/Usuário) e ajuste permissões custom por pessoa.'
+      members: 'V37.3.2 — Convide membros, edite roles (Master/Gerente/Usuário) e ajuste permissões custom por pessoa.',
+      notifications: 'V37.4.6 — Escolha quais categorias de notificação você quer no sininho + email. Opt-in pra digest semanal.'
     };
     const title = titleMap[resolvedActive] || titleMap.myAccount;
     const subtitle = subtitleMap[resolvedActive] || subtitleMap.myAccount;
@@ -4507,6 +4508,7 @@ var SettingsModal = {
       : resolvedActive === 'myDb' ? this.myDbPanel()
       : resolvedActive === 'ai' ? this.aiPanel()
       : resolvedActive === 'members' ? (window.MembersPanel ? MembersPanel.render() : '<p class="text-stone-500">Painel de Membros não carregado.</p>')
+      : resolvedActive === 'notifications' ? (window.NotificationPrefsPanel ? NotificationPrefsPanel.render() : '<p class="text-stone-500">Painel de Notificações não carregado.</p>')
       : this.myAccountPanel();
 
     return `<div id="settingsModalBackdrop" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm p-4 overflow-auto">
@@ -4529,6 +4531,7 @@ var SettingsModal = {
         <main class="grid lg:grid-cols-[260px_1fr] min-h-[620px]">
           <aside class="bg-white border-r border-slate-200 p-5 space-y-3">
             ${this.sectionButton('myAccount','Minha Conta','user')}
+            ${this.sectionButton('notifications','Notificações','bell')}
             ${(window.LJIsMaster?.() || App.state.userPermissions?.role === 'owner') ? this.sectionButton('members','Membros do Tenant','users') : ''}
             ${App.currentUser?.tenantId && window.LJCan?.('admin.editar_db_tenant') !== false ? this.sectionButton('myDb','Meu Banco','hard-drive-download') : ''}
             ${/* V35.6.0-alpha2 — "Conexão RD Station" removida do sidebar.

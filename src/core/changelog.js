@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.6',
+    date: '2026-06-12',
+    title: 'Notificações: preferences por categoria + opt-in digest semanal por email',
+    bullets: [
+      'Nova section "Notificações" em Configurações. Tabela com 6 categorias (handoff, eventos, estado, operacional, integração, saúde) × 2 colunas (Sininho / Email) com checkboxes pra cada combinação.',
+      'Defaults sensatos: tudo no sininho, email só pra handoff e integração (crítico) e saúde (Master). Cliente customiza conforme preferir.',
+      'Card "Digest semanal" abaixo: toggle pra optar receber email toda segunda 9h com resumo dos últimos 7 dias (total + breakdown por severidade + top categorias + até 3 highlights críticos).',
+      'Save otimista — toggle no checkbox aplica na UI imediato e persiste em background. Se falhar, reverte com toast de erro.',
+      'Endpoints novos: GET/POST /api/notification-preferences. Migration em /api/admin-migrate-notification-prefs (cria tabelas notification_preferences + notification_digest_optins).',
+      'Endpoint manual /api/admin-send-weekly-digest (POST, Master only) — Felipe roda quando quiser OU pluga GitHub Actions cron pra rodar toda segunda automaticamente. Detalhes na seção pendências.'
+    ]
+  },
+  {
     version: 'V37.5.2',
     date: '2026-06-12',
     title: 'Pin-Up — click na notificação navega pro pin + cluster quando >5 na tela',

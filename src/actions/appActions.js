@@ -8273,6 +8273,77 @@ Object.assign(Actions, {
     }
   },
 
+  // ============================================================
+  // V37.4.6 — Notification Preferences
+  // ============================================================
+  async loadNotificationPrefs(force = false) {
+    const cache = App.state.notificationPrefsCache = App.state.notificationPrefsCache || { loading: false, prefs: null, weeklyDigest: false, lastDigestSentAt: null, error: null };
+    if (!force && cache.prefs) return;
+    cache.loading = true; cache.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/notification-preferences', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao carregar preferências.');
+      cache.prefs = data.preferences || {};
+      cache.weeklyDigest = Boolean(data.weeklyDigest);
+      cache.lastDigestSentAt = data.lastDigestSentAt || null;
+      cache.loading = false;
+      App.render();
+    } catch (err) {
+      cache.loading = false;
+      cache.error = err.message;
+      App.render();
+    }
+  },
+
+  async updateNotificationPref(category, field, value) {
+    const cache = App.state.notificationPrefsCache;
+    if (!cache?.prefs) return;
+    cache.prefs[category] = cache.prefs[category] || { inApp: true, email: false };
+    cache.prefs[category][field] = value;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const body = { category };
+      body[field] = value;
+      const other = field === 'inApp' ? 'email' : 'inApp';
+      body[other] = Boolean(cache.prefs[category][other]);
+      const r = await fetch('/api/notification-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao salvar.');
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+      Actions.loadNotificationPrefs(true);
+    }
+  },
+
+  async updateWeeklyDigest(enabled) {
+    const cache = App.state.notificationPrefsCache;
+    if (!cache) return;
+    cache.weeklyDigest = enabled;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/notification-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ weeklyDigest: enabled })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao salvar.');
+      Utils.toast(enabled ? '✓ Digest semanal ativado.' : '✓ Digest desativado.');
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+      Actions.loadNotificationPrefs(true);
+    }
+  },
+
   // V37.5.2 — Toggle cluster expansion (quando >5 pins)
   togglePinCluster() {
     if (!App.state.pinUp) return;
