@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.36',
+    date: '2026-06-12',
+    title: 'Fix Pin-Up: pins não apareciam pra ninguém em tenant com DB próprio',
+    bullets: [
+      'Bug: /api/pins-list fazia LEFT JOIN com tabela users dentro do tenantDb, mas users vive no control plane. Em tenants com DB próprio plugado (Sansone V36.8.0+), a query explodia com "relation users does not exist" — e o sininho/overlay ficava vazio mesmo pro creator do pin.',
+      'Fix: 2 queries separadas. Pins lidos do tenantDb (sem JOIN). Display names dos creators buscados no control plane numa única query agregada.',
+      'Único endpoint afetado — outros LEFT JOIN users já estavam corretamente no req.db.'
+    ]
+  },
+  {
     version: 'V37.4.35',
     date: '2026-06-12',
     title: 'Fix warning: remoteSnapshotsCache agora mapeado em normalize()',
