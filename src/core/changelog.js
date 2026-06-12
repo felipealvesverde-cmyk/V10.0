@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.29',
+    date: '2026-06-12',
+    title: 'State agora é per-tenant — colaboração real entre membros',
+    bullets: [
+      'Antes: cada user tinha seu próprio "LeadJourney" isolado (journey_state.PK = user_id). User convidado pelo owner entrava num workspace vazio — multi-tenant V32 ficou meio truncado.',
+      'Agora: nova tabela tenant_state (PK = tenant_id) — owner edita produtos/campanhas/ações e todos os membros do mesmo tenant veem em tempo real (depois do próximo F5 ou sync de 60s).',
+      'Dual-write transitório: salva em tenant_state (source of truth) e em journey_state legado (backup). Rollback é trivial caso algo dê ruim. Quando Felipe validar 1-2 dias, removo o write em journey_state.',
+      'Last-write-wins entre membros — coluna last_writer_user_id audita quem escreveu por último.',
+      '⚠ Master: rode /api/admin-migrate-tenant-state em prod logado como cada tenant. Importa o state do owner pra tenant_state. Sem isso, o tenant continua lendo journey_state legado (compat backward total).'
+    ]
+  },
+  {
     version: 'V37.4.28',
     date: '2026-06-12',
     title: 'Modal Editar Membro refeito + reset de senha / troca de email por link',
