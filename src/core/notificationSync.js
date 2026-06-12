@@ -108,22 +108,33 @@ window.NotificationSync = {
     });
   },
 
-  // V37.4.9 — Releases (changelog) ainda não vistas pelo user
+  // V37.4.9 — Releases (changelog) não vistas pelo user
+  // V37.4.16 — Cria 1 notification por release (cap em 5 últimas) + marca
+  // lastSeenVersion como a mais recente pra não acumular.
   async _checkReleases() {
     const unseen = (window.Actions?._getUnseenReleases?.() || []);
     if (!unseen.length) return;
-    const latest = unseen[0];
-    await window.LJEmitDedup({
-      audience: { role: 'owner' },
-      kind: 'event.lj_release',
-      category: 'event',
-      severity: 'info',
-      title: `LeadJourney ${latest.version}`,
-      body: latest.title || 'Nova versão disponível.',
-      data: { action: 'open_releases', version: latest.version, total: unseen.length },
-      entityKind: 'release',
-      entityId: latest.version
-    });
+    const cap = 5;
+    const slice = unseen.slice(0, cap);
+    for (const release of slice) {
+      await window.LJEmitDedup({
+        audience: { role: 'owner' },
+        kind: 'event.lj_release',
+        category: 'event',
+        severity: 'info',
+        title: `LeadJourney ${release.version}`,
+        body: release.title || 'Nova versão.',
+        data: { action: 'open_releases', version: release.version },
+        entityKind: 'release',
+        entityId: release.version
+      });
+    }
+    // Marca a mais recente como vista — releases mais antigas já viraram
+    // notification individual, não precisam continuar somando no badge.
+    if (unseen[0]?.version) {
+      App.state.lastSeenVersion = unseen[0].version;
+      if (window.App?.save) App.save();
+    }
   },
 
   // V37.4.9 — Ads órfãs (Google Ads não vinculadas a Campanha LJ)
