@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.5',
+    date: '2026-06-12',
+    title: 'Sininho V2 absorve alertas legados (ClickUp/RD/Reconciliation) com dedup automático',
+    bullets: [
+      'NotificationSync.run() roda a cada 1min em background e checa estado de App.state pra emitir notifications dedupadas: ClickUp desconectado (crítico), RD webhook com falhas (warning ou crítico se ≥10), Reconciliation RD↔LJ pendente (warning).',
+      'LJEmitDedup() — variante do emit que evita criar duplicada se já existe notification igual nas últimas 24h (mesma kind + entity_kind + entity_id, não-done). Garante que sininho V2 não vira spam.',
+      'Audience inteligente: alertas críticos vão pra tenant_wide (todos veem), alertas de integração e operacionais vão só pro role:owner (só Admin Master vê).',
+      'Quando Felipe reconectar ClickUp ou resolver os webhooks RD, a notification existente NÃO se auto-resolve — Admin Master arquiva manualmente quando confirmar OK. Auto-resolve fica pra V37.4.7.',
+      'Endpoint /api/notification-emit ganha flag dedup=true que checa antes de inserir. Mantém comportamento default sem dedup pros disparos normais (criação de entidade etc).'
+    ]
+  },
+  {
     version: 'V37.4.4',
     date: '2026-06-12',
     title: 'Bom Dia card na Home + notification clusters (sininho ganha cara de SaaS premium)',

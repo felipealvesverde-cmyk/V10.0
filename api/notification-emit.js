@@ -50,6 +50,31 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // V37.4.1 — dedup: se já existe notification mesma kind + entityRef
+  // não-done nas últimas 24h pro mesmo audience, não cria de novo.
+  // Pra alertas idempotentes (ClickUp desconectado, webhook falhando) que
+  // o front pode emitir várias vezes sem querer duplicar.
+  const dedup = Boolean(req.body?.dedup);
+  if (dedup && entityKind && entityId && req.user.tenantId) {
+    try {
+      const r = await req.tenantDb.query(`
+        SELECT 1 FROM notifications
+        WHERE tenant_id = $1
+          AND kind = $2
+          AND entity_kind = $3
+          AND entity_id = $4
+          AND done_at IS NULL
+          AND created_at > NOW() - INTERVAL '24 hours'
+        LIMIT 1
+      `, [req.user.tenantId, kind, entityKind, entityId]);
+      if (r.rows.length) {
+        return res.status(200).json({ ok: true, skipped: 'dedup_recent', inserted: 0 });
+      }
+    } catch (err) {
+      console.warn('[notification-emit dedup check]', err.message);
+    }
+  }
+
   try {
     const result = await emit(req, {
       audience, kind, category, severity,

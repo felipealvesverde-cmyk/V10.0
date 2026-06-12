@@ -16,6 +16,13 @@
 //     entityId: String(campaignId)
 //   });
 
+// V37.4.1 — LJEmitDedup: variante que evita duplicar notification idêntica
+// nas últimas 24h. Use pra alertas de estado (integração desconectada, etc)
+// que disparam toda vez que o user atualiza.
+window.LJEmitDedup = async function emitDeduped(opts) {
+  return window.LJEmit({ ...opts, dedup: true });
+};
+
 window.LJEmit = async function emitNotification(opts) {
   try {
     const token = localStorage.getItem('lj_jwt');
