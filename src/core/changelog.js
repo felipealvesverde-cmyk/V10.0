@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.2.4',
+    date: '2026-06-12',
+    title: 'Tarefas Por Pessoa: contador de cobertura agora bate com Total Ativo',
+    bullets: [
+      'O contador "X de Y tarefas abertas têm início + entrega preenchidos" no header da Capacidade somava só tasks_scheduled + tasks_without_dates. Esquecia as atrasadas (tasks_late) e as fora do horizonte (tasks_outside_horizon), que também têm datas. Resultado: Pedro mostrava 79 Pendentes mas o contador dizia "0 de 78" — 1 task de diferença.',
+      'Fix: o "Y" do contador agora soma os 4 buckets de cobertura (scheduled + late + outsideHorizon + withoutDates) e bate exato com o número de Pendentes do KPI do topo. O "X" soma os 3 com datas (scheduled + late + outsideHorizon).',
+      'Placeholder "Nenhuma tarefa com agenda" também tinha o mesmo bug: só aparecia quando tasks_scheduled === 0, ignorando que tasks atrasadas com datas pintam a barra de HOJE (transbordo de atraso). Agora só aparece quando o total com datas (scheduled + late + outsideHorizon) é zero — visualização do dia sobrecarregado por atraso volta a aparecer.'
+    ]
+  },
+  {
     version: 'V37.2.3',
     date: '2026-06-12',
     title: 'Tarefas Por Pessoa: dias passados apagados + placeholder sem agenda + livres tracejado verde',
