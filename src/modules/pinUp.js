@@ -18,6 +18,28 @@
 //   7. Click → modal completo com texto + ações (marcar visto, arquivar)
 
 window.PinUp = {
+  _lastScope: null,
+
+  // V38.0.1 — Pin escopa por aba do LJ (não só pathname). Antes: pin cravado
+  // na Home aparecia em Ações da campanha porque o LJ é SPA e
+  // window.location.pathname é sempre '/'. Agora: cada aba tem seu próprio
+  // namespace de pins via hash #tab=<activeTab>.
+  _currentPinScope() {
+    const tab = (window.App && App.state && App.state.activeTab) || 'home';
+    return `${window.location.pathname}#tab=${tab}`;
+  },
+
+  // Detecta mudança de aba e dispara reload dos pins. Chamado em todo render
+  // do overlay (que roda a cada App.render).
+  _maybeReloadOnScopeChange() {
+    const scope = this._currentPinScope();
+    if (this._lastScope !== scope) {
+      this._lastScope = scope;
+      if (window.Actions?.loadPinsForCurrentUrl) {
+        setTimeout(() => Actions.loadPinsForCurrentUrl(), 0);
+      }
+    }
+  },
 
   // ============================================================
   // Entry: botão + atalho
@@ -46,6 +68,8 @@ window.PinUp = {
   // Overlay: modo "colocar pin" + render dos pins existentes
   // ============================================================
   overlay() {
+    // V38.0.1 — Detecta troca de aba e re-fetcha pins do scope novo.
+    this._maybeReloadOnScopeChange();
     const active = Boolean(App.state.pinModeActive);
     const pins = App.state.pinUp?.pinsForCurrentUrl || [];
     const clusterMode = pins.length > 5 && !App.state.pinUp?.clusterExpanded;
