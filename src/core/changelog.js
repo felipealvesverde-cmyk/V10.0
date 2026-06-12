@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.2.3',
+    date: '2026-06-12',
+    title: 'Tarefas Por Pessoa: dias passados apagados + placeholder sem agenda + livres tracejado verde',
+    bullets: [
+      'Esta semana mostra sempre os 5 dias úteis (Seg-Sex) — antes só renderizava o que sobrava do horizonte. Em sexta-feira só tinha 1 barra solitária, agora aparece Seg-Sex inteiro com os dias passados em opacity 0.4 e label cinza. Sábado já passou pra ti? O calendário mostra a semana real.',
+      'Quando a pessoa tem zero tarefas com início + entrega preenchidos, a seção de barras some e abre placeholder: ícone calendar-x + "Nenhuma tarefa com agenda — pra ver capacidade visualizada por dia, preencha data de início e data de entrega nas tarefas do ClickUp". Cliente entende que é falta de dado, não pessoa livre.',
+      'Dias com 0% (e não passados) ganham visual distinto: fundo emerald 6% + borda tracejada emerald + texto "Livre" em verde escuro no centro. Comunica "slot pronto pra agendamento" em vez de "barra cinza vazia" que parecia bug.',
+      'Resumo textual abaixo das semanas considera apenas dias ativos (não passados) — antes incluía Seg-Qui como "livres" quando na real eles já tinham acontecido.'
+    ]
+  },
+  {
     version: 'V37.2.2',
     date: '2026-06-12',
     title: 'Tarefas Por Pessoa: grafia "Aderência" + borda HOJE cortada no topo',
