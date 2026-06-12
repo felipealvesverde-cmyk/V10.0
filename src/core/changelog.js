@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.35',
+    date: '2026-06-12',
+    title: 'Fix warning: remoteSnapshotsCache agora mapeado em normalize()',
+    bullets: [
+      'O cache de snapshots remotos (Configurações → Backup → "Snapshots no DB") era criado in-flight pela action loadRemoteSnapshots, mas nunca foi registrado em State.initial() nem State.normalize(). Resultado: aparecia warning "Campos persistidos NÃO mapeados em normalize() — risco de perda de dados" toda vez que F5 acontecia depois de abrir essa tela.',
+      'Agora: campo declarado em ambos, sempre null no boot (cache se re-hidrata sob demanda quando o user abre a aba). Aviso some.'
+    ]
+  },
+  {
     version: 'V37.4.34',
     date: '2026-06-12',
     title: 'Integrações agora seguem o owner do tenant (não o user logado)',
