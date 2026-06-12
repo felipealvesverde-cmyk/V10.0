@@ -272,6 +272,7 @@ window.HomeModule = {
           </button>`;
         })()}
         ${window.NotificationsPanel ? NotificationsPanel.bellButton() : ''}
+        ${window.PinUp ? PinUp.bellButton() : ''}
         <div class="lj-home-date">
           <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
           <span>${Utils.escape(this._today())}</span>

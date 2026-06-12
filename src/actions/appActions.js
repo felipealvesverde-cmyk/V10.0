@@ -3107,6 +3107,8 @@ Object.assign(Actions, {
         App.state.user.tenantId = data.user.tenantId;
         // V37.3.4 — Carrega permissões efetivas em background (não bloqueia render)
         Actions.loadMyPermissions();
+        // V37.5.0 — Carrega pins ativos pra URL atual
+        if (window.Actions?.loadPinsForCurrentUrl) Actions.loadPinsForCurrentUrl();
       }
     } catch (_) { /* silencioso */ }
   },
@@ -8126,6 +8128,161 @@ Object.assign(Actions, {
       const data = await r.json();
       if (!data.ok) throw new Error(data.message || 'Falha ao atualizar.');
       await Actions.refreshNotifications();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // ============================================================
+  // V37.5.0 — Pin-Up MVP
+  // ============================================================
+  togglePinMode() {
+    App.state.pinModeActive = !App.state.pinModeActive;
+    if (App.state.pinModeActive) {
+      // Carrega membros se ainda não tiver pra modal de cravar
+      if (!App.state.membersCache?.loadedAt) Actions.loadTenantMembers();
+      // ESC cancela
+      const escHandler = (e) => {
+        if (e.key === 'Escape') {
+          App.state.pinModeActive = false;
+          App.render();
+          document.removeEventListener('keydown', escHandler);
+        }
+      };
+      document.addEventListener('keydown', escHandler);
+    }
+    App.render();
+  },
+
+  capturePinPosition(event) {
+    if (!App.state.pinModeActive) return;
+    const xPct = (event.clientX / window.innerWidth) * 100;
+    const yPct = (event.clientY / window.innerHeight) * 100;
+    App.state.pinModeActive = false;
+    App.state.pinUp = App.state.pinUp || { pinsForCurrentUrl: [], createModal: null, viewModal: null };
+    App.state.pinUp.createModal = {
+      xPct: Math.round(xPct * 100) / 100,
+      yPct: Math.round(yPct * 100) / 100,
+      audienceUserIds: [],
+      text: '',
+      saving: false
+    };
+    App.render();
+  },
+
+  closePinCreate() {
+    if (App.state.pinUp) App.state.pinUp.createModal = null;
+    App.render();
+  },
+
+  togglePinAudience(userId, checked) {
+    const modal = App.state.pinUp?.createModal;
+    if (!modal) return;
+    const set = new Set(modal.audienceUserIds || []);
+    if (checked) set.add(userId); else set.delete(userId);
+    modal.audienceUserIds = Array.from(set);
+    App.render();
+  },
+
+  updatePinDraft(field, value) {
+    const modal = App.state.pinUp?.createModal;
+    if (!modal) return;
+    modal[field] = value;
+    // não render — mantém foco
+  },
+
+  async submitPin() {
+    const modal = App.state.pinUp?.createModal;
+    if (!modal || modal.saving) return;
+    if (!modal.audienceUserIds.length) return Utils.toast('Marque pelo menos 1 membro.');
+    if (!modal.text || !modal.text.trim()) return Utils.toast('Escreva uma mensagem.');
+    modal.saving = true; App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/pin-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          targetUrl: window.location.pathname + window.location.search,
+          anchorXPct: modal.xPct,
+          anchorYPct: modal.yPct,
+          text: modal.text.trim(),
+          audienceUserIds: modal.audienceUserIds
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao cravar pin.');
+      Utils.toast('✓ Pin cravado.');
+      App.state.pinUp.createModal = null;
+      await Actions.loadPinsForCurrentUrl();
+    } catch (err) {
+      modal.saving = false;
+      Utils.toast(`Erro: ${err.message}`);
+      App.render();
+    }
+  },
+
+  async loadPinsForCurrentUrl() {
+    App.state.pinUp = App.state.pinUp || { pinsForCurrentUrl: [], createModal: null, viewModal: null };
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const url = window.location.pathname + window.location.search;
+      const r = await fetch(`/api/pins-list?targetUrl=${encodeURIComponent(url)}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (data.ok) {
+        App.state.pinUp.pinsForCurrentUrl = data.pins || [];
+        App.render();
+      }
+    } catch (err) {
+      console.warn('[loadPinsForCurrentUrl]', err.message);
+    }
+  },
+
+  openPinView(id) {
+    const pin = (App.state.pinUp?.pinsForCurrentUrl || []).find(p => p.id === id);
+    if (!pin) return;
+    App.state.pinUp.viewModal = { pin };
+    App.render();
+    // Auto-marca como visto após abrir
+    if (!pin.seenByMe) Actions.markPinSeen(id, true);
+  },
+
+  closePinView() {
+    if (App.state.pinUp) App.state.pinUp.viewModal = null;
+    App.render();
+  },
+
+  async markPinSeen(id, silent = false) {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      await fetch('/api/pin-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id, action: 'mark_seen' })
+      });
+      await Actions.loadPinsForCurrentUrl();
+      if (!silent) Utils.toast('✓ Marcado como visto.');
+    } catch (err) {
+      if (!silent) Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async archivePin(id) {
+    if (!confirm('Arquivar este pin? Some pra todos os marcados.')) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/pin-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id, action: 'archive' })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao arquivar.');
+      Utils.toast('✓ Pin arquivado.');
+      App.state.pinUp.viewModal = null;
+      await Actions.loadPinsForCurrentUrl();
     } catch (err) {
       Utils.toast(`Erro: ${err.message}`);
     }
