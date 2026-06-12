@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.26',
+    date: '2026-06-12',
+    title: 'Fix crítico: aceite de convite estava bloqueado por auth',
+    bullets: [
+      'Endpoints /api/tenant-invite-info e /api/tenant-invite-accept tinham comentário "público" mas o middleware do servidor exigia JWT. Resultado: convidado clicava no link do email e via "Não autenticado" — fluxo de aceite quebrado desde V37.3.3.',
+      'Fix: ambos entram em PUBLIC_API_ROUTES no server.js. Token do convite vira a credencial (validado no body/query).'
+    ]
+  },
+  {
     version: 'V37.4.25',
     date: '2026-06-12',
     title: 'Convite: feedback honesto quando Resend recusa o envio',

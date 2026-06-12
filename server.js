@@ -915,7 +915,11 @@ const PUBLIC_API_ROUTES = new Set([
   // V36.4.1 — Auth debug: retorna metadados sobre JWT_SECRET e valida tokens
   // (sem expor secrets). Público pra Felipe diagnosticar quando seu JWT
   // está sendo rejeitado.
-  '/api/auth-debug'
+  '/api/auth-debug',
+  // V37.4.26 — Convidado acessa pelo link do email, ainda não tem conta.
+  // Os 2 endpoints validam o token do convite no body/query, sem JWT.
+  '/api/tenant-invite-info',
+  '/api/tenant-invite-accept'
 ]);
 
 // V23.0.0 — Gate de auth: rotas privadas /api/* exigem req.user.
