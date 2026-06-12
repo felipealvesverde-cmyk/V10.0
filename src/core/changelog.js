@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.15',
+    date: '2026-06-12',
+    title: 'Card "Bom Dia" big-bang vira chip discreto',
+    bullets: [
+      'Versão V37.4.4 entregou o resumo da home como banner grande com fundo branco, saudação, badges, highlights — destoava do tema dark e ocupava altura demais pra avisar "1 novidade".',
+      'Substituído por chip pequeno arredondado violet no topo do Home — exemplo: "5 atualizações desde ontem →". Click abre o sininho com a lista completa. Atende o pedido original (resumo na home) sem interrupção visual.',
+      'Versão antiga preservada como renderFull_DEPRECATED_V37_4_15() pra histórico, mas não é mais chamada.'
+    ]
+  },
+  {
     version: 'V37.4.14',
     date: '2026-06-12',
     title: 'admin-migrate-permissions também aceita Owner (era Master only)',
