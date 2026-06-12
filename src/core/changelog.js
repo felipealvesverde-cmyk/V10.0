@@ -18,6 +18,34 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.14',
+    date: '2026-06-12',
+    title: 'admin-migrate-permissions também aceita Owner (era Master only)',
+    bullets: [
+      'tenant-members-list retornava 500 porque tentava SELECT permissions_overrides em tenant_members — coluna criada pela migration admin-migrate-permissions, que ainda exigia Master Global.',
+      'Afrouxado pra aceitar Owner do tenant ativo (igual fizemos com as 3 migrations tenant-scoped em V37.4.11). Migration é idempotente (IF NOT EXISTS) e só ADD coluna + cria tabela tenant_invites — sem modificar dados.',
+      'Encerra a sequência de erros 500 ao listar membros / abrir sininho com pipeline V2.'
+    ]
+  },
+  {
+    version: 'V37.4.13',
+    date: '2026-06-12',
+    title: 'Audience { role } no notification-engine fica case-insensitive',
+    bullets: [
+      'expandAudience() do notification-engine fazia match estrito role = $2. Se o tenant_members tinha "Owner" ou "OWNER" salvo (legado pré-V37.3.1), a notification não chegava a ninguém — payload era criado mas audience expandia pra array vazio.',
+      'Agora usa LOWER(role) = LOWER($2). Compatível com qualquer capitalização salva.'
+    ]
+  },
+  {
+    version: 'V37.4.12',
+    date: '2026-06-12',
+    title: 'Drawer do sininho passa por cima da TopBar quando aberto',
+    bullets: [
+      'TopBar estava em z-50 e drawer do sininho em z-40 — quando o drawer abria, os botões da TopBar ficavam aparecendo sobrepostos.',
+      'Drawer agora vai pra z-[60]. Cobre limpo a TopBar inteira.'
+    ]
+  },
+  {
     version: 'V37.4.11',
     date: '2026-06-12',
     title: 'Migrations tenant-scoped aceitam Owner do tenant (não só Master LJ)',
