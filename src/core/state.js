@@ -426,6 +426,9 @@ var State = {
       bomDiaSummary: null,
       bomDiaDismissed: false,
       notificationClusterExpanded: {},
+      // V37.5.0 — Pin-Up (volátil)
+      pinModeActive: false,
+      pinUp: { pinsForCurrentUrl: [], createModal: null, viewModal: null },
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
       overviewBranchFilter: 'all',
       revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
@@ -1154,6 +1157,9 @@ var State = {
       bomDiaSummary: null,
       bomDiaDismissed: false,
       notificationClusterExpanded: {},
+      // V37.5.0 — Pin-Up volátil
+      pinModeActive: false,
+      pinUp: { pinsForCurrentUrl: [], createModal: null, viewModal: null },
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
       overviewBranchFilter: 'all',
       revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
