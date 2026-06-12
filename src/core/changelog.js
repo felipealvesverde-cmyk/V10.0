@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.4',
+    date: '2026-06-12',
+    title: 'Bom Dia card na Home + notification clusters (sininho ganha cara de SaaS premium)',
+    bullets: [
+      'Card "Bom Dia" aparece na Home na primeira visita do dia. Mostra resumo desde ontem 18h: total de novidades + breakdown por severidade (crítico/atenção/info) + top categorias + até 3 highlights pra olhar primeiro. Saudação muda conforme a hora (Bom dia / Boa tarde / Boa noite) com emoji.',
+      'Cliente abre o LJ, lê o card em 5 segundos e já sabe se "tá tudo bem" ou se tem incêndio. Click em "Ver tudo no sininho" abre o drawer de notificações direto.',
+      '"Vou ver depois" ou X dispensa o card pelo dia inteiro (localStorage lj_bomdia_last_seen). Volta amanhã.',
+      'Notification clusters: quando 3+ notifications da mesma fonte (mesma pessoa ou sistema) + mesma categoria chegam em até 4h, viram um cluster colapsável no sininho. Exemplo: "8 eventos da mesma fonte nas últimas 4h" — click expande pra ver cada um.',
+      'Reduz drasticamente o ruído visual em dias movimentados. Pedro fechando 8 tasks vira 1 linha, não 8.',
+      'Endpoint /api/notifications-daily-summary calcula a agregação por user no tenant ativo. Aceita ?since=ISO_DATE pra customizar a janela.'
+    ]
+  },
+  {
     version: 'V37.4.3',
     date: '2026-06-12',
     title: 'Sininho V2 ganha vida: emit helper + 3 disparos automáticos de criação',

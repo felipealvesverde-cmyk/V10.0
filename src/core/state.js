@@ -422,6 +422,10 @@ var State = {
       // V37.4.x — Sininho expandido (notification system).
       notificationsCache: { items: [], counts: { inbox: 0, saved: 0, archive: 0, snoozed: 0, criticalUnread: 0, warningUnread: 0, infoUnread: 0 }, loadedAt: null, loading: false, error: null, activeStatus: 'inbox', activeCategory: null, activeSeverity: null },
       notificationsPanelOpen: false,
+      // V37.4.4 — Bom Dia card (volátil — re-fetch a cada 5min)
+      bomDiaSummary: null,
+      bomDiaDismissed: false,
+      notificationClusterExpanded: {},
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
       overviewBranchFilter: 'all',
       revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
@@ -1146,6 +1150,10 @@ var State = {
       // V37.4.x — Sininho (volátil)
       notificationsCache: { items: [], counts: { inbox: 0, saved: 0, archive: 0, snoozed: 0, criticalUnread: 0, warningUnread: 0, infoUnread: 0 }, loadedAt: null, loading: false, error: null, activeStatus: 'inbox', activeCategory: null, activeSeverity: null },
       notificationsPanelOpen: false,
+      // V37.4.4 — Bom Dia volátil
+      bomDiaSummary: null,
+      bomDiaDismissed: false,
+      notificationClusterExpanded: {},
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
       overviewBranchFilter: 'all',
       revopsDjowMessages: [],         // V36.12.0 — Djow RevOps (chat history)
