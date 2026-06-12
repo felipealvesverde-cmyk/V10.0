@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.2.2',
+    date: '2026-06-12',
+    title: 'Tarefas Por Pessoa: grafia "Aderência" + borda HOJE cortada no topo',
+    bullets: [
+      'A palavra "Adherência" estava escrita com H errado — correção pra "Aderência" no header da seção e no comentário do código.',
+      'A borda violet do dia HOJE estava sendo cortada no topo da barra porque o viewBox do SVG começava em y=0 e a borda começa em y=-1.5. Aumentei o padding do viewBox pra -4 no topo e +6 na lateral. Agora a borda do HOJE aparece completa em volta da barra.'
+    ]
+  },
+  {
     version: 'V37.2.1',
     date: '2026-06-11',
     title: 'Tarefas Por Pessoa: refinos visuais (hoje + cobertura + sem LJ ativas)',
