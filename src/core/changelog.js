@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.3',
+    date: '2026-06-12',
+    title: 'Sininho V2 ganha vida: emit helper + 3 disparos automáticos de criação',
+    bullets: [
+      'window.LJEmit() — helper client-side pra disparar notification. Chamado em Actions.createProduct, Actions.createCampaign e Actions.createAction. Toda criação de entidade já populariza o sininho V2 do tenant inteiro.',
+      'POST /api/notification-emit — endpoint server-side. Auth necessário. Audience "tenant_wide" ou {role:"owner"} restritos a Master ou Owner; user comum só consegue emitir pra si próprio ou pra user específico.',
+      'lib/emit-notification.js — wrapper sobre createNotification que silencia erros e padroniza payload, pra usar em outros endpoints API quando integração desconectar, webhook falhar, etc.',
+      'Refresh automático do sininho 500ms após emitir — cliente vê o badge contar sem precisar reabrir o drawer.',
+      'Próximos disparos (V37.4.3.x conforme demanda): assignment de task, KR drift, integração desconectada, próxima entrega, capacity alta, etc.'
+    ]
+  },
+  {
     version: 'V37.4.2',
     date: '2026-06-12',
     title: 'Sininho refatorado — drawer estilo Linear com 3 abas, filtros, triagem rápida',

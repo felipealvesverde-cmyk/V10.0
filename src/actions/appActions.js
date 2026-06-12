@@ -1076,6 +1076,17 @@ Object.assign(Actions, {
     App.state.campaignDraft.productId = product.id;
     App.state.productDraft = { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' };
     App.save(); App.render(); Utils.toast('Produto criado e pronto para receber campanhas.');
+    // V37.4.3 — emit notification tenant_wide
+    if (window.LJEmit) window.LJEmit({
+      audience: 'tenant_wide',
+      kind: 'event.product_created',
+      category: 'event',
+      severity: 'info',
+      title: `Novo produto criado: ${product.name}`,
+      data: { productId: product.id, productName: product.name },
+      entityKind: 'product',
+      entityId: String(product.id)
+    });
     return product;
   },
 
@@ -1136,6 +1147,21 @@ Object.assign(Actions, {
     App.state.campaignDraft = { name: '', objective: '', productId: App.state.selectedProductId, owner: '', sector: 'Marketing' };
     App.state.activeTab = 'actions';
     App.save(); App.render(); Utils.toast('Campanha criada. Agora crie ações com OKRs operacionais.');
+    // V37.4.3 — emit notification tenant_wide
+    if (window.LJEmit) {
+      const product = (App.state.products || []).find(p => Number(p.id) === Number(campaign.productId));
+      window.LJEmit({
+        audience: 'tenant_wide',
+        kind: 'event.campaign_created',
+        category: 'event',
+        severity: 'info',
+        title: `Nova campanha: ${campaign.name}`,
+        body: product ? `No produto ${product.name}` : null,
+        data: { campaignId: campaign.id, campaignName: campaign.name, productId: campaign.productId, productName: product?.name },
+        entityKind: 'campaign',
+        entityId: String(campaign.id)
+      });
+    }
   },
   updateActionContext(field, value) {
     App.state.actionDraft[field] = value;
@@ -1192,6 +1218,21 @@ Object.assign(Actions, {
     App.state.selectedActionId = action.id;
     App.state.actionDraft = { ...State.initialActionDraft(), campaignId: App.state.selectedCampaignId };
     App.save(); App.render(); Utils.toast('Ação criada com OKRs e fluxo operacional.');
+    // V37.4.3 — emit notification tenant_wide
+    if (window.LJEmit) {
+      const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
+      window.LJEmit({
+        audience: 'tenant_wide',
+        kind: 'event.action_created',
+        category: 'event',
+        severity: 'info',
+        title: `Nova ação: ${action.name}`,
+        body: campaign ? `Na campanha ${campaign.name}` : null,
+        data: { actionId: action.id, actionName: action.name, campaignId: action.campaignId, campaignName: campaign?.name, channel: action.channel },
+        entityKind: 'action',
+        entityId: String(action.id)
+      });
+    }
   },
   async importManualLeadsFromText() {
     // V34.0.0 Onda 3 — Manual import agora persiste no tenant DB via banco.
