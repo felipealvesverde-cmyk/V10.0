@@ -16,22 +16,59 @@ module.exports = async function handler(req, res) {
 
   const userId = req.user.sub;
 
+  // V37.4.29 — Resolve tenant_id (JWT ou fallback default_tenant_id). Pra
+  // tenants migrados, state vive em tenant_state — todos os membros compartilham.
+  let resolvedTenantId = req.user.tenantId || null;
+  if (!resolvedTenantId) {
+    try {
+      const u = await req.db.query('SELECT default_tenant_id FROM users WHERE id = $1', [userId]);
+      resolvedTenantId = u.rows[0]?.default_tenant_id || null;
+    } catch (_) { /* defensive */ }
+  }
+
   if (req.method === 'GET') {
     try {
-      // V32.0.8 — req.tenantDb pra dados (control plane fallback se tenant sem DB próprio).
+      // V37.4.29 — Lê tenant_state PRIMEIRO. Fallback pra journey_state se
+      // tenant ainda não migrou (tabela inexistente OU sem row pro tenant).
+      if (resolvedTenantId) {
+        try {
+          const tsResult = await req.tenantDb.query(
+            'SELECT state_json, updated_at FROM tenant_state WHERE tenant_id = $1',
+            [resolvedTenantId]
+          );
+          if (tsResult.rows.length) {
+            const row = tsResult.rows[0];
+            return res.status(200).json({
+              ok: true,
+              state: row.state_json,
+              updatedAt: row.updated_at,
+              mode: req.user.mode || 'sandbox',
+              source: 'tenant_state'
+            });
+          }
+        } catch (err) {
+          // Tabela ainda não existe (migration não rodou) — cai pro fallback abaixo.
+          if (!String(err.message).includes('does not exist')) {
+            console.warn('[state-sync GET] tenant_state read falhou (cai pra fallback):', err.message);
+          }
+        }
+      }
+
+      // Fallback legado: journey_state per-user.
       const result = await req.tenantDb.query(
         'SELECT state_json, updated_at FROM journey_state WHERE user_id = $1',
         [userId]
       );
       const row = result.rows[0];
       if (!row) {
-        return res.status(200).json({ ok: true, state: null, updatedAt: null, mode: req.user.mode || 'sandbox' });
+        return res.status(200).json({ ok: true, state: null, updatedAt: null, mode: req.user.mode || 'sandbox', source: 'none' });
       }
       return res.status(200).json({
         ok: true,
         state: row.state_json,
         updatedAt: row.updated_at,
-        mode: req.user.mode || 'sandbox'
+        mode: req.user.mode || 'sandbox',
+        source: 'journey_state_legacy'
       });
     } catch (err) {
       console.error('[state-sync GET]', err);
@@ -102,7 +139,34 @@ module.exports = async function handler(req, res) {
     } catch (_) { /* defensive — não bloqueia se telemetria falhar */ }
 
     try {
-      // V32.0.8 — req.tenantDb pra dados.
+      // V37.4.29 — DUAL-WRITE transitório.
+      // - tenant_state: source of truth (todos membros do tenant compartilham).
+      // - journey_state: backup legado mantido por algumas releases pra rollback fácil.
+      // Após Felipe validar colaboração de verdade, remove o write em journey_state.
+
+      let wroteTenantState = false;
+      if (resolvedTenantId) {
+        try {
+          await req.tenantDb.query(
+            `INSERT INTO tenant_state (tenant_id, state_json, last_writer_user_id, updated_at)
+             VALUES ($1, $2, $3, NOW())
+             ON CONFLICT (tenant_id) DO UPDATE SET
+               state_json = EXCLUDED.state_json,
+               last_writer_user_id = EXCLUDED.last_writer_user_id,
+               updated_at = NOW()`,
+            [resolvedTenantId, state, userId]
+          );
+          wroteTenantState = true;
+        } catch (err) {
+          // Tabela não existe → ignora silenciosamente. POST continua escrevendo
+          // em journey_state. Felipe roda /api/admin-migrate-tenant-state pra criar.
+          if (!String(err.message).includes('does not exist')) {
+            console.warn('[state-sync POST] tenant_state write falhou:', err.message);
+          }
+        }
+      }
+
+      // Backup legado.
       await req.tenantDb.query(
         `INSERT INTO journey_state (user_id, state_json, updated_at, updated_by_user_id)
          VALUES ($1, $2, NOW(), $1)
@@ -112,7 +176,13 @@ module.exports = async function handler(req, res) {
            updated_by_user_id = EXCLUDED.updated_by_user_id`,
         [userId, state]
       );
-      return res.status(200).json({ ok: true, updatedAt: new Date().toISOString() });
+
+      return res.status(200).json({
+        ok: true,
+        updatedAt: new Date().toISOString(),
+        wroteTenantState,
+        wroteJourneyStateLegacy: true
+      });
     } catch (err) {
       console.error('[state-sync POST]', err);
       return res.status(500).json({ ok: false, message: err.message });
