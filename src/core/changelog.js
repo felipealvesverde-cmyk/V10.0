@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.28',
+    date: '2026-06-12',
+    title: 'Modal Editar Membro refeito + reset de senha / troca de email por link',
+    bullets: [
+      'Modal "Editar membro" reorganizado em 3 blocos: Role & permissões (com botão "Customizar permissões granulares" que abre sub-modal sobreposto), Ações de conta (2 botões novos), Zona de perigo (Remover).',
+      'Botão "Enviar reset de senha por email" — owner clica, membro recebe email com link mágico pra criar nova senha sem precisar saber a atual. Link válido por 7 dias.',
+      'Botão "Solicitar troca de email" — membro recebe email no endereço ATUAL, abre o link, informa o novo email + confirma com senha atual. Owner não vê nem troca direto — quem confirma é quem ainda controla o email.',
+      'Página pública /user-action.html processa os 2 fluxos. Tokens vivem em nova tabela user_action_tokens (action_type, expires_at, used_at). Mesmo feedback honesto do Resend (verde / vermelho com motivo / amarelo) aparece dentro do modal pai.',
+      '⚠ Master: rode /api/admin-migrate-user-action-tokens em prod no primeiro deploy pra criar a tabela.'
+    ]
+  },
+  {
     version: 'V37.4.27',
     date: '2026-06-12',
     title: 'Cancelar convite pendente',

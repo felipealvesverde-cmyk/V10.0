@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ação de conta — LeadJourney</title>
+  <link rel="icon" href="/public/lj-logo.png">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      min-height: 100vh;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      color: #0f172a;
+      border-radius: 24px;
+      max-width: 480px;
+      width: 100%;
+      padding: 40px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+      border-left: 4px solid #7c3aed;
+    }
+    .header { text-align: center; margin-bottom: 28px; }
+    .logo { font-size: 22px; font-weight: 900; color: #7c3aed; letter-spacing: -0.02em; }
+    .tagline { font-size: 10px; font-weight: 700; color: #78716c; letter-spacing: 0.18em; text-transform: uppercase; margin-top: 4px; }
+    h1 { margin: 24px 0 8px; font-size: 22px; font-weight: 900; line-height: 1.3; }
+    .meta { background: #fafaf9; border: 1px solid #e7e5e4; border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+    .meta p { margin: 4px 0; font-size: 13px; color: #334155; }
+    .meta strong { color: #0f172a; }
+    label { display: block; font-size: 11px; font-weight: 700; color: #57534e; text-transform: uppercase; letter-spacing: 0.08em; margin: 16px 0 6px; }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #d6d3d1;
+      border-radius: 10px;
+      font-size: 14px;
+      color: #0f172a;
+      font-family: inherit;
+      background: #fff;
+    }
+    input:focus { outline: none; border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15); }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: #7c3aed;
+      color: #fff;
+      border: 0;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+      margin-top: 24px;
+      transition: background 0.15s;
+    }
+    button:hover { background: #6d28d9; }
+    button:disabled { background: #a8a29e; cursor: not-allowed; }
+    .error { color: #b91c1c; font-size: 13px; margin-top: 12px; background: #fef2f2; border: 1px solid #fecaca; padding: 10px 12px; border-radius: 8px; }
+    .success { color: #047857; font-size: 13px; margin-top: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 10px 12px; border-radius: 8px; }
+    .muted { font-size: 11px; color: #78716c; margin-top: 6px; }
+    .center-link { text-align: center; margin-top: 20px; font-size: 12px; color: #78716c; }
+    .center-link a { color: #7c3aed; text-decoration: none; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo">LeadJourney</div>
+      <div class="tagline">Revenue Operating System</div>
+    </div>
+
+    <div id="state-loading">
+      <p style="text-align: center; color: #78716c;">Validando link...</p>
+    </div>
+
+    <div id="state-error" style="display: none;">
+      <h1 style="color: #b91c1c;">Link inválido</h1>
+      <p id="error-message" class="error"></p>
+      <div class="center-link"><a href="/">Ir pro login</a></div>
+    </div>
+
+    <!-- password_reset -->
+    <div id="state-password-reset" style="display: none;">
+      <h1>Redefinir senha</h1>
+      <div class="meta">
+        <p>Conta: <strong id="pr-email"></strong></p>
+        <p class="muted">Link válido até <span id="pr-expires"></span></p>
+      </div>
+      <form id="form-password-reset">
+        <label for="pr-new-password">Nova senha</label>
+        <input id="pr-new-password" type="password" autocomplete="new-password" required minlength="8" placeholder="Mínimo 8 caracteres">
+
+        <label for="pr-confirm-password">Confirmar nova senha</label>
+        <input id="pr-confirm-password" type="password" autocomplete="new-password" required minlength="8" placeholder="Repita a senha">
+
+        <button id="pr-submit-btn" type="submit">Redefinir senha</button>
+        <p id="pr-form-error" class="error" style="display: none;"></p>
+      </form>
+    </div>
+
+    <!-- email_change -->
+    <div id="state-email-change" style="display: none;">
+      <h1>Trocar email da conta</h1>
+      <div class="meta">
+        <p>Email atual: <strong id="ec-current-email"></strong></p>
+        <p class="muted">Link válido até <span id="ec-expires"></span></p>
+      </div>
+      <form id="form-email-change">
+        <label for="ec-new-email">Novo email</label>
+        <input id="ec-new-email" type="email" required placeholder="ex: joao.novo@empresa.com.br" autocomplete="email">
+
+        <label for="ec-current-password">Senha atual</label>
+        <input id="ec-current-password" type="password" autocomplete="current-password" required placeholder="Confirma identidade">
+        <div class="muted">A senha atual fica igual — só o email muda.</div>
+
+        <button id="ec-submit-btn" type="submit">Trocar email</button>
+        <p id="ec-form-error" class="error" style="display: none;"></p>
+      </form>
+    </div>
+
+    <div id="state-success" style="display: none;">
+      <h1 style="color: #047857;">Pronto!</h1>
+      <p class="success" id="success-message"></p>
+      <div class="center-link"><a href="/">Ir pro login</a></div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    const $ = (id) => document.getElementById(id);
+    const showState = (state) => {
+      ['loading', 'error', 'password-reset', 'email-change', 'success'].forEach(s => {
+        const el = $('state-' + s);
+        if (el) el.style.display = s === state ? 'block' : 'none';
+      });
+    };
+
+    async function loadAction() {
+      if (!token) {
+        $('error-message').textContent = 'Token ausente.';
+        return showState('error');
+      }
+      try {
+        const r = await fetch(`/api/user-action-token-info?token=${encodeURIComponent(token)}`);
+        const data = await r.json();
+        if (!data.ok) {
+          $('error-message').textContent = data.message || 'Link inválido ou expirado.';
+          return showState('error');
+        }
+        const a = data.action;
+        const expiresLabel = new Date(a.expiresAt).toLocaleDateString('pt-BR');
+
+        if (a.type === 'password_reset') {
+          $('pr-email').textContent = a.currentEmail;
+          $('pr-expires').textContent = expiresLabel;
+          showState('password-reset');
+        } else if (a.type === 'email_change') {
+          $('ec-current-email').textContent = a.currentEmail;
+          $('ec-expires').textContent = expiresLabel;
+          showState('email-change');
+        } else {
+          $('error-message').textContent = 'Tipo de ação não suportado: ' + a.type;
+          showState('error');
+        }
+      } catch (err) {
+        $('error-message').textContent = err.message || 'Erro de rede.';
+        showState('error');
+      }
+    }
+
+    $('form-password-reset').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newPassword = $('pr-new-password').value;
+      const confirmPassword = $('pr-confirm-password').value;
+      const btn = $('pr-submit-btn');
+      const err = $('pr-form-error');
+      err.style.display = 'none';
+      if (newPassword !== confirmPassword) {
+        err.textContent = 'Senhas não batem.';
+        err.style.display = 'block';
+        return;
+      }
+      btn.disabled = true; btn.textContent = 'Salvando...';
+      try {
+        const r = await fetch('/api/user-action-token-confirm', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, newPassword })
+        });
+        const data = await r.json();
+        if (!data.ok) {
+          err.textContent = data.message || 'Erro.';
+          err.style.display = 'block';
+          btn.disabled = false; btn.textContent = 'Redefinir senha';
+          return;
+        }
+        $('success-message').textContent = data.message;
+        showState('success');
+      } catch (e2) {
+        err.textContent = e2.message; err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Redefinir senha';
+      }
+    });
+
+    $('form-email-change').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newEmail = $('ec-new-email').value.trim().toLowerCase();
+      const currentPassword = $('ec-current-password').value;
+      const btn = $('ec-submit-btn');
+      const err = $('ec-form-error');
+      err.style.display = 'none';
+      btn.disabled = true; btn.textContent = 'Salvando...';
+      try {
+        const r = await fetch('/api/user-action-token-confirm', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, newEmail, currentPassword })
+        });
+        const data = await r.json();
+        if (!data.ok) {
+          err.textContent = data.message || 'Erro.';
+          err.style.display = 'block';
+          btn.disabled = false; btn.textContent = 'Trocar email';
+          return;
+        }
+        $('success-message').textContent = data.message;
+        showState('success');
+      } catch (e2) {
+        err.textContent = e2.message; err.style.display = 'block';
+        btn.disabled = false; btn.textContent = 'Trocar email';
+      }
+    });
+
+    loadAction();
+  </script>
+</body>
+</html>

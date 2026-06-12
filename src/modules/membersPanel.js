@@ -239,24 +239,13 @@ window.MembersPanel = {
   _editModal(modal) {
     const m = (App.state.membersCache?.members || []).find(x => x.userId === modal.userId);
     if (!m) return '';
-    const PE = window.PermissionEngineClient || null;
-    const PERMISSION_KEYS = PE?.PERMISSION_KEYS || [];
-    const effective = modal.draft?.effective || {};
     const overrides = modal.draft?.overrides || {};
-
-    const groups = {};
-    PERMISSION_KEYS.forEach(k => {
-      const group = k.startsWith('view.') ? 'Visualização'
-                  : k.startsWith('edit.') ? 'Edição'
-                  : k.startsWith('ops.') ? 'Operações'
-                  : k.startsWith('admin.') ? 'Administração' : 'Outros';
-      groups[group] = groups[group] || [];
-      groups[group].push(k);
-    });
+    const overrideCount = Object.keys(overrides).length;
+    const actionResult = modal.actionResult;
 
     return `<div class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm grid place-items-center p-4"
         onclick="Actions.closeMemberEditModal()">
-      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col"
            onclick="event.stopPropagation()" style="border-left:4px solid #7c3aed;">
         <div class="flex items-start gap-4 p-5 border-b border-stone-200">
           <span class="shrink-0 w-10 h-10 rounded-xl bg-stone-700 grid place-items-center text-white text-[10px] font-black" style="color:#fff!important;">${(m.username||m.email).slice(0,2).toUpperCase()}</span>
@@ -269,50 +258,168 @@ window.MembersPanel = {
           </button>
         </div>
         <div class="p-5 overflow-y-auto flex-1 space-y-4">
-          <div class="rounded-xl bg-stone-50 border border-stone-200 p-3">
-            <label class="block text-[10px] font-black text-stone-700 uppercase tracking-widest mb-1.5">Role base</label>
-            <select onchange="Actions.updateMemberEditDraft('role', this.value)"
-              class="w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-slate-900 text-[12px] font-bold" ${m.isOwner ? 'disabled' : ''}>
-              <option value="owner" ${modal.draft?.role === 'owner' ? 'selected' : ''}>Admin Master (owner)</option>
-              <option value="manager" ${modal.draft?.role === 'manager' ? 'selected' : ''}>Gerente</option>
-              <option value="user" ${modal.draft?.role === 'user' ? 'selected' : ''}>Usuário</option>
-            </select>
-            ${m.isOwner ? '<p class="text-[10px] text-stone-500 mt-1.5">O Admin Master do tenant não pode ser rebaixado por aqui.</p>' : ''}
-          </div>
-
-          <div class="rounded-xl bg-white border border-stone-200 p-3">
-            <p class="text-[10px] font-black text-stone-700 uppercase tracking-widest mb-2">Permissões customizadas</p>
-            <p class="text-[10px] text-stone-500 mb-3">Marque pra <span class="font-bold text-emerald-700">habilitar</span>, desmarque pra <span class="font-bold text-rose-700">desabilitar</span>. Linha amarela = sobrescreve o template do role. Sem amarelo = segue o template.</p>
-            <div class="space-y-3">
-              ${Object.entries(groups).map(([groupName, keys]) => `
-                <div>
-                  <p class="text-[9px] font-black text-stone-500 uppercase tracking-widest mb-1">${groupName}</p>
-                  <div class="space-y-0.5">
-                    ${keys.map(k => {
-                      const isOverride = Object.prototype.hasOwnProperty.call(overrides, k);
-                      const isEnabled = isOverride ? overrides[k] : effective[k];
-                      const label = PE?.permissionLabel ? PE.permissionLabel(k) : k;
-                      return `<label class="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-stone-50 ${isOverride ? 'bg-amber-50' : ''}">
-                        <input type="checkbox" ${isEnabled ? 'checked' : ''}
-                          onchange="Actions.toggleMemberPermissionOverride('${k}', this.checked)"
-                          class="w-3.5 h-3.5 accent-violet-600">
-                        <span class="text-[11px] ${isEnabled ? 'text-slate-900 font-bold' : 'text-stone-500'}">${Utils.escape(label)}</span>
-                        ${isOverride ? `<button onclick="Actions.clearMemberPermissionOverride('${k}')" class="ml-auto text-[9px] text-amber-700 hover:text-amber-900 font-bold">resetar</button>` : ''}
-                      </label>`;
-                    }).join('')}
-                  </div>
-                </div>
-              `).join('')}
+          <!-- ROLE & PERMISSÕES -->
+          <div>
+            <p class="text-[10px] font-black text-stone-700 uppercase tracking-widest mb-2">Role & permissões</p>
+            <div class="rounded-xl bg-stone-50 border border-stone-200 p-3 space-y-3">
+              <div>
+                <label class="block text-[10px] font-black text-stone-600 uppercase tracking-widest mb-1.5">Role base</label>
+                <select onchange="Actions.updateMemberEditDraft('role', this.value)"
+                  class="w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-slate-900 text-[12px] font-bold" ${m.isOwner ? 'disabled' : ''}>
+                  <option value="owner" ${modal.draft?.role === 'owner' ? 'selected' : ''}>Admin Master (owner)</option>
+                  <option value="manager" ${modal.draft?.role === 'manager' ? 'selected' : ''}>Gerente</option>
+                  <option value="user" ${modal.draft?.role === 'user' ? 'selected' : ''}>Usuário</option>
+                </select>
+                ${m.isOwner ? '<p class="text-[10px] text-stone-500 mt-1.5">O Admin Master do tenant não pode ser rebaixado por aqui.</p>' : ''}
+              </div>
+              <button onclick="Actions.openMemberPermissionsModal()"
+                class="w-full px-3 py-2.5 rounded-lg bg-white border border-stone-300 hover:bg-stone-100 text-slate-700 text-[12px] font-bold inline-flex items-center justify-between gap-2">
+                <span class="inline-flex items-center gap-2">
+                  <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
+                  Customizar permissões granulares
+                </span>
+                ${overrideCount > 0 ? `<span class="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">${overrideCount} custom</span>` : '<span class="text-[10px] text-stone-400">segue template</span>'}
+              </button>
             </div>
           </div>
+
+          <!-- AÇÕES DE CONTA -->
+          <div>
+            <p class="text-[10px] font-black text-stone-700 uppercase tracking-widest mb-2">Ações de conta</p>
+            <div class="rounded-xl bg-stone-50 border border-stone-200 p-3 space-y-2">
+              <button onclick="Actions.sendMemberPasswordReset(${m.userId})" ${modal.sendingReset ? 'disabled' : ''}
+                class="w-full px-3 py-2.5 rounded-lg bg-white border border-stone-300 hover:bg-stone-100 text-slate-700 text-[12px] font-bold inline-flex items-center gap-2">
+                <i data-lucide="${modal.sendingReset ? 'loader-2' : 'key'}" class="w-3.5 h-3.5 ${modal.sendingReset ? 'animate-spin' : ''}"></i>
+                ${modal.sendingReset ? 'Enviando...' : 'Enviar reset de senha por email'}
+              </button>
+              <button onclick="Actions.sendMemberEmailChange(${m.userId})" ${modal.sendingEmailChange ? 'disabled' : ''}
+                class="w-full px-3 py-2.5 rounded-lg bg-white border border-stone-300 hover:bg-stone-100 text-slate-700 text-[12px] font-bold inline-flex items-center gap-2">
+                <i data-lucide="${modal.sendingEmailChange ? 'loader-2' : 'mail'}" class="w-3.5 h-3.5 ${modal.sendingEmailChange ? 'animate-spin' : ''}"></i>
+                ${modal.sendingEmailChange ? 'Enviando...' : 'Solicitar troca de email'}
+              </button>
+              <p class="text-[10px] text-stone-500 leading-snug">O membro recebe email com link mágico pra completar a ação. Reset de senha não exige a senha atual; troca de email exige confirmação por senha atual.</p>
+            </div>
+          </div>
+
+          ${actionResult ? this._memberActionResult(actionResult) : ''}
+
+          <!-- ZONA DE PERIGO -->
+          ${!m.isOwner ? `<div>
+            <p class="text-[10px] font-black text-rose-700 uppercase tracking-widest mb-2">Zona de perigo</p>
+            <div class="rounded-xl bg-rose-50/60 border border-rose-200 p-3">
+              <button onclick="Actions.removeTenantMember(${m.userId}, '${Utils.escape(m.email).replace(/'/g, '\\\'')}')"
+                class="w-full px-3 py-2.5 rounded-lg bg-white border border-rose-300 hover:bg-rose-50 text-rose-700 text-[12px] font-bold inline-flex items-center gap-2">
+                <i data-lucide="user-minus" class="w-3.5 h-3.5"></i>Remover do tenant
+              </button>
+              <p class="text-[10px] text-rose-700/80 mt-1.5">Tira o acesso a este workspace. A conta do usuário continua existindo.</p>
+            </div>
+          </div>` : ''}
         </div>
         <div class="px-5 py-4 border-t border-stone-200 bg-stone-50 flex items-center justify-between gap-3">
           <button onclick="Actions.closeMemberEditModal()" class="px-3 py-2 rounded-lg bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 text-[12px] font-bold">Cancelar</button>
           <button onclick="Actions.saveMemberEdit()" ${modal.saving ? 'disabled' : ''}
             class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
             <i data-lucide="${modal.saving ? 'loader-2' : 'check'}" class="w-3.5 h-3.5 ${modal.saving ? 'animate-spin' : ''}"></i>
-            ${modal.saving ? 'Salvando...' : 'Salvar mudanças'}
+            ${modal.saving ? 'Salvando...' : 'Salvar role & permissões'}
           </button>
+        </div>
+      </div>
+      ${App.state.memberPermissionsModal ? this._permissionsSubmodal(modal) : ''}
+    </div>`;
+  },
+
+  // V37.4.28 — Resultado de "Enviar reset / Solicitar troca" exibido dentro do modal pai.
+  _memberActionResult(result) {
+    const isEmailReal = result.emailSent && !result.emailSimulated;
+    const smtpOn = result.smtpConfigured;
+    const resendError = result.emailError;
+    const banner = isEmailReal ? `
+      <div class="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2.5 flex items-center gap-2">
+        <i data-lucide="mail-check" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+        <p class="text-[12px] text-emerald-800"><span class="font-black">${Utils.escape(result.message || 'Email enviado.')}</span></p>
+      </div>`
+    : (smtpOn && resendError) ? `
+      <div class="rounded-lg bg-rose-50 border border-rose-200 px-3 py-2.5 flex items-start gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i>
+        <div class="min-w-0">
+          <p class="text-[12px] text-rose-800 font-black">SMTP configurado mas Resend recusou.</p>
+          <p class="text-[11px] text-rose-700 mt-0.5 break-words"><span class="font-bold">Motivo:</span> ${Utils.escape(resendError)}${result.emailErrorStatus ? ` (HTTP ${result.emailErrorStatus})` : ''}</p>
+        </div>
+      </div>`
+    : `
+      <div class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 flex items-start gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
+        <p class="text-[12px] text-amber-800 font-black">SMTP não configurado.</p>
+      </div>`;
+    return `<div class="space-y-2">
+      ${banner}
+      <div>
+        <label class="block text-[10px] font-black text-stone-700 uppercase tracking-widest mb-1">Link de fallback</label>
+        <div class="rounded-lg bg-stone-50 border border-stone-200 px-3 py-2">
+          <p class="text-[10px] text-stone-700 font-mono break-all leading-snug">${Utils.escape(result.actionUrl)}</p>
+        </div>
+        <button onclick="Actions.copyMemberActionUrl()" class="mt-1.5 text-[11px] text-violet-600 hover:text-violet-800 font-bold inline-flex items-center gap-1">
+          <i data-lucide="copy" class="w-3 h-3"></i>Copiar link
+        </button>
+      </div>
+    </div>`;
+  },
+
+  // V37.4.28 — Sub-modal sobreposto pra ajustar permissões granulares.
+  _permissionsSubmodal(parentModal) {
+    const PE = window.PermissionEngineClient || null;
+    const PERMISSION_KEYS = PE?.PERMISSION_KEYS || [];
+    const effective = parentModal.draft?.effective || {};
+    const overrides = parentModal.draft?.overrides || {};
+    const groups = {};
+    PERMISSION_KEYS.forEach(k => {
+      const group = k.startsWith('view.') ? 'Visualização'
+                  : k.startsWith('edit.') ? 'Edição'
+                  : k.startsWith('ops.') ? 'Operações'
+                  : k.startsWith('admin.') ? 'Administração' : 'Outros';
+      groups[group] = groups[group] || [];
+      groups[group].push(k);
+    });
+
+    return `<div class="fixed inset-0 z-[60] bg-slate-900/70 backdrop-blur-sm grid place-items-center p-4"
+        onclick="Actions.closeMemberPermissionsModal()">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
+           onclick="event.stopPropagation()" style="border-left:4px solid #7c3aed;">
+        <div class="flex items-start gap-3 p-5 border-b border-stone-200">
+          <span class="shrink-0 w-10 h-10 rounded-xl bg-violet-100 border border-violet-200 grid place-items-center text-violet-700">
+            <i data-lucide="sliders-horizontal" class="w-5 h-5"></i>
+          </span>
+          <div class="min-w-0 flex-1">
+            <h2 class="text-[15px] font-black text-slate-900">Permissões customizadas</h2>
+            <p class="text-[11px] text-stone-500">Marque pra habilitar, desmarque pra desabilitar. Linha amarela = sobrescreve o template do role.</p>
+          </div>
+          <button onclick="Actions.closeMemberPermissionsModal()" class="w-8 h-8 rounded-lg hover:bg-stone-100 grid place-items-center text-stone-600">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+        <div class="p-5 overflow-y-auto flex-1 space-y-4">
+          ${Object.entries(groups).map(([groupName, keys]) => `
+            <div>
+              <p class="text-[10px] font-black text-stone-500 uppercase tracking-widest mb-1.5">${groupName}</p>
+              <div class="space-y-0.5">
+                ${keys.map(k => {
+                  const isOverride = Object.prototype.hasOwnProperty.call(overrides, k);
+                  const isEnabled = isOverride ? overrides[k] : effective[k];
+                  const label = PE?.permissionLabel ? PE.permissionLabel(k) : k;
+                  return `<label class="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer hover:bg-stone-50 ${isOverride ? 'bg-amber-50' : ''}">
+                    <input type="checkbox" ${isEnabled ? 'checked' : ''}
+                      onchange="Actions.toggleMemberPermissionOverride('${k}', this.checked)"
+                      class="w-3.5 h-3.5 accent-violet-600">
+                    <span class="text-[11px] ${isEnabled ? 'text-slate-900 font-bold' : 'text-stone-500'}">${Utils.escape(label)}</span>
+                    ${isOverride ? `<button onclick="Actions.clearMemberPermissionOverride('${k}')" class="ml-auto text-[9px] text-amber-700 hover:text-amber-900 font-bold">resetar</button>` : ''}
+                  </label>`;
+                }).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="px-5 py-4 border-t border-stone-200 bg-stone-50 flex justify-end">
+          <button onclick="Actions.closeMemberPermissionsModal()" class="px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[12px] font-black" style="color:#fff!important;">Fechar</button>
         </div>
       </div>
     </div>`;

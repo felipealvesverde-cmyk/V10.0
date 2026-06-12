@@ -7930,6 +7930,9 @@ Object.assign(Actions, {
     App.state.memberEditModal = {
       userId,
       saving: false,
+      sendingReset: false,
+      sendingEmailChange: false,
+      actionResult: null,
       draft: {
         role: member.role,
         overrides: { ...(member.permissionsOverrides || {}) },
@@ -7941,7 +7944,85 @@ Object.assign(Actions, {
 
   closeMemberEditModal() {
     App.state.memberEditModal = null;
+    App.state.memberPermissionsModal = false;
     App.render();
+  },
+
+  // V37.4.28 — Sub-modal de permissões granulares (sobreposto ao Editar Membro).
+  openMemberPermissionsModal() {
+    App.state.memberPermissionsModal = true;
+    App.render();
+  },
+  closeMemberPermissionsModal() {
+    App.state.memberPermissionsModal = false;
+    App.render();
+  },
+
+  // V37.4.28 — Owner manda email pro membro com link mágico de reset de senha.
+  async sendMemberPasswordReset(userId) {
+    const modal = App.state.memberEditModal;
+    if (!modal) return;
+    if (!confirm('Enviar email com link de reset de senha pra este membro?\n\nO link permite criar uma nova senha sem precisar da atual.')) return;
+    modal.sendingReset = true; modal.actionResult = null; App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/tenant-member-send-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId })
+      });
+      const data = await r.json();
+      modal.sendingReset = false;
+      if (!data.ok) {
+        Utils.toast(`Erro: ${data.message}`);
+      } else {
+        modal.actionResult = data;
+        Utils.toast(data.emailSent ? '✓ Email enviado.' : 'Convite criado — copie o link.');
+      }
+      App.render();
+    } catch (err) {
+      modal.sendingReset = false; App.render();
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V37.4.28 — Owner solicita ao membro a troca do próprio email.
+  async sendMemberEmailChange(userId) {
+    const modal = App.state.memberEditModal;
+    if (!modal) return;
+    if (!confirm('Enviar email com link pra trocar o email da conta?\n\nO membro precisa abrir o link no email ATUAL e confirmar a troca com a senha atual.')) return;
+    modal.sendingEmailChange = true; modal.actionResult = null; App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/tenant-member-send-email-change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId })
+      });
+      const data = await r.json();
+      modal.sendingEmailChange = false;
+      if (!data.ok) {
+        Utils.toast(`Erro: ${data.message}`);
+      } else {
+        modal.actionResult = data;
+        Utils.toast(data.emailSent ? '✓ Email enviado.' : 'Link criado — copie e envie.');
+      }
+      App.render();
+    } catch (err) {
+      modal.sendingEmailChange = false; App.render();
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  copyMemberActionUrl() {
+    const url = App.state.memberEditModal?.actionResult?.actionUrl;
+    if (!url) return Utils.toast('Link não disponível.');
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url);
+      Utils.toast('✓ Link copiado.');
+    } else {
+      prompt('Copie este link:', url);
+    }
   },
 
   updateMemberEditDraft(field, value) {
