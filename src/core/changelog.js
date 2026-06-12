@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.3.0',
+    date: '2026-06-12',
+    title: 'SMTP infra (Resend) — stub plug-and-play + templates de convite e recovery',
+    bullets: [
+      'Esqueleto do envio de email cravado. `lib/email-client.js` expõe sendEmail({ to, subject, html, text }) que chama Resend quando RESEND_API_KEY está setada, ou simula envio no console quando não está. Zero refactor pra ativar — só preencher 2 env vars.',
+      'Templates HTML iniciais em `lib/email-templates.js`: convite de membro + recovery de senha. Design simples, inline-CSS pra compatibilidade Gmail/Outlook, com identidade visual LJ.',
+      'Pendência operacional: criar conta em resend.com, gerar API key e setar RESEND_API_KEY + EMAIL_FROM no Railway. Enquanto não setado, todo envio loga "[email-client] ⚠ RESEND_API_KEY não configurada — email SIMULADO".'
+    ]
+  },
+  {
     version: 'V37.2.5',
     date: '2026-06-12',
     title: 'Cards de pessoa ganham side accent (cor do avatar) + hover com movimento',
