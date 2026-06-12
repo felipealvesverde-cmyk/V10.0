@@ -7920,9 +7920,14 @@ Object.assign(Actions, {
     return out;
   },
 
-  // V37.3.3 — Convite (stub, complete em V37.3.3)
+  // V37.3.3 — Convite por email (com fallback "Copiar Link" quando SMTP off).
   openInviteMemberModal() {
-    App.state.inviteModal = { email: '', role: 'user', saving: false, lastInviteUrl: null };
+    App.state.inviteModal = {
+      email: '',
+      role: 'user',
+      saving: false,
+      result: null   // { acceptUrl, emailSent, emailSimulated, smtpConfigured }
+    };
     App.render();
   },
 
@@ -7931,8 +7936,94 @@ Object.assign(Actions, {
     App.render();
   },
 
-  copyInviteLink(inviteId) {
-    Utils.toast('Link de convite — V37.3.3 traz o "Copiar Link" completo.');
+  updateInviteDraft(field, value) {
+    if (!App.state.inviteModal) return;
+    if (field === 'email') App.state.inviteModal.email = String(value || '').trim().toLowerCase();
+    else if (field === 'role') App.state.inviteModal.role = value;
+    // não chama render (mantém foco do input)
+  },
+
+  async sendInvite() {
+    const modal = App.state.inviteModal;
+    if (!modal || modal.saving) return;
+    if (!modal.email || !modal.email.includes('@')) return Utils.toast('Email inválido.');
+    modal.saving = true; App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/tenant-invite-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          email: modal.email,
+          role: modal.role,
+          tenantId: App.state.user?.tenantId
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao convidar.');
+      modal.result = {
+        acceptUrl: data.acceptUrl,
+        emailSent: Boolean(data.emailSent),
+        emailSimulated: Boolean(data.emailSimulated),
+        smtpConfigured: Boolean(data.smtpConfigured),
+        expiresAt: data.expiresAt
+      };
+      modal.saving = false;
+      await Actions.refreshTenantMembers();
+      App.render();
+    } catch (err) {
+      modal.saving = false;
+      Utils.toast(`Erro: ${err.message}`);
+      App.render();
+    }
+  },
+
+  copyAcceptUrlFromModal() {
+    const url = App.state.inviteModal?.result?.acceptUrl;
+    if (!url) return;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(
+        () => Utils.toast('✓ Link copiado pra área de transferência.'),
+        () => Utils.toast('Não consegui copiar — selecione manualmente.')
+      );
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = url; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy');
+      ta.remove();
+      Utils.toast('✓ Link copiado.');
+    }
+  },
+
+  async copyInviteLink(inviteId) {
+    // V37.3.3 — Re-emite o convite (mesma API tenant-invite-create) e copia o link.
+    const cache = App.state.membersCache;
+    const invite = (cache?.pendingInvites || []).find(i => i.id === inviteId);
+    if (!invite) return Utils.toast('Convite não encontrado.');
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/tenant-invite-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          email: invite.email,
+          role: invite.role,
+          tenantId: App.state.user?.tenantId
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao re-emitir.');
+      const url = data.acceptUrl;
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        Utils.toast('✓ Link de convite copiado.');
+      } else {
+        prompt('Copie este link:', url);
+      }
+      await Actions.refreshTenantMembers();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
   },
 
   async loadTasksPersonData(force = false) {

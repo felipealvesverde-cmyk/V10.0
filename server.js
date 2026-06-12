@@ -1055,6 +1055,10 @@ if (fs.existsSync(apiDir)) {
 
 const indexPath = path.join(__dirname, 'index.html');
 app.get('/', (_req, res) => res.sendFile(indexPath));
+// V37.3.3 — Rota dedicada pra página de aceitar convite (standalone HTML).
+app.get('/accept-invite.html', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'accept-invite.html'));
+});
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) return res.status(404).json({ ok: false, message: 'Endpoint não encontrado.' });
   res.sendFile(indexPath);

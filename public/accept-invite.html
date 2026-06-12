@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aceitar convite — LeadJourney</title>
+  <link rel="icon" href="/public/lj-logo.png">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
+      min-height: 100vh;
+      color: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: #fff;
+      color: #0f172a;
+      border-radius: 24px;
+      max-width: 480px;
+      width: 100%;
+      padding: 40px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+      border-left: 4px solid #7c3aed;
+    }
+    .header { text-align: center; margin-bottom: 28px; }
+    .logo { font-size: 22px; font-weight: 900; color: #7c3aed; letter-spacing: -0.02em; }
+    .tagline { font-size: 10px; font-weight: 700; color: #78716c; letter-spacing: 0.18em; text-transform: uppercase; margin-top: 4px; }
+    h1 { margin: 24px 0 8px; font-size: 22px; font-weight: 900; line-height: 1.3; }
+    .invite-meta { background: #fafaf9; border: 1px solid #e7e5e4; border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+    .invite-meta p { margin: 4px 0; font-size: 13px; color: #334155; }
+    .invite-meta strong { color: #0f172a; }
+    .role-badge {
+      display: inline-block;
+      background: #ede9fe;
+      color: #6d28d9;
+      border: 1px solid #c4b5fd;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    label { display: block; font-size: 11px; font-weight: 700; color: #57534e; text-transform: uppercase; letter-spacing: 0.08em; margin: 16px 0 6px; }
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #d6d3d1;
+      border-radius: 10px;
+      font-size: 14px;
+      color: #0f172a;
+      font-family: inherit;
+      background: #fff;
+    }
+    input:focus { outline: none; border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15); }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: #7c3aed;
+      color: #fff;
+      border: 0;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+      margin-top: 24px;
+      transition: background 0.15s;
+    }
+    button:hover { background: #6d28d9; }
+    button:disabled { background: #a8a29e; cursor: not-allowed; }
+    .error { color: #b91c1c; font-size: 13px; margin-top: 12px; background: #fef2f2; border: 1px solid #fecaca; padding: 10px 12px; border-radius: 8px; }
+    .success { color: #047857; font-size: 13px; margin-top: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 10px 12px; border-radius: 8px; }
+    .muted { font-size: 11px; color: #78716c; margin-top: 6px; }
+    .center-link { text-align: center; margin-top: 20px; font-size: 12px; color: #78716c; }
+    .center-link a { color: #7c3aed; text-decoration: none; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <div class="logo">LeadJourney</div>
+      <div class="tagline">Revenue Operating System</div>
+    </div>
+
+    <div id="state-loading">
+      <p style="text-align: center; color: #78716c;">Carregando convite...</p>
+    </div>
+
+    <div id="state-error" style="display: none;">
+      <h1 style="color: #b91c1c;">Não consegui validar o convite</h1>
+      <p id="error-message" class="error"></p>
+      <div class="center-link"><a href="/">Ir pro login</a></div>
+    </div>
+
+    <div id="state-form" style="display: none;">
+      <h1>Você foi convidado pra <span id="tenant-name"></span></h1>
+      <div class="invite-meta">
+        <p><strong id="inviter-name">Alguém</strong> te convidou como <span id="role-badge" class="role-badge">Membro</span></p>
+        <p>Email: <strong id="invitee-email"></strong></p>
+        <p class="muted">Convite válido até <span id="expires-at"></span></p>
+      </div>
+      <form id="accept-form">
+        <label for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required minlength="3" maxlength="64" placeholder="ex: joao.silva">
+        <div class="muted">3-64 chars, sem espaços. Será seu identificador.</div>
+
+        <label for="displayName">Nome de exibição (opcional)</label>
+        <input id="displayName" name="displayName" type="text" maxlength="120" placeholder="ex: João Silva">
+
+        <label for="password">Senha</label>
+        <input id="password" name="password" type="password" autocomplete="new-password" required minlength="8" placeholder="Mínimo 8 caracteres">
+        <div class="muted">Use uma senha forte que você lembra.</div>
+
+        <button id="submit-btn" type="submit">Criar conta e entrar</button>
+        <p id="form-error" class="error" style="display: none;"></p>
+      </form>
+    </div>
+
+    <div id="state-success" style="display: none;">
+      <h1 style="color: #047857;">Bem-vindo ao LeadJourney</h1>
+      <p class="success" id="success-message"></p>
+      <div class="center-link"><a href="/">Continuar pro app</a></div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+
+    const $ = (id) => document.getElementById(id);
+    const showState = (state) => {
+      ['loading', 'error', 'form', 'success'].forEach(s => {
+        const el = $('state-' + s);
+        if (el) el.style.display = s === state ? 'block' : 'none';
+      });
+    };
+
+    const ROLE_LABELS = {
+      owner: 'Admin Master',
+      manager: 'Gerente',
+      user: 'Usuário'
+    };
+
+    async function loadInvite() {
+      if (!token) {
+        $('error-message').textContent = 'Link de convite inválido (token ausente).';
+        return showState('error');
+      }
+      try {
+        const r = await fetch(`/api/tenant-invite-info?token=${encodeURIComponent(token)}`);
+        const data = await r.json();
+        if (!data.ok) {
+          $('error-message').textContent = data.message || 'Convite inválido ou expirado.';
+          return showState('error');
+        }
+        const inv = data.invite;
+        $('tenant-name').textContent = inv.tenantName;
+        $('inviter-name').textContent = inv.inviterName;
+        $('invitee-email').textContent = inv.email;
+        $('role-badge').textContent = ROLE_LABELS[inv.role] || inv.role;
+        $('expires-at').textContent = new Date(inv.expiresAt).toLocaleDateString('pt-BR');
+
+        // Sugere username do email
+        const suggested = inv.email.split('@')[0].replace(/[^a-z0-9._-]/g, '').toLowerCase();
+        $('username').value = suggested;
+
+        showState('form');
+      } catch (err) {
+        $('error-message').textContent = err.message || 'Erro de rede.';
+        showState('error');
+      }
+    }
+
+    $('accept-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = $('username').value.trim().toLowerCase();
+      const password = $('password').value;
+      const displayName = $('displayName').value.trim();
+      const btn = $('submit-btn');
+      const errorBox = $('form-error');
+      errorBox.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Criando conta...';
+
+      try {
+        const r = await fetch('/api/tenant-invite-accept', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, username, password, displayName })
+        });
+        const data = await r.json();
+        if (!data.ok) {
+          errorBox.textContent = data.message || 'Erro ao aceitar convite.';
+          errorBox.style.display = 'block';
+          btn.disabled = false;
+          btn.textContent = 'Criar conta e entrar';
+          return;
+        }
+
+        // Salva JWT e redireciona
+        if (data.jwt) localStorage.setItem('lj_jwt', data.jwt);
+        $('success-message').textContent = data.message || 'Conta criada com sucesso!';
+        showState('success');
+        setTimeout(() => { window.location.href = '/'; }, 1500);
+      } catch (err) {
+        errorBox.textContent = err.message || 'Erro de rede.';
+        errorBox.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Criar conta e entrar';
+      }
+    });
+
+    loadInvite();
+  </script>
+</body>
+</html>
