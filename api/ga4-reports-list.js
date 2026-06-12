@@ -10,6 +10,7 @@
 //   { ok: true, propertyId, rows: [{ date, dimensions, metrics }], totalRows, syncedAt }
 
 const { readConfig } = require('../lib/ga4-oauth');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -17,7 +18,8 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Reports GA4 vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
   const days = Math.max(1, Math.min(365, Number(req.query?.days || 30)));
   const limit = Math.max(1, Math.min(10000, Number(req.query?.limit || 1000)));
 

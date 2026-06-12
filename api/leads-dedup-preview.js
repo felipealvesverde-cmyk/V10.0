@@ -9,6 +9,8 @@
 // Volume guard: max 50k entradas combinadas. Acima disso, retorna 413
 // (caller já bloqueou no front via regra de Felipe, mas é defensa).
 
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+
 const MAX_TOTAL = 50000;
 
 module.exports = async function handler(req, res) {
@@ -17,7 +19,8 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Dedup preview vive na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
   body = body || {};

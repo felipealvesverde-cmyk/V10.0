@@ -7,13 +7,15 @@
 // Permissão: qualquer user autenticado (self-scope).
 
 const { encrypt, decrypt } = require('../lib/clickup-crypto');
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Credenciais Google Ads vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
 
   try {
     if (req.method === 'GET') {
@@ -55,6 +57,8 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      try { await assertCanWriteCredentials(req); }
+      catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
       let body = req.body;
       if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
       body = body || {};
@@ -98,6 +102,8 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'DELETE') {
+      try { await assertCanWriteCredentials(req); }
+      catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
       await req.tenantDb.query(`DELETE FROM lj_google_ads_config WHERE user_id = $1`, [userId]);
       return res.status(200).json({ ok: true, message: 'Google Ads desconectado.' });
     }

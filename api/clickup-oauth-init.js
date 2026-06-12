@@ -2,6 +2,7 @@
 // GET: retorna URL de autorização (frontend redireciona o user pra ela).
 // State é codificado com user_id + nonce pra validar no callback.
 const { decrypt, isConfigured } = require('../lib/clickup-crypto');
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
 const crypto = require('crypto');
 
 function redirectUriFor(req) {
@@ -17,15 +18,21 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!isConfigured()) return res.status(503).json({ ok: false, message: 'ENCRYPTION_KEY não configurada no servidor.' });
 
+  // V37.4.34 — Iniciar OAuth = mutar credencial do tenant. Só owner ou master.
+  try { await assertCanWriteCredentials(req); }
+  catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
+
   try {
     // V32.0.9 — clickup_config vive no tenant plane.
-    const r = await req.tenantDb.query('SELECT client_id_enc FROM clickup_config WHERE user_id = $1', [req.user.sub]);
+    // V37.4.34 — Resolve pro owner do tenant. Token vai ser salvo na linha dele.
+    const userId = await resolveCredentialOwnerId(req);
+    const r = await req.tenantDb.query('SELECT client_id_enc FROM clickup_config WHERE user_id = $1', [userId]);
     if (!r.rows.length) return res.status(404).json({ ok: false, message: 'Configure Client ID/Secret primeiro.' });
     const clientId = decrypt(r.rows[0].client_id_enc);
     const redirectUri = redirectUriFor(req);
-    // State: user_id + nonce (timestamp + random). Decodificado no callback pra associar o token ao user.
+    // State: user_id (owner) + nonce (timestamp + random). Decodificado no callback.
     const nonce = crypto.randomBytes(8).toString('hex');
-    const state = Buffer.from(JSON.stringify({ u: req.user.sub, n: nonce, t: Date.now() })).toString('base64url');
+    const state = Buffer.from(JSON.stringify({ u: userId, n: nonce, t: Date.now() })).toString('base64url');
     const url = `https://app.clickup.com/api?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
     return res.status(200).json({ ok: true, url, redirectUri });
   } catch (err) {

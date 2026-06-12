@@ -5,13 +5,14 @@
 //
 // Retorna { ok: true, accessible: bool, rootId, rootKind, rootName?, message }.
 const { clickupFetch } = require('../lib/clickup-client');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
 
-  const userId = req.user.sub;
+  const userId = await resolveCredentialOwnerId(req);
 
   try {
     const credRow = await req.tenantDb.query(

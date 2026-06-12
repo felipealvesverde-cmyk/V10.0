@@ -13,6 +13,7 @@
 //   4. Retorna { ok, visitor, markedForRdSync }.
 
 const { markForSync } = require('../lib/rd-contact-sync-engine');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 // Campos editáveis que existem no lj_visitors. Outros (idade, sexo, cidade...)
 // ainda vivem só no journey_state legacy — não tem coluna pra eles.
@@ -36,7 +37,8 @@ module.exports = async function handler(req, res) {
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
   body = body || {};
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Visitor vive na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
   const email = String(body.email || '').toLowerCase().trim();
   if (!userId) return res.status(401).json({ ok: false, message: 'JWT sem user id.' });
   if (!email) return res.status(400).json({ ok: false, message: 'email obrigatório (chave de lookup).' });

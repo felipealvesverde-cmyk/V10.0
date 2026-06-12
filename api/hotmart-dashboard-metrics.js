@@ -9,6 +9,7 @@
 //                        cancellation_reason quando ativo no breakdown)
 
 const { REASON_MAP, REASON_OTHERS } = require('../lib/lj-hotmart-service');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -16,7 +17,8 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Purchases vivem na linha do OWNER do tenant.
+  const userId = Number(await resolveCredentialOwnerId(req));
   const productFilter = String(req.query?.product_id_hotmart || 'all').trim();
   const reasonFilter = String(req.query?.reason || '').trim().toUpperCase();
   const limit = Math.min(Number(req.query?.limit || 50), 500);

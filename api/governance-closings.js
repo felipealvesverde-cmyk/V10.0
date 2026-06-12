@@ -24,6 +24,8 @@
 //     • associate: pra consolidated_monthly partial → vira complete com os
 //       product_ids escolhidos. snapshot_json é recomposto.
 
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
+
 const VALID_KINDS = ['product_auto', 'product_custom', 'consolidated_monthly', 'consolidated_custom'];
 
 // Compõe snapshot de UM produto a partir do state_json do journey_state.
@@ -70,7 +72,8 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco do tenant indisponível.' });
 
-  const userId = req.user.sub;
+  // V37.4.34 — Snapshots vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
   const db = req.tenantDb;
 
   // ============================================================
@@ -115,6 +118,8 @@ module.exports = async function handler(req, res) {
   // POST — cria snapshot manual (product_custom ou consolidated_custom)
   // ============================================================
   if (req.method === 'POST') {
+    try { await assertCanWriteCredentials(req); }
+    catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
     const body = req.body || {};
     const kind = String(body.kind || '');
     const period = String(body.period || '');
@@ -163,6 +168,8 @@ module.exports = async function handler(req, res) {
   // PATCH — reabrir / associar
   // ============================================================
   if (req.method === 'PATCH') {
+    try { await assertCanWriteCredentials(req); }
+    catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
     const closingId = Number(req.query?.id || (req.body && req.body.id));
     if (!closingId) return res.status(400).json({ ok: false, message: 'id obrigatório.' });
     const body = req.body || {};

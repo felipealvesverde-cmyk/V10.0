@@ -8,6 +8,7 @@
 const crypto = require('crypto');
 const { decrypt } = require('../lib/clickup-crypto');
 const { buildAuthUrl } = require('../lib/ga4-oauth');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -15,7 +16,8 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Credenciais GA4 vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
 
   try {
     const r = await req.tenantDb.query(

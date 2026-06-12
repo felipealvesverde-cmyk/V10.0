@@ -2,6 +2,7 @@
 // Frontend usa pra listar spaces/lists/users sem expor token.
 // Body: { method, path, body? } onde path começa com '/' (relativo à api.clickup.com/api/v2).
 const { clickupFetch } = require('../lib/clickup-client');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 // Whitelist de paths permitidos (evita usar proxy pra coisas fora de escopo).
 const ALLOWED_PATH_PATTERNS = [
@@ -31,7 +32,9 @@ module.exports = async function handler(req, res) {
 
   try {
     // V32.0.9 — clickup_credentials vivem no tenant plane.
-    const result = await clickupFetch(req.tenantDb, req.user.sub, method.toUpperCase(), path, body);
+    // V37.4.34 — creds vivem na linha do OWNER do tenant.
+    const userId = await resolveCredentialOwnerId(req);
+    const result = await clickupFetch(req.tenantDb, userId, method.toUpperCase(), path, body);
     return res.status(200).json({ ok: result.ok, status: result.status, data: result.data });
   } catch (err) {
     // V31.2.35 — Mensagem clara quando ENCRYPTION_KEY some/quebra em vez de 500 mudo.

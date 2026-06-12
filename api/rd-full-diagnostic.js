@@ -10,6 +10,7 @@
 const { rdFetch } = require('../lib/rd-contact-sync-engine');
 const { getRdCredential } = require('../lib/rd-credentials');
 const { pullUpdatedContacts, resolveLjVisitor } = require('../lib/rd-reconciliation-engine');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -17,7 +18,8 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.db || !req.tenantDb) return res.status(503).json({ ok: false, message: 'DB não configurado.' });
 
-  const myId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Dados e credenciais vivem na linha do OWNER do tenant.
+  const myId = Number(await resolveCredentialOwnerId(req));
   const userId = (req.user.isMaster && req.query?.user_id) ? Number(req.query.user_id) : myId;
 
   const report = { userId, sections: {} };

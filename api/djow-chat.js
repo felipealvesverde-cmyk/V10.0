@@ -19,6 +19,7 @@
 // API key: process.env.ANTHROPIC_API_KEY (env var Railway).
 const fs = require('fs');
 const path = require('path');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -957,7 +958,10 @@ module.exports = async function handler(req, res) {
 
   // Carrega state do user (pra contexto + tools)
   // V32.0.11 — Dados Djow (journey_state, djow_*) vivem no tenant plane.
-  const state = await getUserState(req.tenantDb, req.user.sub);
+  // V37.4.34 — journey_state agora é per-tenant: resolve pelo OWNER do tenant.
+  // Conversações (djow_conversations/djow_messages) seguem por-user (histórico pessoal).
+  const credUserId = await resolveCredentialOwnerId(req);
+  const state = await getUserState(req.tenantDb, credUserId);
   const djowCfg = state.djowConfig || {};
   const model = djowCfg.model || 'claude-sonnet-4-6';
 
@@ -1097,10 +1101,11 @@ NÃO use tool de write (V27.0.x não tem ainda).`
     for (const tu of toolUses) {
       // V30.0.0 — execTool agora é async + recebe ctx { db, userId } pras tools ClickUp.
       // V32.0.11 — passa req.tenantDb (tools ClickUp + writes em journey_state usam tenant plane).
-      const result = await execTool(tu.name, tu.input || {}, state, { db: req.tenantDb, userId: req.user.sub });
+      // V37.4.34 — ctx.userId é o OWNER do tenant (credenciais ClickUp + state ficam lá).
+      const result = await execTool(tu.name, tu.input || {}, state, { db: req.tenantDb, userId: credUserId });
       // Se tool retornou _pendingWrite, aplica no Postgres e atualiza state local
       if (result && result._pendingWrite) {
-        const writeRes = await applyStateWrite(req.tenantDb, req.user.sub, result._pendingWrite);
+        const writeRes = await applyStateWrite(req.tenantDb, credUserId, result._pendingWrite);
         if (writeRes.ok) {
           stateModified = true;
           entitiesCreated.push({ kind: result._pendingWrite.kind, payload: result.created });

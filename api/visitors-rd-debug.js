@@ -2,13 +2,16 @@
 // Diagnóstico do estado do RD sync por user. Mostra quantos visitors têm
 // external_rd_contact_id, distribuição por status, e exemplos recentes.
 
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — Visitors vivem na linha do OWNER do tenant.
+  const userId = Number(await resolveCredentialOwnerId(req));
 
   try {
     const totals = await req.tenantDb.query(

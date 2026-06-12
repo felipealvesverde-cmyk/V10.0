@@ -4,11 +4,14 @@
 //
 // POST: body { pat } -> valida + salva + retorna { ok, workspaceName, workspaceId }
 const { encrypt, isConfigured: isEncryptionReady } = require('../lib/clickup-crypto');
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
+  try { await assertCanWriteCredentials(req); }
+  catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
   if (!isEncryptionReady()) {
     return res.status(503).json({
       ok: false,
@@ -39,11 +42,13 @@ module.exports = async function handler(req, res) {
 
     const tokenEnc = encrypt(token);
     // V32.0.9 — dados ClickUp vivem no tenant plane.
+    // V37.4.34 — credenciais ficam na linha do OWNER do tenant.
+    const userId = await resolveCredentialOwnerId(req);
     await req.tenantDb.query(
       `INSERT INTO clickup_credentials (user_id, access_token_enc, workspace_id, workspace_name, token_type, connected_at)
        VALUES ($1, $2, $3, $4, 'pat', NOW())
        ON CONFLICT (user_id) DO UPDATE SET access_token_enc = $2, workspace_id = $3, workspace_name = $4, token_type = 'pat', connected_at = NOW()`,
-      [req.user.sub, tokenEnc, workspaceId, workspaceName]
+      [userId, tokenEnc, workspaceId, workspaceName]
     );
 
     return res.status(200).json({ ok: true, workspaceName, workspaceId, teams: teams.map(t => ({ id: String(t.id), name: t.name })) });

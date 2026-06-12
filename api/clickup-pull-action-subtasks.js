@@ -24,13 +24,14 @@
 // Limita 30 ações por request (cada uma é 1 GET na ClickUp API).
 const { clickupFetch } = require('../lib/clickup-client');
 const { listMappings } = require('../lib/clickup-mirror');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
 
-  const userId = req.user.sub;
+  const userId = await resolveCredentialOwnerId(req);
   const actionIds = Array.isArray(req.body?.action_ids)
     ? req.body.action_ids.map(Number).filter(Boolean).slice(0, 30)
     : [];

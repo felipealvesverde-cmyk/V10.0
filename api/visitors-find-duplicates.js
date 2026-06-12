@@ -18,12 +18,15 @@
 // bank_name, global_score, first_seen_at, last_seen_at, current_stage,
 // external_rd_deal_id, tagCount.
 
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+
 module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
 
-  const userId = req.user.sub;
+  // V37.4.34 — Visitors vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
 
   try {
     // Grupos por email (case-insensitive trim)

@@ -14,12 +14,15 @@
 //     lastMergeAt: ISO | null     // último merge registrado
 //   }
 
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+
 module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
 
-  const userId = req.user.sub;
+  // V37.4.34 — Counts vivem na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
 
   try {
     const emailDupCount = await req.tenantDb.query(

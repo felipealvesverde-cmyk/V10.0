@@ -5,13 +5,15 @@
 // POST: body { client_id, client_secret } — salva criptografado
 // DELETE: remove config (e desconecta — também remove credentials)
 const { encrypt, isConfigured: isEncryptionReady } = require('../lib/clickup-crypto');
+const { resolveCredentialOwnerId, assertCanWriteCredentials, CredentialPermissionError } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
 
-  // V31.2.30 — JWT payload usa 'sub' (RFC 7519), não 'id'.
-  const userId = req.user.sub;
+  // V37.4.34 — Credenciais ClickUp vivem na linha do OWNER do tenant.
+  // Qualquer membro do tenant resolve pro mesmo user_id.
+  const userId = await resolveCredentialOwnerId(req);
 
   if (req.method === 'GET') {
     try {
@@ -63,6 +65,8 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
+    try { await assertCanWriteCredentials(req); }
+    catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
     if (!isEncryptionReady()) {
       return res.status(503).json({
         ok: false,
@@ -90,6 +94,8 @@ module.exports = async function handler(req, res) {
   }
 
   if (req.method === 'DELETE') {
+    try { await assertCanWriteCredentials(req); }
+    catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
     try {
       // V32.0.9 — dados ClickUp vivem no tenant plane.
       await req.tenantDb.query('DELETE FROM clickup_credentials WHERE user_id = $1', [userId]);

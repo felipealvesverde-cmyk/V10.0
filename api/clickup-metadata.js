@@ -6,6 +6,7 @@
 // Não-fatal: cada fetch tem try-catch isolado, se um falhar os outros vêm.
 // Se default_list_id ainda não foi descoberto, tenta descobrir (lazy bootstrap).
 const { clickupFetch } = require('../lib/clickup-client');
+const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
 
 // V32.0.9 — clickup_credentials vivem no tenant plane. clickupFetch usa o Pool
 // que o caller passa, então passamos req.tenantDb pra todos os fetches.
@@ -31,7 +32,7 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
 
-  const userId = req.user.sub;
+  const userId = await resolveCredentialOwnerId(req);
   try {
     // V32.0.9 — clickup_credentials vivem no tenant plane.
     const cred = await req.tenantDb.query('SELECT workspace_id, default_list_id FROM clickup_credentials WHERE user_id = $1', [userId]);

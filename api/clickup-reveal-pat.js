@@ -12,6 +12,7 @@
 //   - HTTPS-only (cookie/Authorization Bearer já é).
 //   - User já tem o secret no DB dele — não há novo "exposure", só formato visual.
 const { decrypt, isConfigured } = require('../lib/clickup-crypto');
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
@@ -19,7 +20,12 @@ module.exports = async function handler(req, res) {
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco do tenant não configurado.' });
   if (!isConfigured()) return res.status(503).json({ ok: false, message: 'ENCRYPTION_KEY não configurada no servidor.' });
 
-  const userId = req.user.sub;
+  // V37.4.34 — Manager/user comum NÃO pode ver o token do owner em texto cru.
+  // O endpoint é read-only no DB mas o output é sensível (token funcional).
+  try { await assertCanWriteCredentials(req); }
+  catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
+
+  const userId = await resolveCredentialOwnerId(req);
 
   try {
     const r = await req.tenantDb.query(

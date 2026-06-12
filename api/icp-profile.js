@@ -5,6 +5,8 @@
 //
 // Permissão: qualquer user autenticado (self-scope).
 
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
+
 const ALLOWED_TIER_METHODS = ['percentage', 'rules'];
 const EMPTY_TIER_RULES = { tier_1: [], tier_2: [], tier_3: [] };
 
@@ -13,7 +15,8 @@ module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
-  const userId = Number(req.user.sub || req.user.id);
+  // V37.4.34 — ICP profile vive na linha do OWNER do tenant.
+  const userId = await resolveCredentialOwnerId(req);
 
   try {
     if (req.method === 'GET') {
@@ -32,6 +35,8 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      try { await assertCanWriteCredentials(req); }
+      catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
       let body = req.body;
       if (typeof body === 'string') { try { body = JSON.parse(body); } catch (_) { body = {}; } }
       body = body || {};

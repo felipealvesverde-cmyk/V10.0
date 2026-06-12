@@ -12,12 +12,17 @@
 //
 // Apenas campos enviados são atualizados (PATCH-style — undefined preserva valor antigo).
 // String vazia em lj_tag_name/task_prefix vira NULL (limpa).
+const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
 
-  const userId = req.user.sub;
+  try { await assertCanWriteCredentials(req); }
+  catch (err) { return res.status(err.statusCode || 403).json({ ok: false, message: err.message }); }
+
+  const userId = await resolveCredentialOwnerId(req);
   const body = req.body || {};
 
   // Builda SET dinamicamente baseado em campos enviados
