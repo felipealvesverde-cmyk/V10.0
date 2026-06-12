@@ -8512,8 +8512,30 @@ Object.assign(Actions, {
     try {
       const token = localStorage.getItem('lj_jwt');
       if (!token) return;
-      const r = await fetch('/api/my-permissions', { headers: { Authorization: `Bearer ${token}` } });
-      const data = await r.json();
+      let r = await fetch('/api/my-permissions', { headers: { Authorization: `Bearer ${token}` } });
+      let data = await r.json();
+
+      // V37.4.20 — Self-healing pra users legados (pré-V37.3) sem row em
+      // tenant_members. Se role=null mas não é Master e tem tenant → tenta
+      // backfill self-service. Re-consulta my-permissions depois.
+      if (data.ok && data.permissions && data.permissions.role === null
+          && !data.permissions.isMaster && (App.currentUser?.tenantId || App.state.user?.tenantId)) {
+        try {
+          const bf = await fetch('/api/auth-backfill-membership', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+          });
+          const bfData = await bf.json();
+          if (bfData.ok && bfData.action === 'inserted') {
+            console.info('[loadMyPermissions] backfill', bfData.role, '→ refetching permissions');
+            r = await fetch('/api/my-permissions', { headers: { Authorization: `Bearer ${token}` } });
+            data = await r.json();
+          }
+        } catch (bfErr) {
+          console.warn('[loadMyPermissions] backfill falhou (segue com role=null):', bfErr.message);
+        }
+      }
+
       if (data.ok && data.permissions) {
         App.state.userPermissions = data.permissions;
         // Atualiza tb App.state.user pro membersPanel checar role
