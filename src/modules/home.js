@@ -201,83 +201,15 @@ window.HomeModule = {
   _greetingBar() {
     const name = this._userFirstName();
     const greeting = this._greeting();
-    // V36.1.1 — Guard universal: se sessionExpired, pula TODOS os loaders.
-    // Sem isso, modal de relogin acumula 30+ erros 401 no console em segundos
-    // porque cada timer/loader continua disparando.
-    const sessionOk = !App.state.sessionExpired;
-    // V34.8.0 — Dispara hidratação do count de conciliação em background na
-    // primeira renderização (e renova após 60s pra refletir cron 15min do back).
-    const lastRecon = App.state._reconciliationLastLoadedAt || 0;
-    if (sessionOk && (Date.now() - lastRecon) > 60000 && window.Actions?.loadReconciliationAlerts) {
-      App.state._reconciliationLastLoadedAt = Date.now();
-      setTimeout(() => Actions.loadReconciliationAlerts(), 200);
-    }
-    // V35.11.0 — Hidratação leve do summary de falhas de webhook RD (60s).
-    const lastWh = App.state._rdWebhookSummaryLoadedAt || 0;
-    if (sessionOk && (Date.now() - lastWh) > 60000 && window.Actions?.loadRdWebhookFailuresSummary) {
-      App.state._rdWebhookSummaryLoadedAt = Date.now();
-      setTimeout(() => Actions.loadRdWebhookFailuresSummary(), 250);
-    }
-    // V35.12.0 — Tick lazy de snapshots de KR (1x por dia/sessão, idempotente).
-    if (sessionOk && window.Actions?._processKrSnapshots) {
-      setTimeout(() => Actions._processKrSnapshots(), 300);
-    }
-    // V35.14.5 — Carrega status GA4 pra alimentar o sininho (sync falhou,
-    // customs novos, etc). Só na primeira renderização da sessão.
-    if (sessionOk && App.state.ga4Status === null && window.Actions?.loadGa4Status) {
-      setTimeout(() => Actions.loadGa4Status(), 350);
-    }
-    // V37.0.4 — Carrega snapshots da governança pra alimentar pendências
-    // (consolidated_monthly partial → bolinha no sininho). TTL interno 60s.
-    if (sessionOk && window.Actions?.loadGovernanceClosings) {
-      setTimeout(() => Actions.loadGovernanceClosings(), 400);
-    }
+    // V37.5.1 — Loaders de hidratação (reconciliation, RD webhook, KR snapshots,
+    // GA4, governance) movidos pra TopBar.render() pra rodar em qualquer
+    // página, não só na Home.
     return `<div class="lj-home-greeting">
       <div>
         <h1 class="lj-home-title">${greeting}, ${Utils.escape(name)} <span class="lj-home-wave"><i data-lucide="hand" class="lj-home-wave-icon"></i></span></h1>
         <p class="lj-home-subtitle">Sua operação está ativa e sua receita está em movimento.</p>
       </div>
-      <div class="lj-home-meta">
-        <button class="lj-home-icon-btn" title="Buscar"><i data-lucide="search" class="w-4 h-4"></i></button>
-        ${(() => {
-          // V35.3.8 — Sininho agrega 3 canais: conciliação RD + import reports + releases
-          // V35.7.0-alpha3 — +1 canal: ads órfãs (Google Ads não associadas).
-          // Cooldown global de 10min + bypass quando chegam novas (mecânica dentro
-          // de Actions.getAdsOrphanBellCount).
-          const reconCount = Number(App.state.pendingReconciliationCount || 0);
-          const importCount = Number(App.state.pendingLeadImportReports || 0);
-          const unseenReleases = (window.Actions?._getUnseenReleases?.() || []);
-          const releaseCount = unseenReleases.length;
-          const adsOrphanCount = Number(window.Actions?.getAdsOrphanBellCount?.() || 0);
-          const ga4AlertCount = Number(window.Actions?.getGa4AlertCount?.() || 0);
-          // V37.0.4 — Pendências de fechamento mensal (consolidated_monthly partial)
-          const monthlyPendingCount = Number(window.Actions?.getMonthlyClosingPendingCount?.() || 0);
-          const count = reconCount + importCount + releaseCount + adsOrphanCount + ga4AlertCount + monthlyPendingCount;
-          const titleParts = [];
-          if (reconCount) titleParts.push(`${reconCount} conciliação(ões) RD`);
-          if (importCount) titleParts.push(`${importCount} relatório(s) de import`);
-          if (releaseCount) titleParts.push(`${releaseCount} atualização(ões) do LJ`);
-          if (adsOrphanCount) titleParts.push(`${adsOrphanCount} campanha(s) Ads sem Campanha LJ`);
-          if (ga4AlertCount) titleParts.push(`${ga4AlertCount} alerta(s) GA4`);
-          if (monthlyPendingCount) titleParts.push(`${monthlyPendingCount} fechamento(s) mensal aguardando`);
-          const title = count > 0 ? titleParts.join(' · ') + ' — clique pra ver' : 'Nenhuma notificação pendente';
-          // V35.9.3 — Click sempre abre o modal de Notificações com 2 abas
-          // (Atualizações / Alertas). Tab inicial decide pela presença de
-          // alertas: se há alerta no ar, abre em Alertas; senão Atualizações.
-          // Antes (V35.7.0): click ia direto pro modal específico (recon/ads/import).
-          const onclick = "Actions.openNotificationsModal()";
-          return `<button onclick="${onclick}" class="lj-home-icon-btn lj-home-bell" title="${title}">
-            <i data-lucide="bell" class="w-4 h-4"></i>
-            ${count > 0 ? `<span class="lj-home-bell-badge">${count > 99 ? '99+' : count}</span>` : ''}
-          </button>`;
-        })()}
-        ${window.NotificationsPanel ? NotificationsPanel.bellButton() : ''}
-        ${window.PinUp ? PinUp.bellButton() : ''}
-        <div class="lj-home-date">
-          <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
-          <span>${Utils.escape(this._today())}</span>
-        </div>
-      </div>
+      <!-- V37.5.1 — Menu de search/sininho/pin/data movido pra TopBar global (fixed em todas as páginas) -->
     </div>`;
   },
 

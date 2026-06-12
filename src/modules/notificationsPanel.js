@@ -19,9 +19,21 @@ window.NotificationsPanel = {
   bellButton() {
     const cache = App.state.notificationsCache || {};
     const counts = cache.counts || { criticalUnread: 0, warningUnread: 0, infoUnread: 0, inbox: 0 };
-    const total = counts.inbox || 0;
+
+    // V37.5.1 — Agrega legacy counts (RD/ads/import/releases/GA4/monthly) + V2 inbox.
+    // Sininho único: o que antes era 2 botões agora é 1 só, somando tudo.
+    const reconCount = Number(App.state.pendingReconciliationCount || 0);
+    const importCount = Number(App.state.pendingLeadImportReports || 0);
+    const releaseCount = (window.Actions?._getUnseenReleases?.() || []).length;
+    const adsOrphanCount = Number(window.Actions?.getAdsOrphanBellCount?.() || 0);
+    const ga4AlertCount = Number(window.Actions?.getGa4AlertCount?.() || 0);
+    const monthlyPendingCount = Number(window.Actions?.getMonthlyClosingPendingCount?.() || 0);
+    const legacyTotal = reconCount + importCount + releaseCount + adsOrphanCount + ga4AlertCount + monthlyPendingCount;
+
+    const total = (counts.inbox || 0) + legacyTotal;
+    // Severity decision: críticas do V2 > legacy/warning > info > empty
     const severityClass = counts.criticalUnread > 0 ? 'critical'
-                       : counts.warningUnread > 0 ? 'warning'
+                       : (counts.warningUnread > 0 || legacyTotal > 0) ? 'warning'
                        : counts.infoUnread > 0 ? 'info'
                        : 'empty';
     const colors = {
@@ -32,11 +44,11 @@ window.NotificationsPanel = {
     };
     const c = colors[severityClass];
     return `<button onclick="Actions.toggleNotificationsPanel()"
-        class="relative inline-flex items-center justify-center w-9 h-9 rounded-xl transition hover:scale-105"
+        class="relative inline-flex items-center justify-center w-8 h-8 rounded-xl transition hover:scale-105"
         style="background:${c.bg};border:1px solid ${c.border};${c.pulse}"
         title="Notificações${total ? ` · ${total}` : ''}">
-      <i data-lucide="bell" class="w-4 h-4" style="color:${c.text}"></i>
-      ${total > 0 ? `<span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-black grid place-items-center" style="background:${c.text};color:#fff;border:1.5px solid #fff;">${total > 99 ? '99+' : total}</span>` : ''}
+      <i data-lucide="bell" class="w-3.5 h-3.5" style="color:${c.text}"></i>
+      ${total > 0 ? `<span class="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full text-[9px] font-black grid place-items-center" style="background:${c.text};color:#fff;border:1.5px solid #fff;">${total > 99 ? '99+' : total}</span>` : ''}
     </button>
     <style>
       @keyframes pulse-bell {
