@@ -3,12 +3,17 @@
 // Tem 2 tabs: Login (existente) + Registrar (cria pendente).
 window.LoginScreen = {
   state: {
-    tab: 'login',         // 'login' | 'register'
+    tab: 'login',         // 'login' | 'register' | 'reset' (V37.4.31)
     loginUsername: '',
     loginPassword: '',
     registerUsername: '',
     registerEmail: '',
     registerMode: 'sandbox',
+    // V37.4.31 — Fluxo de reset sem email. Quando submitLogin detecta
+    // passwordResetPending=true, troca tab pra 'reset' carregando username.
+    resetUsername: '',
+    resetNewPassword: '',
+    resetConfirmPassword: '',
     loading: false,
     message: '',
     messageTone: 'info'    // 'info' | 'success' | 'error'
@@ -31,18 +36,19 @@ window.LoginScreen = {
 
   // V23.0.1 — Captura valores atuais dos inputs do DOM e atualiza state.
   // Necessário antes de qualquer render() pra não perder o que o usuário digitou.
+  // V37.4.31 — Inclui campos da tela de reset.
   _syncDomToState() {
-    const ids = ['loginUsernameField', 'loginPwdField', 'registerUsernameField', 'registerEmailField'];
-    ids.forEach(id => {
+    const map = {
+      loginUsernameField: 'loginUsername',
+      loginPwdField: 'loginPassword',
+      registerUsernameField: 'registerUsername',
+      registerEmailField: 'registerEmail',
+      resetNewPwdField: 'resetNewPassword',
+      resetConfirmPwdField: 'resetConfirmPassword'
+    };
+    Object.keys(map).forEach(id => {
       const el = document.getElementById(id);
-      if (!el) return;
-      const map = {
-        loginUsernameField: 'loginUsername',
-        loginPwdField: 'loginPassword',
-        registerUsernameField: 'registerUsername',
-        registerEmailField: 'registerEmail'
-      };
-      if (map[id] && el.value !== undefined) this.state[map[id]] = el.value;
+      if (el && el.value !== undefined) this.state[map[id]] = el.value;
     });
   },
 
@@ -78,10 +84,61 @@ window.LoginScreen = {
         this.render();
         return;
       }
+      // V37.4.31 — Admin marcou esse user pra resetar senha. Vai pra tela de
+      // definição de nova senha sem cobrar a atual.
+      if (data.passwordResetPending) {
+        this.state.tab = 'reset';
+        this.state.resetUsername = data.username || username;
+        this.state.resetNewPassword = '';
+        this.state.resetConfirmPassword = '';
+        this.state.loading = false;
+        this.setMessage('Reset de senha pendente. Defina uma nova senha pra entrar.', 'info');
+        return;
+      }
       // Sucesso: salva JWT em localStorage + recarrega
       localStorage.setItem('lj_jwt', data.token);
       localStorage.setItem('lj_user', JSON.stringify(data.user));
       this.setMessage('Entrando...', 'success');
+      setTimeout(() => window.location.reload(), 400);
+    } catch (err) {
+      this.setMessage(`Erro de rede: ${err?.message || err}`, 'error');
+      this.state.loading = false;
+      this.render();
+    }
+  },
+
+  // V37.4.31 — Finaliza reset de senha (sem JWT, endpoint público).
+  async submitResetPassword() {
+    this._syncDomToState();
+    const username = String(this.state.resetUsername || '').trim();
+    const newPassword = String(this.state.resetNewPassword || '');
+    const confirmPassword = String(this.state.resetConfirmPassword || '');
+    if (!newPassword || newPassword.length < 8) {
+      this.setMessage('Nova senha precisa de no mínimo 8 caracteres.', 'error');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      this.setMessage('As senhas não conferem.', 'error');
+      return;
+    }
+    this.state.loading = true;
+    this.render();
+    try {
+      const res = await fetch('/api/auth-complete-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, newPassword })
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        this.setMessage(data.message || 'Falha ao redefinir senha.', 'error');
+        this.state.loading = false;
+        this.render();
+        return;
+      }
+      localStorage.setItem('lj_jwt', data.token);
+      localStorage.setItem('lj_user', JSON.stringify(data.user));
+      this.setMessage('Senha redefinida. Entrando...', 'success');
       setTimeout(() => window.location.reload(), 400);
     } catch (err) {
       this.setMessage(`Erro de rede: ${err?.message || err}`, 'error');
@@ -142,12 +199,39 @@ window.LoginScreen = {
         </div>
 
         <div class="bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
-          <div class="bg-slate-800/60 rounded-2xl p-1 flex gap-1 mb-5">
-            ${tabBtn('login', 'Entrar')}
-            ${tabBtn('register', 'Solicitar acesso')}
-          </div>
+          ${s.tab !== 'reset' ? `
+            <div class="bg-slate-800/60 rounded-2xl p-1 flex gap-1 mb-5">
+              ${tabBtn('login', 'Entrar')}
+              ${tabBtn('register', 'Solicitar acesso')}
+            </div>
+          ` : ''}
 
-          ${s.tab === 'login' ? `
+          ${s.tab === 'reset' ? `
+            <div class="space-y-4">
+              <div class="rounded-2xl bg-violet-500/15 border border-violet-400/30 px-4 py-3">
+                <p class="text-[11px] font-black text-violet-200 uppercase tracking-wider">Reset de senha</p>
+                <p class="text-sm text-violet-50 mt-1">Olá, <span class="font-black">${this._esc(s.resetUsername)}</span>. O admin master pediu que você redefina sua senha.</p>
+              </div>
+              <div>
+                <label class="text-xs font-black text-slate-400 uppercase tracking-wide">Nova senha</label>
+                <input type="password" id="resetNewPwdField" autocomplete="new-password" value="${this._esc(s.resetNewPassword)}"
+                  oninput="LoginScreen.setField('resetNewPassword', this.value)"
+                  onkeydown="if(event.key==='Enter'){document.getElementById('resetConfirmPwdField')?.focus()}"
+                  class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-800/80 border border-white/10 text-white font-semibold placeholder:text-slate-500" placeholder="Mínimo 8 caracteres" />
+              </div>
+              <div>
+                <label class="text-xs font-black text-slate-400 uppercase tracking-wide">Confirme a nova senha</label>
+                <input type="password" id="resetConfirmPwdField" autocomplete="new-password" value="${this._esc(s.resetConfirmPassword)}"
+                  oninput="LoginScreen.setField('resetConfirmPassword', this.value)"
+                  onkeydown="if(event.key==='Enter'){LoginScreen.submitResetPassword()}"
+                  class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-800/80 border border-white/10 text-white font-semibold placeholder:text-slate-500" placeholder="Repita a senha" />
+              </div>
+              <button onclick="LoginScreen.submitResetPassword()" ${s.loading ? 'disabled' : ''} class="w-full px-4 py-3.5 rounded-2xl bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white font-black flex items-center justify-center gap-2 disabled:opacity-50" style="color:#fff;">
+                ${s.loading ? '<span class="w-4 h-4 rounded-full border-2 border-white border-r-transparent animate-spin"></span> Redefinindo...' : '<i data-lucide="key-round" class="w-4 h-4"></i> Definir senha e entrar'}
+              </button>
+              <button onclick="LoginScreen.setTab('login')" class="w-full text-xs text-slate-400 hover:text-slate-200 font-bold pt-1">Cancelar</button>
+            </div>
+          ` : s.tab === 'login' ? `
             <div class="space-y-4">
               <div>
                 <label class="text-xs font-black text-slate-400 uppercase tracking-wide">Username / Email</label>

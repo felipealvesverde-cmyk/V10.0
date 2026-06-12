@@ -7958,7 +7958,37 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V37.4.31 — Reset de senha SEM email. Marca user pra trocar senha no próximo login.
+  // Não envia link, não gera senha temporária. Janela de 24h.
+  async triggerMemberPasswordReset(userId) {
+    const modal = App.state.memberEditModal;
+    if (!modal) return;
+    if (!confirm('Marcar este membro pra resetar a senha?\n\nNo próximo login, ele vai cair direto na tela de "Defina nova senha" — sem precisar saber a senha atual. Janela de 24h.')) return;
+    modal.sendingReset = true; modal.actionResult = null; App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/tenant-member-reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId })
+      });
+      const data = await r.json();
+      modal.sendingReset = false;
+      if (!data.ok) {
+        Utils.toast(`Erro: ${data.message}`);
+      } else {
+        Utils.toast(`✓ ${data.message}`);
+      }
+      App.render();
+    } catch (err) {
+      modal.sendingReset = false; App.render();
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V37.4.28 — Owner manda email pro membro com link mágico de reset de senha.
+  // (Backup pra quando SMTP estiver configurado com domínio próprio — hoje
+  // V37.4.31 mudou pro fluxo sem email como default.)
   async sendMemberPasswordReset(userId) {
     const modal = App.state.memberEditModal;
     if (!modal) return;

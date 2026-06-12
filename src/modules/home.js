@@ -684,7 +684,7 @@ window.HomeModule = {
           </div>
         </div>
         <div class="lj-home-alerts-body">
-          ${this._strategicAlertItems()}
+          ${this._alertItems()}
         </div>
       </div>
     </aside>`;
@@ -699,7 +699,6 @@ window.HomeModule = {
     // então abrir o Mapa pela Home não pintava nada no DOM.
     return `<div class="lj-home">
       ${this._greetingBar()}
-      ${window.BomDiaCard ? BomDiaCard.render() : ''}
       ${this._kpiSlots()}
       <div class="lj-home-main">
         <div class="lj-home-main-col">
@@ -713,30 +712,54 @@ window.HomeModule = {
     </div>`;
   },
 
-  // V29.0.1 — Items pra preencher o card "Alertas importantes" existente
-  // (lj-home-alerts, no canto direito inferior). Substitui o banner topo
-  // anterior — usa o slot do design system que já estava lá.
-  _strategicAlertItems() {
-    if (!window.StrategicMapEngine) return '<div class="lj-home-alerts-empty">Nenhum alerta no momento.</div>';
-    const products = App.state.products || [];
+  // V37.4.32 — Items pra preencher o card "Alertas importantes" (canto direito inferior).
+  // Funde os alertas estratégicos + o resumo "X atualizações desde ontem"
+  // (antes era chip flutuante no topo via BomDiaCard.renderChip).
+  _alertItems() {
     const items = [];
-    products.forEach(p => {
-      const desplug = StrategicMapEngine.getDesplugedCampaigns ? StrategicMapEngine.getDesplugedCampaigns(p.id) : [];
-      const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(p.id) : [];
-      const orphans = StrategicMapEngine.getOrphanChildKrs ? StrategicMapEngine.getOrphanChildKrs(p.id) : [];
-      desplug.forEach(c => {
-        items.push({ severity: 'red', icon: 'unplug', label: `${Utils.escape(c.name)} (${Utils.escape(p.name)})`, hint: 'desplugada — não alimenta KPIs', onclick: `Actions.activateStrategicMapForCampaign(${c.id})` });
-      });
-      branches.forEach(b => {
-        if (StrategicMapEngine.getCampaignStrategicStatus(b.campaignId) === 'configuring') {
-          const camp = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
-          if (camp) items.push({ severity: 'amber', icon: 'loader', label: `${Utils.escape(camp.name)} (${Utils.escape(p.name)})`, hint: 'em configuração — faltam números', onclick: `Actions.openStrategicMapForCampaign(${b.campaignId})` });
+
+    // V37.4.32 — Item de updates do sininho no topo (severidade violet = neutra/info).
+    // Dispara load assíncrono do summary se ainda não veio.
+    if (window.BomDiaCard) {
+      const summary = App.state.bomDiaSummary;
+      if (!summary) {
+        setTimeout(() => BomDiaCard.ensureLoaded(), 0);
+      } else if (!summary.loading) {
+        const total = summary.overall?.total || 0;
+        if (total > 0) {
+          items.push({
+            severity: 'violet',
+            icon: 'bell',
+            label: `${total} atualização${total === 1 ? '' : 'ões'} desde ontem`,
+            hint: 'novidades no tenant — abre sininho',
+            onclick: 'Actions.openNotificationsFromBomDia()'
+          });
+        }
+      }
+    }
+
+    // Alertas estratégicos (lógica original V29.0.1).
+    if (window.StrategicMapEngine) {
+      const products = App.state.products || [];
+      products.forEach(p => {
+        const desplug = StrategicMapEngine.getDesplugedCampaigns ? StrategicMapEngine.getDesplugedCampaigns(p.id) : [];
+        const branches = StrategicMapEngine.getBranchesByProduct ? StrategicMapEngine.getBranchesByProduct(p.id) : [];
+        const orphans = StrategicMapEngine.getOrphanChildKrs ? StrategicMapEngine.getOrphanChildKrs(p.id) : [];
+        desplug.forEach(c => {
+          items.push({ severity: 'red', icon: 'unplug', label: `${Utils.escape(c.name)} (${Utils.escape(p.name)})`, hint: 'desplugada — não alimenta KPIs', onclick: `Actions.activateStrategicMapForCampaign(${c.id})` });
+        });
+        branches.forEach(b => {
+          if (StrategicMapEngine.getCampaignStrategicStatus(b.campaignId) === 'configuring') {
+            const camp = (App.state.campaigns || []).find(c => Number(c.id) === Number(b.campaignId));
+            if (camp) items.push({ severity: 'amber', icon: 'loader', label: `${Utils.escape(camp.name)} (${Utils.escape(p.name)})`, hint: 'em configuração — faltam números', onclick: `Actions.openStrategicMapForCampaign(${b.campaignId})` });
+          }
+        });
+        if (orphans.length) {
+          items.push({ severity: 'amber', icon: 'ghost', label: `${orphans.length} número(s) órfão(s) em ${Utils.escape(p.name)}`, hint: 'sem KR-mãe — rollup não funciona', onclick: `Actions.openStrategicMap(${p.id})` });
         }
       });
-      if (orphans.length) {
-        items.push({ severity: 'amber', icon: 'ghost', label: `${orphans.length} número(s) órfão(s) em ${Utils.escape(p.name)}`, hint: 'sem KR-mãe — rollup não funciona', onclick: `Actions.openStrategicMap(${p.id})` });
-      }
-    });
+    }
+
     if (items.length === 0) return '<div class="lj-home-alerts-empty">Nenhum alerta no momento.</div>';
     // V34.9.18 — Cores claras pra ficar legível no fundo escuro do card.
     const hintToneMap = {
