@@ -34,13 +34,13 @@ window.TopBar = {
         setTimeout(() => Actions.loadGovernanceClosings(), 400);
       }
     }
-    return `<div class="lj-topbar sticky top-0 z-30 flex items-center justify-end gap-2 px-4 py-2 bg-slate-950/85 backdrop-blur-sm border-b border-slate-800">
-      <button onclick="Actions.openProfileFinder && Actions.openProfileFinder()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 grid place-items-center text-slate-300 transition" title="Buscar">
+    return `<div class="lj-topbar fixed top-3 right-4 z-50 flex items-center gap-2">
+      <button onclick="Actions.openProfileFinder && Actions.openProfileFinder()" class="w-8 h-8 rounded-xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700 backdrop-blur-sm grid place-items-center text-slate-300 transition shadow-md" title="Buscar">
         <i data-lucide="search" class="w-3.5 h-3.5"></i>
       </button>
       ${window.NotificationsPanel ? NotificationsPanel.bellButton() : ''}
       ${window.PinUp ? PinUp.bellButton() : ''}
-      <div class="lj-topbar-date inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 text-[11px] font-bold">
+      <div class="lj-topbar-date inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900/80 border border-slate-700 backdrop-blur-sm text-slate-300 text-[11px] font-bold shadow-md">
         <i data-lucide="calendar" class="w-3 h-3"></i>
         <span>${Utils.escape(this._today())}</span>
       </div>
