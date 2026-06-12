@@ -8004,6 +8004,109 @@ Object.assign(Actions, {
     }
   },
 
+  // ============================================================
+  // V37.4.0 — Sininho expandido (notification system)
+  // ============================================================
+  async loadNotifications(force = false) {
+    const cache = App.state.notificationsCache = App.state.notificationsCache || { items: [], counts: { inbox: 0, saved: 0, archive: 0, snoozed: 0, criticalUnread: 0, warningUnread: 0, infoUnread: 0 }, loadedAt: null, loading: false, error: null, activeStatus: 'inbox', activeCategory: null, activeSeverity: null };
+    if (!force && cache.loadedAt && (Date.now() - cache.loadedAt) < 30_000) return;
+    if (cache.loading) return;
+    cache.loading = true; cache.error = null;
+    App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const params = new URLSearchParams({ status: cache.activeStatus || 'inbox' });
+      if (cache.activeCategory) params.set('category', cache.activeCategory);
+      if (cache.activeSeverity) params.set('severity', cache.activeSeverity);
+      const r = await fetch(`/api/notifications-list?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao carregar.');
+      cache.items = data.items || [];
+      cache.counts = data.counts || cache.counts;
+      cache.loadedAt = Date.now();
+      cache.loading = false;
+      App.render();
+    } catch (err) {
+      cache.error = err.message;
+      cache.loading = false;
+      App.render();
+    }
+  },
+
+  refreshNotifications() {
+    Actions.loadNotifications(true);
+  },
+
+  toggleNotificationsPanel() {
+    App.state.notificationsPanelOpen = !App.state.notificationsPanelOpen;
+    if (App.state.notificationsPanelOpen) Actions.loadNotifications();
+    App.render();
+  },
+
+  closeNotificationsPanel() {
+    App.state.notificationsPanelOpen = false;
+    App.render();
+  },
+
+  setNotificationStatus(status) {
+    const cache = App.state.notificationsCache;
+    if (!cache) return;
+    cache.activeStatus = ['inbox', 'saved', 'archive', 'snoozed'].includes(status) ? status : 'inbox';
+    cache.loadedAt = null;
+    Actions.loadNotifications(true);
+  },
+
+  setNotificationCategoryFilter(category) {
+    const cache = App.state.notificationsCache;
+    if (!cache) return;
+    cache.activeCategory = category || null;
+    cache.loadedAt = null;
+    Actions.loadNotifications(true);
+  },
+
+  setNotificationSeverityFilter(severity) {
+    const cache = App.state.notificationsCache;
+    if (!cache) return;
+    cache.activeSeverity = severity || null;
+    cache.loadedAt = null;
+    Actions.loadNotifications(true);
+  },
+
+  async updateNotification(id, action, snoozeUntil = null) {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const body = { id, action };
+      if (snoozeUntil) body.snoozeUntil = snoozeUntil;
+      const r = await fetch('/api/notification-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao atualizar.');
+      await Actions.refreshNotifications();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  async markAllNotificationsAsRead() {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/notification-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ bulk: 'mark_all_read' })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha.');
+      Utils.toast('✓ Tudo marcado como lido.');
+      await Actions.refreshNotifications();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
   // V37.3.4 — Carrega permissões efetivas do user logado no tenant ativo.
   // Chamado no boot (depois de auth-me). Popula App.state.userPermissions
   // que window.LJCan(key) consome em toda a UI.

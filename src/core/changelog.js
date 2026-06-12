@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.0',
+    date: '2026-06-12',
+    title: 'Sininho expandido — infra de notifications (tabela + engine + endpoints)',
+    bullets: [
+      'Fundação do sininho novo cravada. Tabela `notifications` no tenant DB com estado independente por user: read_at, done_at, saved_at, snoozed_until. Cada linha representa 1 notification pra 1 user específico (audience expandido na criação).',
+      'lib/notification-engine.js expõe createNotification, listNotifications, countByStatus, updateNotificationState, markAllAsRead. Audience pode ser user_id direto, array, "tenant_wide" (todos members) ou {role: "owner"} (filtrado por role).',
+      '6 categorias (handoff/event/state/operational/integration/health) e 3 severidades (info/warning/critical). kind segue convenção "categoria.evento" (ex: "handoff.task_assigned").',
+      'Migration cravada em /api/admin-migrate-notifications (só Master roda): cria tabela + 3 índices estratégicos (inbox por user, entity ref, severity unread).',
+      'Endpoints novos: GET /api/notifications-list (com filtros status/category/severity) + POST /api/notification-update (read/unread/done/save/snooze/unsnooze + bulk mark_all_read).',
+      'Frontend state + actions prontos (loadNotifications, toggleNotificationsPanel, updateNotification, etc) — UI do sininho refatorada vem na V37.4.2.'
+    ]
+  },
+  {
     version: 'V37.3.4',
     date: '2026-06-12',
     title: 'Frontend role-gating — menu de configurações esconde por permissão',
