@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.7',
+    date: '2026-06-12',
+    title: 'TopBar: trocada de fixed flutuante pra sticky no flow (não cobre mais o conteúdo)',
+    bullets: [
+      'Versão anterior da TopBar usava fixed top-3 right-4 e flutuava sobre o conteúdo — estava cobrindo títulos das páginas.',
+      'Agora a TopBar é sticky top-0 ocupando full width do container, com flex-justify-end pra manter os botões alinhados à direita. Empurra todo o conteúdo pra baixo naturalmente.',
+      'Fundo passa de slate-900/90 com bordas pra slate-950/85 com border-bottom slate-800 — visual mais integrado com header dark do LJ.',
+      'Conteúdo das páginas volta a aparecer inteiro a partir do topo sem precisar de padding extra.'
+    ]
+  },
+  {
     version: 'V37.4.6',
     date: '2026-06-12',
     title: 'Notificações: preferences por categoria + opt-in digest semanal por email',
