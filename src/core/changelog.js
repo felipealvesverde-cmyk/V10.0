@@ -18,6 +18,28 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.32',
+    date: '2026-06-12',
+    title: 'Banner "X atualizações desde ontem" foi pra dentro de Alertas Importantes',
+    bullets: [
+      'Antes: chip flutuante roxo "X atualizações desde ontem" no topo da Home (acima do Pulso da Receita) E o card "Alertas importantes" no canto inferior direito viviam separados — Felipe pediu pra fundir num lugar só.',
+      'Agora: o resumo de atualizações entra como primeiro item dentro do card "Alertas importantes" (bola roxa). Clique segue indo pro sininho. O chip do topo sumiu — uma fileira a menos.',
+      'Quando não houver atualização nova (total = 0), a linha simplesmente não aparece — o card mostra só os alertas estratégicos.'
+    ]
+  },
+  {
+    version: 'V37.4.31',
+    date: '2026-06-12',
+    title: 'Resetar senha do membro sem depender de email',
+    bullets: [
+      'Antes: "Enviar reset de senha" dependia de SMTP com domínio verificado (Resend sandbox só entrega pro próprio email do dono da conta). Sem domínio, o link nunca chegava no membro.',
+      'Agora: novo botão "Resetar senha" no Editar Membro. Master/owner clica, sistema marca o membro com flag de reset pendente (válido por 24h). Nada de email, nada de senha temporária trafegando por WhatsApp.',
+      'No próximo login do membro: ele digita só o username e o LJ já reconhece — pula a senha e abre direto a tela "Defina uma nova senha". Troca e entra logado.',
+      'Botão antigo "Enviar reset por email" continua disponível (vai voltar a fazer sentido quando você tiver domínio Resend), mas o caminho default agora é o sem-email.',
+      '⚠ Master: rode /api/admin-migrate-password-reset-flag em prod pra criar as colunas password_reset_pending/expires_at/requested_by_user_id em users.'
+    ]
+  },
+  {
     version: 'V37.4.29',
     date: '2026-06-12',
     title: 'State agora é per-tenant — colaboração real entre membros',

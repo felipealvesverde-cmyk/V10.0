@@ -287,17 +287,20 @@ window.MembersPanel = {
           <div>
             <p class="text-[10px] font-black text-stone-700 uppercase tracking-widest mb-2">Ações de conta</p>
             <div class="rounded-xl bg-stone-50 border border-stone-200 p-3 space-y-2">
-              <button onclick="Actions.sendMemberPasswordReset(${m.userId})" ${modal.sendingReset ? 'disabled' : ''}
+              <button onclick="Actions.triggerMemberPasswordReset(${m.userId})" ${modal.sendingReset ? 'disabled' : ''}
                 class="w-full px-3 py-2.5 rounded-lg bg-white border border-stone-300 hover:bg-stone-100 text-slate-700 text-[12px] font-bold inline-flex items-center gap-2">
-                <i data-lucide="${modal.sendingReset ? 'loader-2' : 'key'}" class="w-3.5 h-3.5 ${modal.sendingReset ? 'animate-spin' : ''}"></i>
-                ${modal.sendingReset ? 'Enviando...' : 'Enviar reset de senha por email'}
+                <i data-lucide="${modal.sendingReset ? 'loader-2' : 'key-round'}" class="w-3.5 h-3.5 ${modal.sendingReset ? 'animate-spin' : ''}"></i>
+                ${modal.sendingReset ? 'Marcando...' : 'Resetar senha'}
               </button>
               <button onclick="Actions.sendMemberEmailChange(${m.userId})" ${modal.sendingEmailChange ? 'disabled' : ''}
                 class="w-full px-3 py-2.5 rounded-lg bg-white border border-stone-300 hover:bg-stone-100 text-slate-700 text-[12px] font-bold inline-flex items-center gap-2">
                 <i data-lucide="${modal.sendingEmailChange ? 'loader-2' : 'mail'}" class="w-3.5 h-3.5 ${modal.sendingEmailChange ? 'animate-spin' : ''}"></i>
                 ${modal.sendingEmailChange ? 'Enviando...' : 'Solicitar troca de email'}
               </button>
-              <p class="text-[10px] text-stone-500 leading-snug">O membro recebe email com link mágico pra completar a ação. Reset de senha não exige a senha atual; troca de email exige confirmação por senha atual.</p>
+              <p class="text-[10px] text-stone-500 leading-snug">
+                <strong>Resetar senha:</strong> marca o membro pra definir nova senha no próximo login (sem email; válido por 24h).<br />
+                <strong>Trocar email:</strong> envia link mágico (requer SMTP configurado).
+              </p>
             </div>
           </div>
 

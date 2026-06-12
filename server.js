@@ -892,6 +892,7 @@ const PUBLIC_API_ROUTES = new Set([
   '/api/auth-login',
   '/api/auth-register',
   '/api/auth-me',  // retorna info do usuário ou 401 — pode ser chamado sem token pra checar
+  '/api/auth-complete-password-reset',  // V37.4.31 — user finaliza reset sem JWT (não tem senha pra logar antes)
   '/api/lp-event',
   '/api/lp-events-fetch',
   '/api/rd-token',

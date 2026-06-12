@@ -63,8 +63,11 @@ module.exports = async function handler(req, res) {
 
   try {
     // V32.0.7 — Busca default_tenant_id pra incluir no JWT.
+    // V37.4.31 — Busca também flag password_reset_pending pra interceptar antes de senha.
     const result = await req.db.query(
-      'SELECT id, username, email, password_hash, is_master, is_approved, mode, default_tenant_id FROM users WHERE LOWER(username) = $1',
+      `SELECT id, username, email, password_hash, is_master, is_approved, mode, default_tenant_id,
+              password_reset_pending, password_reset_expires_at
+         FROM users WHERE LOWER(username) = $1`,
       [username]
     );
     const user = result.rows[0];
@@ -74,6 +77,25 @@ module.exports = async function handler(req, res) {
     }
     if (!user.is_approved) {
       return res.status(403).json({ ok: false, message: 'Cadastro pendente de aprovação pelo administrador.' });
+    }
+
+    // V37.4.31 — Flag de reset de senha pendente (sem email). Antes mesmo de
+    // cobrar senha, se admin marcou esse user pra resetar (e não expirou),
+    // devolvemos status especial pro frontend abrir tela "Defina nova senha".
+    // Não precisa da senha atual — admin master autorizou via tenant-member-reset-password.
+    if (user.password_reset_pending) {
+      const expired = user.password_reset_expires_at && new Date(user.password_reset_expires_at) < new Date();
+      if (!expired) {
+        recordSuccess(ip); // não conta como tentativa falha
+        return res.status(200).json({
+          ok: true,
+          passwordResetPending: true,
+          username: user.username,
+          expiresAt: user.password_reset_expires_at,
+          message: 'Reset de senha pendente. Defina uma nova senha.'
+        });
+      }
+      // Expirou — segue fluxo normal. Admin precisa rodar novo reset.
     }
 
     // V32.0.17 — Senha obrigatória pra TODOS os users (não só master).
