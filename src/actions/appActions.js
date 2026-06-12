@@ -8647,6 +8647,90 @@ Object.assign(Actions, {
     }
   },
 
+  // V37.4.38 — "Remover" do creator: alias semântico de archive, mas com confirm
+  // diferente ("Remover" em vez de "Arquivar pra todos") pra ficar mais natural.
+  async deletePin(id) {
+    if (!confirm('Remover este pin? Ele some pra todo mundo.')) return;
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/pin-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ id, action: 'archive' })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao remover.');
+      Utils.toast('✓ Pin removido.');
+      App.state.pinUp.viewModal = null;
+      await Actions.loadPinsForCurrentUrl();
+    } catch (err) {
+      Utils.toast(`Erro: ${err.message}`);
+    }
+  },
+
+  // V37.4.38 — Abrir modal de edição: preenche com valores atuais do pin.
+  openPinEdit(id) {
+    const pin = (App.state.pinUp?.pinsForCurrentUrl || []).find(p => p.id === id);
+    if (!pin) return;
+    App.state.pinUp.editModal = {
+      id: pin.id,
+      text: pin.text || '',
+      audienceUserIds: Array.isArray(pin.audienceUserIds) ? [...pin.audienceUserIds] : [],
+      saving: false
+    };
+    App.state.pinUp.viewModal = null;
+    App.render();
+  },
+
+  closePinEdit() {
+    if (App.state.pinUp) App.state.pinUp.editModal = null;
+    App.render();
+  },
+
+  updatePinEditField(field, value) {
+    const modal = App.state.pinUp?.editModal;
+    if (!modal) return;
+    modal[field] = value;
+  },
+
+  togglePinEditAudience(userId, checked) {
+    const modal = App.state.pinUp?.editModal;
+    if (!modal) return;
+    const set = new Set(modal.audienceUserIds || []);
+    if (checked) set.add(userId); else set.delete(userId);
+    modal.audienceUserIds = Array.from(set);
+    App.render();
+  },
+
+  async submitPinEdit() {
+    const modal = App.state.pinUp?.editModal;
+    if (!modal || modal.saving) return;
+    if (!modal.audienceUserIds.length) return Utils.toast('Marque pelo menos 1 membro.');
+    if (!modal.text || !modal.text.trim()) return Utils.toast('Escreva uma mensagem.');
+    modal.saving = true; App.render();
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/pin-edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          id: modal.id,
+          text: modal.text.trim(),
+          audienceUserIds: modal.audienceUserIds
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Falha ao salvar pin.');
+      Utils.toast('✓ Pin atualizado.');
+      App.state.pinUp.editModal = null;
+      await Actions.loadPinsForCurrentUrl();
+    } catch (err) {
+      modal.saving = false;
+      Utils.toast(`Erro: ${err.message}`);
+      App.render();
+    }
+  },
+
   // V37.4.4 — Cluster expand toggle
   toggleClusterExpanded(key) {
     if (!App.state.notificationClusterExpanded) App.state.notificationClusterExpanded = {};

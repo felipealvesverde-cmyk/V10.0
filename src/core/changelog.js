@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.38',
+    date: '2026-06-12',
+    title: 'Pin-Up: criador pode Editar e Remover o próprio pin',
+    bullets: [
+      'Antes: o modal do pin só tinha botão "Arquivar" — mesmo pro criador. Editar texto/audience era impossível sem apagar e criar de novo.',
+      'Agora: quando você abre um pin que VOCÊ cravou, aparecem 2 botões violeta — "Editar" (abre modal pra mudar texto e quem é marcado, posição fica fixa) e "Remover" (apaga pra todo mundo).',
+      'Quem NÃO é o criador continua vendo só "Arquivar" — alias do mesmo POST mas com label menos destrutivo.',
+      'Backend: novo POST /api/pin-edit (só o creator passa pelo gate). Reaproveita o action existente de archive pra delete.'
+    ]
+  },
+  {
     version: 'V37.4.37',
     date: '2026-06-12',
     title: 'Fix Pin-Up: clicar no pin não abria o modal (BIGSERIAL retornava como string)',

@@ -436,7 +436,7 @@ var State = {
       remoteSnapshotsCache: null,
       // V37.5.0 — Pin-Up (volátil)
       pinModeActive: false,
-      pinUp: { pinsForCurrentUrl: [], createModal: null, viewModal: null },
+      pinUp: { pinsForCurrentUrl: [], createModal: null, viewModal: null, editModal: null },
       // V37.4.6 — Notification preferences (volátil)
       notificationPrefsCache: { loading: false, prefs: null, weeklyDigest: false, lastDigestSentAt: null, error: null },
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
@@ -1171,7 +1171,7 @@ var State = {
       remoteSnapshotsCache: null,
       // V37.5.0 — Pin-Up volátil
       pinModeActive: false,
-      pinUp: { pinsForCurrentUrl: [], createModal: null, viewModal: null },
+      pinUp: { pinsForCurrentUrl: [], createModal: null, viewModal: null, editModal: null },
       // V37.4.6 — Notification preferences (volátil)
       notificationPrefsCache: { loading: false, prefs: null, weeklyDigest: false, lastDigestSentAt: null, error: null },
       overviewRange: '7d',            // V36.11.0 — Visão Geral consolidada
