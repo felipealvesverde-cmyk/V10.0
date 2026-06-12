@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V37.4.8',
+    date: '2026-06-12',
+    title: 'TopBar sem faixa de fundo — ícones flutuam livres no canto',
+    bullets: [
+      'A faixa de fundo slate-950 + border-bottom da TopBar destoava do visual. Agora os 4 botões (search, sininho, pin, data) flutuam livres no canto superior direito (fixed top-3 right-4 z-50) sem container.',
+      'Cada botão e a pill de data têm fundo próprio slate-900/80 com backdrop-blur — fica legível sobre qualquer cor de fundo do painel atrás (dark, gradient, claro).',
+      'Shadow sutil em cada elemento individual pra criar profundidade sem precisar de faixa.'
+    ]
+  },
+  {
     version: 'V37.4.7',
     date: '2026-06-12',
     title: 'TopBar: trocada de fixed flutuante pra sticky no flow (não cobre mais o conteúdo)',
