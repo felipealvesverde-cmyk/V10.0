@@ -124,6 +124,8 @@ var State = {
       changeEmailModal: null,        // { newEmail, currentPassword, saving, error }
       changePasswordModal: null,     // { currentPassword, newPassword, confirmPassword, saving, error }
       myPermissionsModal: false,     // boolean — modal read-only com permissões efetivas
+      // V37.4.28 — Sub-modal sobreposto pra customizar permissões dentro de Editar Membro.
+      memberPermissionsModal: false,
       // V32.5.7 — Sub-aba ativa em Configurações → Minha Conta.
       // 'identity' = perfil (display name, email, tenant)
       // 'products' = gerenciamento de produtos (arquivar/reativar/deletar)
@@ -1609,6 +1611,8 @@ var State = {
       changeEmailModal: null,
       changePasswordModal: null,
       myPermissionsModal: false,
+      // V37.4.28 — Sub-modal sobreposto nunca persiste.
+      memberPermissionsModal: false,
       // V32.5.7 — sub-aba ativa em Minha Conta
       myAccountTab: (raw.myAccountTab === 'products') ? 'products' : 'identity',
       // V32.1.3 — Modal de list-picker do ClickUp. Modal sempre fechado no boot;

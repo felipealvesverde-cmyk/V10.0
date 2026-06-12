@@ -919,7 +919,11 @@ const PUBLIC_API_ROUTES = new Set([
   // V37.4.26 — Convidado acessa pelo link do email, ainda não tem conta.
   // Os 2 endpoints validam o token do convite no body/query, sem JWT.
   '/api/tenant-invite-info',
-  '/api/tenant-invite-accept'
+  '/api/tenant-invite-accept',
+  // V37.4.28 — Reset de senha / troca de email via link mágico no email.
+  // Membro pode estar deslogado (esqueceu senha) — token do email autentica.
+  '/api/user-action-token-info',
+  '/api/user-action-token-confirm'
 ]);
 
 // V23.0.0 — Gate de auth: rotas privadas /api/* exigem req.user.
