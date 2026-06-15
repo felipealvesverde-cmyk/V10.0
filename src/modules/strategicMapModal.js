@@ -4502,6 +4502,10 @@ window.StrategicMapModal = {
           <p class="text-sm font-black text-slate-900 truncate">${Utils.escape(campaign.name)}</p>
         </div>
       </div>
+      <button onclick="Actions.exitStrategicCampaignEdit()" title="Sair da edição desta campanha (ESC)" class="px-3 py-1.5 rounded-xl bg-white border border-violet-300 text-violet-800 hover:bg-violet-50 text-[11px] font-black inline-flex items-center gap-1.5 shrink-0">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i> Sair da edição
+        <span class="text-[9px] font-normal text-violet-500 ml-1 px-1.5 py-0.5 rounded bg-violet-50 border border-violet-200">ESC</span>
+      </button>
     </div>`;
   },
 

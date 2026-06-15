@@ -14482,11 +14482,20 @@ Prioridade: ${d.priority}
     App.state.strategicMapMode = 'campaign';
     if (window.StrategicMapEngine) {
       StrategicMapEngine.ensureBranchMap(Number(campaignId), Number(campaign.productId));
-      StrategicMapEngine.ensureComercialAreas(Number(campaign.productId), Number(campaignId));
+      StrategicMapEngine.ensureComercialAreas(Number(campaign.productId), Number(campaign.id));
     }
     App.state.strategicMapZoom = 'campaign';
     App.save(); App.render();
     Utils.toast(`Trabalhando em ${campaign.name}.`);
+  },
+
+  // V38.1.28 — Sai do modo "Editando a campanha X" da Etapa 4 do Mapa.
+  // Não fecha o Mapa todo — só limpa a campanha ativa e volta pra vista
+  // produto (lista de campanhas + empty state "Selecione uma campanha").
+  exitStrategicCampaignEdit() {
+    App.state.strategicMapCampaignId = null;
+    App.state.strategicMapMode = 'product';
+    App.save(); App.render();
   },
 
   // V29.1.3 — "Executar Métricas" = publicar KRs-mãe pros gestores.

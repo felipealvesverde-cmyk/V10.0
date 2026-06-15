@@ -176,6 +176,16 @@ var App = {
               e.preventDefault();
               if (window.Actions?.toggleDjowAIModal) Actions.toggleDjowAIModal();
             }
+            // V38.1.28 — ESC sai da edição da campanha (Etapa 4 do Mapa)
+            // ou fecha o Mapa todo (se já estiver na vista produto).
+            if (e.key === 'Escape' && App.state.showStrategicMap) {
+              const tag = (document.activeElement?.tagName || '').toLowerCase();
+              if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+              if (App.state.strategicMapCampaignId) {
+                e.preventDefault();
+                if (window.Actions?.exitStrategicCampaignEdit) Actions.exitStrategicCampaignEdit();
+              }
+            }
           });
         }
         // V26.0.0 — Carrega status do Djow em background (não bloqueia render).
