@@ -1059,6 +1059,66 @@ window.Actions = Actions;
 
 // RevOps patches 1-5: operational overrides and helpers.
 Object.assign(Actions, {
+  // V38.1.0 — Modal Saúde do Produto. Abre via "?" no card.
+  openHealthScoreModal(productId) {
+    App.state.healthModal = { productId: Number(productId), djowAnalysis: null };
+    App.render();
+  },
+
+  closeHealthScoreModal() {
+    App.state.healthModal = null;
+    App.render();
+  },
+
+  // V38.1.0 — Pede análise pro Djow. Lazy (1 call quando user clica).
+  // Endpoint dedicado pra não pagar overhead do djow-chat full loop.
+  async askDjowHealthAnalysis(productId) {
+    const modal = App.state.healthModal;
+    if (!modal || Number(modal.productId) !== Number(productId)) return;
+    modal.djowAnalysis = { loading: true, error: null, byDimension: null, verdict: null };
+    App.render();
+    try {
+      if (!window.HealthScoreEngine) throw new Error('Engine de Saúde não carregado.');
+      const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
+      if (!product) throw new Error('Produto não encontrado.');
+      const computed = HealthScoreEngine.compute(productId);
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-health-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          productId,
+          productName: product.name,
+          productType: product.type || '',
+          revenueModel: product.revenueModel || '',
+          score: computed.score,
+          tier: computed.tier.label,
+          gargalo: computed.gargalo.label,
+          fatores: {
+            eficacia: { value: computed.fatores.eficacia.value, total: computed.fatores.eficacia.total, done: computed.fatores.eficacia.done },
+            cobertura: { value: computed.fatores.cobertura.value, areasComKr: computed.fatores.cobertura.areasComKr, areasFaltantes: computed.fatores.cobertura.areasFaltantes },
+            krs: { value: computed.fatores.krs.value, count: computed.fatores.krs.krsConfirmadosCount, krs: (computed.fatores.krs.krs || []).map(k => ({ name: k.kr.metric, tier: k.tier, label: k.label })) },
+            resultado: { value: computed.fatores.resultado.value, meta: computed.fatores.resultado.metaConsolidada, vendas: computed.fatores.resultado.vendasRealizadas, hasCheckout: computed.fatores.resultado.hasCheckoutConnected, hasMeta: computed.fatores.resultado.hasMeta }
+          }
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Djow recusou a análise.');
+      modal.djowAnalysis = {
+        loading: false, error: null,
+        byDimension: data.byDimension || {},
+        verdict: data.verdict || ''
+      };
+      App.render();
+    } catch (err) {
+      const m = App.state.healthModal;
+      if (m) {
+        m.djowAnalysis = { loading: false, error: err.message, byDimension: null, verdict: null };
+        App.render();
+      }
+    }
+  },
+
   // V38.0.3 — Garante revopsFinanceV2[productId] com pelo menos 1 oferta default.
   // Usado em createProduct + confirmNewProductWithMapa + migration de clientes
   // existentes que tem metasResultado mas nenhuma oferta cadastrada.
