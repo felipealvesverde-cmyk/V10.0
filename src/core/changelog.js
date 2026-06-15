@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.3',
+    date: '2026-06-15',
+    title: 'Linha de oferta alinha bonito: labels uniformes em cima + base alinhada',
+    bullets: [
+      'Bug visual: o input "Nome da oferta" ficava sem label, então alinhava no meio do flex enquanto os outros campos (Tipo, Preço, Meta, Mix) tinham label uppercase em cima. Tudo desalinhado.',
+      'Fix: padronizei. Todo campo agora tem label uppercase em cima (incluindo Nome). Flex passou de items-center pra items-end — todos os inputs descem na mesma linha base. Ícone tag e checkbox TM ajustam altura pra ficar no nível.',
+      'Bônus: checkbox "TM" virou um chip com borda discreta (em vez de só um checkbox solto colado nos campos) — melhor leitura visual.'
+    ]
+  },
+  {
     version: 'V38.1.2',
     date: '2026-06-15',
     title: 'Ofertas ganha layout das outras tabs + Meta de Vendas no Resultado vira read-only',
