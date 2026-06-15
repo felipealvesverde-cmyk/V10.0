@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.12',
+    date: '2026-06-15',
+    title: 'Cards de área (Marketing/Vendas/CS) viram atalho pro Mapa Etapa 3',
+    bullets: [
+      'Os 3 cards Marketing/Vendas/CS no card de produto agora são clicáveis. Click leva direto pra Etapa 3 (Os Números) do Mapa da Receita daquele produto.',
+      'Se o produto ainda não tem Mapa configurado (sem objetivo + sem KR em nenhuma branch), aparece um toast de aviso e a navegação vai pra Etapa 1 (Visão) pra começar do início.',
+      'Critério de "configurado": tem objetivo (vision) preenchido E pelo menos 1 KR criado em qualquer área. Sem isso, considera que o cliente precisa fazer o primeiro setup.',
+      'Hover dos cards ganhou um shade mais escuro pra deixar evidente que é clicável.'
+    ]
+  },
+  {
     version: 'V38.1.11',
     date: '2026-06-15',
     title: 'FIX: engine de Saúde usava AREA "vendas" mas a real é "sales"',

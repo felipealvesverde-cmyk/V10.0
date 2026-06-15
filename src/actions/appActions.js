@@ -6709,6 +6709,35 @@ window.Actions = Actions;
 // V17 — Revenue Strategic Map
 Object.assign(Actions, {
   // V29.0.0 — Abre Mapa em vista PRODUTO (CEO mode): Visão + KRs-mãe + lista de branches.
+  // V38.1.12 — Click numa área (Marketing/Vendas/CS) no card do produto.
+  // Se o produto NÃO tem Mapa configurado (sem vision E sem KR criado em
+  // nenhuma branch), mostra aviso e leva pra Etapa 1 (Visão). Caso contrário,
+  // abre o Mapa direto na Etapa 3 (Os Números) — onde estão os KRs das áreas.
+  openProductAreaInMap(productId, areaId) {
+    if (!window.StrategicMapEngine) return;
+    const map = StrategicMapEngine.getForProduct(productId);
+    const hasVision = !!String(map?.vision || '').trim();
+    const branches = (typeof StrategicMapEngine.getBranchesByProduct === 'function')
+      ? StrategicMapEngine.getBranchesByProduct(productId) || []
+      : [];
+    const totalKrs = branches.reduce((s, b) => s + (b.objectives || []).reduce((ss, o) => ss + (o.okrs?.length || 0), 0), 0);
+    const isConfigurado = hasVision && totalKrs > 0;
+
+    if (!isConfigurado) {
+      Utils.toast('⚠ Crie o Mapa da Receita primeiro pra editar KRs por área.');
+      setTimeout(() => {
+        Actions.openStrategicMap(productId);
+        if (window.StrategicZoomNavigation?.set) StrategicZoomNavigation.set('vision');
+        App.save(); App.render();
+      }, 400);
+      return;
+    }
+
+    Actions.openStrategicMap(productId);
+    if (window.StrategicZoomNavigation?.set) StrategicZoomNavigation.set('okrs');
+    App.save(); App.render();
+  },
+
   openStrategicMap(productId) {
     if (!productId) return Utils.toast('Selecione um produto.');
     // V31.0.5 — Demo abria direto na primeira branch pra ver etapas 4-6 com conteúdo.
