@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.19',
+    date: '2026-06-15',
+    title: 'Status do Djow conta a KB inteira (não só a raiz)',
+    bullets: [
+      'O painel Configurações → Agentes Externos → Djow mostrava ~62 KB de base de conhecimento. Era subestimativa: o Djow no chat carrega ~118 KB de verdade (15 arquivos contra 9 contados).',
+      'Causa: o endpoint de status lia só os .md da raiz, ignorando as subpastas revops/* e methodologies/* (Doerr, Geraldo, Leonardo, marketing-ops, sales-ops, cs-ops, financial-ops).',
+      'Agora o status faz o mesmo walk recursivo do chat. Os números batem com a realidade.'
+    ]
+  },
+  {
     version: 'V38.1.18',
     date: '2026-06-15',
     title: 'Card de área: "X KRs" — sem cruzar com nada, apenas o número de KR-mãe da área',
