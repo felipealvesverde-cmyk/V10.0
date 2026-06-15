@@ -55,16 +55,27 @@ window.HealthScoreEngine = {
   },
 
   // K — multiplicador. Sem KR confirmado, retorna 0 (zerando Saúde inteira).
+  // V38.1.4 — Retorna também krsRascunhoCount + visionPresent pra modal explicar
+  // melhor por que K=0 (sem KR cadastrado vs com rascunhos não confirmados).
   _krHealth(productId) {
     if (!window.StrategicMapEngine?.getForProduct || !window.strategicOkrEngine) {
-      return { value: 0, krs: [], krsConfirmadosCount: 0 };
+      return { value: 0, krs: [], krsConfirmadosCount: 0, krsRascunhoCount: 0, krsTotalCount: 0, visionPresent: false };
     }
     const map = StrategicMapEngine.getForProduct(productId) || {};
     const allKrs = (map.objectives || []).flatMap(o => o.okrs || []);
     const confirmedKrs = allKrs.filter(k => k.confirmed);
+    const rascunhoKrs = allKrs.filter(k => !k.confirmed);
+    const visionPresent = !!String(map.vision || '').trim();
 
     if (!confirmedKrs.length) {
-      return { value: 0, krs: [], krsConfirmadosCount: 0 };
+      return {
+        value: 0,
+        krs: [],
+        krsConfirmadosCount: 0,
+        krsRascunhoCount: rascunhoKrs.length,
+        krsTotalCount: allKrs.length,
+        visionPresent
+      };
     }
 
     const weights = confirmedKrs.map(kr => {
@@ -87,7 +98,10 @@ window.HealthScoreEngine = {
     return {
       value: sum / confirmedKrs.length,
       krs: weights,
-      krsConfirmadosCount: confirmedKrs.length
+      krsConfirmadosCount: confirmedKrs.length,
+      krsRascunhoCount: rascunhoKrs.length,
+      krsTotalCount: allKrs.length,
+      visionPresent
     };
   },
 
@@ -142,9 +156,22 @@ window.HealthScoreEngine = {
     const base = (0.4 * E) + (0.4 * C) + (0.2 * R);
     const score = Math.round(K * base * 100);
 
+    // V38.1.4 — Estado "em construção": produto recém-criado sem NADA cadastrado.
+    // Evita gritar "CRÍTICO" no rosto do cliente que acabou de criar o produto.
+    // Critério: tudo zero E nenhum cadastro mínimo (0 tasks + 0 KRs + 0 ofertas
+    // com meta + sem checkout). Visualmente vira tier violet "Em construção".
+    const isBuilding = (
+      (eficacia.total || 0) === 0 &&
+      (krHealth.krsTotalCount || 0) === 0 &&
+      (cobertura.areasComKr || []).length === 0 &&
+      (resultado.metaConsolidada || 0) === 0 &&
+      !resultado.hasCheckoutConnected
+    );
+
     // Identifica gargalo: a dimensão que MAIS poderia subir o score.
     // Se K=0, gargalo é KRs (multiplicador é o pior caso).
     const gargalo = (() => {
+      if (isBuilding) return { dim: 'building', label: 'Em construção', reason: 'Produto recém-criado — vamos cadastrar as primeiras peças?' };
       if (K === 0) return { dim: 'krs', label: 'KRs (multiplicador)', reason: 'Sem KR confirmado — Saúde zerada' };
       const ranking = [
         { dim: 'krs',      label: 'KRs',        miss: 1 - K },
@@ -157,7 +184,8 @@ window.HealthScoreEngine = {
 
     return {
       score,
-      tier: this._tier(score),
+      isBuilding,
+      tier: isBuilding ? { label: 'Em construção', color: 'violet' } : this._tier(score),
       gargalo,
       fatores: {
         eficacia: { weight: 0.4, value: E, ...eficacia, contribuiPts: Math.round(K * 0.4 * E * 100) },

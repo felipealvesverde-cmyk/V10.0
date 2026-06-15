@@ -19,13 +19,17 @@
   // V32.11.0 — Leonardo: tabs com Lucide icons (sem emojis decorativos).
   // Icon = lucide name (carregado via data-lucide=). Tom executivo unificado
   // com Home/Mapa.
+  // V38.1.4 — Fechamento deslocado pra última posição (depois de DRE). A
+  // jornada natural do CFO é: cadastra Custos / Ofertas → vê Resultado /
+  // RevOps KPIs / DRE → no fim do mês, fecha. Fechamento na 1ª posição
+  // (V37.0.1) ficava deslocado dessa narrativa.
   const TABS = [
-    { id: 'fechamento', label: 'Fechamento',     icon: 'calendar-check', alwaysOpen: true  }, // V37.0.1
     { id: 'costs',      label: 'Custos',         icon: 'wallet',         alwaysOpen: true  },
     { id: 'offers',     label: 'Ofertas',        icon: 'target',         alwaysOpen: true  },
     { id: 'result',     label: 'Resultado',      icon: 'bar-chart-3',    alwaysOpen: false },
     { id: 'revops',     label: 'RevOps KPIs',    icon: 'sparkles',       alwaysOpen: false },
-    { id: 'dre',        label: 'DRE',            icon: 'file-text',      alwaysOpen: false }
+    { id: 'dre',        label: 'DRE',            icon: 'file-text',      alwaysOpen: false },
+    { id: 'fechamento', label: 'Fechamento',     icon: 'calendar-check', alwaysOpen: true  }
   ];
 
   const CALC_MODES = [
@@ -113,7 +117,6 @@
               <h2 class="text-2xl font-black text-white mt-1 leading-tight">Visão geral · ${products.length} produto${products.length === 1 ? '' : 's'}</h2>
               <p class="text-[12px] text-violet-200/70 mt-1">Selecione um produto pra entrar na governança específica.</p>
             </div>
-            <button onclick="Actions.toggleRevopsClassicMode()" title="Voltar ao painel clássico (V14)" class="px-3 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-violet-400/20 text-violet-200 text-xs font-bold shrink-0">← Clássico</button>
           </div>
 
           <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -203,7 +206,7 @@
         <div class="flex items-start justify-between gap-3 flex-wrap mb-4">
           <div class="min-w-0">
             <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest">RevOps & Governança · CFO</p>
-            <h2 class="text-2xl font-black text-white mt-1 leading-tight">Operação de Receita</h2>
+            <h2 class="text-2xl font-black text-white mt-1 leading-tight">Operação de Receita · ${Utils.escape(selectedName)}</h2>
             <p class="text-[12px] text-violet-200/70 mt-1">Modele sua operação como ela é</p>
           </div>
           <div class="flex items-center gap-2 shrink-0">
@@ -215,7 +218,7 @@
               <option value="quarterly" ${cfg.period === 'quarterly' ? 'selected' : ''} class="bg-slate-900">Trimestral</option>
               <option value="yearly"    ${cfg.period === 'yearly'    ? 'selected' : ''} class="bg-slate-900">Anual</option>
             </select>
-            <button onclick="Actions.toggleRevopsClassicMode()" title="Voltar ao painel clássico (V14)" class="px-3 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-violet-400/20 text-violet-200 text-xs font-bold">← Clássico</button>
+            <button onclick="Actions.backToRevopsOverview()" title="Voltar pro Overview de RevOps & Governança" class="px-3 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-violet-400/20 text-violet-200 text-xs font-bold whitespace-nowrap">← RevOps & Governança</button>
           </div>
         </div>
 
@@ -1642,8 +1645,10 @@
         varLabel = 'Aguardando realizado';
       } else if (metaValue === 0) {
         varCls = 'bg-stone-100 border-stone-200 text-stone-500';
-        varIcon = 'edit-3';
-        varLabel = 'Sem meta';
+        // V38.1.4 — Vendas é read-only (vem da soma das ofertas), então o
+        // ícone lápis confunde. Mostra seta externa apontando pra Ofertas.
+        varIcon = isVendas ? 'external-link' : 'edit-3';
+        varLabel = isVendas ? 'Sem meta nas ofertas' : 'Sem meta';
       }
 
       const metaDisplay = isVendas

@@ -3,7 +3,7 @@ var ProductsModule = {
     const selected = this.selectedProduct();
     return `<div class="space-y-4">
       ${this.hero(selected)}
-      <div class="grid lg:grid-cols-[1fr_1.2fr] gap-4">
+      <div class="grid lg:grid-cols-[300px_1fr] gap-4">
         ${this.createPanel()}
         ${this.productsPanel()}
       </div>
@@ -121,39 +121,34 @@ var ProductsModule = {
     const d = App.state.productDraft || {};
     return `<div class="space-y-3">
       <!-- V31.2.4 — Caminho recomendado: criar produto JÁ ligado ao Mapa da Receita -->
-      <button onclick="Actions.openNewProductWithMapaPopup()" class="w-full px-5 py-4 rounded-3xl text-white font-black flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition" style="background:linear-gradient(135deg, #7C3AED, #4F46E5); color:#fff!important;">
-        <i data-lucide="compass" class="w-5 h-5"></i>
-        <span class="text-base">Criar Produto com Mapa da Receita</span>
-        <span class="text-[10px] font-bold opacity-80 ml-1">recomendado</span>
+      <button onclick="Actions.openNewProductWithMapaPopup()" class="w-full px-4 py-3 rounded-3xl text-white font-black flex flex-col items-center justify-center gap-1 shadow-md hover:shadow-lg transition" style="background:linear-gradient(135deg, #7C3AED, #4F46E5); color:#fff!important;">
+        <span class="inline-flex items-center gap-2"><i data-lucide="compass" class="w-4 h-4"></i> Criar com Mapa</span>
+        <span class="text-[10px] font-bold opacity-80">recomendado</span>
       </button>
 
-      <!-- V38.0.2 — Form compactado: 3 campos em 1 linha + botão lateral.
-           Libera espaço vertical pro card de Produtos Criados (mais usado). -->
-      <div class="bg-white rounded-3xl p-4 shadow-sm border border-slate-100">
-        <div class="flex items-start justify-between gap-3 mb-2">
-          <div>
-            <h2 class="text-lg font-black leading-tight">Criar Produto sem Mapa</h2>
-            <p class="text-[11px] text-slate-500">Cadastro puro — preço, modelo, custo. Sem Visão / KRs / rollup. <span class="text-amber-700 font-bold">Considere o caminho violeta acima pra conectar estratégia desde o início.</span></p>
-          </div>
+      <!-- V38.1.4 — Coluna estreita (300px). Campos empilhados verticalmente
+           pra caber, liberando largura pro card de Produtos Criados. -->
+      <div class="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-2.5">
+        <div>
+          <h2 class="text-base font-black leading-tight">Criar sem Mapa</h2>
+          <p class="text-[10px] text-slate-500 leading-snug">Cadastro puro. Sem Visão / KRs / rollup.</p>
         </div>
-        <div class="grid grid-cols-[1.4fr_1fr_1fr_auto] gap-2 items-end">
-          <div>
-            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Nome</label>
-            <input value="${Utils.escape(d.name || '')}" oninput="App.state.productDraft.name=this.value; App.save();" placeholder="Ex: Diagnóstico Comercial" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm" />
-          </div>
-          <div>
-            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Tipo</label>
-            <input value="${Utils.escape(d.type || '')}" oninput="App.state.productDraft.type=this.value; App.save();" placeholder="Ex: Consultoria, SaaS, Curso" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm" />
-          </div>
-          <div>
-            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Recorrência</label>
-            <select onchange="App.state.productDraft.revenueModel=this.value; App.save();" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm">
-              <option value="Venda única" ${(d.revenueModel || 'Venda única') === 'Venda única' ? 'selected' : ''}>Venda única</option>
-              <option value="Recorrente" ${d.revenueModel === 'Recorrente' ? 'selected' : ''}>Recorrente</option>
-            </select>
-          </div>
-          <button onclick="Actions.createProduct()" style="color:#fff!important;" class="px-4 py-2.5 rounded-xl bg-slate-900 text-white font-black text-sm whitespace-nowrap lj-dark-button">Criar</button>
+        <div>
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Nome</label>
+          <input value="${Utils.escape(d.name || '')}" oninput="App.state.productDraft.name=this.value; App.save();" placeholder="Ex: Diagnóstico Comercial" class="w-full px-3 py-2 rounded-xl bg-slate-100 font-semibold text-sm" />
         </div>
+        <div>
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Tipo</label>
+          <input value="${Utils.escape(d.type || '')}" oninput="App.state.productDraft.type=this.value; App.save();" placeholder="Ex: SaaS, Consultoria" class="w-full px-3 py-2 rounded-xl bg-slate-100 font-semibold text-sm" />
+        </div>
+        <div>
+          <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Recorrência</label>
+          <select onchange="App.state.productDraft.revenueModel=this.value; App.save();" class="w-full px-3 py-2 rounded-xl bg-slate-100 font-semibold text-sm">
+            <option value="Venda única" ${(d.revenueModel || 'Venda única') === 'Venda única' ? 'selected' : ''}>Venda única</option>
+            <option value="Recorrente" ${d.revenueModel === 'Recorrente' ? 'selected' : ''}>Recorrente</option>
+          </select>
+        </div>
+        <button onclick="Actions.createProduct()" style="color:#fff!important;" class="w-full px-4 py-2.5 rounded-xl bg-slate-900 text-white font-black text-sm lj-dark-button">Criar Produto</button>
       </div>
     </div>`;
   },
@@ -215,21 +210,28 @@ var ProductsModule = {
 
   // V38.1.0 — Linha de Saúde do Produto no card. Score 0-100 + barra +
   // label do gargalo + "?" pra abrir modal explicador.
+  // V38.1.4 — Estado "em construção" pra produto recém-criado.
   _healthScoreRow(product) {
     if (!window.HealthScoreEngine) return '';
     const h = HealthScoreEngine.compute(product.id);
-    const tone = h.tier.color;  // emerald / amber / orange / rose
+    const tone = h.tier.color;  // violet (construindo) / emerald / amber / orange / rose
     const pct = Math.max(0, Math.min(100, h.score));
     return `<div class="rounded-2xl border border-l-4 border-l-${tone}-500 bg-${tone}-50/60 border-${tone}-200 px-3 py-2 flex items-center gap-3">
       <div class="shrink-0">
         <div class="text-[9px] font-black text-${tone}-700 uppercase tracking-widest">Saúde</div>
-        <div class="font-black text-xl text-slate-900 leading-none mt-0.5">${h.score}<span class="text-[10px] text-slate-400 font-bold">/100</span></div>
+        ${h.isBuilding
+          ? '<div class="font-black text-xl text-slate-900 leading-none mt-0.5">🚧</div>'
+          : `<div class="font-black text-xl text-slate-900 leading-none mt-0.5">${h.score}<span class="text-[10px] text-slate-400 font-bold">/100</span></div>`}
       </div>
       <div class="flex-1 min-w-0">
         <div class="h-2 w-full bg-${tone}-100 rounded-full overflow-hidden">
           <div class="h-full bg-${tone}-500 rounded-full" style="width:${pct}%;"></div>
         </div>
-        <p class="text-[10px] font-bold text-slate-600 mt-1 truncate">${h.tier.label} · gargalo: <span class="text-${tone}-800">${Utils.escape(h.gargalo.label)}</span></p>
+        <p class="text-[10px] font-bold text-slate-600 mt-1 truncate">
+          ${h.isBuilding
+            ? `<span class="text-${tone}-800">Em construção</span> · vamos cadastrar as primeiras peças?`
+            : `${h.tier.label} · gargalo: <span class="text-${tone}-800">${Utils.escape(h.gargalo.label)}</span>`}
+        </p>
       </div>
       <button onclick="event.stopPropagation(); Actions.openHealthScoreModal(${product.id})"
         class="shrink-0 w-7 h-7 rounded-full bg-white border border-${tone}-300 text-${tone}-700 hover:bg-${tone}-100 grid place-items-center text-xs font-black"
