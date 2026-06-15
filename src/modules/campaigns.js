@@ -265,7 +265,7 @@ var CampaignModule = {
 
     // Atalhos (só Fluxo agora — Mapa virou badge)
     const fluxoAtalho = hasActions
-      ? `<button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${campaign.id})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="workflow" class="w-3 h-3"></i> Fluxo da Campanha</button>`
+      ? `<button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${campaign.id})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="map" class="w-3 h-3"></i> Roadmap</button>`
       : '';
     const hasAtalhos = !!fluxoAtalho;
 
@@ -274,9 +274,9 @@ var CampaignModule = {
       if (!isStrategic || !window.StrategicMapEngine?.getMissingChildrenInBranch || !product) return '';
       const missing = StrategicMapEngine.getMissingChildrenInBranch(product.id, campaign.id);
       if (!missing.length) return '';
-      return `<div class="rounded-md bg-amber-50/40 border border-amber-200 border-l-2 border-l-amber-500 px-2 py-1 flex items-center gap-1.5">
+      return `<div class="inline-flex items-center gap-1.5 rounded-md bg-amber-50/40 border border-amber-200 border-l-2 border-l-amber-500 px-2 py-1 w-fit max-w-full">
         <i data-lucide="alert-triangle" class="w-3 h-3 text-amber-700 shrink-0"></i>
-        <p class="text-[10px] text-amber-900 font-bold leading-tight">${missing.length} número(s)-mãe ainda não plugado(s) — abra o Mapa e vá na etapa Campanha.</p>
+        <p class="text-[10px] text-amber-900 font-bold leading-tight">${missing.length} número(s)-mãe pendente(s) — plugue no Mapa.</p>
       </div>`;
     })();
 
@@ -288,9 +288,9 @@ var CampaignModule = {
     ];
     const setorCardsHtml = areas.map(area => {
       const count = actions.filter(a => String(a.sector || '').toLowerCase() === area.id).length;
-      return `<div class="bg-white rounded-xl border border-slate-200 border-l-4 border-l-${area.color}-500 px-2.5 py-1.5 text-center">
+      return `<div class="bg-white rounded-xl border border-slate-200 border-l-4 border-l-${area.color}-500 px-2.5 py-2 text-center">
         <div class="text-[9px] font-black text-${area.color}-700 uppercase tracking-wider leading-tight">${Utils.escape(area.label)}</div>
-        <div class="font-black text-base text-slate-900 mt-0.5 leading-none">${count}</div>
+        <div class="font-black text-lg text-slate-900 mt-0.5 leading-none">${count}</div>
       </div>`;
     }).join('');
 
@@ -302,7 +302,7 @@ var CampaignModule = {
           <p class="text-[10px] font-black ${isStrategic ? 'text-violet-700' : 'text-slate-500'} uppercase tracking-widest mb-0.5">Campanha</p>
           <h3 class="font-black text-lg ${isStrategic ? 'text-violet-900' : 'text-slate-900'}">${Utils.escape(campaign.name)}</h3>
           ${objectiveText ? `<p class="text-sm text-slate-500 mt-1">${Utils.escape(objectiveText)}</p>` : (isStrategic ? '' : '<p class="text-sm text-slate-500 mt-1">Sem objetivo</p>')}
-          <p class="text-xs text-slate-400 mt-2">Produto: ${Utils.escape(product?.name || 'não vinculado')} • ${actions.length} ação(ões) • ${totalLeads} lead(s) • ${conversion}% conversão</p>
+          <p class="text-xs text-slate-400 mt-2">Produto: ${Utils.escape(product?.name || 'não vinculado')}</p>
           ${hasPipeline ? `<p class="text-[11px] text-emerald-600 mt-1">Pipeline RD: <b>${Utils.escape(pipelineInfo?.pipelineName || '')}</b></p>` : ''}
         </div>
 
@@ -310,8 +310,14 @@ var CampaignModule = {
 
         <div class="flex items-center gap-2 flex-wrap">${badgesHtml}</div>
 
-        <div class="grid grid-cols-3 gap-2 max-w-md">
-          ${setorCardsHtml}
+        <div class="flex flex-col gap-1.5 max-w-md">
+          <div class="flex items-center gap-2">
+            <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">Ações por área</span>
+            <span class="flex-1 h-px bg-slate-200"></span>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            ${setorCardsHtml}
+          </div>
         </div>
 
         ${hasAtalhos ? `<div class="flex items-center gap-3 justify-end flex-wrap pt-1">

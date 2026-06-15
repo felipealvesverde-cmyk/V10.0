@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.27',
+    date: '2026-06-15',
+    title: 'Card da Campanha: faxina de redundâncias + agrupamento "Ações por área"',
+    bullets: [
+      'O aviso amarelo dos KRs-mãe pendentes agora ocupa só o tamanho do conteúdo — não estica mais a largura cheia do card. Texto enxuto: "X números-mãe pendentes — plugue no Mapa".',
+      'A linha "X ações · X leads · X% conversão" saiu do header — as contagens já vivem nas badges e nos cards por área, era informação repetida 3 vezes no mesmo card.',
+      'Os cards Marketing/Vendas/CS ganharam um header "AÇÕES POR ÁREA" com linha fina cinza agrupando-os — fica claro do que estão falando sem precisar adivinhar.',
+      'Os cards de área respiram um pouco mais (mais padding, número maior) — não ficaram mais "achatados".',
+      'O atalho "Fluxo da Campanha" passou a se chamar "Roadmap" — antecipa a próxima onda de reformulação dessa seção.'
+    ]
+  },
+  {
     version: 'V38.1.26',
     date: '2026-06-15',
     title: 'Card da Campanha: trilha vira 4 badges clicáveis (sem ordem forçada)',
