@@ -1325,16 +1325,33 @@
 
     // V32.11.3 — Leonardo: linha de oferta executiva. Left-border emerald (cor
     // de Ofertas/Receita), inputs sóbrios com focus violet, delete Lucide.
+    // V38.0.3 — Linha de oferta ganhou 2 campos novos: Tipo (kind enum)
+    // e Meta de Vendas. Tipo aparece como selector compacto; Meta é input
+    // numérico em unidades de venda (não R$ — quantas vendas espero?).
     _offerRow(productId, offer, ticketMode) {
       const isWeighted = ticketMode === 'weighted';
-      return `<div class="rounded-xl bg-white border border-slate-200 border-l-4 border-l-emerald-500 hover:border-slate-300 transition p-3 flex items-center gap-2.5">
+      const kind = offer.kind || 'main';
+      return `<div class="rounded-xl bg-white border border-slate-200 border-l-4 border-l-emerald-500 hover:border-slate-300 transition p-3 flex items-center gap-2.5 flex-wrap">
         <span class="shrink-0 w-7 h-7 rounded-lg bg-emerald-500/15 grid place-items-center text-emerald-700">
           <i data-lucide="tag" class="w-3.5 h-3.5"></i>
         </span>
+        <label class="block w-32 shrink-0">
+          <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Tipo</span>
+          <select onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'kind', this.value)" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:border-violet-400 focus:bg-white">
+            <option value="main" ${kind === 'main' ? 'selected' : ''}>Principal</option>
+            <option value="cross-sell" ${kind === 'cross-sell' ? 'selected' : ''}>Cross-sell</option>
+            <option value="up-sell" ${kind === 'up-sell' ? 'selected' : ''}>Up-sell</option>
+            <option value="down-sell" ${kind === 'down-sell' ? 'selected' : ''}>Down-sell</option>
+          </select>
+        </label>
         <input value="${Utils.escape(offer.name)}" onchange="Actions.renameRevopsOffer('${productId}', '${offer.id}', this.value)" placeholder="Nome da oferta" class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
         <label class="block w-28">
           <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Preço (R$)</span>
           <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(offer.price || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'price', Utils.parseBRL(this.value))" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
+        </label>
+        <label class="block w-24">
+          <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Meta vendas</span>
+          <input type="number" min="0" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${offer.metaVendas || 0}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'metaVendas', this.value)" placeholder="0" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
         </label>
         ${isWeighted ? `<label class="block w-20">
           <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Mix (%)</span>

@@ -68,6 +68,21 @@
       };
     },
 
+    // V38.0.3 — Oferta default criada ao criar produto. Cliente vê 1 linha
+    // pronta em vez de tela vazia. Default mix=100 (única oferta = todo TM)
+    // selectedForTicket=true pra entrar no cálculo.
+    defaultOffer(productName = 'Produto Principal', initialPrice = 0) {
+      return {
+        id: `offer_${Date.now().toString(36).slice(-4)}`,
+        name: String(productName || 'Produto Principal'),
+        price: this._num(initialPrice),
+        mix: 100,
+        selectedForTicket: true,
+        kind: 'main',
+        metaVendas: 0
+      };
+    },
+
     emptyGroup(label = '', bucket = 'fixed') {
       const slug = String(label).toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 32) || 'grupo';
       return {
@@ -306,7 +321,12 @@
           name: String(o.name || '').trim(),
           price: this._num(o.price),
           mix: this._num(o.mix),
-          selectedForTicket: !!o.selectedForTicket
+          selectedForTicket: !!o.selectedForTicket,
+          // V38.0.3 — kind estruturado (main/cross-sell/up-sell/down-sell) +
+          // metaVendas única (sem dimensão temporal — meta é estática por
+          // decisão de produto; sazonalidade fica pra futura release).
+          kind: ['main', 'cross-sell', 'up-sell', 'down-sell'].includes(o.kind) ? o.kind : 'main',
+          metaVendas: this._num(o.metaVendas)
         })) : [],
         ticketMode: raw.ticketMode === 'manual' ? 'manual' : 'weighted',
         ticketManualValue: this._num(raw.ticketManualValue),

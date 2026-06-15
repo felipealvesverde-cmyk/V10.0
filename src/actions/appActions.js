@@ -1059,6 +1059,23 @@ window.Actions = Actions;
 
 // RevOps patches 1-5: operational overrides and helpers.
 Object.assign(Actions, {
+  // V38.0.3 — Garante revopsFinanceV2[productId] com pelo menos 1 oferta default.
+  // Usado em createProduct + confirmNewProductWithMapa + migration de clientes
+  // existentes que tem metasResultado mas nenhuma oferta cadastrada.
+  // Não sobrescreve se já houver oferta — idempotente.
+  _ensureRevopsOffersForProduct(productId, productName) {
+    if (!window.RevopsWhitelabelEngine?.defaultOffer) return;
+    App.state.revopsFinanceV2 = App.state.revopsFinanceV2 || {};
+    let cfg = App.state.revopsFinanceV2[productId];
+    if (!cfg) {
+      cfg = RevopsWhitelabelEngine.defaultConfig(productId);
+      App.state.revopsFinanceV2[productId] = cfg;
+    }
+    if (!Array.isArray(cfg.offers) || !cfg.offers.length) {
+      cfg.offers = [RevopsWhitelabelEngine.defaultOffer(productName || 'Produto Principal', 0)];
+    }
+  },
+
   createProduct() {
     const d = App.state.productDraft || {};
     if (!String(d.name || '').trim()) return Utils.toast('Digite o nome do produto.');
@@ -1075,6 +1092,10 @@ Object.assign(Actions, {
     App.state.selectedProductId = product.id;
     App.state.campaignDraft.productId = product.id;
     App.state.productDraft = { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' };
+    // V38.0.3 — Oferta default + struct RevOps zerada pra esse produto. Antes,
+    // produto novo nascia sem oferta — TM=0, Faturamento=0, sem cadastro de
+    // meta. Agora cliente já vê 1 oferta "Padrão" preenchível.
+    this._ensureRevopsOffersForProduct(product.id, product.name);
     App.save(); App.render(); Utils.toast('Produto criado e pronto para receber campanhas.');
     // V37.4.3 — emit notification tenant_wide
     if (window.LJEmit) window.LJEmit({
@@ -1124,6 +1145,8 @@ Object.assign(Actions, {
     App.state.selectedProductId = product.id;
     App.state.campaignDraft.productId = product.id;
     App.state.newProductWithMapaPopup = null;
+    // V38.0.3 — Oferta default + struct RevOps zerada (idêntico ao createProduct).
+    this._ensureRevopsOffersForProduct(product.id, product.name);
     App.save();
     Utils.toast(`Produto "${name}" criado. Vamos construir o Mapa da Receita.`);
     setTimeout(() => {
@@ -5818,7 +5841,11 @@ Object.assign(Actions, {
   // OFFERS
   addRevopsOffer(productId) {
     Actions._revopsV2Mutate(productId, cfg => {
-      const o = { id: `offer_${Date.now().toString(36).slice(-4)}`, name: 'Nova oferta', price: 0, mix: 0, selectedForTicket: true };
+      // V38.0.3 — Usa defaultOffer (com kind e metaVendas zerados). Nome
+      // "Nova oferta" como hoje, cliente renomeia.
+      const o = window.RevopsWhitelabelEngine?.defaultOffer
+        ? RevopsWhitelabelEngine.defaultOffer('Nova oferta', 0)
+        : { id: `offer_${Date.now().toString(36).slice(-4)}`, name: 'Nova oferta', price: 0, mix: 0, selectedForTicket: true, kind: 'main', metaVendas: 0 };
       cfg.offers = [...(cfg.offers || []), o];
     });
   },
@@ -5833,7 +5860,13 @@ Object.assign(Actions, {
   updateRevopsOfferField(productId, offerId, field, value) {
     Actions._revopsV2Mutate(productId, cfg => {
       const o = (cfg.offers || []).find(x => x.id === offerId);
-      if (o) o[field] = Number(value) || 0;
+      if (!o) return;
+      // V38.0.3 — kind é string enum, demais campos são numéricos.
+      if (field === 'kind') {
+        o.kind = ['main', 'cross-sell', 'up-sell', 'down-sell'].includes(value) ? value : 'main';
+      } else {
+        o[field] = Number(value) || 0;
+      }
     });
   },
 
