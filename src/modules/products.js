@@ -99,13 +99,15 @@ var ProductsModule = {
     const execLabel = agg.executionsTotal > 0
       ? `${agg.executionsTotal}/${agg.executionsDone}`
       : '0';
+    // V38.1.5 — Header da aba já mostra "Produtos" grande. Hero do módulo
+     // foca em CONTEXTO + KPIs sem repetir o título.
     return `<div class="bg-slate-950 text-white rounded-[2rem] p-5 shadow-sm overflow-hidden relative">
       <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
       <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
         <div>
-          <div class="flex items-center gap-2 mb-2"><i data-lucide="box" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Produtos • Revenue Layer</p></div>
-          <h1 class="text-3xl md:text-4xl font-black tracking-tight">Produtos</h1>
-          <p class="text-sm text-slate-300 max-w-3xl mt-2">Camada financeira do Revenue OS: ${agg.productsCount} produto${agg.productsCount === 1 ? '' : 's'} ativo${agg.productsCount === 1 ? '' : 's'}, ${agg.campaigns} campanha${agg.campaigns === 1 ? '' : 's'}, ${agg.actions} ação${agg.actions === 1 ? '' : 'ões'}. Visão consolidada da operação.</p>
+          <div class="flex items-center gap-2 mb-2"><i data-lucide="box" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Revenue Layer · Visão consolidada</p></div>
+          <h2 class="text-2xl md:text-3xl font-black tracking-tight leading-tight">${agg.productsCount} produto${agg.productsCount === 1 ? '' : 's'} ativo${agg.productsCount === 1 ? '' : 's'} · ${agg.campaigns} campanha${agg.campaigns === 1 ? '' : 's'} · ${agg.actions} ação${agg.actions === 1 ? '' : 'ões'}</h2>
+          <p class="text-sm text-slate-300 max-w-3xl mt-2">Camada financeira do Revenue OS: preço, modelo de venda, custo operacional, margem, fluxo e receita consolidada por produto.</p>
         </div>
         <div class="grid grid-cols-2 gap-3">
           ${this.darkMetric('Produtos', agg.productsCount, 'box')}
@@ -253,8 +255,18 @@ var ProductsModule = {
     if (!window.StrategicMapEngine) return '';
     const map = StrategicMapEngine.getForProduct(product.id);
     const vision = String(map?.vision || '').trim();
-    const objectives = map?.objectives || [];
     const areas = StrategicMapEngine.COMERCIAL_AREAS || [];
+    // V38.1.6 — Junta legado V28 + branches V29 (mesmo bug do healthScoreEngine).
+    // Antes lia só map.objectives e cards mostravam "pendente" mesmo com 7 KRs
+    // confirmados em branches.
+    const legacyObjectives = map?.objectives || [];
+    const branches = (typeof StrategicMapEngine.getBranchesByProduct === 'function')
+      ? StrategicMapEngine.getBranchesByProduct(product.id) || []
+      : [];
+    const objectives = [
+      ...legacyObjectives,
+      ...branches.flatMap(b => b.objectives || [])
+    ];
     const allKrs = objectives.flatMap(o => o.okrs || []);
     const confirmedKrs = allKrs.filter(k => k.confirmed);
     const snapshot = StrategicMapEngine.snapshot(product.id);
@@ -268,8 +280,8 @@ var ProductsModule = {
       ${vision ? `<p class="text-[12px] text-slate-700"><b class="text-slate-900">🎯 Objetivo:</b> ${Utils.escape(vision.length > 120 ? vision.slice(0, 120) + '…' : vision)}</p>` : '<p class="text-[12px] text-amber-700">⚠️ Objetivo do produto ainda não definido.</p>'}
       <div class="grid grid-cols-3 gap-2">
         ${areas.map(area => {
-          const obj = objectives.find(o => o.area === area.id);
-          const krs = obj?.okrs || [];
+          // V38.1.6 — filter (não find) pra agregar várias branches mesmo área.
+          const krs = objectives.filter(o => o.area === area.id).flatMap(o => o.okrs || []);
           const confirmed = krs.filter(k => k.confirmed).length;
           const actionsOfArea = (App.state.actions || []).filter(a => a.strategicAreaId === area.id && (App.state.campaigns || []).some(c => Number(c.id) === Number(a.campaignId) && Number(c.productId) === Number(product.id))).length;
           const status = confirmed > 0 ? `${confirmed} nº · ${actionsOfArea} ação${actionsOfArea === 1 ? '' : 'ões'}` : 'pendente';
