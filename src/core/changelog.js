@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.28',
+    date: '2026-06-15',
+    title: 'Card da Campanha respira mais + Sair da edição do Mapa',
+    bullets: [
+      'O bloco "Ações por área" foi pro espaço vazio do lado direito superior do card da Campanha — aproveita um respiro que estava sobrando ali.',
+      'No editor do Mapa (Etapa 4), quando você está editando uma campanha específica, aparece agora um botão "Sair da edição" claro no canto do card violeta — não precisa mais procurar como sair.',
+      'A tecla ESC também sai da edição da campanha quando o foco não está num input. Atalho discreto com selo "ESC" no botão pra deixar isso óbvio.'
+    ]
+  },
+  {
     version: 'V38.1.27',
     date: '2026-06-15',
     title: 'Card da Campanha: faxina de redundâncias + agrupamento "Ações por área"',
