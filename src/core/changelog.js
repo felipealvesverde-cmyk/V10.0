@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.14',
+    date: '2026-06-15',
+    title: 'FIX CRÍTICO: card e Saúde leem productKrs (mãe), não childKrs das branches',
+    bullets: [
+      'Bug que vinha aparecendo desde V38.1.6: o card mostrava "5/1/0" enquanto o Mapa mostrava "1/3/3" (= 7 KRs).',
+      'Causa: o engine de Saúde e o card de produto estavam lendo strategicCampaignMaps[branch].objectives[].okrs (childKrs nas branches). Esses são KRs DAS CAMPANHAS — incluem KRs órfãos (sem KR-mãe correspondente) que o Mapa esconde com aviso amarelo.',
+      'Atira.Pro tinha 5 childKrs em Marketing (4 órfãos + 1 com mãe), 1 child em Sales (com mãe) e 0 em CS. Total: 6 — bate com o "5/1/0" do card.',
+      'O Mapa, por sua vez, mostra os productKrs (KR-mãe) — vivem em strategicMaps[productId].productKrs. Atira.Pro tem 1 mkt + 3 sales + 3 cs = 7 productKrs. Eles é que aparecem como "configurados" e que o cliente acompanha.',
+      'Fix: card e Saúde agora leem productKrs (KR-mãe), alinhado com o Mapa. Helper _getProductKrs(productId) no engine; productKrs.filter(k => k.area === id) no card.',
+      'Atira.Pro deve mostrar agora: Marketing 1 nº (com action ou pendente), Sales 3 nº, CS 3 nº.'
+    ]
+  },
+  {
     version: 'V38.1.13',
     date: '2026-06-15',
     title: 'Subtítulo do Hero da aba Produtos cravado pelo Felipe',

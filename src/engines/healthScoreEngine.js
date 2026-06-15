@@ -41,15 +41,14 @@ window.HealthScoreEngine = {
     if (!window.StrategicMapEngine?.getForProduct) {
       return { value: 0, areasComKr: [], areasFaltantes: [...this.AREAS] };
     }
-    // V38.1.6 — V29.0.0 moveu KRs pra branches (strategicCampaignMaps) por
-    // campanha. O objectives no strategicMaps[productId] é LEGACY V28 (vazio
-    // em produto novo). Junta branches + legado + productKrs pra cobertura.
-    const allObjectives = this._collectAllObjectives(productId);
+    // V38.1.14 — Lê productKrs (KR-mãe). É o que o Mapa mostra como confirmados.
+    // Antes lia childKrs das branches (incluía KRs órfãos que o Mapa esconde).
+    const productKrs = this._getProductKrs(productId);
     const areasComKr = [];
     this.AREAS.forEach(area => {
-      const hasValidKr = allObjectives.some(o =>
-        String(o.area || '').toLowerCase() === area &&
-        (o.okrs || []).some(kr => this._isKrValid(kr))
+      const hasValidKr = productKrs.some(kr =>
+        String(kr.area || '').toLowerCase() === area &&
+        this._isKrValid(kr)
       );
       if (hasValidKr) areasComKr.push(area);
     });
@@ -59,6 +58,13 @@ window.HealthScoreEngine = {
       areasComKr,
       areasFaltantes
     };
+  },
+
+  // V38.1.14 — Helper unificado: retorna os productKrs (KR-mãe) do produto.
+  _getProductKrs(productId) {
+    if (!window.StrategicMapEngine?.getForProduct) return [];
+    const map = StrategicMapEngine.getForProduct(productId) || {};
+    return map.productKrs || [];
   },
 
   // V38.1.8 — Critério unificado de "KR válido pra Saúde": flag confirmed
@@ -97,8 +103,8 @@ window.HealthScoreEngine = {
       return { value: 0, krs: [], krsConfirmadosCount: 0, krsRascunhoCount: 0, krsTotalCount: 0, visionPresent: false };
     }
     const map = StrategicMapEngine.getForProduct(productId) || {};
-    const allObjectives = this._collectAllObjectives(productId);
-    const allKrs = allObjectives.flatMap(o => o.okrs || []);
+    // V38.1.14 — Lê productKrs (KR-mãe) que é o que o Mapa exibe.
+    const allKrs = this._getProductKrs(productId);
     // V38.1.8 — Critério unificado: usa _isKrValid (confirmed OU isComplete).
     const confirmedKrs = allKrs.filter(k => this._isKrValid(k));
     const rascunhoKrs = allKrs.filter(k => !this._isKrValid(k));
