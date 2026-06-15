@@ -29,7 +29,39 @@ var OperationalAggregationEngine = {
       leads += action.leads?.length || 0;
       converted += FlowResolutionEngine.buildActionFlow(action).converted || 0;
     }
-    return { campaigns: campaigns.length, actions: actions.length, leads, converted, conversion: leads ? Math.round((converted / leads) * 1000) / 10 : 0 };
+    // V38.0.2 — Execuções: tasks do gestor vinculadas a ações deste produto.
+    let executionsTotal = 0, executionsDone = 0;
+    if (window.ExecutionTaskStore?.byActionId) {
+      for (const action of actions) {
+        const tasks = ExecutionTaskStore.byActionId(action.id) || [];
+        executionsTotal += tasks.length;
+        executionsDone += tasks.filter(t => t.status === 'completed').length;
+      }
+    }
+    return {
+      campaigns: campaigns.length,
+      actions: actions.length,
+      leads,
+      converted,
+      conversion: leads ? Math.round((converted / leads) * 1000) / 10 : 0,
+      executionsTotal,
+      executionsDone
+    };
+  },
+
+  // V38.0.2 — Overview agregado de TODOS os produtos visíveis. Usado no Hero
+  // da aba Produtos pra mostrar consolidado em vez do produto selecionado.
+  aggregateAll() {
+    const products = (App.state.products || []).filter(p => !p.archived);
+    let campaigns = 0, actions = 0, executionsTotal = 0, executionsDone = 0;
+    for (const product of products) {
+      const m = this.productMetrics(product.id);
+      campaigns += m.campaigns;
+      actions += m.actions;
+      executionsTotal += m.executionsTotal;
+      executionsDone += m.executionsDone;
+    }
+    return { productsCount: products.length, campaigns, actions, executionsTotal, executionsDone };
   }
 };
 window.OperationalAggregationEngine = OperationalAggregationEngine;

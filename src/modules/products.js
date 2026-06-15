@@ -87,21 +87,30 @@ var ProductsModule = {
     return App.state.actions.filter(action => campaignIds.has(Number(action.campaignId)));
   },
 
+  // V38.0.2 — Hero agora é OVERVIEW agregado de TODOS os produtos (não do
+  // selecionado). Antes mostrava "Atira.Pro" + métricas do produto vigente —
+  // mas a aba se chama "Produtos" (plural) e o card individual já vive abaixo.
+  // KPIs: Produtos / Campanhas / Ações / Execuções (total/done).
+  // "Conversão de Vendas" agregada vem em V38.x quando integração checkout
+  // for refinada (hoje "—").
   hero(product) {
-    const summary = product ? ProductRevenueEngine.summary(product.id) : { campaigns: 0, actions: 0, leads: 0, converted: 0, conversion: 0 };
+    const agg = OperationalAggregationEngine.aggregateAll();
+    const execLabel = agg.executionsTotal > 0
+      ? `${agg.executionsTotal}/${agg.executionsDone}`
+      : '0';
     return `<div class="bg-slate-950 text-white rounded-[2rem] p-5 shadow-sm overflow-hidden relative">
       <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
       <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
         <div>
           <div class="flex items-center gap-2 mb-2"><i data-lucide="box" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Produtos • Revenue Layer</p></div>
-          <h1 class="text-3xl md:text-4xl font-black tracking-tight">${Utils.escape(product?.name || 'Produtos')}</h1>
-          <p class="text-sm text-slate-300 max-w-3xl mt-2">Produto é a camada financeira do Revenue OS: preço, modelo de venda, custo operacional, margem, campanhas, ações, fluxo e receita consolidada.</p>
+          <h1 class="text-3xl md:text-4xl font-black tracking-tight">Produtos</h1>
+          <p class="text-sm text-slate-300 max-w-3xl mt-2">Camada financeira do Revenue OS: ${agg.productsCount} produto${agg.productsCount === 1 ? '' : 's'} ativo${agg.productsCount === 1 ? '' : 's'}, ${agg.campaigns} campanha${agg.campaigns === 1 ? '' : 's'}, ${agg.actions} ação${agg.actions === 1 ? '' : 'ões'}. Visão consolidada da operação.</p>
         </div>
         <div class="grid grid-cols-2 gap-3">
-          ${this.darkMetric('Campanhas', summary.campaigns, 'megaphone')}
-          ${this.darkMetric('Ações', summary.actions, 'activity')}
-          ${this.darkMetric('Leads', summary.leads, 'users')}
-          ${this.darkMetric('Conversão', `${summary.conversion}%`, 'arrow-right-left')}
+          ${this.darkMetric('Produtos', agg.productsCount, 'box')}
+          ${this.darkMetric('Campanhas', agg.campaigns, 'megaphone')}
+          ${this.darkMetric('Ações', agg.actions, 'activity')}
+          ${this.darkMetric('Execuções', execLabel, 'check-circle')}
         </div>
       </div>
     </div>`;
@@ -117,22 +126,32 @@ var ProductsModule = {
         <span class="text-[10px] font-bold opacity-80 ml-1">recomendado</span>
       </button>
 
-      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-        <h2 class="text-xl font-black mb-1">Criar Produto</h2>
-        <p class="text-sm text-slate-500 mb-3">Cadastre apenas os dados que o dono da operação realmente sabe. O sistema calcula a leitura financeira por trás.</p>
-        <!-- V31.2.4 — Aviso: este caminho não conecta a objetivos -->
-        <div class="rounded-2xl bg-amber-50 border border-amber-300 p-3 text-[12px] text-amber-900 flex items-start gap-2 mb-4">
-          <i data-lucide="alert-triangle" class="w-4 h-4 mt-0.5 shrink-0 text-amber-700"></i>
+      <!-- V38.0.2 — Form compactado: 3 campos em 1 linha + botão lateral.
+           Libera espaço vertical pro card de Produtos Criados (mais usado). -->
+      <div class="bg-white rounded-3xl p-4 shadow-sm border border-slate-100">
+        <div class="flex items-start justify-between gap-3 mb-2">
           <div>
-            <p class="font-black mb-0.5">Sem Mapa da Receita</p>
-            <p>Aqui o produto é cadastrado puro. Sem visão, sem KRs, sem rollup. Sua operação pode rodar ações sem norte e ficar sem trackeamento estratégico. Considere o caminho acima se quiser conectar tudo desde o início.</p>
+            <h2 class="text-lg font-black leading-tight">Criar Produto sem Mapa</h2>
+            <p class="text-[11px] text-slate-500">Cadastro puro — preço, modelo, custo. Sem Visão / KRs / rollup. <span class="text-amber-700 font-bold">Considere o caminho violeta acima pra conectar estratégia desde o início.</span></p>
           </div>
         </div>
-        <div class="grid md:grid-cols-2 gap-3">
-          <div class="md:col-span-2"><label class="text-xs font-black text-slate-500">Nome do produto</label><input value="${Utils.escape(d.name || '')}" oninput="App.state.productDraft.name=this.value; App.save();" placeholder="Ex: Diagnóstico Comercial" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-          <div><label class="text-xs font-black text-slate-500">Tipo de produto</label><input value="${Utils.escape(d.type || '')}" oninput="App.state.productDraft.type=this.value; App.save();" placeholder="Ex: Consultoria, SaaS, Curso" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-          <div><label class="text-xs font-black text-slate-500">Recorrência ou venda única</label><select onchange="App.state.productDraft.revenueModel=this.value; App.save();" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold"><option value="Venda única" ${(d.revenueModel || 'Venda única') === 'Venda única' ? 'selected' : ''}>Venda única</option><option value="Recorrente" ${d.revenueModel === 'Recorrente' ? 'selected' : ''}>Recorrente</option></select></div>
-          <button onclick="Actions.createProduct()" style="color:#fff!important;" class="md:col-span-2 px-5 py-3 rounded-2xl bg-slate-900 text-white font-black lj-dark-button">Criar Produto sem Mapa</button>
+        <div class="grid grid-cols-[1.4fr_1fr_1fr_auto] gap-2 items-end">
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Nome</label>
+            <input value="${Utils.escape(d.name || '')}" oninput="App.state.productDraft.name=this.value; App.save();" placeholder="Ex: Diagnóstico Comercial" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm" />
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Tipo</label>
+            <input value="${Utils.escape(d.type || '')}" oninput="App.state.productDraft.type=this.value; App.save();" placeholder="Ex: Consultoria, SaaS, Curso" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm" />
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Recorrência</label>
+            <select onchange="App.state.productDraft.revenueModel=this.value; App.save();" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm">
+              <option value="Venda única" ${(d.revenueModel || 'Venda única') === 'Venda única' ? 'selected' : ''}>Venda única</option>
+              <option value="Recorrente" ${d.revenueModel === 'Recorrente' ? 'selected' : ''}>Recorrente</option>
+            </select>
+          </div>
+          <button onclick="Actions.createProduct()" style="color:#fff!important;" class="px-4 py-2.5 rounded-xl bg-slate-900 text-white font-black text-sm whitespace-nowrap lj-dark-button">Criar</button>
         </div>
       </div>
     </div>`;
@@ -177,8 +196,8 @@ var ProductsModule = {
               <div class="font-black text-lg text-slate-900 mt-0.5">${summary.actions}</div>
             </div>
             <div class="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-emerald-500 px-3 py-2 text-center">
-              <div class="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Health</div>
-              <div class="font-black text-lg text-slate-900 mt-0.5">${product.healthScore || 0}</div>
+              <div class="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Execuções</div>
+              <div class="font-black text-lg text-slate-900 mt-0.5">${summary.executionsTotal || 0}/${summary.executionsDone || 0}</div>
             </div>
           </div>
         </div>

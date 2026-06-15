@@ -1429,7 +1429,16 @@ var State = {
           createdAt: lead.createdAt || new Date().toISOString()
         };
       }), 'base global') : [],
-      productDraft: { ...base.productDraft, ...(raw.productDraft || {}) },
+      productDraft: (() => {
+        // V38.0.2 — Higieniza productDraft contra lixo herdado (ex: campo Tipo
+        // ficou com email do user porque cliente colou por engano em algum
+        // momento). Se algum campo string parece email, zera só ele.
+        const merged = { ...base.productDraft, ...(raw.productDraft || {}) };
+        const looksLikeEmail = (v) => typeof v === 'string' && /\S+@\S+\.\S+/.test(v);
+        if (looksLikeEmail(merged.type)) merged.type = '';
+        if (looksLikeEmail(merged.name)) merged.name = '';
+        return merged;
+      })(),
       okrDraft: { ...base.okrDraft, ...(raw.okrDraft || {}) },
       kpiDraft: { ...base.kpiDraft, ...(raw.kpiDraft || {}), productId: raw.kpiDraft?.productId || selectedProductId || null, relatedOkrId: raw.kpiDraft?.relatedOkrId || raw.selectedOkrId || null },
       campaignDraft: { ...base.campaignDraft, ...(raw.campaignDraft || {}), productId: raw.campaignDraft?.productId || selectedProductId },
