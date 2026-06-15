@@ -185,144 +185,141 @@ var CampaignModule = {
     // V28.4.3 — Selos no bottom-right (Pipeline + Mapa da Receita lado a lado).
     // Botão "Mapa da Receita" agora vai DENTRO do grid de botões, entre Pipeline OK
     // e Enviar ICP pro RD — mantém o estilo dos outros (mesmo enquadre).
+    // V38.1.x — Layout refatorado pra sair do grid lj-entity-card-grid (que tem
+    // !important rígido em lj-card-actions e quebrava trilha + CTA).
+    // Estrutura agora é vertical com seções full-width: header → aviso →
+    // trilha → grid 2-col (setor cards + próximo passo) → atalhos.
+    // Selos bottom-right (Pipeline criado / Mapa ativo / Mapa em config)
+    // removidos por redundância com a trilha. Engrenagem mantida.
+
+    // ─── State machine do próximo passo + trilha (sequencial) ─────────
+    const linkedLeadsCount = (window.LeadBaseService?.forCampaign?.(campaign.id) || []).length;
+    const hasMapActive = strategicStatus === 'active';
+    const hasMapConfiguring = strategicStatus === 'configuring';
+    const hasActions = actions.length > 0;
+    const hasLeads = linkedLeadsCount > 0 || totalLeads > 0;
+
+    let next;
+    if (!hasPipeline) {
+      next = { label: 'Gerar Pipeline RD', icon: 'git-branch',
+               action: `Actions.generateCampaignPipeline(${campaign.id})` };
+    } else if (!hasMapActive && !hasMapConfiguring) {
+      next = { label: 'Ativar Mapa da Receita', icon: 'compass',
+               action: `Actions.activateStrategicMapForCampaign(${campaign.id})` };
+    } else if (hasMapConfiguring && product) {
+      next = { label: 'Configurar KRs no Mapa', icon: 'compass',
+               action: `Actions.openStrategicMap(${product.id})` };
+    } else if (!hasActions) {
+      next = { label: 'Criar primeira Ação', icon: 'zap',
+               action: `Actions.prepareActionForCampaign(${campaign.id})` };
+    } else if (!hasLeads) {
+      next = { label: 'Adicionar leads e enviar pro RD', icon: 'send',
+               action: `Actions.pushCampaignICPToRD(${campaign.id})` };
+    } else {
+      next = { label: 'Enviar mais leads pro RD', icon: 'send',
+               action: `Actions.pushCampaignICPToRD(${campaign.id})` };
+    }
+
+    // Trilha sequencial: marco N só acende se TODOS anteriores estão done.
+    // Antes o card podia mostrar "Ações ✓ sem Pipeline" (estado herdado).
+    const m1 = hasPipeline;
+    const m2done = m1 && hasMapActive;
+    const m2partial = m1 && !hasMapActive && hasMapConfiguring;
+    const m3 = (m2done) && hasActions;
+    const m4 = m3 && hasLeads;
+    const marcos = [
+      { label: 'Pipeline', done: m1, partial: false },
+      { label: 'Mapa',     done: m2done, partial: m2partial },
+      { label: 'Ações',    done: m3, partial: false },
+      { label: 'Leads',    done: m4, partial: false }
+    ];
+    const trilhaHtml = marcos.map((m, i) => {
+      const dotCls = m.done
+        ? 'bg-emerald-500 border-emerald-500'
+        : m.partial
+          ? 'bg-amber-400 border-amber-400'
+          : 'bg-white border-slate-300';
+      const labelCls = m.done
+        ? 'text-emerald-700'
+        : m.partial
+          ? 'text-amber-700'
+          : 'text-slate-400';
+      const connector = i < marcos.length - 1
+        ? `<span class="flex-1 h-px bg-slate-300 min-w-[12px]"></span>`
+        : '';
+      return `<div class="flex items-center gap-1.5 shrink-0">
+        <span class="w-2.5 h-2.5 rounded-full border ${dotCls}"></span>
+        <span class="text-[10px] font-black uppercase tracking-wider ${labelCls}">${m.label}</span>
+      </div>${connector}`;
+    }).join('');
+
+    // Atalhos (Mapa + Fluxo, condicionais)
+    const mapaAtalho = product && (hasMapActive || hasMapConfiguring)
+      ? `<button onclick="event.stopPropagation(); Actions.openStrategicMap(${product.id})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="compass" class="w-3 h-3"></i> Mapa da Receita</button>`
+      : '';
+    const fluxoAtalho = hasActions
+      ? `<button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${campaign.id})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="workflow" class="w-3 h-3"></i> Fluxo da Campanha</button>`
+      : '';
+    const hasAtalhos = mapaAtalho || fluxoAtalho;
+
+    // Aviso amber dos KRs-mãe pendentes
+    const krsMaeAviso = (() => {
+      if (!isStrategic || !window.StrategicMapEngine?.getMissingChildrenInBranch || !product) return '';
+      const missing = StrategicMapEngine.getMissingChildrenInBranch(product.id, campaign.id);
+      if (!missing.length) return '';
+      return `<div class="rounded-lg bg-amber-50/40 border border-amber-200 border-l-4 border-l-amber-500 px-3 py-2 flex items-start gap-2">
+        <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-700 mt-0.5 shrink-0"></i>
+        <p class="text-[11px] text-amber-900 font-bold leading-snug">${missing.length} número(s)-mãe ainda não plugado(s) nesta campanha — abra o Mapa e vá na etapa Campanha.</p>
+      </div>`;
+    })();
+
+    // Cards de setor (Marketing / Vendas / CS) — compactos
+    const areas = (window.StrategicMapEngine?.COMERCIAL_AREAS) || [
+      { id: 'marketing', label: 'Marketing', color: 'pink' },
+      { id: 'sales',     label: 'Vendas',    color: 'teal' },
+      { id: 'cs',        label: 'CS',        color: 'sky' }
+    ];
+    const setorCardsHtml = areas.map(area => {
+      const count = actions.filter(a => String(a.sector || '').toLowerCase() === area.id).length;
+      return `<div class="bg-white rounded-xl border border-slate-200 border-l-4 border-l-${area.color}-500 px-2.5 py-1.5 text-center">
+        <div class="text-[9px] font-black text-${area.color}-700 uppercase tracking-wider leading-tight">${Utils.escape(area.label)}</div>
+        <div class="font-black text-base text-slate-900 mt-0.5 leading-none">${count}</div>
+      </div>`;
+    }).join('');
+
     return `<div onclick="Actions.goToCampaignActions(${campaign.id})" class="lj-entity-card relative p-4 rounded-3xl border ${cardBgCls} hover:bg-slate-100 cursor-pointer transition" ${cardStyle}>
-      <button onclick="event.stopPropagation(); Actions.openCampaignEditModal(${campaign.id})" title="Editar Campanha" aria-label="Editar Campanha" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm"><i data-lucide="settings" class="w-4 h-4"></i></button>
-      ${(hasPipeline || strategicStatus !== 'unplugged') ? `<div class="absolute bottom-3 right-3 flex flex-wrap gap-1.5 justify-end">
-        ${hasPipeline ? `<span title="Pipeline RD criado e pronto pra receber leads." class="text-[10px] font-black text-emerald-700 bg-emerald-500/10 border border-emerald-400/30 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-help uppercase tracking-wider"><i data-lucide="check-circle-2" class="w-3 h-3"></i> Pipeline criado</span>` : ''}
-        ${strategicStatus === 'active' ? `<span title="Esta campanha tem KRs confirmados que alimentam o Mapa da Receita do produto via rollup." class="text-[10px] font-black text-violet-700 bg-violet-500/10 border border-violet-400/30 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-help uppercase tracking-wider"><i data-lucide="compass" class="w-3 h-3"></i> Mapa ativo</span>` : ''}
-        ${strategicStatus === 'configuring' ? `<span title="Branch criada mas faltam KRs confirmados. Clique em 'Mapa da Receita' e vá pra etapa Números pra terminar de configurar." class="text-[10px] font-black text-amber-700 bg-amber-500/10 border border-amber-400/30 px-2 py-0.5 rounded-md flex items-center gap-1 cursor-help uppercase tracking-wider"><i data-lucide="loader" class="w-3 h-3"></i> Mapa em configuração</span>` : ''}
-      </div>` : ''}
-      <div class="lj-entity-card-grid">
-        <div class="lj-entity-copy pr-12">
+      <button onclick="event.stopPropagation(); Actions.openCampaignEditModal(${campaign.id})" title="Editar Campanha" aria-label="Editar Campanha" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm z-10"><i data-lucide="settings" class="w-4 h-4"></i></button>
+
+      <div class="space-y-3">
+        <div class="pr-12">
           <p class="text-[10px] font-black ${isStrategic ? 'text-violet-700' : 'text-slate-500'} uppercase tracking-widest mb-0.5">Campanha</p>
           <h3 class="font-black text-lg ${isStrategic ? 'text-violet-900' : 'text-slate-900'}">${Utils.escape(campaign.name)}</h3>
           ${objectiveText ? `<p class="text-sm text-slate-500 mt-1">${Utils.escape(objectiveText)}</p>` : (isStrategic ? '' : '<p class="text-sm text-slate-500 mt-1">Sem objetivo</p>')}
           <p class="text-xs text-slate-400 mt-2">Produto: ${Utils.escape(product?.name || 'não vinculado')} • ${actions.length} ação(ões) • ${totalLeads} lead(s) • ${conversion}% conversão</p>
           ${hasPipeline ? `<p class="text-[11px] text-emerald-600 mt-1">Pipeline RD: <b>${Utils.escape(pipelineInfo?.pipelineName || '')}</b></p>` : ''}
-          ${(() => {
-            // V29.1.2 — Strip discreta: faltam KRs-mãe nesta branch.
-            // V32.12.0 — Leonardo: border-l-amber + lucide alert-triangle.
-            // V38.1.x — Texto neutro (era "CEO criou X..." e dava nome aos bois).
-            if (!isStrategic || !window.StrategicMapEngine?.getMissingChildrenInBranch || !product) return '';
-            const missing = StrategicMapEngine.getMissingChildrenInBranch(product.id, campaign.id);
-            if (!missing.length) return '';
-            return `<div class="mt-2 rounded-lg bg-amber-50/40 border border-amber-200 border-l-4 border-l-amber-500 px-2.5 py-1.5 flex items-start gap-1.5">
-              <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-700 mt-0.5 shrink-0"></i>
-              <p class="text-[11px] text-amber-900 font-bold leading-snug">${missing.length} número(s)-mãe ainda não plugado(s) nesta campanha — abra o Mapa e vá na etapa Campanha.</p>
-            </div>`;
-          })()}
         </div>
-        <div class="lj-entity-metrics">
-          <div class="grid grid-cols-3 gap-2">
-            ${(() => {
-              // V38.1.x — Cards por setor (Marketing/Vendas/CS) substituem Ações/Leads/Conversão.
-              // Mesma estética dos cards de área do produto (paleta semântica).
-              const areas = (window.StrategicMapEngine?.COMERCIAL_AREAS) || [
-                { id: 'marketing', label: 'Marketing', color: 'pink' },
-                { id: 'sales',     label: 'Vendas',    color: 'teal' },
-                { id: 'cs',        label: 'CS',        color: 'sky' }
-              ];
-              return areas.map(area => {
-                const count = actions.filter(a => String(a.sector || '').toLowerCase() === area.id).length;
-                return `<div class="bg-white rounded-2xl border border-slate-200 border-l-4 border-l-${area.color}-500 px-3 py-2 text-center">
-                  <div class="text-[9px] font-black text-${area.color}-700 uppercase tracking-widest">${Utils.escape(area.label)}</div>
-                  <div class="font-black text-lg text-slate-900 mt-0.5">${count}</div>
-                </div>`;
-              }).join('');
-            })()}
+
+        ${krsMaeAviso}
+
+        <div class="flex items-center gap-1.5 flex-nowrap overflow-x-auto py-1">${trilhaHtml}</div>
+
+        <div class="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-3 items-stretch">
+          <div class="grid grid-cols-3 gap-2 self-center">
+            ${setorCardsHtml}
+          </div>
+          <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 flex flex-col justify-center">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Próximo passo</p>
+            <button onclick="event.stopPropagation(); ${next.action}" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center justify-center gap-2 hover:bg-slate-800 transition whitespace-nowrap" style="color:#fff!important;">
+              <i data-lucide="${next.icon}" class="w-3.5 h-3.5 shrink-0"></i> <span>${next.label}</span>
+            </button>
           </div>
         </div>
-        <div class="lj-card-actions space-y-2.5">
-          ${(() => {
-            // V38.1.x — Opção A do Geraldo: trilha de status + CTA contextual + atalhos.
-            // Substitui 5 botões soltos por: trilha de 4 marcos (Pipeline · Mapa ·
-            // Ações · Leads) + 1 CTA "Próximo passo" que muda conforme o estado
-            // da campanha + atalhos discretos pra Mapa/Fluxo. Engrenagem
-            // top-right preservada (Felipe pediu).
-            const linkedLeadsCount = (window.LeadBaseService?.forCampaign?.(campaign.id) || []).length;
-            const hasMapActive = strategicStatus === 'active';
-            const hasMapConfiguring = strategicStatus === 'configuring';
-            const hasActions = actions.length > 0;
-            const hasLeads = linkedLeadsCount > 0 || totalLeads > 0;
 
-            // State machine do "próximo passo".
-            let next;
-            if (!hasPipeline) {
-              next = { label: 'Gerar Pipeline RD', icon: 'git-branch',
-                       action: `Actions.generateCampaignPipeline(${campaign.id})` };
-            } else if (!hasMapActive && !hasMapConfiguring) {
-              next = { label: 'Ativar Mapa da Receita', icon: 'compass',
-                       action: `Actions.activateStrategicMapForCampaign(${campaign.id})` };
-            } else if (hasMapConfiguring && product) {
-              next = { label: 'Configurar KRs no Mapa', icon: 'compass',
-                       action: `Actions.openStrategicMap(${product.id})` };
-            } else if (!hasActions) {
-              next = { label: 'Criar primeira Ação', icon: 'zap',
-                       action: `Actions.prepareActionForCampaign(${campaign.id})` };
-            } else if (!hasLeads) {
-              next = { label: 'Adicionar leads e enviar pro RD', icon: 'send',
-                       action: `Actions.pushCampaignICPToRD(${campaign.id})` };
-            } else {
-              next = { label: 'Enviar mais leads pro RD', icon: 'send',
-                       action: `Actions.pushCampaignICPToRD(${campaign.id})` };
-            }
-
-            const marcos = [
-              { label: 'Pipeline', done: hasPipeline },
-              { label: 'Mapa', done: hasMapActive, partial: hasMapConfiguring },
-              { label: 'Ações', done: hasActions },
-              { label: 'Leads', done: hasLeads }
-            ];
-
-            const trilhaHtml = marcos.map((m, i) => {
-              const dotCls = m.done
-                ? 'bg-emerald-500 border-emerald-500'
-                : m.partial
-                  ? 'bg-amber-400 border-amber-400'
-                  : 'bg-white border-slate-300';
-              const labelCls = m.done
-                ? 'text-emerald-700'
-                : m.partial
-                  ? 'text-amber-700'
-                  : 'text-slate-400';
-              const connector = i < marcos.length - 1
-                ? `<span class="w-3 h-px bg-slate-300"></span>`
-                : '';
-              return `<div class="flex items-center gap-1.5">
-                <span class="w-2.5 h-2.5 rounded-full border ${dotCls}"></span>
-                <span class="text-[10px] font-black uppercase tracking-wider ${labelCls}">${m.label}</span>
-              </div>${connector}`;
-            }).join('');
-
-            const showFluxo = hasActions;
-            const mapaAtalho = product
-              ? (hasMapActive || hasMapConfiguring)
-                ? `<button onclick="event.stopPropagation(); Actions.openStrategicMap(${product.id})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="compass" class="w-3 h-3"></i> Mapa da Receita</button>`
-                : ''
-              : '';
-            const fluxoAtalho = showFluxo
-              ? `<button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${campaign.id})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="workflow" class="w-3 h-3"></i> Fluxo da Campanha</button>`
-              : '';
-            const hasAtalhos = mapaAtalho || fluxoAtalho;
-
-            return `
-              <div class="flex items-center gap-2 flex-wrap">${trilhaHtml}</div>
-
-              <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5">
-                <p class="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Próximo passo</p>
-                <button onclick="event.stopPropagation(); ${next.action}" class="w-full px-3 py-2 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center justify-center gap-1.5 lj-dark-button" style="color:#fff!important;">
-                  <i data-lucide="${next.icon}" class="w-3.5 h-3.5"></i> ${next.label}
-                </button>
-              </div>
-
-              ${hasAtalhos ? `<div class="flex items-center gap-3 justify-end flex-wrap">
-                ${mapaAtalho}
-                ${mapaAtalho && fluxoAtalho ? '<span class="text-slate-300">·</span>' : ''}
-                ${fluxoAtalho}
-              </div>` : ''}
-            `;
-          })()}
-        </div>
+        ${hasAtalhos ? `<div class="flex items-center gap-3 justify-end flex-wrap pt-1">
+          ${mapaAtalho}
+          ${mapaAtalho && fluxoAtalho ? '<span class="text-slate-300">·</span>' : ''}
+          ${fluxoAtalho}
+        </div>` : ''}
       </div>
       ${this._performanceStrip(campaign)}
     </div>`;

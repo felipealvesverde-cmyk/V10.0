@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.23',
+    date: '2026-06-15',
+    title: 'Card da Campanha: layout calibrado (trilha horizontal, CTA respira, sem redundâncias)',
+    bullets: [
+      'Trilha de status agora desenha numa linha horizontal contínua (era empilhada em 4 linhas verticais) — bolinhas conectadas por traços de status, sem quebrar.',
+      'Botão "Próximo passo" ganhou largura própria — não quebra mais "Gerar / Pipeline / RD" em 3 linhas. Cada CTA cabe inteiro numa linha.',
+      'Selos antigos "Pipeline criado" e "Mapa em configuração" saíram do canto inferior do card — a trilha já mostra essas informações, ter em 2 lugares confundia.',
+      'Aviso de KRs-mãe pendentes agora ocupa largura cheia do card (era espremido numa coluna estreita, texto quebrava em 5 linhas).',
+      'Cards Marketing/Vendas/CS ficaram mais compactos — não competem mais pela atenção do "Próximo passo".',
+      'Trilha agora respeita a ordem: marco posterior só acende se o anterior está concluído. Antes podia mostrar "Ações ✓" mesmo sem Pipeline gerado, o que dava sensação de estado quebrado.',
+      'Estrutura saiu do grid antigo de 3 colunas rígidas (lj-entity-card-grid) — layout agora se adapta melhor ao conteúdo de cada estado.'
+    ]
+  },
+  {
     version: 'V38.1.22',
     date: '2026-06-15',
     title: 'Card da Campanha: trilha de status + Próximo passo guiado',
