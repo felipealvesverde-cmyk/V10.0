@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.1',
+    date: '2026-06-15',
+    title: 'RevOps & Governança ganha Overview consolidado de todos os produtos',
+    bullets: [
+      'Antes você abria RevOps e caía direto na governança de UM produto (Atira.Pro). Agora cai num Overview: 4 KPIs consolidados no topo (Receita Bruta Total, EBITDA Consolidado, Margem Média, Saúde Média) + grid de cards (1 por produto) com Receita / EBITDA / Margem / Saúde / CAC / Conversão.',
+      'Click no card entra na governança específica do produto (6 tabs como sempre). Breadcrumb "← Overview / Atira.Pro" no header do produto pra voltar.',
+      'Sempre cai no Overview ao entrar em RevOps (não persiste seleção entre F5 / fechar app) — cada visita é uma respirada conceitual sobre a operação inteira antes de mergulhar no produto.',
+      'Saúde no card vem do engine V38.1.0; CAC e Conversão aparecem como "—" até a integração checkout (V38.2.0) — modal Saúde explica.',
+      'Quando você cadastra produto novo, ele já nasce com 1 oferta default (V38.0.3) e card vazio no Overview esperando você cadastrar custos e meta.'
+    ]
+  },
+  {
     version: 'V38.1.0',
     date: '2026-06-15',
     title: 'Saúde do Produto — score 0-100 + modal explicador + Djow giro de faca',
