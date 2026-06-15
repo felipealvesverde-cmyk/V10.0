@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.0.4',
+    date: '2026-06-15',
+    title: 'Djow ganhou cérebro novo — KB atualizada de V26 pra V38',
+    bullets: [
+      'A base de conhecimento do Djow estava em V26.2.0 (~12 versões defasada). Ele não sabia que multi-tenant tinha virado colaboração real, que existia Permission System, Notifications V2, Pin-Up, ou que credenciais resolvem pelo owner do tenant. Quando questionado sobre essas coisas, respondia errado com convicção.',
+      'KB reescrita por completo: architecture.md cobre tudo até V38.0.3; data-model.md lista tabelas reais (control plane + tenant DB); novos arquivos multi-tenant.md, permission-system.md, notifications.md, pin-up.md, health-score.md.',
+      'Pré-requisito pra Saúde do Produto: o modal explicador (V38.1.0) vai chamar o Djow pra dar análise giro-de-faca. Djow precisa entender O QUE é Saúde, como cada dimensão é calculada, e o conceito de "dinheiro na mesa". Tudo cravado em health-score.md.',
+      'Cache em memória do KB renova a cada deploy do server — nada manual, só o redeploy do Railway.'
+    ]
+  },
+  {
     version: 'V38.0.3',
     date: '2026-06-15',
     title: 'Ofertas ganham Tipo (main/cross/up/down) + Meta de Vendas',
