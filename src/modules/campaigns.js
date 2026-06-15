@@ -59,14 +59,7 @@ var CampaignModule = {
         <div class="p-5 space-y-3">
           <div><label class="text-xs font-black text-slate-500">Produto vinculado</label><select onchange="Actions.updateEditingCampaignField('productId', Number(this.value))" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold">${App.state.products.map(product => `<option value="${product.id}" ${Number(campaign.productId) === Number(product.id) ? 'selected' : ''}>${Utils.escape(product.name)}</option>`).join('')}</select></div>
           <div><label class="text-xs font-black text-slate-500">Nome da campanha</label><input value="${Utils.escape(campaign.name || '')}" oninput="Actions.updateEditingCampaignField('name', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-          <div><label class="text-xs font-black text-slate-500">Objetivo</label><textarea oninput="Actions.updateEditingCampaignField('objective', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold min-h-[110px]">${Utils.escape(campaign.objective || '')}</textarea></div>
-          <div><label class="text-xs font-black text-slate-500">Responsável</label><input value="${Utils.escape(campaign.owner || '')}" oninput="Actions.updateEditingCampaignField('owner', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
           <div><label class="text-xs font-black text-slate-500">Status</label><select onchange="Actions.updateEditingCampaignField('status', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold">${['Ativa','Pausada','Finalizada'].map(status => `<option ${String(campaign.status || 'Ativa') === status ? 'selected' : ''}>${status}</option>`).join('')}</select></div>
-          <div>
-            <label class="text-xs font-black text-slate-500">Investimento em mídia (R$)</label>
-            <input type="number" min="0" step="0.01" value="${Number(campaign.mediaInvestment || 0)}" oninput="Actions.updateEditingCampaignField('mediaInvestment', Number(this.value || 0))" placeholder="0" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-black" />
-            <p class="text-[11px] text-slate-400 mt-1">Soma alimenta o CAC do produto no Painel Rosa de RevOps.</p>
-          </div>
           <div class="flex flex-col md:flex-row gap-2 justify-end pt-2">
             <button onclick="Actions.closeCampaignEditModal()" class="px-5 py-3 rounded-2xl bg-slate-100 text-slate-700 font-black">Cancelar</button>
             <button onclick="Actions.saveCampaignEdit()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black">Salvar Campanha</button>

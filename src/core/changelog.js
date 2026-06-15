@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.34',
+    date: '2026-06-15',
+    title: 'Modal de Editar Campanha enxuto: Produto + Nome + Status',
+    bullets: [
+      'Modal de edição da campanha foi cortado pra mostrar só o que importa: Produto vinculado, Nome e Status. Saíram os campos "Objetivo", "Responsável" e "Investimento em mídia" — campanha é container, não carrega meta nem dono nem orçamento próprio.',
+      'Pra pausar ou finalizar uma campanha, abra a engrenagem do card e mude o dropdown "Status" pra Pausada ou Finalizada. Os KPIs do topo da página atualizam na hora.'
+    ]
+  },
+  {
     version: 'V38.1.33',
     date: '2026-06-15',
     title: 'Criar campanha vira só 2 campos: produto + nome',
