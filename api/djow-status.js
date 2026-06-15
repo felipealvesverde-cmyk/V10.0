@@ -12,19 +12,33 @@ module.exports = async function handler(req, res) {
   const configured = Boolean(apiKey);
 
   // KB info
+  // V38.1.19 — Walk recursivo igual ao djow-chat.js (V26.3.0). Antes só lia a
+  // raiz, subestimava ~50% do conteúdo real (não contava revops/*.md +
+  // methodologies/*.md). UI de Settings → Djow mostrava 62 KB quando o chat
+  // de verdade carrega 118 KB.
   const kbDir = path.join(__dirname, '..', 'knowledge-base');
   let kbFiles = [];
   let kbChars = 0;
   if (fs.existsSync(kbDir)) {
-    try {
-      const files = fs.readdirSync(kbDir)
-        .filter(f => f.endsWith('.md') && !f.endsWith('.example.md') && f !== 'README.md');
-      for (const f of files) {
-        const content = fs.readFileSync(path.join(kbDir, f), 'utf8');
-        kbFiles.push({ name: f, chars: content.length });
-        kbChars += content.length;
+    const walk = (dir, relPath = '') => {
+      let entries;
+      try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+      for (const ent of entries) {
+        if (ent.name.startsWith('.')) continue;
+        const fullPath = path.join(dir, ent.name);
+        const rel = relPath ? `${relPath}/${ent.name}` : ent.name;
+        if (ent.isDirectory()) {
+          walk(fullPath, rel);
+        } else if (ent.isFile() && ent.name.endsWith('.md') && !ent.name.endsWith('.example.md') && ent.name !== 'README.md') {
+          try {
+            const content = fs.readFileSync(fullPath, 'utf8');
+            kbFiles.push({ name: rel, chars: content.length });
+            kbChars += content.length;
+          } catch (_) {}
+        }
       }
-    } catch (_) {}
+    };
+    walk(kbDir);
   }
 
   // State Djow config
