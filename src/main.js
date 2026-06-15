@@ -176,14 +176,17 @@ var App = {
               e.preventDefault();
               if (window.Actions?.toggleDjowAIModal) Actions.toggleDjowAIModal();
             }
-            // V38.1.28 — ESC sai da edição da campanha (Etapa 4 do Mapa)
-            // ou fecha o Mapa todo (se já estiver na vista produto).
+            // V38.1.30 — ESC sai da edição do SETOR ativo no Mapa
+            // (Marketing/Vendas/CS na Etapa 4). Antes saía da campanha
+            // inteira — não era o comportamento esperado.
             if (e.key === 'Escape' && App.state.showStrategicMap) {
               const tag = (document.activeElement?.tagName || '').toLowerCase();
               if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-              if (App.state.strategicMapCampaignId) {
+              if (App.state.strategicActiveArea) {
                 e.preventDefault();
-                if (window.Actions?.exitStrategicCampaignEdit) Actions.exitStrategicCampaignEdit();
+                if (window.Actions?.setStrategicActiveArea) {
+                  Actions.setStrategicActiveArea(App.state.strategicActiveArea); // toggle off
+                }
               }
             }
           });

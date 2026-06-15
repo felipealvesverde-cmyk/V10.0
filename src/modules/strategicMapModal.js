@@ -4037,7 +4037,18 @@ window.StrategicMapModal = {
       actionsBlock = `${truncoVertical}<div class="flex flex-col gap-3 self-center">${groupBlocks}</div>`;
     }
 
+    // V38.1.30 — Botão "Sair da edição [ESC]" no SETOR ativo (não na campanha).
+    // Sair do setor desativa o expand e devolve a visão dos 3 setores
+    // colapsados pra escolher outro.
+    const exitAreaBtn = `<div class="flex items-center justify-end mb-2">
+      <button onclick="event.stopPropagation(); Actions.setStrategicActiveArea('${area.id}')" title="Sair da edição do setor ${Utils.escape(area.label)} (ESC)" class="px-2.5 py-1 rounded-lg border border-${tone}-300 bg-white hover:bg-${tone}-50 text-${tone}-800 text-[10px] font-black inline-flex items-center gap-1.5">
+        <i data-lucide="x" class="w-3 h-3"></i> Sair da edição
+        <span class="text-[9px] font-normal text-${tone}-600 ml-1 px-1 py-0.5 rounded bg-${tone}-50 border border-${tone}-200">ESC</span>
+      </button>
+    </div>`;
+
     return `<div class="${wrapperCls}">
+      ${exitAreaBtn}
       <div class="flex items-stretch gap-0 flex-wrap">
         ${masterPlusAdd}
         ${actionsBlock}
@@ -4494,18 +4505,12 @@ window.StrategicMapModal = {
   // no fundo offwhite da Etapa 4 unificada.
   _unifiedWorkCampaignHeader(product, campaign) {
     if (!campaign) return '';
-    return `<div class="rounded-2xl bg-violet-100 border border-violet-300 p-3 flex items-center justify-between gap-2 flex-wrap shadow-sm">
-      <div class="flex items-center gap-2 min-w-0 flex-1">
-        <i data-lucide="git-branch" class="w-4 h-4 text-violet-700 shrink-0"></i>
-        <div class="min-w-0">
-          <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Editando a campanha</p>
-          <p class="text-sm font-black text-slate-900 truncate">${Utils.escape(campaign.name)}</p>
-        </div>
+    return `<div class="rounded-2xl bg-violet-100 border border-violet-300 p-3 flex items-center gap-2 shadow-sm">
+      <i data-lucide="git-branch" class="w-4 h-4 text-violet-700 shrink-0"></i>
+      <div class="min-w-0">
+        <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Editando a campanha</p>
+        <p class="text-sm font-black text-slate-900 truncate">${Utils.escape(campaign.name)}</p>
       </div>
-      <button onclick="Actions.exitStrategicCampaignEdit()" title="Sair da edição desta campanha (ESC)" class="px-3 py-1.5 rounded-xl bg-white border border-violet-300 text-violet-800 hover:bg-violet-50 text-[11px] font-black inline-flex items-center gap-1.5 shrink-0">
-        <i data-lucide="x" class="w-3.5 h-3.5"></i> Sair da edição
-        <span class="text-[9px] font-normal text-violet-500 ml-1 px-1.5 py-0.5 rounded bg-violet-50 border border-violet-200">ESC</span>
-      </button>
     </div>`;
   },
 
