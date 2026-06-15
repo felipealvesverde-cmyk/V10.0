@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.0.2',
+    date: '2026-06-15',
+    title: 'Página Produtos repensada — Hero agregado, card foca no produto, form enxuto',
+    bullets: [
+      'Hero virou OVERVIEW da camada inteira: deixou de mostrar "Atira.Pro" individual e passou a consolidar todos os produtos ativos. KPIs novos: Produtos / Campanhas / Ações / Execuções (total/concluídas) — Leads e Conversão estimada saíram (não eram o lugar certo deles).',
+      'No card de cada produto, o quadrante HEALTH (que era um número 20 chutado pelo piso da fórmula antiga) deu lugar a EXECUÇÕES no formato Total/Concluídas. Conta as tasks vinculadas a ações do produto via ExecutionTaskStore. Mais útil + verdadeiro.',
+      'Form "Criar Produto sem Mapa" encolheu pra 1 linha (Nome / Tipo / Recorrência + botão Criar). Antes ocupava 4 linhas com aviso âmbar grande. Agora ganhou metade do espaço pro card de Produtos Criados crescer.',
+      'Fix: campo "Tipo de Produto" parou de mostrar lixo (email que ficava salvo no productDraft de alguns clientes). Normalize do state higieniza automaticamente — se algum campo string parecer email, zera só ele.'
+    ]
+  },
+  {
     version: 'V38.0.1',
     date: '2026-06-12',
     title: 'Fix Pin-Up: pin não vaza mais entre abas do LJ',
