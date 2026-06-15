@@ -44,11 +44,11 @@ window.HealthScoreEngine = {
     const allObjectives = this._collectAllObjectives(productId);
     const areasComKr = [];
     this.AREAS.forEach(area => {
-      const hasConfirmedKr = allObjectives.some(o =>
+      const hasValidKr = allObjectives.some(o =>
         String(o.area || '').toLowerCase() === area &&
-        (o.okrs || []).some(kr => kr.confirmed)
+        (o.okrs || []).some(kr => this._isKrValid(kr))
       );
-      if (hasConfirmedKr) areasComKr.push(area);
+      if (hasValidKr) areasComKr.push(area);
     });
     const areasFaltantes = this.AREAS.filter(a => !areasComKr.includes(a));
     return {
@@ -56,6 +56,17 @@ window.HealthScoreEngine = {
       areasComKr,
       areasFaltantes
     };
+  },
+
+  // V38.1.8 — Critério unificado de "KR válido pra Saúde": flag confirmed
+  // (legacy) OU isComplete (preencheu Meta Segura + Avançada + Prazo).
+  // A UI do Mapa marca "PRONTO" via isComplete, então alinhar com isso evita
+  // o conflito visual onde o Mapa diz pronto mas Saúde diz 0.
+  _isKrValid(kr) {
+    if (!kr) return false;
+    if (kr.confirmed) return true;
+    if (window.StrategicOkrEngine?.isComplete) return StrategicOkrEngine.isComplete(kr);
+    return false;
   },
 
   // V38.1.6 — Junta objectives de TODAS as fontes do produto:
@@ -85,8 +96,9 @@ window.HealthScoreEngine = {
     const map = StrategicMapEngine.getForProduct(productId) || {};
     const allObjectives = this._collectAllObjectives(productId);
     const allKrs = allObjectives.flatMap(o => o.okrs || []);
-    const confirmedKrs = allKrs.filter(k => k.confirmed);
-    const rascunhoKrs = allKrs.filter(k => !k.confirmed);
+    // V38.1.8 — Critério unificado: usa _isKrValid (confirmed OU isComplete).
+    const confirmedKrs = allKrs.filter(k => this._isKrValid(k));
+    const rascunhoKrs = allKrs.filter(k => !this._isKrValid(k));
     const visionPresent = !!String(map.vision || '').trim();
 
     if (!confirmedKrs.length) {

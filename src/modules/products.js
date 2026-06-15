@@ -267,8 +267,11 @@ var ProductsModule = {
       ...legacyObjectives,
       ...branches.flatMap(b => b.objectives || [])
     ];
+    // V38.1.8 — Mesmo critério da Saúde: KR confirmed (flag) OU isComplete
+    // (campos preenchidos). UI do Mapa usa isComplete pra marcar PRONTO.
+    const isKrValid = (k) => k && (k.confirmed || (window.StrategicOkrEngine?.isComplete?.(k)));
     const allKrs = objectives.flatMap(o => o.okrs || []);
-    const confirmedKrs = allKrs.filter(k => k.confirmed);
+    const confirmedKrs = allKrs.filter(isKrValid);
     const snapshot = StrategicMapEngine.snapshot(product.id);
     if (!vision && !confirmedKrs.length) {
       return `<div class="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-[12px] text-amber-800 flex items-center justify-between gap-2">
@@ -281,8 +284,9 @@ var ProductsModule = {
       <div class="grid grid-cols-3 gap-2">
         ${areas.map(area => {
           // V38.1.6 — filter (não find) pra agregar várias branches mesmo área.
+          // V38.1.8 — Considera KR válido se confirmed OU isComplete.
           const krs = objectives.filter(o => o.area === area.id).flatMap(o => o.okrs || []);
-          const confirmed = krs.filter(k => k.confirmed).length;
+          const confirmed = krs.filter(isKrValid).length;
           const actionsOfArea = (App.state.actions || []).filter(a => a.strategicAreaId === area.id && (App.state.campaigns || []).some(c => Number(c.id) === Number(a.campaignId) && Number(c.productId) === Number(product.id))).length;
           const status = confirmed > 0 ? `${confirmed} nº · ${actionsOfArea} ação${actionsOfArea === 1 ? '' : 'ões'}` : 'pendente';
           const tone = confirmed > 0 ? `bg-${area.color}-100 border-${area.color}-300 text-${area.color}-900` : 'bg-white border-slate-200 text-slate-500';

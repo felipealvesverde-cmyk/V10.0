@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.8',
+    date: '2026-06-15',
+    title: 'Saúde alinha com o que o Mapa mostra como "PRONTO"',
+    bullets: [
+      'A UI do Mapa da Receita marca KR como "✓ PRONTO" usando isComplete(kr) — que retorna true quando o KR tem Meta Segura + Meta Avançada + Prazo preenchidos. Mas a Saúde estava olhando pro flag confirmed (que exige ação adicional do cliente, raramente clicada).',
+      'Conflito visual: Felipe abria o Mapa e via 3 KRs marcados como "PRONTO", mas a Saúde retornava K=0 dizendo "sem KR confirmado". O Mapa estava certo, a Saúde estava medindo errado.',
+      'Fix: novo helper _isKrValid no healthScoreEngine retorna true se kr.confirmed === true OU StrategicOkrEngine.isComplete(kr). Os 3 lugares (cobertura, krHealth no engine de Saúde + _strategicMapSummary no card de produto) usam esse helper.',
+      'Sansone deve ver agora: cobertura com áreas marcadas (Marketing/Vendas/CS conforme onde tem isComplete), K com média dos status dos KRs, Saúde subindo do 0.'
+    ]
+  },
+  {
     version: 'V38.1.7',
     date: '2026-06-15',
     title: 'Fix typo: healthScoreEngine usava strategicOkrEngine (minúsculo) em vez de StrategicOkrEngine',
