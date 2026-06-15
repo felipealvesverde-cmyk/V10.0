@@ -18,6 +18,27 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.26',
+    date: '2026-06-15',
+    title: 'Card da Campanha: trilha vira 4 badges clicáveis (sem ordem forçada)',
+    bullets: [
+      'A trilha sequencial de Pipeline → Mapa → Ações → Leads virou 4 badges independentes. Cada uma representa uma capacidade da campanha e não força mais uma ordem de execução.',
+      'Cada badge é clicável: quando está cinza (capacidade inativa), o clique leva pra ativar (gerar pipeline, plugar no Mapa, criar ação, mandar leads). Quando está verde (ativa), o clique leva pra ver/gerir aquela capacidade.',
+      'Mapa volta a ser tratado como camada estratégica paralela à operacional — você pode rodar uma campanha completa sem ele e plugar quando quiser, sem que o card sugira que é etapa obrigatória.',
+      'Bloco "Próximo passo" saiu — cada badge cinza já é o CTA da sua própria capacidade.',
+      'Mapa da Receita saiu dos atalhos discretos (virou badge). Fluxo da Campanha continua atalho.'
+    ]
+  },
+  {
+    version: 'V38.1.25',
+    date: '2026-06-15',
+    title: 'Aviso de números-mãe pendentes no card da Campanha mais magro',
+    bullets: [
+      'O aviso amarelo dos KRs-mãe pendentes ficou menor: padding mais apertado, ícone menor, texto mais compacto.',
+      'Texto enxugado de "ainda não plugado(s) nesta campanha — abra o Mapa..." para "ainda não plugado(s) — abra o Mapa..." (cabe na linha sem perder o sentido).'
+    ]
+  },
+  {
     version: 'V38.1.24',
     date: '2026-06-15',
     title: 'Botão "Próximo passo" mais discreto no card da Campanha',

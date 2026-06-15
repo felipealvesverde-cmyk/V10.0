@@ -192,84 +192,91 @@ var CampaignModule = {
     // Selos bottom-right (Pipeline criado / Mapa ativo / Mapa em config)
     // removidos por redundância com a trilha. Engrenagem mantida.
 
-    // ─── State machine do próximo passo + trilha (sequencial) ─────────
+    // V38.1.26 — Trilha sequencial substituída por 4 badges independentes.
+    // Cada badge é uma capacidade clicável: off → leva pra ativar; on →
+    // leva pra visualizar/gerir. Sem cadeia forçada — cliente escolhe a
+    // ordem. Bloco "Próximo passo" sai (cada badge já é o CTA da sua
+    // capacidade). Mapa volta a ser estratégico (paralelo), não operacional.
     const linkedLeadsCount = (window.LeadBaseService?.forCampaign?.(campaign.id) || []).length;
     const hasMapActive = strategicStatus === 'active';
     const hasMapConfiguring = strategicStatus === 'configuring';
     const hasActions = actions.length > 0;
     const hasLeads = linkedLeadsCount > 0 || totalLeads > 0;
 
-    let next;
-    if (!hasPipeline) {
-      next = { label: 'Gerar Pipeline RD', icon: 'git-branch',
-               action: `Actions.generateCampaignPipeline(${campaign.id})` };
-    } else if (!hasMapActive && !hasMapConfiguring) {
-      next = { label: 'Ativar Mapa da Receita', icon: 'compass',
-               action: `Actions.activateStrategicMapForCampaign(${campaign.id})` };
-    } else if (hasMapConfiguring && product) {
-      next = { label: 'Configurar KRs no Mapa', icon: 'compass',
-               action: `Actions.openStrategicMap(${product.id})` };
-    } else if (!hasActions) {
-      next = { label: 'Criar primeira Ação', icon: 'zap',
-               action: `Actions.prepareActionForCampaign(${campaign.id})` };
-    } else if (!hasLeads) {
-      next = { label: 'Adicionar leads e enviar pro RD', icon: 'send',
-               action: `Actions.pushCampaignICPToRD(${campaign.id})` };
-    } else {
-      next = { label: 'Enviar mais leads pro RD', icon: 'send',
-               action: `Actions.pushCampaignICPToRD(${campaign.id})` };
-    }
-
-    // Trilha sequencial: marco N só acende se TODOS anteriores estão done.
-    // Antes o card podia mostrar "Ações ✓ sem Pipeline" (estado herdado).
-    const m1 = hasPipeline;
-    const m2done = m1 && hasMapActive;
-    const m2partial = m1 && !hasMapActive && hasMapConfiguring;
-    const m3 = (m2done) && hasActions;
-    const m4 = m3 && hasLeads;
-    const marcos = [
-      { label: 'Pipeline', done: m1, partial: false },
-      { label: 'Mapa',     done: m2done, partial: m2partial },
-      { label: 'Ações',    done: m3, partial: false },
-      { label: 'Leads',    done: m4, partial: false }
+    const badges = [
+      {
+        label: 'Pipeline',
+        state: hasPipeline ? 'on' : 'off',
+        action: hasPipeline
+          ? `Actions.openCampaignEditModal(${campaign.id})`
+          : `Actions.generateCampaignPipeline(${campaign.id})`,
+        tooltip: hasPipeline ? 'Pipeline RD ativo. Clique pra ver os detalhes da campanha.' : 'Clique pra gerar o pipeline RD desta campanha.'
+      },
+      {
+        label: 'Mapa',
+        state: hasMapActive ? 'on' : (hasMapConfiguring ? 'partial' : 'off'),
+        action: (hasMapActive || hasMapConfiguring) && product
+          ? `Actions.openStrategicMap(${product.id})`
+          : `Actions.activateStrategicMapForCampaign(${campaign.id})`,
+        tooltip: hasMapActive
+          ? 'Plugada no Mapa da Receita. Clique pra abrir.'
+          : hasMapConfiguring
+            ? 'Mapa em configuração. Clique pra terminar de plugar os KRs.'
+            : 'Clique pra plugar esta campanha no Mapa da Receita do produto.'
+      },
+      {
+        label: 'Ações',
+        state: hasActions ? 'on' : 'off',
+        count: hasActions ? actions.length : null,
+        action: hasActions
+          ? `Actions.goToCampaignActions(${campaign.id})`
+          : `Actions.prepareActionForCampaign(${campaign.id})`,
+        tooltip: hasActions ? `${actions.length} ação(ões) criadas. Clique pra ver.` : 'Clique pra criar a primeira ação desta campanha.'
+      },
+      {
+        label: 'Leads',
+        state: hasLeads ? 'on' : 'off',
+        count: hasLeads ? (linkedLeadsCount || totalLeads) : null,
+        action: `Actions.pushCampaignICPToRD(${campaign.id})`,
+        tooltip: hasLeads ? `${linkedLeadsCount || totalLeads} lead(s) vinculados. Clique pra enviar mais pro RD.` : 'Clique pra adicionar leads e enviar pro RD.'
+      }
     ];
-    const trilhaHtml = marcos.map((m, i) => {
-      const dotCls = m.done
-        ? 'bg-emerald-500 border-emerald-500'
-        : m.partial
-          ? 'bg-amber-400 border-amber-400'
-          : 'bg-white border-slate-300';
-      const labelCls = m.done
-        ? 'text-emerald-700'
-        : m.partial
-          ? 'text-amber-700'
-          : 'text-slate-400';
-      const connector = i < marcos.length - 1
-        ? `<span class="flex-1 h-px bg-slate-300 min-w-[12px]"></span>`
+
+    const badgesHtml = badges.map(b => {
+      const isOn = b.state === 'on';
+      const isPartial = b.state === 'partial';
+      const tone = isOn
+        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+        : isPartial
+          ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+          : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200 hover:text-slate-700';
+      const icon = isOn
+        ? '<i data-lucide="check-circle-2" class="w-3 h-3 shrink-0"></i>'
+        : isPartial
+          ? '<i data-lucide="loader" class="w-3 h-3 shrink-0"></i>'
+          : '<i data-lucide="circle" class="w-3 h-3 shrink-0"></i>';
+      const countBadge = b.count != null
+        ? `<span class="ml-1 px-1.5 py-0.5 rounded-md bg-white/70 text-[9px] font-black">${b.count}</span>`
         : '';
-      return `<div class="flex items-center gap-1.5 shrink-0">
-        <span class="w-2.5 h-2.5 rounded-full border ${dotCls}"></span>
-        <span class="text-[10px] font-black uppercase tracking-wider ${labelCls}">${m.label}</span>
-      </div>${connector}`;
+      return `<button onclick="event.stopPropagation(); ${b.action}" title="${Utils.escape(b.tooltip)}" class="px-2.5 py-1 rounded-lg border-2 ${tone} flex items-center gap-1.5 transition text-[10px] font-black uppercase tracking-wider">
+        ${icon} <span>${b.label}</span>${countBadge}
+      </button>`;
     }).join('');
 
-    // Atalhos (Mapa + Fluxo, condicionais)
-    const mapaAtalho = product && (hasMapActive || hasMapConfiguring)
-      ? `<button onclick="event.stopPropagation(); Actions.openStrategicMap(${product.id})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="compass" class="w-3 h-3"></i> Mapa da Receita</button>`
-      : '';
+    // Atalhos (só Fluxo agora — Mapa virou badge)
     const fluxoAtalho = hasActions
       ? `<button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${campaign.id})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="workflow" class="w-3 h-3"></i> Fluxo da Campanha</button>`
       : '';
-    const hasAtalhos = mapaAtalho || fluxoAtalho;
+    const hasAtalhos = !!fluxoAtalho;
 
     // Aviso amber dos KRs-mãe pendentes
     const krsMaeAviso = (() => {
       if (!isStrategic || !window.StrategicMapEngine?.getMissingChildrenInBranch || !product) return '';
       const missing = StrategicMapEngine.getMissingChildrenInBranch(product.id, campaign.id);
       if (!missing.length) return '';
-      return `<div class="rounded-lg bg-amber-50/40 border border-amber-200 border-l-4 border-l-amber-500 px-3 py-2 flex items-start gap-2">
-        <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-700 mt-0.5 shrink-0"></i>
-        <p class="text-[11px] text-amber-900 font-bold leading-snug">${missing.length} número(s)-mãe ainda não plugado(s) nesta campanha — abra o Mapa e vá na etapa Campanha.</p>
+      return `<div class="rounded-md bg-amber-50/40 border border-amber-200 border-l-2 border-l-amber-500 px-2 py-1 flex items-center gap-1.5">
+        <i data-lucide="alert-triangle" class="w-3 h-3 text-amber-700 shrink-0"></i>
+        <p class="text-[10px] text-amber-900 font-bold leading-tight">${missing.length} número(s)-mãe ainda não plugado(s) — abra o Mapa e vá na etapa Campanha.</p>
       </div>`;
     })();
 
@@ -301,23 +308,13 @@ var CampaignModule = {
 
         ${krsMaeAviso}
 
-        <div class="flex items-center gap-1.5 flex-nowrap overflow-x-auto py-1">${trilhaHtml}</div>
+        <div class="flex items-center gap-2 flex-wrap">${badgesHtml}</div>
 
-        <div class="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-3 items-stretch">
-          <div class="grid grid-cols-3 gap-2 self-center">
-            ${setorCardsHtml}
-          </div>
-          <div class="flex flex-col gap-1 justify-center">
-            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-none">Próximo passo</p>
-            <button onclick="event.stopPropagation(); ${next.action}" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center justify-center gap-1.5 hover:bg-slate-800 transition whitespace-nowrap self-start" style="color:#fff!important;">
-              <i data-lucide="${next.icon}" class="w-3.5 h-3.5 shrink-0"></i> <span>${next.label}</span>
-            </button>
-          </div>
+        <div class="grid grid-cols-3 gap-2 max-w-md">
+          ${setorCardsHtml}
         </div>
 
         ${hasAtalhos ? `<div class="flex items-center gap-3 justify-end flex-wrap pt-1">
-          ${mapaAtalho}
-          ${mapaAtalho && fluxoAtalho ? '<span class="text-slate-300">·</span>' : ''}
           ${fluxoAtalho}
         </div>` : ''}
       </div>
