@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.31',
+    date: '2026-06-15',
+    title: 'Bug fix: sync de status do ClickUp + Ações por área centralizado de verdade',
+    bullets: [
+      'Bug grande resolvido: tasks marcadas como "CONCLUÍDO" no ClickUp continuavam aparecendo como "pendente" no LJ mesmo depois de sincronizar. Causa: o mapper só convertia pra "completed" quando o ClickUp enviava statusType="closed" — mas status custom de list (CONCLUÍDO, FINALIZADO, etc.) vêm como "custom". Agora o mapper também detecta por label (concluído, closed, done, finalizado, completo, feito, entregue, pronto), com acento ou sem.',
+      'Depois desse fix, basta rodar "Sincronizar X tasks do ClickUp" na Etapa 4 do Mapa e os status corretos passam pro state do LJ. Card de Produto vai mostrar a contagem real (ex: 3/2) e a Saúde do Produto sobe.',
+      'Card da Campanha reestruturado em 2 colunas: tudo o que é conteúdo do dia a dia (header, aviso, badges, Roadmap) na esquerda; "Ações por área" sozinho na direita, centralizado verticalmente de verdade — sem mais espaço vazio embaixo.'
+    ]
+  },
+  {
     version: 'V38.1.30',
     date: '2026-06-15',
     title: '"Sair da edição" agora é do setor (Marketing/Vendas/CS), não da campanha',
