@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.10',
+    date: '2026-06-15',
+    title: 'Hero da aba Produtos: tira título redundante (e o typo "açoões")',
+    bullets: [
+      'O título grande do Hero ("1 produto ativo · 1 campanha · 2 ações") repetia os números que já estão nos 4 cards KPI à direita. Saiu inteiro — Hero fica com selo + subtítulo descritivo + cards.',
+      'Bônus: typo "açoões" (concordância errada de plural com "ção") foi embora junto.'
+    ]
+  },
+  {
     version: 'V38.1.9',
     date: '2026-06-15',
     title: 'Card de produto e Saúde têm leituras diferentes (e era isso mesmo)',

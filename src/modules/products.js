@@ -99,15 +99,15 @@ var ProductsModule = {
     const execLabel = agg.executionsTotal > 0
       ? `${agg.executionsTotal}/${agg.executionsDone}`
       : '0';
-    // V38.1.5 — Header da aba já mostra "Produtos" grande. Hero do módulo
-     // foca em CONTEXTO + KPIs sem repetir o título.
+    // V38.1.10 — Header da aba já mostra "Produtos" grande, e os 4 KPI cards
+    // à direita já trazem os números. Hero do módulo fica enxuto: só selo +
+    // subtítulo descrevendo a camada + cards (sem título redundante).
     return `<div class="bg-slate-950 text-white rounded-[2rem] p-5 shadow-sm overflow-hidden relative">
       <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
-      <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
+      <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-center">
         <div>
-          <div class="flex items-center gap-2 mb-2"><i data-lucide="box" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Revenue Layer · Visão consolidada</p></div>
-          <h2 class="text-2xl md:text-3xl font-black tracking-tight leading-tight">${agg.productsCount} produto${agg.productsCount === 1 ? '' : 's'} ativo${agg.productsCount === 1 ? '' : 's'} · ${agg.campaigns} campanha${agg.campaigns === 1 ? '' : 's'} · ${agg.actions} ação${agg.actions === 1 ? '' : 'ões'}</h2>
-          <p class="text-sm text-slate-300 max-w-3xl mt-2">Camada financeira do Revenue OS: preço, modelo de venda, custo operacional, margem, fluxo e receita consolidada por produto.</p>
+          <div class="flex items-center gap-2 mb-3"><i data-lucide="box" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Revenue Layer · Visão consolidada</p></div>
+          <p class="text-base text-slate-300 max-w-3xl leading-relaxed">Camada financeira do Revenue OS: preço, modelo de venda, custo operacional, margem, fluxo e receita consolidada por produto.</p>
         </div>
         <div class="grid grid-cols-2 gap-3">
           ${this.darkMetric('Produtos', agg.productsCount, 'box')}
