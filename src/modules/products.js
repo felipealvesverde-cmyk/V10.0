@@ -301,7 +301,7 @@ var ProductsModule = {
           // Se produto não tem Mapa configurado, action mostra aviso primeiro.
           return `<button type="button" onclick="event.stopPropagation(); Actions.openProductAreaInMap(${product.id}, '${area.id}')" class="rounded-xl border ${tone} p-2 text-center transition cursor-pointer" title="${Utils.escape(area.description)}">
             <p class="text-[10px] font-black uppercase tracking-wider">${Utils.escape(area.label)}</p>
-            <p class="text-[10px] mt-0.5">${status}</p>
+            <p class="text-[11px] mt-0.5 font-bold">${status}</p>
           </button>`;
         }).join('')}
       </div>
