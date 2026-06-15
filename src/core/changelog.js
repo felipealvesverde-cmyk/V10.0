@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.29',
+    date: '2026-06-15',
+    title: 'Bug fix: card de Produto agora conta Execuções de verdade + Ações por área centralizado',
+    bullets: [
+      'Bug do dia: o card do Produto mostrava sempre "EXECUÇÕES 0/0" mesmo com tasks vinculadas no ClickUp. Causa: o engine de agregação chamava ExecutionTaskStore.byActionId() — método que nunca existiu (o certo é byAction). Função falhava silenciosa e retornava 0.',
+      'Agora a contagem real aparece. Importante: o status só atualiza depois de sincronizar com o ClickUp pelo botão "Sincronizar X tasks do ClickUp" na Etapa 4 do Mapa — sem isso, o LJ assume "pending" como default.',
+      'No card da Campanha, o bloco "Ações por área" agora fica centralizado verticalmente do lado direito, no meio do card. Antes ficava grudado no topo deixando espaço sobrando embaixo.'
+    ]
+  },
+  {
     version: 'V38.1.28',
     date: '2026-06-15',
     title: 'Card da Campanha respira mais + Sair da edição do Mapa',

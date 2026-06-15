@@ -298,7 +298,7 @@ var CampaignModule = {
       <button onclick="event.stopPropagation(); Actions.openCampaignEditModal(${campaign.id})" title="Editar Campanha" aria-label="Editar Campanha" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm z-10"><i data-lucide="settings" class="w-4 h-4"></i></button>
 
       <div class="space-y-3">
-        <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-start">
+        <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-center">
           <div class="pr-12 md:pr-0 min-w-0">
             <p class="text-[10px] font-black ${isStrategic ? 'text-violet-700' : 'text-slate-500'} uppercase tracking-widest mb-0.5">Campanha</p>
             <h3 class="font-black text-lg ${isStrategic ? 'text-violet-900' : 'text-slate-900'}">${Utils.escape(campaign.name)}</h3>
