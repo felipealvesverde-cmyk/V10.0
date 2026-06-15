@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.15',
+    date: '2026-06-15',
+    title: 'Card de área: "pendente" só quando NÃO TEM KR (antes era se faltasse ação)',
+    bullets: [
+      'CS no Atira.Pro tinha 3 KRs criados mas 0 ações vinculadas → V38.1.14 mostrava "pendente", confundindo (KRs existiam!).',
+      'Novo critério: "pendente" só quando nenhum KR foi criado naquela área. Com KR + sem ação mostra "3 nº · 0 ações" — evidencia que existe a estratégia mas falta conectar à receita via ações.',
+      'Cor da área (rosa/teal/sky) aparece sempre que tem KR, mesmo com 0 ações.'
+    ]
+  },
+  {
     version: 'V38.1.14',
     date: '2026-06-15',
     title: 'FIX CRÍTICO: card e Saúde leem productKrs (mãe), não childKrs das branches',
