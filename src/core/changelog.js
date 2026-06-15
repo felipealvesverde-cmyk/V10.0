@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.22',
+    date: '2026-06-15',
+    title: 'Card da Campanha: trilha de status + Próximo passo guiado',
+    bullets: [
+      'O card da Campanha agora abre com uma trilha visual de 4 marcos — Pipeline, Mapa, Ações, Leads — que mostra onde a campanha está no ciclo de vida sem você precisar interpretar 5 botões soltos.',
+      'No lugar do amontoado de botões, um bloco "Próximo passo" mostra a próxima ação lógica grande e clara. Conforme você avança (gera pipeline → ativa mapa → cria ação → manda leads pro RD), o CTA muda sozinho.',
+      'Mapa da Receita e Fluxo da Campanha viraram atalhos discretos no canto — continuam a 1 clique mas não competem mais pela atenção do que importa.',
+      'O aviso de KRs-mãe pendentes agora fala como sistema (era "CEO criou X..." — virou "X números-mãe ainda não plugados nesta campanha").',
+      'Os cards Ações/Leads/Conversão deram lugar a 3 cards por setor — Marketing, Vendas e CS — mostrando quantas ações você tem em cada área. Mesma estética e cores do card de Produto.',
+      'O aviso "X ações sem objetivo vinculado" saiu do card — informação migra pro menu Ações onde realmente é resolvida.',
+      'Engrenagem de Editar Campanha continua no canto superior direito, intocada.'
+    ]
+  },
+  {
     version: 'V38.1.21',
     date: '2026-06-15',
     title: 'Card do Produto: "Criar Campanha para este produto" + sai o "Editar Campanha"',
