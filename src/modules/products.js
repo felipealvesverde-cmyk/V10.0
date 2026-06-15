@@ -107,7 +107,7 @@ var ProductsModule = {
       <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-center">
         <div>
           <div class="flex items-center gap-2 mb-3"><i data-lucide="box" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Revenue Layer · Visão consolidada</p></div>
-          <p class="text-base text-slate-300 max-w-3xl leading-relaxed">Camada financeira do Revenue OS: preço, modelo de venda, custo operacional, margem, fluxo e receita consolidada por produto.</p>
+          <p class="text-base text-slate-300 max-w-3xl leading-relaxed">O produto é onde o Revenue Operation (operação de receita) começa: ancora Mapa da Receita, ofertas, campanhas, custos e leitura de saúde.</p>
         </div>
         <div class="grid grid-cols-2 gap-3">
           ${this.darkMetric('Produtos', agg.productsCount, 'box')}

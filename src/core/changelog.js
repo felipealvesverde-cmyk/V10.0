@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.13',
+    date: '2026-06-15',
+    title: 'Subtítulo do Hero da aba Produtos cravado pelo Felipe',
+    bullets: [
+      'O subtítulo "Camada financeira do Revenue OS" não refletia o conceito real de produto no LJ. Felipe cravou a versão definitiva: "O produto é onde o Revenue Operation (operação de receita) começa: ancora Mapa da Receita, ofertas, campanhas, custos e leitura de saúde."',
+      'Posiciona o produto como ponto de partida da operação inteira, não só como camada financeira. Lista o que ele realmente ancora (Mapa, ofertas, campanhas, custos, saúde).'
+    ]
+  },
+  {
     version: 'V38.1.12',
     date: '2026-06-15',
     title: 'Cards de área (Marketing/Vendas/CS) viram atalho pro Mapa Etapa 3',
