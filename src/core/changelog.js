@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.9',
+    date: '2026-06-15',
+    title: 'Card de produto e Saúde têm leituras diferentes (e era isso mesmo)',
+    bullets: [
+      'Esclarecimento conceitual: o card de produto e o engine de Saúde NÃO usam o mesmo critério de "KR válido". São duas perguntas diferentes.',
+      'Card do produto = "quantos KRs foram CRIADOS e CONECTADOS À RECEITA?". Critério: KR existe no Mapa (qualquer status, mesmo rascunho) E a área tem pelo menos uma ação vinculada que vai puxar o funil. Se algum dos dois faltar, a área fica "pendente".',
+      'Saúde / engine K = "os KRs estão CONFIGURADOS E ANDANDO?". Critério mais rigoroso: precisa estar isComplete (Meta Segura + Avançada + Prazo todos preenchidos) E ter current > 0 (alguém está perseguindo). Sem essas duas coisas, peso 0.',
+      'Antes (V38.1.8): tinha unificado os 2 critérios usando isComplete pros dois. Agora cada um volta pra sua leitura própria. Mais coerente com o que cada um deve comunicar.',
+      'Sansone: card de Vendas deve voltar a mostrar "3 nº · 1 ação" (3 KRs criados, 1 ação) em vez de "1 nº · 1 ação".'
+    ]
+  },
+  {
     version: 'V38.1.8',
     date: '2026-06-15',
     title: 'Saúde alinha com o que o Mapa mostra como "PRONTO"',
