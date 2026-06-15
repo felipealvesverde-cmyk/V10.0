@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.4',
+    date: '2026-06-15',
+    title: 'Polimento: 8 fixes acumulados (header, badges, grid Produtos, ordem tabs, botão clássico, Saúde em construção)',
+    bullets: [
+      'Header da view de produto em RevOps mostra o nome do produto no título principal ("Operação de Receita · Atira.Pro") — antes era genérico só "Operação de Receita".',
+      'Card "Meta de Vendas" do Resultado: badge "Sem meta" trocou ícone de lápis (que sugeria editar inline) por seta externa apontando pra aba Ofertas — coerente com o read-only de V38.1.2.',
+      'Grid da página Produtos: coluna de criar (Botão violeta + form sem Mapa) virou fina de 300px à esquerda, campos empilhados verticalmente. Card de Produtos Criados ganha ~70% da largura. Antes era 50/50 com o form em 1 linha horizontal — invertido do que tinha sido pedido.',
+      'Aba "Fechamento" movida da 1ª pra última posição em RevOps & Governança (depois de DRE). A jornada do CFO é Custos → Ofertas → Resultado → KPIs → DRE → no fim do mês, Fechamento. Fechamento na 1ª posição estava fora dessa narrativa.',
+      'Botão "← Clássico" (que ativava painel V14 deprecated) trocou pra "← RevOps & Governança" e volta pro Overview consolidado. No Overview ele sumiu (já é a área inicial).',
+      'Modal Saúde do Produto: balão do fator KRs agora explica 3 estados — "Nenhum KR cadastrado ainda" (produto vazio) / "X em rascunho, 0 confirmados, preencha Meta Segura + Avançada + Prazo" / "X confirmados, multiplica por 0.Y".',
+      'Modal Saúde: cores das porcentagens dos fatores ficam cinza quando o valor é 0 (antes verde/azul/violeta em "0%" passava sinal contraditório). Volta pra cor temática só quando tem valor real.',
+      'Estado "Em construção" 🚧 pra produto recém-criado (sem KR + sem task + sem meta + sem checkout): tier violet amigável em vez de "CRÍTICO" rose. Mensagem muda pra "Vamos construir a operação?" com guia. Antes desencorajava produto novo gritando vermelho.'
+    ]
+  },
+  {
     version: 'V38.1.3',
     date: '2026-06-15',
     title: 'Linha de oferta alinha bonito: labels uniformes em cima + base alinhada',
