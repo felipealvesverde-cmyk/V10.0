@@ -284,26 +284,33 @@ var ProductsModule = {
     return `<div class="rounded-2xl bg-slate-100 border border-slate-200 p-3 space-y-2">
       ${vision ? `<p class="text-[12px] text-slate-700"><b class="text-slate-900">🎯 Objetivo:</b> ${Utils.escape(vision.length > 120 ? vision.slice(0, 120) + '…' : vision)}</p>` : '<p class="text-[12px] text-amber-700">⚠️ Objetivo do produto ainda não definido.</p>'}
       <div class="grid grid-cols-3 gap-2">
-        ${areas.map(area => {
-          // V38.1.14 — Conta productKrs (KR-mãe) da área, alinhado com o que
-          // o Mapa mostra. Antes contava childKrs das branches (incluindo órfãos).
-          // V38.1.15 — "Pendente" só se NÃO TEM KR. Com KR mostra contagem
-          // mesmo com 0 ações (pra evidenciar que falta conectar à receita).
-          const krs = productKrs.filter(k => String(k.area || '').toLowerCase() === area.id);
-          const totalCriados = krs.length;
-          const actionsOfArea = (App.state.actions || []).filter(a => a.strategicAreaId === area.id && (App.state.campaigns || []).some(c => Number(c.id) === Number(a.campaignId) && Number(c.productId) === Number(product.id))).length;
-          const temKrs = totalCriados > 0;
-          const status = temKrs
-            ? `${totalCriados} nº · ${actionsOfArea} ação${actionsOfArea === 1 ? '' : 'ões'}`
-            : 'pendente';
-          const tone = temKrs ? `bg-${area.color}-100 border-${area.color}-300 text-${area.color}-900 hover:bg-${area.color}-200` : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50';
-          // V38.1.12 — Card clicável: abre Etapa 3 do Mapa filtrado na área.
-          // Se produto não tem Mapa configurado, action mostra aviso primeiro.
-          return `<button type="button" onclick="event.stopPropagation(); Actions.openProductAreaInMap(${product.id}, '${area.id}')" class="rounded-xl border ${tone} p-2 text-center transition cursor-pointer" title="${Utils.escape(area.description)}">
-            <p class="text-[10px] font-black uppercase tracking-wider">${Utils.escape(area.label)}</p>
-            <p class="text-[11px] mt-0.5 font-bold">${status}</p>
-          </button>`;
-        }).join('')}
+        ${(() => {
+          // V38.1.17 — Card mostra "X conectados" onde X é o número de
+          // KR-mãe da área cujo child (na branch) tem connectedActionIds > 0.
+          // Felipe: "Só traz o tanto de Krs conectados, só isso".
+          // Coleta TODOS os childKrs do produto (de qualquer branch) pra cruzar.
+          const allChildKrs = branches.flatMap(b => (b.objectives || []).flatMap(o => o.okrs || []));
+          return areas.map(area => {
+            const krsArea = productKrs.filter(k => String(k.area || '').toLowerCase() === area.id);
+            const conectados = krsArea.filter(pkr =>
+              allChildKrs.some(c =>
+                String(c.parentProductKrId || '') === String(pkr.id) &&
+                Array.isArray(c.connectedActionIds) && c.connectedActionIds.length > 0
+              )
+            ).length;
+            const temConectado = conectados > 0;
+            const status = temConectado
+              ? `${conectados} conectado${conectados === 1 ? '' : 's'}`
+              : (krsArea.length > 0 ? 'sem ação vinculada' : 'pendente');
+            const tone = temConectado
+              ? `bg-${area.color}-100 border-${area.color}-300 text-${area.color}-900 hover:bg-${area.color}-200`
+              : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50';
+            return `<button type="button" onclick="event.stopPropagation(); Actions.openProductAreaInMap(${product.id}, '${area.id}')" class="rounded-xl border ${tone} p-2 text-center transition cursor-pointer" title="${Utils.escape(area.description)}">
+              <p class="text-[10px] font-black uppercase tracking-wider">${Utils.escape(area.label)}</p>
+              <p class="text-[11px] mt-0.5 font-bold">${status}</p>
+            </button>`;
+          }).join('');
+        })()}
       </div>
       <p class="text-[11px] text-slate-500 text-right">Progresso médio: <b class="text-slate-900">${snapshot.avgProgress}%</b></p>
     </div>`;

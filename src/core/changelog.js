@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.17',
+    date: '2026-06-15',
+    title: 'Card de área: só "X conectados" — sem "nº · ações" mais',
+    bullets: [
+      'Felipe simplificou: "Só traz o tanto de Krs conectados, só isso". Tira a notação "1 nº · 1 ação" que confundia.',
+      'Card agora mostra só "X conectados" onde X é o número de KR-mãe da área cujo child em alguma branch tem action vinculada (connectedActionIds > 0).',
+      'Estados: ≥1 conectado → "X conectados" com cor da área | 0 conectados mas tem KR → "sem ação vinculada" cinza | sem KR-mãe → "pendente" cinza.'
+    ]
+  },
+  {
     version: 'V38.1.16',
     date: '2026-06-15',
     title: 'Card de área: números do status com peso visual',
