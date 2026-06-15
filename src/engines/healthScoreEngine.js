@@ -38,12 +38,16 @@ window.HealthScoreEngine = {
     if (!window.StrategicMapEngine?.getForProduct) {
       return { value: 0, areasComKr: [], areasFaltantes: [...this.AREAS] };
     }
-    const map = StrategicMapEngine.getForProduct(productId) || {};
-    const objectives = map.objectives || [];
+    // V38.1.6 — V29.0.0 moveu KRs pra branches (strategicCampaignMaps) por
+    // campanha. O objectives no strategicMaps[productId] é LEGACY V28 (vazio
+    // em produto novo). Junta branches + legado + productKrs pra cobertura.
+    const allObjectives = this._collectAllObjectives(productId);
     const areasComKr = [];
     this.AREAS.forEach(area => {
-      const obj = objectives.find(o => String(o.area).toLowerCase() === area);
-      const hasConfirmedKr = (obj?.okrs || []).some(kr => kr.confirmed);
+      const hasConfirmedKr = allObjectives.some(o =>
+        String(o.area || '').toLowerCase() === area &&
+        (o.okrs || []).some(kr => kr.confirmed)
+      );
       if (hasConfirmedKr) areasComKr.push(area);
     });
     const areasFaltantes = this.AREAS.filter(a => !areasComKr.includes(a));
@@ -54,15 +58,33 @@ window.HealthScoreEngine = {
     };
   },
 
+  // V38.1.6 — Junta objectives de TODAS as fontes do produto:
+  //   - legacy V28: strategicMaps[productId].objectives (vazio em produto novo)
+  //   - branches V29: strategicCampaignMaps onde productId === alvo
+  // Cada branch contribui suas próprias áreas (M/V/CS) e KRs filhos.
+  _collectAllObjectives(productId) {
+    const out = [];
+    // Legado V28
+    const legacyMap = StrategicMapEngine.getForProduct(productId) || {};
+    (legacyMap.objectives || []).forEach(o => out.push(o));
+    // Branches V29
+    if (typeof StrategicMapEngine.getBranchesByProduct === 'function') {
+      const branches = StrategicMapEngine.getBranchesByProduct(productId) || [];
+      branches.forEach(b => (b.objectives || []).forEach(o => out.push(o)));
+    }
+    return out;
+  },
+
   // K — multiplicador. Sem KR confirmado, retorna 0 (zerando Saúde inteira).
-  // V38.1.4 — Retorna também krsRascunhoCount + visionPresent pra modal explicar
-  // melhor por que K=0 (sem KR cadastrado vs com rascunhos não confirmados).
+  // V38.1.4 — Retorna também krsRascunhoCount + visionPresent pra modal explicar.
+  // V38.1.6 — Lê de TODAS as fontes (legado V28 + branches V29).
   _krHealth(productId) {
     if (!window.StrategicMapEngine?.getForProduct || !window.strategicOkrEngine) {
       return { value: 0, krs: [], krsConfirmadosCount: 0, krsRascunhoCount: 0, krsTotalCount: 0, visionPresent: false };
     }
     const map = StrategicMapEngine.getForProduct(productId) || {};
-    const allKrs = (map.objectives || []).flatMap(o => o.okrs || []);
+    const allObjectives = this._collectAllObjectives(productId);
+    const allKrs = allObjectives.flatMap(o => o.okrs || []);
     const confirmedKrs = allKrs.filter(k => k.confirmed);
     const rascunhoKrs = allKrs.filter(k => !k.confirmed);
     const visionPresent = !!String(map.vision || '').trim();

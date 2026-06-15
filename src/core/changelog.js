@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.6',
+    date: '2026-06-15',
+    title: 'FIX CRÍTICO: Saúde e card de produto não enxergavam KRs em branches (V29)',
+    bullets: [
+      'Bug que Felipe pegou pelo print: o Mapa da Receita do Atira.Pro tem 7 KRs confirmados (1 Marketing + 3 Vendas + 3 CS), mas a Saúde do Produto retornava K=0 e o card mostrava todas as áreas como "pendente".',
+      'Causa raiz: a V29.0.0 (não tão antiga) reorganizou o storage dos KRs. Antes ficavam em strategicMaps[productId].objectives. Agora ficam dentro das BRANCHES de cada campanha — strategicCampaignMaps[campaignId].objectives[].okrs[]. O healthScoreEngine e o _strategicMapSummary do card lia só o caminho V28 legacy (vazio em produto pós-V29).',
+      'Fix: novo helper _collectAllObjectives no engine de Saúde + lógica equivalente no card de produto. Agregam objectives do legado V28 + de TODAS as branches V29 do produto. Cobertura, K, contagem de KRs por área e status "pronto/pendente" voltam a refletir o que tá no Mapa.',
+      'Sansone (e qualquer cliente com KRs cravados em branches) vê a Saúde subir imediatamente conforme cobertura/K calculam certo agora.'
+    ]
+  },
+  {
     version: 'V38.1.5',
     date: '2026-06-15',
     title: 'Página Produtos: coluna Criar dobra pra 600px e cards alinham na base',
