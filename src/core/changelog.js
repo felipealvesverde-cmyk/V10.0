@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.5',
+    date: '2026-06-15',
+    title: 'Página Produtos: coluna Criar dobra pra 600px e cards alinham na base',
+    bullets: [
+      'Coluna de Criar Produto dobrou de 300px pra 600px — campos respiram mais sem perder espaço pro card de Produtos Criados (Nome/Tipo em 2 colunas + Recorrência cheia). Ainda assim Produtos Criados continua sendo o lado maior.',
+      'Botão grande violeta "Criar Produto com Mapa da Receita" voltou ao tamanho original (px-5 py-4 com ícone + texto + recomendado).',
+      'Cards alinham na base: items-stretch no grid + flex-1 com spacer no card "Criar sem Mapa" empurra o botão Criar pra colar com a base do card Produtos Criados.',
+      'Coluna direita (Produtos Criados) também ganhou h-full + flex pra acompanhar a altura.'
+    ]
+  },
+  {
     version: 'V38.1.4',
     date: '2026-06-15',
     title: 'Polimento: 8 fixes acumulados (header, badges, grid Produtos, ordem tabs, botão clássico, Saúde em construção)',

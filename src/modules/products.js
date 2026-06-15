@@ -3,7 +3,7 @@ var ProductsModule = {
     const selected = this.selectedProduct();
     return `<div class="space-y-4">
       ${this.hero(selected)}
-      <div class="grid lg:grid-cols-[300px_1fr] gap-4">
+      <div class="grid lg:grid-cols-[600px_1fr] gap-4 items-stretch">
         ${this.createPanel()}
         ${this.productsPanel()}
       </div>
@@ -119,36 +119,42 @@ var ProductsModule = {
 
   createPanel() {
     const d = App.state.productDraft || {};
-    return `<div class="space-y-3">
+    return `<div class="flex flex-col gap-3 h-full">
       <!-- V31.2.4 — Caminho recomendado: criar produto JÁ ligado ao Mapa da Receita -->
-      <button onclick="Actions.openNewProductWithMapaPopup()" class="w-full px-4 py-3 rounded-3xl text-white font-black flex flex-col items-center justify-center gap-1 shadow-md hover:shadow-lg transition" style="background:linear-gradient(135deg, #7C3AED, #4F46E5); color:#fff!important;">
-        <span class="inline-flex items-center gap-2"><i data-lucide="compass" class="w-4 h-4"></i> Criar com Mapa</span>
-        <span class="text-[10px] font-bold opacity-80">recomendado</span>
+      <button onclick="Actions.openNewProductWithMapaPopup()" class="w-full px-5 py-4 rounded-3xl text-white font-black flex items-center justify-center gap-3 shadow-md hover:shadow-lg transition shrink-0" style="background:linear-gradient(135deg, #7C3AED, #4F46E5); color:#fff!important;">
+        <i data-lucide="compass" class="w-5 h-5"></i>
+        <span class="text-base">Criar Produto com Mapa da Receita</span>
+        <span class="text-[10px] font-bold opacity-80 ml-1">recomendado</span>
       </button>
 
-      <!-- V38.1.4 — Coluna estreita (300px). Campos empilhados verticalmente
-           pra caber, liberando largura pro card de Produtos Criados. -->
-      <div class="bg-white rounded-3xl p-4 shadow-sm border border-slate-100 space-y-2.5">
+      <!-- V38.1.4 — Coluna de 600px (dobrou pra ficar mais respirável).
+           Card "Criar sem Mapa" estica via flex-1 pra alinhar com o card
+           de Produtos Criados ao lado. Botão Criar cola no fim. -->
+      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 flex-1 flex flex-col gap-3">
         <div>
-          <h2 class="text-base font-black leading-tight">Criar sem Mapa</h2>
-          <p class="text-[10px] text-slate-500 leading-snug">Cadastro puro. Sem Visão / KRs / rollup.</p>
+          <h2 class="text-xl font-black leading-tight">Criar Produto sem Mapa</h2>
+          <p class="text-[12px] text-slate-500 leading-snug mt-1">Cadastro puro — preço, modelo, custo. Sem Visão / KRs / rollup. <span class="text-amber-700 font-bold">Considere o caminho violeta acima pra conectar estratégia desde o início.</span></p>
         </div>
-        <div>
-          <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Nome</label>
-          <input value="${Utils.escape(d.name || '')}" oninput="App.state.productDraft.name=this.value; App.save();" placeholder="Ex: Diagnóstico Comercial" class="w-full px-3 py-2 rounded-xl bg-slate-100 font-semibold text-sm" />
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Nome</label>
+            <input value="${Utils.escape(d.name || '')}" oninput="App.state.productDraft.name=this.value; App.save();" placeholder="Ex: Diagnóstico Comercial" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm" />
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Tipo</label>
+            <input value="${Utils.escape(d.type || '')}" oninput="App.state.productDraft.type=this.value; App.save();" placeholder="Ex: SaaS, Consultoria" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm" />
+          </div>
+          <div class="col-span-2">
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Recorrência</label>
+            <select onchange="App.state.productDraft.revenueModel=this.value; App.save();" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm">
+              <option value="Venda única" ${(d.revenueModel || 'Venda única') === 'Venda única' ? 'selected' : ''}>Venda única</option>
+              <option value="Recorrente" ${d.revenueModel === 'Recorrente' ? 'selected' : ''}>Recorrente</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Tipo</label>
-          <input value="${Utils.escape(d.type || '')}" oninput="App.state.productDraft.type=this.value; App.save();" placeholder="Ex: SaaS, Consultoria" class="w-full px-3 py-2 rounded-xl bg-slate-100 font-semibold text-sm" />
-        </div>
-        <div>
-          <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Recorrência</label>
-          <select onchange="App.state.productDraft.revenueModel=this.value; App.save();" class="w-full px-3 py-2 rounded-xl bg-slate-100 font-semibold text-sm">
-            <option value="Venda única" ${(d.revenueModel || 'Venda única') === 'Venda única' ? 'selected' : ''}>Venda única</option>
-            <option value="Recorrente" ${d.revenueModel === 'Recorrente' ? 'selected' : ''}>Recorrente</option>
-          </select>
-        </div>
-        <button onclick="Actions.createProduct()" style="color:#fff!important;" class="w-full px-4 py-2.5 rounded-xl bg-slate-900 text-white font-black text-sm lj-dark-button">Criar Produto</button>
+        <!-- Spacer pra empurrar botão pra base e alinhar com o card de Produtos Criados -->
+        <div class="flex-1"></div>
+        <button onclick="Actions.createProduct()" style="color:#fff!important;" class="w-full px-4 py-3 rounded-xl bg-slate-900 text-white font-black text-sm lj-dark-button shrink-0">Criar Produto sem Mapa</button>
       </div>
     </div>`;
   },
@@ -157,9 +163,11 @@ var ProductsModule = {
     // V32.5.7 — Produtos arquivados não aparecem nas listas principais.
     // Gerenciamento (reativar/deletar) em Configurações → Minha Conta → Produtos.
     const visible = (App.state.products || []).filter(p => !p.archived);
-    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-      <div class="flex items-start justify-between gap-3 mb-5"><div><h2 class="text-xl font-black mb-1">Produtos Criados</h2><p class="text-sm text-slate-500">Clique em um produto para selecionar.</p></div><div class="text-3xl font-black">${visible.length}</div></div>
-      <div class="space-y-3 max-h-[520px] overflow-auto">${visible.map(product => this.productCard(product)).join('')}</div>
+    // V38.1.5 — h-full + flex pra alinhar com o card de Criar à esquerda
+    // (items-stretch no grid mantém os 2 com mesma altura).
+    return `<div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 h-full flex flex-col">
+      <div class="flex items-start justify-between gap-3 mb-5 shrink-0"><div><h2 class="text-xl font-black mb-1">Produtos Criados</h2><p class="text-sm text-slate-500">Clique em um produto para selecionar.</p></div><div class="text-3xl font-black">${visible.length}</div></div>
+      <div class="space-y-3 overflow-auto flex-1">${visible.map(product => this.productCard(product)).join('')}</div>
     </div>`;
   },
 
