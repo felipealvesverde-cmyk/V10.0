@@ -989,7 +989,10 @@ var State = {
       showProductCampaignsModal: Boolean(raw.showProductCampaignsModal),
       productCampaignsModalId: raw.productCampaignsModalId || null,
       campaignProductFilterId: raw.campaignProductFilterId || null,
-      revopsSelectedProductId: raw.revopsSelectedProductId || null,
+      // V38.1.1 — Default ao entrar em RevOps é SEMPRE o Overview (todos os
+      // produtos). Cliente clica num card pra entrar em produto específico.
+      // Não persiste seleção entre F5 / fechar app.
+      revopsSelectedProductId: null,
       revopsFinance: this.normalizeRevopsFinance(raw.revopsFinance),
       // V32.8.0 — Normaliza V2 + migration silenciosa do legacy quando V2 vazio.
       // Roda 1x por F5 mas migrateFromLegacy é idempotente (sempre produz mesma

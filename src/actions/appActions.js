@@ -5285,6 +5285,18 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V38.1.1 — Entra na governança de um produto específico vindo do Overview.
+  selectRevopsProduct(productId) {
+    App.state.revopsSelectedProductId = Number(productId);
+    App.save(); App.render();
+  },
+
+  // V38.1.1 — Volta pro Overview consolidado (todos produtos).
+  backToRevopsOverview() {
+    App.state.revopsSelectedProductId = null;
+    App.save(); App.render();
+  },
+
   setRevopsWhitelabelTab(tabId) {
     App.state.revopsWhitelabelActiveTab = String(tabId || 'costs');
     App.save(); App.render();

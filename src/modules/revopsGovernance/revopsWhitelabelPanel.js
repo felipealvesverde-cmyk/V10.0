@@ -48,24 +48,31 @@
   const RevopsWhitelabelPanel = {
 
     render() {
-      const products = App.state.products || [];
+      const products = (App.state.products || []).filter(p => !p.archived);
       if (!products.length) {
         return `<div class="rounded-3xl bg-slate-50 border border-slate-200 p-8 text-center">
           <p class="text-sm text-slate-600">Cadastre um produto primeiro pra abrir o RevOps.</p>
         </div>`;
       }
+
+      // V32.10.2 — Auto-snapshot remoto na 1ª render desta sessão. Protege
+      // contra perda de dados. Fire-and-forget, 1× por dia por sessão.
+      if (window.Actions?._autoSnapshotOnce) {
+        setTimeout(() => Actions._autoSnapshotOnce('auto-revops-entry-' + new Date().toISOString().slice(0, 10)), 200);
+      }
+
+      // V38.1.1 — Overview consolidado é o default (selectedProductId === null).
+      // Cliente clica num card → entra na view específica do produto.
+      if (!App.state.revopsSelectedProductId) {
+        return this._renderOverview(products);
+      }
+
+      // View específica do produto (comportamento original).
       const productId = this._currentProductId();
       const cfg = this._currentConfig(productId);
       const evaluation = RevopsWhitelabelEngine.evaluate(cfg);
       const activeTab = this._activeTab();
       const tabUnlocked = this._tabUnlockState(cfg);
-
-      // V32.10.2 — Auto-snapshot remoto na 1ª render desta sessão. Protege
-      // contra perda de dados (incidente Sansone V32.10.x). Fire-and-forget,
-      // 1× por dia por sessão (guard via _autoSnapshotDone Set).
-      if (window.Actions?._autoSnapshotOnce) {
-        setTimeout(() => Actions._autoSnapshotOnce('auto-revops-entry-' + new Date().toISOString().slice(0, 10)), 200);
-      }
 
       return `<div class="space-y-4">
         ${this._header(productId, products, cfg, evaluation)}
@@ -74,6 +81,100 @@
           ${this._tabContent(activeTab, cfg, evaluation, tabUnlocked)}
         </div>
       </div>`;
+    },
+
+    // V38.1.1 — Overview consolidado: dashboard de TODOS os produtos.
+    // Cliente entra em RevOps → cai aqui primeiro → escolhe produto.
+    _renderOverview(products) {
+      const productsData = products.map(p => {
+        const cfg = this._currentConfig(p.id);
+        const ev = RevopsWhitelabelEngine.evaluate(cfg);
+        const health = window.HealthScoreEngine ? HealthScoreEngine.compute(p.id) : null;
+        return { product: p, cfg, ev, health };
+      });
+
+      // Métricas agregadas pro topo.
+      const totals = productsData.reduce((acc, { ev, health }) => ({
+        fatBruto: acc.fatBruto + (ev.fatBruto || 0),
+        ebitda: acc.ebitda + (ev.ebitda || 0),
+        salesPrev: acc.salesPrev + (ev.sales || 0),
+        healthSum: acc.healthSum + (health?.score || 0),
+        healthCount: acc.healthCount + (health ? 1 : 0)
+      }), { fatBruto: 0, ebitda: 0, salesPrev: 0, healthSum: 0, healthCount: 0 });
+      const margemMedia = totals.fatBruto > 0 ? (totals.ebitda / totals.fatBruto) * 100 : 0;
+      const saudeMedia = totals.healthCount > 0 ? Math.round(totals.healthSum / totals.healthCount) : 0;
+
+      return `<div class="space-y-4">
+        <!-- HEADER OVERVIEW -->
+        <div class="bg-gradient-to-br from-slate-900 via-violet-950 to-slate-900 rounded-3xl border border-violet-500/30 p-5 shadow-2xl">
+          <div class="flex items-start justify-between gap-3 flex-wrap mb-4">
+            <div class="min-w-0">
+              <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest">RevOps & Governança · CFO</p>
+              <h2 class="text-2xl font-black text-white mt-1 leading-tight">Visão geral · ${products.length} produto${products.length === 1 ? '' : 's'}</h2>
+              <p class="text-[12px] text-violet-200/70 mt-1">Selecione um produto pra entrar na governança específica.</p>
+            </div>
+            <button onclick="Actions.toggleRevopsClassicMode()" title="Voltar ao painel clássico (V14)" class="px-3 py-2 rounded-xl bg-slate-800/60 hover:bg-slate-700 border border-violet-400/20 text-violet-200 text-xs font-bold shrink-0">← Clássico</button>
+          </div>
+
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+            ${this._metricCell('Receita Bruta Total', this._money(totals.fatBruto), 'emerald')}
+            ${this._metricCell('EBITDA Consolidado', this._money(totals.ebitda), totals.ebitda >= 0 ? 'emerald' : 'rose')}
+            ${this._metricCell('Margem Média', `${margemMedia.toFixed(1)}%`, margemMedia >= 25 ? 'emerald' : margemMedia >= 0 ? 'amber' : 'rose')}
+            ${this._metricCell('Saúde Média', `${saudeMedia}/100`, saudeMedia >= 80 ? 'emerald' : saudeMedia >= 50 ? 'amber' : 'rose')}
+          </div>
+        </div>
+
+        <!-- GRID DE CARDS DE PRODUTO -->
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+          ${productsData.map(d => this._overviewProductCard(d)).join('')}
+        </div>
+      </div>`;
+    },
+
+    _overviewProductCard({ product, cfg, ev, health }) {
+      const margemPct = ev.fatBruto > 0 ? (ev.ebitda / ev.fatBruto) * 100 : 0;
+      const margemTone = margemPct >= 25 ? 'emerald' : margemPct >= 0 ? 'amber' : 'rose';
+      const ebitdaTone = ev.ebitda >= 0 ? 'emerald' : 'rose';
+      const healthScore = health?.score || 0;
+      const healthTone = health?.tier?.color || 'slate';
+      // Conversão de Vendas e CAC ainda dependem de integração checkout (V38.2.0).
+      // Hoje mostram "—" e modal/tooltip explica.
+      return `<button onclick="Actions.selectRevopsProduct(${product.id})" class="text-left bg-white rounded-2xl border border-slate-200 border-l-4 border-l-violet-500 hover:border-l-violet-600 hover:shadow-md transition p-4 space-y-3 group">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">Produto</p>
+            <h3 class="font-black text-base text-slate-900 leading-tight truncate">${Utils.escape(product.name)}</h3>
+            <p class="text-[11px] text-slate-500">${Utils.escape(product.type || 'Produto')} · ${Utils.escape(product.revenueModel || 'Venda única')}</p>
+          </div>
+          <span class="shrink-0 text-[10px] font-black text-violet-600 group-hover:text-violet-800 group-hover:translate-x-0.5 transition">Abrir →</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="rounded-xl bg-emerald-50/60 border border-emerald-200 px-2.5 py-1.5">
+            <div class="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Receita</div>
+            <div class="font-black text-sm text-slate-900">${this._money(ev.fatBruto)}</div>
+          </div>
+          <div class="rounded-xl bg-${ebitdaTone}-50/60 border border-${ebitdaTone}-200 px-2.5 py-1.5">
+            <div class="text-[9px] font-black text-${ebitdaTone}-700 uppercase tracking-widest">EBITDA</div>
+            <div class="font-black text-sm text-slate-900">${this._money(ev.ebitda)}</div>
+          </div>
+          <div class="rounded-xl bg-${margemTone}-50/60 border border-${margemTone}-200 px-2.5 py-1.5">
+            <div class="text-[9px] font-black text-${margemTone}-700 uppercase tracking-widest">Margem</div>
+            <div class="font-black text-sm text-slate-900">${margemPct.toFixed(1)}%</div>
+          </div>
+          <div class="rounded-xl bg-${healthTone}-50/60 border border-${healthTone}-200 px-2.5 py-1.5">
+            <div class="text-[9px] font-black text-${healthTone}-700 uppercase tracking-widest">Saúde</div>
+            <div class="font-black text-sm text-slate-900">${healthScore}/100</div>
+          </div>
+          <div class="rounded-xl bg-slate-50 border border-slate-200 px-2.5 py-1.5">
+            <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest">CAC</div>
+            <div class="font-black text-sm text-slate-400">—</div>
+          </div>
+          <div class="rounded-xl bg-slate-50 border border-slate-200 px-2.5 py-1.5">
+            <div class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Conversão</div>
+            <div class="font-black text-sm text-slate-400">—</div>
+          </div>
+        </div>
+      </button>`;
     },
 
     // ────────────────────────────────────────────────────────────
@@ -87,7 +188,18 @@
     // violet-400/30 border).
     _header(productId, products, cfg, ev) {
       const periodLabel = cfg.period === 'yearly' ? 'Anual' : cfg.period === 'quarterly' ? 'Trimestral' : 'Mensal';
+      const selectedProduct = products.find(p => Number(p.id) === Number(productId));
+      const selectedName = selectedProduct?.name || 'Produto';
       return `<div class="bg-gradient-to-br from-slate-900 via-violet-950 to-slate-900 rounded-3xl border border-violet-500/30 p-5 shadow-2xl">
+        <!-- V38.1.1 — Breadcrumb pra voltar ao Overview -->
+        <div class="flex items-center gap-2 mb-3 text-[11px] font-bold">
+          <button onclick="Actions.backToRevopsOverview()" class="text-violet-300 hover:text-white inline-flex items-center gap-1">
+            <i data-lucide="arrow-left" class="w-3 h-3"></i>
+            Overview
+          </button>
+          <span class="text-violet-400/50">/</span>
+          <span class="text-white">${Utils.escape(selectedName)}</span>
+        </div>
         <div class="flex items-start justify-between gap-3 flex-wrap mb-4">
           <div class="min-w-0">
             <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest">RevOps & Governança · CFO</p>
