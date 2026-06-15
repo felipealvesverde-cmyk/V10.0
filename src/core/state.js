@@ -434,6 +434,9 @@ var State = {
       notificationClusterExpanded: {},
       // V37.4.35 — Cache de snapshots remotos (Configurações → Backup). Volátil.
       remoteSnapshotsCache: null,
+      // V38.1.0 — Modal Saúde do Produto (volátil; abre via "?" no card).
+      // { productId, djowAnalysis: null|{loading,error,byDimension,verdict} }
+      healthModal: null,
       // V37.5.0 — Pin-Up (volátil)
       pinModeActive: false,
       pinUp: { pinsForCurrentUrl: [], createModal: null, viewModal: null, editModal: null },
@@ -1169,6 +1172,8 @@ var State = {
       notificationClusterExpanded: {},
       // V37.4.35 — Cache de snapshots remotos. Sempre null no boot (re-fetch sob demanda).
       remoteSnapshotsCache: null,
+      // V38.1.0 — Modal Saúde sempre fechado no boot.
+      healthModal: null,
       // V37.5.0 — Pin-Up volátil
       pinModeActive: false,
       pinUp: { pinsForCurrentUrl: [], createModal: null, viewModal: null, editModal: null },

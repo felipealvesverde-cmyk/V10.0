@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.0',
+    date: '2026-06-15',
+    title: 'Saúde do Produto — score 0-100 + modal explicador + Djow giro de faca',
+    bullets: [
+      'O card de cada produto agora mostra uma linha de Saúde com score, barra colorida e label do gargalo principal ("Em risco: KRs", "Saudável: gargalo Conversão", etc). Tom muda conforme o estado: emerald (saudável ≥80), amber (alerta ≥50), orange (risco ≥20), rose (crítico <20).',
+      'Botão "?" abre modal explicador completo: score grande no topo, depois 4 fatores (Eficácia / Cobertura / KRs / Conversão de Vendas) cada um com barra, valor, contribuição em pts e leitura objetiva ("4 de 5 tasks completas", "1 de 3 áreas — Marketing only", etc).',
+      'Botão "Pedir análise pro Djow" no rodapé do modal: lazy 1 chamada que retorna 4 balões específicos (um por fator) + veredito final tom GIRO DE FACA — direto, sem rodeio, com lista numerada de ações pros próximos 7 dias. Mentor exigente, não diplomático.',
+      'Fórmula: Saúde = K × (0.4 × E + 0.4 × C + 0.2 × R) × 100. K é multiplicador (sem KR confirmado, Saúde = 0). Detalhes completos em knowledge-base/health-score.md — Djow já entende isso.',
+      'Backend: novo endpoint /api/djow-health-analysis (não usa o loop do djow-chat — Claude direto com prompt focado pedindo JSON estruturado). Resolve API key via lib/ai-resolver.',
+      '⚠ Limitação atual: Resultado (R) ainda sai 0 porque a integração com checkout (Hotmart) pra puxar vendas reais entra na próxima onda. Por enquanto produto sem checkout vê o card "Conversão de Vendas" zerado com instrução pra conectar — Djow explica isso no balão dele.'
+    ]
+  },
+  {
     version: 'V38.0.4',
     date: '2026-06-15',
     title: 'Djow ganhou cérebro novo — KB atualizada de V26 pra V38',

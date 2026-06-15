@@ -15,6 +15,7 @@ var ProductsModule = {
       ${window.CampaignModule?.editCampaignModal ? CampaignModule.editCampaignModal() : ''}
       ${window.StrategicMapModal ? StrategicMapModal.render() : ''}
       ${this.newProductWithMapaPopup()}
+      ${window.HealthScoreModal ? HealthScoreModal.render() : ''}
     </div>`;
   },
 
@@ -201,6 +202,7 @@ var ProductsModule = {
             </div>
           </div>
         </div>
+        ${this._healthScoreRow(product)}
         ${this._strategicMapSummary(product)}
         <div class="lj-product-card-actions grid grid-cols-3 gap-2">
           <button onclick="event.stopPropagation(); Actions.prepareCampaignForProduct(${product.id})" style="color:#fff!important;" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black lj-dark-button">Criar Campanha</button>
@@ -208,6 +210,30 @@ var ProductsModule = {
           <button onclick="event.stopPropagation(); Actions.openStrategicMap(${product.id})" style="color:#0f172a!important;" class="lj-strategic-map-btn px-3 py-1.5 rounded-2xl border-2 border-slate-900 bg-transparent hover:bg-slate-100 text-xs font-black transition leading-tight flex flex-col items-center justify-center"><span style="color:#0f172a!important;">Mapa da Receita</span><span style="color:#0f172a!important;" class="text-[9px] font-bold opacity-70 -mt-0.5">OKR's</span></button>
         </div>
       </div>
+    </div>`;
+  },
+
+  // V38.1.0 — Linha de Saúde do Produto no card. Score 0-100 + barra +
+  // label do gargalo + "?" pra abrir modal explicador.
+  _healthScoreRow(product) {
+    if (!window.HealthScoreEngine) return '';
+    const h = HealthScoreEngine.compute(product.id);
+    const tone = h.tier.color;  // emerald / amber / orange / rose
+    const pct = Math.max(0, Math.min(100, h.score));
+    return `<div class="rounded-2xl border border-l-4 border-l-${tone}-500 bg-${tone}-50/60 border-${tone}-200 px-3 py-2 flex items-center gap-3">
+      <div class="shrink-0">
+        <div class="text-[9px] font-black text-${tone}-700 uppercase tracking-widest">Saúde</div>
+        <div class="font-black text-xl text-slate-900 leading-none mt-0.5">${h.score}<span class="text-[10px] text-slate-400 font-bold">/100</span></div>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="h-2 w-full bg-${tone}-100 rounded-full overflow-hidden">
+          <div class="h-full bg-${tone}-500 rounded-full" style="width:${pct}%;"></div>
+        </div>
+        <p class="text-[10px] font-bold text-slate-600 mt-1 truncate">${h.tier.label} · gargalo: <span class="text-${tone}-800">${Utils.escape(h.gargalo.label)}</span></p>
+      </div>
+      <button onclick="event.stopPropagation(); Actions.openHealthScoreModal(${product.id})"
+        class="shrink-0 w-7 h-7 rounded-full bg-white border border-${tone}-300 text-${tone}-700 hover:bg-${tone}-100 grid place-items-center text-xs font-black"
+        title="Por que esta Saúde?">?</button>
     </div>`;
   },
 
