@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.33',
+    date: '2026-06-15',
+    title: 'Criar campanha vira só 2 campos: produto + nome',
+    bullets: [
+      'Form de "Criar campanha" foi enxugado: saíram os campos "Objetivo", "Responsável" e o bloco amarelo de aviso "Regra RevOps". Sobram só os dois campos que importam pra abrir uma campanha: produto vinculado + nome da campanha.',
+      'Decisão segue a própria regra RevOps: campanha é container — não tem meta nem dono próprio. Quem carrega objetivo e responsável é a ação dentro dela.',
+      'Placeholder do nome agora ensina o cliente a nomear pelo que a campanha ataca: "Ex: Aquisição Q2 / Reativação Inverno / Black Friday 2026". Antes era "Campanha Maio" (que é mês, não campanha).'
+    ]
+  },
+  {
     version: 'V38.1.32',
     date: '2026-06-15',
     title: 'Card da Campanha: "Ações por área" centralizado de verdade + Roadmap volta pro canto',
