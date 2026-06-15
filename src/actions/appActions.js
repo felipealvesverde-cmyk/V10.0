@@ -13403,11 +13403,17 @@ Object.assign(Actions, {
   // V32.6.9 — Helper interno: mapping ClickUp status → LJ status.
   _mapClickupStatusToLj(remote) {
     if (!remote) return null;
+    // V38.1.31 — Fix: ClickUp manda statusType='custom' pra status custom da
+    // list ("CONCLUÍDO", "PENDENTE"), nao 'closed'. Antes o mapper exigia
+    // statusType==='closed' e por isso todas as tasks viravam 'pending' aqui.
+    // Agora tambem casa por LABEL: concluido/closed/done/finalizado/etc.
     if (remote.statusType === 'closed') return 'completed';
-    const s = String(remote.status || '').toLowerCase();
-    if (remote.statusType === 'open' && (s.includes('progress') || s.includes('doing') || s.includes('andamento'))) {
-      return 'in_progress';
-    }
+    const s = String(remote.status || '').toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, ''); // sem acento
+    const COMPLETED_KEYWORDS = ['concluido', 'closed', 'done', 'finalizado', 'completo', 'completed', 'feito', 'entregue', 'pronto'];
+    if (COMPLETED_KEYWORDS.some(k => s.includes(k))) return 'completed';
+    const IN_PROGRESS_KEYWORDS = ['progress', 'doing', 'andamento', 'fazendo', 'execucao'];
+    if (IN_PROGRESS_KEYWORDS.some(k => s.includes(k))) return 'in_progress';
     return 'pending';
   },
 
