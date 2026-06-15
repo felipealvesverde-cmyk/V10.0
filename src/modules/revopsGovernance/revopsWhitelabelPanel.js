@@ -1450,37 +1450,45 @@
     _offerRow(productId, offer, ticketMode) {
       const isWeighted = ticketMode === 'weighted';
       const kind = offer.kind || 'main';
-      return `<div class="rounded-xl bg-white border border-slate-200 border-l-4 border-l-emerald-500 hover:border-slate-300 transition p-3 flex items-center gap-2.5 flex-wrap">
-        <span class="shrink-0 w-7 h-7 rounded-lg bg-emerald-500/15 grid place-items-center text-emerald-700">
+      // V38.1.3 — Alinhamento: todos campos com label uppercase em cima,
+      // inputs alinhados na base (items-end). Tag e botões com pt-4 pra
+      // compensar a altura da label e ficar no nível dos inputs.
+      const labelCls = 'text-[9px] font-black text-slate-500 uppercase tracking-wider';
+      const inputCls = 'mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white';
+      return `<div class="rounded-xl bg-white border border-slate-200 border-l-4 border-l-emerald-500 hover:border-slate-300 transition p-3 flex items-end gap-2.5 flex-wrap">
+        <span class="shrink-0 w-7 h-7 rounded-lg bg-emerald-500/15 grid place-items-center text-emerald-700 mb-0.5">
           <i data-lucide="tag" class="w-3.5 h-3.5"></i>
         </span>
         <label class="block w-32 shrink-0">
-          <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Tipo</span>
-          <select onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'kind', this.value)" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-xs font-bold text-slate-800 focus:border-violet-400 focus:bg-white">
+          <span class="${labelCls}">Tipo</span>
+          <select onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'kind', this.value)" class="${inputCls} text-xs">
             <option value="main" ${kind === 'main' ? 'selected' : ''}>Principal</option>
             <option value="cross-sell" ${kind === 'cross-sell' ? 'selected' : ''}>Cross-sell</option>
             <option value="up-sell" ${kind === 'up-sell' ? 'selected' : ''}>Up-sell</option>
             <option value="down-sell" ${kind === 'down-sell' ? 'selected' : ''}>Down-sell</option>
           </select>
         </label>
-        <input value="${Utils.escape(offer.name)}" onchange="Actions.renameRevopsOffer('${productId}', '${offer.id}', this.value)" placeholder="Nome da oferta" class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
+        <label class="block flex-1 min-w-0">
+          <span class="${labelCls}">Nome da oferta</span>
+          <input value="${Utils.escape(offer.name)}" onchange="Actions.renameRevopsOffer('${productId}', '${offer.id}', this.value)" placeholder="Nome da oferta" class="${inputCls}" />
+        </label>
         <label class="block w-28">
-          <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Preço (R$)</span>
-          <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(offer.price || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'price', Utils.parseBRL(this.value))" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
+          <span class="${labelCls}">Preço (R$)</span>
+          <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(offer.price || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'price', Utils.parseBRL(this.value))" class="${inputCls}" />
         </label>
         <label class="block w-20">
-          <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Meta</span>
-          <input type="number" min="0" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${offer.metaVendas || 0}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'metaVendas', this.value)" placeholder="0" title="Meta de vendas no período" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
+          <span class="${labelCls}">Meta</span>
+          <input type="number" min="0" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${offer.metaVendas || 0}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'metaVendas', this.value)" placeholder="0" title="Meta de vendas no período" class="${inputCls}" />
         </label>
         ${isWeighted ? `<label class="block w-20">
-          <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Mix (%)</span>
-          <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${offer.mix}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'mix', this.value)" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
+          <span class="${labelCls}">Mix (%)</span>
+          <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${offer.mix}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'mix', this.value)" class="${inputCls}" />
         </label>
-        <label class="flex items-center gap-1 text-[10px] font-black text-slate-700 ml-1 uppercase tracking-wider">
+        <label class="flex items-center gap-1 text-[10px] font-black text-slate-700 uppercase tracking-wider px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
           <input type="checkbox" ${offer.selectedForTicket ? 'checked' : ''} onchange="Actions.toggleRevopsOfferTicket('${productId}', '${offer.id}')" class="accent-violet-600" />
           TM
         </label>` : ''}
-        <button onclick="if(confirm('Apagar oferta \\'${Utils.escape(offer.name)}\\'?')) Actions.deleteRevopsOffer('${productId}', '${offer.id}')" title="Apagar oferta" class="px-1.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700 shrink-0 self-center"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+        <button onclick="if(confirm('Apagar oferta \\'${Utils.escape(offer.name)}\\'?')) Actions.deleteRevopsOffer('${productId}', '${offer.id}')" title="Apagar oferta" class="px-2 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700 shrink-0"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
       </div>`;
     },
 
