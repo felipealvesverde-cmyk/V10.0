@@ -297,7 +297,7 @@ var CampaignModule = {
     return `<div onclick="Actions.goToCampaignActions(${campaign.id})" class="lj-entity-card relative p-4 rounded-3xl border ${cardBgCls} hover:bg-slate-100 cursor-pointer transition" ${cardStyle}>
       <button onclick="event.stopPropagation(); Actions.openCampaignEditModal(${campaign.id})" title="Editar Campanha" aria-label="Editar Campanha" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm z-10"><i data-lucide="settings" class="w-4 h-4"></i></button>
 
-      <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-stretch">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
         <div class="space-y-3 min-w-0 pr-12 md:pr-0">
           <div>
             <p class="text-[10px] font-black ${isStrategic ? 'text-violet-700' : 'text-slate-500'} uppercase tracking-widest mb-0.5">Campanha</p>
@@ -310,22 +310,21 @@ var CampaignModule = {
           ${krsMaeAviso}
 
           <div class="flex items-center gap-2 flex-wrap">${badgesHtml}</div>
-
-          ${hasAtalhos ? `<div class="flex items-center gap-3 justify-end flex-wrap pt-1">
-            ${fluxoAtalho}
-          </div>` : ''}
         </div>
 
-        <div class="flex flex-col justify-center md:pr-12 w-full md:w-auto">
-          <div class="flex items-center gap-2 mb-1.5">
+        <div class="flex flex-col justify-center items-center md:pr-12 w-full">
+          <div class="flex items-center gap-2 mb-1.5 w-full max-w-[340px]">
             <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Ações por área</span>
             <span class="flex-1 h-px bg-slate-200"></span>
           </div>
-          <div class="grid grid-cols-3 gap-2 md:w-[340px]">
+          <div class="grid grid-cols-3 gap-2 w-full max-w-[340px]">
             ${setorCardsHtml}
           </div>
         </div>
       </div>
+      ${hasAtalhos ? `<div class="flex justify-start mt-2">
+        ${fluxoAtalho}
+      </div>` : ''}
       ${this._performanceStrip(campaign)}
     </div>`;
   },

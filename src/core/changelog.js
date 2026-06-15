@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.32',
+    date: '2026-06-15',
+    title: 'Card da Campanha: "Ações por área" centralizado de verdade + Roadmap volta pro canto',
+    bullets: [
+      '"Ações por área" agora fica centralizado horizontalmente na metade direita do card — antes encostava na esquerda da coluna deixando a sensação de que estava deslocado.',
+      'Botão "Roadmap" voltou pro lugar dele: encostado na lateral esquerda do card, logo em cima da linha "Performance Externa". Não fica mais perdido no meio da coluna esquerda.'
+    ]
+  },
+  {
     version: 'V38.1.31',
     date: '2026-06-15',
     title: 'Bug fix: sync de status do ClickUp + Ações por área centralizado de verdade',
