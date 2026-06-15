@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.20',
+    date: '2026-06-15',
+    title: 'Djow agora cita 3 frameworks novos: CVO, CRO e RevOps',
+    bullets: [
+      'A base de conhecimento do Djow ganhou 3 livros destilados: Chief Value Officer (Megido & Zanusso), Chief Revenue Officer / B2B Success Model (Carl Moe) e Revenue Operations (Lane & Adint).',
+      'O Djow passa a citar pelo nome frameworks como SCO de qualificação B2B, Forensic Forecast com Commit/Best Case/Pipeline, Pipeline Velocity (V×C×L/T), Triple Bottom Line, Matriz de Alçada de desconto, Clawback de comissão e NRR como norte de crescimento.',
+      'Você pode pedir provocações tipo "diagnostica meu funil pelos critérios do Moe", "qual minha Pipeline Velocity?" ou "como o framework de CVO leria minha estrutura de remuneração?" — Djow responde com a linguagem dos autores.',
+      'Conteúdo é universal (não específico de cliente) — todo tenant ganha o mesmo arsenal de citações.'
+    ]
+  },
+  {
     version: 'V38.1.19',
     date: '2026-06-15',
     title: 'Status do Djow conta a KB inteira (não só a raiz)',
