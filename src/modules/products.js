@@ -287,14 +287,16 @@ var ProductsModule = {
         ${areas.map(area => {
           // V38.1.14 — Conta productKrs (KR-mãe) da área, alinhado com o que
           // o Mapa mostra. Antes contava childKrs das branches (incluindo órfãos).
+          // V38.1.15 — "Pendente" só se NÃO TEM KR. Com KR mostra contagem
+          // mesmo com 0 ações (pra evidenciar que falta conectar à receita).
           const krs = productKrs.filter(k => String(k.area || '').toLowerCase() === area.id);
           const totalCriados = krs.length;
           const actionsOfArea = (App.state.actions || []).filter(a => a.strategicAreaId === area.id && (App.state.campaigns || []).some(c => Number(c.id) === Number(a.campaignId) && Number(c.productId) === Number(product.id))).length;
-          const isConectado = totalCriados > 0 && actionsOfArea > 0;
-          const status = isConectado
+          const temKrs = totalCriados > 0;
+          const status = temKrs
             ? `${totalCriados} nº · ${actionsOfArea} ação${actionsOfArea === 1 ? '' : 'ões'}`
             : 'pendente';
-          const tone = isConectado ? `bg-${area.color}-100 border-${area.color}-300 text-${area.color}-900 hover:bg-${area.color}-200` : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50';
+          const tone = temKrs ? `bg-${area.color}-100 border-${area.color}-300 text-${area.color}-900 hover:bg-${area.color}-200` : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50';
           // V38.1.12 — Card clicável: abre Etapa 3 do Mapa filtrado na área.
           // Se produto não tem Mapa configurado, action mostra aviso primeiro.
           return `<button type="button" onclick="event.stopPropagation(); Actions.openProductAreaInMap(${product.id}, '${area.id}')" class="rounded-xl border ${tone} p-2 text-center transition cursor-pointer" title="${Utils.escape(area.description)}">
