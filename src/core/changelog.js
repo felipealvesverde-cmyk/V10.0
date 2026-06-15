@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.18',
+    date: '2026-06-15',
+    title: 'Card de área: "X KRs" — sem cruzar com nada, apenas o número de KR-mãe da área',
+    bullets: [
+      'Felipe disse simples e eu complicou: tinha cruzado productKr × childKr × connectedActionIds. Foi mal.',
+      'Volta ao essencial: card mostra "X KR" / "X KRs" — o número de KR-mãe (productKrs) da área criados no Mapa. Sem cruzar com action, sem cruzar com children. Apenas a contagem direta.',
+      'Atira.Pro: Marketing 1 KR · Vendas 3 KRs · CS 3 KRs (todos cor da área). "pendente" só quando 0 KR.'
+    ]
+  },
+  {
     version: 'V38.1.17',
     date: '2026-06-15',
     title: 'Card de área: só "X conectados" — sem "nº · ações" mais',
