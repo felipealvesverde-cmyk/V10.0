@@ -18,6 +18,34 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.34',
+    date: '2026-06-15',
+    title: 'Modal de Editar Campanha enxuto: Produto + Nome + Status',
+    bullets: [
+      'Modal de edição da campanha foi cortado pra mostrar só o que importa: Produto vinculado, Nome e Status. Saíram os campos "Objetivo", "Responsável" e "Investimento em mídia" — campanha é container, não carrega meta nem dono nem orçamento próprio.',
+      'Pra pausar ou finalizar uma campanha, abra a engrenagem do card e mude o dropdown "Status" pra Pausada ou Finalizada. Os KPIs do topo da página atualizam na hora.'
+    ]
+  },
+  {
+    version: 'V38.1.33',
+    date: '2026-06-15',
+    title: 'Criar campanha vira só 2 campos: produto + nome',
+    bullets: [
+      'Form de "Criar campanha" foi enxugado: saíram os campos "Objetivo", "Responsável" e o bloco amarelo de aviso "Regra RevOps". Sobram só os dois campos que importam pra abrir uma campanha: produto vinculado + nome da campanha.',
+      'Decisão segue a própria regra RevOps: campanha é container — não tem meta nem dono próprio. Quem carrega objetivo e responsável é a ação dentro dela.',
+      'Placeholder do nome agora ensina o cliente a nomear pelo que a campanha ataca: "Ex: Aquisição Q2 / Reativação Inverno / Black Friday 2026". Antes era "Campanha Maio" (que é mês, não campanha).'
+    ]
+  },
+  {
+    version: 'V38.1.32',
+    date: '2026-06-15',
+    title: 'Card da Campanha: "Ações por área" centralizado de verdade + Roadmap volta pro canto',
+    bullets: [
+      '"Ações por área" agora fica centralizado horizontalmente na metade direita do card — antes encostava na esquerda da coluna deixando a sensação de que estava deslocado.',
+      'Botão "Roadmap" voltou pro lugar dele: encostado na lateral esquerda do card, logo em cima da linha "Performance Externa". Não fica mais perdido no meio da coluna esquerda.'
+    ]
+  },
+  {
     version: 'V38.1.31',
     date: '2026-06-15',
     title: 'Bug fix: sync de status do ClickUp + Ações por área centralizado de verdade',

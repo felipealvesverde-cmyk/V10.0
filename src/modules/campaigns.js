@@ -24,10 +24,7 @@ var CampaignModule = {
           <p class="text-sm text-slate-500 mb-5">A campanha é o container operacional vinculado a um produto. Os OKRs nascem nas ações e alimentam estágios, setores e receita.</p>
           <div class="space-y-3">
             <div><label class="text-xs font-black text-slate-500">Produto vinculado</label><select onchange="App.state.campaignDraft.productId=Number(this.value); App.state.selectedProductId=Number(this.value); App.save();" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold">${App.state.products.map(product => `<option value="${product.id}" ${Number(App.state.campaignDraft.productId) === Number(product.id) ? 'selected' : ''}>${Utils.escape(product.name)}</option>`).join('')}</select></div>
-            <div><label class="text-xs font-black text-slate-500">Nome da campanha</label><input value="${Utils.escape(App.state.campaignDraft.name)}" oninput="App.state.campaignDraft.name=this.value; App.save();" placeholder="Ex: Campanha Maio" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-            <div><label class="text-xs font-black text-slate-500">Objetivo</label><textarea oninput="App.state.campaignDraft.objective=this.value; App.save();" placeholder="Qual é o objetivo operacional desta campanha?" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold min-h-[100px]">${Utils.escape(App.state.campaignDraft.objective)}</textarea></div>
-            <div class="rounded-2xl bg-slate-50 border border-slate-100 p-3 text-sm text-slate-600"><b>Regra RevOps:</b> campanhas não possuem OKRs estratégicos próprios. As metas operacionais são definidas nas ações e alimentam produto, funil e setor.</div>
-            <div><label class="text-xs font-black text-slate-500">Responsável</label><input value="${Utils.escape(App.state.campaignDraft.owner)}" oninput="App.state.campaignDraft.owner=this.value; App.save();" placeholder="Ex: Felipe" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
+            <div><label class="text-xs font-black text-slate-500">Nome da campanha</label><input value="${Utils.escape(App.state.campaignDraft.name)}" oninput="App.state.campaignDraft.name=this.value; App.save();" placeholder="Ex: Aquisição Q2 / Reativação Inverno / Black Friday 2026" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
             <button onclick="Actions.createCampaign()" class="w-full px-5 py-3 rounded-2xl bg-slate-900 text-white font-black">Criar campanha</button>
           </div>
         </div>
@@ -62,14 +59,7 @@ var CampaignModule = {
         <div class="p-5 space-y-3">
           <div><label class="text-xs font-black text-slate-500">Produto vinculado</label><select onchange="Actions.updateEditingCampaignField('productId', Number(this.value))" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold">${App.state.products.map(product => `<option value="${product.id}" ${Number(campaign.productId) === Number(product.id) ? 'selected' : ''}>${Utils.escape(product.name)}</option>`).join('')}</select></div>
           <div><label class="text-xs font-black text-slate-500">Nome da campanha</label><input value="${Utils.escape(campaign.name || '')}" oninput="Actions.updateEditingCampaignField('name', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-          <div><label class="text-xs font-black text-slate-500">Objetivo</label><textarea oninput="Actions.updateEditingCampaignField('objective', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold min-h-[110px]">${Utils.escape(campaign.objective || '')}</textarea></div>
-          <div><label class="text-xs font-black text-slate-500">Responsável</label><input value="${Utils.escape(campaign.owner || '')}" oninput="Actions.updateEditingCampaignField('owner', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
           <div><label class="text-xs font-black text-slate-500">Status</label><select onchange="Actions.updateEditingCampaignField('status', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold">${['Ativa','Pausada','Finalizada'].map(status => `<option ${String(campaign.status || 'Ativa') === status ? 'selected' : ''}>${status}</option>`).join('')}</select></div>
-          <div>
-            <label class="text-xs font-black text-slate-500">Investimento em mídia (R$)</label>
-            <input type="number" min="0" step="0.01" value="${Number(campaign.mediaInvestment || 0)}" oninput="Actions.updateEditingCampaignField('mediaInvestment', Number(this.value || 0))" placeholder="0" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-black" />
-            <p class="text-[11px] text-slate-400 mt-1">Soma alimenta o CAC do produto no Painel Rosa de RevOps.</p>
-          </div>
           <div class="flex flex-col md:flex-row gap-2 justify-end pt-2">
             <button onclick="Actions.closeCampaignEditModal()" class="px-5 py-3 rounded-2xl bg-slate-100 text-slate-700 font-black">Cancelar</button>
             <button onclick="Actions.saveCampaignEdit()" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black">Salvar Campanha</button>
@@ -297,7 +287,7 @@ var CampaignModule = {
     return `<div onclick="Actions.goToCampaignActions(${campaign.id})" class="lj-entity-card relative p-4 rounded-3xl border ${cardBgCls} hover:bg-slate-100 cursor-pointer transition" ${cardStyle}>
       <button onclick="event.stopPropagation(); Actions.openCampaignEditModal(${campaign.id})" title="Editar Campanha" aria-label="Editar Campanha" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm z-10"><i data-lucide="settings" class="w-4 h-4"></i></button>
 
-      <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-stretch">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
         <div class="space-y-3 min-w-0 pr-12 md:pr-0">
           <div>
             <p class="text-[10px] font-black ${isStrategic ? 'text-violet-700' : 'text-slate-500'} uppercase tracking-widest mb-0.5">Campanha</p>
@@ -310,22 +300,21 @@ var CampaignModule = {
           ${krsMaeAviso}
 
           <div class="flex items-center gap-2 flex-wrap">${badgesHtml}</div>
-
-          ${hasAtalhos ? `<div class="flex items-center gap-3 justify-end flex-wrap pt-1">
-            ${fluxoAtalho}
-          </div>` : ''}
         </div>
 
-        <div class="flex flex-col justify-center md:pr-12 w-full md:w-auto">
-          <div class="flex items-center gap-2 mb-1.5">
+        <div class="flex flex-col justify-center items-center md:pr-12 w-full">
+          <div class="flex items-center gap-2 mb-1.5 w-full max-w-[340px]">
             <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Ações por área</span>
             <span class="flex-1 h-px bg-slate-200"></span>
           </div>
-          <div class="grid grid-cols-3 gap-2 md:w-[340px]">
+          <div class="grid grid-cols-3 gap-2 w-full max-w-[340px]">
             ${setorCardsHtml}
           </div>
         </div>
       </div>
+      ${hasAtalhos ? `<div class="flex justify-start mt-2">
+        ${fluxoAtalho}
+      </div>` : ''}
       ${this._performanceStrip(campaign)}
     </div>`;
   },
