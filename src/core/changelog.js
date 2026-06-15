@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.0.3',
+    date: '2026-06-15',
+    title: 'Ofertas ganham Tipo (main/cross/up/down) + Meta de Vendas',
+    bullets: [
+      'Cada oferta agora declara seu Tipo (Principal / Cross-sell / Up-sell / Down-sell). Antes era só nome livre — agora vira dimensão real do RevOps pra análise por categoria.',
+      'Campo Meta de Vendas entrou ao lado de Preço e Mix. É unidade de venda (quantas vendas espero?), não R$. Cada oferta tem sua meta, e a meta consolidada do produto vira a soma das ofertas — vai alimentar a Saúde do Produto na próxima onda.',
+      'Produto novo já nasce com 1 oferta padrão "Produto Principal" (kind: main, mix: 100%, meta: 0). Antes nascia vazio e cliente caía em tela com aviso âmbar. Cliente que já existe NÃO perde nada — migration silenciosa cria a oferta default na hora de carregar e copia a meta de vendas do mês mais recente (metasResultado V37.0.0) pra metaVendas da oferta.',
+      'A meta agora vive UM lugar só (na oferta). Antes era em metasResultado por produto+mês. O dado legado fica preservado em metasResultado pra rollback, mas a UI passa a editar pela aba Ofertas.'
+    ]
+  },
+  {
     version: 'V38.0.2',
     date: '2026-06-15',
     title: 'Página Produtos repensada — Hero agregado, card foca no produto, form enxuto',

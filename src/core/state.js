@@ -1653,6 +1653,44 @@ var State = {
       _clickupMappingsCache: null
     };
   },
+
+  // V38.0.3 — Migration: cliente que tinha meta de vendas em metasResultado
+  // (V37.0.0 cravou) ganha oferta default em revopsFinanceV2[productId].offers
+  // com metaVendas = vendas do mês MAIS RECENTE de metasResultado. Idempotente.
+  // Roda pós-normalize. Não destrói metasResultado (engenharia conservadora —
+  // se algo der ruim, dado original continua lá pra rollback manual).
+  _migrateOffersFromMetasResultado(normalized) {
+    if (!window.RevopsWhitelabelEngine?.defaultOffer) return;
+    normalized.revopsFinanceV2 = normalized.revopsFinanceV2 || {};
+    const metas = normalized.metasResultado || {};
+    const products = Array.isArray(normalized.products) ? normalized.products : [];
+    for (const product of products) {
+      const pid = product.id;
+      let cfg = normalized.revopsFinanceV2[pid];
+      if (!cfg) {
+        cfg = RevopsWhitelabelEngine.defaultConfig(pid);
+        normalized.revopsFinanceV2[pid] = cfg;
+      }
+      cfg.offers = Array.isArray(cfg.offers) ? cfg.offers : [];
+      // Garante 1 oferta default se vazio
+      if (!cfg.offers.length) {
+        cfg.offers.push(RevopsWhitelabelEngine.defaultOffer(product.name || 'Produto Principal', 0));
+      }
+      // Migra meta legacy → 1ª oferta, SÓ se ela ainda está com metaVendas=0
+      // (não sobrescreve meta que cliente já cadastrou via UI nova).
+      const firstOffer = cfg.offers[0];
+      if (firstOffer && (Number(firstOffer.metaVendas) || 0) === 0) {
+        const productMetas = metas[pid] || metas[String(pid)];
+        if (productMetas && typeof productMetas === 'object') {
+          const monthKeys = Object.keys(productMetas).sort();
+          const mostRecent = monthKeys[monthKeys.length - 1];
+          const vendas = Number(productMetas[mostRecent]?.vendas || 0);
+          if (vendas > 0) firstOffer.metaVendas = vendas;
+        }
+      }
+    }
+  },
+
   load() {
     let raw = null;
     let usedBackup = false;
@@ -1675,6 +1713,8 @@ var State = {
     try {
       const normalized = raw ? this.normalize(raw) : this.initial();
       if (raw) this._auditLostFields(raw, normalized);
+      // V38.0.3 — Migration silenciosa: meta de vendas legada → oferta default.
+      this._migrateOffersFromMetasResultado(normalized);
       const migrated = DatabaseService.applyMigrations(normalized);
       // Se restaurou do backup, salva imediato no main key pra reestabelecer.
       if (usedBackup) {
