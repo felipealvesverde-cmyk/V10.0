@@ -79,7 +79,7 @@ window.HealthScoreEngine = {
   // V38.1.4 — Retorna também krsRascunhoCount + visionPresent pra modal explicar.
   // V38.1.6 — Lê de TODAS as fontes (legado V28 + branches V29).
   _krHealth(productId) {
-    if (!window.StrategicMapEngine?.getForProduct || !window.strategicOkrEngine) {
+    if (!window.StrategicMapEngine?.getForProduct || !window.StrategicOkrEngine) {
       return { value: 0, krs: [], krsConfirmadosCount: 0, krsRascunhoCount: 0, krsTotalCount: 0, visionPresent: false };
     }
     const map = StrategicMapEngine.getForProduct(productId) || {};
@@ -103,7 +103,7 @@ window.HealthScoreEngine = {
     const weights = confirmedKrs.map(kr => {
       const current = Number(kr.current || 0);
       if (current === 0) return { kr, weight: 0, tier: 'parado', label: 'Parado' };
-      const status = strategicOkrEngine.scoreStatus(kr);
+      const status = StrategicOkrEngine.scoreStatus(kr);
       let weight = 0.2;
       let tier = 'risk';
       if (status.tier === 'success' && (status.label || '').includes('Avançada')) {

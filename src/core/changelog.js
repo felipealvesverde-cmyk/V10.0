@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.7',
+    date: '2026-06-15',
+    title: 'Fix typo: healthScoreEngine usava strategicOkrEngine (minúsculo) em vez de StrategicOkrEngine',
+    bullets: [
+      'Bug residual da V38.1.0: o engine de Saúde tinha duas referências ao engine de OKR com nome em camelCase errado (strategicOkrEngine) — global real é StrategicOkrEngine (capital S).',
+      'Sintoma: na verificação inicial, retornava silenciosamente o estado "sem KR" (porque o `if` que checava `window.strategicOkrEngine` dava falsy). E mesmo se passasse, a chamada strategicOkrEngine.scoreStatus(kr) explodia em ReferenceError.',
+      'Felipe pegou rodando query no console — ficou claro que algo na cadeia tava furado.'
+    ]
+  },
+  {
     version: 'V38.1.6',
     date: '2026-06-15',
     title: 'FIX CRÍTICO: Saúde e card de produto não enxergavam KRs em branches (V29)',
