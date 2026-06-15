@@ -263,16 +263,17 @@ var ProductsModule = {
     const branches = (typeof StrategicMapEngine.getBranchesByProduct === 'function')
       ? StrategicMapEngine.getBranchesByProduct(product.id) || []
       : [];
+    // V38.1.14 — O Mapa mostra os productKrs (KR-mãe do produto), não os
+    // childKrs das branches. Diagnóstico do Felipe: branches tinham 5 mkt
+    // (4 órfãos) + 1 sales + 0 cs. Mas o Mapa mostra 1+3+3=7 productKrs.
+    // Card e Saúde devem refletir o que o Mapa mostra → productKrs.
+    const productKrs = map?.productKrs || [];
     const objectives = [
       ...legacyObjectives,
       ...branches.flatMap(b => b.objectives || [])
     ];
-    // V38.1.9 — Card mostra "quantos KRs CRIADOS e CONECTADOS À RECEITA".
-    // Crítério diferente da Saúde (que exige configurado E andando):
-    //   - "Criado" = existe no Mapa (qualquer status — rascunho, completo, parado)
-    //   - "Conectado à receita" = a área tem action vinculada (puxa funil)
-    const allKrs = objectives.flatMap(o => o.okrs || []);
-    const confirmedKrs = allKrs;  // qualquer KR criado conta
+    const allKrs = productKrs;
+    const confirmedKrs = allKrs;  // qualquer KR-mãe criado conta
     const snapshot = StrategicMapEngine.snapshot(product.id);
     if (!vision && !confirmedKrs.length) {
       return `<div class="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-[12px] text-amber-800 flex items-center justify-between gap-2">
@@ -284,10 +285,9 @@ var ProductsModule = {
       ${vision ? `<p class="text-[12px] text-slate-700"><b class="text-slate-900">🎯 Objetivo:</b> ${Utils.escape(vision.length > 120 ? vision.slice(0, 120) + '…' : vision)}</p>` : '<p class="text-[12px] text-amber-700">⚠️ Objetivo do produto ainda não definido.</p>'}
       <div class="grid grid-cols-3 gap-2">
         ${areas.map(area => {
-          // V38.1.6 — filter (não find) pra agregar várias branches mesmo área.
-          // V38.1.9 — Conta TODOS os KRs criados (não filtra por isComplete);
-          // "conectado à receita" requer ter action vinculada à área.
-          const krs = objectives.filter(o => o.area === area.id).flatMap(o => o.okrs || []);
+          // V38.1.14 — Conta productKrs (KR-mãe) da área, alinhado com o que
+          // o Mapa mostra. Antes contava childKrs das branches (incluindo órfãos).
+          const krs = productKrs.filter(k => String(k.area || '').toLowerCase() === area.id);
           const totalCriados = krs.length;
           const actionsOfArea = (App.state.actions || []).filter(a => a.strategicAreaId === area.id && (App.state.campaigns || []).some(c => Number(c.id) === Number(a.campaignId) && Number(c.productId) === Number(product.id))).length;
           const isConectado = totalCriados > 0 && actionsOfArea > 0;
