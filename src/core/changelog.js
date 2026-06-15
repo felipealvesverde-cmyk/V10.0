@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.21',
+    date: '2026-06-15',
+    title: 'Card do Produto: "Criar Campanha para este produto" + sai o "Editar Campanha"',
+    bullets: [
+      'O botão "Criar Campanha" do card do produto agora diz "Criar Campanha para este produto" — fica explícito que a campanha já nasce vinculada. Caminho continua o mesmo.',
+      'Botão "Editar Campanha" do card foi removido. Era atalho redundante — editar campanha continua disponível pela aba Campanhas direto.',
+      'Card passou de 3 para 2 botões — sobra mais respiro visual.'
+    ]
+  },
+  {
     version: 'V38.1.20',
     date: '2026-06-15',
     title: 'Djow agora cita 3 frameworks novos: CVO, CRO e RevOps',

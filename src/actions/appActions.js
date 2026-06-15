@@ -1670,7 +1670,6 @@ Object.assign(Actions, {
     App.state.productTotalFlowProductId = null;
     App.save(); App.render();
   },
-  editCampaignsForProduct(id) { return Actions.goToProductCampaigns(id); },
   clearCampaignProductFilter() {
     App.state.campaignProductFilterId = null;
     App.save(); App.render();
