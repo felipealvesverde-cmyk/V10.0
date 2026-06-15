@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.16',
+    date: '2026-06-15',
+    title: 'Card de área: números do status com peso visual',
+    bullets: [
+      'O label ("MARKETING", "VENDAS", "CS") tinha font-black uppercase tracking-wider — bem destacado. O status logo abaixo ("1 nº · 1 ação") era só text-[10px] sem peso, parecia apagado em comparação.',
+      'Fix: status ganha font-bold e sobe pra text-[11px]. Equilibra o peso visual com o label e os números viram parte central da leitura do card.'
+    ]
+  },
+  {
     version: 'V38.1.15',
     date: '2026-06-15',
     title: 'Card de área: "pendente" só quando NÃO TEM KR (antes era se faltasse ação)',
