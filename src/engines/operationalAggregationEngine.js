@@ -31,9 +31,11 @@ var OperationalAggregationEngine = {
     }
     // V38.0.2 — Execuções: tasks do gestor vinculadas a ações deste produto.
     let executionsTotal = 0, executionsDone = 0;
-    if (window.ExecutionTaskStore?.byActionId) {
+    // V38.1.29 — bug fix: metodo do ExecutionTaskStore eh byAction (nao byActionId).
+    // Card de Produto mostrava sempre 0/0 porque byActionId nao existe.
+    if (window.ExecutionTaskStore?.byAction) {
       for (const action of actions) {
-        const tasks = ExecutionTaskStore.byActionId(action.id) || [];
+        const tasks = ExecutionTaskStore.byAction(action.id) || [];
         executionsTotal += tasks.length;
         executionsDone += tasks.filter(t => t.status === 'completed').length;
       }
