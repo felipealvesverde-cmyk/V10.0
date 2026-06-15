@@ -16,7 +16,10 @@
 // Detalhes completos em /knowledge-base/health-score.md.
 
 window.HealthScoreEngine = {
-  AREAS: ['marketing', 'vendas', 'cs'],
+  // V38.1.11 — IDs reais de StrategicMapEngine.COMERCIAL_AREAS: 'sales'
+  // (NÃO 'vendas'). Antes a cobertura nunca pegava Vendas porque o filtro
+  // o.area === 'vendas' nunca casava com o.area === 'sales' real.
+  AREAS: ['marketing', 'sales', 'cs'],
 
   // ────────────────────────────────────────────────────────────
   // FATORES (cada um retorna 0..1)

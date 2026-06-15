@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.11',
+    date: '2026-06-15',
+    title: 'FIX: engine de Saúde usava AREA "vendas" mas a real é "sales"',
+    bullets: [
+      'StrategicMapEngine.COMERCIAL_AREAS usa IDs em inglês: marketing / sales / cs. O healthScoreEngine usava AREAS: ["marketing", "vendas", "cs"] (mistura PT/EN).',
+      'Sintoma: a Cobertura nunca contava KRs de Vendas porque o filtro o.area === "vendas" nunca casava com o real o.area === "sales". Mesmo com 3 KRs de Vendas configurados no Mapa, a área "vendas" aparecia como faltante.',
+      'Fix: trocar "vendas" → "sales" no array AREAS. Cobertura conta corretamente.'
+    ]
+  },
+  {
     version: 'V38.1.10',
     date: '2026-06-15',
     title: 'Hero da aba Produtos: tira título redundante (e o typo "açoões")',
