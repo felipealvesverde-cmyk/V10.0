@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.24',
+    date: '2026-06-15',
+    title: 'Botão "Próximo passo" mais discreto no card da Campanha',
+    bullets: [
+      'O bloco do "Próximo passo" perdeu o envelope cinza ao redor e o botão ficou mais magro — ocupa o tamanho do conteúdo, não a largura toda da coluna.',
+      'Label "PRÓXIMO PASSO" virou anotação fina cinza acima do botão, sem competir com o CTA pela atenção.',
+      'CTA continua claro e dominante, mas agora respira em vez de tomar conta da metade direita do card.'
+    ]
+  },
+  {
     version: 'V38.1.23',
     date: '2026-06-15',
     title: 'Card da Campanha: layout calibrado (trilha horizontal, CTA respira, sem redundâncias)',

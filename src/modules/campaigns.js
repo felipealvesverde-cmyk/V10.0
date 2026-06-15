@@ -307,9 +307,9 @@ var CampaignModule = {
           <div class="grid grid-cols-3 gap-2 self-center">
             ${setorCardsHtml}
           </div>
-          <div class="rounded-2xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 flex flex-col justify-center">
-            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Próximo passo</p>
-            <button onclick="event.stopPropagation(); ${next.action}" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center justify-center gap-2 hover:bg-slate-800 transition whitespace-nowrap" style="color:#fff!important;">
+          <div class="flex flex-col gap-1 justify-center">
+            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-none">Próximo passo</p>
+            <button onclick="event.stopPropagation(); ${next.action}" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black flex items-center justify-center gap-1.5 hover:bg-slate-800 transition whitespace-nowrap self-start" style="color:#fff!important;">
               <i data-lucide="${next.icon}" class="w-3.5 h-3.5 shrink-0"></i> <span>${next.label}</span>
             </button>
           </div>
