@@ -294,11 +294,13 @@ var ProductsModule = {
           const status = isConectado
             ? `${totalCriados} nº · ${actionsOfArea} ação${actionsOfArea === 1 ? '' : 'ões'}`
             : 'pendente';
-          const tone = isConectado ? `bg-${area.color}-100 border-${area.color}-300 text-${area.color}-900` : 'bg-white border-slate-200 text-slate-500';
-          return `<div class="rounded-xl border ${tone} p-2 text-center" title="${Utils.escape(area.description)}">
+          const tone = isConectado ? `bg-${area.color}-100 border-${area.color}-300 text-${area.color}-900 hover:bg-${area.color}-200` : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50';
+          // V38.1.12 — Card clicável: abre Etapa 3 do Mapa filtrado na área.
+          // Se produto não tem Mapa configurado, action mostra aviso primeiro.
+          return `<button type="button" onclick="event.stopPropagation(); Actions.openProductAreaInMap(${product.id}, '${area.id}')" class="rounded-xl border ${tone} p-2 text-center transition cursor-pointer" title="${Utils.escape(area.description)}">
             <p class="text-[10px] font-black uppercase tracking-wider">${Utils.escape(area.label)}</p>
             <p class="text-[10px] mt-0.5">${status}</p>
-          </div>`;
+          </button>`;
         }).join('')}
       </div>
       <p class="text-[11px] text-slate-500 text-right">Progresso médio: <b class="text-slate-900">${snapshot.avgProgress}%</b></p>
