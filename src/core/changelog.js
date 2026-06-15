@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.30',
+    date: '2026-06-15',
+    title: '"Sair da edição" agora é do setor (Marketing/Vendas/CS), não da campanha',
+    bullets: [
+      'O botão "Sair da edição" mudou de lugar: estava no card violeta da campanha (saía da campanha inteira) e foi pro card do setor ativo (Marketing, Vendas ou CS) — onde realmente faz sentido.',
+      'Quando você abre o setor de Marketing pra trabalhar a esteira, agora aparece um botão "Sair da edição" claro no topo direito do bloco do setor. Clicou — colapsa o setor e libera os outros 2 pra você escolher.',
+      'A tecla ESC continua funcionando, mas agora sai do setor ativo (não da campanha). Pra trocar de campanha use o seletor "Campanhas do produto" no topo.',
+      'Card "EDITANDO A CAMPANHA" voltou a ser puro indicador de contexto — sem o CTA que confundia.'
+    ]
+  },
+  {
     version: 'V38.1.29',
     date: '2026-06-15',
     title: 'Bug fix: card de Produto agora conta Execuções de verdade + Ações por área centralizado',
