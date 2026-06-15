@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.2',
+    date: '2026-06-15',
+    title: 'Ofertas ganha layout das outras tabs + Meta de Vendas no Resultado vira read-only',
+    bullets: [
+      'Aba Ofertas estava com layout sem padrão: stack simples sem Djow lateral, sem fundo offwhite. Agora segue a régua das outras tabs (Custos, Resultado, DRE, RevOps KPIs): grid 2-col com Djow Ajudante de Fórmulas na lateral + section offwhite #f5f3f0 + cards dentro do white com sombra chapada. Coerência visual completa.',
+      'Coluna META VENDAS na linha de oferta ficou apertada (w-24 com label "Meta vendas" quebrando em 2 linhas). Ajustada pra w-20 com label compacta "META" + tooltip "Meta de vendas no período".',
+      'Meta de Vendas no Resultado Consolidado virou READ-ONLY: mostra a soma das metaVendas das ofertas do produto + atalho "Ajustar nas Ofertas" que pula direto pra aba. Antes era um input editável duplicado com o que vive na oferta (V38.0.3 já moveu) — agora 1 lugar só pra mexer.',
+      'Meta de CAC continua editável no Resultado (CAC é meta financeira do produto, não tá na oferta).'
+    ]
+  },
+  {
     version: 'V38.1.1',
     date: '2026-06-15',
     title: 'RevOps & Governança ganha Overview consolidado de todos os produtos',

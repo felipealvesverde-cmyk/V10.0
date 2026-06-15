@@ -1407,31 +1407,38 @@
     // TAB 2: OFERTAS & TM
     // ────────────────────────────────────────────────────────────
 
+    // V38.1.2 — Reformatada no layout das outras tabs (grid 2-col com Djow
+    // lateral, section offwhite #f5f3f0). Antes era um stack simples sem Djow
+    // lateral nem fundo offwhite. Agora segue a régua visual cravada V36.12+.
     _offersTab(cfg, ev) {
       const offers = cfg.offers || [];
       const productId = cfg.productId;
-      const rightSide = `<button onclick="Actions.addRevopsOffer('${productId}')" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5" style="color:#fff!important;">
+      const djowPanel = window.DjowRevOpsPanel ? DjowRevOpsPanel.render(productId, 'offers') : '';
+      const rightSide = `<button onclick="Actions.addRevopsOffer('${productId}')" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm" style="color:#fff!important;">
         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nova oferta
       </button>`;
-      return `<div class="space-y-4">
-        ${this._djowTip('offers')}
-        ${this._tabHeader('Ofertas · Pricing', 'Ofertas e Ticket Médio', 'Cadastre ofertas com preço e mix. O sistema calcula o TM ponderado, ou você define manual.', rightSide)}
+      return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
+        <div class="space-y-3 min-w-0">
+          ${this._tabHeader('Ofertas · Pricing', 'Ofertas e Ticket Médio', 'Cadastre ofertas com preço, mix e meta de vendas. O sistema calcula o TM ponderado, ou você define manual.', rightSide)}
+          <section class="rounded-3xl border p-5 shadow-md space-y-3" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+            <div class="rounded-2xl bg-white border border-stone-200 p-3 flex items-center gap-3 flex-wrap">
+              <label class="text-[11px] font-black text-slate-600 uppercase tracking-wider">Modo do TM:</label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer"><input type="radio" name="lj-tm-mode" ${cfg.ticketMode === 'weighted' ? 'checked' : ''} onchange="Actions.setRevopsTicketMode('${productId}', 'weighted')" class="accent-violet-600" /> Ponderado (preço × mix)</label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer"><input type="radio" name="lj-tm-mode" ${cfg.ticketMode === 'manual' ? 'checked' : ''} onchange="Actions.setRevopsTicketMode('${productId}', 'manual')" class="accent-violet-600" /> Manual</label>
+              ${cfg.ticketMode === 'manual'
+                ? `<input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(cfg.ticketManualValue || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.setRevopsTicketManual('${productId}', Utils.parseBRL(this.value))" placeholder="Ticket manual" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800 w-32" />`
+                : `<span class="text-xs text-stone-500">TM calculado: <b class="text-stone-800">${this._money(ev.ticket)}</b></span>`}
+            </div>
 
-        <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex items-center gap-3 flex-wrap">
-          <label class="text-[11px] font-black text-slate-600 uppercase">Modo do TM:</label>
-          <label class="flex items-center gap-1.5 text-xs"><input type="radio" name="lj-tm-mode" ${cfg.ticketMode === 'weighted' ? 'checked' : ''} onchange="Actions.setRevopsTicketMode('${productId}', 'weighted')" /> Ponderado (preço × mix)</label>
-          <label class="flex items-center gap-1.5 text-xs"><input type="radio" name="lj-tm-mode" ${cfg.ticketMode === 'manual' ? 'checked' : ''} onchange="Actions.setRevopsTicketMode('${productId}', 'manual')" /> Manual</label>
-          ${cfg.ticketMode === 'manual'
-            ? `<input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(cfg.ticketManualValue || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.setRevopsTicketManual('${productId}', Utils.parseBRL(this.value))" placeholder="Ticket manual" class="px-2 py-1 rounded-lg bg-white border border-slate-300 text-sm font-bold text-slate-800 w-32" />`
-            : `<span class="text-xs text-slate-500">TM calculado: <b class="text-slate-800">${this._money(ev.ticket)}</b></span>`}
+            ${offers.length === 0
+              ? `<div class="rounded-2xl bg-amber-50 border-2 border-dashed border-amber-300 p-5 text-center">
+                  <p class="text-sm font-bold text-amber-900 mb-1">Nenhuma oferta cadastrada</p>
+                  <p class="text-xs text-amber-800">Sem oferta, Faturamento Bruto = 0. Crie ao menos uma.</p>
+                </div>`
+              : `<div class="space-y-2">${offers.map(o => this._offerRow(productId, o, cfg.ticketMode)).join('')}</div>`}
+          </section>
         </div>
-
-        ${offers.length === 0
-          ? `<div class="rounded-2xl bg-amber-50 border border-amber-300 p-5 text-center">
-              <p class="text-sm font-bold text-amber-900 mb-1">Nenhuma oferta cadastrada</p>
-              <p class="text-xs text-amber-800">Sem oferta, Faturamento Bruto = 0. Crie ao menos uma.</p>
-            </div>`
-          : `<div class="space-y-2">${offers.map(o => this._offerRow(productId, o, cfg.ticketMode)).join('')}</div>`}
+        <aside class="xl:sticky xl:top-4 xl:self-start">${djowPanel}</aside>
       </div>`;
     },
 
@@ -1461,9 +1468,9 @@
           <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Preço (R$)</span>
           <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(offer.price || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'price', Utils.parseBRL(this.value))" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
         </label>
-        <label class="block w-24">
-          <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Meta vendas</span>
-          <input type="number" min="0" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${offer.metaVendas || 0}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'metaVendas', this.value)" placeholder="0" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
+        <label class="block w-20">
+          <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Meta</span>
+          <input type="number" min="0" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${offer.metaVendas || 0}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'metaVendas', this.value)" placeholder="0" title="Meta de vendas no período" class="mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
         </label>
         ${isWeighted ? `<label class="block w-20">
           <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Mix (%)</span>
@@ -1599,6 +1606,14 @@
       const periodSlug = period.replace('-', '');
       const inputId = `lj-meta-${kind}-${productId}-${periodSlug}`;
 
+      // V38.1.2 — Meta de Vendas vive na OFERTA (V38.0.3), não mais em
+      // metasResultado. Aqui mostra a soma das ofertas como read-only + link
+      // pra editar lá. CAC continua editável em metasResultado.
+      if (isVendas) {
+        const offers = App.state.revopsFinanceV2?.[productId]?.offers || [];
+        metaValue = offers.reduce((s, o) => s + (Number(o.metaVendas) || 0), 0);
+      }
+
       // Variância
       let varCls = 'bg-stone-100 border-stone-200 text-stone-600';
       let varIcon = 'minus';
@@ -1647,10 +1662,22 @@
             <p class="text-[10px] text-slate-500 mt-0.5">${subtitle}</p>
           </div>
         </div>
-        <label class="block">
-          <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Meta do período</span>
-          <input id="${inputId}" type="text" inputmode="${inputMode}" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${metaDisplay}" ${maskAttr} onchange="Actions.updateMetaResultado('${productId}', '${period}', '${kind}', ${parser})" placeholder="${placeholder}" class="mt-0.5 w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800 focus:border-violet-400 focus:outline-none" />
-        </label>
+        ${isVendas ? `
+          <div class="block">
+            <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Meta do período (soma das ofertas)</span>
+            <div class="mt-0.5 w-full px-3 py-2 rounded-lg bg-stone-50 border border-stone-200 text-sm font-bold text-slate-800 flex items-center justify-between gap-2">
+              <span>${metaValue > 0 ? Math.round(metaValue).toLocaleString('pt-BR') : '—'}</span>
+              <button onclick="Actions.setRevopsWhitelabelTab('offers')" class="text-[10px] font-bold text-violet-700 hover:text-violet-900 inline-flex items-center gap-1 whitespace-nowrap" title="Ajustar metas nas ofertas">
+                <i data-lucide="external-link" class="w-3 h-3"></i> Ajustar nas Ofertas
+              </button>
+            </div>
+          </div>
+        ` : `
+          <label class="block">
+            <span class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Meta do período</span>
+            <input id="${inputId}" type="text" inputmode="${inputMode}" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${metaDisplay}" ${maskAttr} onchange="Actions.updateMetaResultado('${productId}', '${period}', '${kind}', ${parser})" placeholder="${placeholder}" class="mt-0.5 w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800 focus:border-violet-400 focus:outline-none" />
+          </label>
+        `}
         <div class="mt-3 flex items-end justify-between gap-2">
           <div class="min-w-0">
             <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Realizado</p>
