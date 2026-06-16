@@ -1215,7 +1215,8 @@ Object.assign(Actions, {
       pendingDraft,
       modeloNegocio: null,
       modeloOperacional: null,
-      quadroPA: [], quadroICP: [], quadroBP: []
+      quadroPA: [], quadroICP: [], quadroBP: [],
+      customFields: { pa: [], icp: [], bp: [] }
     };
     App.save(); App.render();
   },
@@ -1235,7 +1236,10 @@ Object.assign(Actions, {
       modeloOperacional: a.modeloOperacional || null,
       quadroPA: Array.isArray(a.quadroPA) ? [...a.quadroPA] : [],
       quadroICP: Array.isArray(a.quadroICP) ? [...a.quadroICP] : [],
-      quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : []
+      quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : [],
+      customFields: (a.customFields && typeof a.customFields === 'object')
+        ? { pa: a.customFields.pa || [], icp: a.customFields.icp || [], bp: a.customFields.bp || [] }
+        : { pa: [], icp: [], bp: [] }
     };
     App.save(); App.render();
   },
@@ -1255,8 +1259,42 @@ Object.assign(Actions, {
       modeloOperacional: a.modeloOperacional || null,
       quadroPA: Array.isArray(a.quadroPA) ? [...a.quadroPA] : [],
       quadroICP: Array.isArray(a.quadroICP) ? [...a.quadroICP] : [],
-      quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : []
+      quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : [],
+      customFields: (a.customFields && typeof a.customFields === 'object')
+        ? { pa: a.customFields.pa || [], icp: a.customFields.icp || [], bp: a.customFields.bp || [] }
+        : { pa: [], icp: [], bp: [] }
     };
+    App.save(); App.render();
+  },
+  // V38.1.44 — Adiciona campo custom no quadro (Step 3 do wizard).
+  addCustomAudienceField(layer) {
+    const w = App.state.audienceWizard;
+    if (!w || !w.open) return;
+    if (!['pa','icp','bp'].includes(layer)) return;
+    const label = (window.prompt('Nome do campo (curto):') || '').trim();
+    if (!label) return;
+    const isFit = window.confirm('Esse campo precisa BATER um critério pra contar (FIT)?\n\nOK = FIT (mais rigoroso, ex: cargo decisor exige cargo de chefia)\nCancelar = DADO (basta existir, ex: nome preenchido)');
+    const isOptional = window.confirm('Esse campo é OPCIONAL (não conta no denominador do threshold)?\n\nOK = Opcional (fica de fora do cálculo)\nCancelar = Obrigatório (conta no threshold de 80%)');
+    const key = 'custom_' + label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') + '_' + Date.now().toString(36);
+    w.customFields = w.customFields || { pa: [], icp: [], bp: [] };
+    w.customFields[layer] = Array.isArray(w.customFields[layer]) ? w.customFields[layer] : [];
+    w.customFields[layer].push({
+      key,
+      layer,
+      type: isFit ? 'fit' : 'completude',
+      label,
+      optional: !!isOptional,
+      custom: true,
+      tooltip: 'Campo customizado pelo cliente.'
+    });
+    App.save(); App.render();
+  },
+  removeCustomAudienceField(layer, key) {
+    const w = App.state.audienceWizard;
+    if (!w || !w.open) return;
+    if (!['pa','icp','bp'].includes(layer)) return;
+    w.customFields = w.customFields || { pa: [], icp: [], bp: [] };
+    w.customFields[layer] = (w.customFields[layer] || []).filter(f => f.key !== key);
     App.save(); App.render();
   },
   openAudienceWizardForExisting(productId) {
@@ -1273,7 +1311,10 @@ Object.assign(Actions, {
       modeloOperacional: a.modeloOperacional || null,
       quadroPA: Array.isArray(a.quadroPA) ? [...a.quadroPA] : [],
       quadroICP: Array.isArray(a.quadroICP) ? [...a.quadroICP] : [],
-      quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : []
+      quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : [],
+      customFields: (a.customFields && typeof a.customFields === 'object')
+        ? { pa: a.customFields.pa || [], icp: a.customFields.icp || [], bp: a.customFields.bp || [] }
+        : { pa: [], icp: [], bp: [] }
     };
     App.save(); App.render();
   },
@@ -1404,17 +1445,29 @@ Object.assign(Actions, {
     if (!w || !w.open) return;
     // V38.1.39 — Funde via AudienceFusionEngine pra salvar schema completo
     // (snapshot, não delta — flag customized: false até cliente editar).
+    // V38.1.44 — Custom fields do draft do wizard mesclam no schema final.
     let schema = null;
+    const customFields = (w.customFields && typeof w.customFields === 'object')
+      ? { pa: w.customFields.pa || [], icp: w.customFields.icp || [], bp: w.customFields.bp || [] }
+      : { pa: [], icp: [], bp: [] };
+    const totalCustom = customFields.pa.length + customFields.icp.length + customFields.bp.length;
     if (window.AudienceFusionEngine && w.modeloNegocio && w.modeloOperacional) {
       const fused = AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional);
       if (fused.ok) {
+        const paAll  = [...fused.pa,  ...customFields.pa];
+        const icpAll = [...fused.icp, ...customFields.icp];
+        const bpAll  = [...fused.bp,  ...customFields.bp];
         schema = {
-          pa: fused.pa,
-          icp: fused.icp,
-          bp: fused.bp,
+          pa: paAll,
+          icp: icpAll,
+          bp: bpAll,
           unidade: fused.unidade,
           bilateral: fused.bilateral,
-          requiredCounts: fused.requiredCounts,
+          requiredCounts: {
+            pa:  paAll.filter(f => !f.optional).length,
+            icp: icpAll.filter(f => !f.optional).length,
+            bp:  bpAll.filter(f => !f.optional).length
+          },
           notas: fused.notas
         };
       }
@@ -1424,7 +1477,8 @@ Object.assign(Actions, {
       modeloNegocio: w.modeloNegocio,
       modeloOperacional: w.modeloOperacional,
       schema,
-      customized: false,
+      customFields,
+      customized: totalCustom > 0,
       // Retrocompat (V38.1.36) — arrays vazios até a próxima onda permitir custom
       quadroPA: Array.isArray(w.quadroPA) ? w.quadroPA : [],
       quadroICP: Array.isArray(w.quadroICP) ? w.quadroICP : [],
