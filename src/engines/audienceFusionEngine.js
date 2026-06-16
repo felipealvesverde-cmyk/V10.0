@@ -38,11 +38,14 @@ var AudienceFusionEngine = {
         { key: 'porte_empresa',       layer: 'pa',  type: 'completude', label: 'Porte da empresa',    inferenciaRd: 'numero_funcionarios (enrichment)',                  criterio: null,    optional: true,                                             tooltip: 'Faixa de funcionários — exige enrichment.' },
         { key: 'maturidade_stack',    layer: 'icp', type: 'completude', label: 'Maturidade de stack', inferenciaRd: 'tags de ferramentas/stack OU formulário',           criterio: null,                                                                tooltip: 'Já usa ferramentas da categoria — entende o valor.' },
         { key: 'fit_porte',           layer: 'icp', type: 'fit',        label: 'Fit de porte',        inferenciaRd: 'porte ∈ faixa-alvo do produto',                     criterio: 'porte dentro da faixa configurada no produto',   optional: true,    tooltip: 'Porte bate com a faixa que você atende.' },
+        // V38.1.45 — Sinais comportamentais que DISTINGUEM B2B sem depender de email/cargo/empresa.
+        { key: 'horario_comercial',   layer: 'icp', type: 'fit',        label: 'Horário comercial',   inferenciaRd: 'eventHistory[] do tracker LJ',                       criterio: '≥60% dos eventos em dias úteis 8h-19h',                              tooltip: 'Acesso majoritário em horário de trabalho — sinal forte de uso corporativo.' },
+        { key: 'consumo_b2b',         layer: 'icp', type: 'completude', label: 'Consumo técnico',     inferenciaRd: 'tags com termos B2B (whitepaper, case, integração, ROI)', criterio: null,                                                            tooltip: 'Consome conteúdo de research/integração/ROI — interesse profissional, não de consumo.' },
         { key: 'cargo_decisor',       layer: 'bp',  type: 'fit',        label: 'Cargo decisor',       inferenciaRd: "cargo classificado por dicionário de decisores",    criterio: "cargo ∈ {CEO, Diretor, Head, VP, C-Level, Gerente Sênior}",         tooltip: 'Pessoa tem cargo de decisão real — não analista nem estagiário.' },
         { key: 'alcada',              layer: 'bp',  type: 'completude', label: 'Alçada/hierarquia',   inferenciaRd: 'cargo → faixa hierárquica',                         criterio: null,                                                                tooltip: 'Faixa de senioridade — proxy de poder de assinatura.' }
       ],
       remove: [],
-      notas: 'A unidade é a empresa; o cargo é o filtro mais decisivo no BP. Sem cargo, BP não fecha.'
+      notas: 'A unidade é a empresa; o cargo é o filtro mais decisivo no BP. Sem cargo, BP não fecha. Sinais comportamentais (horário comercial + consumo técnico) ajudam a distinguir B2B mesmo sem cargo identificado.'
     },
 
     b2c: {
@@ -54,11 +57,14 @@ var AudienceFusionEngine = {
         { key: 'faixa_etaria',        layer: 'pa',  type: 'completude', label: 'Faixa etária',        inferenciaRd: 'formulário (enrichment)',                           criterio: null,    optional: true,                                             tooltip: 'Faixa de idade — opcional, exige formulário.' },
         { key: 'historico_conversao', layer: 'icp', type: 'fit',        label: 'Histórico de conversão', inferenciaRd: 'qualificacao=customer OU ≥1 oportunidade ganha', criterio: 'já comprou antes ou tem oportunidade ganha no histórico',          tooltip: 'Já comprou antes — pessoa que converte.' },
         { key: 'perfil_consumo',      layer: 'icp', type: 'completude', label: 'Perfil de consumo',   inferenciaRd: 'tags de comportamento/preferência',                 criterio: null,                                                                tooltip: 'Padrão de consumo detectado (preferências, hábitos).' },
+        // V38.1.45 — Sinais comportamentais que DISTINGUEM B2C sem depender de email pessoal/empresa vazia.
+        { key: 'horario_pessoal',     layer: 'icp', type: 'fit',        label: 'Horário pessoal',     inferenciaRd: 'eventHistory[] do tracker LJ',                       criterio: '≥60% dos eventos noite (20h-7h) ou fim de semana',                   tooltip: 'Acesso fora de horário comercial — sinal de uso pessoal, não corporativo.' },
+        { key: 'consumo_b2c',         layer: 'icp', type: 'completude', label: 'Consumo emocional',   inferenciaRd: 'tags com termos B2C (promoção, oferta, desejo)',     criterio: null,                                                                 tooltip: 'Consome conteúdo de promoção/desejo/preço — interesse de consumo individual.' },
         { key: 'gatilho_pessoal',     layer: 'bp',  type: 'completude', label: 'Gatilho pessoal',     inferenciaRd: 'tipo de gatilho DEFERIDO ao Operacional',           criterio: null,                                                                tooltip: 'O que motivou — tipo concreto vem do formato (carrinho, paywall etc).' }
       ],
       // B2C remove cargo_decisor do BP: o próprio consumidor decide.
       remove: ['cargo_decisor', 'alcada'],
-      notas: 'O consumidor é o próprio decisor. BP NÃO exige cargo. Foque em gatilho e medo.'
+      notas: 'O consumidor é o próprio decisor. BP NÃO exige cargo. Foque em gatilho e medo. Sinais comportamentais (horário pessoal + consumo emocional) ajudam a distinguir B2C mesmo sem email pessoal identificado.'
     },
 
     b2b2c: {
