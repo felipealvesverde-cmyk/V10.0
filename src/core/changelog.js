@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.56',
+    date: '2026-06-16',
+    title: 'Engrenagem do card de ação volta pro canto superior direito',
+    bullets: [
+      'A engrenagem de editar a ação volta pro canto superior direito do card (posição absolute), como estava antes. Na V38.1.55 ela tinha ido pra dentro do header da coluna 1, ao lado do label "Ação · Marketing", mas a leitura visual ficou pior — Felipe sinalizou.',
+      'Pra evitar o problema original de sobreposição: em mobile (viewport < 1280px), a primeira coluna do card recebe padding-right de 56px pra não ter texto colidindo com a engrenagem. Em desktop, a engrenagem fica sobre a área dos botões da terceira coluna, que ficam alinhados ao bottom (justify-end) — sem overlap visual.'
+    ]
+  },
+  {
     version: 'V38.1.55',
     date: '2026-06-16',
     title: 'Aba "Ações da campanha": Roadmap no card + KPIs reformulados + vocabulário Execuções',
