@@ -1560,12 +1560,6 @@ Object.assign(Actions, {
       const updated = window.ProductRevenueEngine
         ? ProductRevenueEngine.normalize({ ...existing, audience }, idx)
         : { ...existing, audience };
-      // V38.1.48 TRACE TEMPORÁRIO
-      try {
-        console.warn('[ICP-FINISH-TRACE] BEFORE:', existing.name, 'existing.audience:', JSON.parse(JSON.stringify(existing.audience || null)));
-        console.warn('[ICP-FINISH-TRACE] AUDIENCE OBJ:', JSON.parse(JSON.stringify(audience)));
-        console.warn('[ICP-FINISH-TRACE] UPDATED:', JSON.parse(JSON.stringify(updated.audience || null)));
-      } catch (_) {}
       App.state.products = [
         ...products.slice(0, idx),
         updated,
@@ -1574,8 +1568,6 @@ Object.assign(Actions, {
       App.state.selectedProductId = updated.id;
       App.state.audienceWizard = null;
       App.save(); App.render();
-      // V38.1.48 TRACE TEMPORÁRIO
-      try { console.warn('[ICP-FINISH-TRACE] AFTER save+render. state.products[idx].audience:', JSON.parse(JSON.stringify(App.state.products[idx].audience || null))); } catch (_) {}
       Utils.toast(`Audiência atualizada em ${updated.name}.`);
       return;
     }
