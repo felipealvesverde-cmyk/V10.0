@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.52',
+    date: '2026-06-16',
+    title: 'Aba "Ações da campanha" enxuta — 7 cortes de redundância',
+    bullets: [
+      'O chip "ACTION OPERATIONAL LAYER" e a descrição educativa "Camada de execução: ações vinculadas..." saíram do header escuro. Sobrou só o título "Ações da campanha" + linha com campanha e produto + 4 KPIs.',
+      'O bloco branco "Campanha selecionada" (que mostrava nome da campanha, produto e descrição genérica) saiu. Tudo isso já estava no header escuro acima. Pra trocar de campanha, use a aba Campanhas.',
+      'No card de ação, o setor era marcado em 3 lugares (faixa lateral colorida, label "AÇÃO · MARKETING" e tag "📊 Marketing" no rodapé). A tag colorida foi removida — sobraram a faixa lateral e o label, que bastam.',
+      'A linha cinza pequena "X leads · score médio Y · sem score · N etapas" saiu do header do card. Os mini-cards LEADS/SCORE/ETAPAS do lado já entregam esses números.',
+      'O texto pequeno "Marketing MOF → Marketing MOF" saiu do header do card. As pílulas de etapas do fluxo abaixo do card mostram o caminho completo.',
+      'O warning "Nenhum número vinculado — abra o Mapa pra plugar" saiu do header do card. O bloco estratégico abaixo já avisa quando uma ação não move nenhum KR.',
+      'O badge "Sem vínculo de KR" / "Vinculada: X" do rodapé do card saiu. O próprio dropdown "KR da Campanha" já mostra o vínculo atual.'
+    ]
+  },
+  {
     version: 'V38.1.51',
     date: '2026-06-16',
     title: 'Insights do Roadmap viram leitura real da campanha + Djow opinando',
