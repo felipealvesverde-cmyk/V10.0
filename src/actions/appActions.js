@@ -2000,49 +2000,10 @@ Object.assign(Actions, {
     }
   },
 
-  openActionFlowModal(id) { App.state.actionFlowModalId = id; App.state.showActionFlowModal = true; App.state.actionFlowEditMode = false; App.save(); App.render(); },
-  closeActionFlowModal() { App.state.showActionFlowModal = false; App.state.actionFlowModalId = null; App.state.actionFlowEditMode = false; App.save(); App.render(); },
-  toggleActionFlowEdit() { App.state.actionFlowEditMode = !App.state.actionFlowEditMode; App.save(); App.render(); },
-  saveActionFlowConfig() { App.state.actionFlowEditMode = false; App.save(); App.render(); Utils.toast('Configuração do fluxo salva e aplicada.'); },
-  updateActionFlowStep(actionId, index, field, value) {
-    const action = App.state.actions.find(a => Number(a.id) === Number(actionId));
-    if (!action) return;
-    const path = action.flowPath || FlowResolutionEngine.resolve(action.originSector || action.sector, action.originFunnel || action.funnel, action.destinationSector || action.sector, action.destinationFunnel || action.funnel);
-    action.flowConfig = action.flowConfig || FlowResolutionEngine.buildDefaultFlowConfig(path, action.channel);
-    action.flowConfig[index] = action.flowConfig[index] || { stageId: path[index], enabled: true };
-    if (field === 'manualConverted') action.flowConfig[index][field] = Math.max(0, Number(value || 0));
-    else action.flowConfig[index][field] = value;
-    App.save();
-  },
-  toggleActionFlowStep(actionId, index) {
-    const action = App.state.actions.find(a => Number(a.id) === Number(actionId));
-    if (!action) return;
-    const path = action.flowPath || FlowResolutionEngine.resolve(action.originSector || action.sector, action.originFunnel || action.funnel, action.destinationSector || action.sector, action.destinationFunnel || action.funnel);
-    action.flowConfig = action.flowConfig || FlowResolutionEngine.buildDefaultFlowConfig(path, action.channel);
-    action.flowConfig[index] = action.flowConfig[index] || { stageId: path[index], enabled: true };
-    action.flowConfig[index].enabled = !action.flowConfig[index].enabled;
-    App.save(); App.render();
-  },
-  updateActionFlowOkr(actionId, index, field, value) {
-    const action = App.state.actions.find(a => Number(a.id) === Number(actionId));
-    if (!action) return;
-    action.okrs = action.okrs || [];
-    action.okrs[index] = action.okrs[index] || { name: '', target: '', current: '' };
-    action.okrs[index][field] = value;
-    App.save();
-  },
-  addActionFlowOkr(actionId) {
-    const action = App.state.actions.find(a => Number(a.id) === Number(actionId));
-    if (!action) return;
-    action.okrs = [...(action.okrs || []), { id: `okr_${Date.now()}`, name: 'Novo OKR', target: '', current: '', unit: '', benchmark: '', trend: 'stable', health: 'Atenção', stageId: (action.flowPath || [])[0] || FlowResolutionEngine.stageId(action.originSector || action.sector, action.originFunnel || action.funnel) }];
-    App.save(); App.render();
-  },
-  removeActionFlowOkr(actionId, index) {
-    const action = App.state.actions.find(a => Number(a.id) === Number(actionId));
-    if (!action) return;
-    action.okrs = (action.okrs || []).filter((_, i) => i !== index);
-    App.save(); App.render();
-  },
+  // V38.1.55 — ActionFlowModal eliminado. Botão "Ver Fluxo da Ação" do card virou
+  // "Roadmap" (abre openCampaignFlowModal). Removidas as 9 actions órfãs:
+  // open/closeActionFlowModal, toggle/saveActionFlowConfig/Edit,
+  // updateActionFlowStep, toggleActionFlowStep, update/add/removeActionFlowOkr.
   openCampaignFlowModal(id) { App.state.campaignFlowModalId = id; App.state.showCampaignFlowModal = true; App.save(); App.render(); },
   closeCampaignFlowModal() { App.state.showCampaignFlowModal = false; App.state.campaignFlowModalId = null; App.save(); App.render(); },
 
