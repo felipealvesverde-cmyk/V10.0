@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.50',
+    date: '2026-06-16',
+    title: 'Tile de ICP do Roadmap vira composição real da campanha',
+    bullets: [
+      'O tile de ICP no topo do Roadmap da Campanha mostrava só os rótulos C/B/A empilhados com travessão "—" — placeholder. Agora ele entrega a composição de verdade: 4 colunas lado a lado (Em rastreamento, Público-alvo, ICP, Buyer Persona) com a % e a contagem de leads da campanha em cada camada.',
+      'A classificação roda em runtime pelo Transmutador de Audiência, lendo o schema fundido do produto e aplicando as ~40 regras de inferência sobre cada lead da campanha. O tile reflete o estado do funil de qualificação naquele exato momento — sem cache, sem manual.',
+      'Quando a campanha está num produto sem audiência definida, o tile mostra um aviso "Defina a audiência do produto" com link direto pro wizard, ao invés de ficar com números falsos.',
+      'O tile ganhou o dobro de largura (ocupou o espaço do antigo tile "Score Gerado", que estava marcado como "Em breve") pra caber as 4 colunas confortavelmente. O tile "Ações Ativas" continua marcado como "Em breve" do lado.'
+    ]
+  },
+  {
     version: 'V38.1.47',
     date: '2026-06-16',
     title: 'Roadmap enxuto + fix do "ICP não definido" que não trocava',
