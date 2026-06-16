@@ -182,12 +182,49 @@ var ProductAudienceModal = {
         ${this._layerColumn('A', 'Buyer Persona', fused.bp,  fused.requiredCounts.bp,  'amber')}
       </div>
 
-      <div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 px-4 py-3 flex items-start gap-2">
-        <i data-lucide="sparkles" class="w-4 h-4 text-violet-700 mt-0.5 shrink-0"></i>
-        <div class="text-xs text-violet-900 leading-relaxed">
-          <p><b>Djow montou o esqueleto.</b> ${fused.requiredCounts.pa} campos obrigatórios no PA, ${fused.requiredCounts.icp} no ICP, ${fused.requiredCounts.bp} no BP. Threshold 80% por camada.</p>
-          <p class="mt-1 text-violet-700">Em breve: o Djow vai ler seus leads do RD e propor refinamentos personalizados pro seu produto.</p>
+      ${this._djowBlock(w, fused)}
+    </div>`;
+  },
+
+  // V38.1.40 — Bloco do Djow no Step 3. 3 estados:
+  //   - inicial: convite pra pedir análise (lê leads do RD + KB de audiência)
+  //   - loading: spinner 2-5s
+  //   - resposta: prosa do Djow + botão "Pedir novamente"
+  _djowBlock(w, fused) {
+    if (w.djowLoading) {
+      return `<div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 px-4 py-3 flex items-center gap-3">
+        <div class="w-5 h-5 rounded-full border-2 border-violet-300 border-t-violet-700 animate-spin shrink-0"></div>
+        <p class="text-xs text-violet-900 leading-relaxed"><b>Djow está analisando…</b> Cruzando os modelos escolhidos, sua amostra de leads e a base de conhecimento de audiência. Demora alguns segundos.</p>
+      </div>`;
+    }
+    if (w.djowError) {
+      return `<div class="rounded-2xl bg-rose-50 border border-rose-200 border-l-4 border-l-rose-600 px-4 py-3 flex items-start gap-2">
+        <i data-lucide="alert-octagon" class="w-4 h-4 text-rose-700 mt-0.5 shrink-0"></i>
+        <div class="flex-1 text-xs text-rose-900 leading-relaxed">
+          <p><b>Djow não respondeu:</b> ${Utils.escape(w.djowError)}</p>
+          <button onclick="Actions.djowAnalyzeAudience()" class="mt-2 px-3 py-1.5 rounded-lg bg-rose-700 text-white text-[11px] font-black hover:bg-rose-800">Tentar de novo</button>
         </div>
+      </div>`;
+    }
+    if (w.djowAnalise) {
+      const paragrafos = String(w.djowAnalise).split(/\n\s*\n/).filter(p => p.trim().length);
+      const html = paragrafos.map(p => `<p>${Utils.escape(p).replace(/\n/g, '<br>')}</p>`).join('');
+      return `<div class="rounded-2xl bg-gradient-to-br from-violet-50 to-pink-50 border border-violet-200 border-l-4 border-l-violet-600 p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <i data-lucide="sparkles" class="w-4 h-4 text-violet-700"></i>
+          <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">Análise do Djow</p>
+          <button onclick="Actions.djowAnalyzeAudience()" title="Pedir nova análise" class="ml-auto text-[10px] font-black text-violet-700 hover:text-violet-900 flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i> Pedir novamente</button>
+        </div>
+        <div class="text-xs text-slate-800 leading-relaxed space-y-2">${html}</div>
+      </div>`;
+    }
+    // Estado inicial: convite
+    return `<div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 p-4 flex items-start gap-3">
+      <i data-lucide="sparkles" class="w-5 h-5 text-violet-700 shrink-0 mt-0.5"></i>
+      <div class="flex-1 min-w-0">
+        <p class="text-xs text-violet-900 leading-relaxed"><b>Djow montou o esqueleto.</b> ${fused.requiredCounts.pa} campos obrigatórios no PA, ${fused.requiredCounts.icp} no ICP, ${fused.requiredCounts.bp} no BP. Threshold 80% por camada.</p>
+        <p class="text-xs text-violet-700 leading-relaxed mt-1">Quer que o Djow comente esse quadro lendo seus leads do RD e a base de conhecimento de audiência?</p>
+        <button onclick="Actions.djowAnalyzeAudience()" class="mt-2.5 px-3 py-1.5 rounded-lg bg-violet-700 text-white text-[11px] font-black hover:bg-violet-800 flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Pedir análise do Djow</button>
       </div>
     </div>`;
   },

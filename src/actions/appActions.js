@@ -1271,6 +1271,9 @@ Object.assign(Actions, {
     if (!w || !w.open) return;
     if (field !== 'modeloNegocio' && field !== 'modeloOperacional') return;
     w[field] = String(value || '') || null;
+    // V38.1.40 — invalida análise do Djow se mudou modelo
+    w.djowAnalise = null;
+    w.djowError = null;
     App.save(); App.render();
   },
   audienceWizardNext() {
@@ -1287,6 +1290,100 @@ Object.assign(Actions, {
     w.step = Math.max(0, Number(w.step || 0) - 1);
     App.save(); App.render();
   },
+  // V38.1.40 — Pede análise do Djow no Step 3 do wizard de Audiência.
+  // Backend: /api/djow-audience-analyze
+  async djowAnalyzeAudience() {
+    const w = App.state.audienceWizard;
+    if (!w || !w.open) return;
+    if (!w.modeloNegocio || !w.modeloOperacional) return Utils.toast('Escolha os dois modelos antes.');
+    if (!window.AudienceFusionEngine) return Utils.toast('Motor de fusão não carregado.');
+
+    const fused = AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional);
+    if (!fused.ok) return Utils.toast(fused.error || 'Erro ao fundir.');
+
+    // Resolve nome do produto (pendingDraft / existing / draft)
+    let productName = 'Novo produto';
+    if (w.mode === 'existingProduct') {
+      productName = (App.state.products || []).find(p => Number(p.id) === Number(w.productId))?.name || productName;
+    } else if (w.mode === 'draft') {
+      productName = App.state.productDraft?.name || productName;
+    } else if (w.mode === 'mapaPopupDraft') {
+      productName = App.state.newProductWithMapaPopup?.name || productName;
+    } else if (w.pendingDraft?.name) {
+      productName = w.pendingDraft.name;
+    }
+
+    // Schema summary (texto curto pra economizar tokens)
+    const layerLine = (label, fields, count) => {
+      const list = fields.map(f => `${f.label || f.key}${f.type === 'fit' ? ' [fit]' : ''}${f.optional ? ' [opc]' : ''}`).join(', ');
+      return `**${label}** (${count} obrigatórios): ${list}`;
+    };
+    const notasTxt = (fused.notas || []).map(n => `- (${n.origem}) ${n.texto}`).join('\n');
+    const schemaSummary = [
+      `Combinação: ${fused.negocioLabel} × ${fused.operacionalLabel}`,
+      `Unidade: ${fused.unidade}${fused.bilateral ? ' (bilateral)' : ''}`,
+      layerLine('PA (Público-Alvo)',  fused.pa,  fused.requiredCounts.pa),
+      layerLine('ICP',                fused.icp, fused.requiredCounts.icp),
+      layerLine('BP (Buyer Persona)', fused.bp,  fused.requiredCounts.bp),
+      notasTxt ? `\nNotas do motor:\n${notasTxt}` : ''
+    ].join('\n');
+
+    // Leads summary agregado (sem PII)
+    const allLeads = []
+      .concat(App.state.globalLeads || [])
+      .concat((App.state.actions || []).flatMap(a => a.leads || []));
+    let leadsSummary = '';
+    if (allLeads.length > 0) {
+      const total = allLeads.length;
+      const withCargo = allLeads.filter(l => String(l.cargo || l.role || '').trim().length).length;
+      const withEmpresa = allLeads.filter(l => String(l.empresa || l.company || '').trim().length).length;
+      const withScore = allLeads.filter(l => Number(l.globalScore || l.score || 0) > 0).length;
+      const byOrigin = {};
+      allLeads.forEach(l => { const o = String(l.origin || l.fonte || 'desconhecida').toLowerCase(); byOrigin[o] = (byOrigin[o] || 0) + 1; });
+      const top3Origins = Object.entries(byOrigin).sort((a,b) => b[1]-a[1]).slice(0,3).map(([o,c]) => `${o}: ${c}`).join(', ');
+      leadsSummary = `Total de leads importados: ${total}. Com cargo: ${withCargo} (${Math.round(100*withCargo/total)}%). Com empresa: ${withEmpresa} (${Math.round(100*withEmpresa/total)}%). Com score: ${withScore} (${Math.round(100*withScore/total)}%). Top origens: ${top3Origins}.`;
+    }
+
+    // UI: loading
+    App.state.audienceWizard.djowLoading = true;
+    App.state.audienceWizard.djowError = null;
+    App.state.audienceWizard.djowAnalise = null;
+    App.save(); App.render();
+
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-audience-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          productName,
+          modeloNegocio: w.modeloNegocio,
+          modeloOperacional: w.modeloOperacional,
+          schemaSummary,
+          leadsSummary
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        const w2 = App.state.audienceWizard;
+        if (w2) { w2.djowLoading = false; w2.djowError = data.message || `HTTP ${r.status}`; }
+        App.save(); App.render();
+        return;
+      }
+      const w2 = App.state.audienceWizard;
+      if (w2) {
+        w2.djowLoading = false;
+        w2.djowAnalise = data.analise || '';
+        w2.djowError = null;
+      }
+      App.save(); App.render();
+    } catch (err) {
+      const w2 = App.state.audienceWizard;
+      if (w2) { w2.djowLoading = false; w2.djowError = err.message || String(err); }
+      App.save(); App.render();
+    }
+  },
+
   audienceWizardFinish() {
     const w = App.state.audienceWizard;
     if (!w || !w.open) return;
