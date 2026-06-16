@@ -703,6 +703,9 @@ var State = {
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '', audience: null },
       audienceWizard: null,
+      // V38.1.51 — cache de análises do Djow do Roadmap por campanha.
+      // shape: { [campaignId]: { text, model, timestamp, tokens_in, tokens_out, loading? } }
+      roadmapInsights: {},
       leadAudienceFilter: 'all', // 'all' | 'lj-suspect' | 'lj-pa' | 'lj-icp' | 'lj-bp'
       audienceDrillModal: null,
       okrDraft: { objective: '', keyResult: '', target: '', unit: 'R$', owner: '', deadline: '', status: 'Em andamento' },
@@ -1451,6 +1454,11 @@ var State = {
         return merged;
       })(),
       audienceWizard: (raw.audienceWizard && typeof raw.audienceWizard === 'object' && raw.audienceWizard.open) ? raw.audienceWizard : null,
+      // V38.1.51 — Map { [campaignId]: { text, model, timestamp, tokens_in, tokens_out } }.
+      // Loading flag não persiste (rebobina pra false se F5 no meio do fetch).
+      roadmapInsights: (raw.roadmapInsights && typeof raw.roadmapInsights === 'object')
+        ? Object.fromEntries(Object.entries(raw.roadmapInsights).filter(([_, v]) => v && typeof v.text === 'string').map(([k, v]) => [k, { text: v.text, model: v.model || '', timestamp: v.timestamp || null, tokens_in: v.tokens_in || 0, tokens_out: v.tokens_out || 0 }]))
+        : {},
       leadAudienceFilter: ['all','lj-suspect','lj-pa','lj-icp','lj-bp'].includes(raw.leadAudienceFilter) ? raw.leadAudienceFilter : 'all',
       audienceDrillModal: (raw.audienceDrillModal && typeof raw.audienceDrillModal === 'object' && raw.audienceDrillModal.open) ? raw.audienceDrillModal : null,
       okrDraft: { ...base.okrDraft, ...(raw.okrDraft || {}) },
