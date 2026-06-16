@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.45',
+    date: '2026-06-16',
+    title: 'ICP distingue B2B de B2C por sinais comportamentais (não só por email)',
+    bullets: [
+      'Antes o ICP separava B2B de B2C basicamente por uma régua: o domínio do email. Funcionava pra contas corporativas óbvias, mas falhava com empreendedores B2B usando Gmail e com funcionários acessando do celular pessoal.',
+      'Agora o ICP de B2B olha 2 sinais novos no ICP: horário comercial (≥60% dos acessos do lead em dias úteis 8h-19h) e consumo técnico (tags com termos tipo whitepaper, ROI, integração, SLA). São pistas de uso profissional que aparecem mesmo sem cargo identificado.',
+      'O ICP de B2C ganhou os 2 espelhos: horário pessoal (≥60% em noite ou fim de semana) e consumo emocional (tags com promoção, oferta, desejo, desconto). Discrimina perfil de consumo individual mesmo quando o email é corporativo.',
+      'Os 4 sinais novos lêem do que o LJ já captura: eventHistory[] do tracker (timestamps) e tags do RD. Sem integração externa, sem enrichment pago. A discriminação fica mais fina sem custar dado novo.'
+    ]
+  },
+  {
     version: 'V38.1.44',
     date: '2026-06-16',
     title: 'Quadro de Audiência: enxuga, funde Step 4 e libera campos custom',

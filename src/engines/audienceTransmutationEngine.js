@@ -67,6 +67,28 @@ var AudienceTransmutationEngine = {
       return AudienceTransmutationEngine.DECISOR_KEYWORDS.some(k => cargo.includes(k));
     },
     alcada: (l) => !!String(l.cargo || l.role || l.jobTitle || '').trim(),
+    // V38.1.45 — Sinais comportamentais distintivos B2B (não dependem de email/cargo).
+    horario_comercial: (l) => {
+      const events = Array.isArray(l.eventHistory) ? l.eventHistory : [];
+      if (events.length < 3) return false; // amostra mínima
+      let commercial = 0, total = 0;
+      for (const e of events) {
+        if (!e || !e.ts) continue;
+        const d = new Date(e.ts);
+        if (isNaN(d.getTime())) continue;
+        total++;
+        const day = d.getDay();   // 0=domingo, 6=sábado
+        const hour = d.getHours();
+        // horário comercial: seg-sex (1-5), 8h-19h
+        if (day >= 1 && day <= 5 && hour >= 8 && hour <= 19) commercial++;
+      }
+      if (total < 3) return false;
+      return (commercial / total) >= 0.6;
+    },
+    consumo_b2b: (l) => {
+      const tags = (l.tags || []).map(t => String(t).toLowerCase());
+      return tags.some(t => /(whitepaper|case|research|roi|integracao|integration|tecnico|technical|enterprise|sla|onpremise|on-premise|api-doc|compliance|saml|sso)/.test(t));
+    },
 
     // --- B2C ---
     consumidor_final: (l) => {
@@ -91,6 +113,28 @@ var AudienceTransmutationEngine = {
     gatilho_pessoal: (l) => {
       const tags = (l.tags || []).map(t => String(t).toLowerCase());
       return tags.some(t => /(gatilho|interesse-pessoal)/.test(t));
+    },
+    // V38.1.45 — Sinais comportamentais distintivos B2C (não dependem de email pessoal).
+    horario_pessoal: (l) => {
+      const events = Array.isArray(l.eventHistory) ? l.eventHistory : [];
+      if (events.length < 3) return false;
+      let pessoal = 0, total = 0;
+      for (const e of events) {
+        if (!e || !e.ts) continue;
+        const d = new Date(e.ts);
+        if (isNaN(d.getTime())) continue;
+        total++;
+        const day = d.getDay();
+        const hour = d.getHours();
+        // pessoal: fim de semana (dom=0, sab=6) OU noite (20h-7h)
+        if (day === 0 || day === 6 || hour >= 20 || hour <= 7) pessoal++;
+      }
+      if (total < 3) return false;
+      return (pessoal / total) >= 0.6;
+    },
+    consumo_b2c: (l) => {
+      const tags = (l.tags || []).map(t => String(t).toLowerCase());
+      return tags.some(t => /(promocao|promoção|oferta|desejo|sonho|consumidor|preco|preço|barato|desconto|liquidacao|liquidação|cupom|frete-gratis|frete-grátis|black-friday|cyber-monday|natal|presente)/.test(t));
     },
 
     // --- B2B2C ---
