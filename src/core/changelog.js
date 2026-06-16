@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.51',
+    date: '2026-06-16',
+    title: 'Insights do Roadmap viram leitura real da campanha + Djow opinando',
+    bullets: [
+      'Os 4 cards abaixo do Mapa Geral da campanha (Handoff mais crítico, Melhor ação, Maior volume, Insight do Djow) eram fixos com números chumbados. Agora cada um lê o estado real das ações da campanha.',
+      '"Handoff mais crítico" mostra o par origem→destino entre setores que tem a pior taxa de conversão somando todas as ações. Você vê o par (ex: Marketing BOF → Vendas TOF), a taxa e quantos leads cruzaram vs quantos chegaram.',
+      '"Melhor ação" mostra a ação com maior conversão fim-a-fim (do impacto inicial até o destino) — nome da ação, canal e os números absolutos.',
+      '"Maior volume" mostra o par origem→destino com maior volume absoluto de leads cruzando — o caminho mais alimentado da campanha.',
+      '"Insight do Djow" virou interativo: clique em "Pedir análise ao Djow" e ele lê todas as ações da campanha, aponta gargalos e padrões entre elas, e sugere um próximo passo concreto. A resposta fica cacheada por campanha; você pode renovar quando quiser.'
+    ]
+  },
+  {
     version: 'V38.1.50',
     date: '2026-06-16',
     title: 'Tile de ICP do Roadmap vira composição real da campanha',

@@ -2035,7 +2035,62 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
   openCampaignFlowModal(id) { App.state.campaignFlowModalId = id; App.state.showCampaignFlowModal = true; App.save(); App.render(); },
-  closeCampaignFlowModal() { App.state.showCampaignFlowModal = false; App.state.campaignFlowModalId = null; App.save(); App.render(); }
+  closeCampaignFlowModal() { App.state.showCampaignFlowModal = false; App.state.campaignFlowModalId = null; App.save(); App.render(); },
+
+  // V38.1.51 — Djow lê todas as ações da campanha (nome, canal, origem→destino,
+  // taxa de cada etapa) e devolve 4-6 frases pragmáticas em prosa apontando
+  // pontos de atenção ação por ação. Cacheia em App.state.roadmapInsights[id].
+  async requestRoadmapInsight(campaignId) {
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
+    if (!campaign) return Utils.toast('Campanha não encontrada.');
+    const product = (App.state.products || []).find(p => Number(p.id) === Number(campaign.productId));
+    const actions = (App.state.actions || []).filter(a => Number(a.campaignId) === Number(campaignId));
+    if (!actions.length) return Utils.toast('Campanha sem ações pra Djow analisar.');
+
+    App.state.roadmapInsights = { ...(App.state.roadmapInsights || {}), [campaignId]: { ...(App.state.roadmapInsights?.[campaignId] || {}), loading: true } };
+    App.render();
+
+    const actionsSummary = actions.map(a => {
+      const f = FlowResolutionEngine.buildActionFlow(a);
+      const steps = (f.steps || []).map(s => `${FlowResolutionEngine.sector(s.stageId)} ${FlowResolutionEngine.funnel(s.stageId)} (${s.converted}/${s.impacted}, ${s.conversionRate}%)`).join(' → ');
+      const rate = f.impacted ? Math.round((f.converted / f.impacted) * 1000) / 10 : 0;
+      return `- ${a.name} | canal: ${a.channel || '—'} | fluxo: ${steps} | conversão final: ${rate}%`;
+    }).join('\n');
+
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/djow-roadmap-insight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          campaignName: campaign.name,
+          campaignStatus: campaign.status || 'Ativa',
+          productName: product?.name || '',
+          actionsCount: actions.length,
+          actionsSummary
+        })
+      });
+      const data = await r.json();
+      if (!data.ok) throw new Error(data.message || 'Erro ao pedir análise.');
+      App.state.roadmapInsights = {
+        ...(App.state.roadmapInsights || {}),
+        [campaignId]: {
+          text: data.insight || '',
+          model: data.model || '',
+          timestamp: Date.now(),
+          tokens_in: data.tokens_in || 0,
+          tokens_out: data.tokens_out || 0
+        }
+      };
+      App.save(); App.render();
+    } catch (err) {
+      const cur = { ...(App.state.roadmapInsights?.[campaignId] || {}) };
+      delete cur.loading;
+      App.state.roadmapInsights = { ...(App.state.roadmapInsights || {}), [campaignId]: cur };
+      App.render();
+      Utils.toast(`Djow falhou: ${err.message}`);
+    }
+  }
 });
 window.Actions = Actions;
 
