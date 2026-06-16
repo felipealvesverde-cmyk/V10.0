@@ -1545,12 +1545,30 @@ Object.assign(Actions, {
       quadroBP: Array.isArray(w.quadroBP) ? w.quadroBP : []
     };
     if (w.mode === 'existingProduct') {
-      const product = (App.state.products || []).find(p => Number(p.id) === Number(w.productId));
-      if (product) {
-        product.audience = audience;
+      // V38.1.47 — Fix defensivo: setar via index (não confiar em mutação de
+      // referência retornada por find()) e renormalizar o produto pra garantir
+      // que audience.configured sobreviva ao próximo State.normalize do boot
+      // (caso o cliente recarregue antes do push remoto debounced terminar).
+      const products = App.state.products || [];
+      const idx = products.findIndex(p => Number(p.id) === Number(w.productId));
+      if (idx < 0) {
         App.state.audienceWizard = null;
-        App.save(); App.render(); Utils.toast(`Audiência atualizada em ${product.name}.`);
+        App.save(); App.render();
+        return;
       }
+      const existing = products[idx];
+      const updated = window.ProductRevenueEngine
+        ? ProductRevenueEngine.normalize({ ...existing, audience }, idx)
+        : { ...existing, audience };
+      App.state.products = [
+        ...products.slice(0, idx),
+        updated,
+        ...products.slice(idx + 1)
+      ];
+      App.state.selectedProductId = updated.id;
+      App.state.audienceWizard = null;
+      App.save(); App.render();
+      Utils.toast(`Audiência atualizada em ${updated.name}.`);
       return;
     }
     if (w.mode === 'draft') {
