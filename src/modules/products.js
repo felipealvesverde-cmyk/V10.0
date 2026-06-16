@@ -317,6 +317,8 @@ var ProductsModule = {
   // V38.1.36 — Badge de status do ICP no header do card.
   _audienceBadge(product) {
     const a = product.audience || {};
+    // V38.1.48 TRACE TEMPORÁRIO — remover após debug.
+    try { console.warn('[ICP-BADGE-TRACE]', product.name, '→ configured:', a.configured, 'audience:', JSON.parse(JSON.stringify(a))); } catch (_) {}
     if (a.configured) {
       const tags = [a.modeloNegocio, a.modeloOperacional].filter(Boolean).map(s => s.toUpperCase()).join(' · ');
       return `<span class="shrink-0 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1"><i data-lucide="target" class="w-3 h-3"></i> ICP${tags ? ' · ' + Utils.escape(tags) : ''}</span>`;
