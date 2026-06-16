@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.58',
+    date: '2026-06-16',
+    title: 'Engrenagem do card de ação sai do canto absoluto — vira atalho discreto no rodapé',
+    bullets: [
+      'A engrenagem absolute no canto superior direito do card sempre sobrepunha algum botão da linha do topo (Roadmap, Ver Execuções, Criar Execuções via Djow). Resolvida pela raiz: o botão sai do position absolute por completo.',
+      'Agora vira "Editar" como atalho discreto (estilo cinza pequeno com ícone de engrenagem) no rodapé do card, ao lado do "Roadmap". Os dois ocupam espaço próprio no fluxo do layout — nunca mais vão atropelar nada.'
+    ]
+  },
+  {
     version: 'V38.1.57',
     date: '2026-06-16',
     title: 'Roadmap do card de Ação agora é atalho discreto, igual ao card de Campanha',
