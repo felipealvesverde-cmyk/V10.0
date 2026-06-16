@@ -45,6 +45,7 @@ var LeadsModule = {
     }
 
     return heroAndTabs
+      + (window.AudienceLayerDrillModal ? AudienceLayerDrillModal.render() : '')
       + this._campaignContextChips()
       + this._subStageActiveBanner()
       + this.profileFinderUI(displayLeads, allLeads.length)
@@ -1202,7 +1203,7 @@ var LeadsModule = {
           : `<button onclick="event.stopPropagation(); Actions.linkLeadToCampaignFromBuscador('${safeId}')" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center gap-1 whitespace-nowrap" style="color:#fff!important;"><i data-lucide="link" class="w-3 h-3"></i> Vincular à campanha</button>`)
       : '';
     // V38.1.42 — Badge de camada de audiência (lj-suspect/lj-pa/lj-icp/lj-bp).
-    // Só aparece se houver produto com audiência configurada.
+    // V38.1.43 — Clique abre modal drill-down "Por que esse lead virou X?".
     const audienceBadge = (() => {
       if (!window.AudienceTransmutationEngine) return '';
       const r = AudienceTransmutationEngine.getLayerForLead(lead, App.state.selectedProductId);
@@ -1214,8 +1215,10 @@ var LeadsModule = {
         'lj-bp':      { tone: 'amber',  label: 'BP',      icon: 'user-check' }
       };
       const m = map[r.layer];
-      const title = `Audiência contra "${r.productName}": PA ${r.paPct}% · ICP ${r.icpPct}% · BP ${r.bpPct}%`;
-      return `<span title="${Utils.escape(title)}" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-${m.tone}-100 text-${m.tone}-700 border border-${m.tone}-200"><i data-lucide="${m.icon}" class="w-2.5 h-2.5"></i>${m.label}</span>`;
+      const shortcutSuffix = r.shortcut ? ` · atalho ${r.shortcut.via}` : '';
+      const title = `Audiência contra "${r.productName}": PA ${r.paPct}% · ICP ${r.icpPct}% · BP ${r.bpPct}%${shortcutSuffix} · clique pra ver detalhe`;
+      const shortcutIcon = r.shortcut ? '<i data-lucide=\\"zap\\" class=\\"w-2.5 h-2.5\\"></i>' : '';
+      return `<button onclick="event.stopPropagation(); Actions.openAudienceDrillModal('${safeId}', ${r.productId})" title="${Utils.escape(title)}" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-${m.tone}-100 text-${m.tone}-700 border border-${m.tone}-200 hover:bg-${m.tone}-200 transition cursor-pointer"><i data-lucide="${m.icon}" class="w-2.5 h-2.5"></i>${m.label}${shortcutIcon}</button>`;
     })();
     return `<div class="p-4 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition">
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">

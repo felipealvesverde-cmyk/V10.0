@@ -1030,6 +1030,15 @@ var Actions = {
         App.state.leadAudienceFilter = valid.includes(layer) ? layer : 'all';
         App.save(); App.render();
       },
+      // V38.1.43 — Modal "Por que esse lead virou X?" drill-down do ICP.
+      openAudienceDrillModal(leadId, productId) {
+        App.state.audienceDrillModal = { open: true, leadId, productId: productId || null };
+        App.save(); App.render();
+      },
+      closeAudienceDrillModal() {
+        App.state.audienceDrillModal = null;
+        App.save(); App.render();
+      },
       // V37.0.9 — Sem mais preencher leadsText/leadInputMode/rdListName/scoreId
       // no draft (mailing inline removido). Cliente cria a ação a partir do
       // perfil e anexa base depois pelo Lead Import Wizard se quiser.
