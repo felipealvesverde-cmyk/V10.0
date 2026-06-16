@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.37',
+    date: '2026-06-16',
+    title: 'Form "Criar Produto sem Mapa": botão "Definir audiência" no lugar do campo Tipo',
+    bullets: [
+      'O campo "Tipo" no form "Criar Produto sem Mapa" deu lugar a um botão "Definir audiência (ICP)" — Tipo era redundante com o que o wizard já captura (Modelo de Negócio + Operacional).',
+      'Fluxo agora é pré-submit: cliente define o ICP pelo botão (badge amber "Obrigatório" até preencher), aí o botão preto "Criar Produto sem Mapa" cria o produto direto com a audiência já gravada no draft.',
+      'Quando o ICP estiver definido, o botão fica verde com a combinação escolhida (ex: "ICP B2B · SAAS") e atalho "Editar" pra ajustar antes de criar.',
+      'Quem clicar em "Criar Produto sem Mapa" sem ter definido a audiência ainda vê o wizard abrir automaticamente — fallback de segurança da V38.1.36.'
+    ]
+  },
+  {
     version: 'V38.1.36',
     date: '2026-06-16',
     title: 'Definir Audiência — wizard de ICP obrigatório no nascimento do produto',

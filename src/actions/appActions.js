@@ -1140,14 +1140,20 @@ Object.assign(Actions, {
     const d = App.state.productDraft || {};
     if (!String(d.name || '').trim()) return Utils.toast('Digite o nome do produto.');
     if (this._demoGuard && this._demoGuard('Criar produto')) return null;
-    // V38.1.36 — bloqueio hard: produto não nasce sem ICP. Abre wizard primeiro.
-    this.openAudienceWizardForNewProduct({
+    const pendingDraft = {
       name: d.name.trim(),
       type: d.type || '',
       price: d.price || '',
       revenueModel: d.revenueModel || 'Venda única',
       operationalCost: d.operationalCost || ''
-    }, 'createProduct');
+    };
+    // V38.1.37 — Se cliente já definiu audiência pré-submit (botão "Definir
+    // Audiência" no form), cria direto. Caso contrário, abre wizard como
+    // bloqueio hard (V38.1.36).
+    if (d.audience && d.audience.configured) {
+      return this._finalizeProductCreation(pendingDraft, d.audience);
+    }
+    this.openAudienceWizardForNewProduct(pendingDraft, 'createProduct');
     return null;
   },
 
@@ -1164,7 +1170,7 @@ Object.assign(Actions, {
     App.state.products.unshift(product);
     App.state.selectedProductId = product.id;
     App.state.campaignDraft.productId = product.id;
-    App.state.productDraft = { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' };
+    App.state.productDraft = { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '', audience: null };
     // V38.0.3 — Oferta default + struct RevOps zerada pra esse produto. Antes,
     // produto novo nascia sem oferta — TM=0, Faturamento=0, sem cadastro de
     // meta. Agora cliente já vê 1 oferta "Padrão" preenchível.
@@ -1195,6 +1201,26 @@ Object.assign(Actions, {
       modeloNegocio: null,
       modeloOperacional: null,
       quadroPA: [], quadroICP: [], quadroBP: []
+    };
+    App.save(); App.render();
+  },
+  // V38.1.37 — Abre wizard pra editar o audience DO DRAFT (pré-submit no
+  // form "Criar Produto sem Mapa"). Salva em App.state.productDraft.audience
+  // e fecha sem criar produto.
+  openAudienceWizardForDraft() {
+    const d = App.state.productDraft || {};
+    const a = d.audience && typeof d.audience === 'object' ? d.audience : {};
+    App.state.audienceWizard = {
+      open: true,
+      mode: 'draft',
+      step: a.configured ? 3 : 0,
+      productId: null,
+      pendingDraft: null,
+      modeloNegocio: a.modeloNegocio || null,
+      modeloOperacional: a.modeloOperacional || null,
+      quadroPA: Array.isArray(a.quadroPA) ? [...a.quadroPA] : [],
+      quadroICP: Array.isArray(a.quadroICP) ? [...a.quadroICP] : [],
+      quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : []
     };
     App.save(); App.render();
   },
@@ -1259,6 +1285,14 @@ Object.assign(Actions, {
         App.state.audienceWizard = null;
         App.save(); App.render(); Utils.toast(`Audiência atualizada em ${product.name}.`);
       }
+      return;
+    }
+    if (w.mode === 'draft') {
+      // V38.1.37 — Salva no productDraft pré-submit. Não cria produto.
+      App.state.productDraft = App.state.productDraft || {};
+      App.state.productDraft.audience = audience;
+      App.state.audienceWizard = null;
+      App.save(); App.render(); Utils.toast('Audiência salva. Clique em "Criar Produto sem Mapa" pra finalizar.');
       return;
     }
     // createProduct OR createProductMapa
