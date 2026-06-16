@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.47',
+    date: '2026-06-16',
+    title: 'Roadmap enxuto + fix do "ICP não definido" que não trocava',
+    bullets: [
+      'Bug grande resolvido no card de Produto: quando você editava a audiência de um produto já existente e salvava o wizard, a badge "ICP NÃO DEFINIDO" continuava amarela mesmo com o ICP gravado. Causa: a mutação no produto era feita por referência e em alguns cenários de reatividade não disparava o redraw direito. Agora o array de produtos é recriado com o produto atualizado já normalizado — badge vira verde na hora.',
+      'No Roadmap da Campanha (antigo Fluxo Total da Campanha), o painel lateral "Fluxos por ação" saiu. Tomava 270px do canto esquerdo com cartões que repetiam o que o Mapa Geral já mostrava. Agora o Mapa Geral ocupa a largura toda — respira melhor e o foco volta pro fluxo de verdade.',
+      'No mesmo Roadmap, os tiles "Score Gerado" e "Ações Ativas" foram desativados visualmente: ficam dimmed com selo "Em breve". Mostravam números fixos (+21) ou triviais (contagem de ações) que não traziam insight novo. Vão voltar quando tiver dado de verdade pra contar.'
+    ]
+  },
+  {
     version: 'V38.1.46',
     date: '2026-06-16',
     title: 'Assistente de Coleta de Audiência — diagnóstico vira ação concreta',
