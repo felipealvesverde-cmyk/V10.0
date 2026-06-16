@@ -6,7 +6,7 @@ var ActionModule = {
     const product = App.state.products.find(p => Number(p.id) === Number(selectedCampaign.productId));
     return `<div class="space-y-4">
       ${this.actionLayer(selectedCampaign, product, actions)}
-      <div class="grid lg:grid-cols-3 gap-4"><div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-1">Criar ação</h2><p class="text-sm text-slate-500 mb-4">Defina contexto operacional, origem, destino e base de leads.</p>${this._createTabs()}${App.state.actionCreateTab === 'ai' ? this._aiCreatePanel() : this._manualCreatePanel()}</div><div class="lg:col-span-2 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="flex items-start justify-between gap-3 mb-3"><div><h2 class="text-xl font-black mb-1">Ações plugadas</h2><p class="text-sm text-slate-500">Cada ação possui canal, KPIs, fluxo transversal, leads, score, conexão e resultado próprio.</p></div></div>${this._actionsListFilter(actions)}<div class="space-y-3">${this._filteredActionsList(actions)}</div></div></div>
+      <div class="grid lg:grid-cols-3 gap-4"><div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-1">Criar ação</h2><p class="text-sm text-slate-500 mb-4">Defina contexto operacional, origem, destino e base de leads.</p>${this._createTabs()}${App.state.actionCreateTab === 'ai' ? this._aiCreatePanel() : this._manualCreatePanel()}</div><div class="lg:col-span-2 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-3">Ações plugadas</h2>${this._actionsListFilter(actions)}<div class="space-y-3">${this._filteredActionsList(actions)}</div></div></div>
       ${ActionFlowModal.render()}
       ${window.ActionEditModal ? ActionEditModal.render() : ''}
       ${/* V32.4.1 (Geraldo Item 1) — DjowModal V16.3 aposentado. DjowAIModal global cobre. */ ''}
@@ -203,7 +203,6 @@ var ActionModule = {
               <button onclick="event.stopPropagation(); Actions.openDjowAIModal({ actionId: ${action.id}, seedPrompt: 'Crie uma tarefa para a ação atual: ' })" class="px-3 py-2 rounded-xl bg-slate-900 text-white font-bold text-[11px] border-2 ${areaIsConnected ? `border-${areaTone}-500` : ''} flex items-center justify-center gap-1.5" style="color:#fff!important; ${areaIsConnected ? '' : 'border-color: var(--lj-action);'}"><i data-lucide="sparkles" class="w-3 h-3"></i> Criar Tarefas</button>
               <button onclick="event.stopPropagation(); Actions.openTasksModal(${action.id})" class="px-3 py-2 rounded-xl bg-slate-900 text-white font-bold text-[11px] border-2 ${areaIsConnected ? `border-${areaTone}-500` : ''} flex items-center justify-center gap-1.5" style="color:#fff!important; ${areaIsConnected ? '' : 'border-color: var(--lj-action);'}"><i data-lucide="list-checks" class="w-3 h-3"></i> Ver Tarefas</button>
             </div>
-            ${this._executionStatusLine(action)}
           </div>
         </div>
         <div class="flex flex-wrap gap-2">${flow.path.map(stage => `<span class="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-black">${FlowResolutionEngine.label(stage)}</span>`).join('')}</div>
@@ -237,7 +236,8 @@ var ActionModule = {
     if (!area) return '';
     const cadences = StrategicMapEngine.STRATEGIC_ACTION_CADENCES || [];
     const statuses = StrategicMapEngine.STRATEGIC_ACTION_STATUSES || [];
-    const cadenceLabel = (cadences.find(c => c.id === action.strategicCadence) || {}).label || 'sem cadência';
+    // V38.1.54 — cadência só renderiza se o cliente setou. Sem setar = oculta.
+    const cadenceLabel = (cadences.find(c => c.id === action.strategicCadence) || {}).label || '';
     const status = (statuses.find(s => s.id === action.strategicStatus) || statuses[0] || { label: 'Planejada', color: 'slate' });
     const confirmed = action.strategicConfirmed;
 
@@ -248,18 +248,20 @@ var ActionModule = {
     const linkedKrs = (objective?.okrs || []).filter(kr => (kr.connectedActionIds || []).map(Number).includes(Number(action.id)));
     const linkedNames = linkedKrs.map(k => k.name);
     const tone = area.color;
+    // V38.1.54 — bolinha em vez de pílula CONFIRMADA/PENDENTE: verde se confirmada, âmbar se não.
+    const confirmDot = confirmed ? 'bg-emerald-500' : 'bg-amber-500';
+    const confirmTitle = confirmed ? 'Confirmada' : 'Pendente';
 
     return `<div class="rounded-2xl border-2 border-${tone}-200 bg-${tone}-50 p-3 flex flex-col gap-2">
       <div class="flex items-center justify-between gap-2 flex-wrap">
         <div class="flex items-center gap-2 flex-wrap">
-          <span class="px-2 py-1 rounded-full bg-${status.color}-100 text-${status.color}-800 border border-${status.color}-300 text-[10px] font-black">${Utils.escape(status.label).toUpperCase()}</span>
-          <span class="text-[11px] text-slate-700">⏱ ${Utils.escape(cadenceLabel)}</span>
+          <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-${status.color}-100 text-${status.color}-800 border border-${status.color}-300 text-[10px] font-black"><span title="${confirmTitle}" class="w-2 h-2 rounded-full ${confirmDot}"></span>${Utils.escape(status.label).toUpperCase()}</span>
+          ${cadenceLabel ? `<span class="text-[11px] text-slate-700">⏱ ${Utils.escape(cadenceLabel)}</span>` : ''}
           ${action.strategicOwner ? `<span class="text-[11px] text-slate-700">👤 ${Utils.escape(action.strategicOwner)}</span>` : ''}
-          ${confirmed ? '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-300 text-[10px] font-black">✓ CONFIRMADA</span>' : '<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-300 text-[10px] font-black">⚠ PENDENTE</span>'}
         </div>
-        ${productId ? `<button onclick="event.stopPropagation(); Actions.openActionOnMap(${productId}, ${action.id})" class="px-2 py-1 rounded-lg bg-white border border-${tone}-300 text-${tone}-700 text-[10px] font-black hover:bg-${tone}-100">Abrir no Mapa →</button>` : ''}
+        ${productId ? `<button onclick="event.stopPropagation(); Actions.openActionOnMap(${productId}, ${action.id})" class="px-2 py-1 rounded-lg bg-white border border-${tone}-300 text-${tone}-700 text-[10px] font-black hover:bg-${tone}-100">Ver no Mapa →</button>` : ''}
       </div>
-      ${linkedNames.length ? `<p class="text-[11px] text-slate-700"><b class="text-${tone}-800">🔗 Move:</b> ${linkedNames.map(n => Utils.escape(n)).join(' · ')}</p>` : '<p class="text-[11px] text-amber-700">⚠️ Nenhum número confirmado é movido por essa ação ainda.</p>'}
+      ${linkedNames.length ? `<p class="text-[11px] text-slate-700"><b class="text-${tone}-800">🔗 Move:</b> ${linkedNames.map(n => Utils.escape(n)).join(' · ')}</p>` : ''}
       ${action.strategicDescription && action.strategicDescription !== 'Ação custom criada via engine' ? `<p class="text-[11px] text-slate-500 italic">${Utils.escape(action.strategicDescription)}</p>` : ''}
     </div>`;
   },
@@ -270,6 +272,9 @@ var ActionModule = {
   },
 
   _actionsListFilter(actions) {
+    // V38.1.54 — só renderiza filtro quando há >= 5 ações. Com 1-4 ações,
+    // o filtro é só ruído (não tem o que filtrar de verdade).
+    if ((actions || []).length < 5) return '';
     const filter = App.state.actionsListFilter || 'all';
     const stages = window.FlowEngine ? FlowEngine.STAGE_PRESETS : [];
     const counts = {};

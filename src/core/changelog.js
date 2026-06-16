@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.54',
+    date: '2026-06-16',
+    title: 'Aba "Ações da campanha": 7 cortes do grupo C + validação de nome',
+    bullets: [
+      'O filtro "Filtrar por etapa inicial" agora só aparece quando a campanha tem 5+ ações. Com 1-4 ações o filtro era só ruído (não tinha o que filtrar de verdade).',
+      'A linha pequena "Execução: X para executar - Y executadas" que aparecia abaixo do botão Ver Tarefas saiu. O modal de Tarefas já mostra o estado completo.',
+      'A tag "⏱ sem cadência" só aparece agora quando a ação tem cadência setada. Sem cadência configurada, a tag fica oculta.',
+      'A pílula colorida "✓ CONFIRMADA" / "⚠ PENDENTE" virou uma bolinha pequena (verde ou âmbar) ao lado do status. Mesmo sinal, sem ocupar uma pílula inteira.',
+      'O warning "⚠️ Nenhum número confirmado é movido por essa ação ainda" foi removido. Quando a ação tem KR vinculado, mostra "🔗 Move: nome do KR" normalmente. Quando não tem, o card fica limpo (o atalho "Ver no Mapa →" já permite plugar).',
+      'O subtítulo educativo "Cada ação possui canal, KPIs, fluxo transversal, leads, score, conexão e resultado próprio" foi removido da seção "Ações plugadas". Tutorial passivo que cumpriu seu papel.',
+      'O botão "Abrir no Mapa →" foi renomeado pra "Ver no Mapa →" — só pra distinguir do botão "Conectar ao Mapa" que aparece quando a ação ainda não está vinculada a uma área estratégica.',
+      'Validação reforçada: ao criar ou editar uma ação, o LJ bloqueia nomes com menos de 3 caracteres e placeholders genéricos ("Ação sem nome", "Sem nome", "Untitled", "Nova ação"). Também adicionado guard equivalente no tool create_action do Djow pra evitar que ações geradas via IA caiam como "Ação sem nome".'
+    ]
+  },
+  {
     version: 'V38.1.53',
     date: '2026-06-16',
     title: 'Aba "Ações da campanha": limpeza do grupo B + nova aba "Plugins"',

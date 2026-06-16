@@ -469,6 +469,10 @@ async function execTool(name, input, state, ctx) {
             return { error: `Campo "${f}" é obrigatório` };
           }
         }
+        // V38.1.54 — rejeita placeholders de nome óbvios pra forçar Djow a inferir nome real.
+        const cleanName = String(input.name || '').trim();
+        if (cleanName.length < 3) return { error: 'Nome da ação muito curto — descreva o que ela faz (ex: "Post Instagram Ebook MOF").' };
+        if (/^(a[çc][aã]o\s+sem\s+nome|sem\s+nome|untitled|nova\s+a[çc][aã]o)$/i.test(cleanName)) return { error: 'Não use placeholder "Ação sem nome". Infira um nome descritivo do contexto.' };
         const campaign = (state.campaigns || []).find(c => Number(c.id) === Number(input.campaignId));
         if (!campaign) return { error: `Campanha id=${input.campaignId} não existe.` };
         const action = {
