@@ -39,8 +39,8 @@ var ProductsModule = {
             <input value="${Utils.escape(draft.name || '')}" oninput="Actions.updateNewProductWithMapaField('name', this.value)" autofocus placeholder="Ex: Diagnóstico Comercial" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900" />
           </div>
           <div>
-            <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Tipo de produto <span class="text-slate-400 font-normal">(opcional, dá pra editar depois)</span></label>
-            <input value="${Utils.escape(draft.type || '')}" oninput="Actions.updateNewProductWithMapaField('type', this.value)" placeholder="Ex: Consultoria, SaaS, Curso" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900" />
+            <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Audiência (ICP)</label>
+            ${this._mapaPopupAudienceButton(draft)}
           </div>
           <div>
             <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Recorrência</label>
@@ -218,6 +218,23 @@ var ProductsModule = {
         </div>
       </div>
     </div>`;
+  },
+
+  // V38.1.38 — Botão de Audiência no popup "Criar Produto com Mapa".
+  // Mesmo padrão do form sem-mapa: pré-submit, salva em popup.audience.
+  _mapaPopupAudienceButton(draft) {
+    const a = (draft && draft.audience) || null;
+    if (a && a.configured) {
+      const tags = [a.modeloNegocio, a.modeloOperacional].filter(Boolean).map(s => String(s).toUpperCase()).join(' · ');
+      return `<button onclick="Actions.openAudienceWizardForMapaPopup()" class="mt-1 w-full px-4 py-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50 text-emerald-900 font-black text-sm text-left flex items-center justify-between gap-2 hover:bg-emerald-100 transition">
+        <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="target" class="w-4 h-4 shrink-0"></i><span class="truncate">ICP ${Utils.escape(tags)}</span></span>
+        <span class="text-xs font-bold opacity-70 shrink-0">Editar</span>
+      </button>`;
+    }
+    return `<button onclick="Actions.openAudienceWizardForMapaPopup()" class="mt-1 w-full px-4 py-3 rounded-2xl border-2 border-amber-300 bg-amber-50 text-amber-900 font-black text-sm text-left flex items-center justify-between gap-2 hover:bg-amber-100 transition">
+      <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i><span class="truncate">Definir audiência</span></span>
+      <span class="text-xs font-bold opacity-70 shrink-0">Obrigatório</span>
+    </button>`;
   },
 
   // V38.1.37 — Botão de Audiência no form "Criar Produto sem Mapa".

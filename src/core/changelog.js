@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.38',
+    date: '2026-06-16',
+    title: 'Popup "Criar Produto com Mapa": botão "Definir audiência" no lugar do Tipo de produto',
+    bullets: [
+      'Mesmo padrão da V38.1.37 agora no popup estratégico-primeiro ("Criar Produto com Mapa da Receita"). O campo opcional "Tipo de produto" dá lugar a um botão "Definir audiência (ICP)" — obrigatório, no padrão amber/emerald.',
+      'Fluxo: nomeia o produto, define o ICP pelo botão (wizard de 5 passos), aí o botão "Criar e ir pra Visão" cria o produto e abre direto na etapa Visão do Mapa.',
+      'Se clicar em "Criar e ir pra Visão" sem ter definido a audiência, o wizard abre como fallback antes da criação (regra hard bloqueante da V38.1.36 mantida).',
+      'Os 3 caminhos de criação de produto agora têm o mesmo tratamento de ICP: form sem Mapa, popup com Mapa, e edição de produto legacy pelo card.'
+    ]
+  },
+  {
     version: 'V38.1.37',
     date: '2026-06-16',
     title: 'Form "Criar Produto sem Mapa": botão "Definir audiência" no lugar do campo Tipo',
