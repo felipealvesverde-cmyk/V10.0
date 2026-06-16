@@ -1698,7 +1698,11 @@ Object.assign(Actions, {
   // Lead Import Wizard. Ações antigas com leads[] preservadas no normalize.
   createAction() {
     const d = App.state.actionDraft;
-    if (!d.name.trim()) return Utils.toast('Digite o nome da ação.');
+    const cleanName = String(d.name || '').trim();
+    if (!cleanName) return Utils.toast('Digite o nome da ação.');
+    // V38.1.54 — rejeita placeholders óbvios pra não cair "Ação sem nome" no card.
+    if (cleanName.length < 3) return Utils.toast('Nome da ação muito curto — descreva o que ela faz.');
+    if (/^(a[çc][aã]o\s+sem\s+nome|sem\s+nome|untitled|nova\s+a[çc][aã]o)$/i.test(cleanName)) return Utils.toast('Dê um nome real à ação (ex: "Post Instagram Ebook MOF").');
     const sector = d.sector || 'Marketing';
     const funnel = d.funnel || 'MOF';
     const originSector = d.originSector || sector;
@@ -1938,7 +1942,12 @@ Object.assign(Actions, {
       App.save(); App.render();
       return;
     }
-    if (!String(draft.name || '').trim()) return Utils.toast('Digite o nome da ação.');
+    {
+      const cleanName = String(draft.name || '').trim();
+      if (!cleanName) return Utils.toast('Digite o nome da ação.');
+      if (cleanName.length < 3) return Utils.toast('Nome da ação muito curto — descreva o que ela faz.');
+      if (/^(a[çc][aã]o\s+sem\s+nome|sem\s+nome|untitled|nova\s+a[çc][aã]o)$/i.test(cleanName)) return Utils.toast('Dê um nome real à ação.');
+    }
     const originSector = draft.originSector || draft.sector || 'Marketing';
     const originFunnel = draft.originFunnel || draft.funnel || 'MOF';
     const destinationSector = draft.destinationSector || originSector;
