@@ -170,17 +170,15 @@ var ActionModule = {
     })();
 
     return `<div class="lj-entity-card relative p-4 rounded-3xl bg-slate-50 border border-slate-100 ${areaIsConnected ? `border-l-4 ${borderLeftStyle}` : 'border-l-4'}" ${borderLeftInline}>
+      <!-- V38.1.56 — Engrenagem de volta ao canto superior direito do card.
+           A coluna direita reserva pt-10 no botão Roadmap pra não ser sobreposto. -->
+      <button onclick="event.stopPropagation(); Actions.openActionEditModal(${action.id})" title="Editar Ação" aria-label="Editar Ação" class="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm"><i data-lucide="settings" class="w-4 h-4"></i></button>
       <div class="flex flex-col gap-4">
         <div class="lj-entity-card-grid">
-          <!-- V38.1.55 — Engrenagem migrou pra dentro do flex (header da coluna 1) ao
-               invés de absolute top-3 right-3, que atropelava o botão Roadmap. -->
-          <div class="lj-entity-copy">
-            <div class="flex items-start justify-between gap-2 mb-1">
-              <p class="text-[10px] font-black uppercase tracking-widest" style="color: ${labelColor};">
-                Ação${areaIsConnected ? ` · ${Utils.escape(action.strategicAreaId === 'cs' ? 'CS' : action.strategicAreaId === 'sales' ? 'Vendas' : 'Marketing')}` : ' · sem área'}
-              </p>
-              <button onclick="event.stopPropagation(); Actions.openActionEditModal(${action.id})" title="Editar Ação" aria-label="Editar Ação" class="shrink-0 w-8 h-8 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm"><i data-lucide="settings" class="w-3.5 h-3.5"></i></button>
-            </div>
+          <div class="lj-entity-copy pr-14 lg:pr-0">
+            <p class="text-[10px] font-black uppercase tracking-widest mb-1" style="color: ${labelColor};">
+              Ação${areaIsConnected ? ` · ${Utils.escape(action.strategicAreaId === 'cs' ? 'CS' : action.strategicAreaId === 'sales' ? 'Vendas' : 'Marketing')}` : ' · sem área'}
+            </p>
             <div class="flex items-start gap-3">
               <div class="w-3 h-3 rounded-full mt-2 ${visual.dotClass} shrink-0"></div>
               <div class="min-w-0 flex-1">
