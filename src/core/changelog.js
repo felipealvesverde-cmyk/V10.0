@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.35',
+    date: '2026-06-16',
+    title: 'Roadmap da Campanha — header novo + KPIs do topo realinhados',
+    bullets: [
+      'Modal "Fluxo Total da Campanha" virou "Roadmap" — nome que reflete melhor o que ele é: o trajeto operacional da campanha do impacto à conversão final.',
+      'KPI "Leads Impactados" agora é "Leads Totais da Campanha" — alimentado pela importação do RD.',
+      'KPI "Leads Convertidos" virou "Marketing → Vendas" com a paleta semântica do LJ (Marketing rosa, Vendas teal). Conta só os leads que cruzaram o handoff entre os dois setores no funil da campanha.',
+      'KPI "Oportunidades" virou "Vendas → CS" com Vendas teal e CS azul. Conta os leads que cruzaram esse handoff.',
+      'KPI "Conversão Total" virou "ICP" com esqueleto layered Indicador C/B/A (Público-alvo / ICP / Buyer Persona). Valores ainda vazios — Djow vai preencher quando o quadro for definido.'
+    ]
+  },
+  {
     version: 'V38.1.34',
     date: '2026-06-15',
     title: 'Modal de Editar Campanha enxuto: Produto + Nome + Status',
