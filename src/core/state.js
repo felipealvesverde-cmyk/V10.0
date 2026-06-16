@@ -702,6 +702,7 @@ var State = {
       leadDraft: { name: '', phone: '', email: '', idade: '', estado: '', cidade: '', estadoCivil: '', sexo: '', faixaSalarial: '', tags: '' },
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' },
+      audienceWizard: null,
       okrDraft: { objective: '', keyResult: '', target: '', unit: 'R$', owner: '', deadline: '', status: 'Em andamento' },
       kpiDraft: { name: '', metric: 'revenue', scope: 'global', productId: null, target: '', unit: 'R$', frequency: 'Semanal', source: 'Automático pelo Revenue Engine', relatedOkrId: null },
       campaignDraft: { name: '', objective: '', productId: null, owner: '', sector: 'Marketing' },
@@ -1447,6 +1448,7 @@ var State = {
         if (looksLikeEmail(merged.name)) merged.name = '';
         return merged;
       })(),
+      audienceWizard: (raw.audienceWizard && typeof raw.audienceWizard === 'object' && raw.audienceWizard.open) ? raw.audienceWizard : null,
       okrDraft: { ...base.okrDraft, ...(raw.okrDraft || {}) },
       kpiDraft: { ...base.kpiDraft, ...(raw.kpiDraft || {}), productId: raw.kpiDraft?.productId || selectedProductId || null, relatedOkrId: raw.kpiDraft?.relatedOkrId || raw.selectedOkrId || null },
       campaignDraft: { ...base.campaignDraft, ...(raw.campaignDraft || {}), productId: raw.campaignDraft?.productId || selectedProductId },

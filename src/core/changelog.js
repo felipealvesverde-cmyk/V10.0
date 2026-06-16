@@ -18,6 +18,30 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.36',
+    date: '2026-06-16',
+    title: 'Definir Audiência — wizard de ICP obrigatório no nascimento do produto',
+    bullets: [
+      'Produto agora nasce com audiência (ICP) definida. Tentou criar um produto pelo form ou pelo "Criar com Mapa"? O LJ abre um wizard de 5 passos antes — sem ele, o produto não é criado.',
+      'Passo 1: mini aula sobre as 3 camadas (Público-Alvo / ICP / Buyer Persona). Passo 2: escolha do Modelo de Negócio (B2B, B2C, B2B2C, C2C). Passo 3: Modelo Operacional (SaaS, E-commerce, Agência, Marketplace, Freemium). Passo 4: o Djow vai sugerir um quadro de PA/ICP/BP pré-preenchido (em breve — KB sendo construída). Passo 5: revisão e salvar.',
+      'Produto com audiência definida ganha badge verde "ICP · B2B · SAAS" no header do card e um atalho "Editar audiência" abaixo da saúde. Produto sem audiência (legacy) recebe badge âmbar "ICP não definido" e CTA bloqueante pra configurar.',
+      'O wizard é o mesmo nos 2 caminhos de criação (form direto e popup do Mapa da Receita) — fonte única.',
+      'Próximo passo (não está vivo ainda): Djow cruzando modelo + descrição do produto + leads importados do RD pra sugerir o quadro completo de PA/ICP/BP automaticamente.'
+    ]
+  },
+  {
+    version: 'V38.1.35',
+    date: '2026-06-16',
+    title: 'Roadmap da Campanha — header novo + KPIs do topo realinhados',
+    bullets: [
+      'Modal "Fluxo Total da Campanha" virou "Roadmap" — nome que reflete melhor o que ele é: o trajeto operacional da campanha do impacto à conversão final.',
+      'KPI "Leads Impactados" agora é "Leads Totais da Campanha" — alimentado pela importação do RD.',
+      'KPI "Leads Convertidos" virou "Marketing → Vendas" com a paleta semântica do LJ (Marketing rosa, Vendas teal). Conta só os leads que cruzaram o handoff entre os dois setores no funil da campanha.',
+      'KPI "Oportunidades" virou "Vendas → CS" com Vendas teal e CS azul. Conta os leads que cruzaram esse handoff.',
+      'KPI "Conversão Total" virou "ICP" com esqueleto layered Indicador C/B/A (Público-alvo / ICP / Buyer Persona). Valores ainda vazios — Djow vai preencher quando o quadro for definido.'
+    ]
+  },
+  {
     version: 'V38.1.34',
     date: '2026-06-15',
     title: 'Modal de Editar Campanha enxuto: Produto + Nome + Status',
