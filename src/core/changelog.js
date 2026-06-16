@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.57',
+    date: '2026-06-16',
+    title: 'Roadmap do card de Ação agora é atalho discreto, igual ao card de Campanha',
+    bullets: [
+      'O botão Roadmap no card de ação estava como botão grande slate-900 no topo da coluna direita. Agora virou atalho discreto (link cinza pequeno com ícone de mapa, igual ao botão "Roadmap" que existe no card de Campanha).',
+      'Posicionado no rodapé do card, alinhado à direita, na mesma linha das pílulas de etapas do fluxo. Acima do bloco estratégico colorido, conforme o pedido.'
+    ]
+  },
+  {
     version: 'V38.1.56',
     date: '2026-06-16',
     title: 'Engrenagem do card de ação volta pro canto superior direito',
