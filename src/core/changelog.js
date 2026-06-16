@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.39',
+    date: '2026-06-16',
+    title: 'Motor de Fusão de Audiência — Djow monta o quadro PA/ICP/BP em runtime',
+    bullets: [
+      'O Step 3 do wizard "Definir Audiência" deixou de ser placeholder. Agora o LJ funde modelo de negócio + modelo operacional em runtime e mostra os 3 quadros (Público-Alvo / ICP / Buyer Persona) com os campos esperados em cada camada.',
+      'Cada campo tem badge de tipo (FIT = exige bater critério; DADO = só precisa existir) e tooltip explicando origem do dado, critério e por que aquele campo importa naquela combinação.',
+      'O motor já cobre as 20 combinações dos 4 modelos de Negócio (B2B/B2C/B2B2C/C2C) com os 5 Operacionais (SaaS/E-commerce/Agência/Marketplace/Freemium) — inclusive as raras tipo B2C+SaaS, que o motor ajusta sozinho (remove "cargo decisor" porque o consumidor é o próprio decisor).',
+      'Combinações esquisitas como B2C+Agência ou C2C sem Marketplace recebem aviso amber no topo do quadro: "essa combinação é incomum, confirma?". Marketplace recebe aviso azul lembrando que ele impõe 2 lados sobre o negócio.',
+      'Ao salvar, o produto guarda o schema completo (snapshot) com a contagem de obrigatórios por camada. Threshold default 80%. Próximo passo (onda 2): Djow vai ler seus leads do RD e propor refinamentos personalizados em cima desse quadro.'
+    ]
+  },
+  {
     version: 'V38.1.38',
     date: '2026-06-16',
     title: 'Popup "Criar Produto com Mapa": botão "Definir audiência" no lugar do Tipo de produto',

@@ -1290,10 +1290,30 @@ Object.assign(Actions, {
   audienceWizardFinish() {
     const w = App.state.audienceWizard;
     if (!w || !w.open) return;
+    // V38.1.39 — Funde via AudienceFusionEngine pra salvar schema completo
+    // (snapshot, não delta — flag customized: false até cliente editar).
+    let schema = null;
+    if (window.AudienceFusionEngine && w.modeloNegocio && w.modeloOperacional) {
+      const fused = AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional);
+      if (fused.ok) {
+        schema = {
+          pa: fused.pa,
+          icp: fused.icp,
+          bp: fused.bp,
+          unidade: fused.unidade,
+          bilateral: fused.bilateral,
+          requiredCounts: fused.requiredCounts,
+          notas: fused.notas
+        };
+      }
+    }
     const audience = {
       configured: true,
       modeloNegocio: w.modeloNegocio,
       modeloOperacional: w.modeloOperacional,
+      schema,
+      customized: false,
+      // Retrocompat (V38.1.36) — arrays vazios até a próxima onda permitir custom
       quadroPA: Array.isArray(w.quadroPA) ? w.quadroPA : [],
       quadroICP: Array.isArray(w.quadroICP) ? w.quadroICP : [],
       quadroBP: Array.isArray(w.quadroBP) ? w.quadroBP : []

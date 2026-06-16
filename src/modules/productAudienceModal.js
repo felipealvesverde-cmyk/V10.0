@@ -145,35 +145,87 @@ var ProductAudienceModal = {
   },
 
   _step3(w) {
-    const negocio = this.BUSINESS_MODELS.find(m => m.id === w.modeloNegocio);
-    const operacional = this.OPERATIONAL_MODELS.find(m => m.id === w.modeloOperacional);
-    return `<div class="space-y-5">
-      <div class="rounded-2xl bg-slate-100 border border-slate-200 p-4 flex items-center gap-3 flex-wrap">
-        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Combinação escolhida</span>
-        <span class="px-3 py-1 rounded-full bg-white border border-violet-300 text-violet-700 text-xs font-black">${negocio?.label || '?'}</span>
+    if (!window.AudienceFusionEngine) {
+      return `<div class="rounded-2xl bg-amber-50 border border-amber-300 p-4 text-sm text-amber-900">Motor de fusão de audiência não carregado. Recarregue a página.</div>`;
+    }
+    const fused = AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional);
+    if (!fused.ok) {
+      return `<div class="rounded-2xl bg-rose-50 border border-rose-300 p-4 text-sm text-rose-900">${Utils.escape(fused.error || 'Erro ao montar quadro.')}</div>`;
+    }
+    const notasHtml = (fused.notas || []).map(n => {
+      const toneByOrigin = { negocio: 'violet', operacional: 'pink', marketplace: 'sky', incompatibilidade: 'amber' };
+      const tone = toneByOrigin[n.origem] || 'slate';
+      const iconByOrigin = { negocio: 'briefcase', operacional: 'package', marketplace: 'split', incompatibilidade: 'alert-triangle' };
+      const icon = iconByOrigin[n.origem] || 'info';
+      return `<div class="rounded-xl bg-${tone}-50 border border-${tone}-200 border-l-4 border-l-${tone}-500 px-3 py-2 flex items-start gap-2">
+        <i data-lucide="${icon}" class="w-3.5 h-3.5 text-${tone}-700 mt-0.5 shrink-0"></i>
+        <p class="text-xs text-${tone}-900 leading-relaxed">${Utils.escape(n.texto)}</p>
+      </div>`;
+    }).join('');
+
+    return `<div class="space-y-4">
+      <div class="rounded-2xl bg-slate-100 border border-slate-200 p-3 flex items-center gap-2 flex-wrap">
+        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Combinação</span>
+        <span class="px-2.5 py-0.5 rounded-full bg-white border border-violet-300 text-violet-700 text-[11px] font-black">${Utils.escape(fused.negocioLabel)}</span>
         <span class="text-slate-400">×</span>
-        <span class="px-3 py-1 rounded-full bg-white border border-violet-300 text-violet-700 text-xs font-black">${operacional?.label || '?'}</span>
+        <span class="px-2.5 py-0.5 rounded-full bg-white border border-pink-300 text-pink-700 text-[11px] font-black">${Utils.escape(fused.operacionalLabel)}</span>
+        <span class="text-slate-300">|</span>
+        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Unidade</span>
+        <span class="px-2.5 py-0.5 rounded-full bg-white border border-slate-300 text-slate-700 text-[11px] font-black">${Utils.escape(fused.unidade)}</span>
       </div>
-      <div class="rounded-2xl bg-gradient-to-br from-violet-50 to-pink-50 border border-violet-200 border-l-4 border-l-violet-600 p-6">
-        <div class="flex items-center gap-2 mb-3">
-          <i data-lucide="sparkles" class="w-4 h-4 text-violet-700"></i>
-          <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">Djow vai sugerir aqui</p>
-        </div>
-        <p class="text-sm text-slate-700 leading-relaxed">Nesta etapa o <b>Djow</b> cruza o modelo de negócio, o modelo operacional, a descrição do produto e os leads já importados do RD pra propor um quadro inicial com os campos esperados em cada camada (PA / ICP / BP).</p>
-        <p class="text-sm text-slate-600 leading-relaxed mt-3">Você poderá editar, adicionar e remover campos, e o Djow valida se faz sentido no contexto.</p>
-        <div class="mt-4 px-4 py-3 rounded-xl bg-white border border-amber-200 border-l-4 border-l-amber-500">
-          <p class="text-xs font-black text-amber-800">⏳ Aguardando base de conhecimento</p>
-          <p class="text-xs text-slate-600 mt-1 leading-relaxed">A base de conhecimento do Djow pra este passo está sendo construída. Por enquanto você pode avançar — o quadro fica em branco e o produto nasce com os modelos escolhidos. O Djow vai sugerir o quadro completo assim que a KB for ativada.</p>
+
+      ${notasHtml ? `<div class="space-y-1.5">${notasHtml}</div>` : ''}
+
+      <div class="grid md:grid-cols-3 gap-3">
+        ${this._layerColumn('C', 'Público-Alvo',  fused.pa,  fused.requiredCounts.pa,  'violet')}
+        ${this._layerColumn('B', 'ICP',           fused.icp, fused.requiredCounts.icp, 'pink')}
+        ${this._layerColumn('A', 'Buyer Persona', fused.bp,  fused.requiredCounts.bp,  'amber')}
+      </div>
+
+      <div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 px-4 py-3 flex items-start gap-2">
+        <i data-lucide="sparkles" class="w-4 h-4 text-violet-700 mt-0.5 shrink-0"></i>
+        <div class="text-xs text-violet-900 leading-relaxed">
+          <p><b>Djow montou o esqueleto.</b> ${fused.requiredCounts.pa} campos obrigatórios no PA, ${fused.requiredCounts.icp} no ICP, ${fused.requiredCounts.bp} no BP. Threshold 80% por camada.</p>
+          <p class="mt-1 text-violet-700">Em breve: o Djow vai ler seus leads do RD e propor refinamentos personalizados pro seu produto.</p>
         </div>
       </div>
+    </div>`;
+  },
+
+  _layerColumn(tag, title, fields, requiredCount, tone) {
+    const items = (fields || []).map(f => {
+      const tagBadge = f.type === 'fit'
+        ? `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200 shrink-0">FIT</span>`
+        : `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 shrink-0">DADO</span>`;
+      const optionalBadge = f.optional
+        ? `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200 shrink-0">OPC</span>`
+        : '';
+      const tooltip = (f.tooltip || '') + (f.criterio ? ' Critério: ' + f.criterio : '') + (f.inferenciaRd ? ' Origem: ' + f.inferenciaRd : '');
+      return `<div title="${Utils.escape(tooltip)}" class="rounded-xl bg-white border border-slate-200 px-2.5 py-2 flex items-center gap-1.5">
+        <span class="text-[11px] font-bold text-slate-700 truncate flex-1">${Utils.escape(f.label || f.key)}</span>
+        ${optionalBadge}
+        ${tagBadge}
+      </div>`;
+    }).join('');
+    return `<div class="rounded-2xl bg-${tone}-50/40 border border-${tone}-200 border-l-4 border-l-${tone}-500 p-3">
+      <div class="flex items-center gap-1.5 mb-2">
+        <span class="w-5 h-5 rounded-md bg-${tone}-100 text-${tone}-700 grid place-items-center text-[10px] font-black">${tag}</span>
+        <p class="text-[11px] font-black text-${tone}-900 uppercase tracking-widest">${title}</p>
+        <span class="ml-auto text-[10px] font-black text-${tone}-700">${requiredCount} obrig.</span>
+      </div>
+      <div class="space-y-1.5">${items || `<p class="text-[10px] text-slate-400 italic">Sem campos.</p>`}</div>
     </div>`;
   },
 
   _step4(w) {
     const negocio = this.BUSINESS_MODELS.find(m => m.id === w.modeloNegocio);
     const operacional = this.OPERATIONAL_MODELS.find(m => m.id === w.modeloOperacional);
+    const fused = (window.AudienceFusionEngine && w.modeloNegocio && w.modeloOperacional)
+      ? AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional)
+      : null;
+    const counts = fused?.requiredCounts || { pa: 0, icp: 0, bp: 0 };
     return `<div class="space-y-5">
-      <p class="text-sm text-slate-600">Confirme os modelos antes de salvar.</p>
+      <p class="text-sm text-slate-600">Confirme antes de salvar.</p>
       <div class="grid md:grid-cols-2 gap-3">
         <div class="rounded-2xl bg-white border border-slate-200 border-l-4 border-l-violet-600 p-4">
           <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-1">Modelo de Negócio</p>
@@ -186,8 +238,25 @@ var ProductAudienceModal = {
           <p class="text-xs text-slate-500 mt-1">${operacional?.tagline || ''}</p>
         </div>
       </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 p-3 text-center">
+          <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">PA</p>
+          <p class="font-black text-2xl text-slate-900 mt-0.5">${counts.pa}</p>
+          <p class="text-[10px] text-slate-500">obrigatórios</p>
+        </div>
+        <div class="rounded-2xl bg-pink-50 border border-pink-200 border-l-4 border-l-pink-500 p-3 text-center">
+          <p class="text-[10px] font-black text-pink-700 uppercase tracking-widest">ICP</p>
+          <p class="font-black text-2xl text-slate-900 mt-0.5">${counts.icp}</p>
+          <p class="text-[10px] text-slate-500">obrigatórios</p>
+        </div>
+        <div class="rounded-2xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500 p-3 text-center">
+          <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest">BP</p>
+          <p class="font-black text-2xl text-slate-900 mt-0.5">${counts.bp}</p>
+          <p class="text-[10px] text-slate-500">obrigatórios</p>
+        </div>
+      </div>
       <div class="rounded-2xl bg-emerald-50 border border-emerald-200 border-l-4 border-l-emerald-600 p-4">
-        <p class="text-xs text-emerald-900 leading-relaxed"><b>Pronto.</b> Ao salvar, o produto será marcado com a badge <b>"ICP CONFIGURADO"</b>. Você pode editar a audiência depois pelo mesmo botão no card do produto.</p>
+        <p class="text-xs text-emerald-900 leading-relaxed"><b>Pronto.</b> Ao salvar, o produto ganha o quadro de audiência completo e a badge <b>"ICP CONFIGURADO"</b>. Threshold default 80% por camada. Você pode editar a audiência depois pelo mesmo botão no card.</p>
       </div>
     </div>`;
   }
