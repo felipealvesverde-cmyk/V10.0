@@ -1024,6 +1024,12 @@ var Actions = {
         App.save(); App.render();
         Utils.toast('Perfil limpo.');
       },
+      // V38.1.42 — Filtro de camada de audiência (Suspect/PA/ICP/BP) na lista de leads.
+      setLeadAudienceFilter(layer) {
+        const valid = ['all','lj-suspect','lj-pa','lj-icp','lj-bp'];
+        App.state.leadAudienceFilter = valid.includes(layer) ? layer : 'all';
+        App.save(); App.render();
+      },
       // V37.0.9 — Sem mais preencher leadsText/leadInputMode/rdListName/scoreId
       // no draft (mailing inline removido). Cliente cria a ação a partir do
       // perfil e anexa base depois pelo Lead Import Wizard se quiser.

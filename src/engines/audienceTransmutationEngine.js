@@ -295,6 +295,50 @@ var AudienceTransmutationEngine = {
     };
   },
 
+  // V38.1.42 — Helper pra UI de leads: descobre o produto de referência e
+  // transmuta o lead contra o schema dele. Retorna null se não houver produto
+  // com audiência configurada.
+  // productHint: id de produto preferencial; se nulo/sem audiência, busca o
+  // primeiro produto com audience.configured no tenant.
+  getLayerForLead(lead, productHint) {
+    if (!lead || !window.App?.state) return null;
+    const products = App.state.products || [];
+    let product = null;
+    if (productHint) {
+      product = products.find(p => Number(p.id) === Number(productHint) && p.audience?.configured && p.audience?.schema);
+    }
+    if (!product) {
+      product = products.find(p => p.audience?.configured && p.audience?.schema);
+    }
+    if (!product) return null;
+    const r = this.transmute(lead, product.audience.schema, product.audience.threshold);
+    return r ? { ...r, productId: product.id, productName: product.name } : null;
+  },
+
+  // Sumário multi-lead contra um produto. Mais barato que somar summarize() porque
+  // recebe a lista de leads diretamente (sem precisar derivar das ações do produto).
+  summarizeLeadsAgainstProduct(leads, productHint) {
+    const products = App.state?.products || [];
+    let product = null;
+    if (productHint) {
+      product = products.find(p => Number(p.id) === Number(productHint) && p.audience?.configured && p.audience?.schema);
+    }
+    if (!product) {
+      product = products.find(p => p.audience?.configured && p.audience?.schema);
+    }
+    if (!product) return null;
+    const out = { total: leads.length, suspect: 0, pa: 0, icp: 0, bp: 0, productId: product.id, productName: product.name };
+    for (const lead of leads) {
+      const r = this.transmute(lead, product.audience.schema, product.audience.threshold);
+      if (!r) continue;
+      if (r.layer === 'lj-suspect') out.suspect++;
+      else if (r.layer === 'lj-pa')  out.pa++;
+      else if (r.layer === 'lj-icp') out.icp++;
+      else if (r.layer === 'lj-bp')  out.bp++;
+    }
+    return out;
+  },
+
   // Helpers de agregação por produto — usados pelo card + Saúde
   // Retorna {total, suspect, pa, icp, bp, paOnly, icpOnly, bpReached}
   summarize(productId) {
