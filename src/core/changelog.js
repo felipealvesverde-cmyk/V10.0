@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.42',
+    date: '2026-06-16',
+    title: 'Transmutador chega na tela de Leads — badge na pessoa + filtro PA/ICP/BP',
+    bullets: [
+      'Cada card de lead na lista agora carrega uma badge da camada de audiência: SUSPECT cinza, PA violeta, ICP rosa, BP amber. Hover na badge mostra os percentuais por camada (ex: "PA 100% · ICP 75% · BP 50%").',
+      'Apareceu uma chip-bar acima da lista: Todos · Suspect · PA · ICP · BP, cada um com sua contagem. Clica e a lista filtra. O contexto é "audiência vs o produto selecionado" — se nenhum produto selecionado, usa o primeiro com audiência configurada.',
+      'O filtro respeita o Buscador de Perfil: você pode buscar "Carlos, agência, alta intenção" e depois clicar PA/ICP/BP pra cortar mais fino.',
+      'Se nenhum produto tem audiência configurada ainda, a chip-bar e as badges não aparecem — fica invisível até o cliente fechar o primeiro wizard.'
+    ]
+  },
+  {
     version: 'V38.1.41',
     date: '2026-06-16',
     title: 'Transmutador de Audiência — leads carimbam Suspect / PA / ICP / BP automaticamente (Onda 3)',
