@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.41',
+    date: '2026-06-16',
+    title: 'Transmutador de Audiência — leads carimbam Suspect / PA / ICP / BP automaticamente (Onda 3)',
+    bullets: [
+      'Cada lead vinculado às campanhas de um produto agora passa por uma transmutação automática contra o quadro de audiência configurado: o LJ confere quanto da camada PA, ICP e BP o lead preenche e carimba a tag certa (lj-suspect / lj-pa / lj-icp / lj-bp).',
+      'A régra do acúmulo é respeitada: ICP só atinge se PA também atingiu o limiar de 80%. BP só se ICP também. Não dá pra pular camada.',
+      'Distinção fit vs dado: campo "fit" só conta se o dado existe E bate o critério (ex: cargo "Estagiário" não satisfaz "cargo decisor"); campo "dado" basta existir.',
+      'O card do produto agora mostra uma barra empilhada com a distribuição da audiência: ex: "Audiência (24 leads): Suspect 10 · PA 8 · ICP 4 · BP 2". Cliente vê em tempo real onde a base está concentrada.',
+      'Inferência vem 100% do que o RD Station já traz (cargo, segmento, score, tags, oportunidades, qualificação) + dados acumulados no LJ. Sem enrichment externo. Próximo passo: rerender automático no webhook do RD pra carimbo nunca ficar velho.'
+    ]
+  },
+  {
     version: 'V38.1.40',
     date: '2026-06-16',
     title: 'Djow analisando o quadro de audiência (Onda 2)',
