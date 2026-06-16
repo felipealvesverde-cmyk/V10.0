@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.44',
+    date: '2026-06-16',
+    title: 'Quadro de Audiência: enxuga, funde Step 4 e libera campos custom',
+    bullets: [
+      'Wizard de Audiência agora tem 4 passos em vez de 5: o passo "Finalizar" foi fundido com o "Quadro de Audiência" — a contagem de obrigatórios já estava visível nos chips de cada camada, então a tela de revisão extra virou clique perdido.',
+      'No card do BP, o campo "Comportamento de compra" foi encurtado pra "Comportamento" — antes truncava (...). Agora cabe na coluna em todas as resoluções.',
+      'As notas semânticas do quadro (regras de Negócio e Operacional) viraram um acordeão "Ver regras desta combinação" que abre embaixo do chip de combinação. Só a nota AMBER de incompatibilidade fica visível por padrão — ela exige ação do cliente.',
+      'Cada camada do quadro (PA / ICP / BP) ganhou botão "+ Campo custom" no rodapé. Cliente pode adicionar campos próprios pro Djow considerar — pergunta se é FIT (precisa bater critério) ou DADO (basta existir), e se é obrigatório ou opcional. Custom fields são salvos no produto e mesclam no schema final.',
+      'Campos custom aparecem com borda violet sutil pra distinguir do padrão e podem ser removidos com ×.'
+    ]
+  },
+  {
     version: 'V38.1.43',
     date: '2026-06-16',
     title: 'ICP integra com entityType + drill-down "por que esse lead virou X"',

@@ -43,22 +43,23 @@ var ProductAudienceModal = {
           ${step === 1 ? this._step1(w) : ''}
           ${step === 2 ? this._step2(w) : ''}
           ${step === 3 ? this._step3(w) : ''}
-          ${step === 4 ? this._step4(w) : ''}
         </div>
         ${this._footer(w, step)}
       </div>
     </div>`;
   },
 
+  // V38.1.44 — Steps 3 e 4 fundidos (Step 4 dispensado: contagem de
+  // obrigatórios já aparece nos chips de cada coluna do Step 3).
   _header(w, step) {
-    const titles = ['O que é ICP?', 'Modelo de Negócio', 'Modelo Operacional', 'Quadro de Audiência', 'Finalizar'];
-    const dots = [0,1,2,3,4].map(i => `<span class="w-2 h-2 rounded-full ${i <= step ? 'bg-white' : 'bg-white/25'}"></span>`).join('');
+    const titles = ['O que é ICP?', 'Modelo de Negócio', 'Modelo Operacional', 'Quadro de Audiência'];
+    const dots = [0,1,2,3].map(i => `<span class="w-2 h-2 rounded-full ${i <= step ? 'bg-white' : 'bg-white/25'}"></span>`).join('');
     const productName = w.mode === 'existingProduct'
       ? (App.state.products.find(p => Number(p.id) === Number(w.productId))?.name || 'Produto')
       : (w.pendingDraft?.name || 'Novo produto');
     return `<header class="bg-violet-700 text-white p-6 flex items-start justify-between gap-4">
       <div class="min-w-0">
-        <p class="text-[10px] font-black text-violet-200 uppercase tracking-widest">${w.mode === 'existingProduct' ? 'Editar audiência' : 'Definir audiência'} · Passo ${step + 1} de 5</p>
+        <p class="text-[10px] font-black text-violet-200 uppercase tracking-widest">${w.mode === 'existingProduct' ? 'Editar audiência' : 'Definir audiência'} · Passo ${step + 1} de 4</p>
         <h2 class="text-2xl font-black mt-1 truncate">${Utils.escape(productName)} <span class="text-violet-200 font-normal">— ${Utils.escape(titles[step])}</span></h2>
         <div class="flex items-center gap-1.5 mt-3">${dots}</div>
       </div>
@@ -70,20 +71,15 @@ var ProductAudienceModal = {
     const canAdvance = (step === 0) ||
                        (step === 1 && !!w.modeloNegocio) ||
                        (step === 2 && !!w.modeloOperacional) ||
-                       (step === 3) ||
-                       (step === 4);
-    const isLast = step === 4;
-    const advanceLabel = isLast ? 'Salvar e criar produto' : 'Continuar';
+                       (step === 3);
+    const isLast = step === 3;
+    const isExisting = w.mode === 'existingProduct';
+    const advanceLabel = isLast
+      ? (isExisting ? 'Salvar audiência' : 'Salvar e criar produto')
+      : 'Continuar';
     const backLabel = step === 0 ? 'Cancelar' : 'Voltar';
     const backAction = step === 0 ? 'Actions.cancelAudienceWizard()' : 'Actions.audienceWizardBack()';
     const advanceAction = isLast ? 'Actions.audienceWizardFinish()' : 'Actions.audienceWizardNext()';
-    if (w.mode === 'existingProduct' && isLast) {
-      // produto já existe: copy diferente
-      return `<footer class="bg-slate-50 border-t border-slate-200 p-5 flex items-center justify-between">
-        <button onclick="${backAction}" class="px-5 py-3 rounded-2xl bg-white border border-slate-300 text-slate-700 font-black">${backLabel}</button>
-        <button onclick="${advanceAction}" class="px-5 py-3 rounded-2xl bg-violet-700 hover:bg-violet-800 text-white font-black">Salvar audiência</button>
-      </footer>`;
-    }
     return `<footer class="bg-slate-50 border-t border-slate-200 p-5 flex items-center justify-between">
       <button onclick="${backAction}" class="px-5 py-3 rounded-2xl bg-white border border-slate-300 text-slate-700 font-black">${backLabel}</button>
       <button onclick="${advanceAction}" ${canAdvance ? '' : 'disabled style="opacity:.4;cursor:not-allowed;"'} class="px-5 py-3 rounded-2xl bg-violet-700 hover:bg-violet-800 text-white font-black">${advanceLabel}</button>
@@ -152,7 +148,13 @@ var ProductAudienceModal = {
     if (!fused.ok) {
       return `<div class="rounded-2xl bg-rose-50 border border-rose-300 p-4 text-sm text-rose-900">${Utils.escape(fused.error || 'Erro ao montar quadro.')}</div>`;
     }
-    const notasHtml = (fused.notas || []).map(n => {
+
+    // V38.1.44 — separa notas: incompatibilidade fica visível direto (exige
+    // ação do cliente); negócio/operacional/marketplace ficam num acordeão.
+    const notasAll = fused.notas || [];
+    const notasIncompat = notasAll.filter(n => n.origem === 'incompatibilidade');
+    const notasInfo = notasAll.filter(n => n.origem !== 'incompatibilidade');
+    const renderNota = (n) => {
       const toneByOrigin = { negocio: 'violet', operacional: 'pink', marketplace: 'sky', incompatibilidade: 'amber' };
       const tone = toneByOrigin[n.origem] || 'slate';
       const iconByOrigin = { negocio: 'briefcase', operacional: 'package', marketplace: 'split', incompatibilidade: 'alert-triangle' };
@@ -161,9 +163,28 @@ var ProductAudienceModal = {
         <i data-lucide="${icon}" class="w-3.5 h-3.5 text-${tone}-700 mt-0.5 shrink-0"></i>
         <p class="text-xs text-${tone}-900 leading-relaxed">${Utils.escape(n.texto)}</p>
       </div>`;
-    }).join('');
+    };
+    const notasIncompatHtml = notasIncompat.map(renderNota).join('');
+    const notasAccordion = notasInfo.length
+      ? `<details class="rounded-xl bg-slate-50 border border-slate-200">
+          <summary class="cursor-pointer px-3 py-2 text-[11px] font-black text-slate-600 uppercase tracking-widest flex items-center gap-2 select-none">
+            <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+            Ver regras desta combinação <span class="text-slate-400 font-bold ml-1">(${notasInfo.length})</span>
+          </summary>
+          <div class="px-3 pb-3 space-y-1.5 mt-1">${notasInfo.map(renderNota).join('')}</div>
+        </details>`
+      : '';
 
-    return `<div class="space-y-4">
+    // V38.1.44 — Mescla custom fields salvos no draft pra UI mostrar TUDO.
+    const custom = w.customFields || { pa: [], icp: [], bp: [] };
+    const paAll  = [...fused.pa,  ...(custom.pa  || [])];
+    const icpAll = [...fused.icp, ...(custom.icp || [])];
+    const bpAll  = [...fused.bp,  ...(custom.bp  || [])];
+    const reqPa  = paAll.filter(f => !f.optional).length;
+    const reqIcp = icpAll.filter(f => !f.optional).length;
+    const reqBp  = bpAll.filter(f => !f.optional).length;
+
+    return `<div class="space-y-3">
       <div class="rounded-2xl bg-slate-100 border border-slate-200 p-3 flex items-center gap-2 flex-wrap">
         <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Combinação</span>
         <span class="px-2.5 py-0.5 rounded-full bg-white border border-violet-300 text-violet-700 text-[11px] font-black">${Utils.escape(fused.negocioLabel)}</span>
@@ -174,12 +195,13 @@ var ProductAudienceModal = {
         <span class="px-2.5 py-0.5 rounded-full bg-white border border-slate-300 text-slate-700 text-[11px] font-black">${Utils.escape(fused.unidade)}</span>
       </div>
 
-      ${notasHtml ? `<div class="space-y-1.5">${notasHtml}</div>` : ''}
+      ${notasIncompatHtml ? `<div class="space-y-1.5">${notasIncompatHtml}</div>` : ''}
+      ${notasAccordion}
 
       <div class="grid md:grid-cols-3 gap-3">
-        ${this._layerColumn('C', 'Público-Alvo',  fused.pa,  fused.requiredCounts.pa,  'violet')}
-        ${this._layerColumn('B', 'ICP',           fused.icp, fused.requiredCounts.icp, 'pink')}
-        ${this._layerColumn('A', 'Buyer Persona', fused.bp,  fused.requiredCounts.bp,  'amber')}
+        ${this._layerColumn('C', 'Público-Alvo',  paAll,  reqPa,  'violet', 'pa')}
+        ${this._layerColumn('B', 'ICP',           icpAll, reqIcp, 'pink',   'icp')}
+        ${this._layerColumn('A', 'Buyer Persona', bpAll,  reqBp,  'amber',  'bp')}
       </div>
 
       ${this._djowBlock(w, fused)}
@@ -229,7 +251,8 @@ var ProductAudienceModal = {
     </div>`;
   },
 
-  _layerColumn(tag, title, fields, requiredCount, tone) {
+  // V38.1.44 — Aceita layerKey opcional pra suportar custom fields (botão +).
+  _layerColumn(tag, title, fields, requiredCount, tone, layerKey) {
     const items = (fields || []).map(f => {
       const tagBadge = f.type === 'fit'
         ? `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200 shrink-0">FIT</span>`
@@ -237,13 +260,21 @@ var ProductAudienceModal = {
       const optionalBadge = f.optional
         ? `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200 shrink-0">OPC</span>`
         : '';
+      const customBadge = f.custom
+        ? `<button onclick="event.stopPropagation(); Actions.removeCustomAudienceField('${layerKey}', '${Utils.escape(f.key)}')" title="Remover campo custom" class="text-[10px] font-black px-1 py-0.5 rounded text-rose-500 hover:bg-rose-100 shrink-0">×</button>`
+        : '';
       const tooltip = (f.tooltip || '') + (f.criterio ? ' Critério: ' + f.criterio : '') + (f.inferenciaRd ? ' Origem: ' + f.inferenciaRd : '');
-      return `<div title="${Utils.escape(tooltip)}" class="rounded-xl bg-white border border-slate-200 px-2.5 py-2 flex items-center gap-1.5">
+      const customCls = f.custom ? 'border-violet-300 bg-violet-50/30' : 'border-slate-200 bg-white';
+      return `<div title="${Utils.escape(tooltip)}" class="rounded-xl border ${customCls} px-2.5 py-2 flex items-center gap-1.5">
         <span class="text-[11px] font-bold text-slate-700 truncate flex-1">${Utils.escape(f.label || f.key)}</span>
         ${optionalBadge}
         ${tagBadge}
+        ${customBadge}
       </div>`;
     }).join('');
+    const addBtn = layerKey
+      ? `<button onclick="Actions.addCustomAudienceField('${layerKey}')" class="mt-1.5 w-full px-2 py-1.5 rounded-xl border-2 border-dashed border-${tone}-300 text-${tone}-700 text-[10px] font-black uppercase tracking-wider hover:bg-${tone}-50 transition flex items-center justify-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i> Campo custom</button>`
+      : '';
     return `<div class="rounded-2xl bg-${tone}-50/40 border border-${tone}-200 border-l-4 border-l-${tone}-500 p-3">
       <div class="flex items-center gap-1.5 mb-2">
         <span class="w-5 h-5 rounded-md bg-${tone}-100 text-${tone}-700 grid place-items-center text-[10px] font-black">${tag}</span>
@@ -251,10 +282,11 @@ var ProductAudienceModal = {
         <span class="ml-auto text-[10px] font-black text-${tone}-700">${requiredCount} obrig.</span>
       </div>
       <div class="space-y-1.5">${items || `<p class="text-[10px] text-slate-400 italic">Sem campos.</p>`}</div>
+      ${addBtn}
     </div>`;
   },
 
-  _step4(w) {
+  _step4Deprecated(w) {
     const negocio = this.BUSINESS_MODELS.find(m => m.id === w.modeloNegocio);
     const operacional = this.OPERATIONAL_MODELS.find(m => m.id === w.modeloOperacional);
     const fused = (window.AudienceFusionEngine && w.modeloNegocio && w.modeloOperacional)

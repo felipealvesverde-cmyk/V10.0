@@ -68,12 +68,18 @@ var ProductRevenueEngine = {
       okrs: Array.isArray(product.okrs) && product.okrs.length ? product.okrs : this.defaultOkrs(),
       audience: (() => {
         const a = product.audience && typeof product.audience === 'object' ? product.audience : {};
+        const cf = (a.customFields && typeof a.customFields === 'object') ? a.customFields : {};
         return {
           configured: !!a.configured,
           modeloNegocio: a.modeloNegocio || null,
           modeloOperacional: a.modeloOperacional || null,
           schema: a.schema && typeof a.schema === 'object' ? a.schema : null,
           customized: !!a.customized,
+          customFields: {
+            pa:  Array.isArray(cf.pa)  ? cf.pa  : [],
+            icp: Array.isArray(cf.icp) ? cf.icp : [],
+            bp:  Array.isArray(cf.bp)  ? cf.bp  : []
+          },
           quadroPA: Array.isArray(a.quadroPA) ? a.quadroPA : [],
           quadroICP: Array.isArray(a.quadroICP) ? a.quadroICP : [],
           quadroBP: Array.isArray(a.quadroBP) ? a.quadroBP : []
