@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.46',
+    date: '2026-06-16',
+    title: 'Assistente de Coleta de Audiência — diagnóstico vira ação concreta',
+    bullets: [
+      'O drill-down do ICP "Por que esse lead virou X?" ganhou uma seção "Assistente de coleta" embaixo. Os campos que faltam não aparecem mais soltos — agrupam por ESTRATÉGIA de coleta: pergunta no formulário RD, tag manual do time, qualificação no RD, webhook do produto, ou enrichment externo (que avisa quando não está ativo).',
+      'Cada grupo dá um artefato pronto pra copiar: as perguntas exatas pra colar no formulário, o script pro SDR aplicar tags, o trecho de webhook em Node.js, etc. Cliente não precisa pensar — só executar.',
+      'Botão "Pedir ao Djow refinar pro meu setup" em cada grupo chama o agente, que adapta a sugestão lendo a Carta de domínio e a KB composicional + o contexto do produto (modelo de negócio e operacional).',
+      'No card do produto, abaixo do sumário da audiência, apareceu uma barra "Saúde da coleta": % de campos cobertos no tenant e top 3 campos mais bloqueados (com % de leads sem o dado). Verde se >70%, âmbar se 40-70%, rosa se abaixo.',
+      'Filosofia da implementação: ausência de sinal quase nunca significa "público ruim" — significa "ainda não coletamos esse dado". O Assistente transforma cada lacuna numa oportunidade de operação.'
+    ]
+  },
+  {
     version: 'V38.1.45',
     date: '2026-06-16',
     title: 'ICP distingue B2B de B2C por sinais comportamentais (não só por email)',
