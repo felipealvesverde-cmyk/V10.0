@@ -6,7 +6,6 @@ var ActionModule = {
     const product = App.state.products.find(p => Number(p.id) === Number(selectedCampaign.productId));
     return `<div class="space-y-4">
       ${this.actionLayer(selectedCampaign, product, actions)}
-      <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-4"><div class="grid md:grid-cols-[1fr_auto] gap-3 md:items-end"><div><p class="text-xs font-black text-slate-500">Campanha selecionada</p><h2 class="text-2xl font-black">${Utils.escape(selectedCampaign.name)}</h2><p class="text-sm text-slate-500 mt-1">Produto: ${Utils.escape(product?.name || 'não vinculado')} • A ação é onde os OKRs nascem e alimentam funil, setor e Revenue Intelligence.</p></div><div><label class="text-xs font-black text-slate-500">Trocar campanha</label><select onchange="Actions.selectCampaignFromActions(Number(this.value))" class="w-full md:w-72 px-4 py-3 rounded-2xl bg-slate-100 font-bold">${App.state.campaigns.map(campaign => `<option value="${campaign.id}" ${campaign.id === selectedCampaign.id ? 'selected' : ''}>${Utils.escape(campaign.name)}</option>`).join('')}</select></div></div></div>
       <div class="grid lg:grid-cols-3 gap-4"><div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-1">Criar ação</h2><p class="text-sm text-slate-500 mb-4">Defina contexto operacional, origem, destino e base de leads.</p>${this._createTabs()}${App.state.actionCreateTab === 'ai' ? this._aiCreatePanel() : this._manualCreatePanel()}</div><div class="lg:col-span-2 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="flex items-start justify-between gap-3 mb-3"><div><h2 class="text-xl font-black mb-1">Ações plugadas</h2><p class="text-sm text-slate-500">Cada ação possui canal, KPIs, fluxo transversal, leads, score, conexão e resultado próprio.</p></div><button onclick="Actions.openFlowBuilder(${selectedCampaign.id})" class="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-2 whitespace-nowrap" style="color:#fff!important;"><i data-lucide="git-merge" class="w-3.5 h-3.5"></i> Construir Fluxo</button></div>${this._actionsListFilter(actions)}<div class="space-y-3">${this._filteredActionsList(actions)}</div></div></div>
       ${ActionFlowModal.render()}
       ${window.ActionEditModal ? ActionEditModal.render() : ''}
@@ -46,10 +45,8 @@ var ActionModule = {
       <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
       <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
         <div>
-          <div class="flex items-center gap-2 mb-2"><i data-lucide="plug" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Action Operational Layer</p></div>
           <h2 class="text-3xl font-black">Ações da campanha</h2>
-          <p class="text-sm text-slate-300 max-w-3xl mt-2">Camada de execução: ações vinculadas à campanha, origem e destino do funil, base de leads, score, conversões e leitura operacional.</p>
-          <p class="text-xs text-slate-400 mt-3">Campanha: <b class="text-white">${Utils.escape(selectedCampaign?.name || 'nenhuma selecionada')}</b> • Produto: <b class="text-white">${Utils.escape(product?.name || 'não vinculado')}</b></p>
+          <p class="text-xs text-slate-400 mt-2">Campanha: <b class="text-white">${Utils.escape(selectedCampaign?.name || 'nenhuma selecionada')}</b> • Produto: <b class="text-white">${Utils.escape(product?.name || 'não vinculado')}</b></p>
         </div>
         <div class="grid grid-cols-2 gap-3">
           ${this.darkMetric('Ações', totalActions, 'plug')}
@@ -189,9 +186,6 @@ var ActionModule = {
                   <h3 class="font-black text-lg text-slate-900">${Utils.escape(action.name)}</h3>
                   <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-black text-slate-700"><i data-lucide="radio" class="w-3 h-3"></i> ${Utils.escape(action.channel)}</span>
                 </div>
-                <p class="text-sm text-slate-500 mt-1">${Utils.escape(action.sector || 'Marketing')} ${Utils.escape(action.funnel || 'MOF')} → ${Utils.escape(action.destinationSector || action.sector || 'Marketing')} ${Utils.escape(action.destinationFunnel || action.funnel || 'MOF')}</p>
-                <p class="text-xs text-slate-400 mt-2 truncate" title="${action.leads.length} leads • score médio ${avgScore} • ${Utils.escape(scorePreset?.name || 'sem score')} • ${flow.path.length} etapas">${action.leads.length} leads • score médio ${avgScore} • ${Utils.escape(scorePreset?.name || 'sem score')} • ${flow.path.length} etapas</p>
-                ${(areaIsConnected && !hasKrLinked) ? `<p class="text-[11px] mt-1 font-bold flex items-center gap-1" style="color: var(--lj-action);"><i data-lucide="alert-triangle" class="w-3 h-3"></i> Nenhum número vinculado — abra o Mapa pra plugar</p>` : ''}
               </div>
             </div>
           </div>
@@ -270,7 +264,6 @@ var ActionModule = {
     return `<div class="rounded-2xl border-2 border-${tone}-200 bg-${tone}-50 p-3 flex flex-col gap-2">
       <div class="flex items-center justify-between gap-2 flex-wrap">
         <div class="flex items-center gap-2 flex-wrap">
-          <span class="px-2 py-1 rounded-full bg-${tone}-600 text-white text-[10px] font-black flex items-center gap-1" style="color:#fff!important;">📊 ${Utils.escape(area.label)}</span>
           <span class="px-2 py-1 rounded-full bg-${status.color}-100 text-${status.color}-800 border border-${status.color}-300 text-[10px] font-black">${Utils.escape(status.label).toUpperCase()}</span>
           <span class="text-[11px] text-slate-700">⏱ ${Utils.escape(cadenceLabel)}</span>
           ${action.strategicOwner ? `<span class="text-[11px] text-slate-700">👤 ${Utils.escape(action.strategicOwner)}</span>` : ''}
@@ -327,20 +320,15 @@ var ActionModule = {
     const allKrs = [];
     for (const okr of okrs) for (const kr of (okr.keyResults || [])) allKrs.push({ ...kr, okr });
     if (!allKrs.length && !action.linkedCampaignKrId) return '';
-    const selected = action.linkedCampaignKrId ? allKrs.find(kr => kr.id === action.linkedCampaignKrId) : null;
     const selectId = `kr_link_${action.id}`;
     const options = ['<option value="">— sem vínculo —</option>'].concat(allKrs.map(kr => {
       const meta = RevopsFinanceEngine.METRIC_CATALOG[kr.metric];
       const label = `${kr.okr.objective || 'Tático'}: ${kr.label || meta?.label || 'KR'}`;
       return `<option value="${Utils.escape(kr.id)}" ${action.linkedCampaignKrId === kr.id ? 'selected' : ''}>${Utils.escape(label)}</option>`;
     })).join('');
-    const status = selected
-      ? `<span class="px-2 py-1 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-black">Vinculada: ${Utils.escape(selected.label || RevopsFinanceEngine.METRIC_CATALOG[selected.metric]?.label || 'KR')}</span>`
-      : `<span class="px-2 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-black">Sem vínculo de KR</span>`;
     return `<div class="mt-3 flex flex-col md:flex-row md:items-center gap-2 pt-3 border-t border-slate-200">
       <span class="text-[11px] font-black text-indigo-700 uppercase tracking-wider whitespace-nowrap"><i data-lucide="compass" class="w-3 h-3 inline mr-1"></i> KR da Campanha</span>
       <select id="${selectId}" onchange="Actions.linkActionToCampaignKr(${action.id}, this.value || null)" class="flex-1 px-3 py-2 rounded-xl bg-white border border-slate-200 font-semibold text-xs">${options}</select>
-      ${status}
       ${campaign ? `<button onclick="Actions.openRevopsOkr('campaign', ${campaign.productId || 'null'}, null, ${campaign.id})" class="px-2 py-1 rounded-md bg-slate-900 text-white text-[10px] font-black flex items-center gap-1 lj-dark-button" style="color:#fff!important;"><i data-lucide="plus" class="w-3 h-3"></i> Novo KR Tático</button>` : ''}
     </div>`;
   },
