@@ -1140,13 +1140,26 @@ Object.assign(Actions, {
     const d = App.state.productDraft || {};
     if (!String(d.name || '').trim()) return Utils.toast('Digite o nome do produto.');
     if (this._demoGuard && this._demoGuard('Criar produto')) return null;
-    const product = ProductRevenueEngine.normalize({
-      id: Date.now(),
+    // V38.1.36 — bloqueio hard: produto não nasce sem ICP. Abre wizard primeiro.
+    this.openAudienceWizardForNewProduct({
       name: d.name.trim(),
       type: d.type || '',
       price: d.price || '',
       revenueModel: d.revenueModel || 'Venda única',
       operationalCost: d.operationalCost || ''
+    }, 'createProduct');
+    return null;
+  },
+
+  _finalizeProductCreation(pendingDraft, audience) {
+    const product = ProductRevenueEngine.normalize({
+      id: Date.now(),
+      name: pendingDraft.name,
+      type: pendingDraft.type || '',
+      price: pendingDraft.price || '',
+      revenueModel: pendingDraft.revenueModel || 'Venda única',
+      operationalCost: pendingDraft.operationalCost || '',
+      audience
     });
     App.state.products.unshift(product);
     App.state.selectedProductId = product.id;
@@ -1171,6 +1184,98 @@ Object.assign(Actions, {
     return product;
   },
 
+  // V38.1.36 — Wizard "Definir Audiência" (ICP do produto).
+  openAudienceWizardForNewProduct(pendingDraft, mode) {
+    App.state.audienceWizard = {
+      open: true,
+      mode: mode || 'createProduct',
+      step: 0,
+      productId: null,
+      pendingDraft,
+      modeloNegocio: null,
+      modeloOperacional: null,
+      quadroPA: [], quadroICP: [], quadroBP: []
+    };
+    App.save(); App.render();
+  },
+  openAudienceWizardForExisting(productId) {
+    const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
+    if (!product) return;
+    const a = product.audience || {};
+    App.state.audienceWizard = {
+      open: true,
+      mode: 'existingProduct',
+      step: a.configured ? 3 : 0,
+      productId: Number(productId),
+      pendingDraft: null,
+      modeloNegocio: a.modeloNegocio || null,
+      modeloOperacional: a.modeloOperacional || null,
+      quadroPA: Array.isArray(a.quadroPA) ? [...a.quadroPA] : [],
+      quadroICP: Array.isArray(a.quadroICP) ? [...a.quadroICP] : [],
+      quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : []
+    };
+    App.save(); App.render();
+  },
+  cancelAudienceWizard() {
+    App.state.audienceWizard = null;
+    App.save(); App.render();
+  },
+  audienceWizardChoose(field, value) {
+    const w = App.state.audienceWizard;
+    if (!w || !w.open) return;
+    if (field !== 'modeloNegocio' && field !== 'modeloOperacional') return;
+    w[field] = String(value || '') || null;
+    App.save(); App.render();
+  },
+  audienceWizardNext() {
+    const w = App.state.audienceWizard;
+    if (!w || !w.open) return;
+    if (w.step === 1 && !w.modeloNegocio) return Utils.toast('Escolha um modelo de negócio.');
+    if (w.step === 2 && !w.modeloOperacional) return Utils.toast('Escolha um modelo operacional.');
+    w.step = Math.min(4, Number(w.step || 0) + 1);
+    App.save(); App.render();
+  },
+  audienceWizardBack() {
+    const w = App.state.audienceWizard;
+    if (!w || !w.open) return;
+    w.step = Math.max(0, Number(w.step || 0) - 1);
+    App.save(); App.render();
+  },
+  audienceWizardFinish() {
+    const w = App.state.audienceWizard;
+    if (!w || !w.open) return;
+    const audience = {
+      configured: true,
+      modeloNegocio: w.modeloNegocio,
+      modeloOperacional: w.modeloOperacional,
+      quadroPA: Array.isArray(w.quadroPA) ? w.quadroPA : [],
+      quadroICP: Array.isArray(w.quadroICP) ? w.quadroICP : [],
+      quadroBP: Array.isArray(w.quadroBP) ? w.quadroBP : []
+    };
+    if (w.mode === 'existingProduct') {
+      const product = (App.state.products || []).find(p => Number(p.id) === Number(w.productId));
+      if (product) {
+        product.audience = audience;
+        App.state.audienceWizard = null;
+        App.save(); App.render(); Utils.toast(`Audiência atualizada em ${product.name}.`);
+      }
+      return;
+    }
+    // createProduct OR createProductMapa
+    const pendingDraft = w.pendingDraft || { name: 'Produto sem nome' };
+    const isMapaFlow = w.mode === 'createProductMapa';
+    App.state.audienceWizard = null;
+    const product = this._finalizeProductCreation(pendingDraft, audience);
+    if (isMapaFlow && product) {
+      // mantém o fluxo do Mapa: abre o Mapa pro produto recém-criado
+      setTimeout(() => {
+        Actions.openStrategicMap(product.id);
+        if (window.StrategicZoomNavigation) StrategicZoomNavigation.set('vision');
+        App.save(); App.render();
+      }, 80);
+    }
+  },
+
   // V31.2.5 — Caminho "estratégico-primeiro": botão Criar com Mapa abre popup
   // mínimo (só nome do produto) e em seguida joga direto no Mapa da Receita
   // pra construir Visão → Frentes → Números → Ações → Execução guiado.
@@ -1192,30 +1297,16 @@ Object.assign(Actions, {
     if (!draft) return;
     const name = String(draft.name || '').trim();
     if (!name) return Utils.toast('Digite um nome pro produto.');
-    // Cria o produto com defaults mínimos
-    const product = ProductRevenueEngine.normalize({
-      id: Date.now(),
+    // V38.1.36 — bloqueio hard: produto não nasce sem ICP. Abre wizard;
+    // o openStrategicMap acontece dentro do audienceWizardFinish.
+    App.state.newProductWithMapaPopup = null;
+    this.openAudienceWizardForNewProduct({
       name,
       type: String(draft.type || '').trim(),
       price: '',
       revenueModel: draft.revenueModel || 'Venda única',
       operationalCost: ''
-    });
-    App.state.products.unshift(product);
-    App.state.selectedProductId = product.id;
-    App.state.campaignDraft.productId = product.id;
-    App.state.newProductWithMapaPopup = null;
-    // V38.0.3 — Oferta default + struct RevOps zerada (idêntico ao createProduct).
-    this._ensureRevopsOffersForProduct(product.id, product.name);
-    App.save();
-    Utils.toast(`Produto "${name}" criado. Vamos construir o Mapa da Receita.`);
-    setTimeout(() => {
-      Actions.openStrategicMap(product.id);
-      // V31.2.16 — Welcome aparece (user pediu que pelo caminho "Criar Produto com
-      // Mapa" o welcome também apareça). Etapa Visão fica como destino após dismiss.
-      if (window.StrategicZoomNavigation) StrategicZoomNavigation.set('vision');
-      App.save(); App.render();
-    }, 80);
+    }, 'createProductMapa');
   },
 
   createCampaign() {

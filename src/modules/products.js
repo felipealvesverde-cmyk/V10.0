@@ -16,6 +16,7 @@ var ProductsModule = {
       ${window.StrategicMapModal ? StrategicMapModal.render() : ''}
       ${this.newProductWithMapaPopup()}
       ${window.HealthScoreModal ? HealthScoreModal.render() : ''}
+      ${window.ProductAudienceModal ? ProductAudienceModal.render() : ''}
     </div>`;
   },
 
@@ -186,9 +187,10 @@ var ProductsModule = {
         <div class="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-3 pr-12">
           <div class="min-w-0">
             <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-0.5">Produto</p>
-            <div class="flex items-center gap-2 mb-1">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
               <h3 class="font-black text-xl leading-tight break-words text-slate-900">${Utils.escape(product.name)}</h3>
               ${selected ? '<span class="shrink-0 px-2 py-0.5 rounded-md bg-violet-500/15 border border-violet-400/30 text-violet-700 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Selecionado</span>' : ''}
+              ${this._audienceBadge(product)}
             </div>
             <p class="text-sm text-slate-500">${Utils.escape(product.type || 'Produto')} • ${Utils.escape(product.revenueModel || 'Venda única')}</p>
           </div>
@@ -209,12 +211,39 @@ var ProductsModule = {
         </div>
         ${this._healthScoreRow(product)}
         ${this._strategicMapSummary(product)}
+        ${this._audienceCta(product)}
         <div class="lj-product-card-actions grid grid-cols-2 gap-2">
           <button onclick="event.stopPropagation(); Actions.prepareCampaignForProduct(${product.id})" style="color:#fff!important;" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black lj-dark-button">Criar Campanha para este produto</button>
           <button onclick="event.stopPropagation(); Actions.openStrategicMap(${product.id})" style="color:#0f172a!important;" class="lj-strategic-map-btn px-3 py-1.5 rounded-2xl border-2 border-slate-900 bg-transparent hover:bg-slate-100 text-xs font-black transition leading-tight flex flex-col items-center justify-center"><span style="color:#0f172a!important;">Mapa da Receita</span><span style="color:#0f172a!important;" class="text-[9px] font-bold opacity-70 -mt-0.5">OKR's</span></button>
         </div>
       </div>
     </div>`;
+  },
+
+  // V38.1.36 — Badge de status do ICP no header do card.
+  _audienceBadge(product) {
+    const a = product.audience || {};
+    if (a.configured) {
+      const tags = [a.modeloNegocio, a.modeloOperacional].filter(Boolean).map(s => s.toUpperCase()).join(' · ');
+      return `<span class="shrink-0 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1"><i data-lucide="target" class="w-3 h-3"></i> ICP${tags ? ' · ' + Utils.escape(tags) : ''}</span>`;
+    }
+    return `<span class="shrink-0 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-400/40 text-amber-800 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1"><i data-lucide="alert-triangle" class="w-3 h-3"></i> ICP não definido</span>`;
+  },
+
+  // V38.1.36 — CTA pra Definir/Editar Audiência. Aparece sempre — pra produto
+  // novo já criado sem audience (legacy), aparece como CTA bloqueante visível.
+  _audienceCta(product) {
+    const a = product.audience || {};
+    if (a.configured) {
+      return `<button onclick="event.stopPropagation(); Actions.openAudienceWizardForExisting(${product.id})" class="w-full text-left px-3 py-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 text-emerald-800 text-xs font-black flex items-center justify-between hover:bg-emerald-100/60 transition">
+        <span class="flex items-center gap-1.5"><i data-lucide="target" class="w-3.5 h-3.5"></i> Editar audiência (ICP)</span>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+      </button>`;
+    }
+    return `<button onclick="event.stopPropagation(); Actions.openAudienceWizardForExisting(${product.id})" class="w-full text-left px-3 py-2 rounded-2xl border-2 border-amber-300 bg-amber-50 text-amber-900 text-xs font-black flex items-center justify-between hover:bg-amber-100 transition">
+      <span class="flex items-center gap-1.5"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Definir audiência (ICP) — obrigatório</span>
+      <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+    </button>`;
   },
 
   // V38.1.0 — Linha de Saúde do Produto no card. Score 0-100 + barra +

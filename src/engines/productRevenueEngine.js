@@ -66,6 +66,17 @@ var ProductRevenueEngine = {
       revenueScore: product.revenueScore || Math.min(100, Math.max(20, Math.round((marginPercent * 0.7) + (recurring ? 20 : 10)))),
       healthScore: product.healthScore || Math.min(100, Math.max(20, Math.round((marginPercent * 0.8) + (priceValue > costValue ? 12 : 0)))),
       okrs: Array.isArray(product.okrs) && product.okrs.length ? product.okrs : this.defaultOkrs(),
+      audience: (() => {
+        const a = product.audience && typeof product.audience === 'object' ? product.audience : {};
+        return {
+          configured: !!a.configured,
+          modeloNegocio: a.modeloNegocio || null,
+          modeloOperacional: a.modeloOperacional || null,
+          quadroPA: Array.isArray(a.quadroPA) ? a.quadroPA : [],
+          quadroICP: Array.isArray(a.quadroICP) ? a.quadroICP : [],
+          quadroBP: Array.isArray(a.quadroBP) ? a.quadroBP : []
+        };
+      })(),
       createdAt: product.createdAt || new Date().toISOString()
     };
   },
