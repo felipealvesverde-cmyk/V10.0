@@ -170,12 +170,12 @@ var ActionModule = {
     })();
 
     return `<div class="lj-entity-card relative p-4 rounded-3xl bg-slate-50 border border-slate-100 ${areaIsConnected ? `border-l-4 ${borderLeftStyle}` : 'border-l-4'}" ${borderLeftInline}>
-      <!-- V38.1.56 — Engrenagem de volta ao canto superior direito do card.
-           A coluna direita reserva pt-10 no botão Roadmap pra não ser sobreposto. -->
-      <button onclick="event.stopPropagation(); Actions.openActionEditModal(${action.id})" title="Editar Ação" aria-label="Editar Ação" class="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm"><i data-lucide="settings" class="w-4 h-4"></i></button>
+      <!-- V38.1.58 — Engrenagem absolute eliminada por sobrepor botões em
+           qualquer layout possível. Vira atalho discreto no rodapé, ao lado do
+           Roadmap (mesmo estilo cinza link). Sem absolute = sem overlap nunca mais. -->
       <div class="flex flex-col gap-4">
         <div class="lj-entity-card-grid">
-          <div class="lj-entity-copy pr-14 lg:pr-0">
+          <div class="lj-entity-copy">
             <p class="text-[10px] font-black uppercase tracking-widest mb-1" style="color: ${labelColor};">
               Ação${areaIsConnected ? ` · ${Utils.escape(action.strategicAreaId === 'cs' ? 'CS' : action.strategicAreaId === 'sales' ? 'Vendas' : 'Marketing')}` : ' · sem área'}
             </p>
@@ -218,9 +218,12 @@ var ActionModule = {
         </div>
         <div class="flex flex-wrap gap-2 items-center justify-between">
           <div class="flex flex-wrap gap-2">${flow.path.map(stage => `<span class="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-black">${FlowResolutionEngine.label(stage)}</span>`).join('')}</div>
-          <!-- V38.1.57 — Atalho Roadmap idêntico ao do card de Campanha: link discreto
-               text-slate-500 + ícone map. Posicionado à direita, acima do bloco estratégico. -->
-          <button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${action.campaignId})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="map" class="w-3 h-3"></i> Roadmap</button>
+          <!-- V38.1.58 — Editar (engrenagem) + Roadmap como atalhos discretos no
+               rodapé. Ambos no fluxo do layout, ocupando espaço próprio. -->
+          <div class="flex items-center gap-3">
+            <button onclick="event.stopPropagation(); Actions.openActionEditModal(${action.id})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="settings" class="w-3 h-3"></i> Editar</button>
+            <button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${action.campaignId})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="map" class="w-3 h-3"></i> Roadmap</button>
+          </div>
         </div>
         ${this._strategicTag(action)}
         ${this._connectToMapaButton(action)}
