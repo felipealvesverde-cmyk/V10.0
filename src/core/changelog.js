@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.55',
+    date: '2026-06-16',
+    title: 'Aba "Ações da campanha": Roadmap no card + KPIs reformulados + vocabulário Execuções',
+    bullets: [
+      'O botão "Ver Fluxo da Ação" virou "Roadmap" e abre o Roadmap da campanha (mesmo modal usado no card de Campanha). O antigo ActionFlowModal foi eliminado por completo — junto com 9 actions órfãs (open/close/toggle/save/edit/update/add/remove) e 3 campos de state. Sem código morto.',
+      'A engrenagem de editar a ação saiu do canto absoluto (estava atropelando o botão Roadmap em viewports menores). Agora vive inline no header do card, ao lado do label "Ação · Marketing/Vendas/CS".',
+      'O textarea "Descrição da Ação" saiu do form de criar ação. Tinha virado só dump genérico que ninguém preenchia direito.',
+      'Os 4 KPIs do header escuro foram reformulados: (1) Ações total, (2) Por setor — mini-tile com Marketing/Vendas/CS lado a lado contando ações conectadas a cada área, (3) Execuções pendentes — somando todas as tarefas pendentes via ExecutionStatusEngine, (4) Conversão marcado como "Em breve" (dimmed).',
+      'Vocabulário de "tarefas" virou "execuções" nos botões: "Criar Tarefas" → "Criar Execuções via Djow"; "Ver Tarefas" → "Ver Execuções". O seedPrompt enviado pro Djow também muda pra "Crie execuções para esta ação".',
+      'Pendente: trazer a mecânica de criação de execuções inline (igual ao quadro do Mapa) pro modal de "Ver Execuções". Hoje o modal só lista; a mecânica de "Executar Ação" do print vai chegar numa próxima onda.'
+    ]
+  },
+  {
     version: 'V38.1.54',
     date: '2026-06-16',
     title: 'Aba "Ações da campanha": 7 cortes do grupo C + validação de nome',
