@@ -72,6 +72,8 @@ var ProductRevenueEngine = {
           configured: !!a.configured,
           modeloNegocio: a.modeloNegocio || null,
           modeloOperacional: a.modeloOperacional || null,
+          schema: a.schema && typeof a.schema === 'object' ? a.schema : null,
+          customized: !!a.customized,
           quadroPA: Array.isArray(a.quadroPA) ? a.quadroPA : [],
           quadroICP: Array.isArray(a.quadroICP) ? a.quadroICP : [],
           quadroBP: Array.isArray(a.quadroBP) ? a.quadroBP : []

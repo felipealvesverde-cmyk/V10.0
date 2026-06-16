@@ -1204,6 +1204,26 @@ Object.assign(Actions, {
     };
     App.save(); App.render();
   },
+  // V38.1.38 — Abre wizard pra editar o audience do POPUP "Criar Produto
+  // com Mapa". Salva em App.state.newProductWithMapaPopup.audience.
+  openAudienceWizardForMapaPopup() {
+    const popup = App.state.newProductWithMapaPopup || null;
+    if (!popup || !popup.open) return;
+    const a = popup.audience && typeof popup.audience === 'object' ? popup.audience : {};
+    App.state.audienceWizard = {
+      open: true,
+      mode: 'mapaPopupDraft',
+      step: a.configured ? 3 : 0,
+      productId: null,
+      pendingDraft: null,
+      modeloNegocio: a.modeloNegocio || null,
+      modeloOperacional: a.modeloOperacional || null,
+      quadroPA: Array.isArray(a.quadroPA) ? [...a.quadroPA] : [],
+      quadroICP: Array.isArray(a.quadroICP) ? [...a.quadroICP] : [],
+      quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : []
+    };
+    App.save(); App.render();
+  },
   // V38.1.37 — Abre wizard pra editar o audience DO DRAFT (pré-submit no
   // form "Criar Produto sem Mapa"). Salva em App.state.productDraft.audience
   // e fecha sem criar produto.
@@ -1270,10 +1290,30 @@ Object.assign(Actions, {
   audienceWizardFinish() {
     const w = App.state.audienceWizard;
     if (!w || !w.open) return;
+    // V38.1.39 — Funde via AudienceFusionEngine pra salvar schema completo
+    // (snapshot, não delta — flag customized: false até cliente editar).
+    let schema = null;
+    if (window.AudienceFusionEngine && w.modeloNegocio && w.modeloOperacional) {
+      const fused = AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional);
+      if (fused.ok) {
+        schema = {
+          pa: fused.pa,
+          icp: fused.icp,
+          bp: fused.bp,
+          unidade: fused.unidade,
+          bilateral: fused.bilateral,
+          requiredCounts: fused.requiredCounts,
+          notas: fused.notas
+        };
+      }
+    }
     const audience = {
       configured: true,
       modeloNegocio: w.modeloNegocio,
       modeloOperacional: w.modeloOperacional,
+      schema,
+      customized: false,
+      // Retrocompat (V38.1.36) — arrays vazios até a próxima onda permitir custom
       quadroPA: Array.isArray(w.quadroPA) ? w.quadroPA : [],
       quadroICP: Array.isArray(w.quadroICP) ? w.quadroICP : [],
       quadroBP: Array.isArray(w.quadroBP) ? w.quadroBP : []
@@ -1293,6 +1333,15 @@ Object.assign(Actions, {
       App.state.productDraft.audience = audience;
       App.state.audienceWizard = null;
       App.save(); App.render(); Utils.toast('Audiência salva. Clique em "Criar Produto sem Mapa" pra finalizar.');
+      return;
+    }
+    if (w.mode === 'mapaPopupDraft') {
+      // V38.1.38 — Salva no popup do Mapa pré-submit. Não cria produto.
+      if (App.state.newProductWithMapaPopup) {
+        App.state.newProductWithMapaPopup.audience = audience;
+      }
+      App.state.audienceWizard = null;
+      App.save(); App.render(); Utils.toast('Audiência salva. Clique em "Criar e ir pra Visão" pra finalizar.');
       return;
     }
     // createProduct OR createProductMapa
@@ -1315,7 +1364,7 @@ Object.assign(Actions, {
   // pra construir Visão → Frentes → Números → Ações → Execução guiado.
   openNewProductWithMapaPopup() {
     if (this._demoGuard && this._demoGuard('Criar produto')) return;
-    App.state.newProductWithMapaPopup = { open: true, name: '', type: '', revenueModel: 'Venda única' };
+    App.state.newProductWithMapaPopup = { open: true, name: '', type: '', revenueModel: 'Venda única', audience: null };
     App.render();
   },
   closeNewProductWithMapaPopup() {
@@ -1331,16 +1380,30 @@ Object.assign(Actions, {
     if (!draft) return;
     const name = String(draft.name || '').trim();
     if (!name) return Utils.toast('Digite um nome pro produto.');
-    // V38.1.36 — bloqueio hard: produto não nasce sem ICP. Abre wizard;
-    // o openStrategicMap acontece dentro do audienceWizardFinish.
-    App.state.newProductWithMapaPopup = null;
-    this.openAudienceWizardForNewProduct({
+    const pendingDraft = {
       name,
       type: String(draft.type || '').trim(),
       price: '',
       revenueModel: draft.revenueModel || 'Venda única',
       operationalCost: ''
-    }, 'createProductMapa');
+    };
+    // V38.1.38 — Se cliente já definiu audiência pelo botão no popup,
+    // cria direto e abre Mapa. Caso contrário, fallback V38.1.36 abre wizard.
+    if (draft.audience && draft.audience.configured) {
+      const audience = draft.audience;
+      App.state.newProductWithMapaPopup = null;
+      const product = this._finalizeProductCreation(pendingDraft, audience);
+      if (product) {
+        setTimeout(() => {
+          Actions.openStrategicMap(product.id);
+          if (window.StrategicZoomNavigation) StrategicZoomNavigation.set('vision');
+          App.save(); App.render();
+        }, 80);
+      }
+      return;
+    }
+    App.state.newProductWithMapaPopup = null;
+    this.openAudienceWizardForNewProduct(pendingDraft, 'createProductMapa');
   },
 
   createCampaign() {
