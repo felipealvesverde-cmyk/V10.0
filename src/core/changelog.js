@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.40',
+    date: '2026-06-16',
+    title: 'Djow analisando o quadro de audiência (Onda 2)',
+    bullets: [
+      'No Step 3 do wizard "Definir Audiência", apareceu um botão "Pedir análise do Djow". Clica e o Djow comenta a combinação escolhida lendo a base de conhecimento de audiência (carta de domínio + KB composicional) e uma amostra agregada dos seus leads do RD.',
+      'A análise é uma fala de consultor RevOps em 3-5 frases: aponta qual é o campo mais decisivo da combinação, comenta tensão/risco/erro clássico daquela fusão, e sugere um próximo passo concreto.',
+      'Combinação rara (B2C+SaaS, C2C sem Marketplace etc.) o Djow avisa antes — humildade vale mais que esperteza.',
+      'Sem leads importados? O Djow fala mesmo assim, baseado só na combinação. Quando você importar leads do RD, peça análise de novo e a fala fica mais aterrada.'
+    ]
+  },
+  {
     version: 'V38.1.39',
     date: '2026-06-16',
     title: 'Motor de Fusão de Audiência — Djow monta o quadro PA/ICP/BP em runtime',
