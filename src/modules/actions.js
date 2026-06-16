@@ -6,12 +6,12 @@ var ActionModule = {
     const product = App.state.products.find(p => Number(p.id) === Number(selectedCampaign.productId));
     return `<div class="space-y-4">
       ${this.actionLayer(selectedCampaign, product, actions)}
-      <div class="grid lg:grid-cols-3 gap-4"><div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-1">Criar ação</h2><p class="text-sm text-slate-500 mb-4">Defina contexto operacional, origem, destino e base de leads.</p>${this._createTabs()}${App.state.actionCreateTab === 'ai' ? this._aiCreatePanel() : this._manualCreatePanel()}</div><div class="lg:col-span-2 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="flex items-start justify-between gap-3 mb-3"><div><h2 class="text-xl font-black mb-1">Ações plugadas</h2><p class="text-sm text-slate-500">Cada ação possui canal, KPIs, fluxo transversal, leads, score, conexão e resultado próprio.</p></div><button onclick="Actions.openFlowBuilder(${selectedCampaign.id})" class="px-4 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-2 whitespace-nowrap" style="color:#fff!important;"><i data-lucide="git-merge" class="w-3.5 h-3.5"></i> Construir Fluxo</button></div>${this._actionsListFilter(actions)}<div class="space-y-3">${this._filteredActionsList(actions)}</div></div></div>
+      <div class="grid lg:grid-cols-3 gap-4"><div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-1">Criar ação</h2><p class="text-sm text-slate-500 mb-4">Defina contexto operacional, origem, destino e base de leads.</p>${this._createTabs()}${App.state.actionCreateTab === 'ai' ? this._aiCreatePanel() : this._manualCreatePanel()}</div><div class="lg:col-span-2 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="flex items-start justify-between gap-3 mb-3"><div><h2 class="text-xl font-black mb-1">Ações plugadas</h2><p class="text-sm text-slate-500">Cada ação possui canal, KPIs, fluxo transversal, leads, score, conexão e resultado próprio.</p></div></div>${this._actionsListFilter(actions)}<div class="space-y-3">${this._filteredActionsList(actions)}</div></div></div>
       ${ActionFlowModal.render()}
       ${window.ActionEditModal ? ActionEditModal.render() : ''}
-      ${window.ActionFlowBuilder ? ActionFlowBuilder.render(App.state.flowBuilderCampaignId) : ''}
       ${/* V32.4.1 (Geraldo Item 1) — DjowModal V16.3 aposentado. DjowAIModal global cobre. */ ''}
       ${/* V37.0.8 — ActionLpModal removido (era vestigial pré-Tracking V33). */ ''}
+      ${/* V38.1.53 — ActionFlowBuilder migrou pra tab Plugins (módulo PluginsModule). */ ''}
       ${window.TasksModal ? TasksModal.render() : ''}
       ${window.StrategicMapModal ? StrategicMapModal.render() : ''}
     </div>`;
@@ -86,17 +86,6 @@ var ActionModule = {
     </div>`;
   },
 
-  operationalFlowRail(campaign, product) {
-    return `<div class="lj-operational-rail bg-white rounded-3xl p-4 shadow-sm border border-slate-100">
-      <div class="lj-flow-rail-grid text-sm" style="display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px!important;align-items:stretch!important;width:100%!important;">
-        <button onclick="App.setTab('products')" style="min-height:88px!important;width:100%!important;display:grid!important;grid-template-columns:36px minmax(0,1fr)!important;gap:10px!important;align-items:center!important;justify-content:initial!important;text-align:left!important;" class="px-4 py-3 rounded-2xl border border-slate-200 bg-white text-slate-700 font-black text-left lj-flow-step"><span class="lj-flow-step-number">1</span><span><span class="lj-flow-step-title">Produto</span><span class="lj-flow-step-subtitle">${Utils.escape(product?.name || 'Escolher produto')}</span></span></button>
-        <button onclick="${product ? `Actions.goToProductCampaigns(${product.id})` : `App.setTab('campaigns')`}" style="min-height:88px!important;width:100%!important;display:grid!important;grid-template-columns:36px minmax(0,1fr)!important;gap:10px!important;align-items:center!important;justify-content:initial!important;text-align:left!important;" class="px-4 py-3 rounded-2xl border border-slate-200 bg-white text-slate-700 font-black text-left lj-flow-step"><span class="lj-flow-step-number">2</span><span><span class="lj-flow-step-title">Campanhas</span><span class="lj-flow-step-subtitle">${Utils.escape(campaign?.name || 'Criar campanha')}</span></span></button>
-        <button onclick="App.setTab('actions')" style="min-height:88px!important;width:100%!important;display:grid!important;grid-template-columns:36px minmax(0,1fr)!important;gap:10px!important;align-items:center!important;justify-content:initial!important;text-align:left!important;" class="px-4 py-3 rounded-2xl border border-slate-900 bg-slate-900 text-white font-black text-left lj-flow-step"><span class="lj-flow-step-number">3</span><span><span class="lj-flow-step-title">Ações</span><span class="lj-flow-step-subtitle">Executar</span></span></button>
-        <button onclick="App.setTab('results')" style="min-height:88px!important;width:100%!important;display:grid!important;grid-template-columns:36px minmax(0,1fr)!important;gap:10px!important;align-items:center!important;justify-content:initial!important;text-align:left!important;" class="px-4 py-3 rounded-2xl border border-slate-200 bg-white text-slate-700 font-black text-left lj-flow-step"><span class="lj-flow-step-number">4</span><span><span class="lj-flow-step-title">Leitura</span><span class="lj-flow-step-subtitle">Resultado da campanha</span></span></button>
-      </div>
-    </div>`;
-  },
-
   form() {
     const d = App.state.actionDraft;
     const path = FlowResolutionEngine.resolve(d.originSector, d.originFunnel, d.destinationSector, d.destinationFunnel);
@@ -114,7 +103,6 @@ var ActionModule = {
         <div class="flex flex-wrap gap-2">${path.map((stage, index) => `<span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-black">${index + 1}. ${FlowResolutionEngine.label(stage)}</span>`).join('')}</div>
       </div>
       <div><label class="text-xs font-black text-slate-500">Descrição da Ação</label><textarea oninput="App.state.actionDraft.objective=this.value; App.save();" placeholder="Qual sinal esta ação precisa gerar?" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold min-h-[80px]">${Utils.escape(d.objective)}</textarea></div>
-      ${this.rdEmailFields ? this.rdEmailFields(d, path) : ''}${this.rdKpiMappingPanel ? this.rdKpiMappingPanel(d) : ''}
       <div class="rounded-3xl bg-indigo-50 border border-indigo-100 p-4 flex items-start gap-3">
         <span class="shrink-0 w-9 h-9 rounded-xl bg-indigo-100 border border-indigo-200 grid place-items-center text-indigo-700">
           <i data-lucide="upload-cloud" class="w-4 h-4"></i>
@@ -337,84 +325,7 @@ var ActionModule = {
 };
 window.ActionModule = ActionModule;
 
-
-// V13 — RD Email dynamic fields inside action creation.
-Object.assign(ActionModule, {
-  rdEmailFields(d, path) {
-    if (!window.RDMapper?.isRDEmailAction?.(d)) return '';
-    const cfg = { ...(window.RDConfig ? RDConfig.emailDefaults() : {}), ...(d.rdEmailConfig || {}) };
-
-    return `<div class="lj-rd-panel">
-      <div class="flex items-start justify-between gap-3 mb-4">
-        <div>
-          <h3 class="lj-rd-title">Configuração RD Email</h3>
-          <p class="lj-rd-help">Este bloco aparece porque o canal da ação é RD Email. A integração alimentará KPIs; os OKRs continuam no LeadJourney.</p>
-        </div>
-        <span class="lj-rd-kpi-chip">Fase 2</span>
-      </div>
-
-      <div class="lj-rd-grid">
-        ${this.rdInput('listName', 'Lista/segmentação', cfg.listName, 'Ex: Leads Maio Verde')}
-        ${this.rdInput('emailCampaignName', 'Campanha de e-mail RD', cfg.emailCampaignName, 'Ex: Nutrição MOF Maio')}
-        ${this.rdInput('emailSubject', 'Assunto do e-mail', cfg.emailSubject, 'Ex: Como destravar seu funil')}
-        ${this.rdInput('sendDate', 'Data de disparo', cfg.sendDate, '2026-05-20')}
-        ${this.rdInput('ctaUrl', 'URL/CTA principal', cfg.ctaUrl, 'https://...')}
-        ${this.rdInput('appliedTags', 'Tags aplicadas', cfg.appliedTags, '#rd_email, #mof')}
-
-        <div>
-          <label class="text-xs font-black text-slate-500">Campo identificador</label>
-          <select onchange="Actions.updateActionDraftRDEmail('leadIdentifierField', this.value)" class="w-full px-3 py-3 rounded-2xl bg-white border border-slate-200 font-semibold">
-            ${['email','uuid','telefone'].map(v => `<option value="${v}" ${cfg.leadIdentifierField === v ? 'selected' : ''}>${v}</option>`).join('')}
-          </select>
-        </div>
-
-        <div>
-          <label class="text-xs font-black text-slate-500">Frequência de sync</label>
-          <select onchange="Actions.updateActionDraftRDEmail('syncFrequency', this.value)" class="w-full px-3 py-3 rounded-2xl bg-white border border-slate-200 font-semibold">
-            ${['manual','daily','weekly'].map(v => `<option value="${v}" ${cfg.syncFrequency === v ? 'selected' : ''}>${v}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-
-      <div class="mt-4">
-        <p class="text-xs font-black text-slate-400 mb-2">KPIs que serão preparados nesta ação</p>
-        <div class="flex flex-wrap gap-2">${(window.RDConfig ? RDConfig.emailKpiDefaults() : []).map(kpi => `<span class="lj-rd-kpi-chip">${kpi.name}</span>`).join('')}</div>
-      </div>
-    </div>`;
-  },
-
-  rdInput(field, label, value, placeholder) {
-    return `<div>
-      <label class="text-xs font-black text-slate-500">${label}</label>
-      <input value="${Utils.escape(value || '')}" oninput="Actions.updateActionDraftRDEmail('${field}', this.value)" placeholder="${Utils.escape(placeholder || '')}" class="w-full px-3 py-3 rounded-2xl bg-white border border-slate-200 font-semibold" />
-    </div>`;
-  }
-});
-
-Object.assign(ActionModule, {
-  rdKpiMappingPanel(d) {
-    if (!window.RDMapper?.isRDEmailAction?.(d)) return '';
-    const stats = { ...(window.RDKpiMapper ? RDKpiMapper.emptyStatsTemplate() : {}), ...(d.rdEmailStats || {}) };
-    const kpis = window.RDKpiMapper ? RDKpiMapper.mapStatsToKpis(stats, d.kpis || []) : (window.RDConfig ? RDConfig.emailKpiDefaults() : []);
-    const statInput = (field, label) => `<div><label class="text-xs font-black text-slate-500">${label}</label><input type="number" value="${stats[field] || 0}" oninput="Actions.updateActionDraftRDStats('${field}', this.value)" class="w-full px-3 py-3 rounded-2xl bg-white border border-slate-200 font-semibold" /></div>`;
-    return `<div class="lj-rd-panel">
-      <div class="flex items-start justify-between gap-3 mb-4"><div><h3 class="lj-rd-title">Mapeamento de KPIs RD Email</h3><p class="lj-rd-help">Fase 3: simule ou preencha os KPIs que depois serão alimentados pelo sync real.</p></div><span class="lj-rd-kpi-chip">Fase 3</span></div>
-      <div class="lj-rd-grid mb-4">${statInput('sent','Enviados')}${statInput('delivered','Entregues')}${statInput('opens','Aberturas')}${statInput('clicks','Cliques')}${statInput('bounces','Bounces')}${statInput('unsubscribes','Descadastros')}${statInput('conversions','Conversões')}</div>
-      <div class="grid md:grid-cols-3 gap-2">${kpis.map(kpi => `<div class="rounded-2xl bg-white/10 border border-white/10 p-3"><p class="text-xs text-slate-300 font-black">${Utils.escape(kpi.name)}</p><p class="text-2xl font-black text-white mt-1">${Utils.escape(kpi.current)}</p><p class="text-[11px] text-slate-400 mt-1">${Utils.escape(kpi.formula || kpi.context || '')}</p></div>`).join('')}</div>
-    </div>`;
-  }
-});
-
-
-// V13.0.1 — RD action status helpers
-Object.assign(ActionModule, {
-  rdActionStatusBadge(action) {
-    if (!window.RDMapper?.isRDEmailAction?.(action)) return '';
-    const status = action.rdSyncStatus || 'pending';
-    const last = action.lastRdSyncAt ? new Date(action.lastRdSyncAt).toLocaleString('pt-BR') : 'Nunca';
-    return `<div class="mt-3 flex flex-wrap items-center gap-2">
-      <button onclick="Actions.syncRDAction(${action.id})" class="px-3 py-2 rounded-2xl bg-sky-500/10 border border-sky-300/20 text-sky-700 font-black text-xs">Sincronizar RD</button>
-      <span class="px-3 py-2 rounded-2xl bg-slate-100 border border-slate-200 text-slate-600 font-black text-xs">RD: ${Utils.escape(status)} • ${Utils.escape(last)}</span>
-    </div>`;
-  }
-});
+// V38.1.53 — Removidos `operationalFlowRail` (rail navegacional não chamado),
+// `rdEmailFields`/`rdInput`/`rdKpiMappingPanel` (painéis V13 RD Email Fase 2/3 stub
+// pré-integração OAuth) e `rdActionStatusBadge` (badge nunca renderizada).
+// Backend rdSyncEngine continua intacto pra ações já configuradas.

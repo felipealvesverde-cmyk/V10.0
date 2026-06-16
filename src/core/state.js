@@ -703,6 +703,8 @@ var State = {
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '', audience: null },
       audienceWizard: null,
+      // V38.1.53 — campanha selecionada no card "Construir Fluxo de Ações" da aba Plugins.
+      pluginsFlowBuilderCampaignId: null,
       // V38.1.51 — cache de análises do Djow do Roadmap por campanha.
       // shape: { [campaignId]: { text, model, timestamp, tokens_in, tokens_out, loading? } }
       roadmapInsights: {},
@@ -1454,6 +1456,8 @@ var State = {
         return merged;
       })(),
       audienceWizard: (raw.audienceWizard && typeof raw.audienceWizard === 'object' && raw.audienceWizard.open) ? raw.audienceWizard : null,
+      // V38.1.53 — persiste última campanha escolhida no card Plugins → Construir Fluxo.
+      pluginsFlowBuilderCampaignId: raw.pluginsFlowBuilderCampaignId != null ? Number(raw.pluginsFlowBuilderCampaignId) : null,
       // V38.1.51 — Map { [campaignId]: { text, model, timestamp, tokens_in, tokens_out } }.
       // Loading flag não persiste (rebobina pra false se F5 no meio do fetch).
       roadmapInsights: (raw.roadmapInsights && typeof raw.roadmapInsights === 'object')

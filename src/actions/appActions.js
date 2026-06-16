@@ -2037,6 +2037,12 @@ Object.assign(Actions, {
   openCampaignFlowModal(id) { App.state.campaignFlowModalId = id; App.state.showCampaignFlowModal = true; App.save(); App.render(); },
   closeCampaignFlowModal() { App.state.showCampaignFlowModal = false; App.state.campaignFlowModalId = null; App.save(); App.render(); },
 
+  // V38.1.53 — Seletor de campanha do card Construir Fluxo na aba Plugins.
+  setPluginsFlowBuilderCampaign(id) {
+    App.state.pluginsFlowBuilderCampaignId = Number(id) || null;
+    App.save(); App.render();
+  },
+
   // V38.1.51 — Djow lê todas as ações da campanha (nome, canal, origem→destino,
   // taxa de cada etapa) e devolve 4-6 frases pragmáticas em prosa apontando
   // pontos de atenção ação por ação. Cacheia em App.state.roadmapInsights[id].

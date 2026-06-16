@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.53',
+    date: '2026-06-16',
+    title: 'Aba "Ações da campanha": limpeza do grupo B + nova aba "Plugins"',
+    bullets: [
+      'Três fragmentos de código morto saíram do módulo de Ações: a barra de navegação 4-step que ninguém renderizava, os 2 painéis V13 de "Configuração RD Email" e "Mapeamento de KPIs RD Email" (chips Fase 2/Fase 3 que eram stub pré-integração OAuth real) e a badge fantasma "Sincronizar RD". O backend de sync RD continua intacto pras ações já configuradas.',
+      'O botão "Construir Fluxo" saiu do topo da seção "Ações plugadas". Não sumiu — virou um plugin de catálogo no novo menu Plugins.',
+      'Estreou a aba "Plugins" no menu principal, depois de RevOps & Governança. Ela hospeda ferramentas avançadas fora do fluxo padrão Produto→Campanha→Ação. O primeiro plugin é "Construir Fluxo de Ações" — você escolhe a campanha no card e abre o Builder V15.1 (canvas drag-and-drop pra ligar ações entre si).',
+      'O Builder em si está intocado: mesmo canvas SVG, mesmas conexões, mesma persistência. Só mudou a porta de entrada.'
+    ]
+  },
+  {
     version: 'V38.1.52',
     date: '2026-06-16',
     title: 'Aba "Ações da campanha" enxuta — 7 cortes de redundância',
