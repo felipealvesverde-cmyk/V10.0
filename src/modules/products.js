@@ -144,8 +144,8 @@ var ProductsModule = {
             <input value="${Utils.escape(d.name || '')}" oninput="App.state.productDraft.name=this.value; App.save();" placeholder="Ex: Diagnóstico Comercial" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm" />
           </div>
           <div>
-            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Tipo</label>
-            <input value="${Utils.escape(d.type || '')}" oninput="App.state.productDraft.type=this.value; App.save();" placeholder="Ex: SaaS, Consultoria" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm" />
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Audiência (ICP)</label>
+            ${this._draftAudienceButton(d)}
           </div>
           <div class="col-span-2">
             <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Recorrência</label>
@@ -218,6 +218,25 @@ var ProductsModule = {
         </div>
       </div>
     </div>`;
+  },
+
+  // V38.1.37 — Botão de Audiência no form "Criar Produto sem Mapa".
+  // Substitui o campo "Tipo" (que era redundante com Modelo Negócio +
+  // Operacional do wizard). Pré-submit: cliente define o ICP no draft e
+  // só depois o botão "Criar Produto sem Mapa" libera.
+  _draftAudienceButton(d) {
+    const a = (d && d.audience) || null;
+    if (a && a.configured) {
+      const tags = [a.modeloNegocio, a.modeloOperacional].filter(Boolean).map(s => String(s).toUpperCase()).join(' · ');
+      return `<button onclick="Actions.openAudienceWizardForDraft()" class="w-full px-3 py-2.5 rounded-xl border-2 border-emerald-300 bg-emerald-50 text-emerald-900 font-black text-xs text-left flex items-center justify-between gap-2 hover:bg-emerald-100 transition">
+        <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="target" class="w-3.5 h-3.5 shrink-0"></i><span class="truncate">ICP ${Utils.escape(tags)}</span></span>
+        <span class="text-[10px] font-bold opacity-70 shrink-0">Editar</span>
+      </button>`;
+    }
+    return `<button onclick="Actions.openAudienceWizardForDraft()" class="w-full px-3 py-2.5 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-900 font-black text-xs text-left flex items-center justify-between gap-2 hover:bg-amber-100 transition">
+      <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0"></i><span class="truncate">Definir audiência</span></span>
+      <span class="text-[10px] font-bold opacity-70 shrink-0">Obrigatório</span>
+    </button>`;
   },
 
   // V38.1.36 — Badge de status do ICP no header do card.

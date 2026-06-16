@@ -701,7 +701,7 @@ var State = {
       googleAdsOrphanBellSnapshot: [],
       leadDraft: { name: '', phone: '', email: '', idade: '', estado: '', cidade: '', estadoCivil: '', sexo: '', faixaSalarial: '', tags: '' },
       manualLeads: [],
-      productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '' },
+      productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '', audience: null },
       audienceWizard: null,
       okrDraft: { objective: '', keyResult: '', target: '', unit: 'R$', owner: '', deadline: '', status: 'Em andamento' },
       kpiDraft: { name: '', metric: 'revenue', scope: 'global', productId: null, target: '', unit: 'R$', frequency: 'Semanal', source: 'Automático pelo Revenue Engine', relatedOkrId: null },
