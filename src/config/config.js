@@ -25,7 +25,10 @@ var Config = {
         { id: 'results', label: 'Resultados', icon: 'bar-chart-3' },
         { id: 'leads', label: 'Leads', icon: 'users-round' },
         { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
-        { id: 'revops', label: 'RevOps & Governança', icon: 'landmark' }
+        { id: 'revops', label: 'RevOps & Governança', icon: 'landmark' },
+        // V38.1.53 — Plugins: catálogo de ferramentas avançadas fora do fluxo principal.
+        // Estreia hospedando o "Construir Fluxo de Ações" (V15.1 ActionFlowBuilder).
+        { id: 'plugins', label: 'Plugins', icon: 'puzzle' }
       ],
       emptyOkrs: [
         { name: '', target: '', current: '' },
