@@ -248,19 +248,42 @@ var AudienceTransmutationEngine = {
     }
   },
 
-  // Avalia uma camada — retorna {pct, missing, hits, denom}
+  // Avalia uma camada — retorna {pct, hits[], missing[], denom, optionalHits[]}
+  // Cada item em hits/missing carrega {key, label, type, optional}.
   _evaluateLayer(lead, fields) {
-    const required = (fields || []).filter(f => !f.optional);
-    if (!required.length) return { pct: 1, missing: [], hits: 0, denom: 0 };
-    let hits = 0;
+    const allFields = fields || [];
+    const required = allFields.filter(f => !f.optional);
+    const hits = [];
     const missing = [];
-    for (const field of required) {
+    const optionalHits = [];
+    for (const field of allFields) {
       const inf = this.FIELD_INFERENCE[field.key];
       const passed = inf ? !!inf(lead) : false;
-      if (passed) hits++;
-      else missing.push({ key: field.key, label: field.label, type: field.type });
+      const row = { key: field.key, label: field.label, type: field.type, optional: !!field.optional };
+      if (field.optional) {
+        if (passed) optionalHits.push(row);
+      } else {
+        if (passed) hits.push(row); else missing.push(row);
+      }
     }
-    return { pct: hits / required.length, missing, hits, denom: required.length };
+    const pct = required.length ? hits.length / required.length : 1;
+    return { pct, hits, missing, denom: required.length, optionalHits };
+  },
+
+  // V38.1.43 — Mapeia entityType (V34 hierarquia LJ) pra atalho de camada.
+  // Cliente já classificado como customer/lead nunca pode ser rebaixado
+  // a Suspect pela transmutação — o LJ confiou nessa classificação por
+  // signals mais ricos do que só o quadro de audiência.
+  _resolveEntityTypeShortcut(lead, layerFromSchema) {
+    const t = String(lead.entityType || lead.entity_type || '').toLowerCase();
+    if (t === 'customer') {
+      // Customer sempre atinge BP — cumpriu a jornada inteira.
+      if (layerFromSchema !== 'lj-bp') return { layer: 'lj-bp', via: 'entityType=customer' };
+    } else if (t === 'lead') {
+      // Lead identificado (não-suspect) sobe ao mínimo PA.
+      if (layerFromSchema === 'lj-suspect') return { layer: 'lj-pa', via: 'entityType=lead' };
+    }
+    return null;
   },
 
   // Função principal — transmuta um lead contra o schema fundido do produto
@@ -273,24 +296,32 @@ var AudienceTransmutationEngine = {
     const bp  = this._evaluateLayer(lead, schema.bp);
 
     // §1 — Regra do acúmulo: ICP só atinge se PA também; BP só se ICP também.
-    let layer = 'lj-suspect';
+    let layerFromSchema = 'lj-suspect';
     if (pa.pct >= T) {
-      layer = 'lj-pa';
+      layerFromSchema = 'lj-pa';
       if (icp.pct >= T) {
-        layer = 'lj-icp';
+        layerFromSchema = 'lj-icp';
         if (bp.pct >= T) {
-          layer = 'lj-bp';
+          layerFromSchema = 'lj-bp';
         }
       }
     }
 
+    // V38.1.43 — Atalho via entityType: respeita classificação V34 do LJ.
+    const shortcut = this._resolveEntityTypeShortcut(lead, layerFromSchema);
+    const layer = shortcut ? shortcut.layer : layerFromSchema;
+
     return {
       layer,
+      layerFromSchema,
+      shortcut, // {layer, via} | null
       threshold: T,
       paPct:  Math.round(pa.pct  * 1000) / 10,
       icpPct: Math.round(icp.pct * 1000) / 10,
       bpPct:  Math.round(bp.pct  * 1000) / 10,
+      details: { pa, icp, bp },
       missing: { pa: pa.missing, icp: icp.missing, bp: bp.missing },
+      entityType: String(lead.entityType || lead.entity_type || '').toLowerCase() || null,
       evaluatedAt: new Date().toISOString()
     };
   },

@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.43',
+    date: '2026-06-16',
+    title: 'ICP integra com entityType + drill-down "por que esse lead virou X"',
+    bullets: [
+      'Atalho via entityType do LJ: se o lead já é "customer" no scoring V34, o ICP carimba direto como BP — não precisa bater 80% em todo o quadro. Se é "lead" identificado, sobe pra PA no mínimo. O ICP passa a respeitar a classificação que o LJ já fez por signals mais ricos do que só o quadro.',
+      'Quando o atalho é aplicado, a badge mostra um raio ⚡ e o tooltip explica de onde veio.',
+      'Clique na badge de camada no card do lead abre um modal de drill-down: cada campo obrigatório de PA/ICP/BP listado com ✓ (bateu) ou ✗ (não bateu), badge FIT/DADO, e percentual atingido por camada vs threshold.',
+      'No rodapé do modal, uma leitura humana: se está em Suspect, sinaliza que "ausência de sinal costuma significar falta de coleta, não público ruim" — aponta onde investir em formulário/enrichment. Se atingiu BP, dá os parabéns.'
+    ]
+  },
+  {
     version: 'V38.1.42',
     date: '2026-06-16',
     title: 'Transmutador chega na tela de Leads — badge na pessoa + filtro PA/ICP/BP',
