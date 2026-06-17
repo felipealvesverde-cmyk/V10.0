@@ -241,18 +241,18 @@ var ExecutionsModule = {
         <p class="text-[11px] text-slate-500 mt-1">Ação: <b>${Utils.escape(action?.name || 'sem vínculo')}</b></p>
       </div>
 
-      <div class="grid grid-cols-3 gap-2 mb-2">
-        <div class="bg-white rounded-xl border border-slate-200 px-2 py-1 flex items-center justify-between gap-2" style="border-left: 3px solid var(--lj-action);">
-          <div class="text-[8px] font-black uppercase tracking-widest leading-none" style="color: var(--lj-action);">Dias em aberto</div>
-          <div class="font-black text-[13px] text-slate-900 leading-none shrink-0">${daysOpen != null ? daysOpen : '—'}</div>
+      <div class="grid grid-cols-3 gap-2 text-center mb-3 lg:w-1/2">
+        <div class="bg-white rounded-2xl border border-slate-200 px-3 py-3 min-w-0" style="border-left: 4px solid var(--lj-action);">
+          <div class="text-[10px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Dias em aberto</div>
+          <div class="font-black text-xl text-slate-900 mt-1">${daysOpen != null ? daysOpen : '—'}</div>
         </div>
-        <div class="bg-white rounded-xl border border-slate-200 px-2 py-1 flex items-center justify-between gap-2 min-w-0" style="border-left: 3px solid var(--lj-action);">
-          <div class="text-[8px] font-black uppercase tracking-widest leading-none shrink-0" style="color: var(--lj-action);">Fechamento</div>
-          <div class="font-black text-[10px] text-slate-900 leading-none truncate">${Utils.escape(closingDate)}</div>
+        <div class="bg-white rounded-2xl border border-slate-200 px-3 py-3 min-w-0" style="border-left: 4px solid var(--lj-action);">
+          <div class="text-[10px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Fechamento</div>
+          <div class="font-black text-[12px] text-slate-900 mt-1 leading-tight truncate">${Utils.escape(closingDate)}</div>
         </div>
-        <div class="bg-white rounded-xl border border-slate-200 px-2 py-1 flex items-center justify-between gap-2 min-w-0" style="border-left: 3px solid var(--lj-action);">
-          <div class="text-[8px] font-black uppercase tracking-widest leading-none shrink-0" style="color: var(--lj-action);">Responsável</div>
-          <div class="font-black text-[10px] text-slate-900 leading-none truncate">${Utils.escape(owner)}</div>
+        <div class="bg-white rounded-2xl border border-slate-200 px-3 py-3 min-w-0" style="border-left: 4px solid var(--lj-action);">
+          <div class="text-[10px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Responsável</div>
+          <div class="font-black text-[12px] text-slate-900 mt-1 leading-tight truncate">${Utils.escape(owner)}</div>
         </div>
       </div>
 
