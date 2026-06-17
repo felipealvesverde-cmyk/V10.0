@@ -2044,6 +2044,16 @@ Object.assign(Actions, {
     ExecutionTaskStore.update(taskId, { status: 'completed', completed_at: new Date().toISOString() });
     App.save(); App.render();
   },
+  // V38.1.70 — Reabre execução já concluída: status volta pra 'pending',
+  // limpa completed_at. Local-only (não propaga pro provider ClickUp ainda;
+  // mesma escolha consciente que markExecutionDone). Próximo sync pode
+  // sobrescrever se o status no ClickUp continuar 'closed'.
+  reopenExecution(taskId) {
+    if (!window.ExecutionTaskStore) return;
+    ExecutionTaskStore.update(taskId, { status: 'pending', completed_at: null });
+    App.save(); App.render();
+    Utils.toast('↺ Execução reaberta.');
+  },
   deleteExecution(taskId) {
     if (!window.ExecutionTaskStore) return;
     App.state.executionTasks = (App.state.executionTasks || []).filter(t => t.task_id !== taskId);
