@@ -188,16 +188,15 @@ var RevopsVelocityModule = {
     };
     const passosFaltantes = (semMeta ? 1 : 0) + (semCanal ? 1 : 0) + (semTrafego ? 1 : 0) + (semVenda ? 1 : 0);
     const faixaVisivel = passosFaltantes > 0;
-    // Djow só costura quando há >= 2 capítulos cravados (Situação + Estrutura/Eficiência).
-    // 1 capítulo isolado = Djow vira eco do que já está dito acima.
+    // V39.7.2 — Djow sempre presente como persona viva do card. Narrativa adapta ao estado.
     const cravados = (!semMeta ? 1 : 0) + (!semTrafego ? 1 : 0) + (!semVenda ? 1 : 0);
-    const mostraDjow = cravados >= 2;
     const isVazioTotal = semVenda && semTrafego && semMeta && semCanal;
 
-    // Estado vazio total: só faixa "Como ativar" + refresh — sem 4 blocos chorando
+    // Estado vazio total: só faixa "Como ativar" + Djow em silêncio + refresh
     if (isVazioTotal) {
       return `<div class="border-t border-slate-200 bg-white p-4 space-y-3">
         ${this._comoAtivarFaixa(product, sinais)}
+        ${this._djowCostura(product, s, forecast, efficiency, cravados)}
         <div class="flex items-center justify-end">
           <button onclick="Actions.refreshOndaA()" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 flex items-center gap-1.5">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recarregar diagnóstico
@@ -240,7 +239,7 @@ var RevopsVelocityModule = {
 
       ${!semVenda ? this._efficiencyBlock(product) : ''}
 
-      ${mostraDjow ? this._djowCostura(product, s, forecast, efficiency) : ''}
+      ${this._djowCostura(product, s, forecast, efficiency, cravados)}
 
       <div class="flex items-center justify-end">
         <button onclick="Actions.refreshOndaA()" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 flex items-center gap-1.5">
@@ -422,51 +421,73 @@ var RevopsVelocityModule = {
   },
 
   // V39.5.0 — Costura do Djow: síntese das 3 leituras (mês + estrutura + capital).
-  // Texto algorítmico local — sem chamada de IA. Combina os 3 snapshots e
-  // monta uma narrativa que conecta gargalo estrutural com situação do mês.
-  _djowCostura(product, velocity, forecast, efficiency) {
+  // V39.7.2 — Djow virou persona viva sempre presente. Narrativa adapta ao
+  //           estado: 0 capítulos = silêncio honesto; 1 capítulo = espera ativa;
+  //           2+ capítulos = síntese algorítmica completa (lógica antiga).
+  _djowCostura(product, velocity, forecast, efficiency, cravadosParam) {
     if (!velocity || velocity.status !== 'ok') return '';
-    const parts = [];
 
-    // Frase 1: situação do mês + raiz
-    if (forecast && forecast.status === 'ok' && forecast.meta > 0) {
-      const semVerb = forecast.semaforo === 'green' ? 'bate' : forecast.semaforo === 'amber' ? 'aperta na meta' : 'estoura a meta';
-      const variancePct = (forecast.variance * 100).toFixed(0);
-      parts.push(`Esse mês ${semVerb} ${variancePct >= 0 ? '+' : ''}${variancePct}% vs meta.`);
-      if (forecast.semaforo !== 'green' && velocity.gargalo) {
-        const gargaloMap = {
-          V: 'a raiz é volume — você tem pouco tráfego entrando',
-          C: 'a raiz é estrutural — sua conversão está abaixo do mercado, então tráfego pago não resolve esse mês (exige otimização de página, prova social, atendimento)',
-          L: 'a raiz é ticket — seu valor médio por venda é baixo, considere combo/upsell',
-          T: 'a raiz é ciclo — o cliente demora demais pra decidir, considere nutrição automatizada'
-        };
-        parts.push(gargaloMap[velocity.gargalo] || '');
+    const semVenda = (velocity.approvedCount || 0) === 0 && (velocity.customersCount || 0) === 0;
+    const semTrafego = velocity.V === 0;
+    const semMeta = !forecast || forecast.status !== 'ok' || forecast.meta <= 0;
+    const cravados = typeof cravadosParam === 'number'
+      ? cravadosParam
+      : ((!semMeta ? 1 : 0) + (!semTrafego ? 1 : 0) + (!semVenda ? 1 : 0));
+
+    let texto = '';
+
+    if (cravados === 0) {
+      texto = 'Ainda em silêncio — o produto começa a falar quando o primeiro dado cair (meta declarada, tráfego entrando ou venda confirmada). Volto a costurar quando tiver narrativa pra contar.';
+    } else if (cravados === 1) {
+      if (!semMeta) {
+        texto = 'Por enquanto, só leio a meta declarada — sem tráfego rastreado nem venda confirmada, não dá pra cruzar com estrutura nem eficiência. Quando o primeiro touchpoint UTM cair e a primeira venda entrar, costuro a história completa.';
+      } else if (!semTrafego) {
+        texto = 'Por enquanto, só leio o tráfego que está entrando. Quando você declarar a meta do mês e a primeira venda cair, costuro com a Situação e a Eficiência de Capital.';
+      } else if (!semVenda) {
+        texto = 'Por enquanto, só leio as vendas confirmadas. Quando você declarar a meta do mês e o tráfego entrar rastreado, conecto os 3 capítulos numa síntese completa.';
       }
-    } else if (forecast && forecast.status === 'pending') {
-      parts.push('Situação do mês depende do Fechamento mensal declarado (modo CRM/híbrido).');
+    } else {
+      // 2+ capítulos cravados → síntese algorítmica
+      const parts = [];
+
+      if (forecast && forecast.status === 'ok' && forecast.meta > 0) {
+        const semVerb = forecast.semaforo === 'green' ? 'bate' : forecast.semaforo === 'amber' ? 'aperta na meta' : 'estoura a meta';
+        const variancePct = (forecast.variance * 100).toFixed(0);
+        parts.push(`Esse mês ${semVerb} ${variancePct >= 0 ? '+' : ''}${variancePct}% vs meta.`);
+        if (forecast.semaforo !== 'green' && velocity.gargalo) {
+          const gargaloMap = {
+            V: 'a raiz é volume — você tem pouco tráfego entrando',
+            C: 'a raiz é estrutural — sua conversão está abaixo do mercado, então tráfego pago não resolve esse mês (exige otimização de página, prova social, atendimento)',
+            L: 'a raiz é ticket — seu valor médio por venda é baixo, considere combo/upsell',
+            T: 'a raiz é ciclo — o cliente demora demais pra decidir, considere nutrição automatizada'
+          };
+          parts.push(gargaloMap[velocity.gargalo] || '');
+        }
+      } else if (forecast && forecast.status === 'pending') {
+        parts.push('Situação do mês depende do Fechamento mensal declarado (modo CRM/híbrido).');
+      }
+
+      if (efficiency && efficiency.status === 'ok' && efficiency.ltvCacRatio != null) {
+        if (efficiency.ltvCacRatio >= 3) {
+          parts.push(`No estrutural, a operação é sólida (LTV:CAC ${efficiency.ltvCacRatio.toFixed(1)}:1, Payback ${efficiency.paybackMonths != null && efficiency.paybackMonths < 0.1 ? 'instantâneo' : (efficiency.paybackMonths || 0).toFixed(1) + ' meses'}).`);
+        } else if (efficiency.ltvCacRatio >= 2) {
+          parts.push(`A eficiência de capital está apertada (LTV:CAC ${efficiency.ltvCacRatio.toFixed(1)}:1, abaixo do saudável 3:1) — modelo cobre o custo mas sem margem pra reinvestir.`);
+        } else {
+          parts.push(`⚠ A eficiência de capital é crítica (LTV:CAC ${efficiency.ltvCacRatio.toFixed(1)}:1, abaixo do saudável 3:1) — cada cliente novo subtrai valor. Antes de escalar tráfego, suba ticket ou corte CAC.`);
+        }
+      } else if (efficiency && efficiency.status === 'ok' && efficiency.cacSource === 'missing') {
+        parts.push('Pra fechar o diagnóstico, defina o CAC esperado nas ofertas do produto — destrava LTV:CAC e Payback.');
+      }
+
+      if (efficiency && efficiency.status === 'ok' && efficiency.nrrStatus === 'ok' && efficiency.nrr != null) {
+        if (efficiency.nrr < 1) {
+          parts.push(`A base atual encolhe ${((1 - efficiency.nrr) * 100).toFixed(0)}% ao mês (NRR ${(efficiency.nrr * 100).toFixed(0)}%) — você está enchendo balde furado, trabalhe upsell e retenção.`);
+        }
+      }
+
+      texto = parts.filter(Boolean).join(' ');
     }
 
-    // Frase 2: eficiência de capital
-    if (efficiency && efficiency.status === 'ok' && efficiency.ltvCacRatio != null) {
-      if (efficiency.ltvCacRatio >= 3) {
-        parts.push(`No estrutural, a operação é sólida (LTV:CAC ${efficiency.ltvCacRatio.toFixed(1)}:1, Payback ${efficiency.paybackMonths != null && efficiency.paybackMonths < 0.1 ? 'instantâneo' : (efficiency.paybackMonths || 0).toFixed(1) + ' meses'}).`);
-      } else if (efficiency.ltvCacRatio >= 2) {
-        parts.push(`A eficiência de capital está apertada (LTV:CAC ${efficiency.ltvCacRatio.toFixed(1)}:1, abaixo do saudável 3:1) — modelo cobre o custo mas sem margem pra reinvestir.`);
-      } else {
-        parts.push(`⚠ A eficiência de capital é crítica (LTV:CAC ${efficiency.ltvCacRatio.toFixed(1)}:1, abaixo do saudável 3:1) — cada cliente novo subtrai valor. Antes de escalar tráfego, suba ticket ou corte CAC.`);
-      }
-    } else if (efficiency && efficiency.status === 'ok' && efficiency.cacSource === 'missing') {
-      parts.push('Pra fechar o diagnóstico, defina o CAC esperado nas ofertas do produto — destrava LTV:CAC e Payback.');
-    }
-
-    // Frase 3: NRR (se aplica)
-    if (efficiency && efficiency.status === 'ok' && efficiency.nrrStatus === 'ok' && efficiency.nrr != null) {
-      if (efficiency.nrr < 1) {
-        parts.push(`A base atual encolhe ${((1 - efficiency.nrr) * 100).toFixed(0)}% ao mês (NRR ${(efficiency.nrr * 100).toFixed(0)}%) — você está enchendo balde furado, trabalhe upsell e retenção.`);
-      }
-    }
-
-    const texto = parts.filter(Boolean).join(' ');
     if (!texto) return '';
 
     return `<div class="rounded-2xl bg-gradient-to-br from-violet-50 to-pink-50 border border-violet-200 border-l-2 border-l-violet-500 p-4">
