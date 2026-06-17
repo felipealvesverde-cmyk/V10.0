@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.60',
+    date: '2026-06-17',
+    title: 'Botões de Execução compactados e movidos pra dentro da coluna direita',
+    bullets: [
+      'Os botões "Criar Execuções via Djow" e "Ver Execuções" encolheram pra ~30% do tamanho anterior (text-[9px] uppercase, padding compacto, border 1px) e saíram da linha full-width. Agora vivem dentro da coluna direita do card, logo abaixo dos mini-cards Leads/Score/Etapas, alinhados em grid de 2.',
+      'Texto do primeiro botão abreviou pra "Criar c/ Djow" (era "Criar Execuções via Djow"). O segundo continua "Ver Execuções".',
+      'O card fica mais respirado verticalmente — sem aquela faixa grande de botões cortando o meio.'
+    ]
+  },
+  {
     version: 'V38.1.59',
     date: '2026-06-17',
     title: 'Card de ação alinhado pixel-perfect aos cards de Produto e Campanha',

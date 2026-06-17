@@ -199,25 +199,29 @@ var ActionModule = {
               </div>
             </div>
           </div>
-          <div class="grid grid-cols-3 gap-2 text-center w-full lg:w-[300px] shrink-0 lg:pr-12">
-            <div class="bg-white rounded-2xl border border-slate-200 px-3 py-2" style="border-left: 4px solid var(--lj-action);">
-              <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Leads</div>
-              <div class="font-black text-lg text-slate-900 mt-0.5">${action.leads.length}</div>
+          <div class="flex flex-col gap-1.5 w-full lg:w-[300px] shrink-0 lg:pr-12">
+            <div class="grid grid-cols-3 gap-2 text-center">
+              <div class="bg-white rounded-2xl border border-slate-200 px-3 py-2" style="border-left: 4px solid var(--lj-action);">
+                <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Leads</div>
+                <div class="font-black text-lg text-slate-900 mt-0.5">${action.leads.length}</div>
+              </div>
+              <div class="bg-white rounded-2xl border border-slate-200 px-3 py-2" style="border-left: 4px solid var(--lj-action);">
+                <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Score</div>
+                <div class="font-black text-lg text-slate-900 mt-0.5">${avgScore}</div>
+              </div>
+              <div class="bg-white rounded-2xl border border-slate-200 px-3 py-2" style="border-left: 4px solid var(--lj-action);">
+                <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Etapas</div>
+                <div class="font-black text-lg text-slate-900 mt-0.5">${flow.path.length}</div>
+              </div>
             </div>
-            <div class="bg-white rounded-2xl border border-slate-200 px-3 py-2" style="border-left: 4px solid var(--lj-action);">
-              <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Score</div>
-              <div class="font-black text-lg text-slate-900 mt-0.5">${avgScore}</div>
-            </div>
-            <div class="bg-white rounded-2xl border border-slate-200 px-3 py-2" style="border-left: 4px solid var(--lj-action);">
-              <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Etapas</div>
-              <div class="font-black text-lg text-slate-900 mt-0.5">${flow.path.length}</div>
+            <!-- V38.1.60 — Botões "Criar Execuções via Djow" + "Ver Execuções"
+                 compactados (~30% do tamanho anterior) e movidos pra dentro
+                 da coluna direita, logo abaixo dos mini-KPIs. -->
+            <div class="grid grid-cols-2 gap-1.5">
+              <button onclick="event.stopPropagation(); Actions.openDjowAIModal({ actionId: ${action.id}, seedPrompt: 'Crie execuções para esta ação: ' })" class="px-2 py-1 rounded-lg bg-slate-900 text-white font-bold text-[9px] border ${areaIsConnected ? `border-${areaTone}-500` : ''} flex items-center justify-center gap-1 uppercase tracking-wider" style="color:#fff!important; ${areaIsConnected ? '' : 'border-color: var(--lj-action);'}"><i data-lucide="sparkles" class="w-2.5 h-2.5"></i> Criar c/ Djow</button>
+              <button onclick="event.stopPropagation(); Actions.openTasksModal(${action.id})" class="px-2 py-1 rounded-lg bg-slate-900 text-white font-bold text-[9px] border ${areaIsConnected ? `border-${areaTone}-500` : ''} flex items-center justify-center gap-1 uppercase tracking-wider" style="color:#fff!important; ${areaIsConnected ? '' : 'border-color: var(--lj-action);'}"><i data-lucide="list-checks" class="w-2.5 h-2.5"></i> Ver Execuções</button>
             </div>
           </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <button onclick="event.stopPropagation(); Actions.openDjowAIModal({ actionId: ${action.id}, seedPrompt: 'Crie execuções para esta ação: ' })" class="px-3 py-2 rounded-xl bg-slate-900 text-white font-bold text-[11px] border-2 ${areaIsConnected ? `border-${areaTone}-500` : ''} flex items-center justify-center gap-1.5" style="color:#fff!important; ${areaIsConnected ? '' : 'border-color: var(--lj-action);'}"><i data-lucide="sparkles" class="w-3 h-3"></i> Criar Execuções via Djow</button>
-          <button onclick="event.stopPropagation(); Actions.openTasksModal(${action.id})" class="px-3 py-2 rounded-xl bg-slate-900 text-white font-bold text-[11px] border-2 ${areaIsConnected ? `border-${areaTone}-500` : ''} flex items-center justify-center gap-1.5" style="color:#fff!important; ${areaIsConnected ? '' : 'border-color: var(--lj-action);'}"><i data-lucide="list-checks" class="w-3 h-3"></i> Ver Execuções</button>
         </div>
 
         <div class="flex flex-wrap gap-2">${flow.path.map(stage => `<span class="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-black">${FlowResolutionEngine.label(stage)}</span>`).join('')}</div>
