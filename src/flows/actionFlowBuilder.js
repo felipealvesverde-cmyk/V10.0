@@ -1,15 +1,13 @@
-// V39.9.0 — Flow Builder com Esteira do LJ
-// Forma alternativa de criar a esteira Produto→Campanha→Ação→Execução visualmente.
-// Builder cria entidades reais do LJ; aparecem nas abas Produtos, Campanhas, Ações,
-// Execuções normalmente. Auxiliares (Email/SDR/WhatsApp/etc) ficam como rascunho
-// visual — não geram nada ao salvar.
-//
-// State próprio (`flowBuilderNodes` + `flowBuilderEdges`). Cada bloco da Esteira
-// tem `data` (campos específicos do tipo) e `linkedRealId` (null antes do save,
-// id real depois). Re-saves não duplicam.
+// V39.9.3 — Flow Builder com canvas infinito + pan/zoom + viewport culling.
+// SVG cobre 100% do container; um <g id="flowWorld"> interno tem
+// transform="translate(panX, panY) scale(zoom)" — esse grupo é o "mundo".
+// Coordenadas dos nós ficam em world space (negativas/infinitas OK).
+// Pan: drag em área vazia (não em nó/porta). Reset zoom reseta pan também.
+// Viewport culling: só renderiza nós/arestas dentro da janela visível.
 window.ActionFlowBuilder = {
   NODE_WIDTH: 200,
   NODE_HEIGHT: 110,
+  VIEWPORT_MARGIN: 200,
 
   ESTEIRA_TYPES: [
     { id: 'produto',   label: 'Produto',   icon: 'package',   color: '#a855f7', hierarchy: 1 },
@@ -31,7 +29,7 @@ window.ActionFlowBuilder = {
     { id: 'custom',   label: 'Custom',   icon: 'square',          color: '#64748b' }
   ],
 
-  _internal: { container: null, dragNode: null, pendingConnection: null },
+  _internal: { container: null, dragNode: null, pendingConnection: null, panning: null },
 
   typeById(id) {
     return this.ESTEIRA_TYPES.find(t => t.id === id)
@@ -64,7 +62,7 @@ window.ActionFlowBuilder = {
         <div class="p-6 grid grid-cols-[minmax(0,1fr)_300px] gap-5">
           <div class="relative min-w-0">
             ${this._zoomControls(zoom)}
-            <div id="flowBuilderCanvas" class="relative rounded-3xl border border-white/10 bg-white/[0.04] min-h-[70vh] max-h-[78vh] overflow-auto min-w-0">
+            <div id="flowBuilderCanvas" class="relative rounded-3xl border border-white/10 bg-white/[0.04] h-[78vh] overflow-hidden min-w-0">
               ${this._emptyCanvasHint()}
             </div>
           </div>
@@ -336,49 +334,100 @@ window.ActionFlowBuilder = {
     return `M ${fromX} ${fromY} C ${fromX + dx} ${fromY}, ${toX - dx} ${toY}, ${toX} ${toY}`;
   },
 
+  // V39.9.3 — Canvas infinito: SVG cobre 100% do container; viewBox = tamanho
+  // visível. Um <g id="flowWorld"> com transform pan+zoom é o "mundo". Nós ficam
+  // em world coords (x/y podem ser quaisquer números). Viewport culling: filtra
+  // só os nós/arestas dentro da janela visível (com margem) antes de desenhar.
   _drawCanvas() {
     const root = this._internal.container;
     if (!root) return;
     const nodes = App.state.flowBuilderNodes || [];
     if (!nodes.length) return;
+    const rect = root.getBoundingClientRect();
+    const viewW = Math.max(200, rect.width || 800);
+    const viewH = Math.max(200, rect.height || 500);
+
     const zoom = Number(App.state.flowBuilderZoom || 1.0);
-    const baseWidth = 1400, baseHeight = 720;
-    const width = baseWidth * zoom, height = baseHeight * zoom;
+    const panX = Number(App.state.flowBuilderPanX || 0);
+    const panY = Number(App.state.flowBuilderPanY || 0);
+
+    // Janela visível em world coords (com margem pra evitar pop-in)
+    const margin = this.VIEWPORT_MARGIN;
+    const visLeft   = (-panX) / zoom - margin;
+    const visTop    = (-panY) / zoom - margin;
+    const visRight  = (viewW - panX) / zoom + margin;
+    const visBottom = (viewH - panY) / zoom + margin;
+
+    // Culling de nós
+    const nodesVisible = nodes.filter(n =>
+      (n.x + this.NODE_WIDTH) >= visLeft &&
+      n.x <= visRight &&
+      (n.y + this.NODE_HEIGHT) >= visTop &&
+      n.y <= visBottom
+    );
+    const visibleNodeIds = new Set(nodesVisible.map(n => String(n.id)));
+
+    // Edges: incluir se qualquer extremo está visível OU a linha cruza a viewport
+    const edges = App.state.flowBuilderEdges || [];
+    const edgesVisible = edges.filter(e => {
+      const from = nodes.find(n => n.id === e.fromId);
+      const to = nodes.find(n => n.id === e.toId);
+      if (!from || !to) return false;
+      if (visibleNodeIds.has(String(e.fromId)) || visibleNodeIds.has(String(e.toId))) return true;
+      const fp = this._outputPort(from);
+      const tp = this._inputPort(to);
+      const lL = Math.min(fp.x, tp.x), lR = Math.max(fp.x, tp.x);
+      const lT = Math.min(fp.y, tp.y), lB = Math.max(fp.y, tp.y);
+      return lR >= visLeft && lL <= visRight && lB >= visTop && lT <= visBottom;
+    });
+
     const svgNS = 'http://www.w3.org/2000/svg';
     root.innerHTML = '';
     const svg = document.createElementNS(svgNS, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${baseWidth} ${baseHeight}`);
-    svg.setAttribute('style', `width:${width}px;height:${height}px;min-width:100%;`);
-    svg.style.cursor = 'default';
+    svg.setAttribute('viewBox', `0 0 ${viewW} ${viewH}`);
+    svg.setAttribute('style', 'width:100%;height:100%;display:block;');
+    svg.style.cursor = 'grab';
 
+    const world = document.createElementNS(svgNS, 'g');
+    world.setAttribute('id', 'flowWorld');
+    world.setAttribute('transform', `translate(${panX}, ${panY}) scale(${zoom})`);
+    svg.appendChild(world);
+
+    // Grid infinito: alinhado ao step e cobrindo só o que está visível
+    const gridStep = 40;
+    const gx0 = Math.floor(visLeft / gridStep) * gridStep;
+    const gx1 = Math.ceil(visRight / gridStep) * gridStep;
+    const gy0 = Math.floor(visTop / gridStep) * gridStep;
+    const gy1 = Math.ceil(visBottom / gridStep) * gridStep;
     const grid = document.createElementNS(svgNS, 'g');
     grid.setAttribute('opacity', '0.5');
-    for (let x = 0; x < baseWidth; x += 40) {
+    for (let x = gx0; x <= gx1; x += gridStep) {
       const line = document.createElementNS(svgNS, 'line');
-      line.setAttribute('x1', x); line.setAttribute('y1', 0); line.setAttribute('x2', x); line.setAttribute('y2', baseHeight);
+      line.setAttribute('x1', x); line.setAttribute('y1', gy0);
+      line.setAttribute('x2', x); line.setAttribute('y2', gy1);
       line.setAttribute('stroke', '#334155'); line.setAttribute('stroke-width', '0.6');
       grid.appendChild(line);
     }
-    for (let y = 0; y < baseHeight; y += 40) {
+    for (let y = gy0; y <= gy1; y += gridStep) {
       const line = document.createElementNS(svgNS, 'line');
-      line.setAttribute('x1', 0); line.setAttribute('y1', y); line.setAttribute('x2', baseWidth); line.setAttribute('y2', y);
+      line.setAttribute('x1', gx0); line.setAttribute('y1', y);
+      line.setAttribute('x2', gx1); line.setAttribute('y2', y);
       line.setAttribute('stroke', '#334155'); line.setAttribute('stroke-width', '0.6');
       grid.appendChild(line);
     }
-    svg.appendChild(grid);
+    world.appendChild(grid);
 
     const armedId = App.state.flowBuilderConnectionArm;
-    const edges = App.state.flowBuilderEdges || [];
 
     const edgesLayer = document.createElementNS(svgNS, 'g');
     edgesLayer.setAttribute('id', 'flowEdgesLayer');
-    svg.appendChild(edgesLayer);
-    for (const edge of edges) this._renderEdge(svgNS, edgesLayer, edge, nodes);
+    world.appendChild(edgesLayer);
+    for (const edge of edgesVisible) this._renderEdge(svgNS, edgesLayer, edge, nodes);
 
     const nodesLayer = document.createElementNS(svgNS, 'g');
     nodesLayer.setAttribute('id', 'flowNodesLayer');
-    svg.appendChild(nodesLayer);
-    for (const node of nodes) this._renderNode(svgNS, nodesLayer, node, armedId, edges);
+    world.appendChild(nodesLayer);
+    for (const node of nodesVisible) this._renderNode(svgNS, nodesLayer, node, armedId, edges);
 
     root.appendChild(svg);
     this._attachSvgListeners(svg);
@@ -581,18 +630,31 @@ window.ActionFlowBuilder = {
     svg.addEventListener('mouseleave', () => {
       self._internal.dragNode = null;
       self._internal.pendingConnection = null;
+      self._internal.panning = null;
+      svg.style.cursor = 'grab';
       const overlay = svg.querySelector('#flowPendingEdge');
       if (overlay) overlay.remove();
     });
   },
 
-  _svgPoint(svg, event) {
+  // V39.9.3 — Coords do mouse em SVG-space (viewport). Usado pra pan delta.
+  _screenToSvg(svg, event) {
     const pt = svg.createSVGPoint();
     pt.x = event.clientX; pt.y = event.clientY;
     const ctm = svg.getScreenCTM();
     if (!ctm) return { x: 0, y: 0 };
     const transformed = pt.matrixTransform(ctm.inverse());
     return { x: transformed.x, y: transformed.y };
+  },
+
+  // V39.9.3 — Coords do mouse em world-space (após desfazer pan+zoom). Usado
+  // pra drag de nó e pendingConnection edge (ambos vivem dentro do <g> mundo).
+  _screenToWorld(svg, event) {
+    const sp = this._screenToSvg(svg, event);
+    const zoom = Number(App.state.flowBuilderZoom || 1.0) || 1.0;
+    const panX = Number(App.state.flowBuilderPanX || 0);
+    const panY = Number(App.state.flowBuilderPanY || 0);
+    return { x: (sp.x - panX) / zoom, y: (sp.y - panY) / zoom };
   },
 
   _onMouseDown(event, svg) {
@@ -614,32 +676,58 @@ window.ActionFlowBuilder = {
       return;
     }
     const group = target.closest('g[data-node-id]');
-    if (!group) return;
-    const nodeId = group.dataset.nodeId;
-    if (armedId && String(armedId) === String(nodeId)) return;
-    const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(nodeId));
-    if (!node) return;
-    const point = this._svgPoint(svg, event);
-    this._internal.dragNode = {
-      nodeId,
-      offsetX: point.x - node.x,
-      offsetY: point.y - node.y
+    if (group) {
+      const nodeId = group.dataset.nodeId;
+      if (armedId && String(armedId) === String(nodeId)) return;
+      const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(nodeId));
+      if (!node) return;
+      const wp = this._screenToWorld(svg, event);
+      this._internal.dragNode = {
+        nodeId,
+        offsetX: wp.x - node.x,
+        offsetY: wp.y - node.y
+      };
+      group.style.cursor = 'grabbing';
+      return;
+    }
+    // V39.9.3 — Área vazia: inicia pan (drag do canvas inteiro).
+    const sp = this._screenToSvg(svg, event);
+    this._internal.panning = {
+      startX: sp.x,
+      startY: sp.y,
+      initialPanX: Number(App.state.flowBuilderPanX || 0),
+      initialPanY: Number(App.state.flowBuilderPanY || 0)
     };
-    group.style.cursor = 'grabbing';
+    svg.style.cursor = 'grabbing';
+    event.preventDefault();
   },
 
   _onMouseMove(event, svg) {
-    const point = this._svgPoint(svg, event);
+    // V39.9.3 — Pan tem prioridade: move o <g id="flowWorld"> direto sem render.
+    if (this._internal.panning) {
+      const sp = this._screenToSvg(svg, event);
+      const dx = sp.x - this._internal.panning.startX;
+      const dy = sp.y - this._internal.panning.startY;
+      const newPanX = this._internal.panning.initialPanX + dx;
+      const newPanY = this._internal.panning.initialPanY + dy;
+      App.state.flowBuilderPanX = newPanX;
+      App.state.flowBuilderPanY = newPanY;
+      const zoom = Number(App.state.flowBuilderZoom || 1.0);
+      const world = svg.querySelector('#flowWorld');
+      if (world) world.setAttribute('transform', `translate(${newPanX}, ${newPanY}) scale(${zoom})`);
+      return;
+    }
     if (this._internal.pendingConnection) {
       const overlay = svg.querySelector('#flowPendingEdge');
       if (overlay) overlay.remove();
       const fromNode = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(this._internal.pendingConnection.fromId));
       if (!fromNode) return;
       const fromPort = this._outputPort(fromNode);
+      const wp = this._screenToWorld(svg, event);
       const svgNS = 'http://www.w3.org/2000/svg';
       const path = document.createElementNS(svgNS, 'path');
       path.setAttribute('id', 'flowPendingEdge');
-      path.setAttribute('d', this._edgePath(fromPort.x, fromPort.y, point.x, point.y));
+      path.setAttribute('d', this._edgePath(fromPort.x, fromPort.y, wp.x, wp.y));
       path.setAttribute('stroke', '#fbbf24');
       path.setAttribute('stroke-width', '3');
       path.setAttribute('stroke-dasharray', '6 4');
@@ -649,8 +737,9 @@ window.ActionFlowBuilder = {
     }
     if (!this._internal.dragNode) return;
     const drag = this._internal.dragNode;
-    const newX = Math.max(0, point.x - drag.offsetX);
-    const newY = Math.max(0, point.y - drag.offsetY);
+    const wp = this._screenToWorld(svg, event);
+    const newX = wp.x - drag.offsetX;
+    const newY = wp.y - drag.offsetY;
     const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(drag.nodeId));
     if (node) { node.x = Math.round(newX); node.y = Math.round(newY); }
     const group = svg.querySelector(`g[data-node-id="${drag.nodeId}"]`);
@@ -669,6 +758,14 @@ window.ActionFlowBuilder = {
   },
 
   _onMouseUp(event, svg) {
+    // V39.9.3 — Fim de pan: salva state e re-renderiza pra atualizar viewport culling.
+    if (this._internal.panning) {
+      this._internal.panning = null;
+      svg.style.cursor = 'grab';
+      App.save();
+      setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+      return;
+    }
     if (this._internal.pendingConnection) {
       const target = event.target;
       const overlay = svg.querySelector('#flowPendingEdge');

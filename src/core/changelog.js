@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.9.3',
+    date: '2026-06-17',
+    title: 'Flow Builder com canvas infinito + pan com mouse + render só da viewport',
+    bullets: [
+      'O canvas do Flow Builder agora é infinito. Antes era um retângulo fixo de 1400×720 com scroll; agora você pode espalhar os blocos em qualquer direção e em qualquer quantidade — coordenadas dos blocos podem ser livres em qualquer lado (incluindo negativo).',
+      'Segure o mouse num espaço vazio do canvas e arraste pra mover a tela (estilo Figma/Miro). O cursor mostra grab/grabbing quando você está pan'ando. Clicar e arrastar em cima de um bloco continua movendo o bloco (não a tela). Clicar e arrastar em cima de uma porta continua armando conexão.',
+      'O canvas agora renderiza só os blocos que estão dentro da sua janela visível (com uma margem de segurança de 200px). Blocos que estão fora não são desenhados — performance fica leve mesmo com dezenas/centenas de blocos espalhados.',
+      'Zoom expandido pra 25%–300% (antes era 50%–200%). O botão central da régua de zoom agora reseta zoom (100%) E posição da tela (volta pra origem 0,0) — se você se perdeu no canvas, clica nele pra voltar.'
+    ]
+  },
+  {
     version: 'V39.9.2',
     date: '2026-06-17',
     title: 'Flow Builder: modal de Campanha simplificado — só nome',

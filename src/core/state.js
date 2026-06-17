@@ -600,8 +600,10 @@ var State = {
       actionsListFilter: 'all',
       actionCreateTab: 'manual',
       actionAiDraft: { prompt: '', count: 3 },
-      // V39.8.0 — Flow Builder transient: zoom, conexão armada e flag de ajuda.
+      // V39.8.0/V39.9.3 — Flow Builder transient: zoom, pan do canvas infinito, conexão armada e flag de ajuda.
       flowBuilderZoom: 1.0,
+      flowBuilderPanX: 0,
+      flowBuilderPanY: 0,
       flowBuilderConnectionArm: null,
       flowBuilderShowHelp: false,
       showRevopsSimulationModal: false,
@@ -1382,8 +1384,10 @@ var State = {
       actionsListFilter: 'all',
       actionCreateTab: raw.actionCreateTab === 'ai' ? 'ai' : 'manual',
       actionAiDraft: { prompt: raw.actionAiDraft?.prompt || '', count: Number(raw.actionAiDraft?.count || 3) },
-      // V39.8.0 — Flow Builder transient (initial defaults a cada normalize).
+      // V39.8.0/V39.9.3 — Flow Builder transient (initial defaults a cada normalize; pan infinito reseta).
       flowBuilderZoom: 1.0,
+      flowBuilderPanX: 0,
+      flowBuilderPanY: 0,
       flowBuilderConnectionArm: null,
       flowBuilderShowHelp: false,
       showRevopsSimulationModal: false,
@@ -1840,6 +1844,8 @@ var State = {
         'flowBuilderCampaignId','pluginsFlowBuilderCampaignId',
         // V39.9.0 — modal de carregar campanha existente é transient.
         'flowBuilderLoadCampaignModal',
+        // V39.9.3 — pan do canvas infinito é transient (reseta ao reabrir).
+        'flowBuilderPanX','flowBuilderPanY',
         'djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',

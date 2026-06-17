@@ -2754,16 +2754,20 @@ Object.assign(Actions, {
   // connectFlow, disconnectFlow, toggleFlowEnabled, dropActionToFlowCanvas,
   // setFlowActionType, setFlowStages, setFlowBuilderStartFilter) foram REMOVIDAS.
 
+  // V39.9.3 — Range expandido (0.25–3.0) por causa do canvas infinito.
   setFlowBuilderZoom(delta) {
     const current = Number(App.state.flowBuilderZoom || 1.0);
-    const next = Math.max(0.5, Math.min(2.0, Math.round((current + delta) * 100) / 100));
+    const next = Math.max(0.25, Math.min(3.0, Math.round((current + delta) * 100) / 100));
     App.state.flowBuilderZoom = next;
     App.save(); App.render();
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
   },
 
+  // V39.9.3 — Reset agora volta zoom E pan pra origem (cliente "perdeu" no canvas? clica e volta).
   resetFlowBuilderZoom() {
     App.state.flowBuilderZoom = 1.0;
+    App.state.flowBuilderPanX = 0;
+    App.state.flowBuilderPanY = 0;
     App.save(); App.render();
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
   },
