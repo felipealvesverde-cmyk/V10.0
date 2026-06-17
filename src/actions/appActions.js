@@ -1471,6 +1471,14 @@ Object.assign(Actions, {
     }
     App.render();
   },
+  // V39.6.1 — Atalho cravado: abre RevOps no produto específico, sub-tab Ofertas.
+  // Usado pelos botões "Definir meta →" e "Defina CAC" do card de Velocidade.
+  openProductOffers(productId) {
+    App.state.activeTab = 'revops';
+    App.state.revopsSelectedProductId = Number(productId);
+    App.state.revopsWhitelabelActiveTab = 'offers';
+    App.save(); App.render();
+  },
   // V39.6.0 — Refresh unificado dos 3 caches da Onda A em paralelo.
   refreshOndaA() {
     if (window.Actions?.loadForecastRealizedSummary) Actions.loadForecastRealizedSummary({ force: true });
