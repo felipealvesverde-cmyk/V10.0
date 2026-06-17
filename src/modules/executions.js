@@ -241,7 +241,7 @@ var ExecutionsModule = {
         <p class="text-[11px] text-slate-500 mt-1">Ação: <b>${Utils.escape(action?.name || 'sem vínculo')}</b></p>
       </div>
 
-      <div class="grid grid-cols-3 gap-2 text-center mb-3 lg:w-1/2">
+      <div class="grid grid-cols-3 gap-2 text-center mb-3 lg:w-1/2 lg:mx-auto">
         <div class="bg-white rounded-2xl border border-slate-200 px-3 py-3 min-w-0" style="border-left: 4px solid var(--lj-action);">
           <div class="text-[10px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Dias em aberto</div>
           <div class="font-black text-xl text-slate-900 mt-1">${daysOpen != null ? daysOpen : '—'}</div>
