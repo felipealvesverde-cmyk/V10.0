@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.6.1',
+    date: '2026-06-17',
+    title: 'Fix: "Definir meta →" e "Defina CAC" agora abrem direto a aba Ofertas do produto certo',
+    bullets: [
+      'Os botões "Definir meta →" e "Defina CAC" no card de RevOps & Velocidade abriam só a aba RevOps na sub-tab Custos (padrão) e exigiam que você selecionasse o produto e clicasse em Ofertas manualmente. Agora levam direto pra aba Ofertas do produto certo — 3 cliques viraram 1.',
+      'Mesma correção no card de Forecast × Realizado em Resultados — o botão "Ir pra RevOps" virou "Definir meta nas ofertas →" e leva direto pro lugar onde a meta vive.',
+      'Engine: nova action openProductOffers(productId) que seta os 3 estados em sequência (activeTab=revops, revopsSelectedProductId=X, revopsWhitelabelActiveTab=offers).'
+    ]
+  },
+  {
     version: 'V39.6.0',
     date: '2026-06-17',
     title: 'Onda A polida — transparência total de fonte + faixa "Como ativar" + 1 botão de refresh',
