@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.9.0',
+    date: '2026-06-17',
+    title: 'Flow Builder ganhou a Esteira do LJ — desenha Produto → Campanha → Ação → Execução e salva',
+    bullets: [
+      'O Flow Builder do menu Plugins virou uma forma alternativa de criar a esteira normal do LJ. Você abre, desenha visualmente Produto → Campanha → Ação → Execução, salva, e essas entidades aparecem direto nas abas Produtos, Campanhas, Ações e Execuções — como se tivessem sido criadas pelos formulários normais.',
+      'A paleta lateral agora tem 2 seções: ESTEIRA (Produto, Campanha, Ação, Execução — os 4 blocos que viram entidade real ao salvar) e AUXILIARES (os 10 tipos antigos: Email, SDR, WhatsApp, Webinar, LP, Checkout, CRM, CS, Canal, Custom — servem só como rascunho visual). Cada bloco da esteira tem um pequeno selo "SALVO" no topo direito quando já foi sincronizado com o LJ.',
+      'Quando você clica num bloco da esteira na paleta, o modal de edição abre automaticamente pedindo os campos do tipo: Produto pede nome + recorrência; Campanha pede nome + setor + objetivo; Ação pede nome + setor + funil + objetivo; Execução pede só o título. Resto fica em defaults e você completa nas abas normais depois (audiência do Produto, OKRs da Ação, etc).',
+      'Botão verde "Salvar esteira" no header do Builder. Faz topological sort: cria os Produtos primeiro, depois as Campanhas vinculadas via aresta a cada Produto, depois as Ações vinculadas via aresta a cada Campanha, e por fim as Execuções vinculadas via aresta a cada Ação. Validação em tempo real: se uma Campanha não está conectada a Produto (ou Ação a Campanha, ou Execução a Ação), o salvar é bloqueado com toast claro indicando exatamente qual bloco está solto. Re-saves não duplicam — blocos que já têm vínculo real só atualizam nome se foi mudado.',
+      'Botão azul "Carregar campanha" no header. Modal lista todas as campanhas existentes agrupadas por Produto, com contador de ações de cada uma. Você seleciona uma → o Builder importa Produto + Campanha + todas as Ações + todas as Execuções como blocos pré-vinculados em layout horizontal, e você pode continuar a edição (adicionar mais ações, salvar de novo).',
+      'O fluxo desenhado fica salvo no canvas entre sessões (próxima vez que abrir, blocos e conexões estão lá). Limpar canvas zera o desenho mas não desfaz o que já foi salvo nas abas do LJ. Produtos criados pelo Builder aparecem normalmente em RevOps & Velocidade — só precisam ter os KRs do Mapa da Receita plugados depois pra ficarem completos dentro do Mapa.'
+    ]
+  },
+  {
     version: 'V39.8.0',
     date: '2026-06-17',
     title: 'Flow Builder virou plugin whitelabel — limpo e desvinculado de produto/campanha/ação',

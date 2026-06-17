@@ -160,13 +160,16 @@ var State = {
       showActionEditModal: false,
       actionEditDraft: null,
       showFlowBuilderModal: false,
-      // V39.8.0 — Flow Builder whitelabel: nós e arestas próprios (não vinculam mais a actions/campaigns/products).
+      // V39.9.0 — Flow Builder com Esteira: blocos Produto/Campanha/Ação/Execução
+      // viram entidades reais ao salvar. Cada nó tem `data` (campos do tipo)
+      // e `linkedRealId` (id real depois de salvar, null antes).
       flowBuilderNodes: [],
       flowBuilderEdges: [],
       flowBuilderDisconnectEdgeId: null,
       flowBuilderEditNodeId: null,
-      flowBuilderEditNodeDraft: '',
+      flowBuilderEditNodeDraft: {},
       flowBuilderClearConfirm: false,
+      flowBuilderLoadCampaignModal: false,
       // V37.0.8 — showLpModal/lpDraft/lpEvents/lpRegistry/lpLastPolledAt REMOVIDOS
       // (fluxo LP modal vestigial pré-Tracking V33, sem consumidor moderno).
       showCampaignFlowModal: false,
@@ -1009,7 +1012,8 @@ var State = {
       showActionEditModal: false,
       actionEditDraft: null,
       showFlowBuilderModal: false,
-      // V39.8.0 — Flow Builder whitelabel: arrays persistidos (nós + arestas) + flags transient de modal/edição.
+      // V39.9.0 — Flow Builder com Esteira: nós persistidos preservam `data`
+      // (campos específicos do tipo) e `linkedRealId` (id real após Salvar).
       flowBuilderNodes: Array.isArray(raw.flowBuilderNodes)
         ? raw.flowBuilderNodes
             .filter(n => n && typeof n === 'object' && n.id && n.type)
@@ -1018,7 +1022,9 @@ var State = {
               type: String(n.type),
               name: String(n.name || ''),
               x: Number(n.x) || 0,
-              y: Number(n.y) || 0
+              y: Number(n.y) || 0,
+              data: (n.data && typeof n.data === 'object') ? n.data : {},
+              linkedRealId: n.linkedRealId != null ? n.linkedRealId : null
             }))
         : [],
       flowBuilderEdges: Array.isArray(raw.flowBuilderEdges)
@@ -1028,8 +1034,9 @@ var State = {
         : [],
       flowBuilderDisconnectEdgeId: null,
       flowBuilderEditNodeId: null,
-      flowBuilderEditNodeDraft: '',
+      flowBuilderEditNodeDraft: {},
       flowBuilderClearConfirm: false,
+      flowBuilderLoadCampaignModal: false,
       // V37.0.8 — campos LP modal removidos
       showCampaignFlowModal: Boolean(raw.showCampaignFlowModal),
       campaignFlowModalId: raw.campaignFlowModalId || null,
@@ -1831,6 +1838,8 @@ var State = {
         // V39.8.0 — Flow Builder transient (modal/edit/disconnect/clear); legacy silenciado pra users com state antigo.
         'flowBuilderDisconnectEdgeId','flowBuilderEditNodeId','flowBuilderEditNodeDraft','flowBuilderClearConfirm',
         'flowBuilderCampaignId','pluginsFlowBuilderCampaignId',
+        // V39.9.0 — modal de carregar campanha existente é transient.
+        'flowBuilderLoadCampaignModal',
         'djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',
