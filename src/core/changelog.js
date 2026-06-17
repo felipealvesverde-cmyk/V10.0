@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.59',
+    date: '2026-06-17',
+    title: 'Card de ação alinhado pixel-perfect aos cards de Produto e Campanha',
+    bullets: [
+      'A engrenagem de "Editar Ação" volta pro canto superior direito do card (botão circular branco com sombra), idêntica à engrenagem dos cards de Produto e Campanha. Padrão consistente em todas as telas.',
+      'Pra liberar o canto superior direito sem sobrepor nada, os botões "Criar Execuções via Djow" e "Ver Execuções" desceram pra uma linha própria full-width logo abaixo dos mini-cards Leads/Score/Etapas. Mesma lógica do card de Produto, que tem "Criar Campanha" + "Mapa da Receita" no rodapé separado.',
+      'O atalho "Roadmap" vira link discreto no canto inferior esquerdo, alinhado com o jeito que aparece no card de Campanha. Visual unificado.'
+    ]
+  },
+  {
     version: 'V38.1.58',
     date: '2026-06-16',
     title: 'Engrenagem do card de ação sai do canto absoluto — vira atalho discreto no rodapé',

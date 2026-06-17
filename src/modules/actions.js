@@ -169,13 +169,23 @@ var ActionModule = {
       return (objective?.okrs || []).some(kr => (kr.connectedActionIds || []).map(Number).includes(Number(action.id)));
     })();
 
+    // V38.1.59 — Leonardo: card de Ação volta pro padrão Produto/Campanha.
+    //   - Engrenagem absolute top-3 right-3 (igual products.js:185 e
+    //     campaigns.js:288). z-10 + shadow-sm + bg-white + w-9 h-9.
+    //   - Botões grandes (Criar Execuções / Ver Execuções) descem pra linha
+    //     full-width abaixo do top — assim a coluna direita do top fica só
+    //     com mini-KPIs e o gear absolute não atropela nada.
+    //   - Top vira grid 2 colunas (copy + mini-KPIs). pr-12 lg:pr-0 na coluna
+    //     1 reserva espaço pro gear no mobile; lg:pr-12 nos mini-KPIs garante
+    //     que no desktop o gear também não pisa em cima.
+    //   - Roadmap fica atalho discreto no canto inferior esquerdo, mesmo
+    //     padrão de campaigns.js:315-317 (flex justify-start mt-2).
     return `<div class="lj-entity-card relative p-4 rounded-3xl bg-slate-50 border border-slate-100 ${areaIsConnected ? `border-l-4 ${borderLeftStyle}` : 'border-l-4'}" ${borderLeftInline}>
-      <!-- V38.1.58 — Engrenagem absolute eliminada por sobrepor botões em
-           qualquer layout possível. Vira atalho discreto no rodapé, ao lado do
-           Roadmap (mesmo estilo cinza link). Sem absolute = sem overlap nunca mais. -->
+      <button onclick="event.stopPropagation(); Actions.openActionEditModal(${action.id})" title="Editar Ação" aria-label="Editar Ação" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm z-10"><i data-lucide="settings" class="w-4 h-4"></i></button>
+
       <div class="flex flex-col gap-4">
-        <div class="lj-entity-card-grid">
-          <div class="lj-entity-copy">
+        <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-start">
+          <div class="min-w-0 pr-12 lg:pr-0">
             <p class="text-[10px] font-black uppercase tracking-widest mb-1" style="color: ${labelColor};">
               Ação${areaIsConnected ? ` · ${Utils.escape(action.strategicAreaId === 'cs' ? 'CS' : action.strategicAreaId === 'sales' ? 'Vendas' : 'Marketing')}` : ' · sem área'}
             </p>
@@ -189,42 +199,33 @@ var ActionModule = {
               </div>
             </div>
           </div>
-          <div class="lj-entity-metrics">
-            <!-- V33.0.0-alpha20 — Mini-cards usam hierarquia Ação (LO, terra)
-                 em vez de cores aleatórias. border-l-4 + label colored. -->
-            <div class="grid grid-cols-3 gap-2 text-center">
-              <div class="bg-white rounded-2xl border border-slate-200 px-3 py-2" style="border-left: 4px solid var(--lj-action);">
-                <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Leads</div>
-                <div class="font-black text-lg text-slate-900 mt-0.5">${action.leads.length}</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-slate-200 px-3 py-2" style="border-left: 4px solid var(--lj-action);">
-                <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Score</div>
-                <div class="font-black text-lg text-slate-900 mt-0.5">${avgScore}</div>
-              </div>
-              <div class="bg-white rounded-2xl border border-slate-200 px-3 py-2" style="border-left: 4px solid var(--lj-action);">
-                <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Etapas</div>
-                <div class="font-black text-lg text-slate-900 mt-0.5">${flow.path.length}</div>
-              </div>
+          <div class="grid grid-cols-3 gap-2 text-center w-full lg:w-[300px] shrink-0 lg:pr-12">
+            <div class="bg-white rounded-2xl border border-slate-200 px-3 py-2" style="border-left: 4px solid var(--lj-action);">
+              <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Leads</div>
+              <div class="font-black text-lg text-slate-900 mt-0.5">${action.leads.length}</div>
             </div>
-          </div>
-          <div class="flex flex-col items-end justify-end gap-2 min-w-[220px]">
-            <!-- V38.1.57 — Botão Roadmap grande removido. Vira atalho discreto
-                 (igual ao card de Campanha) logo antes do bloco estratégico. -->
-            <div class="grid grid-cols-2 gap-2 w-full">
-              <button onclick="event.stopPropagation(); Actions.openDjowAIModal({ actionId: ${action.id}, seedPrompt: 'Crie execuções para esta ação: ' })" class="px-3 py-2 rounded-xl bg-slate-900 text-white font-bold text-[11px] border-2 ${areaIsConnected ? `border-${areaTone}-500` : ''} flex items-center justify-center gap-1.5" style="color:#fff!important; ${areaIsConnected ? '' : 'border-color: var(--lj-action);'}"><i data-lucide="sparkles" class="w-3 h-3"></i> Criar Execuções via Djow</button>
-              <button onclick="event.stopPropagation(); Actions.openTasksModal(${action.id})" class="px-3 py-2 rounded-xl bg-slate-900 text-white font-bold text-[11px] border-2 ${areaIsConnected ? `border-${areaTone}-500` : ''} flex items-center justify-center gap-1.5" style="color:#fff!important; ${areaIsConnected ? '' : 'border-color: var(--lj-action);'}"><i data-lucide="list-checks" class="w-3 h-3"></i> Ver Execuções</button>
+            <div class="bg-white rounded-2xl border border-slate-200 px-3 py-2" style="border-left: 4px solid var(--lj-action);">
+              <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Score</div>
+              <div class="font-black text-lg text-slate-900 mt-0.5">${avgScore}</div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 px-3 py-2" style="border-left: 4px solid var(--lj-action);">
+              <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Etapas</div>
+              <div class="font-black text-lg text-slate-900 mt-0.5">${flow.path.length}</div>
             </div>
           </div>
         </div>
-        <div class="flex flex-wrap gap-2 items-center justify-between">
-          <div class="flex flex-wrap gap-2">${flow.path.map(stage => `<span class="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-black">${FlowResolutionEngine.label(stage)}</span>`).join('')}</div>
-          <!-- V38.1.58 — Editar (engrenagem) + Roadmap como atalhos discretos no
-               rodapé. Ambos no fluxo do layout, ocupando espaço próprio. -->
-          <div class="flex items-center gap-3">
-            <button onclick="event.stopPropagation(); Actions.openActionEditModal(${action.id})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="settings" class="w-3 h-3"></i> Editar</button>
-            <button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${action.campaignId})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="map" class="w-3 h-3"></i> Roadmap</button>
-          </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button onclick="event.stopPropagation(); Actions.openDjowAIModal({ actionId: ${action.id}, seedPrompt: 'Crie execuções para esta ação: ' })" class="px-3 py-2 rounded-xl bg-slate-900 text-white font-bold text-[11px] border-2 ${areaIsConnected ? `border-${areaTone}-500` : ''} flex items-center justify-center gap-1.5" style="color:#fff!important; ${areaIsConnected ? '' : 'border-color: var(--lj-action);'}"><i data-lucide="sparkles" class="w-3 h-3"></i> Criar Execuções via Djow</button>
+          <button onclick="event.stopPropagation(); Actions.openTasksModal(${action.id})" class="px-3 py-2 rounded-xl bg-slate-900 text-white font-bold text-[11px] border-2 ${areaIsConnected ? `border-${areaTone}-500` : ''} flex items-center justify-center gap-1.5" style="color:#fff!important; ${areaIsConnected ? '' : 'border-color: var(--lj-action);'}"><i data-lucide="list-checks" class="w-3 h-3"></i> Ver Execuções</button>
         </div>
+
+        <div class="flex flex-wrap gap-2">${flow.path.map(stage => `<span class="px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[11px] font-black">${FlowResolutionEngine.label(stage)}</span>`).join('')}</div>
+
+        <div class="flex justify-start">
+          <button onclick="event.stopPropagation(); Actions.openCampaignFlowModal(${action.campaignId})" class="text-[11px] font-bold text-slate-500 hover:text-slate-900 flex items-center gap-1"><i data-lucide="map" class="w-3 h-3"></i> Roadmap</button>
+        </div>
+
         ${this._strategicTag(action)}
         ${this._connectToMapaButton(action)}
         ${krTag}
