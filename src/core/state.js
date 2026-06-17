@@ -700,6 +700,23 @@ var State = {
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '', audience: null },
       audienceWizard: null,
+      // V39.1.0 — Force-prompt no boot pra produtos pré-V39.1 que têm audience
+      // configurado mas falta `salesChannel`. open=true bloqueia modal até o
+      // cliente preencher TODOS. Snooze persiste só dentro da sessão.
+      salesChannelPrompt: { open: false, currentProductId: null, choice: null },
+      // V39.2.0 — Cache do /api/forecast-realized-summary (vendas Hotmart
+      // aprovadas do mês corrente agregadas por product_id_lj). Hidratado no
+      // boot e reciclado a cada 5 min ou após gravação de venda nova.
+      forecastRealizedCache: null,
+      // V39.3.0 — Cache de Pipeline Velocity (Visitas / Conversão / Ticket /
+      // Ciclo) por campanha e por produto. Hidratado no boot, ciclo 5min.
+      pipelineVelocityCache: null,
+      // V39.3.0 — Produto expandido na aba RevOps & Velocidade (drill-down).
+      // null = lista de produtos; productId = card aberto.
+      revopsVelocityExpandedProductId: null,
+      // V39.4.0 — Cache de Eficiência de Capital (LTV + customers + refunds +
+      // cancellations por produto). CAC é lido em runtime do revopsFinanceV2.
+      efficiencyCache: null,
       // V38.1.53 — campanha selecionada no card "Construir Fluxo de Ações" da aba Plugins.
       pluginsFlowBuilderCampaignId: null,
       // V38.1.63 — Draft pra criação de execução na tela Execuções.
@@ -1456,6 +1473,17 @@ var State = {
         return merged;
       })(),
       audienceWizard: (raw.audienceWizard && typeof raw.audienceWizard === 'object' && raw.audienceWizard.open) ? raw.audienceWizard : null,
+      // V39.1.0 — Modal de force-prompt pra salesChannel não persiste entre boots:
+      // sempre começa fechado e o init() do main.js decide se reabre.
+      salesChannelPrompt: { open: false, currentProductId: null, choice: null },
+      // V39.2.0 — Cache do Forecast × Realizado. Não persiste (sempre rehidrata
+      // do endpoint no boot ou no refresh manual). loading=true bloqueia UI.
+      forecastRealizedCache: null,
+      // V39.3.0 — Cache de Pipeline Velocity. Não persiste.
+      pipelineVelocityCache: null,
+      revopsVelocityExpandedProductId: raw.revopsVelocityExpandedProductId != null ? Number(raw.revopsVelocityExpandedProductId) : null,
+      // V39.4.0 — Cache de Eficiência de Capital. Não persiste.
+      efficiencyCache: null,
       // V38.1.53 — persiste última campanha escolhida no card Plugins → Construir Fluxo.
       pluginsFlowBuilderCampaignId: raw.pluginsFlowBuilderCampaignId != null ? Number(raw.pluginsFlowBuilderCampaignId) : null,
       // V38.1.63 — Execution draft (actionId + title) normalizado.

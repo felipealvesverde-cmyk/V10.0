@@ -18,6 +18,56 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.4.0',
+    date: '2026-06-17',
+    title: 'Eficiência de Capital — LTV, LTV:CAC, Payback e NRR num card só (fecha a Onda A do roadmap RevOps)',
+    bullets: [
+      'Quando você expande um produto em RevOps & Velocidade, agora aparece o bloco "Eficiência de Capital" abaixo do diagnóstico V × C × L / T. Mostra a Tríade de Eficiência do mercado (LTV / LTV:CAC / Payback / NRR) em régua compacta de 4 KPIs, cada um com semáforo próprio.',
+      'LTV = valor médio de cada cliente ao longo da vida com você (soma de todas as vendas Hotmart aprovadas por customer, agregada). LTV:CAC compara com o CAC declarado nas ofertas — saudável ≥ 3:1 (cada R$ 1 investido pra adquirir devolve R$ 3+). Payback mostra em quantos meses o cliente paga o CAC investido nele (instantâneo pra produto one-time, mensalidade pra subscription).',
+      'NRR (Net Revenue Retention) só aparece pra produto com recorrência detectada — mede se sua base atual está crescendo sozinha ou furando (cancelamentos + refunds nos últimos 30 dias dividido por customers ativos). Pra produto one-time, mostra "N/A — sem recorrência" honestamente, sem inventar número.',
+      'Diagnóstico em prosa abaixo da régua adapta ao que tá frágil: "LTV:CAC em 1.8:1, abaixo do saudável — modelo destruindo caixa", "Payback de 18 meses, longo demais — exige capital de giro alto pra crescer", "NRR 92% — base encolhe 8% ao mês sem novos clientes, balde furado", etc.',
+      'Quando o CAC não está declarado nas ofertas, LTV:CAC fica em branco com botão "Defina CAC" levando direto pra aba RevOps. Sem fonte falsa: o engine prefere não calcular do que mostrar número chutado.',
+      'Pra modo CRM/híbrido, o bloco mostra "Em breve" — depende do Fechamento mensal declarado + cruzamento com RD pra fechar o caminho. Mesmo padrão dos outros A1/A2/A3 da onda.',
+      'Fecha a Onda A do roadmap LJ 2.0 RevOps: A1 (Forecast × Realizado), A2 (Projeção fim do mês), A3 (Pipeline Velocity), A4 (Eficiência de Capital). Próximos capítulos: Onda B (Governança Comercial Blindada — Matriz de Alçada, Data Gates, Compelling Event, Account Mapping, Clawback).'
+    ]
+  },
+  {
+    version: 'V39.3.0',
+    date: '2026-06-17',
+    title: 'RevOps & Velocidade — raio-x da máquina por produto (Visitas × Conversão × Ticket / Ciclo)',
+    bullets: [
+      'Aba nova no menu lateral, logo abaixo de RevOps & Governança: "RevOps & Velocidade". Mostra a velocidade da operação (R$/dia que a máquina gera estruturalmente) decomposta nas 4 letras universais — V (Visitas únicas/mês) × C (Conversão visitor→customer) × L (Ticket médio) / T (Ciclo médio em dias).',
+      'A lista mostra cards mini por produto: velocidade total + as 4 letras lado a lado. A letra que está mais fraca é destacada como gargalo (borda âmbar + ring). Clicar no card expande pra diagnóstico em prosa do Djow + simulador "e se eu dobrar X?".',
+      'Diagnóstico em prosa adapta ao gargalo: se conversão está fraca, fala em otimização de página e prova social; se ciclo está longo, sugere nutrição automatizada e remarketing; se ticket baixo, propõe cross-sell e combo; se volume baixo, indica tráfego pago e SEO.',
+      'O simulador mostra 4 cenários lado a lado: dobrar visitas, dobrar conversão, dobrar ticket, cortar ciclo pela metade — cada um com o impacto direto em R$/dia. Ajuda o CEO a escolher qual frente atacar antes de gastar dinheiro.',
+      'Pra modo "Comercial via CRM" ou "Híbrido", o card mostra placeholder "Em breve" — Velocity em modo CRM depende do pipeline RD persistido + Fechamento mensal declarado (próximas ondas).',
+      'Fontes 100% existentes: V vem do tracker (lj_visitor_touchpoints com campaign_id mapeado pra produto via campaign.productId), C vem do mesmo tracker (lj_visitors com entity_type=customer), L vem do Hotmart pull (últimos 90 dias), T é mediana de occurred_at − first_touch_at. Cache de 5 min.'
+    ]
+  },
+  {
+    version: 'V39.2.0',
+    date: '2026-06-17',
+    title: 'Forecast × Realizado nasceu — meta declarada, realizado lido e projeção fim do mês',
+    bullets: [
+      'Na aba Resultados, cada produto com canal de venda "Checkout" agora ganha o card Forecast × Realizado: Meta declarada × Realizado lido das vendas Hotmart processadas × Projeção pro fim do mês × Variância vs meta, com semáforo (verde se vai bater, amarelo se aperta, vermelho se não bate no ritmo).',
+      'O diagnóstico aparece em prosa simples: "no ritmo atual de R$ X/dia, fecha em R$ Y", "falta R$ Z pra meta nos N dias restantes — precisa fechar R$ W/dia, X% acima do ritmo atual". Sem fórmula, sem aviso técnico — só o que o CEO precisa saber.',
+      'Versão compacta aparece no card de cada produto na lista geral (faixa colorida com Meta · Realizado · Projeção lado a lado). Versão expandida com diagnóstico aparece ao abrir o produto.',
+      'Pra produtos com canal "Comercial via CRM" ou "Híbrido", o card mostra placeholder "Em breve V39.3" — a próxima onda entrega leitura do Fechamento mensal declarado + cruzamento com RD pra fechar esses dois caminhos.',
+      'Fontes 100% existentes: a meta vem das ofertas (RevOps → Ofertas), o realizado vem do webhook Hotmart que já roda, e a projeção é a conta simples R$ entrou × dias_do_mês / dias_passados. Cache de 5 minutos pra não martelar o banco.'
+    ]
+  },
+  {
+    version: 'V39.1.0',
+    date: '2026-06-17',
+    title: 'Definir Audiência ganha "Como esse produto vende?" — fundação pro Forecast × Realizado',
+    bullets: [
+      'No wizard de Definir Audiência (passo 2 — Modelo Operacional), entra uma pergunta nova: "Como esse produto vende?" com 3 opções — Checkout (página de venda tipo Hotmart/Eduzz/Stripe), Comercial via CRM (vendedor + contrato), ou Os dois caminhos (híbrido). A escolha define a fonte do Realizado em Forecast × Realizado e o ponto crítico que o tenant monitora automaticamente.',
+      'Produtos criados antes da V39.1 não tinham esse campo. No próximo login, abre um modal bloqueante listando cada produto pendente — você responde um por vez (com barra de progresso) até todos estarem definidos. Não dá pra fechar sem responder; uma vez resolvido, o modal nunca mais aparece.',
+      'A aba Resultados ganhou aviso âmbar nos cards e na visão do produto quando o canal de venda não está definido: "Forecast × Realizado bloqueado · Defina como esse produto vende". Clicar no aviso abre o wizard direto no passo 2.',
+      'Próximo capítulo (V39.2): com canal de venda cravado em todos os produtos, o LJ vai mostrar Forecast × Realizado por produto na aba Resultados — Meta declarada × Vendas Hotmart processadas (pra checkout) ou × Faturamento declarado no Fechamento (pra CRM) × Variância × Projeção fim do mês.'
+    ]
+  },
+  {
     version: 'V39.0.0',
     date: '2026-06-17',
     title: 'Master V39 — Estabilidade comprovada e telas finalmente respiráveis',

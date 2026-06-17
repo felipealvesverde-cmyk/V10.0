@@ -28,6 +28,10 @@ var Config = {
         { id: 'leads', label: 'Leads', icon: 'users-round' },
         { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },
         { id: 'revops', label: 'RevOps & Governança', icon: 'landmark' },
+        // V39.3.0 — RevOps & Velocidade: diagnóstico estrutural da máquina
+        // (V × C × L / T por produto). Pipeline Velocity decomposto em Visitas /
+        // Conversão / Ticket / Ciclo + diagnóstico em prosa de qual letra mexer.
+        { id: 'revopsVelocity', label: 'RevOps & Velocidade', icon: 'gauge' },
         // V38.1.53 — Plugins: catálogo de ferramentas avançadas fora do fluxo principal.
         // Estreia hospedando o "Construir Fluxo de Ações" (V15.1 ActionFlowBuilder).
         { id: 'plugins', label: 'Plugins', icon: 'puzzle' }
