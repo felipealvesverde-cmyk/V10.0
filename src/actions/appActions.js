@@ -2050,6 +2050,24 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V38.1.69 — Abre o modal de criação de tarefa do Mapa (mesmo
+  // `_taskCreationModalRender`) a partir do form da aba Execuções. Valida
+  // título + ação, pré-preenche `name` com o título digitado e zera o draft
+  // local. Cliente completa descrição/responsáveis/data no modal.
+  openExecutionTaskFromTab() {
+    const d = App.state.executionDraft || {};
+    const actionId = Number(d.actionId);
+    const title = String(d.title || '').trim();
+    if (!actionId) return Utils.toast('Selecione uma ação primeiro.');
+    if (!title) return Utils.toast('Digite o título da execução antes de prosseguir.');
+    this.openTaskCreationModal(actionId);
+    if (App.state.taskCreationModal && App.state.taskCreationModal.draft) {
+      App.state.taskCreationModal.draft.name = title;
+    }
+    App.state.executionDraft = { ...d, title: '' };
+    App.render();
+  },
+
   // V38.1.68 — Filtros da lista de execuções (Campanha + Ação). Trocar campanha
   // limpa o filtro de ação pra evitar combinação inválida.
   setExecutionListFilter(field, value) {
