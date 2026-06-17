@@ -58,9 +58,14 @@ window.PipelineVelocityEngine = {
     const velocity = V > 0 && C > 0 && L > 0 ? (V * C * L) / safeT : 0;
 
     // Identifica gargalo: qual letra está mais abaixo do benchmark.
+    // V39.6.0 — Quando produto está 100% zerado (V=0 + C=0 + sem vendas), não
+    // destaca nenhum gargalo. "Vazio" não é "ruim" — é falta de ativação.
     const benchmarks = cache.benchmarks || { conversion_avg: 0.03, conversion_good: 0.05, cycle_days_avg: 14, cycle_days_good: 7 };
     let gargalo = null;
-    if (V === 0) gargalo = 'V';
+    const totalmenteZerado = V === 0 && C === 0 && approvedCount === 0;
+    if (totalmenteZerado) {
+      gargalo = null;
+    } else if (V === 0) gargalo = 'V';
     else if (C === 0 || (C < benchmarks.conversion_avg && C < 0.04)) gargalo = 'C';
     else if (T === 0 || T > benchmarks.cycle_days_avg * 1.5) gargalo = 'T';
     else if (L > 0 && L < 100) gargalo = 'L';

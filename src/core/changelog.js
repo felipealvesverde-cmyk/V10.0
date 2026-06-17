@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.6.0',
+    date: '2026-06-17',
+    title: 'Onda A polida — transparência total de fonte + faixa "Como ativar" + 1 botão de refresh',
+    bullets: [
+      'Cada bloco do card de produto em RevOps & Velocidade ganhou "ⓘ Saber mais" no header. Clicar expande uma caixa com 4 seções padronizadas: 🔍 O que é, 🎯 O que move, 📡 De onde vem, 🛠️ Pra que serve. Transparência total — cliente sabe exatamente o que está olhando, qual decisão a métrica drives e qual a fonte de dado real.',
+      'Quando o produto está 100% zerado (sem visitas, sem customers, sem meta declarada), aparece no topo do card uma faixa escura "Pra ativar este diagnóstico" com 4 passos numerados: 1) Defina meta, 2) Confirme canal de venda, 3) Ative tracking UTM, 4) Aguarde primeira venda. Em vez de 3 blocos falando coisas separadas, 1 lista única e clara.',
+      'A engine de gargalo parou de destacar uma letra como crítica quando o produto está 100% zerado. Antes V=0 virava gargalo âmbar (V), o que confundia — agora produto zerado mostra todas as letras neutras e a faixa "Como ativar" assume a comunicação.',
+      'Os 3 botões de refresh (A1/A2, A3, A4) viraram 1 botão único "🔄 Recarregar diagnóstico" no rodapé do card. Dispara as 3 leituras em paralelo + toast confirmando. Menos ruído visual, mesma função.'
+    ]
+  },
+  {
     version: 'V39.5.1',
     date: '2026-06-17',
     title: 'Fix: botão "Definir meta →" agora abre a aba RevOps',

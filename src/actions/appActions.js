@@ -1459,6 +1459,25 @@ Object.assign(Actions, {
       if (App.render) App.render();
     }
   },
+  // V39.6.0 — Toggle de "Saber mais" por bloco (productId + blockKey).
+  toggleRevopsVelocityDesc(productId, blockKey) {
+    const key = `${productId}-${blockKey}`;
+    const cur = App.state.revopsVelocityDescOpen || {};
+    if (cur[key]) {
+      const { [key]: _, ...rest } = cur;
+      App.state.revopsVelocityDescOpen = rest;
+    } else {
+      App.state.revopsVelocityDescOpen = { ...cur, [key]: true };
+    }
+    App.render();
+  },
+  // V39.6.0 — Refresh unificado dos 3 caches da Onda A em paralelo.
+  refreshOndaA() {
+    if (window.Actions?.loadForecastRealizedSummary) Actions.loadForecastRealizedSummary({ force: true });
+    if (window.Actions?.loadPipelineVelocitySummary) Actions.loadPipelineVelocitySummary({ force: true });
+    if (window.Actions?.loadEfficiencySummary) Actions.loadEfficiencySummary({ force: true });
+    Utils.toast('🔄 Recarregando Onda A…');
+  },
   // V39.3.0 — Expande card de produto na aba RevOps & Velocidade. null = colapsa.
   toggleRevopsVelocityProduct(productId) {
     const cur = App.state.revopsVelocityExpandedProductId;
