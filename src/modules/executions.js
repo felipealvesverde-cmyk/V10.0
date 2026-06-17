@@ -50,6 +50,8 @@ var ExecutionsModule = {
       </div>
       ${window.CampaignFlowModal ? CampaignFlowModal.render() : ''}
       ${window.TasksModal ? TasksModal.render() : ''}
+      ${App.state.taskCreationModal?.open && window.StrategicMapModal?._taskCreationModalRender ? StrategicMapModal._taskCreationModalRender() : ''}
+      ${App.state.djowTaskChat?.open && window.StrategicMapModal?._djowTaskChatRender ? StrategicMapModal._djowTaskChatRender() : ''}
     </div>`;
   },
 
@@ -136,7 +138,7 @@ var ExecutionsModule = {
         <label class="text-xs font-black text-slate-500">Título da execução</label>
         <input id="execTitleInput" value="${Utils.escape(draft.title || '')}" oninput="Actions.updateExecutionDraft('title', this.value)" placeholder="Ex: Lançar criativo carrossel A/B" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" />
       </div>
-      <button onclick="Actions.createExecutionFromDraft()" class="w-full px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black flex items-center justify-center gap-2 lj-dark-button" style="color:#fff!important;">
+      <button onclick="Actions.openExecutionTaskFromTab()" class="w-full px-5 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-black flex items-center justify-center gap-2 lj-dark-button" style="color:#fff!important;">
         <i data-lucide="plus" class="w-4 h-4"></i> Adicionar execução
       </button>
       <div class="rounded-2xl border border-indigo-100 bg-indigo-50/40 p-3 flex items-start gap-2.5">

@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.69',
+    date: '2026-06-17',
+    title: 'Adicionar execução abre o mesmo modal de tarefa do Mapa da Receita',
+    bullets: [
+      'O botão "Adicionar execução" da aba Execuções agora abre o modal completo de criação de tarefa do Mapa da Receita (com responsáveis, prioridade, datas, tags, custom fields ClickUp e botão Djow). Antes salvava só localmente; agora segue o mesmo fluxo das tarefas criadas a partir das ações no Mapa.',
+      'O título digitado no painel de criação já vai pré-preenchido como nome da tarefa no modal — você só completa o que falta (descrição, responsável, data) e envia.',
+      'Validação: o título da execução é obrigatório antes de abrir o modal. Sem título, o sistema avisa pra preencher primeiro.'
+    ]
+  },
+  {
     version: 'V38.1.68',
     date: '2026-06-17',
     title: 'Criar ação / execução agora pede a campanha explicitamente + filtros na lista',
