@@ -140,17 +140,27 @@ var RevopsVelocityModule = {
     </div>`;
   },
 
+  // V39.5.0 — Onda A tecida: ordem agora → estrutural → eficiência → costura.
   _expandedBlock(s, product) {
     const diag = PipelineVelocityEngine.diagnose(s);
     const sim = PipelineVelocityEngine.simulate(s);
+    const forecast = (window.ForecastRealizadoEngine && ForecastRealizadoEngine.forProduct)
+      ? ForecastRealizadoEngine.forProduct(product.id)
+      : null;
+    const efficiency = (window.EfficiencyEngine && EfficiencyEngine.forProduct)
+      ? EfficiencyEngine.forProduct(product.id)
+      : null;
+
     return `<div class="border-t border-slate-200 bg-white p-4 space-y-3">
-      <div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 p-3 flex items-start gap-2">
-        <i data-lucide="lightbulb" class="w-4 h-4 text-violet-700 mt-0.5 shrink-0"></i>
-        <div class="min-w-0">
-          <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-1">Diagnóstico</p>
-          <p class="text-xs text-slate-800 leading-relaxed">${Utils.escape(diag)}</p>
-        </div>
+      ${this._situacaoMesBlock(product, forecast, efficiency)}
+
+      <div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 p-3">
+        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+          <i data-lucide="gauge" class="w-3.5 h-3.5"></i> Estrutura da máquina · V × C × L / T
+        </p>
+        <p class="text-xs text-slate-800 leading-relaxed">${Utils.escape(diag)}</p>
       </div>
+
       ${sim ? `<div>
         <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
           <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i> Simulador — e se você dobrar uma letra?
@@ -161,17 +171,155 @@ var RevopsVelocityModule = {
           ${this._simRow('Dobrar L (ticket)', sim.base, sim.double_L)}
           ${this._simRow('Cortar T pela metade', sim.base, sim.half_T)}
         </div>
-        <p class="text-[10px] text-slate-500 mt-2 leading-relaxed">Mesma fórmula V × C × L / T. Cada simulação muda só 1 letra e mantém as outras 3. Útil pra escolher qual frente atacar.</p>
       </div>` : ''}
+
       ${this._efficiencyBlock(product)}
+
+      ${this._djowCostura(product, s, forecast, efficiency)}
+
       <div class="flex items-center justify-end gap-2">
-        <button onclick="Actions.loadEfficiencySummary({force:true})" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 flex items-center gap-1.5">
-          <i data-lucide="refresh-cw" class="w-3 h-3"></i> A4
+        <button onclick="Actions.loadForecastRealizedSummary({force:true})" class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-black hover:bg-slate-50 flex items-center gap-1">
+          <i data-lucide="refresh-cw" class="w-3 h-3"></i> A1/A2
         </button>
-        <button onclick="Actions.loadPipelineVelocitySummary({force:true})" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 flex items-center gap-1.5">
+        <button onclick="Actions.loadPipelineVelocitySummary({force:true})" class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-black hover:bg-slate-50 flex items-center gap-1">
           <i data-lucide="refresh-cw" class="w-3 h-3"></i> A3
         </button>
+        <button onclick="Actions.loadEfficiencySummary({force:true})" class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-black hover:bg-slate-50 flex items-center gap-1">
+          <i data-lucide="refresh-cw" class="w-3 h-3"></i> A4
+        </button>
       </div>
+    </div>`;
+  },
+
+  // V39.5.0 — Bloco "Situação do mês" (A1/A2 dentro do card de Velocidade).
+  // Meta declarada + realizado + projeção + calculadora de meta
+  // (customers necessários × CAC = mídia necessária).
+  _situacaoMesBlock(product, forecast, efficiency) {
+    if (!forecast) {
+      return `<div class="rounded-2xl bg-slate-50 border border-slate-200 border-l-4 border-l-slate-300 p-3">
+        <p class="text-[10px] font-black text-slate-600 uppercase tracking-widest">Situação do mês</p>
+        <p class="text-xs text-slate-600 mt-1">Carregando…</p>
+      </div>`;
+    }
+    if (forecast.status === 'pending') {
+      const label = forecast.salesChannel === 'crm' ? 'CRM' : 'Híbrido';
+      return `<div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-500 p-3">
+        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">Situação do mês · ${label}</p>
+        <p class="text-xs text-violet-900 mt-1">Em breve: depende do Fechamento mensal declarado.</p>
+      </div>`;
+    }
+    if (forecast.status !== 'ok' || forecast.meta <= 0) {
+      return `<div class="rounded-2xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500 p-3">
+        <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest">Situação do mês</p>
+        <p class="text-xs text-amber-900 mt-1">${forecast.meta <= 0 ? 'Defina a meta nas ofertas do produto pra ver Forecast × Realizado.' : 'Sem dados suficientes.'}</p>
+        ${forecast.meta <= 0 ? `<button onclick="event.stopPropagation(); Actions.setTab('revops')" class="mt-2 px-3 py-1.5 rounded-xl bg-amber-700 text-white text-xs font-black hover:bg-amber-800" style="color:#fff!important;">Definir meta →</button>` : ''}
+      </div>`;
+    }
+    const semColor = { green: 'emerald', amber: 'amber', red: 'rose', gray: 'slate' }[forecast.semaforo] || 'slate';
+    const semLabel = { green: 'Vai bater', amber: 'Risco', red: 'Não bate no ritmo atual', gray: '—' }[forecast.semaforo] || '';
+    const restante = Math.max(0, forecast.meta - forecast.realized);
+
+    // Calculadora de meta: customers necessários × CAC = mídia necessária
+    const ltv = efficiency && efficiency.status === 'ok' ? efficiency.ltv : 0;
+    const cac = efficiency && efficiency.status === 'ok' ? efficiency.cac : 0;
+    const customersNecessarios = ltv > 0 && restante > 0 ? Math.ceil(restante / ltv) : 0;
+    const midiaNecessaria = customersNecessarios > 0 && cac > 0 ? customersNecessarios * cac : 0;
+    const calcDisponivel = ltv > 0 && cac > 0 && restante > 0;
+
+    return `<div class="rounded-2xl bg-${semColor}-50 border border-${semColor}-200 border-l-4 border-l-${semColor}-500 p-3">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-[10px] font-black text-${semColor}-700 uppercase tracking-widest flex items-center gap-1.5">
+          <i data-lucide="calendar-clock" class="w-3.5 h-3.5"></i> Situação do mês · ${forecast.yyyymm || ''}
+        </p>
+        <p class="text-[10px] font-black text-${semColor}-700">${semLabel}</p>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mb-2">
+        <div class="bg-white rounded-xl border border-${semColor}-200 p-2 text-center">
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Meta</p>
+          <p class="font-black text-sm text-slate-900 mt-0.5">${ForecastRealizadoEngine.formatMoney(forecast.meta)}</p>
+        </div>
+        <div class="bg-white rounded-xl border border-${semColor}-200 p-2 text-center">
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Realizado</p>
+          <p class="font-black text-sm text-slate-900 mt-0.5">${ForecastRealizadoEngine.formatMoney(forecast.realized)}</p>
+          <p class="text-[9px] text-slate-500">${forecast.progressPct}%</p>
+        </div>
+        <div class="bg-white rounded-xl border border-${semColor}-200 p-2 text-center">
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Projeção</p>
+          <p class="font-black text-sm text-${semColor}-700 mt-0.5">${ForecastRealizadoEngine.formatMoney(forecast.projected)}</p>
+          <p class="text-[9px] font-black text-${semColor}-700">${ForecastRealizadoEngine.formatPct(forecast.variance)}</p>
+        </div>
+      </div>
+      <div class="h-1.5 rounded-full bg-white/80 overflow-hidden">
+        <div class="h-full bg-${semColor}-500" style="width:${forecast.progressPct}%"></div>
+      </div>
+      ${calcDisponivel ? `<div class="mt-2 rounded-xl bg-white/70 border border-${semColor}-200 p-2.5">
+        <p class="text-[10px] font-black text-${semColor}-700 uppercase tracking-widest mb-1 flex items-center gap-1.5">
+          <i data-lucide="calculator" class="w-3 h-3"></i> Calculadora de meta
+        </p>
+        <p class="text-xs text-slate-800 leading-relaxed">
+          Pra bater os ${ForecastRealizadoEngine.formatMoney(forecast.meta)} restantes, você precisa de <b>${customersNecessarios} customer(s) novos</b> (LTV ${ForecastRealizadoEngine.formatMoney(ltv)}). Com CAC ${ForecastRealizadoEngine.formatMoney(cac)} = <b>${ForecastRealizadoEngine.formatMoney(midiaNecessaria)} de mídia necessária</b>.
+        </p>
+      </div>` : restante > 0 && cac <= 0 ? `<div class="mt-2 rounded-xl bg-amber-50 border border-amber-200 p-2.5">
+        <p class="text-[10px] text-amber-900">⚠ Defina CAC nas ofertas pra ver quanto de mídia precisa pra bater a meta.</p>
+      </div>` : ''}
+    </div>`;
+  },
+
+  // V39.5.0 — Costura do Djow: síntese das 3 leituras (mês + estrutura + capital).
+  // Texto algorítmico local — sem chamada de IA. Combina os 3 snapshots e
+  // monta uma narrativa que conecta gargalo estrutural com situação do mês.
+  _djowCostura(product, velocity, forecast, efficiency) {
+    if (!velocity || velocity.status !== 'ok') return '';
+    const parts = [];
+
+    // Frase 1: situação do mês + raiz
+    if (forecast && forecast.status === 'ok' && forecast.meta > 0) {
+      const semVerb = forecast.semaforo === 'green' ? 'bate' : forecast.semaforo === 'amber' ? 'aperta na meta' : 'estoura a meta';
+      const variancePct = (forecast.variance * 100).toFixed(0);
+      parts.push(`Esse mês ${semVerb} ${variancePct >= 0 ? '+' : ''}${variancePct}% vs meta.`);
+      if (forecast.semaforo !== 'green' && velocity.gargalo) {
+        const gargaloMap = {
+          V: 'a raiz é volume — você tem pouco tráfego entrando',
+          C: 'a raiz é estrutural — sua conversão está abaixo do mercado, então tráfego pago não resolve esse mês (exige otimização de página, prova social, atendimento)',
+          L: 'a raiz é ticket — seu valor médio por venda é baixo, considere combo/upsell',
+          T: 'a raiz é ciclo — o cliente demora demais pra decidir, considere nutrição automatizada'
+        };
+        parts.push(gargaloMap[velocity.gargalo] || '');
+      }
+    } else if (forecast && forecast.status === 'pending') {
+      parts.push('Situação do mês depende do Fechamento mensal declarado (modo CRM/híbrido).');
+    }
+
+    // Frase 2: eficiência de capital
+    if (efficiency && efficiency.status === 'ok' && efficiency.ltvCacRatio != null) {
+      if (efficiency.ltvCacRatio >= 3) {
+        parts.push(`No estrutural, a operação é sólida (LTV:CAC ${efficiency.ltvCacRatio.toFixed(1)}:1, Payback ${efficiency.paybackMonths != null && efficiency.paybackMonths < 0.1 ? 'instantâneo' : (efficiency.paybackMonths || 0).toFixed(1) + ' mês(es)'}).`);
+      } else if (efficiency.ltvCacRatio >= 2) {
+        parts.push(`A eficiência de capital está apertada (LTV:CAC ${efficiency.ltvCacRatio.toFixed(1)}:1, abaixo do saudável 3:1) — modelo cobre o custo mas sem margem pra reinvestir.`);
+      } else {
+        parts.push(`⚠ A eficiência de capital é crítica (LTV:CAC ${efficiency.ltvCacRatio.toFixed(1)}:1, abaixo do saudável 3:1) — cada cliente novo subtrai valor. Antes de escalar tráfego, suba ticket ou corte CAC.`);
+      }
+    } else if (efficiency && efficiency.status === 'ok' && efficiency.cacSource === 'missing') {
+      parts.push('Pra fechar o diagnóstico, defina o CAC esperado nas ofertas do produto — destrava LTV:CAC e Payback.');
+    }
+
+    // Frase 3: NRR (se aplica)
+    if (efficiency && efficiency.status === 'ok' && efficiency.nrrStatus === 'ok' && efficiency.nrr != null) {
+      if (efficiency.nrr < 1) {
+        parts.push(`A base atual encolhe ${((1 - efficiency.nrr) * 100).toFixed(0)}% ao mês (NRR ${(efficiency.nrr * 100).toFixed(0)}%) — você está enchendo balde furado, trabalhe upsell e retenção.`);
+      }
+    }
+
+    const texto = parts.filter(Boolean).join(' ');
+    if (!texto) return '';
+
+    return `<div class="rounded-2xl bg-gradient-to-br from-violet-100 to-pink-100 border-2 border-violet-300 border-l-4 border-l-violet-700 p-4">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="w-7 h-7 rounded-full bg-violet-700 grid place-items-center"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-white"></i></span>
+        <p class="text-[10px] font-black text-violet-800 uppercase tracking-widest">Djow · A Costura</p>
+        <p class="text-[9px] text-violet-600 ml-auto">Síntese da Onda A (mês + estrutura + capital)</p>
+      </div>
+      <p class="text-xs text-slate-800 leading-relaxed">${Utils.escape(texto)}</p>
     </div>`;
   },
 
