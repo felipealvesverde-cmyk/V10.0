@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.61',
+    date: '2026-06-17',
+    title: 'Bloco da coluna direita do card de Ação cresce 20% padronizado',
+    bullets: [
+      'Os 3 mini-cards (Leads/Score/Etapas) e os 2 botões (Criar c/ Djow + Ver Execuções) viraram um bloco visual único na coluna direita do card de ação. Agora esse bloco inteiro foi escalado em 20% de forma proporcional: largura 300px → 360px, padding 12px/8px → 14px/10px, label 9px → 11px, valor numérico do mini-card subiu pra text-xl, botões saltaram de text-[9px] pra text-[11px] com ícones 12px.',
+      'O crescimento mantém a hierarquia visual e o ritmo de tipografia coerente — sem nenhum elemento ficar deslocado em relação aos outros.'
+    ]
+  },
+  {
     version: 'V38.1.60',
     date: '2026-06-17',
     title: 'Botões de Execução compactados e movidos pra dentro da coluna direita',
