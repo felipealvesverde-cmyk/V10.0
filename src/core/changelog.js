@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.7.2',
+    date: '2026-06-17',
+    title: 'Djow agora é persona viva sempre presente no card de Velocidade',
+    bullets: [
+      'O Djow voltou a aparecer em todos os cards de produto, mesmo quando o produto está no começo da jornada. Antes ele só costurava quando havia ≥ 2 capítulos cravados (Situação + Estrutura/Eficiência), e em produto recém-cadastrado simplesmente sumia. Agora ele é presença fixa do card — adapta a narrativa ao estado em vez de desaparecer.',
+      '4 modos de narrativa cravados por número de capítulos com conteúdo: 0 = silêncio honesto ("Ainda em silêncio — o produto começa a falar quando o primeiro dado cair"), 1 = espera ativa identificando qual capítulo já está lendo e o que falta ("Por enquanto, só leio a meta declarada — sem tráfego rastreado nem venda confirmada"), 2+ = síntese algorítmica completa cruzando Forecast × Velocity × Capital (lógica antiga).',
+      'Razão da volta: o Djow é o rosto da marca dentro do card. Sumir ele em estado parcial deixava o cliente sem narrador no momento mais importante (primeiro acesso). Aparecer com narrativa honesta sobre o que ainda não dá pra dizer é melhor que ausência.'
+    ]
+  },
+  {
     version: 'V39.7.1',
     date: '2026-06-17',
     title: 'Card de RevOps & Velocidade ficou consciente do estado (Leonardo round 2)',
