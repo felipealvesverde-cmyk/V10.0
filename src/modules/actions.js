@@ -7,7 +7,7 @@ var ActionModule = {
     return `<div class="space-y-4">
       ${this.actionLayer(selectedCampaign, product, actions)}
       ${window.FlowBreadcrumb ? FlowBreadcrumb.render('actions') : ''}
-      <div class="grid lg:grid-cols-3 gap-4"><div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-1">Criar ação</h2><p class="text-sm text-slate-500 mb-4">Defina contexto operacional, origem, destino e base de leads.</p>${this._createTabs()}${App.state.actionCreateTab === 'ai' ? this._aiCreatePanel() : this._manualCreatePanel()}</div><div class="lg:col-span-2 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-3">Ações plugadas</h2>${this._actionsListFilter(actions)}<div class="space-y-3">${this._filteredActionsList(actions)}</div></div></div>
+      <div class="grid lg:grid-cols-3 gap-4"><div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-1">Criar ação</h2><p class="text-sm text-slate-500 mb-4">Defina contexto operacional, origem, destino e base de leads.</p>${this._manualCreatePanel()}</div><div class="lg:col-span-2 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-3">Ações plugadas</h2>${this._actionsListFilter(actions)}<div class="space-y-3">${this._filteredActionsList(actions)}</div></div></div>
       ${window.ActionEditModal ? ActionEditModal.render() : ''}
       ${/* V32.4.1 (Geraldo Item 1) — DjowModal V16.3 aposentado. DjowAIModal global cobre. */ ''}
       ${/* V37.0.8 — ActionLpModal removido (era vestigial pré-Tracking V33). */ ''}
@@ -51,10 +51,10 @@ var ActionModule = {
     }
     return `<div class="bg-slate-950 text-white rounded-[2rem] p-5 shadow-sm overflow-hidden relative">
       <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
-      <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
+      <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-center">
         <div>
-          <h2 class="text-3xl font-black">Ações</h2>
-          <p class="text-xs text-slate-400 mt-2">Campanha: <b class="text-white">${Utils.escape(selectedCampaign?.name || 'nenhuma selecionada')}</b> • Produto: <b class="text-white">${Utils.escape(product?.name || 'não vinculado')}</b></p>
+          <div class="flex items-center gap-2 mb-3"><i data-lucide="activity" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Operational Layer · Ações</p></div>
+          <p class="text-base text-slate-300 max-w-3xl leading-relaxed">A ação é a execução operacional plugada a uma campanha, organizada por setor e canal, com fluxo de origem/destino e leads atribuídos.</p>
         </div>
         <div class="grid grid-cols-2 gap-3">
           ${this.darkMetric('Ações', totalActions, 'plug')}
@@ -119,18 +119,6 @@ var ActionModule = {
         </div>
         <div class="text-xs font-black text-slate-500 mb-2">Fluxo obrigatório resolvido automaticamente</div>
         <div class="flex flex-wrap gap-2">${path.map((stage, index) => `<span class="px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-black">${index + 1}. ${FlowResolutionEngine.label(stage)}</span>`).join('')}</div>
-      </div>
-      <div class="rounded-3xl bg-indigo-50 border border-indigo-100 p-4 flex items-start gap-3">
-        <span class="shrink-0 w-9 h-9 rounded-xl bg-indigo-100 border border-indigo-200 grid place-items-center text-indigo-700">
-          <i data-lucide="upload-cloud" class="w-4 h-4"></i>
-        </span>
-        <div class="min-w-0 flex-1">
-          <h3 class="text-sm font-black text-slate-900">Base de leads</h3>
-          <p class="text-xs text-slate-600 mt-0.5 mb-2">Cria a ação primeiro. Depois anexa base de leads pelo Importador (4 steps · dedup · validação · RD real).</p>
-          <button onclick="Actions.openLeadImportModal()" class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
-            <i data-lucide="arrow-right" class="w-3 h-3"></i> Abrir Importador
-          </button>
-        </div>
       </div>
       <button onclick="Actions.createAction()" style="color:#fff!important;" class="w-full px-5 py-3 rounded-2xl bg-slate-900 text-white font-black lj-dark-button">Criar ação plugada</button>
     </div>`;
@@ -209,19 +197,19 @@ var ActionModule = {
                Leads / Score / Etapas crescidos +35% sobre a V38.1.61
                (px-3.5 → px-4.5, label 11px → 14px, valor text-xl → text-3xl,
                gap-2.5 → gap-3.5). -->
-          <div class="flex flex-col gap-2 w-full lg:w-[480px] shrink-0 lg:pr-12">
-            <div class="grid grid-cols-3 gap-3.5 text-center">
-              <div class="bg-white rounded-2xl border border-slate-200 px-4 py-3.5" style="border-left: 5px solid var(--lj-action);">
-                <div class="text-[14px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Leads</div>
-                <div class="font-black text-3xl text-slate-900 mt-1">${action.leads.length}</div>
+          <div class="flex flex-col gap-2 w-full lg:w-[384px] shrink-0 lg:pr-12">
+            <div class="grid grid-cols-3 gap-3 text-center">
+              <div class="bg-white rounded-2xl border border-slate-200 px-3 py-3" style="border-left: 4px solid var(--lj-action);">
+                <div class="text-[11px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Leads</div>
+                <div class="font-black text-2xl text-slate-900 mt-1">${action.leads.length}</div>
               </div>
-              <div class="bg-white rounded-2xl border border-slate-200 px-4 py-3.5" style="border-left: 5px solid var(--lj-action);">
-                <div class="text-[14px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Score</div>
-                <div class="font-black text-3xl text-slate-900 mt-1">${avgScore}</div>
+              <div class="bg-white rounded-2xl border border-slate-200 px-3 py-3" style="border-left: 4px solid var(--lj-action);">
+                <div class="text-[11px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Score</div>
+                <div class="font-black text-2xl text-slate-900 mt-1">${avgScore}</div>
               </div>
-              <div class="bg-white rounded-2xl border border-slate-200 px-4 py-3.5" style="border-left: 5px solid var(--lj-action);">
-                <div class="text-[14px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Etapas</div>
-                <div class="font-black text-3xl text-slate-900 mt-1">${flow.path.length}</div>
+              <div class="bg-white rounded-2xl border border-slate-200 px-3 py-3" style="border-left: 4px solid var(--lj-action);">
+                <div class="text-[11px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Etapas</div>
+                <div class="font-black text-2xl text-slate-900 mt-1">${flow.path.length}</div>
               </div>
             </div>
           </div>

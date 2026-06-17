@@ -51,14 +51,49 @@ var ResultModule = {
     </div>`;
   },
 
+  // V38.1.67 — Header dark unificado nos padrões dos outros menus (Produto /
+  // Campanha / Ação / Execução). Selo + descrição geral + KPIs agregados de
+  // todos os produtos visíveis (não-arquivados). Aparece nas 4 views da aba.
+  resultLayer() {
+    const products = (App.state.products || []).filter(p => p.archived !== true);
+    const campaigns = (App.state.campaigns || []);
+    const actions = (App.state.actions || []);
+    let leads = 0, converted = 0;
+    for (const a of actions) {
+      leads += a.leads?.length || 0;
+      converted += Number(FlowResolutionEngine.buildActionFlow(a).converted || 0);
+    }
+    const conversion = leads ? Math.round((converted / leads) * 1000) / 10 : 0;
+    return `<div class="bg-slate-950 text-white rounded-[2rem] p-5 shadow-sm overflow-hidden relative">
+      <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 18% 10%, rgba(244,63,94,.18), transparent 28%), radial-gradient(circle at 82% 20%, rgba(124,58,237,.16), transparent 30%);"></div>
+      <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-center">
+        <div>
+          <div class="flex items-center gap-2 mb-3"><i data-lucide="trending-up" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Result Layer · Leitura consolidada</p></div>
+          <p class="text-base text-slate-300 max-w-3xl leading-relaxed">O resultado é a leitura final do ciclo: funil consolidado por produto, drill-down por campanha e ação. Onde se responde "o que aconteceu e por causa do quê".</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          ${this._darkMetric('Produtos', products.length, 'box')}
+          ${this._darkMetric('Campanhas', campaigns.length, 'megaphone')}
+          ${this._darkMetric('Impactados', leads, 'users')}
+          ${this._darkMetric('Conversão', `${conversion}%`, 'arrow-right-left')}
+        </div>
+      </div>
+    </div>`;
+  },
+
+  _darkMetric(label, value, icon) {
+    return `<div class="bg-white/10 border border-white/10 rounded-2xl p-4"><div class="flex items-center justify-between"><p class="text-xs font-black text-slate-300">${label}</p><i data-lucide="${icon}" class="w-4 h-4 text-slate-300"></i></div><div class="text-3xl font-black mt-2">${value}</div></div>`;
+  },
+
   // V33.0.0 — Nível 0: lista de produtos com snapshot executivo.
   productList() {
     const products = (App.state.products || []).filter(p => p.archived !== true);
     return `<div class="space-y-3">
       ${this._modeToggle()}
+      ${this.resultLayer()}
       ${window.FlowBreadcrumb ? FlowBreadcrumb.render('results') : ''}
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-        <h2 class="text-xl font-black mb-1">Resultados</h2>
+        <h2 class="text-xl font-black mb-1">Resultado por produto</h2>
         <p class="text-sm text-slate-500 mb-5">Escolha um produto pra ver o funil consolidado, performance das campanhas e atribuição de receita.</p>
         ${products.length === 0
           ? Components.empty('Cadastre um produto antes de ver resultados.')
@@ -115,6 +150,7 @@ var ResultModule = {
 
     return `<div class="space-y-4">
       ${this._modeToggle()}
+      ${this.resultLayer()}
       ${window.FlowBreadcrumb ? FlowBreadcrumb.render('results') : ''}
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
         <button onclick="Actions.backToResultsProductList()" class="mb-4 px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar para produtos</button>
@@ -210,6 +246,7 @@ var ResultModule = {
     const activeCampaigns = App.state.campaigns.filter(campaign => campaign.status !== 'Encerrada');
     const actionsByCampaign = this._actionsByCampaign();
     return `<div class="space-y-4">
+      ${this.resultLayer()}
       ${window.FlowBreadcrumb ? FlowBreadcrumb.render('results') : ''}
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
         <h2 class="text-xl font-black mb-1">Resultado da campanha</h2>
@@ -233,6 +270,7 @@ var ResultModule = {
     const actions = App.state.actions.filter(action => Number(action.campaignId) === Number(campaign.id));
     const summary = this._summaryFromActions(actions);
     return `<div class="space-y-4">
+      ${this.resultLayer()}
       ${window.FlowBreadcrumb ? FlowBreadcrumb.render('results') : ''}
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
         <button onclick="Actions.backToResultsCampaignList()" class="mb-4 px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar ${App.state.resultsClassicMode ? 'para campanhas' : 'para o produto'}</button>
