@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.66',
+    date: '2026-06-17',
+    title: 'Menu de Fluxo: full-width + estilo Home (sem cromado)',
+    bullets: [
+      'O Menu de Fluxo agora ocupa a largura inteira abaixo do header (na mesma proporção do header), em vez de ficar centralizado e compacto. Cada chevron usa flex:1, então as 5 setas dividem o espaço horizontal igualmente — quando o header é largo, as setas crescem horizontalmente, mas a altura fica fixa.',
+      'O tom metalizado cromado da V38.1.65 saiu. Agora segue o estilo da Home (Pulso da Receita): cada chevron tem fundo translúcido suave na cor temática, texto na cor clara da paleta, e drop-shadow colorido externo dando glow. A seta ativa fica com fundo mais saturado, texto branco e glow mais forte. Inativas vibram suavemente nas suas cores e clareiam no hover.'
+    ]
+  },
+  {
     version: 'V38.1.65',
     date: '2026-06-17',
     title: 'Menu de Fluxo vira chevron 3D industrial com 5 etapas (Produtos → Resultados)',

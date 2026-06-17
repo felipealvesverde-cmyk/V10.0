@@ -1,100 +1,104 @@
-// V38.1.65 — FlowBreadcrumb chevron 3D industrial (Leonardo, ato III)
+// V38.1.66 — FlowBreadcrumb estilo Home (Leonardo, ato IV)
 //
-// 5 estações em chevron horizontal — cada uma é um retângulo com ponta
-// triangular à direita e entrada chevron à esquerda. Encaixadas com
-// margin negativo. Cada chevron tem gradiente vertical 3D (highlight no
-// topo, base mais escura, reflexo inferior) — visual de dashboard
-// industrial / SCADA / Process Flow.
+// V38.1.65 tinha gradiente metálico cromado. Felipe descartou — quer o
+// estilo da Home: cores translúcidas suaves, glow colorido com box-shadow,
+// sem efeito 3D metálico.
 //
-// Estações inativas: cinza-prateado (gradiente neutro com brilho cromado).
-// Estação atual: cor temática cheia 3D na mesma estética cromada.
+// Também: ocupar a LARGURA TOTAL abaixo do header (na proporção do header)
+// sem crescer em altura. Cada chevron usa flex: 1 1 0 pra dividir o espaço
+// igualmente, padding vertical fixo, padding horizontal flexível.
 //
-// Cromática narrativa (5 estágios):
-//   1. Produtos    — violet   (estratégia)
-//   2. Campanhas   — sky      (orquestração)
-//   3. Ações       — amber    (operação)
-//   4. Execuções   — emerald  (gesto / vida)
-//   5. Resultados  — rose     (consequência / leitura final)
+// 5 estações: Produtos → Campanhas → Ações → Execuções → Resultados.
+// Cromática mantida: violet · sky · amber · emerald · rose.
+//
+// Padrão visual (igual home-v25.css/lj-pulso-stage-X):
+//   bg     = rgba(cor, 0.12)
+//   border = rgba(cor, 0.30) (interna via drop-shadow já que clip-path corta)
+//   shadow = 0 12px 24px rgba(cor, 0.18)  (drop-shadow no wrapper externo)
+//   texto  = cor-200 (clara, brilhante)
+//
+// Estação ATIVA: bg mais saturado (rgba 0.30), texto branco, glow maior.
+// Inativas: estilo translúcido suave da cor temática (cada uma vibra
+// levemente na sua cor — segue a paleta do Pulso da Home).
 
 window.FlowBreadcrumb = {
   STAGES: [
-    { id: 'products',   label: 'Produtos',   color: { light: '#c4b5fd', mid: '#8b5cf6', dark: '#6d28d9' } }, // violet-300/500/700
-    { id: 'campaigns',  label: 'Campanhas',  color: { light: '#7dd3fc', mid: '#0ea5e9', dark: '#0369a1' } }, // sky-300/500/700
-    { id: 'actions',    label: 'Ações',      color: { light: '#fcd34d', mid: '#f59e0b', dark: '#b45309' } }, // amber-300/500/700
-    { id: 'executions', label: 'Execuções',  color: { light: '#6ee7b7', mid: '#10b981', dark: '#047857' } }, // emerald-300/500/700
-    { id: 'results',    label: 'Resultados', color: { light: '#fda4af', mid: '#f43f5e', dark: '#be123c' } }  // rose-300/500/700
+    { id: 'products',   label: 'Produtos',   rgb: '139, 92, 246',  text: '#C4B5FD' }, // violet
+    { id: 'campaigns',  label: 'Campanhas',  rgb: '56, 189, 248',  text: '#7DD3FC' }, // sky
+    { id: 'actions',    label: 'Ações',      rgb: '251, 191, 36',  text: '#FCD34D' }, // amber
+    { id: 'executions', label: 'Execuções',  rgb: '16, 185, 129',  text: '#6EE7B7' }, // emerald
+    { id: 'results',    label: 'Resultados', rgb: '244, 63, 94',   text: '#FDA4AF' }  // rose
   ],
-
-  GREY: { light: '#e5e7eb', mid: '#9ca3af', dark: '#4b5563' }, // gray-200/400/600
 
   render(activeStage) {
     const stages = this.STAGES;
     const activeIndex = stages.findIndex(s => s.id === activeStage);
-    const items = stages.map((stage, i) => this._chevron(stage, i === activeIndex, i === 0, i));
-    return `<nav aria-label="Fluxo do Revenue OS" class="flex items-stretch flex-wrap py-2 overflow-x-auto">
+    const items = stages.map((stage, i) => this._chevron(stage, i === activeIndex, i === 0));
+    return `<nav aria-label="Fluxo do Revenue OS" class="flex items-stretch w-full">
       ${items.join('')}
     </nav>`;
   },
 
-  _chevron(stage, isActive, isFirst, index) {
-    const c = isActive ? stage.color : this.GREY;
-    const textColor = isActive ? '#ffffff' : '#1f2937'; // gray-800
-    const textShadow = isActive
-      ? '0 1px 2px rgba(0,0,0,0.35)'
-      : '0 1px 0 rgba(255,255,255,0.7)';
-
-    // clip-path: chevron com entrada triangular à esquerda (exceto 1ª) e
-    // ponta triangular à direita. Profundidade da ponta = 18px.
+  _chevron(stage, isActive, isFirst) {
     const ARROW = 18;
     const clipPath = isFirst
       ? `polygon(0% 0%, calc(100% - ${ARROW}px) 0%, 100% 50%, calc(100% - ${ARROW}px) 100%, 0% 100%)`
       : `polygon(0% 0%, calc(100% - ${ARROW}px) 0%, 100% 50%, calc(100% - ${ARROW}px) 100%, 0% 100%, ${ARROW}px 50%)`;
 
-    // Gradiente vertical 3D — highlight no topo, base mais escura,
-    // reflexo sutil na base (efeito vidro/metal polido).
-    const bg = `linear-gradient(180deg,
-      ${c.light} 0%,
-      ${c.mid} 40%,
-      ${c.dark} 78%,
-      ${c.mid} 100%)`;
+    const { rgb, text, label, id } = stage;
 
-    const onclick = !isActive ? `onclick="App.setTab('${stage.id}')"` : 'aria-current="page"';
+    // Background e texto seguindo o padrão Home (.lj-pulso-stage-*):
+    //   inativa: bg rgba(cor, 0.12), texto cor-300 clara
+    //   ativa:   bg rgba(cor, 0.30), texto branco, drop-shadow forte
+    const bg = isActive ? `rgba(${rgb}, 0.32)` : `rgba(${rgb}, 0.12)`;
+    const textColor = isActive ? '#ffffff' : text;
+    const fontWeight = isActive ? '950' : '800';
+
+    // drop-shadow no wrapper externo pra dar o "border colorido" e glow
+    // (clip-path corta box-shadow do chevron interno).
+    const wrapperShadow = isActive
+      ? `drop-shadow(0 0 0 rgba(${rgb}, 0.7)) drop-shadow(0 0 12px rgba(${rgb}, 0.35))`
+      : `drop-shadow(0 0 0 rgba(${rgb}, 0.30))`;
+
+    const onclick = !isActive ? `onclick="App.setTab('${id}')"` : 'aria-current="page"';
     const cursor = isActive ? 'default' : 'pointer';
-
-    // Encaixe: cada chevron (exceto o 1º) avança -12px sobre o anterior,
-    // pra ponta direita do anterior ficar dentro do "buraco" do próximo.
     const marginLeft = isFirst ? '0' : '-12px';
-
-    // Padding: extra à direita pra texto não invadir a ponta; extra à
-    // esquerda (exceto 1º) pra texto não invadir a entrada chevron.
     const padLeft = isFirst ? '20px' : '32px';
     const padRight = '32px';
 
-    const hover = !isActive
-      ? `onmouseover="this.style.filter='brightness(1.08)'" onmouseout="this.style.filter=''"`
+    const hoverHandlers = !isActive
+      ? `onmouseover="this.firstElementChild.style.background='rgba(${rgb}, 0.22)'; this.firstElementChild.style.color='#fff';" onmouseout="this.firstElementChild.style.background='rgba(${rgb}, 0.12)'; this.firstElementChild.style.color='${text}';"`
       : '';
 
-    return `<div ${onclick} ${hover} style="
-      clip-path: ${clipPath};
-      -webkit-clip-path: ${clipPath};
-      background: ${bg};
-      color: ${textColor};
-      text-shadow: ${textShadow};
-      cursor: ${cursor};
+    return `<div style="
+      flex: 1 1 0;
+      min-width: 0;
       margin-left: ${marginLeft};
-      padding: 10px ${padRight} 10px ${padLeft};
-      min-width: 132px;
-      font-size: 11px;
-      font-weight: 900;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      transition: filter 0.15s;
-      user-select: none;
-      white-space: nowrap;
-      ${isActive ? '' : 'filter: saturate(0.95);'}
-    ">${stage.label}</div>`;
+      filter: ${wrapperShadow};
+      transition: filter 0.18s;
+    " ${hoverHandlers}>
+      <div ${onclick} style="
+        clip-path: ${clipPath};
+        -webkit-clip-path: ${clipPath};
+        background: ${bg};
+        color: ${textColor};
+        cursor: ${cursor};
+        padding: 10px ${padRight} 10px ${padLeft};
+        width: 100%;
+        height: 100%;
+        font-size: 11px;
+        font-weight: ${fontWeight};
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.18s, color 0.18s;
+        user-select: none;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      ">${label}</div>
+    </div>`;
   }
 };
