@@ -2050,6 +2050,21 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V38.1.68 — Filtros da lista de execuções (Campanha + Ação). Trocar campanha
+  // limpa o filtro de ação pra evitar combinação inválida.
+  setExecutionListFilter(field, value) {
+    const next = { ...(App.state.executionListFilter || { campaignId: null, actionId: null }) };
+    const parsed = value === '' || value == null ? null : Number(value);
+    if (field === 'campaignId') {
+      next.campaignId = parsed;
+      next.actionId = null;
+    } else if (field === 'actionId') {
+      next.actionId = parsed;
+    }
+    App.state.executionListFilter = next;
+    App.save(); App.render();
+  },
+
   // V38.1.51 — Djow lê todas as ações da campanha (nome, canal, origem→destino,
   // taxa de cada etapa) e devolve 4-6 frases pragmáticas em prosa apontando
   // pontos de atenção ação por ação. Cacheia em App.state.roadmapInsights[id].

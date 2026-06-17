@@ -704,6 +704,10 @@ var State = {
       pluginsFlowBuilderCampaignId: null,
       // V38.1.63 — Draft pra criação de execução na tela Execuções.
       executionDraft: { actionId: null, title: '' },
+      // V38.1.68 — Filtros da lista de execuções (independente do form de criação
+      // e do selectedCampaignId global). campaignId null = todas as campanhas;
+      // actionId null = todas as ações da campanha filtrada.
+      executionListFilter: { campaignId: null, actionId: null },
       // V38.1.51 — cache de análises do Djow do Roadmap por campanha.
       // shape: { [campaignId]: { text, model, timestamp, tokens_in, tokens_out, loading? } }
       roadmapInsights: {},
@@ -1458,6 +1462,10 @@ var State = {
       executionDraft: (raw.executionDraft && typeof raw.executionDraft === 'object')
         ? { actionId: raw.executionDraft.actionId != null ? Number(raw.executionDraft.actionId) : null, title: String(raw.executionDraft.title || '') }
         : { actionId: null, title: '' },
+      // V38.1.68 — Filtros da lista de execuções (campaignId + actionId).
+      executionListFilter: (raw.executionListFilter && typeof raw.executionListFilter === 'object')
+        ? { campaignId: raw.executionListFilter.campaignId != null ? Number(raw.executionListFilter.campaignId) : null, actionId: raw.executionListFilter.actionId != null ? Number(raw.executionListFilter.actionId) : null }
+        : { campaignId: null, actionId: null },
       // V38.1.51 — Map { [campaignId]: { text, model, timestamp, tokens_in, tokens_out } }.
       // Loading flag não persiste (rebobina pra false se F5 no meio do fetch).
       roadmapInsights: (raw.roadmapInsights && typeof raw.roadmapInsights === 'object')
