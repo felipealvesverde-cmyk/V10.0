@@ -179,13 +179,25 @@ var RevopsVelocityModule = {
     const semVenda = (s.approvedCount || 0) === 0 && (s.customersCount || 0) === 0;
     const semTrafego = s.V === 0;
     const semMeta = !forecast || forecast.status !== 'ok' || forecast.meta <= 0;
-    const isVazioTotal = semVenda && semTrafego && semMeta;
-    const precisaConvite = semVenda || semTrafego || semMeta;
+    const semCanal = !product.salesChannel;
+    const sinais = {
+      temMeta: !semMeta,
+      temCanal: !semCanal,
+      temTrafego: !semTrafego,
+      temVenda: !semVenda
+    };
+    const passosFaltantes = (semMeta ? 1 : 0) + (semCanal ? 1 : 0) + (semTrafego ? 1 : 0) + (semVenda ? 1 : 0);
+    const faixaVisivel = passosFaltantes > 0;
+    // Djow só costura quando há >= 2 capítulos cravados (Situação + Estrutura/Eficiência).
+    // 1 capítulo isolado = Djow vira eco do que já está dito acima.
+    const cravados = (!semMeta ? 1 : 0) + (!semTrafego ? 1 : 0) + (!semVenda ? 1 : 0);
+    const mostraDjow = cravados >= 2;
+    const isVazioTotal = semVenda && semTrafego && semMeta && semCanal;
 
     // Estado vazio total: só faixa "Como ativar" + refresh — sem 4 blocos chorando
     if (isVazioTotal) {
       return `<div class="border-t border-slate-200 bg-white p-4 space-y-3">
-        ${this._comoAtivarFaixa(product)}
+        ${this._comoAtivarFaixa(product, sinais)}
         <div class="flex items-center justify-end">
           <button onclick="Actions.refreshOndaA()" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 flex items-center gap-1.5">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recarregar diagnóstico
@@ -195,9 +207,9 @@ var RevopsVelocityModule = {
     }
 
     return `<div class="border-t border-slate-200 bg-white p-4 space-y-3">
-      ${precisaConvite ? this._comoAtivarFaixa(product) : ''}
+      ${faixaVisivel ? this._comoAtivarFaixa(product, sinais) : ''}
 
-      ${!semMeta ? this._situacaoMesBlock(product, forecast, efficiency) : ''}
+      ${!semMeta ? this._situacaoMesBlock(product, forecast, efficiency, faixaVisivel) : ''}
 
       ${!semTrafego ? `<div class="rounded-2xl bg-violet-50/60 border border-violet-200 border-l-2 border-l-violet-400 p-3">
         <div class="flex items-center justify-between mb-2">
@@ -228,7 +240,7 @@ var RevopsVelocityModule = {
 
       ${!semVenda ? this._efficiencyBlock(product) : ''}
 
-      ${(!semVenda || !semMeta) ? this._djowCostura(product, s, forecast, efficiency) : ''}
+      ${mostraDjow ? this._djowCostura(product, s, forecast, efficiency) : ''}
 
       <div class="flex items-center justify-end">
         <button onclick="Actions.refreshOndaA()" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 flex items-center gap-1.5">
@@ -239,17 +251,24 @@ var RevopsVelocityModule = {
   },
 
   // V39.6.0 — Faixa "Como ativar" quando produto está 100% zerado.
-  // Numerada com 4 passos: meta → audiência checkout → tracking UTM → 1ª venda.
-  _comoAtivarFaixa(product) {
+  // V39.7.1 — Faixa inteligente: filtra passos já cumpridos e renumera dinamicamente.
+  //           Header conta passos restantes. Some inteira quando 0 passos sobram.
+  _comoAtivarFaixa(product, sinais) {
+    const s = sinais || { temMeta: false, temCanal: false, temTrafego: false, temVenda: false };
+    const passos = [];
+    if (!s.temMeta) passos.push('<b>Defina a meta de vendas</b> nas ofertas (RevOps → Ofertas) — destrava Situação do mês.');
+    if (!s.temCanal) passos.push('<b>Confirme o canal de venda</b> (checkout/CRM/híbrido) na aba Audiência do produto.');
+    if (!s.temTrafego) passos.push('<b>Ative tracking UTM</b> em ao menos 1 campanha apontando pra este produto — destrava Estrutura da máquina.');
+    if (!s.temVenda) passos.push('<b>Aguarde a primeira venda</b> via Hotmart (webhook auto-mapeia) — destrava Eficiência de Capital.');
+    if (passos.length === 0) return '';
+    const n = passos.length;
+    const label = n === 1 ? '1 passo pra ligar a máquina' : `${n} passos pra ligar a máquina`;
     return `<div class="rounded-2xl bg-slate-900 text-white p-4 border-l-4 border-l-violet-500">
       <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-        <i data-lucide="info" class="w-3.5 h-3.5"></i> Produto sem dados ainda · Pra ativar este diagnóstico
+        <i data-lucide="info" class="w-3.5 h-3.5"></i> Produto em ativação · ${label}
       </p>
       <ol class="space-y-1.5 text-xs leading-relaxed">
-        <li class="flex items-start gap-2"><span class="font-black text-violet-300 shrink-0">1.</span><span><b>Defina a meta de vendas</b> nas ofertas (RevOps → Ofertas) — destrava Situação do mês.</span></li>
-        <li class="flex items-start gap-2"><span class="font-black text-violet-300 shrink-0">2.</span><span><b>Confirme o canal de venda</b> (checkout/CRM/híbrido) na aba Audiência do produto.</span></li>
-        <li class="flex items-start gap-2"><span class="font-black text-violet-300 shrink-0">3.</span><span><b>Ative tracking UTM</b> em ao menos 1 campanha apontando pra este produto — destrava Estrutura da máquina.</span></li>
-        <li class="flex items-start gap-2"><span class="font-black text-violet-300 shrink-0">4.</span><span><b>Aguarde a primeira venda</b> via Hotmart (webhook auto-mapeia) — destrava Eficiência de Capital.</span></li>
+        ${passos.map((txt, i) => `<li class="flex items-start gap-2"><span class="font-black text-violet-300 shrink-0">${i + 1}.</span><span>${txt}</span></li>`).join('')}
       </ol>
     </div>`;
   },
@@ -327,7 +346,7 @@ var RevopsVelocityModule = {
   // V39.5.0 — Bloco "Situação do mês" (A1/A2 dentro do card de Velocidade).
   // Meta declarada + realizado + projeção + calculadora de meta
   // (customers necessários × CAC = mídia necessária).
-  _situacaoMesBlock(product, forecast, efficiency) {
+  _situacaoMesBlock(product, forecast, efficiency, faixaVisivel) {
     if (!forecast) {
       return `<div class="rounded-2xl bg-slate-50 border border-slate-200 border-l-4 border-l-slate-300 p-3">
         <p class="text-[10px] font-black text-slate-600 uppercase tracking-widest">Situação do mês</p>
@@ -396,7 +415,7 @@ var RevopsVelocityModule = {
         <p class="text-xs text-slate-800 leading-relaxed">
           Pra bater os ${ForecastRealizadoEngine.formatMoney(forecast.meta)} restantes, você precisa de <b>${customersNecessarios === 1 ? '1 customer novo' : `${customersNecessarios} customers novos`}</b> (LTV ${ForecastRealizadoEngine.formatMoney(ltv)}). Com CAC ${ForecastRealizadoEngine.formatMoney(cac)} = <b>${ForecastRealizadoEngine.formatMoney(midiaNecessaria)} de mídia necessária</b>.
         </p>
-      </div>` : restante > 0 && cac <= 0 ? `<div class="mt-2 rounded-xl bg-amber-50 border border-amber-200 p-2.5">
+      </div>` : (restante > 0 && cac <= 0 && !faixaVisivel) ? `<div class="mt-2 rounded-xl bg-amber-50 border border-amber-200 p-2.5">
         <p class="text-[10px] text-amber-900">⚠ Defina CAC nas ofertas pra ver quanto de mídia precisa pra bater a meta.</p>
       </div>` : ''}
     </div>`;

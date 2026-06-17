@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.7.1',
+    date: '2026-06-17',
+    title: 'Card de RevOps & Velocidade ficou consciente do estado (Leonardo round 2)',
+    bullets: [
+      'A faixa "Como ativar" agora filtra passos já cumpridos. Antes mostrava sempre 4 passos rígidos — inclusive "Defina a meta de vendas" mesmo pra produto que já tinha meta declarada (conflito narrativo: a faixa pedia pra destravar Situação do mês enquanto Situação já estava renderizada logo abaixo). Agora os passos somem 1 a 1 conforme cada gatilho é cumprido (meta · canal de venda · tracking UTM · primeira venda).',
+      'O header da faixa virou dinâmico: "Produto em ativação · 4 passos pra ligar a máquina" / "3 passos" / "2 passos" / "1 passo pra ligar a máquina". Quando 0 passos sobram, a faixa some inteira. Microcopy menos clínica que "produto sem dados ainda".',
+      'O Djow só costura quando há ≥ 2 capítulos cravados (Situação + Estrutura, ou Situação + Eficiência, etc). Quando só 1 capítulo está cravado, Djow virava eco do bloco acima ("estoura -100% vs meta" repetindo o badge da Situação). Agora ele aparece quando tem narrativa de verdade pra costurar.',
+      'O aviso âmbar "⚠ Defina CAC nas ofertas" dentro da Situação do mês some quando a faixa "Como ativar" está visível no topo (evita double-CTA competindo por atenção na mesma altura visual). Quando o produto está ativado e ainda falta só CAC, o aviso volta como CTA cirúrgico isolado.'
+    ]
+  },
+  {
     version: 'V39.7.0',
     date: '2026-06-17',
     title: 'Card de RevOps & Velocidade refinado — 7 ajustes visuais (Leonardo)',
