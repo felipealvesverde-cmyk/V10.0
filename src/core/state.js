@@ -714,6 +714,9 @@ var State = {
       // V39.3.0 — Produto expandido na aba RevOps & Velocidade (drill-down).
       // null = lista de produtos; productId = card aberto.
       revopsVelocityExpandedProductId: null,
+      // V39.4.0 — Cache de Eficiência de Capital (LTV + customers + refunds +
+      // cancellations por produto). CAC é lido em runtime do revopsFinanceV2.
+      efficiencyCache: null,
       // V38.1.53 — campanha selecionada no card "Construir Fluxo de Ações" da aba Plugins.
       pluginsFlowBuilderCampaignId: null,
       // V38.1.63 — Draft pra criação de execução na tela Execuções.
@@ -1479,6 +1482,8 @@ var State = {
       // V39.3.0 — Cache de Pipeline Velocity. Não persiste.
       pipelineVelocityCache: null,
       revopsVelocityExpandedProductId: raw.revopsVelocityExpandedProductId != null ? Number(raw.revopsVelocityExpandedProductId) : null,
+      // V39.4.0 — Cache de Eficiência de Capital. Não persiste.
+      efficiencyCache: null,
       // V38.1.53 — persiste última campanha escolhida no card Plugins → Construir Fluxo.
       pluginsFlowBuilderCampaignId: raw.pluginsFlowBuilderCampaignId != null ? Number(raw.pluginsFlowBuilderCampaignId) : null,
       // V38.1.63 — Execution draft (actionId + title) normalizado.

@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.4.0',
+    date: '2026-06-17',
+    title: 'Eficiência de Capital — LTV, LTV:CAC, Payback e NRR num card só (fecha a Onda A do roadmap RevOps)',
+    bullets: [
+      'Quando você expande um produto em RevOps & Velocidade, agora aparece o bloco "Eficiência de Capital" abaixo do diagnóstico V × C × L / T. Mostra a Tríade de Eficiência do mercado (LTV / LTV:CAC / Payback / NRR) em régua compacta de 4 KPIs, cada um com semáforo próprio.',
+      'LTV = valor médio de cada cliente ao longo da vida com você (soma de todas as vendas Hotmart aprovadas por customer, agregada). LTV:CAC compara com o CAC declarado nas ofertas — saudável ≥ 3:1 (cada R$ 1 investido pra adquirir devolve R$ 3+). Payback mostra em quantos meses o cliente paga o CAC investido nele (instantâneo pra produto one-time, mensalidade pra subscription).',
+      'NRR (Net Revenue Retention) só aparece pra produto com recorrência detectada — mede se sua base atual está crescendo sozinha ou furando (cancelamentos + refunds nos últimos 30 dias dividido por customers ativos). Pra produto one-time, mostra "N/A — sem recorrência" honestamente, sem inventar número.',
+      'Diagnóstico em prosa abaixo da régua adapta ao que tá frágil: "LTV:CAC em 1.8:1, abaixo do saudável — modelo destruindo caixa", "Payback de 18 meses, longo demais — exige capital de giro alto pra crescer", "NRR 92% — base encolhe 8% ao mês sem novos clientes, balde furado", etc.',
+      'Quando o CAC não está declarado nas ofertas, LTV:CAC fica em branco com botão "Defina CAC" levando direto pra aba RevOps. Sem fonte falsa: o engine prefere não calcular do que mostrar número chutado.',
+      'Pra modo CRM/híbrido, o bloco mostra "Em breve" — depende do Fechamento mensal declarado + cruzamento com RD pra fechar o caminho. Mesmo padrão dos outros A1/A2/A3 da onda.',
+      'Fecha a Onda A do roadmap LJ 2.0 RevOps: A1 (Forecast × Realizado), A2 (Projeção fim do mês), A3 (Pipeline Velocity), A4 (Eficiência de Capital). Próximos capítulos: Onda B (Governança Comercial Blindada — Matriz de Alçada, Data Gates, Compelling Event, Account Mapping, Clawback).'
+    ]
+  },
+  {
     version: 'V39.3.0',
     date: '2026-06-17',
     title: 'RevOps & Velocidade — raio-x da máquina por produto (Visitas × Conversão × Ticket / Ciclo)',

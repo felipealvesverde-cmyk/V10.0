@@ -1389,6 +1389,40 @@ Object.assign(Actions, {
     App.state.audienceWizard = null;
     App.save(); App.render();
   },
+  // V39.4.0 — Carrega Eficiência de Capital (LTV + refunds + cancellations).
+  // CAC é lido em runtime do revopsFinanceV2 no engine.
+  async loadEfficiencySummary(opts) {
+    const force = !!(opts && opts.force);
+    const cur = App.state.efficiencyCache;
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    if (!force && cur && cur.loaded && cur.fetchedAt > fiveMinAgo) return;
+    App.state.efficiencyCache = { ...(cur || {}), loading: true };
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/efficiency-summary', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        App.state.efficiencyCache = { loaded: false, loading: false, error: data.message || 'fetch-failed', fetchedAt: Date.now() };
+        if (App.render) App.render();
+        return;
+      }
+      App.state.efficiencyCache = {
+        loaded: true,
+        loading: false,
+        error: null,
+        fetchedAt: Date.now(),
+        window: data.window,
+        benchmarks: data.benchmarks,
+        byProduct: data.byProduct || []
+      };
+      if (App.render) App.render();
+    } catch (err) {
+      App.state.efficiencyCache = { loaded: false, loading: false, error: err.message || String(err), fetchedAt: Date.now() };
+      if (App.render) App.render();
+    }
+  },
   // V39.3.0 — Carrega Pipeline Velocity Summary (V/C/L/T por campanha e
   // produto). Endpoint /api/pipeline-velocity-summary agrega tracker +
   // Hotmart purchases. Cache 5 min.

@@ -181,6 +181,10 @@ var App = {
           if (window.Actions?.loadPipelineVelocitySummary) {
             setTimeout(() => Actions.loadPipelineVelocitySummary(), 300);
           }
+          // V39.4.0 — Carrega Eficiência de Capital (LTV/CAC/Payback/NRR).
+          if (window.Actions?.loadEfficiencySummary) {
+            setTimeout(() => Actions.loadEfficiencySummary(), 350);
+          }
         }
         // V32.4.0 (Geraldo Item 6) — hydrateFromConfiguredDatabase removida (V11 folder).
         // V26.0.0 — Atalho global Ctrl+K (Cmd+K) abre modal Djow AI.

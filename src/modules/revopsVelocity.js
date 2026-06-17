@@ -163,10 +163,111 @@ var RevopsVelocityModule = {
         </div>
         <p class="text-[10px] text-slate-500 mt-2 leading-relaxed">Mesma fórmula V × C × L / T. Cada simulação muda só 1 letra e mantém as outras 3. Útil pra escolher qual frente atacar.</p>
       </div>` : ''}
-      <div class="flex items-center justify-end">
-        <button onclick="Actions.loadPipelineVelocitySummary({force:true})" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 flex items-center gap-1.5">
-          <i data-lucide="refresh-cw" class="w-3 h-3"></i> Recarregar
+      ${this._efficiencyBlock(product)}
+      <div class="flex items-center justify-end gap-2">
+        <button onclick="Actions.loadEfficiencySummary({force:true})" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 flex items-center gap-1.5">
+          <i data-lucide="refresh-cw" class="w-3 h-3"></i> A4
         </button>
+        <button onclick="Actions.loadPipelineVelocitySummary({force:true})" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 flex items-center gap-1.5">
+          <i data-lucide="refresh-cw" class="w-3 h-3"></i> A3
+        </button>
+      </div>
+    </div>`;
+  },
+
+  // V39.4.0 — Bloco "Eficiência de Capital" (A4): régua de 4 KPIs
+  // (LTV / LTV:CAC / Payback / NRR) com semáforo + diagnóstico em prosa.
+  _efficiencyBlock(product) {
+    if (!window.EfficiencyEngine) return '';
+    const e = EfficiencyEngine.forProduct(product.id);
+    if (!e) return '';
+
+    if (e.status === 'blocked') return '';
+    if (e.status === 'loading') {
+      return `<div class="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex items-center gap-2">
+        <div class="w-4 h-4 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin shrink-0"></div>
+        <p class="text-xs text-slate-600">Carregando Eficiência de Capital…</p>
+      </div>`;
+    }
+    if (e.status === 'pending') {
+      const label = e.salesChannel === 'crm' ? 'CRM' : 'Híbrido';
+      return `<div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-500 p-3">
+        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-0.5">Eficiência de Capital · ${label}</p>
+        <p class="text-xs text-violet-900 leading-relaxed">Em breve: depende do Fechamento mensal declarado + cruzamento com RD.</p>
+      </div>`;
+    }
+    if (e.status === 'error') {
+      return `<div class="rounded-2xl bg-rose-50 border border-rose-200 border-l-4 border-l-rose-500 p-3">
+        <p class="text-[10px] font-black text-rose-700 uppercase tracking-widest mb-0.5">Eficiência de Capital · Erro</p>
+        <p class="text-xs text-rose-900">${Utils.escape(e.error || 'desconhecido')}</p>
+      </div>`;
+    }
+    if (e.status === 'empty') {
+      return `<div class="rounded-2xl bg-slate-50 border border-slate-200 border-l-4 border-l-slate-400 p-3">
+        <p class="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-0.5">Eficiência de Capital</p>
+        <p class="text-xs text-slate-700 leading-relaxed">Sem customers registrados ainda. Espere a primeira venda Hotmart cair pra ver LTV/CAC/Payback/NRR.</p>
+      </div>`;
+    }
+
+    // ok — régua de 4 KPIs (Proposta B)
+    const diag = EfficiencyEngine.diagnose(e);
+    const ltvCacSem = EfficiencyEngine.ltvCacSemaforo(e.ltvCacRatio, e.benchmarks);
+    const paybackSem = EfficiencyEngine.paybackSemaforo(e.paybackMonths, e.benchmarks);
+    const nrrSem = EfficiencyEngine.nrrSemaforo(e.nrr, e.nrrStatus, e.benchmarks);
+    const semColorMap = { green: 'emerald', emerald: 'emerald', amber: 'amber', red: 'rose', gray: 'slate' };
+    const semLabelMap = { green: '✓ Saudável', emerald: '✓ Saudável', amber: '⚠ Atenção', red: '✕ Crítico', gray: '—' };
+
+    const ltvCacColor = semColorMap[ltvCacSem];
+    const paybackColor = semColorMap[paybackSem];
+    const nrrColor = semColorMap[nrrSem];
+
+    const cacLabel = e.cacSource === 'declared'
+      ? `CAC ${EfficiencyEngine.fmtMoney(e.cac)}`
+      : `<button onclick="event.stopPropagation(); Actions.setTab('revops')" class="underline text-amber-700 font-black">Defina CAC</button>`;
+
+    const paybackLabel = e.paybackMonths == null
+      ? '—'
+      : e.paybackMonths < 0.1 ? 'Instantâneo'
+      : `${e.paybackMonths.toFixed(1)} mês(es)`;
+
+    const nrrLabel = e.nrrStatus === 'na'
+      ? 'N/A'
+      : e.nrrStatus === 'insufficient'
+      ? '— calibrando'
+      : e.nrr != null ? `${(e.nrr * 100).toFixed(0)}%` : '—';
+
+    return `<div class="rounded-2xl bg-gradient-to-br from-violet-50 to-pink-50 border-2 border-violet-200 border-l-4 border-l-violet-600 p-3">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest flex items-center gap-1.5">
+          <i data-lucide="gem" class="w-3.5 h-3.5"></i> Eficiência de Capital
+        </p>
+        <p class="text-[10px] text-slate-500">${e.customersCount} customers · últimos 12 meses</p>
+      </div>
+      <div class="grid grid-cols-4 gap-2 mb-3">
+        <div class="bg-white rounded-xl border border-violet-200 p-2.5 text-center">
+          <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">💎 LTV</p>
+          <p class="font-black text-lg text-slate-900 mt-0.5 leading-tight">${EfficiencyEngine.fmtMoney(e.ltv)}</p>
+          <p class="text-[9px] text-slate-500 mt-0.5">por cliente</p>
+        </div>
+        <div class="bg-white rounded-xl border border-${ltvCacColor}-200 p-2.5 text-center">
+          <p class="text-[10px] font-black text-${ltvCacColor}-700 uppercase tracking-widest">⚖️ LTV:CAC</p>
+          <p class="font-black text-lg text-slate-900 mt-0.5 leading-tight">${e.ltvCacRatio != null ? e.ltvCacRatio.toFixed(2) + ':1' : '—'}</p>
+          <p class="text-[9px] text-${ltvCacColor}-700 mt-0.5 font-black">${e.ltvCacRatio != null ? semLabelMap[ltvCacSem] : cacLabel}</p>
+        </div>
+        <div class="bg-white rounded-xl border border-${paybackColor}-200 p-2.5 text-center">
+          <p class="text-[10px] font-black text-${paybackColor}-700 uppercase tracking-widest">⏱️ Payback</p>
+          <p class="font-black text-lg text-slate-900 mt-0.5 leading-tight">${paybackLabel}</p>
+          <p class="text-[9px] text-${paybackColor}-700 mt-0.5 font-black">${e.paybackMonths != null ? semLabelMap[paybackSem] : '—'}</p>
+        </div>
+        <div class="bg-white rounded-xl border border-${nrrColor}-200 p-2.5 text-center">
+          <p class="text-[10px] font-black text-${nrrColor}-700 uppercase tracking-widest">🌱 NRR</p>
+          <p class="font-black text-lg text-slate-900 mt-0.5 leading-tight">${nrrLabel}</p>
+          <p class="text-[9px] text-${nrrColor}-700 mt-0.5 font-black">${e.hasSubscriptions && e.nrrStatus === 'ok' ? semLabelMap[nrrSem] : e.hasSubscriptions ? 'calibrando' : 'sem recorrência'}</p>
+        </div>
+      </div>
+      <div class="rounded-xl bg-white/70 border border-violet-200 p-2.5">
+        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-1">Diagnóstico A4</p>
+        <p class="text-xs text-slate-800 leading-relaxed">${Utils.escape(diag)}</p>
       </div>
     </div>`;
   },
