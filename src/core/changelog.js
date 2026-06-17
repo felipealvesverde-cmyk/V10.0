@@ -18,6 +18,14 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.74',
+    date: '2026-06-17',
+    title: 'Mini-cards da Execução centralizados no card',
+    bullets: [
+      'O bloco dos três indicadores (Dias em aberto / Fechamento / Responsável) agora aparece centralizado horizontalmente no card de Execução, em vez de encostado à esquerda. Mantém a largura de 50% — só ganha respiro igual nos dois lados.'
+    ]
+  },
+  {
     version: 'V38.1.73',
     date: '2026-06-17',
     title: 'Mini-cards da Execução voltam ao tamanho original e encolhem 50% só na horizontal',
