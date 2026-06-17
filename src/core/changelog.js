@@ -18,6 +18,14 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.9.2',
+    date: '2026-06-17',
+    title: 'Flow Builder: modal de Campanha simplificado — só nome',
+    bullets: [
+      'O modal de criação de Campanha no Flow Builder pedia setor (Marketing/Vendas/CS) e objetivo, mas no fluxo normal do LJ a aba Campanhas pede só Produto + Nome. Modal do Builder agora segue o mesmo padrão: só nome. O produto vem da conexão no canvas, setor entra com default Marketing, e o resto (owner, objetivo, status) você ajusta depois na aba Campanhas normalmente.'
+    ]
+  },
+  {
     version: 'V39.9.1',
     date: '2026-06-17',
     title: 'Fix: blocos do Flow Builder não somem mais do canvas com o tempo',

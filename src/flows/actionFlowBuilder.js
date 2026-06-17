@@ -47,7 +47,7 @@ window.ActionFlowBuilder = {
   defaultData(typeId) {
     switch (typeId) {
       case 'produto':  return { name: '', revenueModel: 'Venda única', type: '', price: '' };
-      case 'campanha': return { name: '', sector: 'Marketing', objective: '' };
+      case 'campanha': return { name: '' };
       case 'acao':     return { name: '', sector: 'Marketing', funnel: 'MOF', objective: '' };
       case 'execucao': return { name: '' };
       default:         return { name: '' };
@@ -223,14 +223,7 @@ window.ActionFlowBuilder = {
     }
     if (typeId === 'campanha') {
       return `${nameInput}
-        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider mt-3 block">Setor</label>
-        <select onchange="Actions.updateFlowBuilderEditNodeField('sector', this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
-          <option value="Marketing" ${draft.sector === 'Marketing' ? 'selected' : ''}>Marketing</option>
-          <option value="Vendas" ${draft.sector === 'Vendas' ? 'selected' : ''}>Vendas</option>
-          <option value="CS" ${draft.sector === 'CS' ? 'selected' : ''}>CS</option>
-        </select>
-        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider mt-3 block">Objetivo (opcional)</label>
-        <textarea oninput="Actions.updateFlowBuilderEditNodeField('objective', this.value)" rows="2" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" placeholder="O que a campanha visa entregar...">${v('objective')}</textarea>`;
+        <p class="text-[10px] text-slate-500 mt-2">A campanha herda o produto via conexão no canvas. Setor, owner, objetivo e demais detalhes ficam pra editar depois na aba <b>Campanhas</b>.</p>`;
     }
     if (typeId === 'acao') {
       return `${nameInput}
