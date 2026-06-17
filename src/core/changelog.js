@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.73',
+    date: '2026-06-17',
+    title: 'Mini-cards da Execução voltam ao tamanho original e encolhem 50% só na horizontal',
+    bullets: [
+      'Os mini-cards Dias em aberto / Fechamento / Responsável voltaram ao formato empilhado original (label em cima, valor grande embaixo) com altura completa — não estão mais em formato tira.',
+      'O conjunto dos três agora ocupa só metade da largura do card de Execução (lg:w-1/2), encostado à esquerda. Mantém respiro à direita e diminui o peso visual horizontal dos indicadores.'
+    ]
+  },
+  {
     version: 'V38.1.72',
     date: '2026-06-17',
     title: 'Mini-cards da Execução em formato tira (label e valor lado a lado)',
