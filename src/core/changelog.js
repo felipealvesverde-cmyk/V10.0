@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.64',
+    date: '2026-06-17',
+    title: 'Menu de Fluxo refeito — sem container, sutileza absoluta',
+    bullets: [
+      'O Menu de Fluxo introduzido na V38.1.63 tinha um container cinza translúcido com border e sombra que ficou pesado sobre o header escuro. Refeito: sem fundo, sem border, sem sombra no container. O fluxo respira no espaço entre header e blocos.',
+      'Só a pílula do degrau ATIVO carrega cor cheia agora (ancora visual única). Estágios anteriores aparecem como texto+ícone discreto na cor temática, sem pill. Estágios futuros aparecem em cinza claro. Separador entre eles virou um ponto sutil (·) ao invés de chevron.'
+    ]
+  },
+  {
     version: 'V38.1.63',
     date: '2026-06-17',
     title: 'Execuções viram tela própria + Menu de Fluxo Produto→Campanha→Ação→Execução',
