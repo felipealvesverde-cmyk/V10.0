@@ -212,7 +212,7 @@ var RevopsVelocityModule = {
       return `<div class="rounded-2xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500 p-3">
         <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest">Situação do mês</p>
         <p class="text-xs text-amber-900 mt-1">${forecast.meta <= 0 ? 'Defina a meta nas ofertas do produto pra ver Forecast × Realizado.' : 'Sem dados suficientes.'}</p>
-        ${forecast.meta <= 0 ? `<button onclick="event.stopPropagation(); Actions.setTab('revops')" class="mt-2 px-3 py-1.5 rounded-xl bg-amber-700 text-white text-xs font-black hover:bg-amber-800" style="color:#fff!important;">Definir meta →</button>` : ''}
+        ${forecast.meta <= 0 ? `<button onclick="event.stopPropagation(); App.setTab('revops')" class="mt-2 px-3 py-1.5 rounded-xl bg-amber-700 text-white text-xs font-black hover:bg-amber-800" style="color:#fff!important;">Definir meta →</button>` : ''}
       </div>`;
     }
     const semColor = { green: 'emerald', amber: 'amber', red: 'rose', gray: 'slate' }[forecast.semaforo] || 'slate';
@@ -371,7 +371,7 @@ var RevopsVelocityModule = {
 
     const cacLabel = e.cacSource === 'declared'
       ? `CAC ${EfficiencyEngine.fmtMoney(e.cac)}`
-      : `<button onclick="event.stopPropagation(); Actions.setTab('revops')" class="underline text-amber-700 font-black">Defina CAC</button>`;
+      : `<button onclick="event.stopPropagation(); App.setTab('revops')" class="underline text-amber-700 font-black">Defina CAC</button>`;
 
     const paybackLabel = e.paybackMonths == null
       ? '—'
