@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.65',
+    date: '2026-06-17',
+    title: 'Menu de Fluxo vira chevron 3D industrial com 5 etapas (Produtos → Resultados)',
+    bullets: [
+      'O Menu de Fluxo foi refeito do zero como uma esteira de chevrons 3D industriais (estilo "process arrow" de dashboard SCADA/RevOps). Cada etapa é uma seta com ponta triangular à direita, entrada chevron à esquerda, gradiente vertical pra dar relevo (highlight no topo, base mais escura, reflexo inferior) e encaixe horizontal com a vizinha. Inativas em cinza-prateado cromado; ativa na cor temática da etapa.',
+      'Subiu pra 5 etapas: Produtos (violet) · Campanhas (sky) · Ações (amber) · Execuções (emerald) · Resultados (rose). Cada etapa fecha um capítulo do ciclo do Revenue OS — Resultados entra como leitura final.',
+      'O fluxo agora aparece em 5 telas (não 2): Produtos, Campanhas, Ações, Execuções e Resultados. Funciona como navegação alternativa ao menu lateral — clica numa seta e vai pra tela correspondente.'
+    ]
+  },
+  {
     version: 'V38.1.64',
     date: '2026-06-17',
     title: 'Menu de Fluxo refeito — sem container, sutileza absoluta',

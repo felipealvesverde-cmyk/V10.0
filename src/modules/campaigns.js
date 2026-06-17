@@ -18,6 +18,7 @@ var CampaignModule = {
     const actionsByCampaign = this._actionsByCampaign(campaigns);
     return `<div class="space-y-4">
       ${this.campaignLayer()}
+      ${window.FlowBreadcrumb ? FlowBreadcrumb.render('campaigns') : ''}
       <div class="grid lg:grid-cols-3 gap-4">
         <div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
           <h2 class="text-xl font-black mb-1">Campanha</h2>

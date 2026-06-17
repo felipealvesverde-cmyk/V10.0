@@ -3,6 +3,7 @@ var ProductsModule = {
     const selected = this.selectedProduct();
     return `<div class="space-y-4">
       ${this.hero(selected)}
+      ${window.FlowBreadcrumb ? FlowBreadcrumb.render('products') : ''}
       <div class="grid lg:grid-cols-[600px_1fr] gap-4 items-stretch">
         ${this.createPanel()}
         ${this.productsPanel()}
