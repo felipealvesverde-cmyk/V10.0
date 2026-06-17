@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.72',
+    date: '2026-06-17',
+    title: 'Mini-cards da Execução em formato tira (label e valor lado a lado)',
+    bullets: [
+      'Os mini-cards Dias em aberto / Fechamento / Responsável agora ficam no formato tira: label e valor lado a lado em vez de empilhados, com altura reduzida a cerca de 24px. Card externo de Execução mantém o tamanho — só os indicadores ficaram bem mais compactos.',
+      'Tipografia ajustada: label 8px, valor 10-13px, leading-none pra colar texto na linha. Bordas laterais 3px (era 4px) acompanhando o novo gabarito.'
+    ]
+  },
+  {
     version: 'V38.1.71',
     date: '2026-06-17',
     title: 'Card de Execução: mini-cards 50% mais baixos, engrenagem própria e excluir dentro da configuração',
