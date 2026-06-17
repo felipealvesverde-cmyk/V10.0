@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.70',
+    date: '2026-06-17',
+    title: 'Card de Execução completo: badge de status, mini-cards de progresso, atalho pro Mapa e concluir reversível',
+    bullets: [
+      'O card de cada execução na aba Execuções agora exibe a badge real do status — quando a tarefa veio do ClickUp, o nome e a cor do status custom (parado, em revisão, aprovado, etc.) aparecem no card; quando é manual, vem do padrão do LeadJourney (Pendente / Em curso / Concluída / Bloqueada). Acabou a redundância: removemos a pílula genérica "EXECUÇÃO · PENDENTE/CONCLUÍDA" e a linha repetida com responsável/data — tudo passou pra blocos próprios.',
+      'Três mini-cards apareceram no padrão dos cards de Produto, Campanha e Ação: Dias em aberto (conta desde a criação até hoje, ou até o fechamento se já concluída), Fechamento (mostra a data prevista enquanto pendente e a data real quando concluída) e Responsável (quem está tocando a execução).',
+      'Botão "Ver no Mapa →" foi adicionado a cada execução, ao lado dos controles. Leva direto pra etapa Ações da campanha da execução no Mapa da Receita — mesmo atalho que existe nos cards de Ação.',
+      'O botão de concluir virou reversível: depois de marcar como concluída, aparece o botão de reabrir (ícone ↺) — clicar volta o status pra pendente e zera a data de fechamento. Útil quando algo foi marcado por engano ou precisa voltar à fila.'
+    ]
+  },
+  {
     version: 'V38.1.69',
     date: '2026-06-17',
     title: 'Adicionar execução abre o mesmo modal de tarefa do Mapa da Receita',
