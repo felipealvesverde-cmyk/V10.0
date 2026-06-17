@@ -107,6 +107,10 @@ var ResultModule = {
     const campaigns = (App.state.campaigns || []).filter(c => Number(c.productId) === Number(product.id) && c.status !== 'Encerrada');
     const actions = (App.state.actions || []).filter(a => campaigns.some(c => Number(c.id) === Number(a.campaignId)));
     const summary = this._summaryFromActions(actions);
+    // V39.1.0 — Aviso quando salesChannel não está definido (Forecast × Realizado
+    // bloqueado até o cliente declarar). Aparece em pré-V39.1 e em produtos
+    // antigos que ainda não passaram pelo force-prompt.
+    const needsSalesChannel = product.audience && product.audience.configured && !product.audience.salesChannel;
     return `<button onclick="Actions.openResultProduct(${product.id})" class="text-left p-5 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition w-full">
       <div class="flex items-start justify-between gap-3 mb-4">
         <div class="min-w-0 flex-1">
@@ -121,6 +125,14 @@ var ResultModule = {
         <div class="bg-white rounded-2xl px-2 py-2"><div class="font-black text-base">${summary.converted}</div><div class="text-[10px] text-slate-500">Convertidos</div></div>
         <div class="bg-white rounded-2xl px-2 py-2"><div class="font-black text-base">${summary.conversion}%</div><div class="text-[10px] text-slate-500">Conversão</div></div>
       </div>
+      ${needsSalesChannel ? `<div onclick="event.stopPropagation(); Actions.openAudienceWizardForExisting(${product.id})" class="mt-3 rounded-2xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500 px-3 py-2 flex items-start gap-2 hover:bg-amber-100 transition">
+        <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-700 mt-0.5 shrink-0"></i>
+        <div class="min-w-0 flex-1">
+          <p class="text-[11px] font-black text-amber-900 leading-tight">Forecast × Realizado bloqueado</p>
+          <p class="text-[10px] text-amber-800 leading-tight mt-0.5">Defina como esse produto vende (checkout / CRM / híbrido).</p>
+        </div>
+        <span class="text-[10px] font-black text-amber-900 underline shrink-0">Definir →</span>
+      </div>` : ''}
     </button>`;
   },
 
@@ -161,6 +173,20 @@ var ResultModule = {
             <p class="text-sm text-slate-500">Funil consolidado de todas as campanhas + ações deste produto.</p>
           </div>
         </div>
+
+        ${(product.audience && product.audience.configured && !product.audience.salesChannel) ? `<div class="mb-5 rounded-3xl bg-amber-50 border-2 border-amber-300 border-l-8 border-l-amber-500 p-5 flex items-start gap-4">
+          <div class="w-12 h-12 rounded-2xl bg-amber-100 grid place-items-center shrink-0">
+            <i data-lucide="alert-triangle" class="w-6 h-6 text-amber-700"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest">Forecast × Realizado bloqueado</p>
+            <h3 class="font-black text-lg text-amber-900 mt-1">Defina como esse produto vende</h3>
+            <p class="text-sm text-amber-900 leading-relaxed mt-1">Pra ver Forecast × Realizado, a gente precisa saber por onde fecha a venda — checkout (Hotmart pull) ou comercial via CRM (Fechamento mensal). Define a fonte do número e o ponto crítico do tenant.</p>
+            <button onclick="Actions.openAudienceWizardForExisting(${product.id})" class="mt-3 px-4 py-2 rounded-2xl bg-amber-700 hover:bg-amber-800 text-white font-black text-sm flex items-center gap-2" style="color:#fff!important;">
+              <i data-lucide="settings" class="w-4 h-4"></i> Definir agora
+            </button>
+          </div>
+        </div>` : ''}
 
         <!-- Funil de suspects/leads/customers (tracker) -->
         ${trackerTotal > 0 ? `<div class="rounded-3xl bg-gradient-to-br from-violet-50 to-sky-50 border border-violet-200 p-4 mb-5">

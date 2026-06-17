@@ -30,6 +30,14 @@ var ProductAudienceModal = {
     { id: 'marketplace', label: 'Marketplace', tagline: 'Plataforma de conexão',   body: 'Conecta múltiplos vendedores a múltiplos compradores. Cobra taxa/comissão. Ex: apps de transporte, grandes varejistas.' },
     { id: 'freemium',    label: 'Freemium',    tagline: 'Grátis + premium',        body: 'Produto básico grátis; recursos avançados, mais capacidade ou exclusividade são cobrados. Ex: apps de edição, jogos com compras.' }
   ],
+  // V39.1.0 — Canal de fechamento da venda. Define a fonte do Realizado
+  // (Forecast × Realizado em Resultados) E o ponto crítico que o tenant
+  // monitora automaticamente.
+  SALES_CHANNELS: [
+    { id: 'checkout', label: 'Checkout',           tagline: 'Página de venda',           body: 'Cliente clica "Comprar", insere cartão, fecha sozinho. Ex: Hotmart, Eduzz, Kiwify, Stripe, página própria.' },
+    { id: 'crm',      label: 'Comercial via CRM',  tagline: 'Vendedor + contrato',       body: 'Vendedor conversa, manda proposta, fecha contrato. Faturamento declarado no Fechamento mensal + cruzamento com CRM. Ex: serviço B2B, software enterprise, consultoria.' },
+    { id: 'hybrid',   label: 'Os dois caminhos',   tagline: 'Híbrido (checkout + CRM)',  body: 'Esse produto vende dos dois jeitos. Ex: SaaS com plano self-service + plano enterprise.' }
+  ],
 
   render() {
     const w = App.state.audienceWizard;
@@ -70,7 +78,7 @@ var ProductAudienceModal = {
   _footer(w, step) {
     const canAdvance = (step === 0) ||
                        (step === 1 && !!w.modeloNegocio) ||
-                       (step === 2 && !!w.modeloOperacional) ||
+                       (step === 2 && !!w.modeloOperacional && !!w.salesChannel) ||
                        (step === 3);
     const isLast = step === 3;
     const isExisting = w.mode === 'existingProduct';
@@ -119,9 +127,18 @@ var ProductAudienceModal = {
   },
 
   _step2(w) {
-    return `<div class="space-y-3">
-      <p class="text-sm text-slate-600 mb-4">Qual o modelo operacional e de receita?</p>
-      ${this.OPERATIONAL_MODELS.map(m => this._choiceCard('modeloOperacional', m, w.modeloOperacional === m.id)).join('')}
+    return `<div class="space-y-5">
+      <div class="space-y-3">
+        <p class="text-sm text-slate-600">Qual o modelo operacional e de receita?</p>
+        ${this.OPERATIONAL_MODELS.map(m => this._choiceCard('modeloOperacional', m, w.modeloOperacional === m.id)).join('')}
+      </div>
+      <div class="pt-5 border-t border-slate-200 space-y-3">
+        <div>
+          <p class="text-sm text-slate-600">Como esse produto vende?</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">Define a fonte do Forecast × Realizado em Resultados e o ponto crítico que o tenant monitora.</p>
+        </div>
+        ${this.SALES_CHANNELS.map(m => this._choiceCard('salesChannel', m, w.salesChannel === m.id)).join('')}
+      </div>
     </div>`;
   },
 

@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.1.0',
+    date: '2026-06-17',
+    title: 'Definir Audiência ganha "Como esse produto vende?" — fundação pro Forecast × Realizado',
+    bullets: [
+      'No wizard de Definir Audiência (passo 2 — Modelo Operacional), entra uma pergunta nova: "Como esse produto vende?" com 3 opções — Checkout (página de venda tipo Hotmart/Eduzz/Stripe), Comercial via CRM (vendedor + contrato), ou Os dois caminhos (híbrido). A escolha define a fonte do Realizado em Forecast × Realizado e o ponto crítico que o tenant monitora automaticamente.',
+      'Produtos criados antes da V39.1 não tinham esse campo. No próximo login, abre um modal bloqueante listando cada produto pendente — você responde um por vez (com barra de progresso) até todos estarem definidos. Não dá pra fechar sem responder; uma vez resolvido, o modal nunca mais aparece.',
+      'A aba Resultados ganhou aviso âmbar nos cards e na visão do produto quando o canal de venda não está definido: "Forecast × Realizado bloqueado · Defina como esse produto vende". Clicar no aviso abre o wizard direto no passo 2.',
+      'Próximo capítulo (V39.2): com canal de venda cravado em todos os produtos, o LJ vai mostrar Forecast × Realizado por produto na aba Resultados — Meta declarada × Vendas Hotmart processadas (pra checkout) ou × Faturamento declarado no Fechamento (pra CRM) × Variância × Projeção fim do mês.'
+    ]
+  },
+  {
     version: 'V39.0.0',
     date: '2026-06-17',
     title: 'Master V39 — Estabilidade comprovada e telas finalmente respiráveis',

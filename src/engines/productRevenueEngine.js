@@ -73,6 +73,9 @@ var ProductRevenueEngine = {
           configured: !!a.configured,
           modeloNegocio: a.modeloNegocio || null,
           modeloOperacional: a.modeloOperacional || null,
+          // V39.1.0 — Canal de fechamento: 'checkout' | 'crm' | 'hybrid' | null.
+          // Produtos pré-V39.1 caem em null e o boot dispara force-prompt.
+          salesChannel: a.salesChannel || null,
           schema: a.schema && typeof a.schema === 'object' ? a.schema : null,
           customized: !!a.customized,
           customFields: {

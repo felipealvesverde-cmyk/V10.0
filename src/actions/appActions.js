@@ -1275,6 +1275,7 @@ Object.assign(Actions, {
       pendingDraft,
       modeloNegocio: null,
       modeloOperacional: null,
+      salesChannel: null,
       quadroPA: [], quadroICP: [], quadroBP: [],
       customFields: { pa: [], icp: [], bp: [] }
     };
@@ -1294,6 +1295,7 @@ Object.assign(Actions, {
       pendingDraft: null,
       modeloNegocio: a.modeloNegocio || null,
       modeloOperacional: a.modeloOperacional || null,
+      salesChannel: a.salesChannel || null,
       quadroPA: Array.isArray(a.quadroPA) ? [...a.quadroPA] : [],
       quadroICP: Array.isArray(a.quadroICP) ? [...a.quadroICP] : [],
       quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : [],
@@ -1317,6 +1319,7 @@ Object.assign(Actions, {
       pendingDraft: null,
       modeloNegocio: a.modeloNegocio || null,
       modeloOperacional: a.modeloOperacional || null,
+      salesChannel: a.salesChannel || null,
       quadroPA: Array.isArray(a.quadroPA) ? [...a.quadroPA] : [],
       quadroICP: Array.isArray(a.quadroICP) ? [...a.quadroICP] : [],
       quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : [],
@@ -1361,14 +1364,18 @@ Object.assign(Actions, {
     const product = (App.state.products || []).find(p => Number(p.id) === Number(productId));
     if (!product) return;
     const a = product.audience || {};
+    // V39.1.0 — Se o produto existente já tem audience configurado mas falta
+    // salesChannel (pré-V39.1), abre direto no Step 2 pra o cliente escolher.
+    const needsSalesChannel = a.configured && !a.salesChannel;
     App.state.audienceWizard = {
       open: true,
       mode: 'existingProduct',
-      step: a.configured ? 3 : 0,
+      step: needsSalesChannel ? 2 : (a.configured ? 3 : 0),
       productId: Number(productId),
       pendingDraft: null,
       modeloNegocio: a.modeloNegocio || null,
       modeloOperacional: a.modeloOperacional || null,
+      salesChannel: a.salesChannel || null,
       quadroPA: Array.isArray(a.quadroPA) ? [...a.quadroPA] : [],
       quadroICP: Array.isArray(a.quadroICP) ? [...a.quadroICP] : [],
       quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : [],
@@ -1382,14 +1389,76 @@ Object.assign(Actions, {
     App.state.audienceWizard = null;
     App.save(); App.render();
   },
+  // V39.1.0 — Force-prompt de salesChannel pra produtos pré-V39.1. Roda no
+  // boot do main.js init(). Só abre se houver pelo menos 1 produto com
+  // audience.configured=true e salesChannel=null.
+  maybeOpenSalesChannelPrompt() {
+    const pending = (App.state.products || [])
+      .filter(p => p.audience && p.audience.configured && !p.audience.salesChannel);
+    if (pending.length === 0) return;
+    App.state.salesChannelPrompt = {
+      open: true,
+      currentProductId: pending[0].id,
+      choice: null
+    };
+    App.render();
+  },
+  chooseSalesChannelInPrompt(channel) {
+    const s = App.state.salesChannelPrompt;
+    if (!s || !s.open) return;
+    App.state.salesChannelPrompt = { ...s, choice: String(channel || '') || null };
+    App.render();
+  },
+  confirmSalesChannelPrompt() {
+    const s = App.state.salesChannelPrompt;
+    if (!s || !s.open) return;
+    if (!s.choice) return Utils.toast('Escolha como o produto vende antes de continuar.');
+    const products = App.state.products || [];
+    const idx = products.findIndex(p => Number(p.id) === Number(s.currentProductId));
+    if (idx < 0) {
+      App.state.salesChannelPrompt = { open: false, currentProductId: null, choice: null };
+      App.render();
+      return;
+    }
+    const existing = products[idx];
+    const updatedAudience = {
+      ...(existing.audience || {}),
+      salesChannel: s.choice
+    };
+    const updated = window.ProductRevenueEngine
+      ? ProductRevenueEngine.normalize({ ...existing, audience: updatedAudience }, idx)
+      : { ...existing, audience: updatedAudience };
+    App.state.products = [
+      ...products.slice(0, idx),
+      updated,
+      ...products.slice(idx + 1)
+    ];
+    // Encontra o próximo produto pendente.
+    const stillPending = App.state.products.filter(p => p.audience && p.audience.configured && !p.audience.salesChannel);
+    if (stillPending.length === 0) {
+      App.state.salesChannelPrompt = { open: false, currentProductId: null, choice: null };
+      App.save(); App.render();
+      Utils.toast('✓ Canal de venda definido pra todos os produtos. Forecast × Realizado destravado.');
+      return;
+    }
+    App.state.salesChannelPrompt = {
+      open: true,
+      currentProductId: stillPending[0].id,
+      choice: null
+    };
+    App.save(); App.render();
+  },
   audienceWizardChoose(field, value) {
     const w = App.state.audienceWizard;
     if (!w || !w.open) return;
-    if (field !== 'modeloNegocio' && field !== 'modeloOperacional') return;
+    if (field !== 'modeloNegocio' && field !== 'modeloOperacional' && field !== 'salesChannel') return;
     w[field] = String(value || '') || null;
-    // V38.1.40 — invalida análise do Djow se mudou modelo
-    w.djowAnalise = null;
-    w.djowError = null;
+    // V38.1.40 — invalida análise do Djow se mudou modelo (não pra salesChannel,
+    // que é metadata operacional e não afeta o quadro).
+    if (field !== 'salesChannel') {
+      w.djowAnalise = null;
+      w.djowError = null;
+    }
     App.save(); App.render();
   },
   audienceWizardNext() {
@@ -1397,6 +1466,7 @@ Object.assign(Actions, {
     if (!w || !w.open) return;
     if (w.step === 1 && !w.modeloNegocio) return Utils.toast('Escolha um modelo de negócio.');
     if (w.step === 2 && !w.modeloOperacional) return Utils.toast('Escolha um modelo operacional.');
+    if (w.step === 2 && !w.salesChannel) return Utils.toast('Escolha como esse produto vende.');
     w.step = Math.min(4, Number(w.step || 0) + 1);
     App.save(); App.render();
   },
@@ -1536,6 +1606,10 @@ Object.assign(Actions, {
       configured: true,
       modeloNegocio: w.modeloNegocio,
       modeloOperacional: w.modeloOperacional,
+      // V39.1.0 — Canal de fechamento: 'checkout' | 'crm' | 'hybrid'.
+      // Define a fonte do Realizado em Forecast × Realizado e o ponto crítico
+      // do tenant (integração checkout vs disciplina do preenchimento no CRM).
+      salesChannel: w.salesChannel || null,
       schema,
       customFields,
       customized: totalCustom > 0,
