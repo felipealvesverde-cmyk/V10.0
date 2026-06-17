@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.5.0',
+    date: '2026-06-17',
+    title: 'Onda A tecida — Forecast, Velocidade e Eficiência conversam no mesmo card + Djow costurando',
+    bullets: [
+      'O card de produto em RevOps & Velocidade ficou um raio-x completo. Quando você expande, agora vê a história inteira em ordem narrativa: Situação do mês → Estrutura da máquina → Eficiência de Capital → Djow costurando os 3.',
+      'No topo do card expandido entrou o bloco "Situação do mês": Meta declarada × Realizado × Projeção × Variância com semáforo (mesmo que vive em Resultados, mas agora sentado dentro do card de Velocidade pra conectar com o estrutural sem você precisar trocar de tela).',
+      'Dentro do bloco da Situação do mês entrou a Calculadora de meta: "Pra bater os R$ X restantes, você precisa de Y customers novos (LTV R$ Z) × CAC R$ W = R$ K de mídia necessária". Conecta A1 (meta) com A4 (LTV/CAC) num cálculo único que CEO precisa.',
+      'No fim do card entrou o bloco "Djow · A Costura": narrativa em prosa que combina os 3 diagnósticos. Se o mês vai estourar, ela aponta a raiz estrutural ("a raiz é conversão — tráfego pago não resolve esse mês, exige otimização de página"). Se a eficiência de capital é crítica, ela avisa antes de você decidir escalar tráfego. Se a base encolhe (NRR baixo), ela aponta o balde furado.',
+      'Os 3 botões de refresh (A1/A2, A3, A4) ficam no rodapé do card pra você forçar reload de qualquer leitura quando precisar.',
+      'A aba Resultados continua mostrando Forecast × Realizado (decisão de manter duplicação visual com a mesma fonte de dado). Cliente escolhe onde olhar: Resultados pra leitura operacional do funil + financeiro; RevOps & Velocidade pra modo estratégico completo.',
+      'Fecha a costura da Onda A: as 4 leituras (A1/A2/A3/A4) agora viram 1 narrativa no card do produto, em vez de 4 instrumentos isolados.'
+    ]
+  },
+  {
     version: 'V39.4.0',
     date: '2026-06-17',
     title: 'Eficiência de Capital — LTV, LTV:CAC, Payback e NRR num card só (fecha a Onda A do roadmap RevOps)',
