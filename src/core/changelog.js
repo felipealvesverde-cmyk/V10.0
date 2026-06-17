@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.71',
+    date: '2026-06-17',
+    title: 'Card de Execução: mini-cards 50% mais baixos, engrenagem própria e excluir dentro da configuração',
+    bullets: [
+      'Os três mini-cards (Dias em aberto / Fechamento / Responsável) ficaram 50% mais baixos verticalmente — número mais discreto, label preservada. O card como um todo respira melhor sem mudar a estrutura.',
+      'O canto superior direito do card de Execução agora segue o padrão dos cards de Produto, Campanha e Ação: a badge do status (custom ClickUp ou padrão LJ) aparece ao lado esquerdo do botão de engrenagem.',
+      'A engrenagem abre o modal completo de criação/edição de tarefa do Mapa da Receita já em modo edição — você ajusta nome, responsáveis, datas, descrição, prioridade, tags e custom fields ClickUp da execução existente.',
+      'O botão de excluir saiu do card (não tem mais a lixeira inline) e foi pra dentro do modal de edição. Agora aparece no rodapé esquerdo do modal como "Excluir execução" — desce um nível de exposição pra evitar exclusão acidental.'
+    ]
+  },
+  {
     version: 'V38.1.70',
     date: '2026-06-17',
     title: 'Card de Execução completo: badge de status, mini-cards de progresso, atalho pro Mapa e concluir reversível',

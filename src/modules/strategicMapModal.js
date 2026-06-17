@@ -346,13 +346,14 @@ window.StrategicMapModal = {
 
         <!-- Footer -->
         <div class="p-4 border-t border-white/10 flex items-center justify-between gap-2 sticky bottom-0 bg-slate-950">
+          ${m.editingTaskId && !submitting ? `<button onclick="Actions.deleteExecutionFromTaskModal()" title="Excluir esta execução" class="px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 border border-rose-400/40 text-rose-200 text-[11px] font-black inline-flex items-center gap-1.5"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Excluir execução</button>` : ''}
           ${(() => {
             // V32.7.2 (Geraldo A4) — Feedback do que está acontecendo quando
             // o backend está criando estrutura cascada em workspace virgem
             // (Folder Produto + List Campanha + Task pai Ação + Subtask).
             // Pode demorar 2-4s. Cliente ficava olhando o botão "Enviando..."
             // sem saber o que está rolando.
-            if (!submitting) return '<span></span>';
+            if (!submitting) return m.editingTaskId ? '' : '<span></span>';
             const status = App.state.clickupStatus || {};
             const hasRoot = Boolean(status.rootId || status.ljSpaceId);
             const isMirror = hasRoot && status.mirrorEnabled !== false;

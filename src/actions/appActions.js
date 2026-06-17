@@ -2054,6 +2054,29 @@ Object.assign(Actions, {
     App.save(); App.render();
     Utils.toast('↺ Execução reaberta.');
   },
+  // V38.1.71 — Botão engrenagem do card de execução: abre o mesmo modal
+  // de criação/edição de tarefa do Mapa, em modo edit (passando taskId).
+  openExecutionEditModal(taskId) {
+    if (!window.ExecutionTaskStore) return Utils.toast('Engine de execuções indisponível.');
+    const task = ExecutionTaskStore.byId(String(taskId));
+    if (!task) return Utils.toast('Execução não encontrada.');
+    if (!task.linked_action_id) return Utils.toast('Execução sem ação vinculada.');
+    this.openTaskCreationModal(task.linked_action_id, task.task_id);
+  },
+  // V38.1.71 — Excluir execução a partir do modal de edição (rodapé rose).
+  // Lê o editingTaskId do state do modal, confirma, remove e fecha o modal.
+  deleteExecutionFromTaskModal() {
+    const m = App.state.taskCreationModal;
+    const taskId = m?.editingTaskId;
+    if (!taskId) return;
+    const task = window.ExecutionTaskStore ? ExecutionTaskStore.byId(taskId) : null;
+    const title = task?.title || 'esta execução';
+    if (!confirm(`Apagar "${title}"? (não apaga no provider externo)`)) return;
+    if (window.ExecutionTaskStore) ExecutionTaskStore.remove(taskId);
+    App.state.taskCreationModal = null;
+    App.save(); App.render();
+    Utils.toast('Execução removida.');
+  },
   deleteExecution(taskId) {
     if (!window.ExecutionTaskStore) return;
     App.state.executionTasks = (App.state.executionTasks || []).filter(t => t.task_id !== taskId);
