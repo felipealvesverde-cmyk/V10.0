@@ -13,11 +13,13 @@ var ActionModule = {
       ${/* V38.1.53 — ActionFlowBuilder migrou pra tab Plugins (módulo PluginsModule). */ ''}
       ${window.TasksModal ? TasksModal.render() : ''}
       ${window.StrategicMapModal ? StrategicMapModal.render() : ''}
+      ${window.CampaignFlowModal ? CampaignFlowModal.render() : ''}
     </div>`;
   },
   emptyActionsState() {
     return `<div class="space-y-4">
       ${this.actionLayer(null, null, [])}
+      ${window.CampaignFlowModal ? CampaignFlowModal.render() : ''}
       <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 text-center">
         <h2 class="text-2xl font-black mb-2">Nenhuma campanha selecionada</h2>
         <p class="text-sm text-slate-500 mb-5">Para criar ações, siga o fluxo: produto → campanha → ação.</p>
