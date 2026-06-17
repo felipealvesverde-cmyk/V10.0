@@ -141,6 +141,8 @@ var RevopsVelocityModule = {
   },
 
   // V39.5.0 — Onda A tecida: ordem agora → estrutural → eficiência → costura.
+  // V39.6.0 — Faixa "Como ativar" pra produto zerado + descrições "Saber mais"
+  //           em cada bloco + refresh unificado.
   _expandedBlock(s, product) {
     const diag = PipelineVelocityEngine.diagnose(s);
     const sim = PipelineVelocityEngine.simulate(s);
@@ -151,20 +153,36 @@ var RevopsVelocityModule = {
       ? EfficiencyEngine.forProduct(product.id)
       : null;
 
+    // Detecta "produto 100% zerado": sem visitas + sem customers + sem meta
+    const isVazio = s.V === 0
+      && (s.customersCount || 0) === 0
+      && (s.approvedCount || 0) === 0
+      && (!forecast || forecast.meta <= 0);
+
     return `<div class="border-t border-slate-200 bg-white p-4 space-y-3">
+      ${isVazio ? this._comoAtivarFaixa(product) : ''}
+
       ${this._situacaoMesBlock(product, forecast, efficiency)}
 
       <div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 p-3">
-        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-          <i data-lucide="gauge" class="w-3.5 h-3.5"></i> Estrutura da máquina · V × C × L / T
-        </p>
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest flex items-center gap-1.5">
+            <i data-lucide="gauge" class="w-3.5 h-3.5"></i> Estrutura da máquina · V × C × L / T
+          </p>
+          ${this._saberMaisBtn(product.id, 'a3')}
+        </div>
+        ${this._descBox(product.id, 'a3', this.DESCRIPTIONS.a3)}
         <p class="text-xs text-slate-800 leading-relaxed">${Utils.escape(diag)}</p>
       </div>
 
-      ${sim ? `<div>
-        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-          <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i> Simulador — e se você dobrar uma letra?
-        </p>
+      ${sim ? `<div class="rounded-2xl bg-slate-50 border border-slate-200 p-3">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-[10px] font-black text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
+            <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i> Simulador — e se você dobrar uma letra?
+          </p>
+          ${this._saberMaisBtn(product.id, 'sim')}
+        </div>
+        ${this._descBox(product.id, 'sim', this.DESCRIPTIONS.sim)}
         <div class="grid grid-cols-2 gap-2">
           ${this._simRow('Dobrar V (visitas)', sim.base, sim.double_V)}
           ${this._simRow('Dobrar C (conversão)', sim.base, sim.double_C)}
@@ -177,18 +195,96 @@ var RevopsVelocityModule = {
 
       ${this._djowCostura(product, s, forecast, efficiency)}
 
-      <div class="flex items-center justify-end gap-2">
-        <button onclick="Actions.loadForecastRealizedSummary({force:true})" class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-black hover:bg-slate-50 flex items-center gap-1">
-          <i data-lucide="refresh-cw" class="w-3 h-3"></i> A1/A2
-        </button>
-        <button onclick="Actions.loadPipelineVelocitySummary({force:true})" class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-black hover:bg-slate-50 flex items-center gap-1">
-          <i data-lucide="refresh-cw" class="w-3 h-3"></i> A3
-        </button>
-        <button onclick="Actions.loadEfficiencySummary({force:true})" class="px-2.5 py-1 rounded-lg bg-white border border-slate-300 text-slate-600 text-[10px] font-black hover:bg-slate-50 flex items-center gap-1">
-          <i data-lucide="refresh-cw" class="w-3 h-3"></i> A4
+      <div class="flex items-center justify-end">
+        <button onclick="Actions.refreshOndaA()" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 flex items-center gap-1.5">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recarregar diagnóstico
         </button>
       </div>
     </div>`;
+  },
+
+  // V39.6.0 — Faixa "Como ativar" quando produto está 100% zerado.
+  // Numerada com 4 passos: meta → audiência checkout → tracking UTM → 1ª venda.
+  _comoAtivarFaixa(product) {
+    return `<div class="rounded-2xl bg-slate-900 text-white p-4 border-l-4 border-l-violet-500">
+      <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+        <i data-lucide="info" class="w-3.5 h-3.5"></i> Produto sem dados ainda · Pra ativar este diagnóstico
+      </p>
+      <ol class="space-y-1.5 text-xs leading-relaxed">
+        <li class="flex items-start gap-2"><span class="font-black text-violet-300 shrink-0">1.</span><span><b>Defina a meta de vendas</b> nas ofertas (RevOps → Ofertas) — destrava Situação do mês.</span></li>
+        <li class="flex items-start gap-2"><span class="font-black text-violet-300 shrink-0">2.</span><span><b>Confirme o canal de venda</b> (checkout/CRM/híbrido) na aba Audiência do produto.</span></li>
+        <li class="flex items-start gap-2"><span class="font-black text-violet-300 shrink-0">3.</span><span><b>Ative tracking UTM</b> em ao menos 1 campanha apontando pra este produto — destrava Estrutura da máquina.</span></li>
+        <li class="flex items-start gap-2"><span class="font-black text-violet-300 shrink-0">4.</span><span><b>Aguarde a primeira venda</b> via Hotmart (webhook auto-mapeia) — destrava Eficiência de Capital.</span></li>
+      </ol>
+    </div>`;
+  },
+
+  // V39.6.0 — Botão "Saber mais ⓘ" / "Recolher ⓘ" pra cada bloco.
+  _saberMaisBtn(productId, blockKey) {
+    const key = `${productId}-${blockKey}`;
+    const open = !!(App.state.revopsVelocityDescOpen || {})[key];
+    return `<button onclick="event.stopPropagation(); Actions.toggleRevopsVelocityDesc(${productId}, '${blockKey}')" class="text-[10px] font-black text-slate-500 hover:text-slate-800 flex items-center gap-1">
+      <i data-lucide="info" class="w-3 h-3"></i> ${open ? 'Recolher' : 'Saber mais'}
+    </button>`;
+  },
+
+  // V39.6.0 — Caixa cinza expansível com as 4 seções (O que é / Move / De onde vem / Pra que serve).
+  _descBox(productId, blockKey, desc) {
+    const key = `${productId}-${blockKey}`;
+    const open = !!(App.state.revopsVelocityDescOpen || {})[key];
+    if (!open || !desc) return '';
+    return `<div class="rounded-xl bg-slate-100 border border-slate-200 p-3 mb-3 space-y-2">
+      <div>
+        <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-0.5">🔍 O que é</p>
+        <p class="text-[11px] text-slate-700 leading-relaxed">${Utils.escape(desc.oQueE)}</p>
+      </div>
+      <div>
+        <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-0.5">🎯 O que move</p>
+        <p class="text-[11px] text-slate-700 leading-relaxed">${Utils.escape(desc.oQueMove)}</p>
+      </div>
+      <div>
+        <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-0.5">📡 De onde vem</p>
+        <p class="text-[11px] text-slate-700 leading-relaxed">${Utils.escape(desc.deOndeVem)}</p>
+      </div>
+      <div>
+        <p class="text-[10px] font-black text-slate-700 uppercase tracking-widest mb-0.5">🛠️ Pra que serve</p>
+        <p class="text-[11px] text-slate-700 leading-relaxed">${Utils.escape(desc.praQueServe)}</p>
+      </div>
+    </div>`;
+  },
+
+  // V39.6.0 — 5 descrições padronizadas pra cada bloco do card.
+  DESCRIPTIONS: {
+    a1: {
+      oQueE: 'Comparação entre a meta declarada do mês e o realizado até hoje, com projeção do fim do mês baseada no ritmo atual.',
+      oQueMove: 'Decisão tática semanal: "vamos bater a meta este mês ou precisa apertar?". Define se o time vai relaxar ou correr.',
+      deOndeVem: 'Meta vem das ofertas (RevOps → Ofertas → metaVendas). Realizado vem das vendas Hotmart aprovadas do mês (webhook salva em lj_hotmart_purchases). Projeção é cálculo simples: realizado × (dias do mês ÷ dias passados).',
+      praQueServe: 'Saber em tempo real se o mês está dentro da meta — sem esperar fechar pra descobrir que estourou.'
+    },
+    a3: {
+      oQueE: 'Decomposição da velocidade da máquina em 4 letras universais (V × C × L / T = R$/dia) que mostram a saúde estrutural da operação além do mês corrente.',
+      oQueMove: 'Decisão estratégica de "onde mexer pra crescer": mais mídia (V), melhorar página/conversão (C), subir ticket (L), acelerar nutrição (T). Cada letra é uma frente diferente.',
+      deOndeVem: 'V = visitors únicos com touchpoint em campanha do produto no mês (tracker LJ). C = visitors que viraram customer / visitors totais. L = ticket médio das vendas Hotmart aprovadas dos últimos 90 dias. T = mediana de (data da compra − primeiro touchpoint) dos customers.',
+      praQueServe: 'Identificar qual letra está mais fraca vs mercado e atacar a alavanca mais barata. Evita gastar dinheiro à toa em V quando o problema real é C.'
+    },
+    sim: {
+      oQueE: 'Cenário "e se" pra cada uma das 4 letras: o que acontece com R$/dia se você dobrar V, dobrar C, dobrar L ou cortar T pela metade.',
+      oQueMove: 'Escolha de onde investir o próximo R$ disponível: não chuta — simula impacto de cada caminho antes de gastar.',
+      deOndeVem: 'Mesma fórmula V × C × L / T. Cada simulação muda só 1 letra mantendo as outras 3 constantes, mostrando o impacto isolado em R$/dia.',
+      praQueServe: 'Comparar 4 caminhos de crescimento de uma vez. Útil quando o CEO precisa decidir entre investir em mídia (V), consultoria de conversão (C), upsell (L) ou automação de nutrição (T).'
+    },
+    a4: {
+      oQueE: 'Tríade de saúde do modelo de negócio. LTV = quanto cada cliente vale ao longo da vida. LTV:CAC = vale a pena adquirir? Payback = quanto tempo até recuperar o CAC? NRR = base atual está crescendo ou furando?',
+      oQueMove: 'Decisão de "vale a pena escalar?". CFO consulta antes de captar capital, apertar custo ou abrir canal novo. É o que fundo de investimento olha pra decidir se compra a empresa.',
+      deOndeVem: 'LTV = soma de vendas Hotmart aprovadas por customer / nº de customers (lj_hotmart_purchases agregado por lj_visitor_id). CAC = vem das ofertas declaradas em RevOps. Payback = CAC ÷ ticket médio. NRR proxy = 1 − (cancelamentos + refunds 30d ÷ customers ativos 30d), só pra produto com recorrência detectada.',
+      praQueServe: 'Saber se o negócio "se paga" no longo prazo. Se LTV:CAC < 3:1 ou NRR < 100%, a operação está destruindo caixa silenciosamente — escalar piora.'
+    },
+    djow: {
+      oQueE: 'Síntese narrativa que combina os 3 blocos anteriores (Situação do mês + Estrutura + Eficiência) numa história única, conectando sintoma (mês ruim) com raiz (gargalo estrutural) e saúde de longo prazo (capital).',
+      oQueMove: 'Decisão informada: evita o CEO tratar sintoma (mês ruim) sem olhar a raiz (estrutura) ou ignorar custo (eficiência de capital). Conecta o operacional com o estratégico.',
+      deOndeVem: 'Algoritmo local que cruza variância do mês (A1), gargalo da estrutura (A3) e ratios de eficiência (A4) pra gerar prosa coerente. Não chama IA externa — narrativa determinística baseada nos números cravados.',
+      praQueServe: 'Falar a verdade ao CEO em uma frase: "esse mês estoura −36%, mas a raiz é conversão, não tráfego. No estrutural a operação é sólida." Em vez de 3 leituras desconectadas, 1 narrativa única.'
+    }
   },
 
   // V39.5.0 — Bloco "Situação do mês" (A1/A2 dentro do card de Velocidade).
@@ -227,12 +323,16 @@ var RevopsVelocityModule = {
     const calcDisponivel = ltv > 0 && cac > 0 && restante > 0;
 
     return `<div class="rounded-2xl bg-${semColor}-50 border border-${semColor}-200 border-l-4 border-l-${semColor}-500 p-3">
-      <div class="flex items-center justify-between mb-2">
+      <div class="flex items-center justify-between mb-2 gap-2">
         <p class="text-[10px] font-black text-${semColor}-700 uppercase tracking-widest flex items-center gap-1.5">
           <i data-lucide="calendar-clock" class="w-3.5 h-3.5"></i> Situação do mês · ${forecast.yyyymm || ''}
         </p>
-        <p class="text-[10px] font-black text-${semColor}-700">${semLabel}</p>
+        <div class="flex items-center gap-2">
+          <p class="text-[10px] font-black text-${semColor}-700">${semLabel}</p>
+          ${this._saberMaisBtn(product.id, 'a1')}
+        </div>
       </div>
+      ${this._descBox(product.id, 'a1', this.DESCRIPTIONS.a1)}
       <div class="grid grid-cols-3 gap-2 mb-2">
         <div class="bg-white rounded-xl border border-${semColor}-200 p-2 text-center">
           <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Meta</p>
@@ -317,8 +417,10 @@ var RevopsVelocityModule = {
       <div class="flex items-center gap-2 mb-2">
         <span class="w-7 h-7 rounded-full bg-violet-700 grid place-items-center"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-white"></i></span>
         <p class="text-[10px] font-black text-violet-800 uppercase tracking-widest">Djow · A Costura</p>
-        <p class="text-[9px] text-violet-600 ml-auto">Síntese da Onda A (mês + estrutura + capital)</p>
+        <p class="text-[9px] text-violet-600 ml-auto">Síntese da Onda A</p>
+        ${this._saberMaisBtn(product.id, 'djow')}
       </div>
+      ${this._descBox(product.id, 'djow', this.DESCRIPTIONS.djow)}
       <p class="text-xs text-slate-800 leading-relaxed">${Utils.escape(texto)}</p>
     </div>`;
   },
@@ -385,12 +487,16 @@ var RevopsVelocityModule = {
       : e.nrr != null ? `${(e.nrr * 100).toFixed(0)}%` : '—';
 
     return `<div class="rounded-2xl bg-gradient-to-br from-violet-50 to-pink-50 border-2 border-violet-200 border-l-4 border-l-violet-600 p-3">
-      <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center justify-between mb-3 gap-2">
         <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest flex items-center gap-1.5">
           <i data-lucide="gem" class="w-3.5 h-3.5"></i> Eficiência de Capital
         </p>
-        <p class="text-[10px] text-slate-500">${e.customersCount} customers · últimos 12 meses</p>
+        <div class="flex items-center gap-2">
+          <p class="text-[10px] text-slate-500">${e.customersCount} customers · últimos 12 meses</p>
+          ${this._saberMaisBtn(product.id, 'a4')}
+        </div>
       </div>
+      ${this._descBox(product.id, 'a4', this.DESCRIPTIONS.a4)}
       <div class="grid grid-cols-4 gap-2 mb-3">
         <div class="bg-white rounded-xl border border-violet-200 p-2.5 text-center">
           <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">💎 LTV</p>

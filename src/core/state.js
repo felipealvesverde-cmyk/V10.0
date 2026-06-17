@@ -717,6 +717,9 @@ var State = {
       // V39.4.0 — Cache de Eficiência de Capital (LTV + customers + refunds +
       // cancellations por produto). CAC é lido em runtime do revopsFinanceV2.
       efficiencyCache: null,
+      // V39.6.0 — Descrições "Saber mais" expandidas por bloco/produto na aba
+      // RevOps & Velocidade. Shape: { [productId-blockKey]: true }. Não persiste.
+      revopsVelocityDescOpen: {},
       // V38.1.53 — campanha selecionada no card "Construir Fluxo de Ações" da aba Plugins.
       pluginsFlowBuilderCampaignId: null,
       // V38.1.63 — Draft pra criação de execução na tela Execuções.
