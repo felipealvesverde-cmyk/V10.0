@@ -18,6 +18,14 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.5.1',
+    date: '2026-06-17',
+    title: 'Fix: botão "Definir meta →" agora abre a aba RevOps',
+    bullets: [
+      'O botão "Definir meta →" no bloco Situação do mês (RevOps & Velocidade) e o botão "Ir pra RevOps" no card de Resultados não respondiam ao clique. Causa: o método setTab é do App e não do Actions — chamada estava errada. Agora abrem a aba RevOps & Governança como esperado.'
+    ]
+  },
+  {
     version: 'V39.5.0',
     date: '2026-06-17',
     title: 'Onda A tecida — Forecast, Velocidade e Eficiência conversam no mesmo card + Djow costurando',

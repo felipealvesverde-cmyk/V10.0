@@ -172,7 +172,7 @@ var ResultModule = {
         <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest">Forecast × Realizado</p>
         <h3 class="font-black text-lg text-amber-900 mt-1">Defina a meta de vendas</h3>
         <p class="text-sm text-amber-900 leading-relaxed mt-1">Esse produto ainda não tem meta de vendas declarada nas ofertas. Vá em RevOps → Ofertas e preencha pra ver projeção × meta.</p>
-        <button onclick="Actions.setTab('revops')" class="mt-3 px-4 py-2 rounded-2xl bg-amber-700 hover:bg-amber-800 text-white font-black text-sm" style="color:#fff!important;">Ir pra RevOps</button>
+        <button onclick="App.setTab('revops')" class="mt-3 px-4 py-2 rounded-2xl bg-amber-700 hover:bg-amber-800 text-white font-black text-sm" style="color:#fff!important;">Ir pra RevOps</button>
       </div>`;
     }
 
