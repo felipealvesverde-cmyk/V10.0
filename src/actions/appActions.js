@@ -1389,6 +1389,48 @@ Object.assign(Actions, {
     App.state.audienceWizard = null;
     App.save(); App.render();
   },
+  // V39.3.0 — Carrega Pipeline Velocity Summary (V/C/L/T por campanha e
+  // produto). Endpoint /api/pipeline-velocity-summary agrega tracker +
+  // Hotmart purchases. Cache 5 min.
+  async loadPipelineVelocitySummary(opts) {
+    const force = !!(opts && opts.force);
+    const cur = App.state.pipelineVelocityCache;
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    if (!force && cur && cur.loaded && cur.fetchedAt > fiveMinAgo) return;
+    App.state.pipelineVelocityCache = { ...(cur || {}), loading: true };
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/pipeline-velocity-summary', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        App.state.pipelineVelocityCache = { loaded: false, loading: false, error: data.message || 'fetch-failed', fetchedAt: Date.now() };
+        if (App.render) App.render();
+        return;
+      }
+      App.state.pipelineVelocityCache = {
+        loaded: true,
+        loading: false,
+        error: null,
+        fetchedAt: Date.now(),
+        period: data.period,
+        benchmarks: data.benchmarks,
+        byCampaign: data.byCampaign || [],
+        byProduct: data.byProduct || []
+      };
+      if (App.render) App.render();
+    } catch (err) {
+      App.state.pipelineVelocityCache = { loaded: false, loading: false, error: err.message || String(err), fetchedAt: Date.now() };
+      if (App.render) App.render();
+    }
+  },
+  // V39.3.0 — Expande card de produto na aba RevOps & Velocidade. null = colapsa.
+  toggleRevopsVelocityProduct(productId) {
+    const cur = App.state.revopsVelocityExpandedProductId;
+    App.state.revopsVelocityExpandedProductId = (cur != null && Number(cur) === Number(productId)) ? null : Number(productId);
+    App.save(); App.render();
+  },
   // V39.2.0 — Carrega Forecast × Realizado do mês corrente. Endpoint
   // /api/forecast-realized-summary agrega lj_hotmart_purchases por
   // product_id_lj. Re-roda a cada 5 min ou após manual refresh.

@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.3.0',
+    date: '2026-06-17',
+    title: 'RevOps & Velocidade — raio-x da máquina por produto (Visitas × Conversão × Ticket / Ciclo)',
+    bullets: [
+      'Aba nova no menu lateral, logo abaixo de RevOps & Governança: "RevOps & Velocidade". Mostra a velocidade da operação (R$/dia que a máquina gera estruturalmente) decomposta nas 4 letras universais — V (Visitas únicas/mês) × C (Conversão visitor→customer) × L (Ticket médio) / T (Ciclo médio em dias).',
+      'A lista mostra cards mini por produto: velocidade total + as 4 letras lado a lado. A letra que está mais fraca é destacada como gargalo (borda âmbar + ring). Clicar no card expande pra diagnóstico em prosa do Djow + simulador "e se eu dobrar X?".',
+      'Diagnóstico em prosa adapta ao gargalo: se conversão está fraca, fala em otimização de página e prova social; se ciclo está longo, sugere nutrição automatizada e remarketing; se ticket baixo, propõe cross-sell e combo; se volume baixo, indica tráfego pago e SEO.',
+      'O simulador mostra 4 cenários lado a lado: dobrar visitas, dobrar conversão, dobrar ticket, cortar ciclo pela metade — cada um com o impacto direto em R$/dia. Ajuda o CEO a escolher qual frente atacar antes de gastar dinheiro.',
+      'Pra modo "Comercial via CRM" ou "Híbrido", o card mostra placeholder "Em breve" — Velocity em modo CRM depende do pipeline RD persistido + Fechamento mensal declarado (próximas ondas).',
+      'Fontes 100% existentes: V vem do tracker (lj_visitor_touchpoints com campaign_id mapeado pra produto via campaign.productId), C vem do mesmo tracker (lj_visitors com entity_type=customer), L vem do Hotmart pull (últimos 90 dias), T é mediana de occurred_at − first_touch_at. Cache de 5 min.'
+    ]
+  },
+  {
     version: 'V39.2.0',
     date: '2026-06-17',
     title: 'Forecast × Realizado nasceu — meta declarada, realizado lido e projeção fim do mês',
