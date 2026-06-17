@@ -201,27 +201,22 @@ var ExecutionsModule = {
     return `<div class="space-y-3">${executions.map(t => this._executionCard(t, actionsById.get(Number(t.linked_action_id)))).join('')}</div>`;
   },
 
-  // V38.1.70 — Card de Execução reformulado:
-  //   1. Badge única traduz status do provider (ClickUp custom status com label
-  //      e cor que o user definiu) via StrategicMapModal._taskStatusBadge.
-  //      Substitui a pílula "EXECUÇÃO · PENDENTE/CONCLUÍDA" que era redundante.
-  //   2. Botão "Ver no Mapa →" puxa Actions.openActionOnMap(productId, actionId)
-  //      pra reusar o caminho que já existe no card de Ação.
-  //   3. 3 mini-cards no padrão das outras telas: Dias em aberto / Fechamento /
-  //      Responsável. Estilo `bg-white rounded-2xl border` + border-left emerald.
-  //   4. Botão de concluir vira toggle: ✓ quando pending → ↺ quando completed
-  //      (reabre via Actions.reopenExecution).
+  // V38.1.71 — Refinamento do card:
+  //   1. Mini-cards encolheram 50% verticalmente (py-3 → py-1.5, text-xl → base).
+  //   2. Engrenagem (Configurar) no canto superior direito chama
+  //      openExecutionEditModal — reusa o modal de edição de tarefa do Mapa.
+  //   3. Badge fica AO LADO da engrenagem (esquerda dela), não mais embaixo do título.
+  //   4. Lixeira saiu do inline — agora vive dentro do modal de edição
+  //      (footer rose "Excluir execução" em V38.1.71 do strategicMapModal).
   _executionCard(task, action) {
     const campaign = action ? (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId)) : null;
     const productId = campaign?.productId;
     const completed = task.status === 'completed';
 
-    // 1. Badge traduzida do provider (cai no LJ_STATUS_VISUAL se sem custom status)
     const badge = (window.StrategicMapModal && typeof StrategicMapModal._taskStatusBadge === 'function')
       ? StrategicMapModal._taskStatusBadge(task)
       : { label: completed ? 'Concluída' : 'Pendente', icon: completed ? 'check-circle-2' : 'circle', useInline: false, styleAttr: '', bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-700' };
 
-    // 3. Mini-cards
     const created = task.created_at ? new Date(task.created_at) : null;
     const completedAt = task.completed_at ? new Date(task.completed_at) : null;
     const endRef = completedAt || new Date();
@@ -232,32 +227,32 @@ var ExecutionsModule = {
     const owner = (task.assignee && String(task.assignee).trim()) || '— sem responsável';
 
     return `<div class="lj-entity-card relative p-4 rounded-2xl bg-slate-50 border border-slate-100 border-l-4 border-l-emerald-500">
-      <div class="flex items-start justify-between gap-3 mb-3">
-        <div class="min-w-0 flex-1">
-          <p class="text-[10px] font-black uppercase tracking-widest mb-1" style="color: var(--lj-action);">Execução</p>
-          <h3 class="font-black text-sm text-slate-900">${Utils.escape(task.title)}</h3>
-          <p class="text-[11px] text-slate-500 mt-1">Ação: <b>${Utils.escape(action?.name || 'sem vínculo')}</b></p>
-        </div>
-        <div class="flex items-center gap-1.5 shrink-0">
-          <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${badge.bg} ${badge.border} ${badge.text}" ${badge.useInline ? `style="${badge.styleAttr}"` : ''}>
-            <i data-lucide="${badge.icon}" class="w-3 h-3"></i>
-            ${Utils.escape(String(badge.label).toUpperCase())}
-          </span>
-        </div>
+      <div class="absolute top-3 right-3 flex items-center gap-2 z-10">
+        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${badge.bg} ${badge.border} ${badge.text}" ${badge.useInline ? `style="${badge.styleAttr}"` : ''}>
+          <i data-lucide="${badge.icon}" class="w-3 h-3"></i>
+          ${Utils.escape(String(badge.label).toUpperCase())}
+        </span>
+        <button onclick="event.stopPropagation(); Actions.openExecutionEditModal('${task.task_id}')" title="Editar execução" aria-label="Editar execução" class="w-9 h-9 rounded-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 grid place-items-center shadow-sm"><i data-lucide="settings" class="w-4 h-4"></i></button>
+      </div>
+
+      <div class="min-w-0 pr-44 mb-3">
+        <p class="text-[10px] font-black uppercase tracking-widest mb-1" style="color: var(--lj-action);">Execução</p>
+        <h3 class="font-black text-sm text-slate-900">${Utils.escape(task.title)}</h3>
+        <p class="text-[11px] text-slate-500 mt-1">Ação: <b>${Utils.escape(action?.name || 'sem vínculo')}</b></p>
       </div>
 
       <div class="grid grid-cols-3 gap-2 text-center mb-3">
-        <div class="bg-white rounded-2xl border border-slate-200 px-3 py-3" style="border-left: 4px solid var(--lj-action);">
-          <div class="text-[10px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Dias em aberto</div>
-          <div class="font-black text-xl text-slate-900 mt-1">${daysOpen != null ? daysOpen : '—'}</div>
+        <div class="bg-white rounded-2xl border border-slate-200 px-3 py-1.5" style="border-left: 4px solid var(--lj-action);">
+          <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Dias em aberto</div>
+          <div class="font-black text-base text-slate-900 mt-0.5 leading-tight">${daysOpen != null ? daysOpen : '—'}</div>
         </div>
-        <div class="bg-white rounded-2xl border border-slate-200 px-3 py-3" style="border-left: 4px solid var(--lj-action);">
-          <div class="text-[10px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Fechamento</div>
-          <div class="font-black text-[13px] text-slate-900 mt-1 leading-tight">${Utils.escape(closingDate)}</div>
+        <div class="bg-white rounded-2xl border border-slate-200 px-3 py-1.5" style="border-left: 4px solid var(--lj-action);">
+          <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Fechamento</div>
+          <div class="font-black text-[11px] text-slate-900 mt-0.5 leading-tight">${Utils.escape(closingDate)}</div>
         </div>
-        <div class="bg-white rounded-2xl border border-slate-200 px-3 py-3" style="border-left: 4px solid var(--lj-action);">
-          <div class="text-[10px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Responsável</div>
-          <div class="font-black text-[13px] text-slate-900 mt-1 leading-tight truncate">${Utils.escape(owner)}</div>
+        <div class="bg-white rounded-2xl border border-slate-200 px-3 py-1.5" style="border-left: 4px solid var(--lj-action);">
+          <div class="text-[9px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Responsável</div>
+          <div class="font-black text-[11px] text-slate-900 mt-0.5 leading-tight truncate">${Utils.escape(owner)}</div>
         </div>
       </div>
 
@@ -265,13 +260,10 @@ var ExecutionsModule = {
         ${(action && productId) ? `<button onclick="Actions.openActionOnMap(${productId}, ${action.id})" class="px-2.5 py-1 rounded-lg bg-white border border-emerald-300 text-emerald-700 text-[10px] font-black hover:bg-emerald-50 flex items-center gap-1.5">
           <i data-lucide="map" class="w-3 h-3"></i> Ver no Mapa →
         </button>` : '<span></span>'}
-        <div class="flex items-center gap-1.5">
-          ${completed
-            ? `<button onclick="Actions.reopenExecution('${task.task_id}')" title="Reabrir execução" class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-amber-600 hover:border-amber-300 grid place-items-center"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>`
-            : `<button onclick="Actions.markExecutionDone('${task.task_id}')" title="Marcar como concluída" class="w-8 h-8 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white grid place-items-center" style="color:#fff!important;"><i data-lucide="check" class="w-4 h-4"></i></button>`
-          }
-          <button onclick="Actions.deleteExecution('${task.task_id}')" title="Remover" class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-rose-600 hover:border-rose-200 grid place-items-center"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-        </div>
+        ${completed
+          ? `<button onclick="Actions.reopenExecution('${task.task_id}')" title="Reabrir execução" class="w-8 h-8 rounded-lg bg-white border border-slate-200 text-slate-600 hover:text-amber-600 hover:border-amber-300 grid place-items-center"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>`
+          : `<button onclick="Actions.markExecutionDone('${task.task_id}')" title="Marcar como concluída" class="w-8 h-8 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white grid place-items-center" style="color:#fff!important;"><i data-lucide="check" class="w-4 h-4"></i></button>`
+        }
       </div>
     </div>`;
   },
