@@ -104,20 +104,33 @@ var RevopsVelocityModule = {
     }
 
     // ok — desenha card padrão com 4 letras
-    const semColor = s.gargalo
-      ? (s.gargalo === 'C' || s.gargalo === 'T' ? 'amber' : 'violet')
-      : 'emerald';
+    // V39.7.0 — header neutro (slate) quando R$/dia = 0 evita "verde mentindo"
+    const isZero = (s.velocity || 0) <= 0;
+    const semColor = isZero
+      ? 'slate'
+      : s.gargalo
+        ? (s.gargalo === 'C' || s.gargalo === 'T' ? 'amber' : 'violet')
+        : 'emerald';
+    const heroColor = isZero ? 'text-slate-400' : `text-${semColor}-700`;
+    const customersTxt = this._pluralize(s.customersCount, 'customer', 'customers', 'nenhum customer');
+    const visitasTxt = this._pluralize(s.V, 'visita', 'visitas', 'nenhuma visita');
+    const vendasTxt = this._pluralize(s.approvedCount, 'venda processada', 'vendas processadas', 'nenhuma venda processada');
     return `<div class="rounded-3xl bg-${semColor}-50 border border-${semColor}-200 border-l-4 border-l-${semColor}-500 overflow-hidden">
       <button onclick="Actions.toggleRevopsVelocityProduct(${product.id})" class="w-full text-left p-4 hover:bg-${semColor}-100/40 transition">
         <div class="flex items-start justify-between gap-3 mb-3">
           <div class="min-w-0 flex-1">
             <p class="text-[10px] font-black text-${semColor}-700 uppercase tracking-wider mb-0.5">Velocity · ${s.yyyymm || ''}</p>
             <h3 class="font-black text-base truncate">${Utils.escape(product.name)}</h3>
-            <p class="text-xs text-slate-600 mt-1">${s.customersCount} customers em ${s.V} visitas · ${s.approvedCount} venda(s) processada(s)</p>
+            <p class="text-xs text-slate-600 mt-1">${customersTxt} em ${visitasTxt} · ${vendasTxt}</p>
           </div>
-          <div class="text-right shrink-0">
-            <p class="text-[10px] font-black text-slate-500 uppercase">R$/dia</p>
-            <p class="font-black text-xl text-${semColor}-700">${PipelineVelocityEngine.fmtMoney(s.velocity)}</p>
+          <div class="shrink-0 flex items-start gap-2">
+            <div class="text-right">
+              <p class="text-[10px] font-black text-slate-500 uppercase">R$/dia</p>
+              <p class="font-black text-xl ${heroColor}">${PipelineVelocityEngine.fmtMoney(s.velocity)}</p>
+            </div>
+            <span class="text-slate-400 mt-0.5" aria-label="${expanded ? 'Recolher' : 'Expandir'}" title="${expanded ? 'Recolher' : 'Expandir'}">
+              <i data-lucide="chevron-${expanded ? 'up' : 'down'}" class="w-4 h-4"></i>
+            </span>
           </div>
         </div>
         <div class="grid grid-cols-4 gap-1.5">
@@ -126,23 +139,33 @@ var RevopsVelocityModule = {
           ${this._letterMini('L', 'Ticket', PipelineVelocityEngine.fmtMoney(s.L), s.gargalo === 'L')}
           ${this._letterMini('T', 'Ciclo', `${s.T.toFixed(1)}d`, s.gargalo === 'T')}
         </div>
-        <p class="text-[10px] text-${semColor}-700 font-black mt-2 text-center">${expanded ? '▲ Recolher' : '▼ Ver diagnóstico'}</p>
       </button>
       ${expanded ? this._expandedBlock(s, product) : ''}
     </div>`;
   },
 
+  // V39.7.0 — pluralização inteligente (sem "(s)" entre parênteses).
+  _pluralize(n, singular, plural, zeroLabel) {
+    const num = Number(n) || 0;
+    if (num === 0) return zeroLabel || `0 ${plural}`;
+    if (num === 1) return `1 ${singular}`;
+    return `${num} ${plural}`;
+  },
+
+  // V39.7.0 — hierarquia invertida: valor vira herói no centro, rótulo vira legenda embaixo.
   _letterMini(letter, name, value, isGargalo) {
     const tone = isGargalo ? 'amber' : 'slate';
-    return `<div class="bg-white rounded-xl border ${isGargalo ? 'border-amber-300' : 'border-slate-200'} px-2 py-1.5 text-center ${isGargalo ? 'ring-1 ring-amber-300' : ''}">
-      <p class="text-[9px] font-black text-${tone}-600 uppercase tracking-widest">${letter} · ${name}</p>
-      <p class="font-black text-sm text-slate-900 mt-0.5">${value}</p>
+    return `<div class="bg-white rounded-xl border ${isGargalo ? 'border-amber-300' : 'border-slate-200'} px-2 py-2 text-center ${isGargalo ? 'ring-1 ring-amber-300' : ''}">
+      <p class="font-black text-base text-slate-900 leading-none">${value}</p>
+      <p class="text-[9px] font-black text-${tone}-600 uppercase tracking-widest mt-1.5">${letter} · ${name}</p>
     </div>`;
   },
 
   // V39.5.0 — Onda A tecida: ordem agora → estrutural → eficiência → costura.
-  // V39.6.0 — Faixa "Como ativar" pra produto zerado + descrições "Saber mais"
-  //           em cada bloco + refresh unificado.
+  // V39.6.0 — Faixa "Como ativar" pra produto zerado + descrições "Saber mais".
+  // V39.7.0 — Estado vazio condicional: blocos só aparecem quando têm o que dizer
+  //           (suprime 4 lamentos paralelos). Side accents internos reduzidos
+  //           pra border-l-2 e saturados pouco — viram "papel de fundo", não grito.
   _expandedBlock(s, product) {
     const diag = PipelineVelocityEngine.diagnose(s);
     const sim = PipelineVelocityEngine.simulate(s);
@@ -153,18 +176,30 @@ var RevopsVelocityModule = {
       ? EfficiencyEngine.forProduct(product.id)
       : null;
 
-    // Detecta "produto 100% zerado": sem visitas + sem customers + sem meta
-    const isVazio = s.V === 0
-      && (s.customersCount || 0) === 0
-      && (s.approvedCount || 0) === 0
-      && (!forecast || forecast.meta <= 0);
+    const semVenda = (s.approvedCount || 0) === 0 && (s.customersCount || 0) === 0;
+    const semTrafego = s.V === 0;
+    const semMeta = !forecast || forecast.status !== 'ok' || forecast.meta <= 0;
+    const isVazioTotal = semVenda && semTrafego && semMeta;
+    const precisaConvite = semVenda || semTrafego || semMeta;
+
+    // Estado vazio total: só faixa "Como ativar" + refresh — sem 4 blocos chorando
+    if (isVazioTotal) {
+      return `<div class="border-t border-slate-200 bg-white p-4 space-y-3">
+        ${this._comoAtivarFaixa(product)}
+        <div class="flex items-center justify-end">
+          <button onclick="Actions.refreshOndaA()" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 flex items-center gap-1.5">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recarregar diagnóstico
+          </button>
+        </div>
+      </div>`;
+    }
 
     return `<div class="border-t border-slate-200 bg-white p-4 space-y-3">
-      ${isVazio ? this._comoAtivarFaixa(product) : ''}
+      ${precisaConvite ? this._comoAtivarFaixa(product) : ''}
 
-      ${this._situacaoMesBlock(product, forecast, efficiency)}
+      ${!semMeta ? this._situacaoMesBlock(product, forecast, efficiency) : ''}
 
-      <div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 p-3">
+      ${!semTrafego ? `<div class="rounded-2xl bg-violet-50/60 border border-violet-200 border-l-2 border-l-violet-400 p-3">
         <div class="flex items-center justify-between mb-2">
           <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest flex items-center gap-1.5">
             <i data-lucide="gauge" class="w-3.5 h-3.5"></i> Estrutura da máquina · V × C × L / T
@@ -173,9 +208,9 @@ var RevopsVelocityModule = {
         </div>
         ${this._descBox(product.id, 'a3', this.DESCRIPTIONS.a3)}
         <p class="text-xs text-slate-800 leading-relaxed">${Utils.escape(diag)}</p>
-      </div>
+      </div>` : ''}
 
-      ${sim ? `<div class="rounded-2xl bg-slate-50 border border-slate-200 p-3">
+      ${!semTrafego && sim ? `<div class="rounded-2xl bg-slate-50 border border-slate-200 border-l-2 border-l-slate-300 p-3">
         <div class="flex items-center justify-between mb-2">
           <p class="text-[10px] font-black text-slate-600 uppercase tracking-widest flex items-center gap-1.5">
             <i data-lucide="flask-conical" class="w-3.5 h-3.5"></i> Simulador — e se você dobrar uma letra?
@@ -191,9 +226,9 @@ var RevopsVelocityModule = {
         </div>
       </div>` : ''}
 
-      ${this._efficiencyBlock(product)}
+      ${!semVenda ? this._efficiencyBlock(product) : ''}
 
-      ${this._djowCostura(product, s, forecast, efficiency)}
+      ${(!semVenda || !semMeta) ? this._djowCostura(product, s, forecast, efficiency) : ''}
 
       <div class="flex items-center justify-end">
         <button onclick="Actions.refreshOndaA()" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 text-slate-700 text-xs font-black hover:bg-slate-50 flex items-center gap-1.5">
@@ -219,12 +254,14 @@ var RevopsVelocityModule = {
     </div>`;
   },
 
-  // V39.6.0 — Botão "Saber mais ⓘ" / "Recolher ⓘ" pra cada bloco.
+  // V39.7.0 — só ícone "ⓘ" (sem texto) pra reduzir ruído visual.
+  // 4 botões empilhados em cada bloco viravam eixo paralelo que roubava atenção
+  // do conteúdo. Agora ícone discreto no canto; tooltip ao hover.
   _saberMaisBtn(productId, blockKey) {
     const key = `${productId}-${blockKey}`;
     const open = !!(App.state.revopsVelocityDescOpen || {})[key];
-    return `<button onclick="event.stopPropagation(); Actions.toggleRevopsVelocityDesc(${productId}, '${blockKey}')" class="text-[10px] font-black text-slate-500 hover:text-slate-800 flex items-center gap-1">
-      <i data-lucide="info" class="w-3 h-3"></i> ${open ? 'Recolher' : 'Saber mais'}
+    return `<button onclick="event.stopPropagation(); Actions.toggleRevopsVelocityDesc(${productId}, '${blockKey}')" class="${open ? 'text-slate-700' : 'text-slate-400'} hover:text-slate-700 transition shrink-0" title="${open ? 'Recolher info' : 'Saber mais sobre este bloco'}" aria-label="${open ? 'Recolher info' : 'Saber mais sobre este bloco'}">
+      <i data-lucide="info" class="w-3.5 h-3.5"></i>
     </button>`;
   },
 
@@ -357,7 +394,7 @@ var RevopsVelocityModule = {
           <i data-lucide="calculator" class="w-3 h-3"></i> Calculadora de meta
         </p>
         <p class="text-xs text-slate-800 leading-relaxed">
-          Pra bater os ${ForecastRealizadoEngine.formatMoney(forecast.meta)} restantes, você precisa de <b>${customersNecessarios} customer(s) novos</b> (LTV ${ForecastRealizadoEngine.formatMoney(ltv)}). Com CAC ${ForecastRealizadoEngine.formatMoney(cac)} = <b>${ForecastRealizadoEngine.formatMoney(midiaNecessaria)} de mídia necessária</b>.
+          Pra bater os ${ForecastRealizadoEngine.formatMoney(forecast.meta)} restantes, você precisa de <b>${customersNecessarios === 1 ? '1 customer novo' : `${customersNecessarios} customers novos`}</b> (LTV ${ForecastRealizadoEngine.formatMoney(ltv)}). Com CAC ${ForecastRealizadoEngine.formatMoney(cac)} = <b>${ForecastRealizadoEngine.formatMoney(midiaNecessaria)} de mídia necessária</b>.
         </p>
       </div>` : restante > 0 && cac <= 0 ? `<div class="mt-2 rounded-xl bg-amber-50 border border-amber-200 p-2.5">
         <p class="text-[10px] text-amber-900">⚠ Defina CAC nas ofertas pra ver quanto de mídia precisa pra bater a meta.</p>
@@ -393,7 +430,7 @@ var RevopsVelocityModule = {
     // Frase 2: eficiência de capital
     if (efficiency && efficiency.status === 'ok' && efficiency.ltvCacRatio != null) {
       if (efficiency.ltvCacRatio >= 3) {
-        parts.push(`No estrutural, a operação é sólida (LTV:CAC ${efficiency.ltvCacRatio.toFixed(1)}:1, Payback ${efficiency.paybackMonths != null && efficiency.paybackMonths < 0.1 ? 'instantâneo' : (efficiency.paybackMonths || 0).toFixed(1) + ' mês(es)'}).`);
+        parts.push(`No estrutural, a operação é sólida (LTV:CAC ${efficiency.ltvCacRatio.toFixed(1)}:1, Payback ${efficiency.paybackMonths != null && efficiency.paybackMonths < 0.1 ? 'instantâneo' : (efficiency.paybackMonths || 0).toFixed(1) + ' meses'}).`);
       } else if (efficiency.ltvCacRatio >= 2) {
         parts.push(`A eficiência de capital está apertada (LTV:CAC ${efficiency.ltvCacRatio.toFixed(1)}:1, abaixo do saudável 3:1) — modelo cobre o custo mas sem margem pra reinvestir.`);
       } else {
@@ -413,7 +450,7 @@ var RevopsVelocityModule = {
     const texto = parts.filter(Boolean).join(' ');
     if (!texto) return '';
 
-    return `<div class="rounded-2xl bg-gradient-to-br from-violet-100 to-pink-100 border-2 border-violet-300 border-l-4 border-l-violet-700 p-4">
+    return `<div class="rounded-2xl bg-gradient-to-br from-violet-50 to-pink-50 border border-violet-200 border-l-2 border-l-violet-500 p-4">
       <div class="flex items-center gap-2 mb-2">
         <span class="w-7 h-7 rounded-full bg-violet-700 grid place-items-center"><i data-lucide="sparkles" class="w-3.5 h-3.5 text-white"></i></span>
         <p class="text-[10px] font-black text-violet-800 uppercase tracking-widest">Djow · A Costura</p>
@@ -478,7 +515,7 @@ var RevopsVelocityModule = {
     const paybackLabel = e.paybackMonths == null
       ? '—'
       : e.paybackMonths < 0.1 ? 'Instantâneo'
-      : `${e.paybackMonths.toFixed(1)} mês(es)`;
+      : `${e.paybackMonths.toFixed(1)} meses`;
 
     const nrrLabel = e.nrrStatus === 'na'
       ? 'N/A'
@@ -486,7 +523,7 @@ var RevopsVelocityModule = {
       ? '— calibrando'
       : e.nrr != null ? `${(e.nrr * 100).toFixed(0)}%` : '—';
 
-    return `<div class="rounded-2xl bg-gradient-to-br from-violet-50 to-pink-50 border-2 border-violet-200 border-l-4 border-l-violet-600 p-3">
+    return `<div class="rounded-2xl bg-gradient-to-br from-violet-50/70 to-pink-50/70 border border-violet-200 border-l-2 border-l-violet-400 p-3">
       <div class="flex items-center justify-between mb-3 gap-2">
         <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest flex items-center gap-1.5">
           <i data-lucide="gem" class="w-3.5 h-3.5"></i> Eficiência de Capital

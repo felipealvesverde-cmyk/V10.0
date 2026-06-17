@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.7.0',
+    date: '2026-06-17',
+    title: 'Card de RevOps & Velocidade refinado — 7 ajustes visuais (Leonardo)',
+    bullets: [
+      'Header do card não mente mais quando R$/dia = 0. Antes "R$ 0" aparecia em verde brilhante (mesma cor de "saúde") enquanto o miolo dizia "estoura -100%" em vermelho. Agora, produto zerado mostra header em cinza neutro — verde fica reservado pra quando há dinheiro real entrando.',
+      'Hierarquia das 4 letras V × C × L / T invertida. Antes o rótulo grande no topo gritava mais que o valor pequeno embaixo. Agora o número é herói (font grande no centro), e "V · VISITAS" vira legenda discreta — o olho vai pro dado, não pro título.',
+      'Os 4 "Saber mais" empilhados viraram só ícone "ⓘ" discreto. Antes 4 botões idênticos competiam por atenção em alturas paralelas, roubando peso do conteúdo. Agora ícone pequeno cinza no canto de cada bloco; tooltip ao hover, mesma função.',
+      'Estado vazio parou de chorar 4 vezes. Quando o produto está 100% zerado (sem meta + sem tráfego + sem venda), o card mostra só a faixa "Como ativar" com 3 passos — sem 4 blocos repetindo "não tem dado" do seu jeito. Quando há parcial (ex: tem meta mas zero venda), só os blocos que têm o que dizer aparecem.',
+      'Side accents internos suavizados. Antes cada bloco tinha border-l-4 saturado de cor diferente — virava mosaico em vez de composição. Agora border-l-2 com cor mais clara nos blocos secundários (Estrutura, Simulador, Eficiência ok, Djow); só Situação do mês mantém border-l-4 forte porque o semáforo é informação essencial.',
+      'Plural inteligente substituiu "venda(s)" e "customer(s)" entre parênteses. Agora "nenhuma venda processada" / "1 venda processada" / "N vendas processadas", e "1 customer novo" / "N customers novos". Tique de planilha removido.',
+      'Botão "▲ Recolher / ▼ Ver diagnóstico" centralizado embaixo virou chevron pequeno no canto superior direito do header — convenção UI esperada, onde o olho procura sem precisar pensar.',
+      '"meses" no Payback (era "mês(es)") — outro plural-parens que sobrou.'
+    ]
+  },
+  {
     version: 'V39.6.1',
     date: '2026-06-17',
     title: 'Fix: "Definir meta →" e "Defina CAC" agora abrem direto a aba Ofertas do produto certo',
