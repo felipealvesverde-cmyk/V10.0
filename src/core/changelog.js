@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.67',
+    date: '2026-06-17',
+    title: 'Pente fino V2: 4 telas com header unificado + card de Ação enxuto',
+    bullets: [
+      'A aba Resultados ganhou o header escuro no mesmo padrão de Produtos, Campanhas, Ações e Execuções — com selo, descrição da camada e KPIs agregados (produtos, campanhas, impactados, conversão). Antes começava direto na lista, sem identidade visual de cabeçalho.',
+      'Os headers de Campanhas, Ações e Execuções foram simplificados pra seguir exatamente o estilo do header de Produtos: selo + descrição geral da camada, sem título grande redundante (o título da página já vem do menu lateral). Vocabulário coerente em todos os menus.',
+      'No card de Ação, os três mini-cards Leads / Score / Etapas diminuíram 20% — mais respiráveis e proporcionais ao restante do card.',
+      'A aba "Ações via IA" do bloco de criação foi removida — geração via IA agora vive só pelo Djow (botão na coluna direita). Bloco "Base de leads · Abrir Importador" também saiu do form de criação: a importação de leads já acontece na Campanha, era redundância.'
+    ]
+  },
+  {
     version: 'V38.1.66',
     date: '2026-06-17',
     title: 'Menu de Fluxo: full-width + estilo Home (sem cromado)',

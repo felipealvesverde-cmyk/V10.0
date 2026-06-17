@@ -98,11 +98,10 @@ var CampaignModule = {
     const conversion = leads ? Math.round((converted / leads) * 1000) / 10 : 0;
     return `<div class="bg-slate-950 text-white rounded-[2rem] p-5 shadow-sm overflow-hidden relative">
       <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
-      <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
+      <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-center">
         <div>
-          <div class="flex items-center gap-2 mb-2"><i data-lucide="megaphone" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Campaign Operational Layer</p></div>
-          <h2 class="text-3xl font-black">Campanhas</h2>
-          <p class="text-sm text-slate-300 max-w-3xl mt-2">Painel operacional de campanhas: performance, produtos vinculados, receita gerada, handoffs, conversões, gargalos, ações plugadas e fluxo consolidado.</p>
+          <div class="flex items-center gap-2 mb-3"><i data-lucide="megaphone" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Campaign Operational Layer</p></div>
+          <p class="text-base text-slate-300 max-w-3xl leading-relaxed">A campanha é o container operacional vinculado a um produto: ancora objetivos, agrupa ações, recebe leads e consolida performance até a leitura de receita.</p>
         </div>
         <div class="grid grid-cols-2 gap-3">
           ${this.darkMetric('Ativas', active, 'play-circle')}

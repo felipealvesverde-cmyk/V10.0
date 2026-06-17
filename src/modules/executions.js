@@ -73,10 +73,10 @@ var ExecutionsModule = {
     }
     return `<div class="bg-slate-950 text-white rounded-[2rem] p-5 shadow-sm overflow-hidden relative">
       <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 18% 10%, rgba(16,185,129,.18), transparent 28%), radial-gradient(circle at 82% 20%, rgba(59,130,246,.14), transparent 30%);"></div>
-      <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
+      <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-center">
         <div>
-          <h2 class="text-3xl font-black">Execuções</h2>
-          <p class="text-xs text-slate-400 mt-2">Campanha: <b class="text-white">${Utils.escape(selectedCampaign?.name || 'nenhuma selecionada')}</b> • Produto: <b class="text-white">${Utils.escape(product?.name || 'não vinculado')}</b></p>
+          <div class="flex items-center gap-2 mb-3"><i data-lucide="play-circle" class="w-4 h-4"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Execution Layer · Tarefas</p></div>
+          <p class="text-base text-slate-300 max-w-3xl leading-relaxed">A execução é a tarefa concreta que aterra a ação: status em tempo real, criação manual ou via Djow, e a evidência do que de fato saiu da estratégia pro mundo.</p>
         </div>
         <div class="grid grid-cols-2 gap-3">
           ${this._darkMetric('Execuções', total, 'play-circle')}
