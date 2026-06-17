@@ -26,20 +26,26 @@ var ExecutionsModule = {
 
     const campaignActions = (App.state.actions || []).filter(a => Number(a.campaignId) === Number(selectedCampaign.id));
     const product = (App.state.products || []).find(p => Number(p.id) === Number(selectedCampaign.productId));
-    const executions = this._collectExecutions(campaignActions);
+    // V38.1.68 — Header dark continua refletindo a campanha selecionada
+    // globalmente (selectedCampaignId). A lista direita usa filtros próprios
+    // (executionListFilter) e é independente do form.
+    const headerExecutions = this._collectExecutions(campaignActions);
 
     return `<div class="space-y-4">
-      ${this.executionLayer(selectedCampaign, product, executions)}
+      ${this.executionLayer(selectedCampaign, product, headerExecutions)}
       ${window.FlowBreadcrumb ? FlowBreadcrumb.render('executions') : ''}
       <div class="grid lg:grid-cols-3 gap-4">
         <div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
           <h2 class="text-xl font-black mb-1">Criar execução</h2>
-          <p class="text-sm text-slate-500 mb-4">Adicione uma execução a uma das ações desta campanha.</p>
+          <p class="text-sm text-slate-500 mb-4">Escolha a campanha, depois a ação, depois adicione a execução.</p>
           ${this._createPanel(campaignActions)}
         </div>
         <div class="lg:col-span-2 bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
-          <h2 class="text-xl font-black mb-3">Execuções desta campanha</h2>
-          ${executions.length ? this._executionsList(executions, campaignActions) : this._emptyExecutionsList()}
+          <div class="flex items-start justify-between gap-3 mb-3">
+            <h2 class="text-xl font-black">Execuções</h2>
+          </div>
+          ${this._filterControls()}
+          ${this._listSection()}
         </div>
       </div>
       ${window.CampaignFlowModal ? CampaignFlowModal.render() : ''}
@@ -105,14 +111,21 @@ var ExecutionsModule = {
   },
 
   _createPanel(actions) {
-    if (!actions.length) {
-      return `<div class="rounded-2xl border border-dashed border-slate-300 p-4 text-center">
-        <p class="text-sm text-slate-500 mb-3">Esta campanha ainda não tem nenhuma ação. Crie uma ação primeiro pra plugar execuções nela.</p>
-        <button onclick="App.setTab('actions')" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black" style="color:#fff!important;">Ir para Ações</button>
-      </div>`;
-    }
+    const campaigns = App.state.campaigns || [];
+    const currentCampaignId = App.state.selectedCampaignId;
     const draft = App.state.executionDraft || { actionId: actions[0]?.id, title: '' };
     return `<div class="space-y-3">
+      <div>
+        <label class="text-xs font-black text-slate-500">Campanha</label>
+        <select onchange="Actions.selectCampaignFromActions(Number(this.value))" class="w-full px-3 py-3 rounded-2xl bg-white border border-slate-200 font-semibold">
+          ${campaigns.length === 0 ? '<option value="">— nenhuma campanha cadastrada —</option>' : ''}
+          ${campaigns.map(c => `<option value="${c.id}" ${Number(currentCampaignId) === Number(c.id) ? 'selected' : ''}>${Utils.escape(c.name)}</option>`).join('')}
+        </select>
+      </div>
+      ${!actions.length ? `<div class="rounded-2xl border border-dashed border-slate-300 p-4 text-center">
+        <p class="text-sm text-slate-500 mb-3">Esta campanha ainda não tem nenhuma ação. Crie uma ação primeiro pra plugar execuções nela.</p>
+        <button onclick="App.setTab('actions')" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-black" style="color:#fff!important;">Ir para Ações</button>
+      </div>` : `
       <div>
         <label class="text-xs font-black text-slate-500">Ação</label>
         <select onchange="Actions.updateExecutionDraft('actionId', this.value)" class="w-full px-3 py-3 rounded-2xl bg-white border border-slate-200 font-semibold">
@@ -137,8 +150,48 @@ var ExecutionsModule = {
             <i data-lucide="arrow-right" class="w-3 h-3"></i> Abrir Djow
           </button>
         </div>
+      </div>`}
+    </div>`;
+  },
+
+  // V38.1.68 — Filtros da lista de execuções (Campanha + Ação cascateados).
+  // Independente do form de criação: cliente pode estar criando na campanha A
+  // e ver execuções da campanha B sem interferência.
+  _filterControls() {
+    const filter = App.state.executionListFilter || { campaignId: null, actionId: null };
+    const campaigns = App.state.campaigns || [];
+    const allActions = App.state.actions || [];
+    const filteredActions = filter.campaignId
+      ? allActions.filter(a => Number(a.campaignId) === Number(filter.campaignId))
+      : allActions;
+    return `<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mb-4 rounded-2xl bg-slate-50 border border-slate-100 p-3">
+      <div>
+        <label class="text-[10px] font-black text-slate-500 uppercase tracking-wider">Filtrar por campanha</label>
+        <select onchange="Actions.setExecutionListFilter('campaignId', this.value)" class="w-full mt-1 px-3 py-2 rounded-xl bg-white border border-slate-200 font-semibold text-sm">
+          <option value="" ${filter.campaignId == null ? 'selected' : ''}>Todas as campanhas</option>
+          ${campaigns.map(c => `<option value="${c.id}" ${Number(filter.campaignId) === Number(c.id) ? 'selected' : ''}>${Utils.escape(c.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div>
+        <label class="text-[10px] font-black text-slate-500 uppercase tracking-wider">Filtrar por ação</label>
+        <select onchange="Actions.setExecutionListFilter('actionId', this.value)" class="w-full mt-1 px-3 py-2 rounded-xl bg-white border border-slate-200 font-semibold text-sm" ${filteredActions.length === 0 ? 'disabled' : ''}>
+          <option value="" ${filter.actionId == null ? 'selected' : ''}>Todas as ações${filter.campaignId ? ' desta campanha' : ''}</option>
+          ${filteredActions.map(a => `<option value="${a.id}" ${Number(filter.actionId) === Number(a.id) ? 'selected' : ''}>${Utils.escape(a.name)}</option>`).join('')}
+        </select>
       </div>
     </div>`;
+  },
+
+  // V38.1.68 — Aplica o filtro e renderiza a lista (ou vazio).
+  _listSection() {
+    const filter = App.state.executionListFilter || { campaignId: null, actionId: null };
+    const allActions = App.state.actions || [];
+    let scopedActions = allActions;
+    if (filter.campaignId) scopedActions = scopedActions.filter(a => Number(a.campaignId) === Number(filter.campaignId));
+    if (filter.actionId) scopedActions = scopedActions.filter(a => Number(a.id) === Number(filter.actionId));
+    const executions = this._collectExecutions(scopedActions);
+    if (!executions.length) return this._emptyExecutionsList(filter);
+    return this._executionsList(executions, scopedActions);
   },
 
   _executionsList(executions, actions) {
@@ -174,11 +227,12 @@ var ExecutionsModule = {
     </div>`;
   },
 
-  _emptyExecutionsList() {
+  _emptyExecutionsList(filter) {
+    const hasFilter = filter && (filter.campaignId != null || filter.actionId != null);
     return `<div class="rounded-2xl border-2 border-dashed border-slate-200 p-8 text-center">
       <i data-lucide="play-circle" class="w-10 h-10 text-slate-300 mx-auto mb-3"></i>
-      <p class="text-sm font-black text-slate-700 mb-1">Nenhuma execução criada ainda</p>
-      <p class="text-xs text-slate-500">Adicione uma execução pelo painel ao lado ou crie via Djow.</p>
+      <p class="text-sm font-black text-slate-700 mb-1">${hasFilter ? 'Nenhuma execução pra este filtro' : 'Nenhuma execução criada ainda'}</p>
+      <p class="text-xs text-slate-500">${hasFilter ? 'Troque o filtro acima ou crie uma nova execução pelo painel ao lado.' : 'Adicione uma execução pelo painel ao lado ou crie via Djow.'}</p>
     </div>`;
   }
 };

@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.68',
+    date: '2026-06-17',
+    title: 'Criar ação / execução agora pede a campanha explicitamente + filtros na lista',
+    bullets: [
+      'No formulário de Criar ação, agora aparece um dropdown "Campanha" como primeiro campo — você escolhe explicitamente a campanha que vai receber a ação, em vez de depender da campanha que estava selecionada no contexto. Reduz risco de criar ação na campanha errada.',
+      'No formulário de Criar execução, o dropdown "Campanha" foi adicionado acima do dropdown "Ação". Trocar a campanha re-filtra a lista de ações — só mostram as ações daquela campanha. Mesma intenção: evitar pluga execução em ação de outra campanha sem perceber.',
+      'O bloco direito "Execuções" ganhou filtros próprios: dropdown Campanha + dropdown Ação (cascateados). Independentes do form de criação — você pode estar criando em uma campanha e visualizando execuções de outra ao mesmo tempo.'
+    ]
+  },
+  {
     version: 'V38.1.67',
     date: '2026-06-17',
     title: 'Pente fino V2: 4 telas com header unificado + card de Ação enxuto',
