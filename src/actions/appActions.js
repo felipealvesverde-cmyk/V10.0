@@ -1389,6 +1389,40 @@ Object.assign(Actions, {
     App.state.audienceWizard = null;
     App.save(); App.render();
   },
+  // V39.2.0 — Carrega Forecast × Realizado do mês corrente. Endpoint
+  // /api/forecast-realized-summary agrega lj_hotmart_purchases por
+  // product_id_lj. Re-roda a cada 5 min ou após manual refresh.
+  async loadForecastRealizedSummary(opts) {
+    const force = !!(opts && opts.force);
+    const cur = App.state.forecastRealizedCache;
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    if (!force && cur && cur.loaded && cur.fetchedAt > fiveMinAgo) return;
+    App.state.forecastRealizedCache = { ...(cur || {}), loading: true };
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/forecast-realized-summary', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        App.state.forecastRealizedCache = { loaded: false, loading: false, error: data.message || 'fetch-failed', fetchedAt: Date.now() };
+        if (App.render) App.render();
+        return;
+      }
+      App.state.forecastRealizedCache = {
+        loaded: true,
+        loading: false,
+        error: null,
+        fetchedAt: Date.now(),
+        period: data.period,
+        products: data.products || []
+      };
+      if (App.render) App.render();
+    } catch (err) {
+      App.state.forecastRealizedCache = { loaded: false, loading: false, error: err.message || String(err), fetchedAt: Date.now() };
+      if (App.render) App.render();
+    }
+  },
   // V39.1.0 — Force-prompt de salesChannel pra produtos pré-V39.1. Roda no
   // boot do main.js init(). Só abre se houver pelo menos 1 produto com
   // audience.configured=true e salesChannel=null.

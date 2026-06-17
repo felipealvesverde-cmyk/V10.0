@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.2.0',
+    date: '2026-06-17',
+    title: 'Forecast × Realizado nasceu — meta declarada, realizado lido e projeção fim do mês',
+    bullets: [
+      'Na aba Resultados, cada produto com canal de venda "Checkout" agora ganha o card Forecast × Realizado: Meta declarada × Realizado lido das vendas Hotmart processadas × Projeção pro fim do mês × Variância vs meta, com semáforo (verde se vai bater, amarelo se aperta, vermelho se não bate no ritmo).',
+      'O diagnóstico aparece em prosa simples: "no ritmo atual de R$ X/dia, fecha em R$ Y", "falta R$ Z pra meta nos N dias restantes — precisa fechar R$ W/dia, X% acima do ritmo atual". Sem fórmula, sem aviso técnico — só o que o CEO precisa saber.',
+      'Versão compacta aparece no card de cada produto na lista geral (faixa colorida com Meta · Realizado · Projeção lado a lado). Versão expandida com diagnóstico aparece ao abrir o produto.',
+      'Pra produtos com canal "Comercial via CRM" ou "Híbrido", o card mostra placeholder "Em breve V39.3" — a próxima onda entrega leitura do Fechamento mensal declarado + cruzamento com RD pra fechar esses dois caminhos.',
+      'Fontes 100% existentes: a meta vem das ofertas (RevOps → Ofertas), o realizado vem do webhook Hotmart que já roda, e a projeção é a conta simples R$ entrou × dias_do_mês / dias_passados. Cache de 5 minutos pra não martelar o banco.'
+    ]
+  },
+  {
     version: 'V39.1.0',
     date: '2026-06-17',
     title: 'Definir Audiência ganha "Como esse produto vende?" — fundação pro Forecast × Realizado',

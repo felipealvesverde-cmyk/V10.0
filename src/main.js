@@ -171,6 +171,11 @@ var App = {
           if (window.Actions?.maybeOpenSalesChannelPrompt) {
             setTimeout(() => Actions.maybeOpenSalesChannelPrompt(), 200);
           }
+          // V39.2.0 — Carrega Forecast × Realizado do mês corrente no boot
+          // pra hidratar o card na aba Resultados antes do cliente clicar.
+          if (window.Actions?.loadForecastRealizedSummary) {
+            setTimeout(() => Actions.loadForecastRealizedSummary(), 250);
+          }
         }
         // V32.4.0 (Geraldo Item 6) — hydrateFromConfiguredDatabase removida (V11 folder).
         // V26.0.0 — Atalho global Ctrl+K (Cmd+K) abre modal Djow AI.

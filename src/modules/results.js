@@ -133,7 +133,155 @@ var ResultModule = {
         </div>
         <span class="text-[10px] font-black text-amber-900 underline shrink-0">Definir →</span>
       </div>` : ''}
+      ${this._forecastRealizadoMini(product)}
     </button>`;
+  },
+
+  // V39.2.0 — Bloco grande Forecast × Realizado no drill-down do produto.
+  // Mostra Meta · Realizado · Projeção em régua expandida com semáforo, dias
+  // restantes, ritmo necessário pra bater meta + Djow opinando (placeholder).
+  _forecastRealizadoBlock(product) {
+    if (!window.ForecastRealizadoEngine) return '';
+    const f = ForecastRealizadoEngine.forProduct(product.id);
+    if (!f) return '';
+    if (f.status === 'blocked') return ''; // aviso âmbar abaixo cobre esse caso
+
+    if (f.status === 'loading') {
+      return `<div class="mb-5 rounded-3xl bg-slate-50 border-2 border-slate-200 border-l-8 border-l-slate-300 p-5 flex items-center gap-3">
+        <div class="w-5 h-5 rounded-full border-2 border-slate-300 border-t-slate-700 animate-spin shrink-0"></div>
+        <p class="text-sm text-slate-600">Carregando Forecast × Realizado…</p>
+      </div>`;
+    }
+    if (f.status === 'pending') {
+      const label = f.salesChannel === 'crm' ? 'Comercial via CRM' : 'Híbrido';
+      return `<div class="mb-5 rounded-3xl bg-violet-50 border-2 border-violet-200 border-l-8 border-l-violet-500 p-5">
+        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">Forecast × Realizado · ${Utils.escape(label)}</p>
+        <h3 class="font-black text-lg text-violet-900 mt-1">Em breve — V39.3</h3>
+        <p class="text-sm text-violet-900 leading-relaxed mt-1">Pra modo CRM/híbrido, o realizado vai vir do Fechamento mensal declarado por você + cruzamento com deals ganhos no RD. A próxima onda entrega esse caminho.</p>
+      </div>`;
+    }
+    if (f.status === 'error') {
+      return `<div class="mb-5 rounded-3xl bg-rose-50 border-2 border-rose-200 border-l-8 border-l-rose-500 p-5">
+        <p class="text-[10px] font-black text-rose-700 uppercase tracking-widest">Forecast × Realizado</p>
+        <p class="text-sm text-rose-900 mt-1">Erro ao carregar: ${Utils.escape(App.state.forecastRealizedCache?.error || 'desconhecido')}.</p>
+        <button onclick="Actions.loadForecastRealizedSummary({force:true})" class="mt-2 px-3 py-1.5 rounded-xl bg-rose-700 text-white text-xs font-black hover:bg-rose-800" style="color:#fff!important;">Tentar de novo</button>
+      </div>`;
+    }
+    if (f.meta <= 0) {
+      return `<div class="mb-5 rounded-3xl bg-amber-50 border-2 border-amber-200 border-l-8 border-l-amber-500 p-5">
+        <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest">Forecast × Realizado</p>
+        <h3 class="font-black text-lg text-amber-900 mt-1">Defina a meta de vendas</h3>
+        <p class="text-sm text-amber-900 leading-relaxed mt-1">Esse produto ainda não tem meta de vendas declarada nas ofertas. Vá em RevOps → Ofertas e preencha pra ver projeção × meta.</p>
+        <button onclick="Actions.setTab('revops')" class="mt-3 px-4 py-2 rounded-2xl bg-amber-700 hover:bg-amber-800 text-white font-black text-sm" style="color:#fff!important;">Ir pra RevOps</button>
+      </div>`;
+    }
+
+    const semColor = { green: 'emerald', amber: 'amber', red: 'rose', gray: 'slate' }[f.semaforo] || 'slate';
+    const semLabel = { green: 'Vai bater a meta', amber: 'Risco de não bater', red: 'Não vai bater no ritmo atual', gray: '—' }[f.semaforo] || '';
+    const daysRemaining = Math.max(0, f.daysInMonth - f.daysPassed);
+    const restante = Math.max(0, f.meta - f.realized);
+    const ritmoAtual = f.daysPassed > 0 ? f.realized / f.daysPassed : 0;
+    const ritmoNecessario = daysRemaining > 0 ? restante / daysRemaining : 0;
+    const ritmoDelta = ritmoAtual > 0 ? ((ritmoNecessario - ritmoAtual) / ritmoAtual) : 0;
+
+    return `<div class="mb-5 rounded-3xl bg-${semColor}-50 border-2 border-${semColor}-200 border-l-8 border-l-${semColor}-500 p-5">
+      <div class="flex items-start justify-between gap-3 mb-4">
+        <div>
+          <p class="text-[10px] font-black text-${semColor}-700 uppercase tracking-widest">Forecast × Realizado · ${f.yyyymm || ''}</p>
+          <h3 class="font-black text-lg text-${semColor}-900 mt-0.5">${semLabel}</h3>
+          <p class="text-xs text-slate-600 mt-1">Dia ${f.daysPassed} de ${f.daysInMonth} · ${daysRemaining} dia(s) restante(s) · ${f.approvedCount || 0} venda(s) processada(s)</p>
+        </div>
+        <button onclick="Actions.loadForecastRealizedSummary({force:true})" title="Recarregar do Hotmart" class="w-9 h-9 rounded-full bg-white border border-${semColor}-300 text-${semColor}-700 hover:bg-${semColor}-100 grid place-items-center"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="bg-white rounded-2xl border border-${semColor}-200 px-3 py-3 text-center">
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Meta declarada</p>
+          <p class="font-black text-2xl text-slate-900 mt-1">${ForecastRealizadoEngine.formatMoney(f.meta)}</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-${semColor}-200 px-3 py-3 text-center">
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Realizado</p>
+          <p class="font-black text-2xl text-slate-900 mt-1">${ForecastRealizadoEngine.formatMoney(f.realized)}</p>
+          <p class="text-[10px] text-slate-500 mt-0.5">${f.progressPct}% da meta</p>
+        </div>
+        <div class="bg-white rounded-2xl border border-${semColor}-200 px-3 py-3 text-center">
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Projeção fim do mês</p>
+          <p class="font-black text-2xl text-${semColor}-700 mt-1">${ForecastRealizadoEngine.formatMoney(f.projected)}</p>
+          <p class="text-[10px] font-black text-${semColor}-700 mt-0.5">${ForecastRealizadoEngine.formatPct(f.variance)} vs meta</p>
+        </div>
+      </div>
+
+      <div class="h-2 rounded-full bg-white/80 overflow-hidden mb-3">
+        <div class="h-full bg-${semColor}-500 transition-all" style="width:${f.progressPct}%"></div>
+      </div>
+
+      <div class="rounded-2xl bg-white/60 border border-${semColor}-200 p-3">
+        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Diagnóstico</p>
+        <p class="text-sm text-slate-800 leading-relaxed">
+          ${f.semaforo === 'green'
+            ? `<b>Você vai bater.</b> No ritmo atual de ${ForecastRealizadoEngine.formatMoney(ritmoAtual)}/dia, fecha em ${ForecastRealizadoEngine.formatMoney(f.projected)} — ${ForecastRealizadoEngine.formatPct(f.variance)} acima da meta.`
+            : f.semaforo === 'amber'
+              ? `<b>Apertou.</b> Falta ${ForecastRealizadoEngine.formatMoney(restante)} pra meta nos ${daysRemaining} dia(s) que restam. Precisa fechar ${ForecastRealizadoEngine.formatMoney(ritmoNecessario)}/dia — ${ritmoDelta > 0 ? `${Math.round(ritmoDelta * 100)}% acima` : `${Math.round(-ritmoDelta * 100)}% abaixo`} do ritmo atual.`
+              : `<b>Não bate no ritmo atual.</b> Falta ${ForecastRealizadoEngine.formatMoney(restante)} pra meta e só ${daysRemaining} dia(s) restantes. Precisaria de ${ForecastRealizadoEngine.formatMoney(ritmoNecessario)}/dia — ${Math.round(ritmoDelta * 100)}% acima do ritmo atual de ${ForecastRealizadoEngine.formatMoney(ritmoAtual)}/dia.`
+          }
+        </p>
+      </div>
+    </div>`;
+  },
+
+  // V39.2.0 — Mini bloco Forecast × Realizado no card de produto da lista.
+  // Mostra Meta · Realizado · Projeção em régua compacta com semáforo.
+  // Pra modos crm/hybrid mostra placeholder; pra blocked nada (já tem aviso âmbar).
+  _forecastRealizadoMini(product) {
+    if (!window.ForecastRealizadoEngine) return '';
+    const f = ForecastRealizadoEngine.forProduct(product.id);
+    if (!f) return '';
+    if (f.status === 'blocked') return '';
+    if (f.status === 'loading') {
+      return `<div class="mt-3 rounded-2xl bg-slate-50 border border-slate-200 border-l-4 border-l-slate-300 px-3 py-2 flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin shrink-0"></div>
+        <p class="text-[11px] text-slate-600">Carregando Forecast × Realizado…</p>
+      </div>`;
+    }
+    if (f.status === 'pending') {
+      const label = f.salesChannel === 'crm' ? 'CRM' : 'Híbrido';
+      return `<div class="mt-3 rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-500 px-3 py-2">
+        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">Forecast × Realizado · ${label}</p>
+        <p class="text-[10px] text-violet-900 mt-0.5 leading-tight">Em breve (V39.3): leitura do Fechamento mensal declarado + cruzamento com RD.</p>
+      </div>`;
+    }
+    if (f.status === 'error') return '';
+    if (f.meta <= 0) {
+      return `<div class="mt-3 rounded-2xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500 px-3 py-2">
+        <p class="text-[10px] font-black text-amber-800 uppercase tracking-widest">Forecast × Realizado</p>
+        <p class="text-[10px] text-amber-900 mt-0.5 leading-tight">Defina a meta de vendas nas ofertas do produto pra ver projeção.</p>
+      </div>`;
+    }
+    const semColor = { green: 'emerald', amber: 'amber', red: 'rose', gray: 'slate' }[f.semaforo] || 'slate';
+    return `<div class="mt-3 rounded-2xl bg-${semColor}-50 border border-${semColor}-200 border-l-4 border-l-${semColor}-500 px-3 py-2.5">
+      <div class="flex items-center justify-between gap-2 mb-1.5">
+        <p class="text-[10px] font-black text-${semColor}-800 uppercase tracking-widest">Forecast × Realizado · ${f.yyyymm || ''}</p>
+        <span class="text-[10px] font-black text-${semColor}-800">${ForecastRealizadoEngine.formatPct(f.variance)}</span>
+      </div>
+      <div class="grid grid-cols-3 gap-1 text-center">
+        <div>
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Meta</p>
+          <p class="font-black text-xs text-slate-900 mt-0.5">${ForecastRealizadoEngine.formatMoney(f.meta)}</p>
+        </div>
+        <div>
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Realizado</p>
+          <p class="font-black text-xs text-slate-900 mt-0.5">${ForecastRealizadoEngine.formatMoney(f.realized)}</p>
+        </div>
+        <div>
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Projeção</p>
+          <p class="font-black text-xs text-${semColor}-700 mt-0.5">${ForecastRealizadoEngine.formatMoney(f.projected)}</p>
+        </div>
+      </div>
+      <div class="mt-2 h-1.5 rounded-full bg-white/80 overflow-hidden">
+        <div class="h-full bg-${semColor}-500" style="width:${f.progressPct}%"></div>
+      </div>
+      <p class="text-[9px] text-slate-500 mt-1 text-center">${f.daysPassed}/${f.daysInMonth} dias · ${f.approvedCount || 0} venda(s)</p>
+    </div>`;
   },
 
   // V33.0.0 — Nível 1: Produto Overview (funil consolidado + lista campanhas).
@@ -173,6 +321,8 @@ var ResultModule = {
             <p class="text-sm text-slate-500">Funil consolidado de todas as campanhas + ações deste produto.</p>
           </div>
         </div>
+
+        ${this._forecastRealizadoBlock(product)}
 
         ${(product.audience && product.audience.configured && !product.audience.salesChannel) ? `<div class="mb-5 rounded-3xl bg-amber-50 border-2 border-amber-300 border-l-8 border-l-amber-500 p-5 flex items-start gap-4">
           <div class="w-12 h-12 rounded-2xl bg-amber-100 grid place-items-center shrink-0">

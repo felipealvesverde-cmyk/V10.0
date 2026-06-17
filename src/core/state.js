@@ -704,6 +704,10 @@ var State = {
       // configurado mas falta `salesChannel`. open=true bloqueia modal até o
       // cliente preencher TODOS. Snooze persiste só dentro da sessão.
       salesChannelPrompt: { open: false, currentProductId: null, choice: null },
+      // V39.2.0 — Cache do /api/forecast-realized-summary (vendas Hotmart
+      // aprovadas do mês corrente agregadas por product_id_lj). Hidratado no
+      // boot e reciclado a cada 5 min ou após gravação de venda nova.
+      forecastRealizedCache: null,
       // V38.1.53 — campanha selecionada no card "Construir Fluxo de Ações" da aba Plugins.
       pluginsFlowBuilderCampaignId: null,
       // V38.1.63 — Draft pra criação de execução na tela Execuções.
@@ -1463,6 +1467,9 @@ var State = {
       // V39.1.0 — Modal de force-prompt pra salesChannel não persiste entre boots:
       // sempre começa fechado e o init() do main.js decide se reabre.
       salesChannelPrompt: { open: false, currentProductId: null, choice: null },
+      // V39.2.0 — Cache do Forecast × Realizado. Não persiste (sempre rehidrata
+      // do endpoint no boot ou no refresh manual). loading=true bloqueia UI.
+      forecastRealizedCache: null,
       // V38.1.53 — persiste última campanha escolhida no card Plugins → Construir Fluxo.
       pluginsFlowBuilderCampaignId: raw.pluginsFlowBuilderCampaignId != null ? Number(raw.pluginsFlowBuilderCampaignId) : null,
       // V38.1.63 — Execution draft (actionId + title) normalizado.
