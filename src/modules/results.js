@@ -56,6 +56,7 @@ var ResultModule = {
     const products = (App.state.products || []).filter(p => p.archived !== true);
     return `<div class="space-y-3">
       ${this._modeToggle()}
+      ${window.FlowBreadcrumb ? FlowBreadcrumb.render('results') : ''}
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
         <h2 class="text-xl font-black mb-1">Resultados</h2>
         <p class="text-sm text-slate-500 mb-5">Escolha um produto pra ver o funil consolidado, performance das campanhas e atribuição de receita.</p>
@@ -114,6 +115,7 @@ var ResultModule = {
 
     return `<div class="space-y-4">
       ${this._modeToggle()}
+      ${window.FlowBreadcrumb ? FlowBreadcrumb.render('results') : ''}
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
         <button onclick="Actions.backToResultsProductList()" class="mb-4 px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar para produtos</button>
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5">
@@ -208,6 +210,7 @@ var ResultModule = {
     const activeCampaigns = App.state.campaigns.filter(campaign => campaign.status !== 'Encerrada');
     const actionsByCampaign = this._actionsByCampaign();
     return `<div class="space-y-4">
+      ${window.FlowBreadcrumb ? FlowBreadcrumb.render('results') : ''}
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
         <h2 class="text-xl font-black mb-1">Resultado da campanha</h2>
         <p class="text-sm text-slate-500 mb-5">Escolha uma campanha ativa para ver o resultado consolidado e navegar pelas ações plugadas.</p>
@@ -230,6 +233,7 @@ var ResultModule = {
     const actions = App.state.actions.filter(action => Number(action.campaignId) === Number(campaign.id));
     const summary = this._summaryFromActions(actions);
     return `<div class="space-y-4">
+      ${window.FlowBreadcrumb ? FlowBreadcrumb.render('results') : ''}
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
         <button onclick="Actions.backToResultsCampaignList()" class="mb-4 px-4 py-2 rounded-2xl bg-slate-100 font-black text-sm">← Voltar ${App.state.resultsClassicMode ? 'para campanhas' : 'para o produto'}</button>
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-5"><div><p class="text-xs font-black text-slate-500">Resultado consolidado da campanha</p><h2 class="text-2xl font-black">${Utils.escape(campaign.name)}</h2><p class="text-sm text-slate-500">Compilando todos os resultados das ações plugadas à campanha antes da leitura individual.</p></div><button onclick="Actions.openCampaignFlowModal(${campaign.id})" class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-black text-sm">Ver Fluxo da Campanha</button></div>

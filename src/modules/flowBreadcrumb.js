@@ -1,84 +1,100 @@
-// V38.1.63 — FlowBreadcrumb (Leonardo)
+// V38.1.65 — FlowBreadcrumb chevron 3D industrial (Leonardo, ato III)
 //
-// Componente compartilhado: o "menu de fluxo" que aparece entre o header
-// escuro e os 2 blocos brancos das telas Produtos / Campanhas / Ações /
-// Execuções.
+// 5 estações em chevron horizontal — cada uma é um retângulo com ponta
+// triangular à direita e entrada chevron à esquerda. Encaixadas com
+// margin negativo. Cada chevron tem gradiente vertical 3D (highlight no
+// topo, base mais escura, reflexo inferior) — visual de dashboard
+// industrial / SCADA / Process Flow.
 //
-// Visão Leonardo:
-//   O fluxo Produto → Campanha → Ação → Execução é uma narrativa de zoom-in.
-//   Cada degrau é um nível de concretude maior, e o usuário precisa SENTIR
-//   essa hierarquia ANTES de ler. Por isso a cromática viaja do abstrato
-//   pro concreto:
-//     Produto    → violet   (estratégia / governança / topo do mapa)
-//     Campanha   → sky      (orquestração / céu aberto)
-//     Ação       → amber    (operação / terra / chão)
-//     Execução   → emerald  (vida / gesto / feito)
+// Estações inativas: cinza-prateado (gradiente neutro com brilho cromado).
+// Estação atual: cor temática cheia 3D na mesma estética cromada.
 //
-// Estados visuais por pill:
-//   ATIVO (estágio atual): bg cheio da cor, border-2 da cor-300, sombra
-//     suave, texto branco. É o "trono" — sem onclick, cursor-default.
-//   CONTEXTO (estágios anteriores): bg-{cor}-50, border-{cor}-200,
-//     texto-{cor}-700, ícone-{cor}-600. Clicável.
-//   FUTURO (estágios não destravados): bg-slate-50, border-slate-200,
-//     texto-slate-400. Clicável também — Felipe gosta de liberdade
-//     de navegação. Quem clica em Execução sem contexto vai pra tela
-//     em modo "sem ação selecionada" e a tela mostra estado vazio.
-//
-// Entre cada pill, um chevron-right cinza que escurece quando o segmento
-// anterior já foi percorrido — Gestalt de continuidade.
-//
-// Uso:
-//   ${FlowBreadcrumb.render('actions')}      // pill ativa = Ações
-//   ${FlowBreadcrumb.render('executions')}   // pill ativa = Execuções
+// Cromática narrativa (5 estágios):
+//   1. Produtos    — violet   (estratégia)
+//   2. Campanhas   — sky      (orquestração)
+//   3. Ações       — amber    (operação)
+//   4. Execuções   — emerald  (gesto / vida)
+//   5. Resultados  — rose     (consequência / leitura final)
 
 window.FlowBreadcrumb = {
   STAGES: [
-    { id: 'products',   label: 'Produtos',   icon: 'package',     tone: 'violet'  },
-    { id: 'campaigns',  label: 'Campanhas',  icon: 'megaphone',   tone: 'sky'     },
-    { id: 'actions',    label: 'Ações',      icon: 'plug',        tone: 'amber'   },
-    { id: 'executions', label: 'Execuções',  icon: 'play-circle', tone: 'emerald' }
+    { id: 'products',   label: 'Produtos',   color: { light: '#c4b5fd', mid: '#8b5cf6', dark: '#6d28d9' } }, // violet-300/500/700
+    { id: 'campaigns',  label: 'Campanhas',  color: { light: '#7dd3fc', mid: '#0ea5e9', dark: '#0369a1' } }, // sky-300/500/700
+    { id: 'actions',    label: 'Ações',      color: { light: '#fcd34d', mid: '#f59e0b', dark: '#b45309' } }, // amber-300/500/700
+    { id: 'executions', label: 'Execuções',  color: { light: '#6ee7b7', mid: '#10b981', dark: '#047857' } }, // emerald-300/500/700
+    { id: 'results',    label: 'Resultados', color: { light: '#fda4af', mid: '#f43f5e', dark: '#be123c' } }  // rose-300/500/700
   ],
+
+  GREY: { light: '#e5e7eb', mid: '#9ca3af', dark: '#4b5563' }, // gray-200/400/600
 
   render(activeStage) {
     const stages = this.STAGES;
     const activeIndex = stages.findIndex(s => s.id === activeStage);
-    const pills = stages.map((stage, i) => {
-      const isActive = i === activeIndex;
-      const isPast = activeIndex >= 0 && i < activeIndex;
-      const isFuture = activeIndex >= 0 && i > activeIndex;
-      return this._pill(stage, { isActive, isPast, isFuture, index: i, total: stages.length, prevToneIfPast: i > 0 ? stages[i - 1].tone : null });
-    });
-    return `<nav aria-label="Fluxo do Revenue OS" class="flex items-center justify-center flex-wrap gap-1.5 sm:gap-2 py-3 px-2 rounded-2xl bg-white/50 backdrop-blur-sm border border-slate-200/70 shadow-[0_1px_0_rgba(15,23,42,0.02)]">
-      ${pills.join(this._chevron())}
+    const items = stages.map((stage, i) => this._chevron(stage, i === activeIndex, i === 0, i));
+    return `<nav aria-label="Fluxo do Revenue OS" class="flex items-stretch flex-wrap py-2 overflow-x-auto">
+      ${items.join('')}
     </nav>`;
   },
 
-  _pill(stage, { isActive, isPast, isFuture }) {
-    const { id, label, icon, tone } = stage;
-    if (isActive) {
-      // Trono: bg cheio da cor + sombra colorida + ring sutil.
-      return `<span aria-current="page" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-${tone}-500 border-2 border-${tone}-300 text-white text-[11px] font-black uppercase tracking-widest shadow-md shadow-${tone}-500/30 cursor-default" style="color:#fff!important;">
-        <i data-lucide="${icon}" class="w-3.5 h-3.5"></i>
-        <span>${label}</span>
-      </span>`;
-    }
-    if (isPast) {
-      // Contexto percorrido: bg-cor-50, texto-cor-700.
-      return `<button onclick="App.setTab('${id}')" aria-label="Voltar para ${label}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-${tone}-50 border border-${tone}-200 text-${tone}-700 text-[11px] font-black uppercase tracking-widest hover:bg-${tone}-100 hover:border-${tone}-300 transition cursor-pointer">
-        <i data-lucide="${icon}" class="w-3 h-3 text-${tone}-600"></i>
-        <span>${label}</span>
-      </button>`;
-    }
-    // Futuro: neutro. Clicável mas sem destaque.
-    return `<button onclick="App.setTab('${id}')" aria-label="Ir para ${label}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 text-[11px] font-black uppercase tracking-widest hover:bg-slate-100 hover:text-slate-600 hover:border-slate-300 transition cursor-pointer">
-      <i data-lucide="${icon}" class="w-3 h-3"></i>
-      <span>${label}</span>
-    </button>`;
-  },
+  _chevron(stage, isActive, isFirst, index) {
+    const c = isActive ? stage.color : this.GREY;
+    const textColor = isActive ? '#ffffff' : '#1f2937'; // gray-800
+    const textShadow = isActive
+      ? '0 1px 2px rgba(0,0,0,0.35)'
+      : '0 1px 0 rgba(255,255,255,0.7)';
 
-  _chevron() {
-    // Chevron neutro entre pills. Cor sutil pra deixar o ritmo claro
-    // sem competir com as pills.
-    return `<i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>`;
+    // clip-path: chevron com entrada triangular à esquerda (exceto 1ª) e
+    // ponta triangular à direita. Profundidade da ponta = 18px.
+    const ARROW = 18;
+    const clipPath = isFirst
+      ? `polygon(0% 0%, calc(100% - ${ARROW}px) 0%, 100% 50%, calc(100% - ${ARROW}px) 100%, 0% 100%)`
+      : `polygon(0% 0%, calc(100% - ${ARROW}px) 0%, 100% 50%, calc(100% - ${ARROW}px) 100%, 0% 100%, ${ARROW}px 50%)`;
+
+    // Gradiente vertical 3D — highlight no topo, base mais escura,
+    // reflexo sutil na base (efeito vidro/metal polido).
+    const bg = `linear-gradient(180deg,
+      ${c.light} 0%,
+      ${c.mid} 40%,
+      ${c.dark} 78%,
+      ${c.mid} 100%)`;
+
+    const onclick = !isActive ? `onclick="App.setTab('${stage.id}')"` : 'aria-current="page"';
+    const cursor = isActive ? 'default' : 'pointer';
+
+    // Encaixe: cada chevron (exceto o 1º) avança -12px sobre o anterior,
+    // pra ponta direita do anterior ficar dentro do "buraco" do próximo.
+    const marginLeft = isFirst ? '0' : '-12px';
+
+    // Padding: extra à direita pra texto não invadir a ponta; extra à
+    // esquerda (exceto 1º) pra texto não invadir a entrada chevron.
+    const padLeft = isFirst ? '20px' : '32px';
+    const padRight = '32px';
+
+    const hover = !isActive
+      ? `onmouseover="this.style.filter='brightness(1.08)'" onmouseout="this.style.filter=''"`
+      : '';
+
+    return `<div ${onclick} ${hover} style="
+      clip-path: ${clipPath};
+      -webkit-clip-path: ${clipPath};
+      background: ${bg};
+      color: ${textColor};
+      text-shadow: ${textShadow};
+      cursor: ${cursor};
+      margin-left: ${marginLeft};
+      padding: 10px ${padRight} 10px ${padLeft};
+      min-width: 132px;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: filter 0.15s;
+      user-select: none;
+      white-space: nowrap;
+      ${isActive ? '' : 'filter: saturate(0.95);'}
+    ">${stage.label}</div>`;
   }
 };

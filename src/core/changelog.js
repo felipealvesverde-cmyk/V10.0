@@ -18,6 +18,25 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.65',
+    date: '2026-06-17',
+    title: 'Menu de Fluxo vira chevron 3D industrial com 5 etapas (Produtos → Resultados)',
+    bullets: [
+      'O Menu de Fluxo foi refeito do zero como uma esteira de chevrons 3D industriais (estilo "process arrow" de dashboard SCADA/RevOps). Cada etapa é uma seta com ponta triangular à direita, entrada chevron à esquerda, gradiente vertical pra dar relevo (highlight no topo, base mais escura, reflexo inferior) e encaixe horizontal com a vizinha. Inativas em cinza-prateado cromado; ativa na cor temática da etapa.',
+      'Subiu pra 5 etapas: Produtos (violet) · Campanhas (sky) · Ações (amber) · Execuções (emerald) · Resultados (rose). Cada etapa fecha um capítulo do ciclo do Revenue OS — Resultados entra como leitura final.',
+      'O fluxo agora aparece em 5 telas (não 2): Produtos, Campanhas, Ações, Execuções e Resultados. Funciona como navegação alternativa ao menu lateral — clica numa seta e vai pra tela correspondente.'
+    ]
+  },
+  {
+    version: 'V38.1.64',
+    date: '2026-06-17',
+    title: 'Menu de Fluxo refeito — sem container, sutileza absoluta',
+    bullets: [
+      'O Menu de Fluxo introduzido na V38.1.63 tinha um container cinza translúcido com border e sombra que ficou pesado sobre o header escuro. Refeito: sem fundo, sem border, sem sombra no container. O fluxo respira no espaço entre header e blocos.',
+      'Só a pílula do degrau ATIVO carrega cor cheia agora (ancora visual única). Estágios anteriores aparecem como texto+ícone discreto na cor temática, sem pill. Estágios futuros aparecem em cinza claro. Separador entre eles virou um ponto sutil (·) ao invés de chevron.'
+    ]
+  },
+  {
     version: 'V38.1.63',
     date: '2026-06-17',
     title: 'Execuções viram tela própria + Menu de Fluxo Produto→Campanha→Ação→Execução',
