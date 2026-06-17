@@ -160,7 +160,13 @@ var State = {
       showActionEditModal: false,
       actionEditDraft: null,
       showFlowBuilderModal: false,
-      flowBuilderCampaignId: null,
+      // V39.8.0 — Flow Builder whitelabel: nós e arestas próprios (não vinculam mais a actions/campaigns/products).
+      flowBuilderNodes: [],
+      flowBuilderEdges: [],
+      flowBuilderDisconnectEdgeId: null,
+      flowBuilderEditNodeId: null,
+      flowBuilderEditNodeDraft: '',
+      flowBuilderClearConfirm: false,
       // V37.0.8 — showLpModal/lpDraft/lpEvents/lpRegistry/lpLastPolledAt REMOVIDOS
       // (fluxo LP modal vestigial pré-Tracking V33, sem consumidor moderno).
       showCampaignFlowModal: false,
@@ -591,10 +597,9 @@ var State = {
       actionsListFilter: 'all',
       actionCreateTab: 'manual',
       actionAiDraft: { prompt: '', count: 3 },
-      flowBuilderStartFilter: 'all',
+      // V39.8.0 — Flow Builder transient: zoom, conexão armada e flag de ajuda.
       flowBuilderZoom: 1.0,
       flowBuilderConnectionArm: null,
-      flowDisconnectConfirm: null,
       flowBuilderShowHelp: false,
       showRevopsSimulationModal: false,
       revopsSimulationDraft: null,
@@ -720,8 +725,6 @@ var State = {
       // V39.6.0 — Descrições "Saber mais" expandidas por bloco/produto na aba
       // RevOps & Velocidade. Shape: { [productId-blockKey]: true }. Não persiste.
       revopsVelocityDescOpen: {},
-      // V38.1.53 — campanha selecionada no card "Construir Fluxo de Ações" da aba Plugins.
-      pluginsFlowBuilderCampaignId: null,
       // V38.1.63 — Draft pra criação de execução na tela Execuções.
       executionDraft: { actionId: null, title: '' },
       // V38.1.68 — Filtros da lista de execuções (independente do form de criação
@@ -1006,7 +1009,27 @@ var State = {
       showActionEditModal: false,
       actionEditDraft: null,
       showFlowBuilderModal: false,
-      flowBuilderCampaignId: null,
+      // V39.8.0 — Flow Builder whitelabel: arrays persistidos (nós + arestas) + flags transient de modal/edição.
+      flowBuilderNodes: Array.isArray(raw.flowBuilderNodes)
+        ? raw.flowBuilderNodes
+            .filter(n => n && typeof n === 'object' && n.id && n.type)
+            .map(n => ({
+              id: String(n.id),
+              type: String(n.type),
+              name: String(n.name || ''),
+              x: Number(n.x) || 0,
+              y: Number(n.y) || 0
+            }))
+        : [],
+      flowBuilderEdges: Array.isArray(raw.flowBuilderEdges)
+        ? raw.flowBuilderEdges
+            .filter(e => e && typeof e === 'object' && e.id && e.fromId && e.toId)
+            .map(e => ({ id: String(e.id), fromId: String(e.fromId), toId: String(e.toId) }))
+        : [],
+      flowBuilderDisconnectEdgeId: null,
+      flowBuilderEditNodeId: null,
+      flowBuilderEditNodeDraft: '',
+      flowBuilderClearConfirm: false,
       // V37.0.8 — campos LP modal removidos
       showCampaignFlowModal: Boolean(raw.showCampaignFlowModal),
       campaignFlowModalId: raw.campaignFlowModalId || null,
@@ -1352,10 +1375,9 @@ var State = {
       actionsListFilter: 'all',
       actionCreateTab: raw.actionCreateTab === 'ai' ? 'ai' : 'manual',
       actionAiDraft: { prompt: raw.actionAiDraft?.prompt || '', count: Number(raw.actionAiDraft?.count || 3) },
-      flowBuilderStartFilter: 'all',
+      // V39.8.0 — Flow Builder transient (initial defaults a cada normalize).
       flowBuilderZoom: 1.0,
       flowBuilderConnectionArm: null,
-      flowDisconnectConfirm: null,
       flowBuilderShowHelp: false,
       showRevopsSimulationModal: false,
       revopsSimulationDraft: null,
@@ -1487,8 +1509,6 @@ var State = {
       revopsVelocityExpandedProductId: raw.revopsVelocityExpandedProductId != null ? Number(raw.revopsVelocityExpandedProductId) : null,
       // V39.4.0 — Cache de Eficiência de Capital. Não persiste.
       efficiencyCache: null,
-      // V38.1.53 — persiste última campanha escolhida no card Plugins → Construir Fluxo.
-      pluginsFlowBuilderCampaignId: raw.pluginsFlowBuilderCampaignId != null ? Number(raw.pluginsFlowBuilderCampaignId) : null,
       // V38.1.63 — Execution draft (actionId + title) normalizado.
       executionDraft: (raw.executionDraft && typeof raw.executionDraft === 'object')
         ? { actionId: raw.executionDraft.actionId != null ? Number(raw.executionDraft.actionId) : null, title: String(raw.executionDraft.title || '') }
@@ -1807,7 +1827,10 @@ var State = {
         'showSettingsModal','databaseTesting','showDatabaseTutorial',
         // V32.4.0 — flags V11 railway/database removidas.
         // V32.4.1 — flags V16.3 DjowModal removidas (showDjowModal, djowModalActionId, etc).
-        'showActionEditModal','actionEditDraft','showFlowBuilderModal','flowBuilderCampaignId',
+        'showActionEditModal','actionEditDraft','showFlowBuilderModal',
+        // V39.8.0 — Flow Builder transient (modal/edit/disconnect/clear); legacy silenciado pra users com state antigo.
+        'flowBuilderDisconnectEdgeId','flowBuilderEditNodeId','flowBuilderEditNodeDraft','flowBuilderClearConfirm',
+        'flowBuilderCampaignId','pluginsFlowBuilderCampaignId',
         'djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',
@@ -1815,7 +1838,9 @@ var State = {
         'showLeadDetailModal','leadDetailContext','profileCampaignContext','profileIcpContext',
         'showPostScoreSearchPrompt','postScoreSearchCampaignId','rdSyncRunning',
         'showRevenueScoreCreator','revenueScoreCreatorCtx','showRevenueScoreDashboard','revenueScoreDashboardCampaignId',
-        'actionsListFilter','flowBuilderStartFilter','flowBuilderZoom','flowBuilderConnectionArm','flowDisconnectConfirm','flowBuilderShowHelp',
+        'actionsListFilter','flowBuilderZoom','flowBuilderConnectionArm','flowBuilderShowHelp',
+        // V39.8.0 — legacy silenciado: flowBuilderStartFilter e flowDisconnectConfirm não existem mais.
+        'flowBuilderStartFilter','flowDisconnectConfirm',
         'showRevopsSimulationModal','revopsSimulationDraft','revopsSimulationLoadedScenarioId',
         'showRevopsScenariosModal','showRevopsScenarioNameModal','showRevopsOkrModal','revopsOkrDraft',
         'showRevopsFixedCostsModal','revopsFixedCostsCategory','showRevopsAcquisitionModal',

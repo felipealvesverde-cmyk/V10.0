@@ -1,44 +1,67 @@
-// V15.1 — Action Flow Builder (v2)
-// Canvas SVG com drag-and-drop puro + estados de conexão por card +
-// modal de confirmação para desconectar + zoom in/out + filtro por etapa
-// inicial + ajuda contextual. Sem libs externas.
+// V39.8.0 — Flow Builder (whitelabel)
+// Reset conceitual: o builder se desvinculou completamente de produto,
+// campanha e ação. Não consome mais App.state.actions, FlowEngine ou
+// FlowConnectionEngine. State próprio (`flowBuilderNodes`/`flowBuilderEdges`),
+// catálogo de tipos embutido, blocos criados do zero no canvas.
+// Bugs V15.1 1-15 corrigidos por consequência da re-arquitetura.
 window.ActionFlowBuilder = {
-  _state: { campaignId: null, container: null, dragNode: null, pendingConnection: null },
+  NODE_WIDTH: 200,
+  NODE_HEIGHT: 110,
 
-  render(campaignId) {
+  NODE_TYPES: [
+    { id: 'channel',  label: 'Canal',    icon: 'radio',           color: '#8b5cf6' },
+    { id: 'lp',       label: 'LP',       icon: 'layout',          color: '#a78bfa' },
+    { id: 'email',    label: 'Email',    icon: 'mail',            color: '#0ea5e9' },
+    { id: 'webinar',  label: 'Webinar',  icon: 'video',           color: '#38bdf8' },
+    { id: 'sdr',      label: 'SDR',      icon: 'phone-call',      color: '#f59e0b' },
+    { id: 'whatsapp', label: 'WhatsApp', icon: 'message-circle',  color: '#10b981' },
+    { id: 'checkout', label: 'Checkout', icon: 'shopping-cart',   color: '#ec4899' },
+    { id: 'crm',      label: 'CRM',      icon: 'workflow',        color: '#6366f1' },
+    { id: 'cs',       label: 'CS',       icon: 'heart-handshake', color: '#14b8a6' },
+    { id: 'custom',   label: 'Custom',   icon: 'square',          color: '#64748b' }
+  ],
+
+  _internal: { container: null, dragNode: null, pendingConnection: null },
+
+  typeById(id) { return this.NODE_TYPES.find(t => t.id === id) || this.NODE_TYPES[this.NODE_TYPES.length - 1]; },
+
+  genId() { return `n_${Date.now()}_${Math.floor(Math.random() * 100000)}`; },
+
+  render() {
     if (!App.state.showFlowBuilderModal) return '';
-    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
-    if (!campaign) return '';
-    const actions = (App.state.actions || []).filter(a => Number(a.campaignId) === Number(campaignId));
-    this._state.campaignId = Number(campaignId);
     const zoom = Number(App.state.flowBuilderZoom || 1.0);
     return `<div class="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center">
       <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:90vw;max-width:none;background: radial-gradient(circle at 18% 10%, rgba(99,102,241,.22), transparent 30%), #071326;">
-        ${this._header(campaign, zoom)}
+        ${this._header()}
         ${App.state.flowBuilderShowHelp ? this._helpPanel() : ''}
-        <div class="p-6 grid grid-cols-[minmax(0,1fr)_340px] gap-5">
+        <div class="p-6 grid grid-cols-[minmax(0,1fr)_280px] gap-5">
           <div class="relative min-w-0">
             ${this._zoomControls(zoom)}
-            <div id="flowBuilderCanvas" ondragover="ActionFlowBuilder._handleCanvasDragOver(event)" ondrop="ActionFlowBuilder._handleCanvasDrop(event)" class="relative rounded-3xl border border-white/10 bg-white/[0.04] min-h-[70vh] max-h-[78vh] overflow-auto min-w-0">
-              ${this._emptyCanvasHint(actions)}
+            <div id="flowBuilderCanvas" class="relative rounded-3xl border border-white/10 bg-white/[0.04] min-h-[70vh] max-h-[78vh] overflow-auto min-w-0">
+              ${this._emptyCanvasHint()}
             </div>
           </div>
-          ${this._sidebar(actions)}
+          ${this._palette()}
         </div>
-        ${this._disconnectModal(actions)}
+        ${this._disconnectModal()}
+        ${this._editNodeModal()}
+        ${this._clearConfirmModal()}
       </div>
     </div>`;
   },
 
-  _header(campaign, zoom) {
+  _header() {
+    const nodeCount = (App.state.flowBuilderNodes || []).length;
+    const edgeCount = (App.state.flowBuilderEdges || []).length;
     return `<header class="p-6 border-b border-white/10 flex items-start justify-between gap-4">
       <div>
-        <div class="flex items-center gap-2 mb-2"><i data-lucide="git-merge" class="w-4 h-4 text-indigo-300"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Revenue Flow Builder</p></div>
-        <h2 class="text-2xl font-black">Fluxo da campanha: ${Utils.escape(campaign.name)}</h2>
-        <p class="text-sm text-slate-300 mt-1">Ligue o botão <b>Conexão</b> num card para travar e puxar uma linha verde até a porta de outra ação.</p>
+        <div class="flex items-center gap-2 mb-2"><i data-lucide="git-merge" class="w-4 h-4 text-indigo-300"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Flow Builder · Whitelabel</p></div>
+        <h2 class="text-2xl font-black">Desenhe um fluxo do zero</h2>
+        <p class="text-sm text-slate-300 mt-1">${nodeCount} ${nodeCount === 1 ? 'bloco' : 'blocos'} · ${edgeCount} ${edgeCount === 1 ? 'conexão' : 'conexões'} · sem vínculo com produto, campanha ou ação.</p>
       </div>
       <div class="flex items-center gap-2">
         <button onclick="Actions.toggleFlowBuilderHelp()" title="Como funciona" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-black flex items-center gap-1"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i> Ajuda</button>
+        <button onclick="Actions.requestFlowBuilderClear()" title="Apagar tudo" class="px-3 py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-200 text-xs font-black flex items-center gap-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Limpar</button>
         <button onclick="Actions.closeFlowBuilder()" class="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-sm font-semibold flex items-center gap-2"><i data-lucide="x" class="w-4 h-4"></i> Fechar</button>
       </div>
     </header>`;
@@ -48,28 +71,25 @@ window.ActionFlowBuilder = {
     return `<div class="mx-6 mt-4 rounded-2xl bg-indigo-500/15 border border-indigo-400/30 p-4 text-sm text-indigo-100">
       <div class="flex items-start justify-between gap-3 mb-2"><p class="font-black">Como funciona o Flow Builder</p><button onclick="Actions.toggleFlowBuilderHelp()" class="text-indigo-200 text-xs font-black">×</button></div>
       <ul class="space-y-1 text-xs">
-        <li>• <b>Adicionar ao fluxo:</b> clique em "Ativar" no card direito. A ação aparece no canvas.</li>
-        <li>• <b>Remover do fluxo:</b> clique em "Desativar" no card. A ação some do canvas.</li>
-        <li>• <b>Conectar:</b> clique no botão <b>Conexão</b> do card de origem (fica azul) → o card no canvas trava e a porta verde fica maior → arraste uma linha até a porta de outra ação.</li>
-        <li>• <b>Estados do botão Conexão:</b> cinza (desligado) · azul (armado) · amarelo (conectando) · verde (conectado).</li>
-        <li>• <b>Desconectar:</b> clique numa linha. Um modal pergunta se você confirma a remoção.</li>
-        <li>• <b>Zoom:</b> botões + e − no topo do canvas (10% por clique). 0 reseta.</li>
-        <li>• <b>Mover card:</b> arraste pelo corpo do card (não pelas portas).</li>
+        <li>• <b>Adicionar bloco:</b> clique num tipo no painel à direita. O bloco aparece no canvas.</li>
+        <li>• <b>Mover bloco:</b> arraste pelo corpo do bloco.</li>
+        <li>• <b>Renomear:</b> duplo clique no bloco abre modal de edição.</li>
+        <li>• <b>Remover bloco:</b> botão lixeira no bloco. Remove o bloco e todas as conexões dele.</li>
+        <li>• <b>Conectar:</b> clique em <b>Conexão</b> no bloco de origem (fica azul, porta cresce) → arraste da porta de saída até a porta de entrada de outro bloco.</li>
+        <li>• <b>Desconectar:</b> clique numa linha de conexão. Modal pergunta confirmação.</li>
+        <li>• <b>Zoom:</b> botões + e − no topo. Botão central reseta para 100%.</li>
+        <li>• <b>Limpar tudo:</b> botão <b>Limpar</b> no header zera blocos e conexões.</li>
       </ul>
     </div>`;
   },
 
-  _emptyCanvasHint(actions) {
-    const enabled = (actions || []).filter(a => a.flow?.enabled);
-    if (enabled.length) return '';
-    const total = (actions || []).length;
-    const msg = total === 0
-      ? 'Esta campanha ainda não tem ações. Crie uma ação na aba "Ações" e volte aqui.'
-      : 'Nenhuma ação está no fluxo ainda. Clique em <b>Ativar</b> num card do painel à direita para trazê-lo ao canvas.';
+  _emptyCanvasHint() {
+    const nodes = App.state.flowBuilderNodes || [];
+    if (nodes.length) return '';
     return `<div class="absolute inset-0 grid place-items-center text-center p-6 pointer-events-none">
       <div class="max-w-md">
         <i data-lucide="git-merge" class="w-8 h-8 text-indigo-300 mx-auto mb-3"></i>
-        <p class="text-sm text-slate-300">${msg}</p>
+        <p class="text-sm text-slate-300">Canvas vazio. Clique num tipo no painel à direita para adicionar o primeiro bloco.</p>
       </div>
     </div>`;
   },
@@ -77,123 +97,107 @@ window.ActionFlowBuilder = {
   _zoomControls(zoom) {
     return `<div class="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-2xl bg-slate-950/80 border border-white/10 p-1">
       <button onclick="Actions.setFlowBuilderZoom(-0.1)" title="Diminuir zoom" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 text-white font-black"><i data-lucide="minus" class="w-3.5 h-3.5 mx-auto"></i></button>
-      <button onclick="Actions.resetFlowBuilderZoom()" title="Resetar zoom" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-black">${Math.round(zoom * 100)}%</button>
+      <button onclick="Actions.resetFlowBuilderZoom()" title="Resetar zoom para 100%" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-black">${Math.round(zoom * 100)}%</button>
       <button onclick="Actions.setFlowBuilderZoom(0.1)" title="Aumentar zoom" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 text-white font-black"><i data-lucide="plus" class="w-3.5 h-3.5 mx-auto"></i></button>
     </div>`;
   },
 
-  _sidebar(actions) {
-    const startFilter = App.state.flowBuilderStartFilter || 'all';
-    const stages = window.FlowEngine ? FlowEngine.STAGE_PRESETS : [];
+  _palette() {
+    const items = this.NODE_TYPES.map(t => `
+      <button onclick="Actions.addFlowBuilderNode('${t.id}')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.10] border border-white/10 text-white text-left transition" style="border-left: 3px solid ${t.color};">
+        <span class="w-7 h-7 rounded-lg grid place-items-center" style="background:${t.color}22;color:${t.color};"><i data-lucide="${t.icon}" class="w-3.5 h-3.5"></i></span>
+        <span class="text-sm font-black flex-1">${Utils.escape(t.label)}</span>
+        <i data-lucide="plus" class="w-3.5 h-3.5 text-slate-400"></i>
+      </button>
+    `).join('');
     return `<aside class="rounded-3xl border border-white/10 bg-white/[0.055] p-4 max-h-[78vh] overflow-auto">
-      <h3 class="font-black text-sm uppercase tracking-wider text-slate-300 mb-2">Ações da campanha</h3>
-      <p class="text-xs text-slate-400 mb-3">Arraste o card para o canvas ou clique em <b>Ativar</b>.</p>
-      <select onchange="Actions.setFlowBuilderStartFilter(this.value)" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-white/20 text-white text-xs font-bold mb-3" style="color-scheme: dark;">
-        <option value="all" ${startFilter === 'all' ? 'selected' : ''} class="bg-slate-900">Todas as etapas</option>
-        ${stages.map(s => `<option value="${s.id}" ${startFilter === s.id ? 'selected' : ''} class="bg-slate-900">${Utils.escape(s.label)}</option>`).join('')}
-      </select>
-      <div class="space-y-2">${this._filteredSidebarActions(actions, startFilter)}</div>
+      <h3 class="font-black text-sm uppercase tracking-wider text-slate-300 mb-2">Adicionar bloco</h3>
+      <p class="text-xs text-slate-400 mb-3">Clique num tipo para criar um bloco novo no canvas.</p>
+      <div class="space-y-2">${items}</div>
     </aside>`;
   },
 
-  _filteredSidebarActions(actions, startFilter) {
-    let list = actions;
-    if (startFilter !== 'all') {
-      list = actions.filter(a => {
-        const stage = a.flow?.startStage || (window.FlowEngine ? FlowEngine._stageIdFromLegacy(a.originSector || a.sector, a.originFunnel || a.funnel) : null);
-        return stage === startFilter;
-      });
-    }
-    if (!list.length) return '<p class="text-xs text-slate-400">Nenhuma ação nesta etapa.</p>';
-    return list.map(a => this._sidebarItem(a)).join('');
-  },
-
-  _sidebarItem(action) {
-    const enriched = FlowEngine.ensureActionFlow(action);
-    const type = FlowEngine.actionTypeById(enriched.flow.flowActionType);
-    const start = FlowEngine.stageById(enriched.flow.startStage);
-    const end = FlowEngine.stageById(enriched.flow.endStage);
-    const enabled = enriched.flow.enabled;
-    const armed = Number(App.state.flowBuilderConnectionArm) === Number(action.id);
-    const hasConnections = (enriched.flow.nextActions || []).length > 0;
-    let connBtnClass, connBtnLabel;
-    if (!enabled) { connBtnClass = 'bg-slate-700/40 text-slate-500 border-slate-600/30 cursor-not-allowed'; connBtnLabel = '— inativo —'; }
-    else if (armed) { connBtnClass = 'bg-sky-500/30 text-sky-100 border-sky-400/50'; connBtnLabel = 'Armado: arraste a linha'; }
-    else if (hasConnections) { connBtnClass = 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30'; connBtnLabel = `Conectada (${enriched.flow.nextActions.length})`; }
-    else { connBtnClass = 'bg-white/5 text-slate-300 border-white/15 hover:bg-white/10'; connBtnLabel = 'Conexão'; }
-    return `<div draggable="${enabled ? 'false' : 'true'}" ondragstart="ActionFlowBuilder._handleSidebarDragStart(event, ${action.id})" class="rounded-2xl border ${armed ? 'border-sky-400/60' : 'border-white/10'} bg-black/30 p-3 ${enabled ? '' : 'cursor-grab active:cursor-grabbing'}" title="${enabled ? '' : 'Arraste para o canvas ou clique em Ativar'}">
-      <div class="flex items-center justify-between gap-2 mb-2">
-        <div class="flex items-center gap-2 min-w-0"><i data-lucide="${type.icon}" class="w-3.5 h-3.5 text-indigo-300 shrink-0"></i><p class="text-sm font-black text-white truncate">${Utils.escape(action.name || 'Ação')}</p></div>
-        <button draggable="false" onclick="Actions.toggleFlowEnabled(${action.id})" class="text-[10px] font-black px-2 py-1 rounded-lg ${enabled ? 'bg-emerald-500/20 text-emerald-200 border border-emerald-400/30' : 'bg-slate-700/40 text-slate-400 border border-slate-600/30'}">${enabled ? 'Ativa' : 'Ativar'}</button>
-      </div>
-      <p class="text-[11px] text-slate-400 mb-2">${Utils.escape(type.label)} • ${Utils.escape(start.label)} → ${Utils.escape(end.label)}</p>
-      <button draggable="false" onclick="${enabled ? `Actions.armFlowConnection(${action.id})` : 'Utils.toast(\"Ative a ação antes de conectar.\")'}" ${enabled ? '' : 'disabled'} class="w-full px-2 py-1.5 rounded-lg text-[11px] font-black border ${connBtnClass} flex items-center justify-center gap-1.5">
-        <span class="w-2 h-2 rounded-full ${armed ? 'bg-sky-300' : (hasConnections ? 'bg-emerald-300' : (enabled ? 'bg-slate-400' : 'bg-slate-600'))}"></span>
-        ${Utils.escape(connBtnLabel)}
-      </button>
-    </div>`;
-  },
-
-  _disconnectModal(actions) {
-    const pending = App.state.flowDisconnectConfirm;
-    if (!pending) return '';
-    const from = actions.find(a => Number(a.id) === Number(pending.fromId));
-    const to = actions.find(a => Number(a.id) === Number(pending.toId));
+  _disconnectModal() {
+    const edgeId = App.state.flowBuilderDisconnectEdgeId;
+    if (!edgeId) return '';
+    const edge = (App.state.flowBuilderEdges || []).find(e => e.id === edgeId);
+    if (!edge) return '';
+    const nodes = App.state.flowBuilderNodes || [];
+    const from = nodes.find(n => n.id === edge.fromId);
+    const to = nodes.find(n => n.id === edge.toId);
     return `<div class="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm grid place-items-center p-4">
       <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md text-white">
-        <h3 class="text-xl font-black mb-2">Desconectar ações?</h3>
-        <p class="text-sm text-slate-300 mb-4">Isso vai remover o vínculo de fluxo entre <b>${Utils.escape(from?.name || '?')}</b> e <b>${Utils.escape(to?.name || '?')}</b>. Para refazer, será preciso armar a conexão novamente.</p>
+        <h3 class="text-xl font-black mb-2">Desconectar blocos?</h3>
+        <p class="text-sm text-slate-300 mb-4">Isso remove o vínculo entre <b>${Utils.escape(from?.name || '?')}</b> e <b>${Utils.escape(to?.name || '?')}</b>. Para refazer, arme a conexão novamente.</p>
         <div class="flex justify-end gap-2">
-          <button onclick="Actions.cancelFlowDisconnect()" class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-white font-black">Cancelar</button>
-          <button onclick="Actions.confirmFlowDisconnect()" class="px-4 py-3 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-black">Confirmar desconexão</button>
+          <button onclick="Actions.cancelFlowBuilderEdgeDisconnect()" class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-white font-black">Cancelar</button>
+          <button onclick="Actions.confirmFlowBuilderEdgeDisconnect()" class="px-4 py-3 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-black">Confirmar desconexão</button>
         </div>
       </div>
     </div>`;
   },
 
-  _handleSidebarDragStart(event, actionId) {
-    if (!event?.dataTransfer) return;
-    event.dataTransfer.setData('text/plain', String(actionId));
-    event.dataTransfer.effectAllowed = 'copy';
+  _editNodeModal() {
+    const nodeId = App.state.flowBuilderEditNodeId;
+    if (!nodeId) return '';
+    const node = (App.state.flowBuilderNodes || []).find(n => n.id === nodeId);
+    if (!node) return '';
+    const draft = App.state.flowBuilderEditNodeDraft != null ? App.state.flowBuilderEditNodeDraft : node.name;
+    const type = this.typeById(node.type);
+    return `<div class="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm grid place-items-center p-4">
+      <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md text-white">
+        <h3 class="text-xl font-black mb-1">Editar bloco</h3>
+        <p class="text-xs text-slate-400 mb-4">Tipo: <span style="color:${type.color}">${Utils.escape(type.label)}</span></p>
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Nome</label>
+        <input id="flowBuilderEditNodeInput" value="${Utils.escape(draft)}" oninput="Actions.updateFlowBuilderEditNodeDraft(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();Actions.saveFlowBuilderEditNode();}else if(event.key==='Escape'){event.preventDefault();Actions.cancelFlowBuilderEditNode();}" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" placeholder="Nome do bloco..." />
+        <div class="flex justify-end gap-2 mt-5">
+          <button onclick="Actions.cancelFlowBuilderEditNode()" class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-white font-black">Cancelar</button>
+          <button onclick="Actions.saveFlowBuilderEditNode()" class="px-4 py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-black">Salvar</button>
+        </div>
+      </div>
+    </div>`;
   },
 
-  _handleCanvasDragOver(event) {
-    event.preventDefault();
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-  },
-
-  _handleCanvasDrop(event) {
-    event.preventDefault();
-    const raw = event.dataTransfer?.getData('text/plain');
-    const actionId = Number(raw);
-    if (!actionId) return;
-    const canvas = document.getElementById('flowBuilderCanvas');
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const zoom = Number(App.state.flowBuilderZoom || 1.0) || 1.0;
-    const dropX = (event.clientX - rect.left + canvas.scrollLeft) / zoom;
-    const dropY = (event.clientY - rect.top + canvas.scrollTop) / zoom;
-    const nodeW = (window.FlowRenderer?.NODE_WIDTH || 200);
-    const nodeH = (window.FlowRenderer?.NODE_HEIGHT || 110);
-    const x = Math.max(0, Math.round(dropX - nodeW / 2));
-    const y = Math.max(0, Math.round(dropY - nodeH / 2));
-    if (window.Actions?.dropActionToFlowCanvas) Actions.dropActionToFlowCanvas(actionId, x, y);
+  _clearConfirmModal() {
+    if (!App.state.flowBuilderClearConfirm) return '';
+    const n = (App.state.flowBuilderNodes || []).length;
+    const e = (App.state.flowBuilderEdges || []).length;
+    return `<div class="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm grid place-items-center p-4">
+      <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md text-white">
+        <h3 class="text-xl font-black mb-2">Apagar todo o fluxo?</h3>
+        <p class="text-sm text-slate-300 mb-4">Vão ser removidos <b>${n}</b> blocos e <b>${e}</b> conexões. Não dá pra desfazer.</p>
+        <div class="flex justify-end gap-2">
+          <button onclick="Actions.cancelFlowBuilderClear()" class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-white font-black">Cancelar</button>
+          <button onclick="Actions.confirmFlowBuilderClear()" class="px-4 py-3 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-black">Apagar tudo</button>
+        </div>
+      </div>
+    </div>`;
   },
 
   attach() {
     const root = document.getElementById('flowBuilderCanvas');
     if (!root) return;
-    this._state.container = root;
+    this._internal.container = root;
     this._drawCanvas();
+    setTimeout(() => {
+      const input = document.getElementById('flowBuilderEditNodeInput');
+      if (input) input.focus();
+    }, 0);
+  },
+
+  _inputPort(node) { return { x: node.x, y: node.y + this.NODE_HEIGHT / 2 }; },
+  _outputPort(node) { return { x: node.x + this.NODE_WIDTH, y: node.y + this.NODE_HEIGHT / 2 }; },
+
+  _edgePath(fromX, fromY, toX, toY) {
+    const dx = Math.max(60, (toX - fromX) / 2);
+    return `M ${fromX} ${fromY} C ${fromX + dx} ${fromY}, ${toX - dx} ${toY}, ${toX} ${toY}`;
   },
 
   _drawCanvas() {
-    const root = this._state.container;
+    const root = this._internal.container;
     if (!root) return;
-    const campaignId = this._state.campaignId;
-    const actions = (App.state.actions || []).filter(a => Number(a.campaignId) === Number(campaignId) && a.flow?.enabled);
-    if (!actions.length) return; // preserva o hint estático renderizado em _emptyCanvasHint
-    const enriched = actions.map(a => FlowEngine.ensureActionFlow(a));
+    const nodes = App.state.flowBuilderNodes || [];
+    if (!nodes.length) return; // preserva o empty hint estático
     const zoom = Number(App.state.flowBuilderZoom || 1.0);
     const baseWidth = 1400, baseHeight = 720;
     const width = baseWidth * zoom, height = baseHeight * zoom;
@@ -221,88 +225,76 @@ window.ActionFlowBuilder = {
     svg.appendChild(grid);
 
     const armedId = App.state.flowBuilderConnectionArm;
+    const edges = App.state.flowBuilderEdges || [];
 
     const edgesLayer = document.createElementNS(svgNS, 'g');
     edgesLayer.setAttribute('id', 'flowEdgesLayer');
     svg.appendChild(edgesLayer);
-    for (const action of enriched) {
-      for (const nextId of (action.flow.nextActions || [])) {
-        const target = enriched.find(a => Number(a.id) === Number(nextId));
-        if (!target) continue;
-        const fromPort = this._outputPort(action.flow.position);
-        const toPort = this._inputPort(target.flow.position);
-        const edgeMetrics = FlowConversionEngine.edgeMetrics(action, target);
-        const stroke = FlowRenderer.edgeStrokeForPassRate(edgeMetrics?.passRate || 0);
-        const hitArea = document.createElementNS(svgNS, 'path');
-        hitArea.setAttribute('d', FlowRenderer.edgePath(fromPort.x, fromPort.y, toPort.x, toPort.y));
-        hitArea.setAttribute('stroke', 'transparent');
-        hitArea.setAttribute('stroke-width', '14');
-        hitArea.setAttribute('fill', 'none');
-        hitArea.style.cursor = 'pointer';
-        hitArea.addEventListener('click', (event) => {
-          event.stopPropagation();
-          Actions.requestFlowDisconnect(action.id, nextId);
-        });
-        edgesLayer.appendChild(hitArea);
-        const path = document.createElementNS(svgNS, 'path');
-        path.setAttribute('d', FlowRenderer.edgePath(fromPort.x, fromPort.y, toPort.x, toPort.y));
-        path.setAttribute('stroke', stroke);
-        path.setAttribute('stroke-width', '2.5');
-        path.setAttribute('fill', 'none');
-        path.style.pointerEvents = 'none';
-        edgesLayer.appendChild(path);
-        const labelX = (fromPort.x + toPort.x) / 2;
-        const labelY = (fromPort.y + toPort.y) / 2;
-        const labelBg = document.createElementNS(svgNS, 'rect');
-        labelBg.setAttribute('x', labelX - 22); labelBg.setAttribute('y', labelY - 16);
-        labelBg.setAttribute('width', 44); labelBg.setAttribute('height', 16);
-        labelBg.setAttribute('rx', 8); labelBg.setAttribute('fill', '#0b1325');
-        labelBg.setAttribute('stroke', stroke); labelBg.setAttribute('stroke-width', '1');
-        labelBg.style.pointerEvents = 'none';
-        edgesLayer.appendChild(labelBg);
-        const label = document.createElementNS(svgNS, 'text');
-        label.setAttribute('x', labelX); label.setAttribute('y', labelY - 4);
-        label.setAttribute('fill', stroke); label.setAttribute('font-size', '10'); label.setAttribute('font-weight', '900');
-        label.setAttribute('text-anchor', 'middle'); label.textContent = `${Math.round(edgeMetrics?.passRate || 0)}%`;
-        label.style.pointerEvents = 'none';
-        edgesLayer.appendChild(label);
-      }
-    }
+    for (const edge of edges) this._renderEdge(svgNS, edgesLayer, edge, nodes);
 
     const nodesLayer = document.createElementNS(svgNS, 'g');
     nodesLayer.setAttribute('id', 'flowNodesLayer');
     svg.appendChild(nodesLayer);
-    for (const action of enriched) this._renderNode(svgNS, nodesLayer, action, armedId);
+    for (const node of nodes) this._renderNode(svgNS, nodesLayer, node, armedId, edges);
 
     root.appendChild(svg);
     this._attachSvgListeners(svg);
   },
 
-  _inputPort(position) { return { x: position.x, y: position.y + FlowRenderer.NODE_HEIGHT / 2 }; },
-  _outputPort(position) { return { x: position.x + FlowRenderer.NODE_WIDTH, y: position.y + FlowRenderer.NODE_HEIGHT / 2 }; },
+  _renderEdge(svgNS, parent, edge, nodes) {
+    const from = nodes.find(n => n.id === edge.fromId);
+    const to = nodes.find(n => n.id === edge.toId);
+    if (!from || !to) return;
+    const fromPort = this._outputPort(from);
+    const toPort = this._inputPort(to);
+    const stroke = '#a78bfa';
+    const hitArea = document.createElementNS(svgNS, 'path');
+    hitArea.setAttribute('d', this._edgePath(fromPort.x, fromPort.y, toPort.x, toPort.y));
+    hitArea.setAttribute('stroke', 'transparent');
+    hitArea.setAttribute('stroke-width', '14');
+    hitArea.setAttribute('fill', 'none');
+    hitArea.style.cursor = 'pointer';
+    hitArea.dataset.edgeId = edge.id;
+    hitArea.addEventListener('click', (event) => {
+      event.stopPropagation();
+      Actions.requestFlowBuilderEdgeDisconnect(edge.id);
+    });
+    parent.appendChild(hitArea);
+    const path = document.createElementNS(svgNS, 'path');
+    path.setAttribute('d', this._edgePath(fromPort.x, fromPort.y, toPort.x, toPort.y));
+    path.setAttribute('stroke', stroke);
+    path.setAttribute('stroke-width', '2.5');
+    path.setAttribute('fill', 'none');
+    path.style.pointerEvents = 'none';
+    parent.appendChild(path);
+  },
 
-  _renderNode(svgNS, parent, action, armedId) {
-    const pos = action.flow.position;
-    const colors = FlowRenderer.nodeColor(action);
-    const isArmed = Number(armedId) === Number(action.id);
+  _renderNode(svgNS, parent, node, armedId, edges) {
+    const type = this.typeById(node.type);
+    const isArmed = String(armedId) === String(node.id);
+    const otherArmed = armedId && !isArmed;
     const group = document.createElementNS(svgNS, 'g');
-    group.setAttribute('transform', `translate(${pos.x}, ${pos.y})`);
-    group.dataset.actionId = String(action.id);
+    group.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+    group.dataset.nodeId = String(node.id);
     group.style.cursor = isArmed ? 'not-allowed' : 'grab';
+    group.addEventListener('dblclick', (event) => {
+      event.stopPropagation();
+      if (window.Actions?.openFlowBuilderEditNode) Actions.openFlowBuilderEditNode(node.id);
+    });
 
     const rect = document.createElementNS(svgNS, 'rect');
     rect.setAttribute('x', 0); rect.setAttribute('y', 0);
-    rect.setAttribute('width', FlowRenderer.NODE_WIDTH); rect.setAttribute('height', FlowRenderer.NODE_HEIGHT);
+    rect.setAttribute('width', this.NODE_WIDTH); rect.setAttribute('height', this.NODE_HEIGHT);
     rect.setAttribute('rx', 14); rect.setAttribute('ry', 14);
     rect.setAttribute('fill', '#0b1325');
-    rect.setAttribute('stroke', isArmed ? '#38bdf8' : colors.stroke);
+    rect.setAttribute('stroke', isArmed ? '#38bdf8' : type.color);
     rect.setAttribute('stroke-width', isArmed ? 3 : 2);
     group.appendChild(rect);
 
     if (isArmed) {
       const aura = document.createElementNS(svgNS, 'rect');
       aura.setAttribute('x', -4); aura.setAttribute('y', -4);
-      aura.setAttribute('width', FlowRenderer.NODE_WIDTH + 8); aura.setAttribute('height', FlowRenderer.NODE_HEIGHT + 8);
+      aura.setAttribute('width', this.NODE_WIDTH + 8); aura.setAttribute('height', this.NODE_HEIGHT + 8);
       aura.setAttribute('rx', 18); aura.setAttribute('ry', 18);
       aura.setAttribute('fill', 'none'); aura.setAttribute('stroke', '#38bdf8');
       aura.setAttribute('stroke-width', '1.5'); aura.setAttribute('stroke-dasharray', '4 4');
@@ -312,72 +304,88 @@ window.ActionFlowBuilder = {
 
     const typeLabel = document.createElementNS(svgNS, 'text');
     typeLabel.setAttribute('x', 16); typeLabel.setAttribute('y', 26);
-    typeLabel.setAttribute('fill', colors.stroke); typeLabel.setAttribute('font-size', '10'); typeLabel.setAttribute('font-weight', '900');
-    typeLabel.textContent = colors.typeLabel;
+    typeLabel.setAttribute('fill', type.color); typeLabel.setAttribute('font-size', '10'); typeLabel.setAttribute('font-weight', '900');
+    typeLabel.textContent = type.label.toUpperCase();
     group.appendChild(typeLabel);
 
     const nameText = document.createElementNS(svgNS, 'text');
     nameText.setAttribute('x', 16); nameText.setAttribute('y', 52);
     nameText.setAttribute('fill', '#ffffff'); nameText.setAttribute('font-size', '14'); nameText.setAttribute('font-weight', '800');
-    nameText.textContent = (action.name || 'Ação').slice(0, 22);
+    nameText.textContent = (node.name || 'Sem nome').slice(0, 22);
     group.appendChild(nameText);
 
-    const start = FlowEngine.stageById(action.flow.startStage);
-    const end = FlowEngine.stageById(action.flow.endStage);
-    const sub = document.createElementNS(svgNS, 'text');
-    sub.setAttribute('x', 16); sub.setAttribute('y', 72);
-    sub.setAttribute('fill', '#94a3b8'); sub.setAttribute('font-size', '10');
-    sub.textContent = `${start.label} → ${end.label}`;
-    group.appendChild(sub);
+    // Botão lixeira (canto superior direito)
+    const trash = document.createElementNS(svgNS, 'g');
+    trash.setAttribute('transform', `translate(${this.NODE_WIDTH - 26}, 6)`);
+    trash.setAttribute('class', 'flow-no-drag');
+    trash.style.cursor = 'pointer';
+    trash.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (window.Actions?.removeFlowBuilderNode) Actions.removeFlowBuilderNode(node.id);
+    });
+    const trashBg = document.createElementNS(svgNS, 'rect');
+    trashBg.setAttribute('x', 0); trashBg.setAttribute('y', 0);
+    trashBg.setAttribute('width', 20); trashBg.setAttribute('height', 20);
+    trashBg.setAttribute('rx', 6); trashBg.setAttribute('fill', 'rgba(239,68,68,0.15)');
+    trashBg.setAttribute('stroke', 'rgba(239,68,68,0.35)'); trashBg.setAttribute('stroke-width', '1');
+    trash.appendChild(trashBg);
+    const trashIcon = document.createElementNS(svgNS, 'text');
+    trashIcon.setAttribute('x', 10); trashIcon.setAttribute('y', 14);
+    trashIcon.setAttribute('fill', '#fca5a5'); trashIcon.setAttribute('font-size', '11');
+    trashIcon.setAttribute('text-anchor', 'middle');
+    trashIcon.textContent = '×';
+    trash.appendChild(trashIcon);
+    group.appendChild(trash);
 
-    const metrics = FlowConversionEngine.actionMetrics(action);
+    const outgoing = edges.filter(e => e.fromId === node.id).length;
     const stats = document.createElementNS(svgNS, 'text');
-    stats.setAttribute('x', 16); stats.setAttribute('y', 92);
-    stats.setAttribute('fill', '#cbd5e1'); stats.setAttribute('font-size', '10'); stats.setAttribute('font-weight', '700');
-    stats.textContent = `${metrics.impacted}→${metrics.converted} • ${Math.round(metrics.conversionRate)}%`;
+    stats.setAttribute('x', 16); stats.setAttribute('y', 72);
+    stats.setAttribute('fill', '#94a3b8'); stats.setAttribute('font-size', '10');
+    stats.textContent = outgoing > 0 ? `${outgoing} ${outgoing === 1 ? 'saída' : 'saídas'}` : 'sem saídas';
     group.appendChild(stats);
 
+    // Porta de entrada (esquerda) — cresce se OUTRA ação está armed (afordância de destino)
     const inputPort = document.createElementNS(svgNS, 'circle');
-    inputPort.setAttribute('cx', 0); inputPort.setAttribute('cy', FlowRenderer.NODE_HEIGHT / 2);
-    inputPort.setAttribute('r', isArmed && Number(armedId) !== Number(action.id) ? 10 : 7);
-    inputPort.setAttribute('fill', '#10b981'); inputPort.setAttribute('stroke', '#0b1325'); inputPort.setAttribute('stroke-width', 2);
+    inputPort.setAttribute('cx', 0); inputPort.setAttribute('cy', this.NODE_HEIGHT / 2);
+    inputPort.setAttribute('r', otherArmed ? 12 : 7);
+    inputPort.setAttribute('fill', otherArmed ? '#34d399' : '#10b981');
+    inputPort.setAttribute('stroke', '#0b1325'); inputPort.setAttribute('stroke-width', 2);
     inputPort.setAttribute('class', 'flow-port-input');
-    inputPort.dataset.actionId = String(action.id);
+    inputPort.dataset.nodeId = String(node.id);
     inputPort.style.cursor = 'crosshair';
     group.appendChild(inputPort);
 
-    const outputRadius = isArmed ? 11 : 7;
+    // Porta de saída (direita) — cresce se ESTE node está armed
     const outputPort = document.createElementNS(svgNS, 'circle');
-    outputPort.setAttribute('cx', FlowRenderer.NODE_WIDTH); outputPort.setAttribute('cy', FlowRenderer.NODE_HEIGHT / 2);
-    outputPort.setAttribute('r', outputRadius);
+    outputPort.setAttribute('cx', this.NODE_WIDTH); outputPort.setAttribute('cy', this.NODE_HEIGHT / 2);
+    outputPort.setAttribute('r', isArmed ? 11 : 7);
     outputPort.setAttribute('fill', isArmed ? '#38bdf8' : '#10b981');
     outputPort.setAttribute('stroke', '#0b1325'); outputPort.setAttribute('stroke-width', 2);
     outputPort.setAttribute('class', 'flow-port-output');
-    outputPort.dataset.actionId = String(action.id);
+    outputPort.dataset.nodeId = String(node.id);
     outputPort.style.cursor = 'crosshair';
     group.appendChild(outputPort);
 
-    this._renderConnButton(svgNS, group, action, isArmed);
+    this._renderConnButton(svgNS, group, node, isArmed, outgoing);
 
     parent.appendChild(group);
   },
 
-  _renderConnButton(svgNS, group, action, isArmed) {
-    const hasConn = (action.flow.nextActions || []).length > 0;
+  _renderConnButton(svgNS, group, node, isArmed, outgoing) {
     let fill, stroke, textFill, label;
     if (isArmed) { fill = 'rgba(56,189,248,0.30)'; stroke = '#38bdf8'; textFill = '#e0f2fe'; label = 'Conectando...'; }
-    else if (hasConn) { fill = 'rgba(16,185,129,0.20)'; stroke = '#34d399'; textFill = '#a7f3d0'; label = `Conectada (${action.flow.nextActions.length})`; }
+    else if (outgoing > 0) { fill = 'rgba(16,185,129,0.20)'; stroke = '#34d399'; textFill = '#a7f3d0'; label = `Conectada (${outgoing})`; }
     else { fill = 'rgba(255,255,255,0.06)'; stroke = '#475569'; textFill = '#cbd5e1'; label = 'Conexão'; }
-    const btnY = FlowRenderer.NODE_HEIGHT - 30;
-    const btnH = 22, btnX = 12, btnW = FlowRenderer.NODE_WIDTH - 24;
+    const btnY = this.NODE_HEIGHT - 30;
+    const btnH = 22, btnX = 12, btnW = this.NODE_WIDTH - 24;
     const btn = document.createElementNS(svgNS, 'g');
     btn.setAttribute('transform', `translate(${btnX}, ${btnY})`);
     btn.setAttribute('class', 'flow-no-drag flow-conn-btn');
-    btn.dataset.actionId = String(action.id);
+    btn.dataset.nodeId = String(node.id);
     btn.style.cursor = 'pointer';
     btn.addEventListener('click', (event) => {
       event.stopPropagation();
-      if (window.Actions?.armFlowConnection) Actions.armFlowConnection(action.id);
+      if (window.Actions?.armFlowBuilderConnection) Actions.armFlowBuilderConnection(node.id);
     });
     const rect = document.createElementNS(svgNS, 'rect');
     rect.setAttribute('x', 0); rect.setAttribute('y', 0);
@@ -385,10 +393,12 @@ window.ActionFlowBuilder = {
     rect.setAttribute('rx', 6); rect.setAttribute('ry', 6);
     rect.setAttribute('fill', fill); rect.setAttribute('stroke', stroke); rect.setAttribute('stroke-width', '1');
     btn.appendChild(rect);
-    const dotR = 3.2;
+    // Hover state (bug 7) — listener pra clarear o fill
+    btn.addEventListener('mouseenter', () => { rect.setAttribute('fill', isArmed ? 'rgba(56,189,248,0.45)' : (outgoing > 0 ? 'rgba(16,185,129,0.32)' : 'rgba(255,255,255,0.14)')); });
+    btn.addEventListener('mouseleave', () => { rect.setAttribute('fill', fill); });
     const dot = document.createElementNS(svgNS, 'circle');
-    dot.setAttribute('cx', 14); dot.setAttribute('cy', btnH / 2); dot.setAttribute('r', dotR);
-    dot.setAttribute('fill', isArmed ? '#7dd3fc' : (hasConn ? '#6ee7b7' : '#94a3b8'));
+    dot.setAttribute('cx', 14); dot.setAttribute('cy', btnH / 2); dot.setAttribute('r', 3.2);
+    dot.setAttribute('fill', isArmed ? '#7dd3fc' : (outgoing > 0 ? '#6ee7b7' : '#94a3b8'));
     btn.appendChild(dot);
     const txt = document.createElementNS(svgNS, 'text');
     txt.setAttribute('x', btnW / 2 + 6); txt.setAttribute('y', btnH / 2 + 3.5);
@@ -404,7 +414,13 @@ window.ActionFlowBuilder = {
     svg.addEventListener('mousedown', (event) => self._onMouseDown(event, svg));
     svg.addEventListener('mousemove', (event) => self._onMouseMove(event, svg));
     svg.addEventListener('mouseup', (event) => self._onMouseUp(event, svg));
-    svg.addEventListener('mouseleave', () => { self._state.dragNode = null; self._state.pendingConnection = null; });
+    // Bug 4 corrigido: mouseleave remove TAMBÉM a linha amarela fantasma
+    svg.addEventListener('mouseleave', () => {
+      self._internal.dragNode = null;
+      self._internal.pendingConnection = null;
+      const overlay = svg.querySelector('#flowPendingEdge');
+      if (overlay) overlay.remove();
+    });
   },
 
   _svgPoint(svg, event) {
@@ -421,44 +437,48 @@ window.ActionFlowBuilder = {
     if (target.closest && target.closest('.flow-no-drag')) return;
     const armedId = App.state.flowBuilderConnectionArm;
     if (target.classList?.contains('flow-port-output')) {
-      const outId = target.dataset.actionId;
-      if (armedId && Number(armedId) === Number(outId)) {
-        this._state.pendingConnection = { fromId: outId };
+      const outId = target.dataset.nodeId;
+      // Bug 1+3 corrigidos: feedback claro em TODOS os casos
+      if (armedId && String(armedId) === String(outId)) {
+        this._internal.pendingConnection = { fromId: outId };
         event.preventDefault();
         return;
       }
       if (!armedId) {
-        Utils.toast('Arme a conexão clicando em "Conexão" no card lateral primeiro.');
+        Utils.toast('Arme a conexão clicando em "Conexão" no bloco primeiro.');
         return;
       }
+      // armedId existe MAS é de outro bloco → bug 3 corrigido
+      Utils.toast('Outro bloco está armado. Use a porta de saída dele ou clique de novo em "Conexão" pra desarmar.');
+      return;
     }
-    const group = target.closest('g[data-action-id]');
+    const group = target.closest('g[data-node-id]');
     if (!group) return;
-    const actionId = group.dataset.actionId;
-    if (armedId && Number(armedId) === Number(actionId)) return; // card armado fica imóvel
-    const action = FlowEngine.ensureActionFlow((App.state.actions || []).find(a => Number(a.id) === Number(actionId)));
-    if (!action) return;
+    const nodeId = group.dataset.nodeId;
+    if (armedId && String(armedId) === String(nodeId)) return; // bloco armado fica imóvel
+    const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(nodeId));
+    if (!node) return;
     const point = this._svgPoint(svg, event);
-    this._state.dragNode = {
-      actionId,
-      offsetX: point.x - action.flow.position.x,
-      offsetY: point.y - action.flow.position.y
+    this._internal.dragNode = {
+      nodeId,
+      offsetX: point.x - node.x,
+      offsetY: point.y - node.y
     };
     group.style.cursor = 'grabbing';
   },
 
   _onMouseMove(event, svg) {
     const point = this._svgPoint(svg, event);
-    if (this._state.pendingConnection) {
+    if (this._internal.pendingConnection) {
       const overlay = svg.querySelector('#flowPendingEdge');
       if (overlay) overlay.remove();
-      const fromAction = FlowEngine.ensureActionFlow((App.state.actions || []).find(a => Number(a.id) === Number(this._state.pendingConnection.fromId)));
-      if (!fromAction) return;
-      const fromPort = this._outputPort(fromAction.flow.position);
+      const fromNode = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(this._internal.pendingConnection.fromId));
+      if (!fromNode) return;
+      const fromPort = this._outputPort(fromNode);
       const svgNS = 'http://www.w3.org/2000/svg';
       const path = document.createElementNS(svgNS, 'path');
       path.setAttribute('id', 'flowPendingEdge');
-      path.setAttribute('d', FlowRenderer.edgePath(fromPort.x, fromPort.y, point.x, point.y));
+      path.setAttribute('d', this._edgePath(fromPort.x, fromPort.y, point.x, point.y));
       path.setAttribute('stroke', '#fbbf24');
       path.setAttribute('stroke-width', '3');
       path.setAttribute('stroke-dasharray', '6 4');
@@ -466,56 +486,49 @@ window.ActionFlowBuilder = {
       svg.querySelector('#flowEdgesLayer')?.appendChild(path);
       return;
     }
-    if (!this._state.dragNode) return;
-    const drag = this._state.dragNode;
+    if (!this._internal.dragNode) return;
+    const drag = this._internal.dragNode;
     const newX = Math.max(0, point.x - drag.offsetX);
     const newY = Math.max(0, point.y - drag.offsetY);
-    FlowConnectionEngine.setPosition(drag.actionId, newX, newY);
-    const group = svg.querySelector(`g[data-action-id="${drag.actionId}"]`);
-    if (group) group.setAttribute('transform', `translate(${newX}, ${newY})`);
+    // Atualiza posição em memória SEM render — só move o SVG group inline.
+    const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(drag.nodeId));
+    if (node) { node.x = Math.round(newX); node.y = Math.round(newY); }
+    const group = svg.querySelector(`g[data-node-id="${drag.nodeId}"]`);
+    if (group) group.setAttribute('transform', `translate(${Math.round(newX)}, ${Math.round(newY)})`);
     this._redrawAllEdges(svg);
   },
 
+  // Bug 6 corrigido: usa a MESMA helper _renderEdge do desenho principal,
+  // assim cor + hit area + estilo ficam idênticos durante drag e estático.
   _redrawAllEdges(svg) {
     const edgesLayer = svg.querySelector('#flowEdgesLayer');
     if (!edgesLayer) return;
     while (edgesLayer.firstChild) edgesLayer.removeChild(edgesLayer.firstChild);
-    const actions = (App.state.actions || []).filter(a => Number(a.campaignId) === Number(this._state.campaignId) && a.flow?.enabled).map(a => FlowEngine.ensureActionFlow(a));
+    const nodes = App.state.flowBuilderNodes || [];
+    const edges = App.state.flowBuilderEdges || [];
     const svgNS = 'http://www.w3.org/2000/svg';
-    for (const action of actions) {
-      for (const nextId of (action.flow.nextActions || [])) {
-        const target = actions.find(a => Number(a.id) === Number(nextId));
-        if (!target) continue;
-        const fromPort = this._outputPort(action.flow.position);
-        const toPort = this._inputPort(target.flow.position);
-        const path = document.createElementNS(svgNS, 'path');
-        path.setAttribute('d', FlowRenderer.edgePath(fromPort.x, fromPort.y, toPort.x, toPort.y));
-        path.setAttribute('stroke', '#a78bfa');
-        path.setAttribute('stroke-width', '2.5');
-        path.setAttribute('fill', 'none');
-        edgesLayer.appendChild(path);
-      }
-    }
+    for (const edge of edges) this._renderEdge(svgNS, edgesLayer, edge, nodes);
   },
 
   _onMouseUp(event, svg) {
-    if (this._state.pendingConnection) {
+    if (this._internal.pendingConnection) {
       const target = event.target;
       const overlay = svg.querySelector('#flowPendingEdge');
       if (overlay) overlay.remove();
+      const fromId = this._internal.pendingConnection.fromId;
+      this._internal.pendingConnection = null;
       if (target.classList?.contains('flow-port-input')) {
-        const toId = target.dataset.actionId;
-        const fromId = this._state.pendingConnection.fromId;
-        Actions.connectFlow(fromId, toId);
-        Actions.cancelFlowConnection();
+        const toId = target.dataset.nodeId;
+        Actions.connectFlowBuilderNodes(fromId, toId);
       }
-      this._state.pendingConnection = null;
+      // Bug 2 corrigido: cancela SEMPRE, independente de ter caído numa porta válida.
+      Actions.cancelFlowBuilderConnection();
       return;
     }
-    if (this._state.dragNode) {
-      const group = svg.querySelector(`g[data-action-id="${this._state.dragNode.actionId}"]`);
+    if (this._internal.dragNode) {
+      const group = svg.querySelector(`g[data-node-id="${this._internal.dragNode.nodeId}"]`);
       if (group) group.style.cursor = 'grab';
-      this._state.dragNode = null;
+      this._internal.dragNode = null;
       App.save();
     }
   }
