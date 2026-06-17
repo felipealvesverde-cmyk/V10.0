@@ -6,6 +6,7 @@ var ActionModule = {
     const product = App.state.products.find(p => Number(p.id) === Number(selectedCampaign.productId));
     return `<div class="space-y-4">
       ${this.actionLayer(selectedCampaign, product, actions)}
+      ${window.FlowBreadcrumb ? FlowBreadcrumb.render('actions') : ''}
       <div class="grid lg:grid-cols-3 gap-4"><div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-1">Criar ação</h2><p class="text-sm text-slate-500 mb-4">Defina contexto operacional, origem, destino e base de leads.</p>${this._createTabs()}${App.state.actionCreateTab === 'ai' ? this._aiCreatePanel() : this._manualCreatePanel()}</div><div class="lg:col-span-2 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-3">Ações plugadas</h2>${this._actionsListFilter(actions)}<div class="space-y-3">${this._filteredActionsList(actions)}</div></div></div>
       ${window.ActionEditModal ? ActionEditModal.render() : ''}
       ${/* V32.4.1 (Geraldo Item 1) — DjowModal V16.3 aposentado. DjowAIModal global cobre. */ ''}
@@ -19,6 +20,7 @@ var ActionModule = {
   emptyActionsState() {
     return `<div class="space-y-4">
       ${this.actionLayer(null, null, [])}
+      ${window.FlowBreadcrumb ? FlowBreadcrumb.render('actions') : ''}
       ${window.CampaignFlowModal ? CampaignFlowModal.render() : ''}
       <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 text-center">
         <h2 class="text-2xl font-black mb-2">Nenhuma campanha selecionada</h2>
@@ -51,7 +53,7 @@ var ActionModule = {
       <div class="absolute inset-0 opacity-60" style="background: radial-gradient(circle at 20% 10%, rgba(59,130,246,.20), transparent 28%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.16), transparent 30%);"></div>
       <div class="relative z-10 grid lg:grid-cols-[1.2fr_1fr] gap-4 items-start">
         <div>
-          <h2 class="text-3xl font-black">Ações da campanha</h2>
+          <h2 class="text-3xl font-black">Ações</h2>
           <p class="text-xs text-slate-400 mt-2">Campanha: <b class="text-white">${Utils.escape(selectedCampaign?.name || 'nenhuma selecionada')}</b> • Produto: <b class="text-white">${Utils.escape(product?.name || 'não vinculado')}</b></p>
         </div>
         <div class="grid grid-cols-2 gap-3">
@@ -201,28 +203,26 @@ var ActionModule = {
               </div>
             </div>
           </div>
-          <!-- V38.1.61 — Bloco da coluna direita (mini-KPIs + botões) cresce 20%
-               padronizado: largura 300px → 360px, padding px-3 py-2 → px-3.5 py-2.5,
-               label 9px → 11px, valor text-lg → text-xl, gap 2 → 2.5, botões
-               text-[9px] → text-[11px], ícones w-2.5 → w-3. -->
-          <div class="flex flex-col gap-2 w-full lg:w-[360px] shrink-0 lg:pr-12">
-            <div class="grid grid-cols-3 gap-2.5 text-center">
-              <div class="bg-white rounded-2xl border border-slate-200 px-3.5 py-2.5" style="border-left: 4px solid var(--lj-action);">
-                <div class="text-[11px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Leads</div>
-                <div class="font-black text-xl text-slate-900 mt-0.5">${action.leads.length}</div>
+          <!-- V38.1.63 — Botões "Criar c/ Djow" + "Ver Execuções" deletados.
+               Felipe promoveu Execuções pra tela própria (menu lateral), e o
+               card de Ação volta a ser puramente leitura visual: 3 mini-cards
+               Leads / Score / Etapas crescidos +35% sobre a V38.1.61
+               (px-3.5 → px-4.5, label 11px → 14px, valor text-xl → text-3xl,
+               gap-2.5 → gap-3.5). -->
+          <div class="flex flex-col gap-2 w-full lg:w-[480px] shrink-0 lg:pr-12">
+            <div class="grid grid-cols-3 gap-3.5 text-center">
+              <div class="bg-white rounded-2xl border border-slate-200 px-4 py-3.5" style="border-left: 5px solid var(--lj-action);">
+                <div class="text-[14px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Leads</div>
+                <div class="font-black text-3xl text-slate-900 mt-1">${action.leads.length}</div>
               </div>
-              <div class="bg-white rounded-2xl border border-slate-200 px-3.5 py-2.5" style="border-left: 4px solid var(--lj-action);">
-                <div class="text-[11px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Score</div>
-                <div class="font-black text-xl text-slate-900 mt-0.5">${avgScore}</div>
+              <div class="bg-white rounded-2xl border border-slate-200 px-4 py-3.5" style="border-left: 5px solid var(--lj-action);">
+                <div class="text-[14px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Score</div>
+                <div class="font-black text-3xl text-slate-900 mt-1">${avgScore}</div>
               </div>
-              <div class="bg-white rounded-2xl border border-slate-200 px-3.5 py-2.5" style="border-left: 4px solid var(--lj-action);">
-                <div class="text-[11px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Etapas</div>
-                <div class="font-black text-xl text-slate-900 mt-0.5">${flow.path.length}</div>
+              <div class="bg-white rounded-2xl border border-slate-200 px-4 py-3.5" style="border-left: 5px solid var(--lj-action);">
+                <div class="text-[14px] font-black uppercase tracking-widest" style="color: var(--lj-action);">Etapas</div>
+                <div class="font-black text-3xl text-slate-900 mt-1">${flow.path.length}</div>
               </div>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <button onclick="event.stopPropagation(); Actions.openDjowAIModal({ actionId: ${action.id}, seedPrompt: 'Crie execuções para esta ação: ' })" class="px-2.5 py-1.5 rounded-lg bg-slate-900 text-white font-bold text-[11px] border ${areaIsConnected ? `border-${areaTone}-500` : ''} flex items-center justify-center gap-1 uppercase tracking-wider" style="color:#fff!important; ${areaIsConnected ? '' : 'border-color: var(--lj-action);'}"><i data-lucide="sparkles" class="w-3 h-3"></i> Criar c/ Djow</button>
-              <button onclick="event.stopPropagation(); Actions.openTasksModal(${action.id})" class="px-2.5 py-1.5 rounded-lg bg-slate-900 text-white font-bold text-[11px] border ${areaIsConnected ? `border-${areaTone}-500` : ''} flex items-center justify-center gap-1 uppercase tracking-wider" style="color:#fff!important; ${areaIsConnected ? '' : 'border-color: var(--lj-action);'}"><i data-lucide="list-checks" class="w-3 h-3"></i> Ver Execuções</button>
             </div>
           </div>
         </div>

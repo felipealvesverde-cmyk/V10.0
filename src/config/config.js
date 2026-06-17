@@ -21,7 +21,9 @@ var Config = {
         { id: 'home', label: 'Início', icon: 'home' },
         { id: 'products', label: 'Produtos', icon: 'package' },
         { id: 'campaigns', label: 'Campanhas', icon: 'megaphone' },
-        { id: 'actions', label: 'Ações da campanha', icon: 'plug' },
+        { id: 'actions', label: 'Ações', icon: 'plug' },
+        // V38.1.63 — Execuções promovidas pra cidadão de 1ª classe (tela própria).
+        { id: 'executions', label: 'Execuções', icon: 'play-circle' },
         { id: 'results', label: 'Resultados', icon: 'bar-chart-3' },
         { id: 'leads', label: 'Leads', icon: 'users-round' },
         { id: 'dashboard', label: 'Dashboard', icon: 'layout-dashboard' },

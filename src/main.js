@@ -625,8 +625,12 @@ var App = {
             subtitle: 'Camada operacional: campanhas por produto, performance, ações plugadas, conversões, handoffs e fluxos consolidados.'
           },
           actions: {
-            title: 'Ações da campanha',
-            subtitle: 'Onde os OKRs nascem, os leads entram no fluxo e a execução alimenta o funil operacional.'
+            title: 'Ações',
+            subtitle: 'Camada operacional: onde os OKRs nascem, os leads entram no fluxo e a execução alimenta o funil.'
+          },
+          executions: {
+            title: 'Execuções',
+            subtitle: 'O gesto concreto: tarefas por ação, status em tempo real, criação manual ou via Djow.'
           },
           results: {
             title: 'Resultados',
@@ -729,7 +733,7 @@ var App = {
 
         const app = document.getElementById('app');
         // V25.0.0 — Adicionada aba "home" (HomeModule).
-        const screens = { home: window.HomeModule, products: ProductsModule, campaigns: CampaignModule, actions: ActionModule, results: ResultModule, scores: ScoreModule, dashboard: DashboardModule, leads: LeadsModule, revops: window.RevopsGovernanceModule, plugins: window.PluginsModule };
+        const screens = { home: window.HomeModule, products: ProductsModule, campaigns: CampaignModule, actions: ActionModule, executions: window.ExecutionsModule, results: ResultModule, scores: ScoreModule, dashboard: DashboardModule, leads: LeadsModule, revops: window.RevopsGovernanceModule, plugins: window.PluginsModule };
         app.innerHTML = (screens[this.state.activeTab]?.render() || (window.HomeModule ? HomeModule.render() : ProductsModule.render())) + (window.SettingsModal ? SettingsModal.render() : '') + (window.CreateClickupTaskModal ? CreateClickupTaskModal.render() : '') + (window.ConnectActionWizardModal ? ConnectActionWizardModal.render() : '') + (window.ReloginInlineModal ? ReloginInlineModal.render() : '') + (window.TrackerWizardModal ? TrackerWizardModal.render() : '') + (window.TrackerVisitorDetailModal ? TrackerVisitorDetailModal.render() : '') + (window.HotmartWizardModal ? HotmartWizardModal.render() : '') + (window.ReconciliationModal ? ReconciliationModal.render() : '') + (window.TriggersModal ? TriggersModal.render() : '') + (window.ScoreConfigModal ? ScoreConfigModal.render() : '') + (window.ScoreBreakdownModal ? ScoreBreakdownModal.render() : '') + (window.SubStageFunnelModal ? SubStageFunnelModal.render() : '') + (window.ConfirmModal ? ConfirmModal.render() : '') + (window.LeadImportWizard ? LeadImportWizard.render() : '') + (window.SessionExpiredBanner ? SessionExpiredBanner.render() : '') + (window.GoogleAdsWizardModal ? GoogleAdsWizardModal.render() : '') + (window.Ga4WizardModal ? Ga4WizardModal.render() : '') + (window.Ga4ReconciliationModal ? Ga4ReconciliationModal.render() : '') + (window.RdConnectionModal ? RdConnectionModal.render() : '') + (window.ClickupConnectionModal ? ClickupConnectionModal.render() : '') + (window.IntegrationDeepDiveModal ? IntegrationDeepDiveModal.render() : '') + (window.AdsAssociationWizard ? AdsAssociationWizard.render() : '') + (window.GoogleAdsAdvancedModal ? GoogleAdsAdvancedModal.render() : '') + (window.KpiHelpModal ? KpiHelpModal.render() : '') + (window.RdWebhookLogModal ? RdWebhookLogModal.render() : '') + (window.TenantDbWizardModal ? TenantDbWizardModal.render() : '') + (window.NotificationsPanel ? NotificationsPanel.drawer() : '') + (window.PinUp ? PinUp.overlay() : '');
         // V26.0.4 — Modal Djow agora em root separado (#djowModalRoot fora de #app)
         // pra que position:fixed funcione corretamente (parent #app tem transform
