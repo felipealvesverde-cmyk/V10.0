@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.8.0',
+    date: '2026-06-17',
+    title: 'Flow Builder virou plugin whitelabel — limpo e desvinculado de produto/campanha/ação',
+    bullets: [
+      'O plugin "Construir Fluxo de Ações" do menu Plugins virou "Flow Builder" — uma ferramenta de modelagem de fluxo genérica. Não puxa mais ações da campanha, não pede produto, não exige nada. Você abre, vê um canvas em branco e desenha do zero. O dropdown de "escolher campanha" antes de abrir o Builder foi removido.',
+      'Painel lateral direito agora é uma paleta de tipos: clique em Email, SDR, WhatsApp, Webinar, LP, Checkout, CRM, CS, Canal, ou Custom — um bloco novo aparece no canvas com o tipo escolhido. Duplo clique no bloco abre modal pra renomear. Botão × no canto do bloco remove ele (e qualquer conexão que tinha).',
+      'Botão "Limpar" no header zera tudo de uma vez (com modal de confirmação mostrando quantos blocos e conexões vão sumir). Permite recomeçar fluxo limpo sem ter que apagar um por um.',
+      '15 bugs do builder antigo corrigidos: porta de destino agora cresce visualmente quando você arma a conexão (era pra crescer e não crescia); arrastar conexão e soltar fora de uma porta agora limpa o estado armado em vez de deixar pendurado; sair do canvas durante drag não deixa mais linha amarela fantasma; fechar o builder com algo pendente limpa tudo no caminho; botão Conexão ganhou hover; durante drag de bloco as linhas entre blocos não trocam mais de cor; microcopy da ajuda alinhada com o que existe na tela.',
+      'O fluxo desenhado fica salvo no tenant (próxima vez que abrir, está lá igual). Independente de qualquer mudança feita em ações ou campanhas — o Flow Builder vive solo agora.'
+    ]
+  },
+  {
     version: 'V39.7.2',
     date: '2026-06-17',
     title: 'Djow agora é persona viva sempre presente no card de Velocidade',

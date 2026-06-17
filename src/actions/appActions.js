@@ -2218,11 +2218,9 @@ Object.assign(Actions, {
   openCampaignFlowModal(id) { App.state.campaignFlowModalId = id; App.state.showCampaignFlowModal = true; App.save(); App.render(); },
   closeCampaignFlowModal() { App.state.showCampaignFlowModal = false; App.state.campaignFlowModalId = null; App.save(); App.render(); },
 
-  // V38.1.53 — Seletor de campanha do card Construir Fluxo na aba Plugins.
-  setPluginsFlowBuilderCampaign(id) {
-    App.state.pluginsFlowBuilderCampaignId = Number(id) || null;
-    App.save(); App.render();
-  },
+  // V39.8.0 — Flow Builder whitelabel: card no menu Plugins não tem mais
+  // seletor de campanha (a feature foi desvinculada de campanha/ação/produto).
+  // A antiga `setPluginsFlowBuilderCampaign` foi removida junto com o dropdown.
 
   // V38.1.63 — Tela Execuções (ExecutionsModule). Draft de criação manual.
   updateExecutionDraft(field, value) {
@@ -2748,11 +2746,13 @@ Object.assign(Actions, {
     setTimeout(() => this.sendDjowAIMessage(), 100);
   },
 
-  setFlowBuilderStartFilter(stageOrAll) {
-    App.state.flowBuilderStartFilter = stageOrAll || 'all';
-    App.save(); App.render();
-    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
-  },
+  // V39.8.0 — Flow Builder whitelabel: actions reescritas. State próprio
+  // (`flowBuilderNodes` + `flowBuilderEdges`), sem vínculo com actions, campaigns
+  // ou products. As 13 actions antigas da V15.1 (armFlowConnection,
+  // cancelFlowConnection, requestFlowDisconnect, confirmFlowDisconnect,
+  // cancelFlowDisconnect, openFlowBuilder(campaignId), closeFlowBuilder,
+  // connectFlow, disconnectFlow, toggleFlowEnabled, dropActionToFlowCanvas,
+  // setFlowActionType, setFlowStages, setFlowBuilderStartFilter) foram REMOVIDAS.
 
   setFlowBuilderZoom(delta) {
     const current = Number(App.state.flowBuilderZoom || 1.0);
@@ -2773,98 +2773,162 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
-  armFlowConnection(actionId) {
-    const current = App.state.flowBuilderConnectionArm;
-    App.state.flowBuilderConnectionArm = (Number(current) === Number(actionId)) ? null : Number(actionId);
-    App.save(); App.render();
-    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
-  },
-
-  cancelFlowConnection() {
-    App.state.flowBuilderConnectionArm = null;
-    App.save(); App.render();
-    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
-  },
-
-  requestFlowDisconnect(fromId, toId) {
-    App.state.flowDisconnectConfirm = { fromId: Number(fromId), toId: Number(toId) };
-    App.save(); App.render();
-  },
-
-  confirmFlowDisconnect() {
-    const pending = App.state.flowDisconnectConfirm;
-    App.state.flowDisconnectConfirm = null;
-    if (!pending) { App.render(); return; }
-    if (window.FlowConnectionEngine) FlowConnectionEngine.disconnect(pending.fromId, pending.toId);
-    App.save(); App.render();
-    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
-    Utils.toast('Conexão removida.');
-  },
-
-  cancelFlowDisconnect() {
-    App.state.flowDisconnectConfirm = null;
-    App.save(); App.render();
-  },
-
-  // V15.1 — Flow Builder actions
-  openFlowBuilder(campaignId) {
-    if (!campaignId) return Utils.toast('Selecione uma campanha.');
-    App.state.flowBuilderCampaignId = Number(campaignId);
+  openFlowBuilder() {
     App.state.showFlowBuilderModal = true;
     App.save(); App.render();
     setTimeout(() => { try { if (window.ActionFlowBuilder) ActionFlowBuilder.attach(); } catch (_) {} }, 0);
   },
 
+  // Bug 5 corrigido: fechar limpa TODOS os transients pendentes (armada,
+  // modais de edição, disconnect e clear). Reabrir sempre vem limpo.
   closeFlowBuilder() {
     App.state.showFlowBuilderModal = false;
-    App.state.flowBuilderCampaignId = null;
+    App.state.flowBuilderConnectionArm = null;
+    App.state.flowBuilderDisconnectEdgeId = null;
+    App.state.flowBuilderEditNodeId = null;
+    App.state.flowBuilderEditNodeDraft = '';
+    App.state.flowBuilderClearConfirm = false;
     App.save(); App.render();
   },
 
-  connectFlow(fromId, toId) {
-    if (!window.FlowConnectionEngine) return;
-    const result = FlowConnectionEngine.connect(fromId, toId);
-    if (!result.ok) return Utils.toast(result.message);
-    App.save(); App.render();
-    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
-  },
-
-  disconnectFlow(fromId, toId) {
-    if (!window.FlowConnectionEngine) return;
-    FlowConnectionEngine.disconnect(fromId, toId);
-    App.save(); App.render();
-    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
-  },
-
-  toggleFlowEnabled(actionId) {
-    const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
-    if (!action) return;
-    const enabled = !(action.flow?.enabled);
-    FlowConnectionEngine.enableFlow(actionId, enabled);
+  addFlowBuilderNode(typeId) {
+    if (!window.ActionFlowBuilder) return;
+    const type = ActionFlowBuilder.typeById(typeId);
+    if (!type) return Utils.toast('Tipo de bloco inválido.');
+    const nodes = App.state.flowBuilderNodes || [];
+    const i = nodes.length;
+    const node = {
+      id: ActionFlowBuilder.genId(),
+      type: type.id,
+      name: type.label,
+      x: 120 + (i % 5) * 30,
+      y: 120 + Math.floor(i / 5) * 30
+    };
+    App.state.flowBuilderNodes = [...nodes, node];
     App.save(); App.render();
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
   },
 
-  dropActionToFlowCanvas(actionId, x, y) {
-    if (!window.FlowConnectionEngine) return;
-    const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
-    if (!action) return;
-    if (!action.flow?.enabled) FlowConnectionEngine.enableFlow(actionId, true);
-    FlowConnectionEngine.setPosition(actionId, x, y);
+  removeFlowBuilderNode(nodeId) {
+    const id = String(nodeId);
+    App.state.flowBuilderNodes = (App.state.flowBuilderNodes || []).filter(n => String(n.id) !== id);
+    App.state.flowBuilderEdges = (App.state.flowBuilderEdges || []).filter(e => String(e.fromId) !== id && String(e.toId) !== id);
+    if (String(App.state.flowBuilderConnectionArm) === id) App.state.flowBuilderConnectionArm = null;
     App.save(); App.render();
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
-    Utils.toast('Ação trazida para o canvas.');
   },
 
-  setFlowActionType(actionId, typeId) {
-    if (!window.FlowConnectionEngine) return;
-    FlowConnectionEngine.setActionType(actionId, typeId);
+  armFlowBuilderConnection(nodeId) {
+    const current = App.state.flowBuilderConnectionArm;
+    App.state.flowBuilderConnectionArm = (String(current) === String(nodeId)) ? null : String(nodeId);
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+  },
+
+  cancelFlowBuilderConnection() {
+    App.state.flowBuilderConnectionArm = null;
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+  },
+
+  connectFlowBuilderNodes(fromId, toId) {
+    const from = String(fromId), to = String(toId);
+    if (from === to) return Utils.toast('Bloco não pode se conectar a si mesmo.');
+    const nodes = App.state.flowBuilderNodes || [];
+    if (!nodes.find(n => String(n.id) === from) || !nodes.find(n => String(n.id) === to)) {
+      return Utils.toast('Bloco não encontrado.');
+    }
+    const edges = App.state.flowBuilderEdges || [];
+    if (edges.some(e => String(e.fromId) === from && String(e.toId) === to)) {
+      return Utils.toast('Essa conexão já existe.');
+    }
+    // Detecção de ciclo: BFS a partir de toId seguindo arestas — se encontrar fromId, ciclo.
+    const visited = new Set();
+    const queue = [to];
+    while (queue.length) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      if (id === from) return Utils.toast('Essa conexão cria um ciclo.');
+      visited.add(id);
+      for (const e of edges) {
+        if (String(e.fromId) === id) queue.push(String(e.toId));
+      }
+    }
+    const newEdge = { id: `e_${Date.now()}_${Math.floor(Math.random() * 100000)}`, fromId: from, toId: to };
+    App.state.flowBuilderEdges = [...edges, newEdge];
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+  },
+
+  requestFlowBuilderEdgeDisconnect(edgeId) {
+    App.state.flowBuilderDisconnectEdgeId = String(edgeId);
     App.save(); App.render();
   },
 
-  setFlowStages(actionId, startStage, endStage) {
-    if (!window.FlowConnectionEngine) return;
-    FlowConnectionEngine.setStages(actionId, startStage, endStage);
+  confirmFlowBuilderEdgeDisconnect() {
+    const edgeId = App.state.flowBuilderDisconnectEdgeId;
+    App.state.flowBuilderDisconnectEdgeId = null;
+    if (!edgeId) { App.render(); return; }
+    App.state.flowBuilderEdges = (App.state.flowBuilderEdges || []).filter(e => String(e.id) !== String(edgeId));
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+    Utils.toast('Conexão removida.');
+  },
+
+  cancelFlowBuilderEdgeDisconnect() {
+    App.state.flowBuilderDisconnectEdgeId = null;
+    App.save(); App.render();
+  },
+
+  openFlowBuilderEditNode(nodeId) {
+    const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(nodeId));
+    if (!node) return;
+    App.state.flowBuilderEditNodeId = String(nodeId);
+    App.state.flowBuilderEditNodeDraft = String(node.name || '');
+    App.save(); App.render();
+  },
+
+  updateFlowBuilderEditNodeDraft(value) {
+    App.state.flowBuilderEditNodeDraft = String(value || '');
+    // não chama render — preserva foco do input.
+  },
+
+  saveFlowBuilderEditNode() {
+    const nodeId = App.state.flowBuilderEditNodeId;
+    if (!nodeId) return;
+    const draft = String(App.state.flowBuilderEditNodeDraft || '').trim() || 'Sem nome';
+    App.state.flowBuilderNodes = (App.state.flowBuilderNodes || []).map(n =>
+      String(n.id) === String(nodeId) ? { ...n, name: draft } : n
+    );
+    App.state.flowBuilderEditNodeId = null;
+    App.state.flowBuilderEditNodeDraft = '';
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+  },
+
+  cancelFlowBuilderEditNode() {
+    App.state.flowBuilderEditNodeId = null;
+    App.state.flowBuilderEditNodeDraft = '';
+    App.save(); App.render();
+  },
+
+  requestFlowBuilderClear() {
+    App.state.flowBuilderClearConfirm = true;
+    App.save(); App.render();
+  },
+
+  confirmFlowBuilderClear() {
+    App.state.flowBuilderNodes = [];
+    App.state.flowBuilderEdges = [];
+    App.state.flowBuilderConnectionArm = null;
+    App.state.flowBuilderClearConfirm = false;
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+    Utils.toast('✓ Fluxo apagado.');
+  },
+
+  cancelFlowBuilderClear() {
+    App.state.flowBuilderClearConfirm = false;
     App.save(); App.render();
   },
 
