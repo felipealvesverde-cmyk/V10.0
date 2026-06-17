@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.9.1',
+    date: '2026-06-17',
+    title: 'Fix: blocos do Flow Builder não somem mais do canvas com o tempo',
+    bullets: [
+      'Bug do V39.9.0: ao criar um bloco da esteira (Produto/Campanha/etc), ele aparecia normal, mas depois de uns segundos sumia do canvas — e quando o cliente adicionava outro, o anterior reaparecia "duplicado". Causa: o SVG do canvas é desenhado via JavaScript depois do HTML montar, e qualquer atualização interna do app (auto-save, polling de notificações, qualquer outra ação clicada noutro lugar) redesenhava o container do canvas vazio sem repintar o SVG.',
+      'Fix cravado no hook central de render: toda vez que o app re-renderiza, se o Flow Builder está aberto, o desenho do canvas é repintado automaticamente. Os blocos ficam visíveis o tempo todo, independente do que esteja acontecendo no app em background.'
+    ]
+  },
+  {
     version: 'V39.9.0',
     date: '2026-06-17',
     title: 'Flow Builder ganhou a Esteira do LJ — desenha Produto → Campanha → Ação → Execução e salva',

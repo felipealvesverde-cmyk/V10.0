@@ -773,6 +773,12 @@ var App = {
           topBarRoot.innerHTML = window.TopBar ? TopBar.render() : '';
         }
         if (window.lucide) lucide.createIcons();
+        // V39.9.1 — re-attach do Flow Builder SVG. Sem isso, qualquer App.render()
+        // externo (auto-save, polling, outras actions) redesenha só o container
+        // vazio e o SVG some. attach() é idempotente: bail-out se !container.
+        if (window.ActionFlowBuilder?.attach && this.state.showFlowBuilderModal) {
+          try { window.ActionFlowBuilder.attach(); } catch (_) {}
+        }
         this._restoreFocus(_focusSnapshot);
         // V26.0.6 / V26.1.0 — Restaura scroll smart (se estava no bottom, vai pro bottom).
         Object.entries(_scrollSnapshots).forEach(([id, snap]) => {
