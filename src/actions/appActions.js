@@ -2013,6 +2013,43 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V38.1.63 — Tela Execuções (ExecutionsModule). Draft de criação manual.
+  updateExecutionDraft(field, value) {
+    App.state.executionDraft = { ...(App.state.executionDraft || {}), [field]: field === 'actionId' ? Number(value) : value };
+    if (field === 'actionId') App.render();
+    // title não dispara render — preservar foco do input.
+  },
+  createExecutionFromDraft() {
+    const draft = App.state.executionDraft || {};
+    const actionId = Number(draft.actionId);
+    const title = String(draft.title || '').trim();
+    if (!actionId) return Utils.toast('Escolha uma ação primeiro.');
+    if (!title) return Utils.toast('Dê um título à execução.');
+    const action = (App.state.actions || []).find(a => Number(a.id) === actionId);
+    if (!action) return Utils.toast('Ação não encontrada.');
+    if (!window.ExecutionTaskStore) return Utils.toast('Engine de execuções indisponível.');
+    ExecutionTaskStore.create({
+      linked_action_id: actionId,
+      linked_campaign_id: action.campaignId,
+      title,
+      status: 'pending',
+      source_agent: 'manual'
+    });
+    App.state.executionDraft = { actionId, title: '' };
+    App.save(); App.render();
+    Utils.toast('✓ Execução criada.');
+  },
+  markExecutionDone(taskId) {
+    if (!window.ExecutionTaskStore) return;
+    ExecutionTaskStore.update(taskId, { status: 'completed', completed_at: new Date().toISOString() });
+    App.save(); App.render();
+  },
+  deleteExecution(taskId) {
+    if (!window.ExecutionTaskStore) return;
+    App.state.executionTasks = (App.state.executionTasks || []).filter(t => t.task_id !== taskId);
+    App.save(); App.render();
+  },
+
   // V38.1.51 — Djow lê todas as ações da campanha (nome, canal, origem→destino,
   // taxa de cada etapa) e devolve 4-6 frases pragmáticas em prosa apontando
   // pontos de atenção ação por ação. Cacheia em App.state.roadmapInsights[id].

@@ -18,6 +18,27 @@
 
 window.LJChangelog = [
   {
+    version: 'V38.1.63',
+    date: '2026-06-17',
+    title: 'Execuções viram tela própria + Menu de Fluxo Produto→Campanha→Ação→Execução',
+    bullets: [
+      'Nova tela "Execuções" no menu lateral, abaixo de "Ações". Antes execuções viviam escondidas dentro do modal "Ver Execuções" de cada card de ação — agora são cidadão de primeira classe com tela própria: KPIs no header (Total / Por status / Pendentes / Concluídas), criação direta (escolhe ação, dá título, adiciona), lista cross-action da campanha selecionada, ações rápidas (concluir / remover) e atalho pro Djow.',
+      'Aba "Ações da campanha" foi renomeada pra simplesmente "Ações" — agora cada degrau do menu lateral é uma palavra curta.',
+      'Estreia do "Menu de Fluxo" (Leonardo): faixa horizontal entre o header escuro e os blocos de conteúdo nas telas Ações e Execuções, mostrando Produtos → Campanhas → Ações → Execuções como pílulas conectadas por chevrons. Cada estágio tem cor própria: violet (estratégia), sky (orquestração), amber (operação), emerald (execução). O estágio atual fica em destaque com pill cheia colorida, os anteriores ficam em modo "contexto" (clicáveis pra voltar), os futuros ficam neutros mas também clicáveis. Funciona como navegação alternativa ao menu lateral.',
+      'Card de Ação fica mais clean: os botões "Criar c/ Djow" e "Ver Execuções" saíram do card (mudaram pra tela própria de Execuções). Os 3 mini-cards Leads/Score/Etapas cresceram +35% pra ocupar o espaço com elegância — agora respiram melhor, com valor numérico em text-3xl e label maior.',
+      'Bug fix carregado: o atalho "Roadmap" no card de ação agora abre o Roadmap na hora, sem precisar trocar de aba (causa era ponto de montagem faltando).'
+    ]
+  },
+  {
+    version: 'V38.1.62',
+    date: '2026-06-17',
+    title: 'Fix: botão Roadmap do card de Ação não abria modal na aba "Ações da campanha"',
+    bullets: [
+      'Quando o cliente clicava no atalho "Roadmap" dentro do card de ação, o estado interno mudava certo mas o modal não aparecia. Só abria quando o cliente saía pra outra tela (Campanhas/Produtos) — porque a aba "Ações da campanha" não estava montando o componente do Roadmap.',
+      'Adicionado o ponto de montagem do CampaignFlowModal na tela de Ações (tanto no estado normal quanto no vazio). Agora abre na hora, sem precisar trocar de aba.'
+    ]
+  },
+  {
     version: 'V38.1.61',
     date: '2026-06-17',
     title: 'Bloco da coluna direita do card de Ação cresce 20% padronizado',

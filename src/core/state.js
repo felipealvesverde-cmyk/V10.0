@@ -702,6 +702,8 @@ var State = {
       audienceWizard: null,
       // V38.1.53 — campanha selecionada no card "Construir Fluxo de Ações" da aba Plugins.
       pluginsFlowBuilderCampaignId: null,
+      // V38.1.63 — Draft pra criação de execução na tela Execuções.
+      executionDraft: { actionId: null, title: '' },
       // V38.1.51 — cache de análises do Djow do Roadmap por campanha.
       // shape: { [campaignId]: { text, model, timestamp, tokens_in, tokens_out, loading? } }
       roadmapInsights: {},
@@ -1452,6 +1454,10 @@ var State = {
       audienceWizard: (raw.audienceWizard && typeof raw.audienceWizard === 'object' && raw.audienceWizard.open) ? raw.audienceWizard : null,
       // V38.1.53 — persiste última campanha escolhida no card Plugins → Construir Fluxo.
       pluginsFlowBuilderCampaignId: raw.pluginsFlowBuilderCampaignId != null ? Number(raw.pluginsFlowBuilderCampaignId) : null,
+      // V38.1.63 — Execution draft (actionId + title) normalizado.
+      executionDraft: (raw.executionDraft && typeof raw.executionDraft === 'object')
+        ? { actionId: raw.executionDraft.actionId != null ? Number(raw.executionDraft.actionId) : null, title: String(raw.executionDraft.title || '') }
+        : { actionId: null, title: '' },
       // V38.1.51 — Map { [campaignId]: { text, model, timestamp, tokens_in, tokens_out } }.
       // Loading flag não persiste (rebobina pra false se F5 no meio do fetch).
       roadmapInsights: (raw.roadmapInsights && typeof raw.roadmapInsights === 'object')
