@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.10.4',
+    date: '2026-06-18',
+    title: 'Flow Builder: animação fantasma→badge volta + nuance de cor agora é por badge (não pelo card todo)',
+    bullets: [
+      'Animação de volta: quando você solta o fantasma na Ação, uma cópia visual dele "voa" da posição original até o canto onde a badge vai ficar, encolhendo e fadendo. Implementação robusta: a animação acontece num overlay HTML position:fixed fora do SVG do canvas — assim ela sobrevive aos re-renders do canvas (que tinham quebrado a animação na V39.10.1).',
+      'Nuance de cor mudou: antes era um tint geral no card inteiro com a cor da 1ª segmentação (sumia a 2ª se você tivesse duas). Agora cada badge irradia sua própria cor via drop-shadow CSS — a nuance fica localizada no canto onde a badge está. Com 1 badge, 1 halo colorido naquele canto. Com 2 badges, 2 halos de cores distintas nos cantos opostos do card.'
+    ]
+  },
+  {
     version: 'V39.10.3',
     date: '2026-06-18',
     title: 'Fix: badges de segmentação agora aparecem DENTRO do card da Ação',
