@@ -117,17 +117,17 @@ window.ActionFlowBuilder = {
       <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:90vw;max-width:none;background: radial-gradient(circle at 18% 10%, rgba(99,102,241,.22), transparent 30%), #071326;">
         ${this._header()}
         ${App.state.flowBuilderShowHelp ? this._helpPanel() : ''}
-        <div class="p-6 space-y-3">
+        <div class="p-6">
           <div class="relative min-w-0">
             ${this._zoomControls(zoom)}
-            <div id="flowBuilderCanvas" class="relative rounded-3xl border border-white/10 bg-white/[0.04] h-[58vh] overflow-hidden min-w-0"
+            <div id="flowBuilderCanvas" class="relative rounded-3xl border border-white/10 bg-white/[0.04] h-[78vh] overflow-hidden min-w-0"
                  ondragover="ActionFlowBuilder._onCanvasDragOver(event)"
                  ondrop="ActionFlowBuilder._onCanvasDrop(event)">
               ${this._emptyCanvasHint()}
               ${this._trashBin()}
             </div>
+            ${this._bottomPanelOverlay()}
           </div>
-          ${this._bottomPanel()}
         </div>
         ${this._disconnectModal()}
         ${this._editNodeModal()}
@@ -165,11 +165,11 @@ window.ActionFlowBuilder = {
       <div class="flex items-start justify-between gap-3 mb-2"><p class="font-black">Como funciona o Flow Builder</p><button onclick="Actions.toggleFlowBuilderHelp()" class="text-indigo-200 text-xs font-black">×</button></div>
       <ul class="space-y-1 text-xs">
         <li>• <b>Esteira:</b> Produto · Campanha · Ação · Execução. Quando salvar, viram entidades reais nas abas do LJ.</li>
-        <li>• <b>Adicionar bloco:</b> clique num tipo da Esteira no painel embaixo. Esteira abre modal pedindo nome + campos do tipo.</li>
+        <li>• <b>Adicionar bloco:</b> clique no botão <b>Esteira</b> da pílula embaixo do canvas e escolha o tipo. Esteira abre modal pedindo nome + campos.</li>
         <li>• <b>Hierarquia rígida de conexão:</b> Produto → Campanha · Campanha → Ação · Ação → Execução. Tentar conectar fora dessa cadeia é bloqueado.</li>
         <li>• <b>Pan do canvas:</b> segure o mouse num espaço vazio e arraste. Botão central da régua de zoom volta pra origem.</li>
         <li>• <b>Editar bloco:</b> duplo clique no bloco abre modal com os campos do tipo.</li>
-        <li>• <b>Segmentação:</b> tab "Segmentação" no painel embaixo. Arraste uma seg pro canvas (vira fantasma) ou direto pra uma Ação (vira badge). Máx 2 badges por Ação.</li>
+        <li>• <b>Segmentação:</b> botão "Segmentação" na pílula. Arraste uma seg pro canvas (vira fantasma) ou direto pra uma Ação (vira badge). Máx 2 badges por Ação.</li>
         <li>• <b>Remover segmentação:</b> segure a badge dentro do card e arraste pra fora (vira fantasma) ou pra lixeira vermelha. Fantasma sozinho pode ir pra lixeira também.</li>
         <li>• <b>Carregar campanha:</b> botão azul. Importa Produto + Campanha + Ações + Execuções como blocos pré-vinculados.</li>
         <li>• <b>Salvar:</b> botão verde. Topological: Produto → Campanha → Ação → Execução. Re-saves não duplicam.</li>
@@ -183,7 +183,7 @@ window.ActionFlowBuilder = {
     return `<div data-empty-hint class="absolute inset-0 grid place-items-center text-center p-6 pointer-events-none">
       <div class="max-w-md">
         <i data-lucide="git-merge" class="w-8 h-8 text-indigo-300 mx-auto mb-3"></i>
-        <p class="text-sm text-slate-300">Canvas vazio. Clique em <b>Produto</b> no painel embaixo pra começar, ou em <b>Carregar campanha</b> no header pra continuar uma existente.</p>
+        <p class="text-sm text-slate-300">Canvas vazio. Clique no botão <b>Esteira</b> na pílula embaixo pra começar a desenhar, ou em <b>Carregar campanha</b> no header pra continuar uma existente.</p>
       </div>
     </div>`;
   },
@@ -203,18 +203,55 @@ window.ActionFlowBuilder = {
     </div>`;
   },
 
-  _bottomPanel() {
+  // V39.11.0 — Painel inferior agora é overlay flutuante sobre o canvas.
+  // Pílula compacta na base com 3 botões (Esteira · Segmentação · Mapa).
+  // Botão ativo "salta" da pílula com bg branco; ao clicar abre o conteúdo
+  // ACIMA da pílula como popup. Canvas não perde tamanho.
+  _bottomPanelOverlay() {
     const tab = App.state.flowBuilderPaletteTab || 'esteira';
-    return `<div class="rounded-3xl border border-white/10 bg-white/[0.055] p-4">
-      <div class="flex gap-2 mb-3 border-b border-white/10 pb-3">
-        <button onclick="Actions.setFlowBuilderPaletteTab('esteira')" class="${tab === 'esteira' ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-100' : 'bg-white/5 border-white/10 text-slate-300'} px-4 py-2 rounded-xl font-black text-xs border flex items-center gap-1.5">
-          <i data-lucide="layers" class="w-3.5 h-3.5"></i> Esteira
-        </button>
-        <button onclick="Actions.setFlowBuilderPaletteTab('segmentacao')" class="${tab === 'segmentacao' ? 'bg-sky-500/20 border-sky-400/40 text-sky-100' : 'bg-white/5 border-white/10 text-slate-300'} px-4 py-2 rounded-xl font-black text-xs border flex items-center gap-1.5">
-          <i data-lucide="tag" class="w-3.5 h-3.5"></i> Segmentação
-        </button>
+    const isOpen = !!App.state.flowBuilderPaletteOpen;
+    let content = '';
+    if (isOpen) {
+      if (tab === 'esteira') content = this._esteiraPanel();
+      else if (tab === 'segmentacao') content = this._segmentacaoPanel();
+      else if (tab === 'mapaReceita') content = this._mapaReceitaPanel();
+    }
+    return `<div class="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3 pointer-events-none">
+      ${isOpen ? `<div class="bg-slate-900/95 backdrop-blur border border-white/15 rounded-3xl p-4 w-[720px] max-w-[90vw] shadow-2xl pointer-events-auto">${content}</div>` : ''}
+      ${this._bottomPill(tab, isOpen)}
+    </div>`;
+  },
+
+  _bottomPill(activeTab, isOpen) {
+    const tabs = [
+      { id: 'esteira',     label: 'Esteira',     icon: 'layers' },
+      { id: 'segmentacao', label: 'Segmentação', icon: 'tag' },
+      { id: 'mapaReceita', label: 'Mapa',        icon: 'map' }
+    ];
+    return `<div class="relative pt-9 pointer-events-auto">
+      <div class="bg-slate-950 border border-white/20 rounded-full px-2 py-2 flex items-center gap-1 shadow-2xl">
+        ${tabs.map(t => {
+          const active = activeTab === t.id && isOpen;
+          if (active) {
+            return `<button onclick="Actions.setFlowBuilderPaletteTab('${t.id}')" title="${Utils.escape(t.label)} — clique pra fechar" class="w-14 h-14 rounded-full bg-white text-slate-900 shadow-xl flex flex-col items-center justify-center -translate-y-3 hover:bg-slate-100 transition">
+              <i data-lucide="${t.icon}" class="w-4 h-4"></i>
+              <span class="text-[8px] font-black mt-0.5">${Utils.escape(t.label)}</span>
+            </button>`;
+          }
+          return `<button onclick="Actions.setFlowBuilderPaletteTab('${t.id}')" title="${Utils.escape(t.label)}" class="w-12 h-12 rounded-full bg-transparent text-white flex flex-col items-center justify-center hover:bg-white/10 transition">
+            <i data-lucide="${t.icon}" class="w-4 h-4"></i>
+            <span class="text-[8px] font-black mt-0.5">${Utils.escape(t.label)}</span>
+          </button>`;
+        }).join('')}
       </div>
-      ${tab === 'esteira' ? this._esteiraPanel() : this._segmentacaoPanel()}
+    </div>`;
+  },
+
+  _mapaReceitaPanel() {
+    return `<div class="text-center py-10">
+      <i data-lucide="map" class="w-12 h-12 text-slate-500 mx-auto mb-3"></i>
+      <p class="text-sm font-black text-slate-300">Mapa da Receita</p>
+      <p class="text-xs text-slate-500 mt-1">Em breve — ainda sem conteúdo aqui dentro.</p>
     </div>`;
   },
 
