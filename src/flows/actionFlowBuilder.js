@@ -1198,29 +1198,34 @@ window.ActionFlowBuilder = {
     // V40.6.0 (Leonardo) — profundidade escalonada: Produto enraíza (sombra
     // densa), Execução é folha no fim do galho (sombra leve). A cascata
     // semântica vira topografia visual.
+    // V40.6.4 — SE selecionado: drop-shadow desligada, porque o glow externo
+    // (renderizado abaixo) já marca presença. Manter a drop-shadow no card
+    // selecionado faz o glow borrar e o card vira nuvem visual gigante.
     const shadowByType = {
       produto:  'drop-shadow(0 8px 20px rgba(0,0,0,0.45))',
       campanha: 'drop-shadow(0 6px 16px rgba(0,0,0,0.35))',
       acao:     'drop-shadow(0 4px 12px rgba(0,0,0,0.28))',
       execucao: 'drop-shadow(0 2px 8px rgba(0,0,0,0.20))'
     };
-    if (shadowByType[node.type]) group.style.filter = shadowByType[node.type];
+    if (shadowByType[node.type] && !isSelected) group.style.filter = shadowByType[node.type];
+    else group.style.filter = 'none';
     group.addEventListener('dblclick', (event) => {
       event.stopPropagation();
       if (window.Actions?.openFlowBuilderEditNode) Actions.openFlowBuilderEditNode(node.id);
     });
 
-    // V40.6.0 (Leonardo) — Seleção: glow externo na cor do tipo em vez de
-    // borda branca decapitada. Stroke do rect mantém identidade cromática.
+    // V40.6.4 (Leonardo) — Seleção: glow externo MAIS SUTIL agora que a
+    // drop-shadow está desligada no selecionado. 2px stroke + opacity 0.55.
+    // Raio +4px (menos pra fora) — presença sem inchar.
     if (isSelected && !isArmed && !isHoveredForSeg) {
       const glow = document.createElementNS(svgNS, 'rect');
-      glow.setAttribute('x', -5); glow.setAttribute('y', -5);
-      glow.setAttribute('width', this.NODE_WIDTH + 10); glow.setAttribute('height', this.NODE_HEIGHT + 10);
-      glow.setAttribute('rx', 18); glow.setAttribute('ry', 18);
+      glow.setAttribute('x', -4); glow.setAttribute('y', -4);
+      glow.setAttribute('width', this.NODE_WIDTH + 8); glow.setAttribute('height', this.NODE_HEIGHT + 8);
+      glow.setAttribute('rx', 16); glow.setAttribute('ry', 16);
       glow.setAttribute('fill', 'none');
       glow.setAttribute('stroke', resolvedColor);
-      glow.setAttribute('stroke-width', '3');
-      glow.setAttribute('opacity', '0.45');
+      glow.setAttribute('stroke-width', '2');
+      glow.setAttribute('opacity', '0.55');
       group.appendChild(glow);
     }
 
@@ -1774,18 +1779,27 @@ window.ActionFlowBuilder = {
           if (hasSel && !isSel) opacity = ancestorSet.has(String(id)) ? '0.9' : '0.35';
           g.style.opacity = opacity;
           g.style.transition = 'opacity 0.2s ease';
-          // Glow externo do selecionado (V40.6.0 rule)
+          // V40.6.4 — drop-shadow desligada no selecionado pra glow externo
+          // não borrar como nuvem. Sem seleção: shadow escalonada por tipo.
+          const shadowMap = {
+            produto:  'drop-shadow(0 8px 20px rgba(0,0,0,0.45))',
+            campanha: 'drop-shadow(0 6px 16px rgba(0,0,0,0.35))',
+            acao:     'drop-shadow(0 4px 12px rgba(0,0,0,0.28))',
+            execucao: 'drop-shadow(0 2px 8px rgba(0,0,0,0.20))'
+          };
+          g.style.filter = isSel ? 'none' : (shadowMap[node2.type] || 'none');
+          // Glow externo do selecionado (V40.6.4 — sutil)
           if (isSel) {
             const glow = document.createElementNS(svg.namespaceURI || 'http://www.w3.org/2000/svg', 'rect');
             glow.setAttribute('data-selection-glow', '1');
-            glow.setAttribute('x', -5); glow.setAttribute('y', -5);
-            glow.setAttribute('width', this.NODE_WIDTH + 10);
-            glow.setAttribute('height', this.NODE_HEIGHT + 10);
-            glow.setAttribute('rx', 18); glow.setAttribute('ry', 18);
+            glow.setAttribute('x', -4); glow.setAttribute('y', -4);
+            glow.setAttribute('width', this.NODE_WIDTH + 8);
+            glow.setAttribute('height', this.NODE_HEIGHT + 8);
+            glow.setAttribute('rx', 16); glow.setAttribute('ry', 16);
             glow.setAttribute('fill', 'none');
             glow.setAttribute('stroke', resolvedColor);
-            glow.setAttribute('stroke-width', '3');
-            glow.setAttribute('opacity', '0.45');
+            glow.setAttribute('stroke-width', '2');
+            glow.setAttribute('opacity', '0.55');
             g.insertBefore(glow, g.firstChild);
           }
         }

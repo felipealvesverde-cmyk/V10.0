@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.6.4',
+    date: '2026-06-18',
+    title: 'Flow Builder: fix sombra borrando glow no card selecionado',
+    bullets: [
+      'Fix: ao clicar num card, a sombra escalonada (drop-shadow do tipo) borrava o glow externo da seleção e criava uma nuvem visual gigante ao redor do card. Causa: drop-shadow CSS é aplicada no group SVG inteiro, então o glow externo (renderizado como rect dentro do mesmo group) também ganhava a sombra blur de 12-20px, multiplicando o efeito. Agora a drop-shadow é desligada quando o card está selecionado — o glow externo já marca presença sozinho.',
+      'Glow externo de seleção mais sutil: stroke 2px (era 3px), raio +4px (era +5px), opacity 55% (era 45%). Presença sem inchar. Quando o card é desselecionado, a drop-shadow escalonada volta normalmente.',
+      'Mesmo fix aplicado no fast-path do mouseDown — antes só o _renderNode tinha a regra V40.6.4. Agora os dois caminhos são coerentes.'
+    ]
+  },
+  {
     version: 'V40.6.3',
     date: '2026-06-18',
     title: 'Flow Builder: fix borda branca na seleção + Spotlight com árvore',
