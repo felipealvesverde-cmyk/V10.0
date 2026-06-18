@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.11.1',
+    date: '2026-06-18',
+    title: 'Flow Builder: rascunhos salvos + badges fixas no card + pílula 20% maior com contraste',
+    bullets: [
+      'Rascunhos: novo botão âmbar "Rascunhos" no header do builder. Permite salvar um snapshot do canvas atual com nome (ex: "Lançamento Black Friday — esboço") pra continuar depois. Lista todos os rascunhos salvos com data e contagem. Abrir um rascunho substitui o canvas atual; apagar é confirmado. Rascunhos ficam persistidos no tenant.',
+      'Badges no card de Ação agora são SÓ layout — não dá mais pra arrastar elas pra fora acidentalmente quando você está movendo o card. Pra remover uma badge, duplo clique no card de Ação abre o modal de edição: lá apareceu uma seção "Segmentações (máx 2)" com a lista de badges atuais e botão × pra remover cada uma.',
+      'Pílula da navegação inferior 20% maior: botão ativo passou de 56px pra 68px (com ícone w-5 em vez de w-4), inativo de 48px pra 58px. Mais fácil de mirar e ler. Texto e ícone do botão ativo agora ficam pretos (antes ficavam brancos sobre fundo branco — viravam invisíveis).'
+    ]
+  },
+  {
     version: 'V39.11.0',
     date: '2026-06-18',
     title: 'Flow Builder: navegação inferior virou pílula off-canvas + Mapa da Receita entra como 3º slot',

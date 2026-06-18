@@ -2793,6 +2793,8 @@ Object.assign(Actions, {
     App.state.flowBuilderEditNodeDraft = {};
     App.state.flowBuilderClearConfirm = false;
     App.state.flowBuilderLoadCampaignModal = false;
+    App.state.flowBuilderDraftsModal = false;
+    App.state.flowBuilderDraftNameDraft = '';
     App.save(); App.render();
   },
 
@@ -3111,6 +3113,80 @@ Object.assign(Actions, {
     });
     App.save(); App.render();
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+  },
+
+  // V39.11.1 — Remove badge dentro do modal de edição (draft, não persiste até Salvar).
+  removeFlowBuilderEditDraftSegmentation(segKey) {
+    const draft = (App.state.flowBuilderEditNodeDraft && typeof App.state.flowBuilderEditNodeDraft === 'object')
+      ? App.state.flowBuilderEditNodeDraft : {};
+    const segs = Array.isArray(draft.segmentations) ? draft.segmentations.filter(k => k !== segKey) : [];
+    App.state.flowBuilderEditNodeDraft = { ...draft, segmentations: segs };
+    App.save(); App.render();
+  },
+
+  // V39.11.1 — Rascunhos: salvar snapshot do canvas atual com nome.
+  openFlowBuilderDraftsModal() {
+    App.state.flowBuilderDraftsModal = true;
+    App.state.flowBuilderDraftNameDraft = '';
+    App.save(); App.render();
+  },
+
+  closeFlowBuilderDraftsModal() {
+    App.state.flowBuilderDraftsModal = false;
+    App.state.flowBuilderDraftNameDraft = '';
+    App.save(); App.render();
+  },
+
+  updateFlowBuilderDraftNameDraft(value) {
+    App.state.flowBuilderDraftNameDraft = String(value || '');
+  },
+
+  saveFlowBuilderDraft() {
+    const name = String(App.state.flowBuilderDraftNameDraft || '').trim();
+    if (!name) return Utils.toast('Dá um nome pro rascunho antes de salvar.');
+    const nodes = App.state.flowBuilderNodes || [];
+    const edges = App.state.flowBuilderEdges || [];
+    const ghosts = App.state.flowBuilderGhostSegmentations || [];
+    if (!nodes.length && !ghosts.length) return Utils.toast('Canvas vazio — nada pra rascunhar.');
+    const draft = {
+      id: `dr_${Date.now()}_${Math.floor(Math.random() * 100000)}`,
+      name,
+      savedAt: new Date().toISOString(),
+      nodes: JSON.parse(JSON.stringify(nodes)),
+      edges: JSON.parse(JSON.stringify(edges)),
+      ghostSegmentations: JSON.parse(JSON.stringify(ghosts))
+    };
+    App.state.flowBuilderDrafts = [...(App.state.flowBuilderDrafts || []), draft];
+    App.state.flowBuilderDraftNameDraft = '';
+    Utils.toast(`✓ Rascunho "${name}" salvo.`);
+    App.save(); App.render();
+  },
+
+  loadFlowBuilderDraft(draftId) {
+    const drafts = App.state.flowBuilderDrafts || [];
+    const draft = drafts.find(d => String(d.id) === String(draftId));
+    if (!draft) return Utils.toast('Rascunho não encontrado.');
+    App.state.flowBuilderNodes = JSON.parse(JSON.stringify(draft.nodes || []));
+    App.state.flowBuilderEdges = JSON.parse(JSON.stringify(draft.edges || []));
+    App.state.flowBuilderGhostSegmentations = JSON.parse(JSON.stringify(draft.ghostSegmentations || []));
+    App.state.flowBuilderConnectionArm = null;
+    App.state.flowBuilderDraftsModal = false;
+    App.state.flowBuilderPanX = 0;
+    App.state.flowBuilderPanY = 0;
+    App.state.flowBuilderZoom = 1.0;
+    Utils.toast(`✓ Rascunho "${draft.name}" carregado no canvas.`);
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+  },
+
+  deleteFlowBuilderDraft(draftId) {
+    const drafts = App.state.flowBuilderDrafts || [];
+    const draft = drafts.find(d => String(d.id) === String(draftId));
+    if (!draft) return;
+    if (!confirm(`Apagar rascunho "${draft.name}"? Esta ação não pode ser desfeita.`)) return;
+    App.state.flowBuilderDrafts = drafts.filter(d => String(d.id) !== String(draftId));
+    Utils.toast(`Rascunho "${draft.name}" apagado.`);
+    App.save(); App.render();
   },
 
   cancelFlowBuilderClear() {
