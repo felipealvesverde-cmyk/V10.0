@@ -194,10 +194,20 @@ const IntegrationsModule = {
   },
 
   _cardsByTab(tabId) {
-    if (tabId === 'injetar') return this._injetarCards();
-    if (tabId === 'propagar') return this._propagarCards();
-    if (tabId === 'iterar') return this._iterarCards();
-    return [];
+    let cards = [];
+    if (tabId === 'injetar') cards = this._injetarCards();
+    else if (tabId === 'propagar') cards = this._propagarCards();
+    else if (tabId === 'iterar') cards = this._iterarCards();
+    // V40.2.0 — Filtra pelo gating /api/my-tenant-integrations. Operador
+    // recebe lista completa (override). Cliente filtrado vê só o que foi liberado.
+    // Integrações não cadastradas no catálogo de gating (id desconhecido) passam
+    // direto — assim cards legacy continuam aparecendo sem precisar de update da tabela.
+    const enabled = App.state.enabledIntegrationIds;
+    if (Array.isArray(enabled) && window.LJIntegrationsCatalog) {
+      const known = new Set(window.LJIntegrationsCatalog.map(i => i.id));
+      cards = cards.filter(c => !known.has(c.id) || enabled.includes(c.id));
+    }
+    return cards;
   },
 
   _injetarCards() {

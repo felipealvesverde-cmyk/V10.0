@@ -448,6 +448,38 @@ async function runMigrations() {
         UNIQUE(tenant_id, plugin_id)
       );
     `);
+    // V40.2.0 — Cobrança manual por hora. Operador registra horas trabalhadas
+    // por tenant e marca como pago manualmente. Sem integração com Stripe.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tenant_billing_entries (
+        id SERIAL PRIMARY KEY,
+        tenant_id INT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        hours NUMERIC(8,2) NOT NULL,
+        rate NUMERIC(10,2) NOT NULL,
+        total NUMERIC(12,2) GENERATED ALWAYS AS (hours * rate) STORED,
+        status VARCHAR(16) NOT NULL DEFAULT 'pending',
+        performed_at DATE NOT NULL DEFAULT CURRENT_DATE,
+        paid_at TIMESTAMPTZ,
+        note TEXT,
+        created_by_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_tenant_billing_entries_tenant_id ON tenant_billing_entries(tenant_id);
+      CREATE INDEX IF NOT EXISTS idx_tenant_billing_entries_status ON tenant_billing_entries(status);
+    `);
+    // V40.2.0 — Gating de integrações por tenant. Mesma semântica do
+    // tenant_plugins: default = vê o catálogo, operador desativa explicitamente.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tenant_integrations (
+        id SERIAL PRIMARY KEY,
+        tenant_id INT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        integration_id VARCHAR(64) NOT NULL,
+        enabled BOOLEAN DEFAULT TRUE,
+        enabled_at TIMESTAMPTZ DEFAULT NOW(),
+        enabled_by_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+        UNIQUE(tenant_id, integration_id)
+      );
+    `);
     // V34.8.0.1 — Tabela lj_reconciliation_alerts foi MOVIDA pra tenant-db-schema.sql.
     // Motivo: tenants com Postgres próprio (Sansone via "Meu Banco") não tinham a
     // tabela porque migration master não roda lá. Endpoint usa req.tenantDb →

@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.2.0',
+    date: '2026-06-18',
+    title: 'Ondas 3 + 4 do cockpit: cobrança manual por hora + gating de integrações por tenant',
+    bullets: [
+      'Cobrança manual por tenant. Tela "Cobrança" no /admin com cards de resumo (total pendente / total pago / horas totais), botão "Nova cobrança" pra registrar horas × valor/hora com data e descrição, lista de entries por data com botão "Marcar pago" reversível e apagar. Você controla a régua — sem Stripe, sem integração externa.',
+      'Gating de integrações e APIs por tenant. Tela "Integrações" no /admin com seletor de tenant + lista do catálogo com toggle por integração. Pills mostrando tipo (EXTERNA ou API PÚBLICA) e status (GA / READY / DRAFT). Integrações DRAFT ficam ocultas pra tenants comuns mesmo se ativadas — útil pra você construir nova API no Claude/VSCode, marcar como ready quando tiver pronta, e só então liberar pra cliente X ou pra base toda.',
+      'No LJ-cliente, o menu Configurações → Integrações respeita a liberação: cliente que tem o gating fechado pra ClickUp não vê o card do ClickUp, por exemplo. Cards legacy (sem entry no catálogo) continuam passando — backwards-compatible.',
+      'Catálogo de integrações em lib/integrations-catalog.js + espelho frontend (mesma estrutura do gating de plugins). Pra adicionar nova: edita os 2 arquivos, marca como DRAFT enquanto constrói, vira READY/GA quando pronta.',
+      'Por trás: 2 tabelas novas (tenant_billing_entries com total computado e tenant_integrations com upsert). 7 endpoints novos: 4 de billing (list, add, mark-paid, delete), 3 de integrações (admin-list, admin-toggle, my-list). Tudo idempotente e fail-open.'
+    ]
+  },
+  {
     version: 'V40.1.0',
     date: '2026-06-18',
     title: 'Onda 2 do cockpit: plugins liberados por tenant',

@@ -1773,6 +1773,23 @@ Object.assign(Actions, {
     }
   },
 
+  // V40.2.0 — Carrega lista de integrationIds habilitados pro tenant atual.
+  // Mesmo padrão do loadEnabledPlugins. Operador LJ recebe tudo. Fail-open.
+  async loadEnabledIntegrations() {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      if (!token) return;
+      const res = await fetch('/api/my-tenant-integrations', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok && Array.isArray(data.enabledIntegrationIds)) {
+        App.state.enabledIntegrationIds = data.enabledIntegrationIds;
+        App.render();
+      }
+    } catch (err) {
+      console.warn('[loadEnabledIntegrations] falhou (mantém estado anterior):', err.message);
+    }
+  },
+
   // V39.12.0 — Quando o wizard foi aberto pelo Flow Builder pra um node
     // específico, devolve o audience no draft do bloco (não salva em produto
     // real). Só vira product.audience quando "Salvar esteira" rodar.

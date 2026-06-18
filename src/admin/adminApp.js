@@ -20,6 +20,17 @@ window.AdminApp = {
     pluginsTenantId: null,
     pluginsList: [],
     pluginsLoading: false,
+    // V40.2.0 — Cobrança manual
+    billingTenantId: null,
+    billingEntries: [],
+    billingTotals: { total_pending: 0, total_paid: 0, hours_total: 0 },
+    billingLoading: false,
+    showBillingAddModal: false,
+    billingAddDraft: { hours: '', rate: '', performedAt: '', note: '' },
+    // V40.2.0 — Gating de integrações por tenant
+    integrationsTenantId: null,
+    integrationsList: [],
+    integrationsLoading: false,
     toast: null,
     plugDbDraft: { tenantId: null, connString: '' }
   },
@@ -73,7 +84,111 @@ window.AdminApp = {
     this.state.activeScreen = screen;
     if (screen === 'snapshots') this.loadSnapshots();
     if (screen === 'plugins') this.loadPluginsList();
+    if (screen === 'billing') this.loadBilling();
+    if (screen === 'integrations') this.loadIntegrationsList();
     this.render();
+  },
+
+  // ===== COBRANÇA MANUAL =====
+  async loadBilling() {
+    if (!this.state.billingTenantId) return;
+    this.state.billingLoading = true; this.render();
+    const r = await this.fetch(`/api/admin-tenant-billing?tenantId=${this.state.billingTenantId}`);
+    this.state.billingLoading = false;
+    if (r?.ok) {
+      this.state.billingEntries = r.data.entries || [];
+      this.state.billingTotals = r.data.totals || { total_pending: 0, total_paid: 0, hours_total: 0 };
+    }
+    this.render();
+  },
+  setBillingTenant(tenantId) {
+    this.state.billingTenantId = Number(tenantId) || null;
+    this.loadBilling();
+  },
+  openBillingAdd() {
+    this.state.showBillingAddModal = true;
+    this.state.billingAddDraft = { hours: '', rate: '', performedAt: new Date().toISOString().slice(0, 10), note: '' };
+    this.render();
+  },
+  closeBillingAdd() { this.state.showBillingAddModal = false; this.render(); },
+  updateBillingAddField(field, value) { this.state.billingAddDraft[field] = String(value || ''); },
+  async submitBillingAdd() {
+    const d = this.state.billingAddDraft;
+    if (!this.state.billingTenantId) return this.toast('Tenant não selecionado.', 'error');
+    if (!d.hours || !d.rate) return this.toast('Horas e valor/hora obrigatórios.', 'error');
+    const r = await this.fetch('/api/admin-tenant-billing-add', {
+      method: 'POST',
+      body: JSON.stringify({
+        tenantId: this.state.billingTenantId,
+        hours: Number(d.hours),
+        rate: Number(d.rate),
+        performedAt: d.performedAt || null,
+        note: d.note || null
+      })
+    });
+    if (r?.ok) {
+      this.toast(`✓ Cobrança registrada.`, 'success');
+      this.state.showBillingAddModal = false;
+      this.loadBilling();
+    } else {
+      this.toast(r?.data?.message || 'Erro ao registrar.', 'error');
+    }
+  },
+  async markBillingPaid(entryId, currentlyPaid) {
+    const r = await this.fetch('/api/admin-tenant-billing-mark-paid', {
+      method: 'POST',
+      body: JSON.stringify({ entryId: Number(entryId), paid: !currentlyPaid })
+    });
+    if (r?.ok) {
+      this.toast(`✓ ${!currentlyPaid ? 'Marcada como paga' : 'Voltou pra pendente'}.`, 'success');
+      this.loadBilling();
+    } else {
+      this.toast(r?.data?.message || 'Erro.', 'error');
+    }
+  },
+  async deleteBillingEntry(entryId) {
+    if (!confirm('Apagar essa entry de cobrança?')) return;
+    const r = await this.fetch('/api/admin-tenant-billing-delete', {
+      method: 'POST',
+      body: JSON.stringify({ entryId: Number(entryId) })
+    });
+    if (r?.ok) {
+      this.toast('Apagada.', 'success');
+      this.loadBilling();
+    } else {
+      this.toast(r?.data?.message || 'Erro.', 'error');
+    }
+  },
+
+  // ===== INTEGRAÇÕES (gating por tenant) =====
+  async loadIntegrationsList() {
+    if (!this.state.integrationsTenantId) return;
+    this.state.integrationsLoading = true; this.render();
+    const r = await this.fetch(`/api/admin-tenant-integrations?tenantId=${this.state.integrationsTenantId}`);
+    this.state.integrationsLoading = false;
+    if (r?.ok) this.state.integrationsList = r.data.integrations || [];
+    this.render();
+  },
+  setIntegrationsTenant(tenantId) {
+    this.state.integrationsTenantId = Number(tenantId) || null;
+    this.loadIntegrationsList();
+  },
+  async toggleIntegration(integrationId, currentlyEnabled) {
+    if (!this.state.integrationsTenantId) return;
+    const r = await this.fetch('/api/admin-tenant-integration-toggle', {
+      method: 'POST',
+      body: JSON.stringify({
+        tenantId: this.state.integrationsTenantId,
+        integrationId,
+        enabled: !currentlyEnabled
+      })
+    });
+    if (r?.ok) {
+      this.toast(`✓ Integração ${!currentlyEnabled ? 'liberada' : 'desativada'}.`, 'success');
+      this.loadIntegrationsList();
+    } else {
+      this.toast(r?.data?.message || 'Erro ao toggle integração.', 'error');
+    }
   },
 
   // ===== PLUGINS (gating por tenant) =====
@@ -324,6 +439,8 @@ window.AdminApp = {
         </div>
         ${this._navBtn('tenants', 'Tenants', 'users')}
         ${this._navBtn('plugins', 'Plugins', 'puzzle')}
+        ${this._navBtn('integrations', 'Integrações', 'link')}
+        ${this._navBtn('billing', 'Cobrança', 'banknote')}
         ${this._navBtn('snapshots', 'Snapshots', 'database-backup')}
         <div class="flex-1"></div>
         <div class="px-2 py-3 border-t border-white/10 mt-3">
@@ -335,11 +452,14 @@ window.AdminApp = {
       <main class="flex-1 admin-content p-8 overflow-auto" style="max-height:100vh;">
         ${this.state.activeScreen === 'tenants' ? this._tenantsScreen()
           : this.state.activeScreen === 'plugins' ? this._pluginsScreen()
+          : this.state.activeScreen === 'integrations' ? this._integrationsScreen()
+          : this.state.activeScreen === 'billing' ? this._billingScreen()
           : this._snapshotsScreen()}
       </main>
       ${this.state.showCreateTenantModal ? this._createTenantModal() : ''}
       ${this.state.showCreateUserModal ? this._createUserModal() : ''}
       ${this.state.plugDbDraft.tenantId ? this._plugDbModal() : ''}
+      ${this.state.showBillingAddModal ? this._billingAddModal() : ''}
       ${this.state.toast ? this._toastEl() : ''}
     </div>`;
   },
@@ -512,6 +632,165 @@ window.AdminApp = {
               style="background:${onColor};width:48px;justify-content:${enabled ? 'flex-end' : 'flex-start'};border:1px solid ${enabled ? 'rgba(52,211,153,0.5)' : 'rgba(148,163,184,0.4)'};">
         <span class="block w-5 h-5 rounded-full bg-white shadow"></span>
       </button>
+    </div>`;
+  },
+
+  // ===== TELA INTEGRAÇÕES =====
+  _integrationsScreen() {
+    const tenant = this.state.tenants.find(t => Number(t.id) === Number(this.state.integrationsTenantId));
+    return `<div class="flex items-center justify-between mb-6">
+      <div>
+        <p class="text-[10px] font-black text-indigo-300 uppercase tracking-wider">Gating</p>
+        <h1 class="text-2xl font-black">Integrações por tenant</h1>
+        <p class="text-sm text-slate-400 mt-1">Libere ou corte integrações e APIs do LJ individualmente pra cada cliente. Catálogo em <span class="font-mono text-slate-300">lib/integrations-catalog.js</span> — pra adicionar nova, edita lá + replica no frontend.</p>
+      </div>
+    </div>
+    <div class="admin-card p-4 mb-4">
+      <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Tenant</label>
+      <select onchange="AdminApp.setIntegrationsTenant(this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+        <option value="">— escolha um tenant —</option>
+        ${this.state.tenants.map(t => `<option value="${t.id}" ${Number(this.state.integrationsTenantId) === Number(t.id) ? 'selected' : ''}>${this._escape(t.name)}</option>`).join('')}
+      </select>
+    </div>
+    ${!this.state.integrationsTenantId
+      ? `<p class="text-sm text-slate-400">Escolha um tenant pra ver e gerenciar as integrações dele.</p>`
+      : this.state.integrationsLoading
+        ? `<p class="text-sm text-slate-400">Carregando…</p>`
+        : !this.state.integrationsList.length
+          ? `<div class="admin-card p-10 text-center"><p class="text-sm text-slate-400">Catálogo vazio.</p></div>`
+          : `<div class="space-y-2">${this.state.integrationsList.map(i => this._integrationRow(i)).join('')}</div>
+             <p class="text-[11px] text-slate-400 mt-4">Mudança aplica na próxima vez que ${this._escape(tenant?.name || '')} abrir o app. Integrações com status <span class="admin-pill admin-pill-amber">DRAFT</span> ficam ocultas pra tenants comuns mesmo se ativadas.</p>`
+    }`;
+  },
+
+  _integrationRow(i) {
+    const enabled = !!i.enabled;
+    const onColor = enabled ? '#10b981' : '#475569';
+    const typePill = i.type === 'public-api'
+      ? `<span class="admin-pill admin-pill-emerald">API PÚBLICA</span>`
+      : `<span class="admin-pill admin-pill-slate">EXTERNA</span>`;
+    const statusPill = i.status === 'draft'
+      ? `<span class="admin-pill admin-pill-amber">DRAFT</span>`
+      : i.status === 'ready'
+        ? `<span class="admin-pill admin-pill-slate">READY</span>`
+        : `<span class="admin-pill admin-pill-emerald">GA</span>`;
+    return `<div class="admin-card p-4 flex items-center gap-4">
+      <span class="w-10 h-10 rounded-xl grid place-items-center shrink-0" style="background:${i.color}22;color:${i.color};border:1px solid ${i.color}55;"><i data-lucide="${this._escape(i.icon || 'link')}" class="w-5 h-5"></i></span>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <p class="font-black text-white">${this._escape(i.name)}</p>
+          ${typePill}
+          ${statusPill}
+          ${enabled ? `<span class="admin-pill admin-pill-emerald">ATIVO</span>` : `<span class="admin-pill admin-pill-slate">DESATIVADO</span>`}
+          ${!i.hasRecord ? `<span class="admin-pill admin-pill-amber">DEFAULT</span>` : ''}
+        </div>
+        <p class="text-[11px] text-slate-400 mt-0.5">${this._escape(i.description)}</p>
+      </div>
+      <button onclick="AdminApp.toggleIntegration('${this._escape(i.id)}', ${enabled})"
+              class="shrink-0 inline-flex items-center gap-2 px-1 py-1 rounded-full transition"
+              style="background:${onColor};width:48px;justify-content:${enabled ? 'flex-end' : 'flex-start'};border:1px solid ${enabled ? 'rgba(52,211,153,0.5)' : 'rgba(148,163,184,0.4)'};">
+        <span class="block w-5 h-5 rounded-full bg-white shadow"></span>
+      </button>
+    </div>`;
+  },
+
+  // ===== TELA COBRANÇA =====
+  _billingScreen() {
+    const tenant = this.state.tenants.find(t => Number(t.id) === Number(this.state.billingTenantId));
+    const totals = this.state.billingTotals || { total_pending: 0, total_paid: 0, hours_total: 0 };
+    const fmtBRL = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `<div class="flex items-center justify-between mb-6">
+      <div>
+        <p class="text-[10px] font-black text-indigo-300 uppercase tracking-wider">Cobrança manual</p>
+        <h1 class="text-2xl font-black">Horas faturadas</h1>
+        <p class="text-sm text-slate-400 mt-1">Registre horas trabalhadas por tenant e marque como pago manualmente. Sem integração com Stripe — você controla a régua.</p>
+      </div>
+      ${this.state.billingTenantId ? `<button onclick="AdminApp.openBillingAdd()" class="admin-btn-primary px-4 py-2.5 rounded-xl text-xs flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Nova cobrança</button>` : ''}
+    </div>
+    <div class="admin-card p-4 mb-4">
+      <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Tenant</label>
+      <select onchange="AdminApp.setBillingTenant(this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+        <option value="">— escolha um tenant —</option>
+        ${this.state.tenants.map(t => `<option value="${t.id}" ${Number(this.state.billingTenantId) === Number(t.id) ? 'selected' : ''}>${this._escape(t.name)}</option>`).join('')}
+      </select>
+    </div>
+    ${!this.state.billingTenantId
+      ? `<p class="text-sm text-slate-400">Escolha um tenant pra ver as cobranças dele.</p>`
+      : `<div class="grid grid-cols-3 gap-3 mb-4">
+          <div class="admin-card p-4"><p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total pendente</p><p class="text-2xl font-black text-amber-300 mt-1">${fmtBRL(totals.total_pending)}</p></div>
+          <div class="admin-card p-4"><p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total pago</p><p class="text-2xl font-black text-emerald-300 mt-1">${fmtBRL(totals.total_paid)}</p></div>
+          <div class="admin-card p-4"><p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Horas totais</p><p class="text-2xl font-black text-white mt-1">${Number(totals.hours_total || 0).toFixed(1)}h</p></div>
+        </div>
+        ${this.state.billingLoading
+          ? `<p class="text-sm text-slate-400">Carregando…</p>`
+          : !this.state.billingEntries.length
+            ? `<div class="admin-card p-10 text-center"><p class="text-sm text-slate-400">Nenhuma cobrança registrada pra ${this._escape(tenant?.name || '')}.</p></div>`
+            : `<div class="space-y-1.5">${this.state.billingEntries.map(e => this._billingRow(e, fmtBRL)).join('')}</div>`
+        }`
+    }`;
+  },
+
+  _billingRow(e, fmtBRL) {
+    const paid = e.status === 'paid';
+    const dt = e.performed_at ? new Date(e.performed_at).toLocaleDateString('pt-BR') : '—';
+    const paidDt = e.paid_at ? new Date(e.paid_at).toLocaleDateString('pt-BR') : null;
+    return `<div class="admin-card p-3 flex items-center gap-3">
+      <div class="shrink-0 w-2 h-10 rounded-full" style="background:${paid ? '#10b981' : '#f59e0b'};"></div>
+      <div class="flex-1 min-w-0 grid grid-cols-[80px_1fr_140px_120px] gap-3 items-center">
+        <div>
+          <p class="text-[10px] text-slate-400 uppercase tracking-wider">Data</p>
+          <p class="text-xs font-black text-white">${dt}</p>
+        </div>
+        <div class="min-w-0">
+          <p class="text-[10px] text-slate-400 uppercase tracking-wider">Descrição</p>
+          <p class="text-xs font-semibold text-slate-200 truncate">${this._escape(e.note || '—')}</p>
+        </div>
+        <div>
+          <p class="text-[10px] text-slate-400 uppercase tracking-wider">Horas × valor</p>
+          <p class="text-xs font-black text-white">${Number(e.hours).toFixed(1)}h × ${fmtBRL(e.rate)}</p>
+        </div>
+        <div>
+          <p class="text-[10px] text-slate-400 uppercase tracking-wider">Total</p>
+          <p class="text-xs font-black ${paid ? 'text-emerald-300' : 'text-amber-300'}">${fmtBRL(e.total)}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        ${paid
+          ? `<span class="admin-pill admin-pill-emerald">PAGO ${paidDt ? `· ${paidDt}` : ''}</span><button onclick="AdminApp.markBillingPaid(${e.id}, true)" title="Reverter pra pendente" class="px-2 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[10px] font-black">↺</button>`
+          : `<span class="admin-pill admin-pill-amber">PENDENTE</span><button onclick="AdminApp.markBillingPaid(${e.id}, false)" class="px-3 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/30 text-emerald-200 text-[10px] font-black">Marcar pago</button>`
+        }
+        <button onclick="AdminApp.deleteBillingEntry(${e.id})" title="Apagar" class="px-2 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-200"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+      </div>
+    </div>`;
+  },
+
+  _billingAddModal() {
+    const d = this.state.billingAddDraft;
+    const tenant = this.state.tenants.find(t => Number(t.id) === Number(this.state.billingTenantId));
+    return `<div class="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm grid place-items-center p-4">
+      <div class="admin-card p-6 w-full max-w-lg">
+        <h3 class="text-xl font-black mb-1">Nova cobrança</h3>
+        <p class="text-xs text-slate-400 mb-4">Pra <b>${this._escape(tenant?.name || '')}</b>. Total é calculado automaticamente (horas × valor/hora).</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Horas</label>
+            <input type="number" step="0.25" value="${this._escape(d.hours)}" oninput="AdminApp.updateBillingAddField('hours', this.value)" placeholder="ex: 2.5" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-mono text-sm" />
+          </div>
+          <div>
+            <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Valor/hora (R$)</label>
+            <input type="number" step="0.01" value="${this._escape(d.rate)}" oninput="AdminApp.updateBillingAddField('rate', this.value)" placeholder="ex: 250.00" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-mono text-sm" />
+          </div>
+        </div>
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider mt-3 block">Data do trabalho</label>
+        <input type="date" value="${this._escape(d.performedAt)}" oninput="AdminApp.updateBillingAddField('performedAt', this.value)" class="w-full mt-1 mb-3 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" />
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Descrição (opcional)</label>
+        <textarea oninput="AdminApp.updateBillingAddField('note', this.value)" rows="2" placeholder="ex: Implementação do dashboard de leads" class="w-full mt-1 mb-3 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">${this._escape(d.note)}</textarea>
+        ${d.hours && d.rate ? `<p class="text-sm font-black text-emerald-300 mb-3">Total: R$ ${(Number(d.hours) * Number(d.rate)).toFixed(2)}</p>` : ''}
+        <div class="flex justify-end gap-2 mt-2">
+          <button onclick="AdminApp.closeBillingAdd()" class="px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white font-black text-sm">Cancelar</button>
+          <button onclick="AdminApp.submitBillingAdd()" class="admin-btn-primary px-4 py-2.5 rounded-xl text-sm">Registrar</button>
+        </div>
+      </div>
     </div>`;
   },
 
