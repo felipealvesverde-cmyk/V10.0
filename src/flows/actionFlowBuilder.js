@@ -1029,8 +1029,12 @@ window.ActionFlowBuilder = {
     const svgNS = 'http://www.w3.org/2000/svg';
     // V39.10.1 — Remove só SVG/hint anteriores; preserva #flowBuilderTrashBin
     // (que precisa ficar visível durante drag de fantasma/badge).
-    const oldSvg = root.querySelector('svg');
-    if (oldSvg) oldSvg.remove();
+    // V40.6.10 — querySelectorAll pra remover TODOS os SVGs antigos. Antes
+    // querySelector pegava só o primeiro; se duas chamadas a _drawCanvas
+    // entrassem em race (setTimeout 0 múltiplos), sobrava um SVG órfão com
+    // todos os cards duplicados — o card fantasma rosa deslocado do Felipe.
+    const oldSvgs = root.querySelectorAll('svg');
+    for (const old of oldSvgs) old.remove();
     const oldHint = root.querySelector('[data-empty-hint]');
     if (oldHint) oldHint.remove();
     const svg = document.createElementNS(svgNS, 'svg');
@@ -1769,6 +1773,21 @@ window.ActionFlowBuilder = {
       // outros dimmed. Cor resolvida via nodeColor() (Ação dinâmica por setor).
       if (changed) {
         const selSet = new Set(next.map(String));
+        // V40.6.10 — DEDUP guard: se algum nodeId tem mais de um <g> no SVG
+        // (race entre _drawCanvas e re-render), remove duplicatas mantendo o
+        // primeiro. Esse era o card fantasma rosa deslocado.
+        const allGroupsRaw = svg.querySelectorAll('g[data-node-id]');
+        const seenIds = new Set();
+        const dupsToRemove = [];
+        for (const g of allGroupsRaw) {
+          const id = g.dataset.nodeId;
+          if (seenIds.has(id)) dupsToRemove.push(g);
+          else seenIds.add(id);
+        }
+        if (dupsToRemove.length) {
+          console.warn('[FlowBuilder] V40.6.10 dedup: removendo', dupsToRemove.length, 'card(s) fantasma duplicado(s).');
+          for (const dup of dupsToRemove) dup.remove();
+        }
         const allGroups = svg.querySelectorAll('g[data-node-id]');
         const nodesPool = App.state.flowBuilderNodes || [];
         const edgesPool = App.state.flowBuilderEdges || [];
