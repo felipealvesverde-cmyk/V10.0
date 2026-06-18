@@ -52,6 +52,12 @@ window.NotificationSync = {
   async _checkClickup() {
     const status = App.state.clickupStatus;
     if (!status) return;
+    // V40.5.1 — Gate contra race: NÃO emite alerta se loadClickupStatus ainda
+    // não respondeu pelo menos uma vez. O initial() do State traz
+    // { connected: false } como default — sem este gate, F5 com rede lenta
+    // disparava "ClickUp desconectado" antes da resposta real chegar.
+    // Sintoma do Sansone V40.5.0: alerta no sininho com Settings dizendo conectado.
+    if (!App.state._clickupStatusLoaded) return;
     if (!status.connected) {
       // ClickUp desconectado — crítico
       await window.LJEmitDedup({

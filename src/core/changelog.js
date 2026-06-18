@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.5.1',
+    date: '2026-06-18',
+    title: 'Fix: alerta falso "ClickUp desconectado" no F5 quando a rede demora',
+    bullets: [
+      'Alerta de "ClickUp desconectado" no sininho parou de disparar erroneamente em F5 com rede lenta. Race condition: o NotificationSync rodava em 5s após boot e lia o valor inicial { connected: false } do estado antes do /api/clickup-config ter respondido. Resultado: cliente recebia alerta crítico mesmo com ClickUp conectado e funcionando, e Configurações mostrava conectado normalmente (porque a resposta chegou depois). Sintoma reportado pelo Sansone após V40.5.0.',
+      'Fix: o NotificationSync agora espera o loadClickupStatus ter respondido pelo menos uma vez antes de checar conexão. Flag _clickupStatusLoaded marca a tentativa (sucesso ou erro de rede).',
+      'Cooldown de 24h do LJEmitDedup garante que o alerta antigo (já emitido erroneamente) não rebombeia. Quem recebeu, basta marcar como lida no sininho.'
+    ]
+  },
+  {
     version: 'V40.5.0',
     date: '2026-06-18',
     title: 'Polish de F5: sininho/badges/status de integração + state fields normalizados',
