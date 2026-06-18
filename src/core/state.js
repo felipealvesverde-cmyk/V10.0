@@ -188,6 +188,10 @@ var State = {
       flowBuilderDrafts: [],
       flowBuilderDraftsModal: false,
       flowBuilderDraftNameDraft: '',
+      // V39.12.1 — Seleção de cards (transient). Click no card seleciona;
+      // shift+click multi-seleciona; click em área vazia limpa. Habilita
+      // ALT+box-select por tipo + conexão em massa.
+      flowBuilderSelectedNodeIds: [],
       // V37.0.8 — showLpModal/lpDraft/lpEvents/lpRegistry/lpLastPolledAt REMOVIDOS
       // (fluxo LP modal vestigial pré-Tracking V33, sem consumidor moderno).
       showCampaignFlowModal: false,
@@ -1083,6 +1087,7 @@ var State = {
         : [],
       flowBuilderDraftsModal: false,
       flowBuilderDraftNameDraft: '',
+      flowBuilderSelectedNodeIds: [],
       flowBuilderDisconnectEdgeId: null,
       flowBuilderEditNodeId: null,
       flowBuilderEditNodeDraft: {},
@@ -1906,6 +1911,8 @@ var State = {
         'flowBuilderPaletteOpen',
         // V39.11.1 — modal de rascunhos + nome digitado são transient (rascunhos em si persistem).
         'flowBuilderDraftsModal','flowBuilderDraftNameDraft',
+        // V39.12.1 — seleção de cards é transient (reset ao recarregar).
+        'flowBuilderSelectedNodeIds',
         'djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',

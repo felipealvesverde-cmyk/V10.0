@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.12.1',
+    date: '2026-06-18',
+    title: 'Flow Builder ganha atalhos de produtividade: CTRL+drag pra criar filho, click pra selecionar, ALT pra box-select, conexão em massa',
+    bullets: [
+      'Cada esteira agora aceita 1 Produto por canvas. Tentar criar um segundo Produto mostra aviso "Já existe um Produto no canvas — apague o atual ou abra um rascunho novo pra fazer outro produto". Alinha com o paradigma "1 esteira = 1 jornada de produto" e evita ambiguidade no Salvar.',
+      'CTRL+arrastar num card cria automaticamente o filho da hierarquia já conectado: CTRL+drag no Produto cria Campanha conectada, no Campanha cria Ação conectada, no Ação cria Execução conectada. Você desenha a esteira inteira em fluência sem precisar voltar na pílula. CTRL+drag em Execução só mostra aviso (não tem próximo).',
+      'Click simples no card agora seleciona ele — o contorno fica branco grosso pra mostrar que está selecionado. Click em outro card troca a seleção. Shift+click adiciona/remove da seleção. Click em área vazia do canvas limpa a seleção. Contador "N selecionados" aparece no header.',
+      'Com pelo menos 1 card selecionado, ALT+arrastar no canvas desenha um retângulo de seleção. Ao soltar, ele pega TODOS os cards do mesmo tipo do já selecionado que estão dentro do retângulo. Exemplo: 1 Ação selecionada → ALT+arrastar por uma área com 3 Ações + 1 Execução → fica com as 3 Ações selecionadas (a Execução é ignorada). Útil pra selecionar múltiplos do mesmo nível.',
+      'Conexão em massa: com múltiplos cards selecionados, clicar em "Conexão" em qualquer um deles arma TODOS de uma vez (botão mostra "Conectando N..."). Ao arrastar o conector pra um destino, cria as N conexões de uma vez. Hierarquia ainda é validada por conexão — se alguma falhar, mostra contagem de OK vs problemas.',
+      'Arrastar um card que faz parte da seleção move TODOS os selecionados juntos (preservando offset relativo). Útil pra reorganizar grupos de cards de uma vez.',
+      'ESC com a pílula expandida fecha ela (volta ao estado fechado). Listener global registrado uma vez quando o builder abre.',
+      'Tudo isso documentado na seção Ajuda do builder.'
+    ]
+  },
+  {
     version: 'V39.12.0',
     date: '2026-06-18',
     title: 'Flow Builder vira maquete completa: ICP, form de Ação, gate de ClickUp e Salvar all-or-nothing',

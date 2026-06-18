@@ -2811,16 +2811,22 @@ Object.assign(Actions, {
     App.state.flowBuilderLoadCampaignModal = false;
     App.state.flowBuilderDraftsModal = false;
     App.state.flowBuilderDraftNameDraft = '';
+    App.state.flowBuilderSelectedNodeIds = [];
     App.save(); App.render();
   },
 
   // V39.9.0 — Esteira abre modal de edição automaticamente (força preencher
   // nome + campos do tipo). Auxiliares entram com nome default (do tipo).
+  // V39.12.1 — Bloqueia 2º Produto no canvas (cada esteira tem 1 só, alinha
+  // com o paradigma "1 esteira = 1 jornada de produto"; evita ambiguidade no Salvar).
   addFlowBuilderNode(typeId) {
     if (!window.ActionFlowBuilder) return;
     const type = ActionFlowBuilder.typeById(typeId);
     if (!type) return Utils.toast('Tipo de bloco inválido.');
     const nodes = App.state.flowBuilderNodes || [];
+    if (type.id === 'produto' && nodes.some(n => n.type === 'produto')) {
+      return Utils.toast('Já existe um Produto no canvas. Cada esteira tem 1 só — apague o atual ou abra um rascunho novo pra fazer outro produto.');
+    }
     const i = nodes.length;
     const isEsteira = ActionFlowBuilder.isEsteira(type.id);
     const node = {
@@ -2850,9 +2856,25 @@ Object.assign(Actions, {
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
   },
 
+  // V39.12.1 — Arm suporta massa: se nodeId faz parte de uma seleção múltipla,
+  // arma TODOS os selecionados. Senão arma só o clicado (toggle).
   armFlowBuilderConnection(nodeId) {
+    const selected = (App.state.flowBuilderSelectedNodeIds || []).map(String);
+    const id = String(nodeId);
     const current = App.state.flowBuilderConnectionArm;
-    App.state.flowBuilderConnectionArm = (String(current) === String(nodeId)) ? null : String(nodeId);
+    const currentArr = Array.isArray(current) ? current.map(String) : (current ? [String(current)] : []);
+    // Toggle: se já está armado E é o conjunto exato, desarma.
+    if (currentArr.length && currentArr.includes(id)) {
+      App.state.flowBuilderConnectionArm = null;
+    } else if (selected.includes(id) && selected.length > 1) {
+      // Massa: arma todos os selecionados (apenas os do mesmo tipo do clicado pra não dar problema na hierarquia).
+      const nodes = App.state.flowBuilderNodes || [];
+      const refType = nodes.find(n => String(n.id) === id)?.type;
+      const armSet = selected.filter(sid => nodes.find(n => String(n.id) === sid)?.type === refType);
+      App.state.flowBuilderConnectionArm = armSet;
+    } else {
+      App.state.flowBuilderConnectionArm = [id];
+    }
     App.save(); App.render();
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
   },
@@ -2864,49 +2886,70 @@ Object.assign(Actions, {
   },
 
   // V39.10.0 — Guardrails de hierarquia Produto→Campanha→Ação→Execução.
-  connectFlowBuilderNodes(fromId, toId) {
-    const from = String(fromId), to = String(toId);
-    if (from === to) return Utils.toast('Bloco não pode se conectar a si mesmo.');
+  // V39.12.1 — fromIdOrIds pode ser string única OU array (conexão em massa).
+  // Em massa: cria N edges (1 por fromId válido), reportando quantos passaram/falharam.
+  connectFlowBuilderNodes(fromIdOrIds, toId) {
+    const to = String(toId);
+    const fromIds = Array.isArray(fromIdOrIds) ? fromIdOrIds.map(String) : [String(fromIdOrIds)];
+    if (!fromIds.length) return;
     const nodes = App.state.flowBuilderNodes || [];
-    const fromNode = nodes.find(n => String(n.id) === from);
     const toNode = nodes.find(n => String(n.id) === to);
-    if (!fromNode || !toNode) return Utils.toast('Bloco não encontrado.');
-
-    // V39.10.0 — Hierarquia esteira: só conexões permitidas
+    if (!toNode) return Utils.toast('Bloco destino não encontrado.');
     const allowed = window.ActionFlowBuilder?.ALLOWED_CONNECTIONS || {};
-    const isEsteiraFrom = window.ActionFlowBuilder?.isEsteira(fromNode.type);
-    const isEsteiraTo = window.ActionFlowBuilder?.isEsteira(toNode.type);
-    if (isEsteiraFrom || isEsteiraTo) {
-      if (!isEsteiraFrom || !isEsteiraTo) {
-        return Utils.toast('Blocos da Esteira só conectam com outros blocos da Esteira (Auxiliares são separados).');
-      }
-      const validTargets = allowed[fromNode.type] || [];
-      if (!validTargets.includes(toNode.type)) {
-        const typeLabel = (id) => window.ActionFlowBuilder.typeById(id).label;
-        return Utils.toast(`${typeLabel(fromNode.type)} só pode conectar com ${(allowed[fromNode.type] || []).map(typeLabel).join('/') || 'nada (fim de fluxo)'}.`);
-      }
-    }
+    const typeLabel = (id) => window.ActionFlowBuilder?.typeById(id)?.label || id;
 
-    const edges = App.state.flowBuilderEdges || [];
-    if (edges.some(e => String(e.fromId) === from && String(e.toId) === to)) {
-      return Utils.toast('Essa conexão já existe.');
-    }
-    // Detecção de ciclo: BFS a partir de toId seguindo arestas — se encontrar fromId, ciclo.
-    const visited = new Set();
-    const queue = [to];
-    while (queue.length) {
-      const id = queue.shift();
-      if (visited.has(id)) continue;
-      if (id === from) return Utils.toast('Essa conexão cria um ciclo.');
-      visited.add(id);
-      for (const e of edges) {
-        if (String(e.fromId) === id) queue.push(String(e.toId));
+    let edges = App.state.flowBuilderEdges || [];
+    const created = [];
+    const errors = [];
+    for (const from of fromIds) {
+      if (from === to) { errors.push(`Bloco não pode se conectar a si mesmo.`); continue; }
+      const fromNode = nodes.find(n => String(n.id) === from);
+      if (!fromNode) { errors.push(`Bloco origem ${from} não encontrado.`); continue; }
+      const isEsteiraFrom = window.ActionFlowBuilder?.isEsteira(fromNode.type);
+      const isEsteiraTo = window.ActionFlowBuilder?.isEsteira(toNode.type);
+      if (isEsteiraFrom || isEsteiraTo) {
+        if (!isEsteiraFrom || !isEsteiraTo) {
+          errors.push(`${typeLabel(fromNode.type)} ↔ ${typeLabel(toNode.type)}: blocos da Esteira só conectam entre si.`);
+          continue;
+        }
+        const validTargets = allowed[fromNode.type] || [];
+        if (!validTargets.includes(toNode.type)) {
+          errors.push(`${typeLabel(fromNode.type)} → ${typeLabel(toNode.type)}: hierarquia não permite.`);
+          continue;
+        }
       }
+      if (edges.some(e => String(e.fromId) === from && String(e.toId) === to)) {
+        // Silencioso: já existe, não conta como erro.
+        continue;
+      }
+      // Ciclo
+      const visited = new Set();
+      const queue = [to];
+      let cycle = false;
+      while (queue.length) {
+        const id = queue.shift();
+        if (visited.has(id)) continue;
+        if (id === from) { cycle = true; break; }
+        visited.add(id);
+        for (const e of edges) {
+          if (String(e.fromId) === id) queue.push(String(e.toId));
+        }
+      }
+      if (cycle) { errors.push(`${typeLabel(fromNode.type)} → ${typeLabel(toNode.type)}: cria ciclo.`); continue; }
+      const newEdge = { id: `e_${Date.now()}_${Math.floor(Math.random() * 100000)}`, fromId: from, toId: to };
+      edges = [...edges, newEdge];
+      created.push(newEdge);
     }
-    const newEdge = { id: `e_${Date.now()}_${Math.floor(Math.random() * 100000)}`, fromId: from, toId: to };
-    App.state.flowBuilderEdges = [...edges, newEdge];
+    App.state.flowBuilderEdges = edges;
     App.save(); App.render();
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+    if (created.length === 1 && !errors.length) {
+      // Caso simples — sem toast (UX do single connect tradicional).
+      return;
+    }
+    if (created.length > 1) Utils.toast(`✓ ${created.length} conexões criadas.`);
+    if (created.length === 0 && errors.length === 1) Utils.toast(errors[0]);
+    else if (errors.length) Utils.toast(`${created.length} criadas, ${errors.length} ${errors.length === 1 ? 'erro' : 'erros'}. Verifique a hierarquia.`);
   },
 
   requestFlowBuilderEdgeDisconnect(edgeId) {
