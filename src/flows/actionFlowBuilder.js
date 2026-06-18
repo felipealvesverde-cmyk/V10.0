@@ -21,18 +21,23 @@ window.ActionFlowBuilder = {
   GHOST_HEIGHT: 34,
   VIEWPORT_MARGIN: 200,
 
-  // V40.6.1 (Leonardo) — Paleta semântica oficial do LJ alinhada ao Pulso da
-  // Receita: Produto=RevOps roxo, Campanha=Marketing rosa, Ação=DINÂMICA por
-  // setor (Marketing/Vendas/CS), Execução=herda cor da ação parent.
+  // V40.6.2 (Leonardo) — Paleta correta segundo Design Director (lei cravada
+  // por Felipe em 2026-05-22, comentário V32.3.3 do design-director.css):
+  //   Hierarquia Produto→Campanha→Ação→Execução = escala TERRA/HORIZONTE
+  //   (bege→marrom). Dessaturada. Respira como mapa de fundo.
+  //   ÁREAS (Marketing/Vendas/CS) = vozes VIBRANTES. Só Ação puxa essa voz
+  //   porque Ação é o "ato" — ela merece a cor do setor que age.
+  //   Campanha, Produto e Execução são TERRA — não são vinculadas a setor.
+  // Execução usa task-soft #7A5A47 (não o #5C4033 puro, que sumiria em dark).
   ESTEIRA_TYPES: [
-    { id: 'produto',   label: 'Produto',   icon: 'package',   color: '#AB3ED8', hierarchy: 1 },
-    { id: 'campanha',  label: 'Campanha',  icon: 'megaphone', color: '#F472B6', hierarchy: 2 },
-    { id: 'acao',      label: 'Ação',      icon: 'zap',       color: '#F472B6', hierarchy: 3 },
-    { id: 'execucao',  label: 'Execução',  icon: 'play',      color: '#6BBEF9', hierarchy: 4 }
+    { id: 'produto',   label: 'Produto',   icon: 'package',   color: '#FCD9B6', hierarchy: 1 },
+    { id: 'campanha',  label: 'Campanha',  icon: 'megaphone', color: '#D4A574', hierarchy: 2 },
+    { id: 'acao',      label: 'Ação',      icon: 'zap',       color: '#A77B5B', hierarchy: 3 },
+    { id: 'execucao',  label: 'Execução',  icon: 'play',      color: '#7A5A47', hierarchy: 4 }
   ],
 
   // V40.6.1 — Cores semânticas oficiais por setor (Marketing/Vendas/CS).
-  // Espelho do que está em var(--lj-X) no CSS.
+  // Espelho do que está em var(--lj-X) no CSS. Usadas APENAS em Ação.
   SECTOR_COLOR: {
     'Marketing': '#F472B6',
     'Vendas':    '#00CBCC',
@@ -110,33 +115,18 @@ window.ActionFlowBuilder = {
   },
   isEsteira(typeId) { return this.ESTEIRA_TYPES.some(t => t.id === typeId); },
 
-  // V40.6.1 (Leonardo) — Cor semântica resolvida por node, não por tipo estático:
-  // - Produto: RevOps roxo (estratégico)
-  // - Campanha: Marketing rosa (território nativo de campanha)
-  // - Ação: cor do setor (Marketing/Vendas/CS) — repinta quando user troca setor no modal
-  // - Execução: cor da ação parent (cascata cromática — execução é braço operacional da ação)
-  // Quando não encontra parent ou setor desconhecido, cai no default do tipo.
-  nodeColor(node, nodesPool) {
+  // V40.6.2 (Leonardo) — Lei terra/horizonte: SÓ Ação é dinâmica por setor
+  // (vira voz vibrante porque é o ato). Produto, Campanha e Execução têm cor
+  // própria da escala terrosa — não são vinculadas a Marketing/Vendas/CS.
+  nodeColor(node /*, nodesPool */) {
     if (!node) return '#94a3b8';
-    if (node.type === 'produto')  return '#AB3ED8';
-    if (node.type === 'campanha') return '#F472B6';
+    if (node.type === 'produto')  return '#FCD9B6';
+    if (node.type === 'campanha') return '#D4A574';
     if (node.type === 'acao') {
       const sector = String(node.data?.sector || 'Marketing');
-      return this.SECTOR_COLOR[sector] || '#F472B6';
+      return this.SECTOR_COLOR[sector] || '#A77B5B';
     }
-    if (node.type === 'execucao') {
-      const pool = nodesPool || App.state.flowBuilderNodes || [];
-      const edges = App.state.flowBuilderEdges || [];
-      const incoming = edges.find(e => String(e.toId) === String(node.id));
-      if (incoming) {
-        const parent = pool.find(n => String(n.id) === String(incoming.fromId));
-        if (parent && parent.type === 'acao') {
-          const sector = String(parent.data?.sector || 'Marketing');
-          return this.SECTOR_COLOR[sector] || '#F472B6';
-        }
-      }
-      return '#6BBEF9';
-    }
+    if (node.type === 'execucao') return '#7A5A47';
     const t = this.typeById(node.type);
     return t?.color || '#94a3b8';
   },
