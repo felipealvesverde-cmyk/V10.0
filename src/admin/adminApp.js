@@ -5,7 +5,7 @@
 window.AdminApp = {
   state: {
     currentUser: null,
-    activeScreen: 'tenants',     // 'tenants' | 'snapshots' | 'plugins'
+    activeScreen: 'tenants',     // 'tenants' | 'users' | 'plugins' | 'integrations' | 'billing' | 'snapshots'
     tenants: [],
     tenantsLoading: false,
     selectedTenantId: null,
@@ -31,6 +31,10 @@ window.AdminApp = {
     integrationsTenantId: null,
     integrationsList: [],
     integrationsLoading: false,
+    // V40.3.0 — Usuários por tenant + gating de IA
+    usersTenantId: null,
+    usersList: [],
+    usersLoading: false,
     toast: null,
     plugDbDraft: { tenantId: null, connString: '' }
   },
@@ -86,7 +90,34 @@ window.AdminApp = {
     if (screen === 'plugins') this.loadPluginsList();
     if (screen === 'billing') this.loadBilling();
     if (screen === 'integrations') this.loadIntegrationsList();
+    if (screen === 'users') this.loadTenantUsers();
     this.render();
+  },
+
+  // ===== USUÁRIOS POR TENANT + GATING DE IA =====
+  async loadTenantUsers() {
+    if (!this.state.usersTenantId) return;
+    this.state.usersLoading = true; this.render();
+    const r = await this.fetch(`/api/admin-tenant-users?tenantId=${this.state.usersTenantId}`);
+    this.state.usersLoading = false;
+    if (r?.ok) this.state.usersList = r.data.users || [];
+    this.render();
+  },
+  setUsersTenant(tenantId) {
+    this.state.usersTenantId = Number(tenantId) || null;
+    this.loadTenantUsers();
+  },
+  async toggleUserAi(userId, currentlyEnabled) {
+    const r = await this.fetch('/api/users-toggle-master-ai', {
+      method: 'POST',
+      body: JSON.stringify({ userId: Number(userId), enabled: !currentlyEnabled })
+    });
+    if (r?.ok) {
+      this.toast(`✓ IA ${!currentlyEnabled ? 'liberada' : 'cortada'} pro usuário.`, 'success');
+      this.loadTenantUsers();
+    } else {
+      this.toast(r?.data?.message || 'Erro ao alterar IA.', 'error');
+    }
   },
 
   // ===== COBRANÇA MANUAL =====
@@ -437,7 +468,8 @@ window.AdminApp = {
             <p class="text-sm font-black">LJ Admin</p>
           </div>
         </div>
-        ${this._navBtn('tenants', 'Tenants', 'users')}
+        ${this._navBtn('tenants', 'Tenants', 'building-2')}
+        ${this._navBtn('users', 'Usuários', 'users')}
         ${this._navBtn('plugins', 'Plugins', 'puzzle')}
         ${this._navBtn('integrations', 'Integrações', 'link')}
         ${this._navBtn('billing', 'Cobrança', 'banknote')}
@@ -451,6 +483,7 @@ window.AdminApp = {
       </aside>
       <main class="flex-1 admin-content p-8 overflow-auto" style="max-height:100vh;">
         ${this.state.activeScreen === 'tenants' ? this._tenantsScreen()
+          : this.state.activeScreen === 'users' ? this._usersScreen()
           : this.state.activeScreen === 'plugins' ? this._pluginsScreen()
           : this.state.activeScreen === 'integrations' ? this._integrationsScreen()
           : this.state.activeScreen === 'billing' ? this._billingScreen()
@@ -582,6 +615,75 @@ window.AdminApp = {
           <button onclick="AdminApp.closePlugDb()" class="px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-white font-black text-sm">Cancelar</button>
           <button onclick="AdminApp.submitPlugDb()" class="admin-btn-primary px-4 py-2.5 rounded-xl text-sm">Plugar</button>
         </div>
+      </div>
+    </div>`;
+  },
+
+  // ===== TELA USUÁRIOS POR TENANT =====
+  _usersScreen() {
+    const tenant = this.state.tenants.find(t => Number(t.id) === Number(this.state.usersTenantId));
+    const usersCount = this.state.usersList.length;
+    const aiCount = this.state.usersList.filter(u => u.masterAiEnabled || u.hasOwnAiKey).length;
+    return `<div class="flex items-center justify-between mb-6">
+      <div>
+        <p class="text-[10px] font-black text-indigo-300 uppercase tracking-wider">Acesso & IA</p>
+        <h1 class="text-2xl font-black">Usuários por tenant</h1>
+        <p class="text-sm text-slate-400 mt-1">Veja quem cada cliente tem cadastrado e libere o saldo Anthropic do LJ por usuário. Toggle aplica imediatamente — próxima chamada de IA usa o saldo do LJ ao invés de exigir chave própria.</p>
+      </div>
+      ${this.state.usersTenantId ? `<button onclick="AdminApp.openCreateUserModal(${this.state.usersTenantId})" class="admin-btn-primary px-4 py-2.5 rounded-xl text-xs flex items-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Novo usuário</button>` : ''}
+    </div>
+    <div class="admin-card p-4 mb-4">
+      <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Tenant</label>
+      <select onchange="AdminApp.setUsersTenant(this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+        <option value="">— escolha um tenant —</option>
+        ${this.state.tenants.map(t => `<option value="${t.id}" ${Number(this.state.usersTenantId) === Number(t.id) ? 'selected' : ''}>${this._escape(t.name)}</option>`).join('')}
+      </select>
+    </div>
+    ${!this.state.usersTenantId
+      ? `<p class="text-sm text-slate-400">Escolha um tenant pra ver os usuários cadastrados nele.</p>`
+      : this.state.usersLoading
+        ? `<p class="text-sm text-slate-400">Carregando…</p>`
+        : !usersCount
+          ? `<div class="admin-card p-10 text-center"><p class="text-sm text-slate-400">Nenhum usuário cadastrado em ${this._escape(tenant?.name || '')}. Clique em "Novo usuário" pra criar.</p></div>`
+          : `<div class="grid grid-cols-2 gap-3 mb-4">
+              <div class="admin-card p-4"><p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Cadastrados</p><p class="text-2xl font-black text-white mt-1">${usersCount}</p></div>
+              <div class="admin-card p-4"><p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Com IA disponível</p><p class="text-2xl font-black text-emerald-300 mt-1">${aiCount}</p><p class="text-[10px] text-slate-400 mt-0.5">via saldo LJ ou chave própria</p></div>
+            </div>
+            <div class="space-y-2">${this.state.usersList.map(u => this._userRow(u)).join('')}</div>
+            <p class="text-[11px] text-slate-400 mt-4">"IA liberada" = ${this._escape(tenant?.name || '')} usa o saldo Anthropic do LJ. "Chave própria" = cliente plugou a dele em Configurações → IA. Operador LJ sempre vê tudo (master é override global).</p>`
+    }`;
+  },
+
+  _userRow(u) {
+    const aiEnabled = !!u.masterAiEnabled;
+    const hasOwn = !!u.hasOwnAiKey;
+    const roleLabel = u.role === 'owner' ? 'OWNER' : u.role === 'manager' ? 'GERENTE' : 'USUÁRIO';
+    const roleClass = u.role === 'owner' ? 'admin-pill-emerald' : u.role === 'manager' ? 'admin-pill-amber' : 'admin-pill-slate';
+    const lastLogin = u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('pt-BR') : 'nunca logou';
+    const initials = String(u.displayName || u.email || '?').slice(0, 2).toUpperCase();
+    return `<div class="admin-card p-4 flex items-center gap-4">
+      <div class="shrink-0 w-10 h-10 rounded-xl grid place-items-center text-white text-[11px] font-black" style="background:linear-gradient(135deg,#6366f1,#a855f7);">${this._escape(initials)}</div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <p class="font-black text-white truncate">${this._escape(u.displayName || u.email)}</p>
+          <span class="admin-pill ${roleClass}">${roleLabel}</span>
+          ${aiEnabled ? `<span class="admin-pill admin-pill-emerald">IA LIBERADA</span>` : ''}
+          ${hasOwn ? `<span class="admin-pill admin-pill-slate">CHAVE PRÓPRIA</span>` : ''}
+          ${!u.isApproved ? `<span class="admin-pill admin-pill-amber">NÃO APROVADO</span>` : ''}
+        </div>
+        <p class="text-[11px] text-slate-400 mt-0.5 truncate">${this._escape(u.email)} · último login ${lastLogin}</p>
+      </div>
+      <div class="shrink-0 flex items-center gap-3">
+        <div class="text-right">
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Saldo LJ</p>
+          <p class="text-[10px] text-slate-300">${aiEnabled ? 'liberado' : 'cortado'}</p>
+        </div>
+        <button onclick="AdminApp.toggleUserAi(${u.id}, ${aiEnabled})"
+                title="${aiEnabled ? 'Cortar saldo de IA do LJ' : 'Liberar saldo de IA do LJ pra este usuário'}"
+                class="inline-flex items-center gap-2 px-1 py-1 rounded-full transition"
+                style="background:${aiEnabled ? '#10b981' : '#475569'};width:48px;justify-content:${aiEnabled ? 'flex-end' : 'flex-start'};border:1px solid ${aiEnabled ? 'rgba(52,211,153,0.5)' : 'rgba(148,163,184,0.4)'};">
+          <span class="block w-5 h-5 rounded-full bg-white shadow"></span>
+        </button>
       </div>
     </div>`;
   },

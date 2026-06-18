@@ -9,7 +9,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
-  if (!req.user.isMaster) return res.status(403).json({ ok: false, message: 'Apenas o master.' });
+  if (!req.user.isMaster && !req.user.isLjOperator) return res.status(403).json({ ok: false, message: 'Apenas operador LJ.' });
 
   const userId = Number(req.body?.userId);
   const enabled = Boolean(req.body?.enabled);
