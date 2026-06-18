@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.4.0',
+    date: '2026-06-18',
+    title: 'Cockpit: gestão completa de usuários consolidada no card do Tenant + custo de IA visível',
+    bullets: [
+      'Card de cada Tenant agora tem 3 stats: Membros / Owner / IA gasta (somatório dos cost_usd Djow de todos os membros). Você vê o consumo Anthropic de Sansone, Mariano e qualquer cliente sem entrar em nada — basta bater o olho no card.',
+      'Botão "Novo user" virou "Usuários" e abre um modal grande de gestão completa do tenant. Dentro: lista com avatar, role, pills de IA liberada/chave própria/reset pendente, custo de IA individual, último login. E pra cada usuário você consegue: liberar/cortar IA, trocar senha direto, forçar reset de senha no próximo login, tornar owner (rebaixa o atual pra gerente), remover do tenant (sem deletar o user).',
+      '"Novo usuário" virou aba dentro desse mesmo modal — você cria sem sair do contexto do tenant. Senha inicial aparece no toast pra você repassar fora-de-banda.',
+      'A aba "Usuários" lateral do cockpit foi removida (redundante agora). Tudo de gestão de usuário acontece dentro do card do tenant.',
+      'Por trás: 3 endpoints novos (admin-tenants-ai-cost-summary, admin-tenant-set-owner, admin-tenant-remove-user). admin-tenant-users agora retorna custo de IA por user + total do tenant + flag de reset pendente. Gates de admin-set-user-password e tenant-member-reset-password ampliados pra aceitar operador LJ (não só master).'
+    ]
+  },
+  {
     version: 'V40.3.1',
     date: '2026-06-18',
     title: 'Cockpit: Tenants em grid de cards',

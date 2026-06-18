@@ -24,25 +24,26 @@ module.exports = async function handler(req, res) {
   const targetUserId = Number(req.body?.userId);
   if (!targetUserId) return res.status(400).json({ ok: false, message: 'userId obrigatório.' });
 
-  const tenantId = Number(req.user.tenantId);
+  // V40.4.0 — Operador LJ pode passar tenantId via body (não tem req.user.tenantId).
+  const tenantId = Number(req.body?.tenantId || req.user.tenantId);
 
   try {
-    // Membro tem que existir no tenant do admin (ou admin é master LJ).
+    // Membro tem que existir no tenant do admin (ou admin é master/operador LJ).
     const m = await req.db.query(
       'SELECT tenant_id, role FROM tenant_members WHERE user_id = $1 AND tenant_id = $2',
       [targetUserId, tenantId]
     );
-    if (!m.rows.length && !req.user.isMaster) {
+    if (!m.rows.length && !req.user.isMaster && !req.user.isLjOperator) {
       return res.status(404).json({ ok: false, message: 'Membro não encontrado neste tenant.' });
     }
 
-    if (!req.user.isMaster) {
+    if (!req.user.isMaster && !req.user.isLjOperator) {
       const meM = await req.db.query(
         'SELECT role FROM tenant_members WHERE tenant_id = $1 AND user_id = $2',
         [tenantId, req.user.sub]
       );
       if (!meM.rows.length || normalizeRole(meM.rows[0].role) !== 'owner') {
-        return res.status(403).json({ ok: false, message: 'Apenas Master ou Admin Master do tenant.' });
+        return res.status(403).json({ ok: false, message: 'Apenas Master, Operador LJ ou Admin Master do tenant.' });
       }
     }
 

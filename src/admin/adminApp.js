@@ -5,7 +5,7 @@
 window.AdminApp = {
   state: {
     currentUser: null,
-    activeScreen: 'tenants',     // 'tenants' | 'users' | 'plugins' | 'integrations' | 'billing' | 'snapshots'
+    activeScreen: 'tenants',     // 'tenants' | 'plugins' | 'integrations' | 'billing' | 'snapshots'
     tenants: [],
     tenantsLoading: false,
     selectedTenantId: null,
@@ -31,10 +31,19 @@ window.AdminApp = {
     integrationsTenantId: null,
     integrationsList: [],
     integrationsLoading: false,
-    // V40.3.0 — Usuários por tenant + gating de IA
-    usersTenantId: null,
-    usersList: [],
-    usersLoading: false,
+    // V40.4.0 — Custo de IA por tenant (mostrado no card Tenant)
+    aiCostByTenantId: {},        // { [tenantId]: usdNumber }
+    // V40.4.0 — Modal de usuários do tenant (gestão completa)
+    tenantUsersModal: {
+      open: false,
+      tenantId: null,
+      users: [],
+      totalAiCostUsd: 0,
+      loading: false,
+      mode: 'list',             // 'list' | 'create' | 'editPassword'
+      passwordTargetUser: null, // user obj quando mode='editPassword'
+      passwordDraft: ''
+    },
     toast: null,
     plugDbDraft: { tenantId: null, connString: '' }
   },
@@ -80,7 +89,19 @@ window.AdminApp = {
     this.state.tenantsLoading = true; this.render();
     const r = await this.fetch('/api/tenants-list');
     this.state.tenantsLoading = false;
-    if (r?.ok) this.state.tenants = r.data.tenants || [];
+    if (r?.ok) {
+      this.state.tenants = r.data.tenants || [];
+      this.loadAiCostSummary(); // background
+    }
+    this.render();
+  },
+
+  async loadAiCostSummary() {
+    const r = await this.fetch('/api/admin-tenants-ai-cost-summary');
+    if (!r?.ok) return;
+    const map = {};
+    for (const t of (r.data.tenants || [])) map[t.tenantId] = Number(t.totalUsd || 0);
+    this.state.aiCostByTenantId = map;
     this.render();
   },
 
@@ -90,33 +111,144 @@ window.AdminApp = {
     if (screen === 'plugins') this.loadPluginsList();
     if (screen === 'billing') this.loadBilling();
     if (screen === 'integrations') this.loadIntegrationsList();
-    if (screen === 'users') this.loadTenantUsers();
     this.render();
   },
 
-  // ===== USUÁRIOS POR TENANT + GATING DE IA =====
-  async loadTenantUsers() {
-    if (!this.state.usersTenantId) return;
-    this.state.usersLoading = true; this.render();
-    const r = await this.fetch(`/api/admin-tenant-users?tenantId=${this.state.usersTenantId}`);
-    this.state.usersLoading = false;
-    if (r?.ok) this.state.usersList = r.data.users || [];
+  // ===== MODAL DE USUÁRIOS DO TENANT (gestão completa) =====
+  async openTenantUsersModal(tenantId) {
+    this.state.tenantUsersModal = {
+      open: true, tenantId: Number(tenantId), users: [], totalAiCostUsd: 0,
+      loading: true, mode: 'list', passwordTargetUser: null, passwordDraft: ''
+    };
+    this.render();
+    const r = await this.fetch(`/api/admin-tenant-users?tenantId=${tenantId}`);
+    this.state.tenantUsersModal.loading = false;
+    if (r?.ok) {
+      this.state.tenantUsersModal.users = r.data.users || [];
+      this.state.tenantUsersModal.totalAiCostUsd = Number(r.data.totalAiCostUsd || 0);
+    }
     this.render();
   },
-  setUsersTenant(tenantId) {
-    this.state.usersTenantId = Number(tenantId) || null;
-    this.loadTenantUsers();
+  async reloadTenantUsersModal() {
+    if (!this.state.tenantUsersModal.tenantId) return;
+    const tenantId = this.state.tenantUsersModal.tenantId;
+    const r = await this.fetch(`/api/admin-tenant-users?tenantId=${tenantId}`);
+    if (r?.ok) {
+      this.state.tenantUsersModal.users = r.data.users || [];
+      this.state.tenantUsersModal.totalAiCostUsd = Number(r.data.totalAiCostUsd || 0);
+    }
+    this.loadAiCostSummary();
+    this.render();
   },
-  async toggleUserAi(userId, currentlyEnabled) {
+  closeTenantUsersModal() {
+    this.state.tenantUsersModal = {
+      open: false, tenantId: null, users: [], totalAiCostUsd: 0,
+      loading: false, mode: 'list', passwordTargetUser: null, passwordDraft: ''
+    };
+    this.render();
+  },
+  setTenantUsersMode(mode) {
+    this.state.tenantUsersModal.mode = mode;
+    if (mode === 'create') {
+      this.state.createUserDraft = { tenantId: this.state.tenantUsersModal.tenantId, email: '', role: 'user', displayName: '' };
+    }
+    this.render();
+  },
+  openPasswordEditor(userId) {
+    const user = this.state.tenantUsersModal.users.find(u => Number(u.id) === Number(userId));
+    if (!user) return;
+    this.state.tenantUsersModal.mode = 'editPassword';
+    this.state.tenantUsersModal.passwordTargetUser = user;
+    this.state.tenantUsersModal.passwordDraft = '';
+    this.render();
+  },
+  updatePasswordDraft(value) { this.state.tenantUsersModal.passwordDraft = String(value || ''); },
+  async submitPasswordChange() {
+    const target = this.state.tenantUsersModal.passwordTargetUser;
+    const pw = this.state.tenantUsersModal.passwordDraft;
+    if (!target || !pw || pw.length < 4) return this.toast('Senha precisa ter ≥4 chars.', 'error');
+    const r = await this.fetch('/api/admin-set-user-password', {
+      method: 'POST',
+      body: JSON.stringify({ username: target.username, password: pw })
+    });
+    if (r?.ok) {
+      this.toast(`✓ Senha de ${target.email} atualizada.`, 'success');
+      this.state.tenantUsersModal.mode = 'list';
+      this.state.tenantUsersModal.passwordTargetUser = null;
+      this.state.tenantUsersModal.passwordDraft = '';
+      this.render();
+    } else {
+      this.toast(r?.data?.message || 'Erro.', 'error');
+    }
+  },
+  async flagPasswordReset(userId, email) {
+    if (!confirm(`Pedir reset de senha pra ${email}? No próximo login ele será forçado a definir uma nova senha (válido por 24h).`)) return;
+    const r = await this.fetch('/api/tenant-member-reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ userId: Number(userId), tenantId: this.state.tenantUsersModal.tenantId })
+    });
+    if (r?.ok) {
+      this.toast(`✓ Reset agendado pra ${email}.`, 'success');
+      this.reloadTenantUsersModal();
+    } else {
+      this.toast(r?.data?.message || 'Erro.', 'error');
+    }
+  },
+  async setTenantOwner(userId, email) {
+    if (!confirm(`Tornar ${email} owner deste tenant? O owner atual vira gerente.`)) return;
+    const r = await this.fetch('/api/admin-tenant-set-owner', {
+      method: 'POST',
+      body: JSON.stringify({ tenantId: this.state.tenantUsersModal.tenantId, userId: Number(userId) })
+    });
+    if (r?.ok) {
+      this.toast(`✓ ${email} agora é owner.`, 'success');
+      this.reloadTenantUsersModal();
+      this.loadTenants();
+    } else {
+      this.toast(r?.data?.message || 'Erro.', 'error');
+    }
+  },
+  async removeUserFromTenant(userId, email) {
+    if (!confirm(`Remover ${email} deste tenant? O usuário não é deletado, só perde acesso a este tenant.`)) return;
+    const r = await this.fetch('/api/admin-tenant-remove-user', {
+      method: 'POST',
+      body: JSON.stringify({ tenantId: this.state.tenantUsersModal.tenantId, userId: Number(userId) })
+    });
+    if (r?.ok) {
+      this.toast(`✓ ${email} removido do tenant.`, 'success');
+      this.reloadTenantUsersModal();
+      this.loadTenants();
+    } else {
+      this.toast(r?.data?.message || 'Erro.', 'error');
+    }
+  },
+  async toggleUserAiInModal(userId, currentlyEnabled) {
     const r = await this.fetch('/api/users-toggle-master-ai', {
       method: 'POST',
       body: JSON.stringify({ userId: Number(userId), enabled: !currentlyEnabled })
     });
     if (r?.ok) {
-      this.toast(`✓ IA ${!currentlyEnabled ? 'liberada' : 'cortada'} pro usuário.`, 'success');
-      this.loadTenantUsers();
+      this.toast(`✓ IA ${!currentlyEnabled ? 'liberada' : 'cortada'}.`, 'success');
+      this.reloadTenantUsersModal();
     } else {
-      this.toast(r?.data?.message || 'Erro ao alterar IA.', 'error');
+      this.toast(r?.data?.message || 'Erro.', 'error');
+    }
+  },
+  async submitCreateUserInModal() {
+    const d = this.state.createUserDraft;
+    if (!d.tenantId || !d.email) return this.toast('Email obrigatório.', 'error');
+    const r = await this.fetch('/api/admin-create-tenant-user', {
+      method: 'POST',
+      body: JSON.stringify(d)
+    });
+    if (r?.ok) {
+      this.toast(`✓ ${r.data.user.email} criado. Senha inicial: ${r.data.initialPassword}`, 'success');
+      console.log('[admin] usuário criado:', r.data);
+      this.state.tenantUsersModal.mode = 'list';
+      this.reloadTenantUsersModal();
+      this.loadTenants();
+    } else {
+      this.toast(r?.data?.message || 'Erro ao criar usuário.', 'error');
     }
   },
 
@@ -469,7 +601,6 @@ window.AdminApp = {
           </div>
         </div>
         ${this._navBtn('tenants', 'Tenants', 'building-2')}
-        ${this._navBtn('users', 'Usuários', 'users')}
         ${this._navBtn('plugins', 'Plugins', 'puzzle')}
         ${this._navBtn('integrations', 'Integrações', 'link')}
         ${this._navBtn('billing', 'Cobrança', 'banknote')}
@@ -483,11 +614,11 @@ window.AdminApp = {
       </aside>
       <main class="flex-1 admin-content p-8 overflow-auto" style="max-height:100vh;">
         ${this.state.activeScreen === 'tenants' ? this._tenantsScreen()
-          : this.state.activeScreen === 'users' ? this._usersScreen()
           : this.state.activeScreen === 'plugins' ? this._pluginsScreen()
           : this.state.activeScreen === 'integrations' ? this._integrationsScreen()
           : this.state.activeScreen === 'billing' ? this._billingScreen()
           : this._snapshotsScreen()}
+      ${this.state.tenantUsersModal.open ? this._tenantUsersModal() : ''}
       </main>
       ${this.state.showCreateTenantModal ? this._createTenantModal() : ''}
       ${this.state.showCreateUserModal ? this._createUserModal() : ''}
@@ -535,6 +666,8 @@ window.AdminApp = {
       : `<span class="admin-pill admin-pill-slate">Control plane</span>`;
     const accent = t.status === 'active' ? '#10b981' : t.status === 'demo' ? '#f59e0b' : '#64748b';
     const initials = String(t.name || t.slug || '?').replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase();
+    const aiCost = Number(this.state.aiCostByTenantId[t.id] || 0);
+    const aiCostStr = aiCost > 0 ? `US$ ${aiCost.toFixed(aiCost < 1 ? 4 : 2)}` : '—';
     return `<div class="admin-card p-5 flex flex-col gap-4 relative overflow-hidden" style="border-left:3px solid ${accent};">
       <div class="flex items-start gap-3">
         <div class="shrink-0 w-12 h-12 rounded-xl grid place-items-center text-white text-sm font-black" style="background:linear-gradient(135deg,${accent}aa,${accent}55);border:1px solid ${accent}55;">${this._escape(initials)}</div>
@@ -547,7 +680,7 @@ window.AdminApp = {
         ${statusPill}
         ${dbPill}
       </div>
-      <div class="grid grid-cols-2 gap-2 py-2 border-y border-white/5">
+      <div class="grid grid-cols-3 gap-2 py-2 border-y border-white/5">
         <div>
           <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Membros</p>
           <p class="text-sm font-black text-white">${t.members_count}</p>
@@ -556,10 +689,14 @@ window.AdminApp = {
           <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Owner</p>
           <p class="text-[11px] font-semibold text-slate-300 truncate" title="${this._escape(t.owner_username || '—')}">${this._escape(t.owner_username || '—')}</p>
         </div>
+        <div>
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider">IA gasta</p>
+          <p class="text-[11px] font-black ${aiCost > 0 ? 'text-amber-300' : 'text-slate-500'}" title="Soma de cost_usd de todas as conversas Djow dos membros deste tenant">${aiCostStr}</p>
+        </div>
       </div>
       <div class="grid grid-cols-2 gap-2">
         <button onclick="AdminApp.impersonate(${t.id})" title="Abrir LJ como este tenant em nova aba" class="col-span-2 px-3 py-2.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-100 text-[11px] font-black flex items-center justify-center gap-1.5"><i data-lucide="log-in" class="w-3.5 h-3.5"></i> Entrar como</button>
-        <button onclick="AdminApp.openCreateUserModal(${t.id})" title="Criar novo usuário pra este tenant" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-[10px] font-black flex items-center justify-center gap-1"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Novo user</button>
+        <button onclick="AdminApp.openTenantUsersModal(${t.id})" title="Gerenciar usuários: criar, editar, senha, IA, owner, remover" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-[10px] font-black flex items-center justify-center gap-1"><i data-lucide="users" class="w-3.5 h-3.5"></i> Usuários</button>
         ${t.db_plugged
           ? `<button onclick="AdminApp.unplugDb(${t.id})" class="px-3 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-200 text-[10px] font-black flex items-center justify-center gap-1"><i data-lucide="database-zap" class="w-3.5 h-3.5"></i> Desplugar DB</button>`
           : `<button onclick="AdminApp.openPlugDb(${t.id})" class="px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/30 text-emerald-200 text-[10px] font-black flex items-center justify-center gap-1"><i data-lucide="database" class="w-3.5 h-3.5"></i> Plugar DB</button>`
@@ -632,72 +769,114 @@ window.AdminApp = {
     </div>`;
   },
 
-  // ===== TELA USUÁRIOS POR TENANT =====
-  _usersScreen() {
-    const tenant = this.state.tenants.find(t => Number(t.id) === Number(this.state.usersTenantId));
-    const usersCount = this.state.usersList.length;
-    const aiCount = this.state.usersList.filter(u => u.masterAiEnabled || u.hasOwnAiKey).length;
-    return `<div class="flex items-center justify-between mb-6">
-      <div>
-        <p class="text-[10px] font-black text-indigo-300 uppercase tracking-wider">Acesso & IA</p>
-        <h1 class="text-2xl font-black">Usuários por tenant</h1>
-        <p class="text-sm text-slate-400 mt-1">Veja quem cada cliente tem cadastrado e libere o saldo Anthropic do LJ por usuário. Toggle aplica imediatamente — próxima chamada de IA usa o saldo do LJ ao invés de exigir chave própria.</p>
+  // ===== MODAL DE USUÁRIOS DO TENANT =====
+  _tenantUsersModal() {
+    const m = this.state.tenantUsersModal;
+    const tenant = this.state.tenants.find(t => Number(t.id) === Number(m.tenantId));
+    return `<div class="fixed inset-0 z-[80] bg-slate-950/85 backdrop-blur-sm grid place-items-center p-4">
+      <div class="admin-card w-full max-w-4xl max-h-[90vh] flex flex-col">
+        ${this._tenantUsersModalHeader(tenant, m)}
+        <div class="flex-1 overflow-auto p-6">
+          ${m.mode === 'create' ? this._tenantUsersModalCreate()
+            : m.mode === 'editPassword' ? this._tenantUsersModalPassword()
+            : this._tenantUsersModalList(m, tenant)}
+        </div>
       </div>
-      ${this.state.usersTenantId ? `<button onclick="AdminApp.openCreateUserModal(${this.state.usersTenantId})" class="admin-btn-primary px-4 py-2.5 rounded-xl text-xs flex items-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Novo usuário</button>` : ''}
-    </div>
-    <div class="admin-card p-4 mb-4">
-      <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Tenant</label>
-      <select onchange="AdminApp.setUsersTenant(this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
-        <option value="">— escolha um tenant —</option>
-        ${this.state.tenants.map(t => `<option value="${t.id}" ${Number(this.state.usersTenantId) === Number(t.id) ? 'selected' : ''}>${this._escape(t.name)}</option>`).join('')}
-      </select>
-    </div>
-    ${!this.state.usersTenantId
-      ? `<p class="text-sm text-slate-400">Escolha um tenant pra ver os usuários cadastrados nele.</p>`
-      : this.state.usersLoading
-        ? `<p class="text-sm text-slate-400">Carregando…</p>`
-        : !usersCount
-          ? `<div class="admin-card p-10 text-center"><p class="text-sm text-slate-400">Nenhum usuário cadastrado em ${this._escape(tenant?.name || '')}. Clique em "Novo usuário" pra criar.</p></div>`
-          : `<div class="grid grid-cols-2 gap-3 mb-4">
-              <div class="admin-card p-4"><p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Cadastrados</p><p class="text-2xl font-black text-white mt-1">${usersCount}</p></div>
-              <div class="admin-card p-4"><p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Com IA disponível</p><p class="text-2xl font-black text-emerald-300 mt-1">${aiCount}</p><p class="text-[10px] text-slate-400 mt-0.5">via saldo LJ ou chave própria</p></div>
-            </div>
-            <div class="space-y-2">${this.state.usersList.map(u => this._userRow(u)).join('')}</div>
-            <p class="text-[11px] text-slate-400 mt-4">"IA liberada" = ${this._escape(tenant?.name || '')} usa o saldo Anthropic do LJ. "Chave própria" = cliente plugou a dele em Configurações → IA. Operador LJ sempre vê tudo (master é override global).</p>`
-    }`;
+    </div>`;
   },
 
-  _userRow(u) {
+  _tenantUsersModalHeader(tenant, m) {
+    const fmt = (v) => 'US$ ' + Number(v || 0).toFixed(Number(v) < 1 ? 4 : 2);
+    return `<div class="px-6 pt-6 pb-4 border-b border-white/10 flex items-start gap-4">
+      <div class="flex-1 min-w-0">
+        <p class="text-[10px] font-black text-indigo-300 uppercase tracking-wider">Tenant</p>
+        <h2 class="text-xl font-black text-white truncate">${this._escape(tenant?.name || '')}</h2>
+        <p class="text-[11px] text-slate-400 mt-0.5">${m.users.length} usuário${m.users.length === 1 ? '' : 's'} · IA gasta: <span class="font-black ${m.totalAiCostUsd > 0 ? 'text-amber-300' : 'text-slate-400'}">${fmt(m.totalAiCostUsd)}</span></p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        ${m.mode !== 'list' ? `<button onclick="AdminApp.setTenantUsersMode('list')" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-slate-200 text-[11px] font-black flex items-center gap-1"><i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Voltar</button>`
+          : `<button onclick="AdminApp.setTenantUsersMode('create')" class="admin-btn-primary px-3 py-2 rounded-xl text-[11px] flex items-center gap-1"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Novo usuário</button>`}
+        <button onclick="AdminApp.closeTenantUsersModal()" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-[11px] font-black"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+      </div>
+    </div>`;
+  },
+
+  _tenantUsersModalList(m, tenant) {
+    if (m.loading) return `<p class="text-sm text-slate-400">Carregando…</p>`;
+    if (!m.users.length) return `<div class="text-center py-10"><p class="text-sm text-slate-400">Nenhum usuário cadastrado em ${this._escape(tenant?.name || '')}.</p><button onclick="AdminApp.setTenantUsersMode('create')" class="admin-btn-primary mt-4 px-4 py-2 rounded-xl text-xs">Criar o primeiro</button></div>`;
+    return `<div class="space-y-2">${m.users.map(u => this._tenantUserCard(u)).join('')}</div>
+      <p class="text-[11px] text-slate-400 mt-4">"IA liberada" = usa saldo Anthropic do LJ. "Chave própria" = cliente plugou a dele em Configurações → IA. Custo soma <span class="font-mono">cost_usd</span> das conversas Djow dele.</p>`;
+  },
+
+  _tenantUserCard(u) {
     const aiEnabled = !!u.masterAiEnabled;
     const hasOwn = !!u.hasOwnAiKey;
     const roleLabel = u.role === 'owner' ? 'OWNER' : u.role === 'manager' ? 'GERENTE' : 'USUÁRIO';
     const roleClass = u.role === 'owner' ? 'admin-pill-emerald' : u.role === 'manager' ? 'admin-pill-amber' : 'admin-pill-slate';
     const lastLogin = u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('pt-BR') : 'nunca logou';
     const initials = String(u.displayName || u.email || '?').slice(0, 2).toUpperCase();
-    return `<div class="admin-card p-4 flex items-center gap-4">
-      <div class="shrink-0 w-10 h-10 rounded-xl grid place-items-center text-white text-[11px] font-black" style="background:linear-gradient(135deg,#6366f1,#a855f7);">${this._escape(initials)}</div>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 flex-wrap">
-          <p class="font-black text-white truncate">${this._escape(u.displayName || u.email)}</p>
-          <span class="admin-pill ${roleClass}">${roleLabel}</span>
-          ${aiEnabled ? `<span class="admin-pill admin-pill-emerald">IA LIBERADA</span>` : ''}
-          ${hasOwn ? `<span class="admin-pill admin-pill-slate">CHAVE PRÓPRIA</span>` : ''}
-          ${!u.isApproved ? `<span class="admin-pill admin-pill-amber">NÃO APROVADO</span>` : ''}
+    const cost = Number(u.aiCostUsd || 0);
+    const costStr = cost > 0 ? `US$ ${cost.toFixed(cost < 1 ? 4 : 2)}` : '—';
+    return `<div class="admin-card p-4">
+      <div class="flex items-center gap-4">
+        <div class="shrink-0 w-10 h-10 rounded-xl grid place-items-center text-white text-[11px] font-black" style="background:linear-gradient(135deg,#6366f1,#a855f7);">${this._escape(initials)}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <p class="font-black text-white truncate">${this._escape(u.displayName || u.email)}</p>
+            <span class="admin-pill ${roleClass}">${roleLabel}</span>
+            ${aiEnabled ? `<span class="admin-pill admin-pill-emerald">IA LIBERADA</span>` : ''}
+            ${hasOwn ? `<span class="admin-pill admin-pill-slate">CHAVE PRÓPRIA</span>` : ''}
+            ${u.passwordResetPending ? `<span class="admin-pill admin-pill-amber">RESET PENDENTE</span>` : ''}
+            ${!u.isApproved ? `<span class="admin-pill admin-pill-amber">NÃO APROVADO</span>` : ''}
+          </div>
+          <p class="text-[11px] text-slate-400 mt-0.5 truncate">${this._escape(u.email)} · último login ${lastLogin} · IA gasta: <span class="font-black ${cost > 0 ? 'text-amber-300' : 'text-slate-500'}">${costStr}</span></p>
         </div>
-        <p class="text-[11px] text-slate-400 mt-0.5 truncate">${this._escape(u.email)} · último login ${lastLogin}</p>
-      </div>
-      <div class="shrink-0 flex items-center gap-3">
-        <div class="text-right">
-          <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider">Saldo LJ</p>
-          <p class="text-[10px] text-slate-300">${aiEnabled ? 'liberado' : 'cortado'}</p>
-        </div>
-        <button onclick="AdminApp.toggleUserAi(${u.id}, ${aiEnabled})"
-                title="${aiEnabled ? 'Cortar saldo de IA do LJ' : 'Liberar saldo de IA do LJ pra este usuário'}"
-                class="inline-flex items-center gap-2 px-1 py-1 rounded-full transition"
+        <button onclick="AdminApp.toggleUserAiInModal(${u.id}, ${aiEnabled})"
+                title="${aiEnabled ? 'Cortar saldo de IA do LJ' : 'Liberar saldo de IA do LJ'}"
+                class="shrink-0 inline-flex items-center gap-2 px-1 py-1 rounded-full transition"
                 style="background:${aiEnabled ? '#10b981' : '#475569'};width:48px;justify-content:${aiEnabled ? 'flex-end' : 'flex-start'};border:1px solid ${aiEnabled ? 'rgba(52,211,153,0.5)' : 'rgba(148,163,184,0.4)'};">
           <span class="block w-5 h-5 rounded-full bg-white shadow"></span>
         </button>
       </div>
+      <div class="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-white/5">
+        <button onclick="AdminApp.openPasswordEditor(${u.id})" class="px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-[10px] font-black flex items-center gap-1"><i data-lucide="key" class="w-3 h-3"></i> Trocar senha</button>
+        <button onclick="AdminApp.flagPasswordReset(${u.id}, '${this._escape(u.email)}')" class="px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-200 text-[10px] font-black flex items-center gap-1"><i data-lucide="key-round" class="w-3 h-3"></i> Forçar reset</button>
+        ${u.role !== 'owner'
+          ? `<button onclick="AdminApp.setTenantOwner(${u.id}, '${this._escape(u.email)}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/30 text-emerald-200 text-[10px] font-black flex items-center gap-1"><i data-lucide="crown" class="w-3 h-3"></i> Tornar owner</button>`
+          : ''}
+        <button onclick="AdminApp.removeUserFromTenant(${u.id}, '${this._escape(u.email)}')" class="px-2.5 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-200 text-[10px] font-black flex items-center gap-1 ml-auto"><i data-lucide="user-minus" class="w-3 h-3"></i> Remover do tenant</button>
+      </div>
+    </div>`;
+  },
+
+  _tenantUsersModalCreate() {
+    const d = this.state.createUserDraft;
+    return `<div class="max-w-xl mx-auto">
+      <h3 class="text-lg font-black text-white mb-1">Novo usuário</h3>
+      <p class="text-xs text-slate-400 mb-5">Senha inicial é gerada aleatoriamente. Aparece no toast pra você repassar fora-de-banda.</p>
+      <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Email</label>
+      <input value="${this._escape(d.email)}" oninput="AdminApp.updateCreateUserField('email', this.value)" placeholder="joao@empresa.com" class="w-full mt-1 mb-3 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" />
+      <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Nome de exibição (opcional)</label>
+      <input value="${this._escape(d.displayName)}" oninput="AdminApp.updateCreateUserField('displayName', this.value)" class="w-full mt-1 mb-3 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" />
+      <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Role</label>
+      <select onchange="AdminApp.updateCreateUserField('role', this.value)" class="w-full mt-1 mb-5 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+        <option value="user" ${d.role === 'user' ? 'selected' : ''}>Usuário</option>
+        <option value="manager" ${d.role === 'manager' ? 'selected' : ''}>Gerente</option>
+        <option value="owner" ${d.role === 'owner' ? 'selected' : ''}>Owner (admin do tenant)</option>
+      </select>
+      <button onclick="AdminApp.submitCreateUserInModal()" class="admin-btn-primary w-full px-4 py-2.5 rounded-xl text-sm">Criar usuário</button>
+    </div>`;
+  },
+
+  _tenantUsersModalPassword() {
+    const u = this.state.tenantUsersModal.passwordTargetUser;
+    if (!u) return '';
+    return `<div class="max-w-xl mx-auto">
+      <h3 class="text-lg font-black text-white mb-1">Trocar senha de ${this._escape(u.displayName || u.email)}</h3>
+      <p class="text-xs text-slate-400 mb-5">Define direto a nova senha (mínimo 4 chars). Pra forçar o user a escolher uma no próximo login sem você saber qual, use "Forçar reset".</p>
+      <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Nova senha</label>
+      <input id="adminPwInput" type="text" value="${this._escape(this.state.tenantUsersModal.passwordDraft)}" oninput="AdminApp.updatePasswordDraft(this.value)" placeholder="defina uma senha" class="w-full mt-1 mb-5 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-mono text-sm" />
+      <button onclick="AdminApp.submitPasswordChange()" class="admin-btn-primary w-full px-4 py-2.5 rounded-xl text-sm">Salvar senha</button>
     </div>`;
   },
 
