@@ -2812,6 +2812,7 @@ Object.assign(Actions, {
     App.state.flowBuilderDraftsModal = false;
     App.state.flowBuilderDraftNameDraft = '';
     App.state.flowBuilderSelectedNodeIds = [];
+    App.state.flowBuilderMapResolveView = null;
     App.save(); App.render();
   },
 
@@ -3058,6 +3059,8 @@ Object.assign(Actions, {
       App.state.flowBuilderPaletteTab = tab;
       App.state.flowBuilderPaletteOpen = true;
     }
+    // V39.13.0 — Sair do Mapa da Receita reseta a view de Resolver inline.
+    if (tab !== 'mapaReceita') App.state.flowBuilderMapResolveView = null;
     App.save(); App.render();
   },
 
@@ -3250,6 +3253,75 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V39.13.0 — Mapa da Receita no Builder: actions inline pro rascunho
+  // (vision, owner por frente, KRs por área). Persistem direto em
+  // App.state.strategicMaps[proto_<nodeId>] via StrategicMapEngine — quando
+  // saveFlowBuilder rodar e criar o productId real, migração move pra strategicMaps[real].
+  _flowBuilderMapKey() {
+    const produtoNode = (App.state.flowBuilderNodes || []).find(n => n.type === 'produto');
+    if (!produtoNode) return null;
+    return produtoNode.linkedRealId ? Number(produtoNode.linkedRealId) : `proto_${produtoNode.id}`;
+  },
+
+  setFlowBuilderMapResolveView(view) {
+    App.state.flowBuilderMapResolveView = ['vision', 'owner', 'krs'].includes(view) ? view : null;
+    App.save(); App.render();
+  },
+
+  setFlowBuilderMapVision(value) {
+    const key = Actions._flowBuilderMapKey();
+    if (!key || !window.StrategicMapEngine) return;
+    StrategicMapEngine.setVision(key, String(value || ''));
+    App.save(); // sem render — preserva foco do textarea
+  },
+
+  setFlowBuilderMapOwner(area, value) {
+    const key = Actions._flowBuilderMapKey();
+    if (!key || !window.StrategicMapEngine || !['marketing', 'sales', 'cs'].includes(area)) return;
+    const map = StrategicMapEngine.getForProduct(key) || {};
+    const owners = { ...(map.areaOwners || {}), [area]: String(value || '') };
+    StrategicMapEngine.save(key, { areaOwners: owners });
+    App.save(); // sem render — preserva foco
+  },
+
+  addFlowBuilderMapKr(area) {
+    const key = Actions._flowBuilderMapKey();
+    if (!key || !window.StrategicMapEngine || !['marketing', 'sales', 'cs'].includes(area)) return;
+    StrategicMapEngine.addProductKr(key, { area, name: 'KR-mãe sem nome' }, 'flow_builder');
+    App.save(); App.render();
+  },
+
+  renameFlowBuilderMapKr(krId, value) {
+    const key = Actions._flowBuilderMapKey();
+    if (!key || !window.StrategicMapEngine) return;
+    const map = StrategicMapEngine.getForProduct(key) || {};
+    const list = (map.productKrs || []).map(k =>
+      String(k.id) === String(krId) ? { ...k, name: String(value || '') } : k
+    );
+    StrategicMapEngine.save(key, { productKrs: list });
+    App.save(); // sem render — preserva foco
+  },
+
+  removeFlowBuilderMapKr(krId) {
+    const key = Actions._flowBuilderMapKey();
+    if (!key || !window.StrategicMapEngine) return;
+    const map = StrategicMapEngine.getForProduct(key) || {};
+    const list = (map.productKrs || []).filter(k => String(k.id) !== String(krId));
+    StrategicMapEngine.save(key, { productKrs: list });
+    App.save(); App.render();
+  },
+
+  // V39.13.0 — Abre Mapa real direto num step específico (productId real OBRIGATÓRIO).
+  openStrategicMapAtStep(productId, stepId) {
+    if (!productId) return;
+    Actions.openStrategicMap(Number(productId));
+    setTimeout(() => {
+      App.state.strategicMapZoom = String(stepId || 'vision');
+      App.state.strategicSkipOnboarding = true;
+      App.save(); App.render();
+    }, 50);
+  },
+
   // V39.12.0 — Abre o AudienceWizard do LJ com mode 'flowBuilderNode': ao final,
   // o audience vai pro node.data.audienceDraft (não pra product.audience). Hook
   // de interceptação fica em audienceWizardFinish().
@@ -3415,6 +3487,10 @@ Object.assign(Actions, {
 
     try {
       // ===== Fase 3: Produtos (INSERT ou UPDATE silencioso) =====
+      // V39.13.0 — Migração do draft do Mapa da Receita: se o nó Produto tem
+      // entrada `strategicMaps[proto_<nodeId>]` (preenchida pelo cliente no
+      // popup do Builder), move pra `strategicMaps[productIdReal]` ao criar o
+      // produto novo. Mantém vision/areaOwners/productKrs intactos.
       for (const n of esteira.filter(n => n.type === 'produto')) {
         const d = n.data || {};
         if (n.linkedRealId) {
@@ -3452,6 +3528,16 @@ Object.assign(Actions, {
         App.state.products = [...(App.state.products || []), product];
         n.linkedRealId = product.id;
         created.produtos++;
+        // V39.13.0 — Migra draft do Mapa da Receita (proto_<nodeId> → productIdReal).
+        const protoKey = `proto_${n.id}`;
+        const maps = App.state.strategicMaps || {};
+        if (maps[protoKey]) {
+          const migrated = { ...maps[protoKey], productId: product.id };
+          const next = { ...maps };
+          next[product.id] = migrated;
+          delete next[protoKey];
+          App.state.strategicMaps = next;
+        }
       }
 
       // ===== Fase 4: Campanhas =====
