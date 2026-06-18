@@ -18,6 +18,22 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.0.0',
+    date: '2026-06-18',
+    title: 'V40 — Separação dos dois mundos: LJ-cliente vira tenant comum, cockpit operacional ganha porta própria em /admin',
+    bullets: [
+      '**Arquitetura: dois apps, um repositório.** A V40 separa o LJ em duas portas distintas. A porta principal (`leadjourney.app/`) é experiência de cliente pura — todo mundo, inclusive o operador, entra como tenant comum. A porta nova (`leadjourney.app/admin`) é o **Cockpit Operacional**: ferramenta interna do LJ-business pra gerenciar os clientes que compraram. Antes os dois personas viviam no mesmo modal Configurações; agora cada um tem seu próprio HTML, scripts e UI.',
+      '**Cockpit /admin — onda 1 entregue.** Sidebar com 2 telas (Tenants e Snapshots). Em Tenants você vê todos os clientes do LJ com status (Ativo/Demo) e DB (Control Plane / DB próprio), cria tenants novos com master inicial, cria usuários avulsos pra tenants existentes, e pluga/desplugar Postgres próprio. Em Snapshots você seleciona um tenant, tira backup do estado atual e restaura snapshots anteriores. Sem mais curl ou Postman pra essas operações.',
+      '**Impersonation ("Entrar como Mariano").** Botão indigo em cada tenant. Click emite um JWT temporário de 2h e abre o LJ-cliente em nova aba já logado como tenant alvo. Sua sessão de operador continua intacta na aba do `/admin` — pode operar como Mariano, Joaquin e Sansone em 3 abas simultâneas. Banner amarelo fixo no topo de cada aba impersonada: "Você está operando como X em nome de Y — feche esta aba pra sair". Cada início de impersonation grava em `lj_impersonation_audit` (operador, tenant alvo, user alvo, timestamp).',
+      '**Tenant do `felipealvesverde@gmail.com` vira comum.** As abas "Administrar Lead Journey" e "Tenants (Global Mode)" saíram do menu Configurações. Não tem mais botão de master vazando na UI de produto. Quem precisa fazer trabalho de operador entra em `/admin` — direto, sem passar por Configurações.',
+      '**Renomeação semântica: `is_master` ganha companhia `is_lj_operator`.** A flag `is_master` continua existindo por compat (não dá pra mover schema do DB sem migração de dados em todos os tenants ao mesmo tempo). A nova `is_lj_operator` é semanticamente mais clara — operador do produto LJ, distinto de "dono do tenant cliente". Hoje as duas são sincronizadas via UPDATE idempotente no boot. JWT e `/api/auth-me` retornam as duas. Eventualmente `is_master` será descontinuada do lado cliente.',
+      '**Boot dual: SPA cliente vs portal admin.** Servidor Express ganhou handler `/admin*` que serve um `index-admin.html` minimalista (Tailwind CDN + Lucide + 2 scripts do portal) antes do fallback do SPA cliente. Boot do `/admin` valida JWT, exige `isLjOperator`, e renderiza tela de login dedicada se faltar. Boot do `/` ganhou sentinel de impersonation: se URL tem `?impersonateToken=`, troca o JWT da aba antes de qualquer init e marca a sessão como impersonation pra acender o banner amarelo.',
+      '**Endpoints novos do admin.** `POST /api/admin-impersonate-token` emite JWT temporário com `impersonatedBy` + `impersonate_target`. `POST /api/admin-create-tenant-user` cria usuário avulso pra tenant existente (com senha gerada que o operador repassa fora-de-banda). Os endpoints antigos (`tenants-list`, `tenant-create`, `tenants-plug-db`, `tenants-unplug-db`, `admin-deploy-snapshot`, `admin-restore-tenant-snapshot`, `admin-tenant-snapshots`) ganharam UI dedicada no cockpit em vez de viver só no Postman.',
+      '**Banco: tabela `lj_impersonation_audit` cravada.** Toda impersonation deixa rastro pra auditoria futura: quem entrou como quem, em qual tenant, quando.',
+      '**Próximo capítulo.** Onda 2 (sistema de Plugins liberados por tenant), Onda 3 (sistema de Cobrança manual por hora), Onda 4 (Liberação de APIs/Integrações por tenant) — todos backloggados pra construir conforme você for fechando novos clientes. A Onda 1 já roda hoje.'
+    ]
+  },
+  {
     version: 'V39.13.0',
     date: '2026-06-18',
     title: 'Flow Builder ganha o selo do Mapa da Receita — funciona em rascunho e em produto salvo, sem duplicar engine',

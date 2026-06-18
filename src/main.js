@@ -27,6 +27,48 @@
   } catch (_) {}
 })();
 
+// V40.0.0 — Sentinel de impersonateToken: quando vem `?impersonateToken=xxx` na
+// URL (aberto via "Entrar como" do cockpit /admin), trocamos o JWT atual pelo
+// token de impersonation antes de qualquer init. URL é limpa pra evitar loop.
+(function impersonationSentinel() {
+  try {
+    const q = new URLSearchParams(window.location.search || '');
+    const tok = q.get('impersonateToken');
+    if (tok) {
+      console.warn('[Boot] 🎭 Impersonation token detectado. Trocando JWT da aba.');
+      try { localStorage.setItem('lj_jwt', tok); } catch (_) {}
+      // V40.0.0 — Marca a aba como impersonation (flag de sessão, não persistente).
+      try { sessionStorage.setItem('lj_impersonation_session', '1'); } catch (_) {}
+      try {
+        q.delete('impersonateToken');
+        const cleanQ = q.toString();
+        history.replaceState(null, '', window.location.pathname + (cleanQ ? '?' + cleanQ : ''));
+      } catch (_) {}
+    }
+  } catch (_) {}
+})();
+
+// V40.0.0 — Banner amarelo "Você está operando como X" quando a sessão for
+// uma impersonation aberta pelo cockpit /admin. Lê impersonatedBy do user
+// retornado em /api/auth-me. Some quando user fecha a aba.
+(function installImpersonationBanner() {
+  if (window.__impersonationBannerInstalled) return;
+  window.__impersonationBannerInstalled = true;
+  if (sessionStorage.getItem('lj_impersonation_session') !== '1') return;
+  // Aguarda App.currentUser ser populado pra puxar impersonatedBy.
+  const tryShow = () => {
+    const u = window.App?.currentUser;
+    if (!u) return setTimeout(tryShow, 300);
+    if (!u.impersonatedBy) return;
+    const bar = document.createElement('div');
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;background:linear-gradient(90deg,#f59e0b,#ea580c);color:#1f2937;font-weight:900;font-size:13px;padding:8px 16px;text-align:center;z-index:99999;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+    bar.innerHTML = `🎭 Você está operando como <b>${u.username || u.tenantName || 'tenant'}</b> em nome de <b>${u.impersonatedBy}</b> — feche esta aba pra sair.`;
+    document.body.appendChild(bar);
+    document.body.style.paddingTop = '36px';
+  };
+  setTimeout(tryShow, 500);
+})();
+
 // V36.5.2/V36.6.2 — Espião de setItem('lj_jwt'/'lj_user') foi REMOVIDO.
 // Foi usado pra identificar o bug raiz do sliding session auto-save
 // (corrigido em V36.5.4). Agora que sabemos, o espião só polui o console

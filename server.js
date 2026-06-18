@@ -413,6 +413,26 @@ async function runMigrations() {
     await client.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS last_rd_pull_at TIMESTAMPTZ;
     `);
+    // V40.0.0 — Portal /admin separado. Renomeia semanticamente is_master pra
+    // is_lj_operator (operador do LJ-business, distinto de "dono do tenant").
+    // Coexistem por compat retroativa; sincronizamos pra evitar surpresa.
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS is_lj_operator BOOLEAN DEFAULT FALSE;
+    `);
+    await client.query(`UPDATE users SET is_lj_operator = TRUE WHERE is_master = TRUE AND is_lj_operator = FALSE;`);
+    // Audit log de impersonation: cada ação operada em nome de outro tenant.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS lj_impersonation_audit (
+        id SERIAL PRIMARY KEY,
+        operator_user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        target_tenant_id INT REFERENCES tenants(id) ON DELETE SET NULL,
+        target_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+        action VARCHAR(64),
+        path VARCHAR(255),
+        body_summary TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `);
     // V34.8.0.1 — Tabela lj_reconciliation_alerts foi MOVIDA pra tenant-db-schema.sql.
     // Motivo: tenants com Postgres próprio (Sansone via "Meu Banco") não tinham a
     // tabela porque migration master não roda lá. Endpoint usa req.tenantDb →
@@ -1063,10 +1083,17 @@ if (fs.existsSync(apiDir)) {
 });
 
 const indexPath = path.join(__dirname, 'index.html');
+const indexAdminPath = path.join(__dirname, 'index-admin.html');
 app.get('/', (_req, res) => res.sendFile(indexPath));
 // V37.3.3 — Rota dedicada pra página de aceitar convite (standalone HTML).
 app.get('/accept-invite.html', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'accept-invite.html'));
+});
+// V40.0.0 — Portal /admin separado (cockpit operacional do LJ-business). Gate
+// real fica no boot do portal (JWT.isLjOperator); o servidor só serve o HTML.
+app.get('/admin*', (_req, res) => {
+  if (fs.existsSync(indexAdminPath)) return res.sendFile(indexAdminPath);
+  res.status(503).send('Portal admin não disponível neste deploy.');
 });
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) return res.status(404).json({ ok: false, message: 'Endpoint não encontrado.' });

@@ -72,17 +72,20 @@ module.exports = async function handler(req, res) {
     try {
       result = await req.db.query(
         `SELECT id, username, email, password_hash, is_master, is_approved, mode, default_tenant_id,
-                password_reset_pending, password_reset_expires_at
+                password_reset_pending, password_reset_expires_at,
+                COALESCE(is_lj_operator, is_master) AS is_lj_operator
            FROM users WHERE LOWER(username) = $1`,
         [username]
       );
     } catch (schemaErr) {
       if (String(schemaErr.message || '').includes('password_reset_pending') ||
-          String(schemaErr.message || '').includes('password_reset_expires_at')) {
-        console.warn('[auth-login] V37.4.33 fallback — migration password_reset_flag não rodou. Logando sem flag.');
+          String(schemaErr.message || '').includes('password_reset_expires_at') ||
+          String(schemaErr.message || '').includes('is_lj_operator')) {
+        console.warn('[auth-login] V37.4.33/V40.0.0 fallback — migration ainda não rodou. Logando sem flags novas.');
         result = await req.db.query(
           `SELECT id, username, email, password_hash, is_master, is_approved, mode, default_tenant_id,
-                  FALSE AS password_reset_pending, NULL AS password_reset_expires_at
+                  FALSE AS password_reset_pending, NULL AS password_reset_expires_at,
+                  is_master AS is_lj_operator
              FROM users WHERE LOWER(username) = $1`,
           [username]
         );
@@ -141,6 +144,9 @@ module.exports = async function handler(req, res) {
       sub: user.id,
       username: user.username,
       isMaster: user.is_master,
+      // V40.0.0 — operador do LJ-business (acessa /admin). Por enquanto sinônimo
+      // de is_master, separado pra desacoplar semanticamente no futuro.
+      isLjOperator: user.is_lj_operator || user.is_master,
       mode: user.mode || 'sandbox',
       tenantId: user.default_tenant_id || null
     };
@@ -158,6 +164,7 @@ module.exports = async function handler(req, res) {
         username: user.username,
         email: user.email,
         isMaster: user.is_master,
+        isLjOperator: user.is_lj_operator || user.is_master,
         mode: user.mode || 'sandbox',
         tenantId: user.default_tenant_id || null
       }
