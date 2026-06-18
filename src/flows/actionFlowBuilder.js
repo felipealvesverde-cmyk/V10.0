@@ -187,7 +187,7 @@ window.ActionFlowBuilder = {
     // V39.12.2 — user-select: none global no modal evita que arrastar o mouse
     // selecione texto no header/popup. Inputs/textarea/select recebem override.
     return `<div class="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center" style="user-select:none;-webkit-user-select:none;-moz-user-select:none;">
-      <style>.flow-builder-modal-root { user-select: none; -webkit-user-select: none; -moz-user-select: none; } .flow-builder-modal-root input, .flow-builder-modal-root textarea, .flow-builder-modal-root select { user-select: text !important; -webkit-user-select: text !important; }</style>
+      <style>.flow-builder-modal-root { user-select: none; -webkit-user-select: none; -moz-user-select: none; } .flow-builder-modal-root input, .flow-builder-modal-root textarea, .flow-builder-modal-root select { user-select: text !important; -webkit-user-select: text !important; } .flow-builder-modal-root svg, .flow-builder-modal-root svg * { outline: none !important; } #flowBuilderCanvas svg g[data-node-id]:focus, #flowBuilderCanvas svg g[data-node-id] *:focus { outline: none !important; }</style>
       <div class="flow-builder-modal-root rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:90vw;max-width:none;background:#071326;">
         ${this._header()}
         ${App.state.flowBuilderShowHelp ? this._helpPanel() : ''}
@@ -1207,25 +1207,31 @@ window.ActionFlowBuilder = {
       acao:     'drop-shadow(0 4px 12px rgba(0,0,0,0.28))',
       execucao: 'drop-shadow(0 2px 8px rgba(0,0,0,0.20))'
     };
-    if (shadowByType[node.type] && !isSelected) group.style.filter = shadowByType[node.type];
-    else group.style.filter = 'none';
+    // V40.6.7 — Quando selecionado: dupla camada de "filter off" (style + attr).
+    // Antes só style.filter='none' tava deixando halo escapar.
+    if (shadowByType[node.type] && !isSelected) {
+      group.style.filter = shadowByType[node.type];
+      group.removeAttribute('filter');
+    } else {
+      group.style.filter = 'none';
+      group.setAttribute('filter', 'none');
+    }
     group.addEventListener('dblclick', (event) => {
       event.stopPropagation();
       if (window.Actions?.openFlowBuilderEditNode) Actions.openFlowBuilderEditNode(node.id);
     });
 
-    // V40.6.4 (Leonardo) — Seleção: glow externo MAIS SUTIL agora que a
-    // drop-shadow está desligada no selecionado. 2px stroke + opacity 0.55.
-    // Raio +4px (menos pra fora) — presença sem inchar.
+    // V40.6.7 (Leonardo) — Seleção: glow externo MAIS sutil que V40.6.4.
+    // 1.5px stroke + opacity 0.5 + raio +3px. Presença sem qualquer inchar.
     if (isSelected && !isArmed && !isHoveredForSeg) {
       const glow = document.createElementNS(svgNS, 'rect');
-      glow.setAttribute('x', -4); glow.setAttribute('y', -4);
-      glow.setAttribute('width', this.NODE_WIDTH + 8); glow.setAttribute('height', this.NODE_HEIGHT + 8);
-      glow.setAttribute('rx', 16); glow.setAttribute('ry', 16);
+      glow.setAttribute('x', -3); glow.setAttribute('y', -3);
+      glow.setAttribute('width', this.NODE_WIDTH + 6); glow.setAttribute('height', this.NODE_HEIGHT + 6);
+      glow.setAttribute('rx', 15); glow.setAttribute('ry', 15);
       glow.setAttribute('fill', 'none');
       glow.setAttribute('stroke', resolvedColor);
-      glow.setAttribute('stroke-width', '2');
-      glow.setAttribute('opacity', '0.55');
+      glow.setAttribute('stroke-width', '1.5');
+      glow.setAttribute('opacity', '0.5');
       group.appendChild(glow);
     }
 
@@ -1792,7 +1798,14 @@ window.ActionFlowBuilder = {
             acao:     'drop-shadow(0 4px 12px rgba(0,0,0,0.28))',
             execucao: 'drop-shadow(0 2px 8px rgba(0,0,0,0.20))'
           };
-          g.style.filter = isSel ? 'none' : (shadowMap[node2.type] || 'none');
+          // V40.6.7 — dupla camada (style + attribute) pra filter realmente sair.
+          if (isSel) {
+            g.style.filter = 'none';
+            g.setAttribute('filter', 'none');
+          } else {
+            g.style.filter = shadowMap[node2.type] || 'none';
+            g.removeAttribute('filter');
+          }
           // V40.6.6 — Atualizar TAMBÉM o filter das badges de segmentação
           // dentro do card. Antes o fast-path não tocava nelas, então o
           // drop-shadow 14px da cor da seg vazava pra fora do card
@@ -1809,18 +1822,18 @@ window.ActionFlowBuilder = {
               ? `drop-shadow(0 0 3px ${seg.color}66)`
               : `drop-shadow(0 0 14px ${seg.color}aa) drop-shadow(0 0 4px ${seg.color})`;
           }
-          // Glow externo do selecionado (V40.6.4 — sutil)
+          // V40.6.7 — Glow externo ainda mais sutil (1.5px / +3px / opacity 0.5)
           if (isSel) {
             const glow = document.createElementNS(svg.namespaceURI || 'http://www.w3.org/2000/svg', 'rect');
             glow.setAttribute('data-selection-glow', '1');
-            glow.setAttribute('x', -4); glow.setAttribute('y', -4);
-            glow.setAttribute('width', this.NODE_WIDTH + 8);
-            glow.setAttribute('height', this.NODE_HEIGHT + 8);
-            glow.setAttribute('rx', 16); glow.setAttribute('ry', 16);
+            glow.setAttribute('x', -3); glow.setAttribute('y', -3);
+            glow.setAttribute('width', this.NODE_WIDTH + 6);
+            glow.setAttribute('height', this.NODE_HEIGHT + 6);
+            glow.setAttribute('rx', 15); glow.setAttribute('ry', 15);
             glow.setAttribute('fill', 'none');
             glow.setAttribute('stroke', resolvedColor);
-            glow.setAttribute('stroke-width', '2');
-            glow.setAttribute('opacity', '0.55');
+            glow.setAttribute('stroke-width', '1.5');
+            glow.setAttribute('opacity', '0.5');
             g.insertBefore(glow, g.firstChild);
           }
         }

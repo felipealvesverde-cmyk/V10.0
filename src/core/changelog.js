@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.6.7',
+    date: '2026-06-18',
+    title: 'Flow Builder: nuke total do filter no card selecionado',
+    bullets: [
+      'Tentativa final pra eliminar o halo no card selecionado que persistiu apesar das V40.6.4/5/6. Aplicado em camadas:',
+      '1) Dupla camada de "filter off" — antes só style.filter=none, agora style + attribute SVG. Algum caminho de CSS estava sobrescrevendo só a propriedade style. setAttribute("filter", "none") força nível mais alto.',
+      '2) Glow externo ainda mais sutil: 1.5px stroke + raio +3px + opacity 50% (eram 2px / +4px / 55%). Presença mínima.',
+      '3) CSS injetado pra desligar outline browser nativo no SVG do canvas. Algum browser pode estar mostrando focus-ring azul-ciano em SVG g element clicado.',
+      'Se persistir após Ctrl+Shift+R, é cache do browser — tem que forçar reload sem cache.'
+    ]
+  },
+  {
     version: 'V40.6.6',
     date: '2026-06-18',
     title: 'Flow Builder: fix-pra-valer halo das badges no card selecionado',
