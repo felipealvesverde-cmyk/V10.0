@@ -180,7 +180,7 @@ window.ActionFlowBuilder = {
   _emptyCanvasHint() {
     const nodes = App.state.flowBuilderNodes || [];
     if (nodes.length) return '';
-    return `<div class="absolute inset-0 grid place-items-center text-center p-6 pointer-events-none">
+    return `<div data-empty-hint class="absolute inset-0 grid place-items-center text-center p-6 pointer-events-none">
       <div class="max-w-md">
         <i data-lucide="git-merge" class="w-8 h-8 text-indigo-300 mx-auto mb-3"></i>
         <p class="text-sm text-slate-300">Canvas vazio. Clique em <b>Produto</b> no painel embaixo pra começar, ou em <b>Carregar campanha</b> no header pra continuar uma existente.</p>
@@ -197,8 +197,9 @@ window.ActionFlowBuilder = {
   },
 
   _trashBin() {
-    return `<div id="flowBuilderTrashBin" style="display:none;" class="absolute bottom-4 right-4 z-20 w-16 h-16 rounded-2xl bg-red-500/25 border-2 border-red-400/60 grid place-items-center text-red-200 pointer-events-none animate-pulse">
-      <i data-lucide="trash-2" class="w-7 h-7"></i>
+    return `<div id="flowBuilderTrashBin" style="display:none;" class="absolute bottom-5 right-5 z-30 w-24 h-24 rounded-3xl bg-red-500/40 border-2 border-red-400/80 flex-col items-center justify-center text-red-100 pointer-events-none animate-pulse shadow-2xl">
+      <i data-lucide="trash-2" class="w-9 h-9"></i>
+      <span class="text-[10px] font-black uppercase tracking-wider mt-1">Apagar</span>
     </div>`;
   },
 
@@ -512,7 +513,12 @@ window.ActionFlowBuilder = {
     );
 
     const svgNS = 'http://www.w3.org/2000/svg';
-    root.innerHTML = '';
+    // V39.10.1 — Remove só SVG/hint anteriores; preserva #flowBuilderTrashBin
+    // (que precisa ficar visível durante drag de fantasma/badge).
+    const oldSvg = root.querySelector('svg');
+    if (oldSvg) oldSvg.remove();
+    const oldHint = root.querySelector('[data-empty-hint]');
+    if (oldHint) oldHint.remove();
     const svg = document.createElementNS(svgNS, 'svg');
     svg.setAttribute('viewBox', `0 0 ${viewW} ${viewH}`);
     svg.setAttribute('style', 'width:100%;height:100%;display:block;');
@@ -623,6 +629,24 @@ window.ActionFlowBuilder = {
     rect.setAttribute('stroke', isArmed ? '#38bdf8' : (isHoveredForSeg ? '#fbbf24' : type.color));
     rect.setAttribute('stroke-width', isHoveredForSeg ? 3.5 : (isEsteira ? (isArmed ? 3 : 2.5) : (isArmed ? 3 : 2)));
     group.appendChild(rect);
+
+    // V39.10.1 — Tint sutil da cor da 1ª segmentação no card de Ação ("nuance")
+    if (isAcao) {
+      const segKeys = Array.isArray(node.data?.segmentations) ? node.data.segmentations : [];
+      if (segKeys.length > 0) {
+        const firstSeg = this.segmentationByKey(segKeys[0]);
+        if (firstSeg && firstSeg.color) {
+          const tint = document.createElementNS(svgNS, 'rect');
+          tint.setAttribute('x', 0); tint.setAttribute('y', 0);
+          tint.setAttribute('width', this.NODE_WIDTH); tint.setAttribute('height', this.NODE_HEIGHT);
+          tint.setAttribute('rx', 14); tint.setAttribute('ry', 14);
+          tint.setAttribute('fill', firstSeg.color);
+          tint.setAttribute('opacity', '0.07');
+          tint.style.pointerEvents = 'none';
+          group.appendChild(tint);
+        }
+      }
+    }
 
     if (isArmed || isHoveredForSeg) {
       const aura = document.createElementNS(svgNS, 'rect');
@@ -884,11 +908,35 @@ window.ActionFlowBuilder = {
 
   _showTrash() {
     const trash = document.getElementById('flowBuilderTrashBin');
-    if (trash) trash.style.display = 'grid';
+    if (trash) trash.style.display = 'flex';
   },
   _hideTrash() {
     const trash = document.getElementById('flowBuilderTrashBin');
     if (trash) trash.style.display = 'none';
+  },
+
+  // V39.10.1 — Anima ghost shrinking + sliding pra dentro do card de Ação antes
+  // do badge final aparecer. ease-out cubic, scale center-pivot, ~280ms.
+  _animateGhostToAction(ghostGroup, fromX, fromY, toX, toY, onComplete) {
+    if (!ghostGroup) { if (onComplete) onComplete(); return; }
+    const duration = 280;
+    const start = Date.now();
+    const W = this.GHOST_WIDTH, H = this.GHOST_HEIGHT;
+    const tick = () => {
+      const now = Date.now();
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      const x = fromX + (toX - fromX) * eased;
+      const y = fromY + (toY - fromY) * eased;
+      const scale = 1 - 0.7 * eased;
+      const opacity = 1 - eased;
+      const cx = x + W / 2, cy = y + H / 2;
+      ghostGroup.setAttribute('transform', `translate(${cx}, ${cy}) scale(${scale}) translate(${-W / 2}, ${-H / 2})`);
+      ghostGroup.style.opacity = String(opacity);
+      if (t < 1) requestAnimationFrame(tick);
+      else if (onComplete) onComplete();
+    };
+    requestAnimationFrame(tick);
   },
 
   _onMouseDown(event, svg) {
@@ -1060,16 +1108,25 @@ window.ActionFlowBuilder = {
         this._internal.hoveredActionId = null;
         return;
       }
-      // Ação sob o ponteiro: aplica badge, remove ghost
+      // Ação sob o ponteiro: anima ghost encolhendo pro card, depois aplica badge
       const wp = this._screenToWorld(svg, event);
       const acao = this._findActionAtWorld(wp.x, wp.y);
       if (acao) {
         const ghost = (App.state.flowBuilderGhostSegmentations || []).find(g => String(g.id) === String(ghostId));
         if (ghost) {
-          const ok = Actions.applyFlowBuilderSegmentationToAction(ghost.segKey, acao.id);
-          if (ok) Actions.removeFlowBuilderGhostSegmentation(ghostId);
+          const ghostGroup = svg.querySelector(`g.flow-ghost[data-ghost-id="${ghostId}"]`);
+          // Alvo: posição que a badge ocuparia (16, 80) + offset pra "voar" pra dentro
+          const targetX = acao.x + 16 - this.GHOST_WIDTH / 2 + 40;
+          const targetY = acao.y + 80 - this.GHOST_HEIGHT / 2 + 9;
+          this._internal.hoveredActionId = null;
+          this._animateGhostToAction(ghostGroup, ghost.x, ghost.y, targetX, targetY, () => {
+            const ok = Actions.applyFlowBuilderSegmentationToAction(ghost.segKey, acao.id);
+            if (ok) Actions.removeFlowBuilderGhostSegmentation(ghostId);
+            else Actions.removeFlowBuilderGhostSegmentation(ghostId); // se falhou (já tem 2), libera ghost mesmo assim
+          });
+        } else {
+          this._internal.hoveredActionId = null;
         }
-        this._internal.hoveredActionId = null;
         return;
       }
       // Else: fantasma fica onde está
