@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.10.2',
+    date: '2026-06-18',
+    title: 'Fix: lixeira agora apaga + fantasma vira badge na Ação (animação tirada por enquanto)',
+    bullets: [
+      'Bug clássico: na V39.10.0/V39.10.1 a lixeira estava escondendo a si mesma antes da checagem de "soltar em cima". A função `_hideTrash` setava display:none, e logo em seguida `_isOverTrash` lia esse display:none e respondia "não está em cima". Resultado: por mais que você soltasse o fantasma em cima da lixeira, ela ignorava. Fix: a checagem de "está sobre a lixeira?" agora vem ANTES de esconder ela.',
+      'Bug correlato: jogar fantasma na Ação não virava badge. Causa provável: o callback assíncrono da animação (V39.10.1) entrava em race com o re-render do canvas — quando o callback rodava 280ms depois, o SVG já tinha sido recriado e a referência do fantasma virava órfã. Fix: aplicação síncrona direto (sem esperar animação). Soltou na Ação → badge aparece no card + fantasma some na mesma renderização.',
+      'A animação fantasma→card foi removida por enquanto. Se ainda quiser, eu volto separado num próximo bump usando uma abordagem mais robusta (CSS transition em vez de RAF).'
+    ]
+  },
+  {
     version: 'V39.10.1',
     date: '2026-06-18',
     title: 'Flow Builder: lixeira agora aparece, animação no fantasma e nuances de cor na Ação',
