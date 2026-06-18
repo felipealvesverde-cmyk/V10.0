@@ -18,6 +18,24 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.6.0',
+    date: '2026-06-18',
+    title: 'Flow Builder: passada visual (Leonardo) — paleta, profundidade, hierarquia',
+    bullets: [
+      'Linhas de conexão entre blocos saíram do magenta saturado pra azul-cobalto translúcido — agora a linha conecta sem competir cromaticamente com os blocos.',
+      'Botão "Conectada (N)" no rodapé dos blocos saiu do verde brilhante (que colidia com a cor da Execução) pra cobalto neutro — confirmação não compete mais com a identidade de cor do bloco.',
+      'Vinheta azul-marinho do canvas removida. Fundo agora é uniforme e silencioso, não chama atenção pra si.',
+      'Header de métricas reorganizado: "X pendentes de salvar" virou pill âmbar separada (estado de risco precisa de destaque), métricas estruturais (blocos/conexões/esteira) ficam em cluster cinza neutro, "X selecionados" vira tag cobalto à direita.',
+      'Botões do header redesenhados em hierarquia única: Salvar esteira é o único primário (verde + glow). Rascunhos, Carregar campanha e Ajuda viraram ghost neutro. Limpar perdeu o vermelho permanente — fica inerte com hover vermelho (destruição pede fricção, não convite). Fechar isolado por gap de 24px.',
+      'Blocos: largura passou de 200px pra 240px e altura de 130px pra 150px. Nome ganha quebra automática em 2 linhas quando for longo — fim do "Criar Perfil da Empres" cortado. Limite por linha 24 caracteres com ellipsis só na linha 2 se exceder.',
+      'Seleção de bloco trocou borda branca grossa por glow externo na cor do tipo (raio +5px, opacidade 45%) — o bloco selecionado realça respeitando sua identidade cromática em vez de virar destaque genérico.',
+      'Profundidade escalonada Produto→Execução: Produto ganha sombra densa (enraíza), Campanha sombra média, Ação leve, Execução flutua quase sem sombra (folha no fim do galho). A cascata semântica vira topografia visual.',
+      'Badge de estado (SALVO/PROTÓTIPO/INCOMPLETO) refinado: era moldura colorida grande, virou dot 3px + texto 7.5px sem fundo — comunica sem poluir.',
+      'Pílula central (Esteira/Segmentação/Mapa) e cluster de zoom agora respiram 24px do canto (escala Fibonacci) e dividem a mesma linguagem visual: full pill + backdrop-blur + borda branca-15%. Zoom desceu pro canto inferior direito, irmão da pílula central. Lixeira de drag pra bottom-left.',
+      'Nenhuma função operacional foi alterada: tudo que você sabia fazer no Flow Builder continua igual. É polish puro de percepção visual baseado no framework Visual Systems (Leonardo).'
+    ]
+  },
+  {
     version: 'V40.5.1',
     date: '2026-06-18',
     title: 'Fix: alerta falso "ClickUp desconectado" no F5 quando a rede demora',

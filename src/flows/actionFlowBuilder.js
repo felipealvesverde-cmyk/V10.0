@@ -13,8 +13,10 @@
 //   - Custom segmentations: cor via input HTML5 color (paleta milhões),
 //     salvas no tenant pra reuso (`App.state.customSegmentations`).
 window.ActionFlowBuilder = {
-  NODE_WIDTH: 200,
-  NODE_HEIGHT: 130,
+  // V40.6.0 (Leonardo) — bloco respira mais (escala Fibonacci ≈ 240×150).
+  // Nome ganha wrap em 2 linhas. Truncamento cardinal eliminado.
+  NODE_WIDTH: 240,
+  NODE_HEIGHT: 150,
   GHOST_WIDTH: 130,
   GHOST_HEIGHT: 34,
   VIEWPORT_MARGIN: 200,
@@ -132,7 +134,7 @@ window.ActionFlowBuilder = {
     // selecione texto no header/popup. Inputs/textarea/select recebem override.
     return `<div class="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center" style="user-select:none;-webkit-user-select:none;-moz-user-select:none;">
       <style>.flow-builder-modal-root { user-select: none; -webkit-user-select: none; -moz-user-select: none; } .flow-builder-modal-root input, .flow-builder-modal-root textarea, .flow-builder-modal-root select { user-select: text !important; -webkit-user-select: text !important; }</style>
-      <div class="flow-builder-modal-root rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:90vw;max-width:none;background: radial-gradient(circle at 18% 10%, rgba(99,102,241,.22), transparent 30%), #071326;">
+      <div class="flow-builder-modal-root rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:90vw;max-width:none;background:#071326;">
         ${this._header()}
         ${App.state.flowBuilderShowHelp ? this._helpPanel() : ''}
         <div class="p-6">
@@ -162,22 +164,39 @@ window.ActionFlowBuilder = {
     const edges = App.state.flowBuilderEdges || [];
     const esteiraCount = nodes.filter(n => this.isEsteira(n.type)).length;
     const novos = nodes.filter(n => this.isEsteira(n.type) && !n.linkedRealId).length;
-    const novosLabel = novos > 0 ? ` · ${novos} pendente${novos === 1 ? '' : 's'} de salvar` : '';
     const selCount = (App.state.flowBuilderSelectedNodeIds || []).length;
-    const selLabel = selCount > 0 ? ` · <span class="text-indigo-300">${selCount} selecionado${selCount === 1 ? '' : 's'}</span>` : '';
+    // V40.6.0 (Leonardo) — Hierarquia tipográfica: pendentes em pill âmbar
+    // separada (estado de risco — perda de trabalho), métricas estruturais em
+    // cluster cinza neutro, seleção em tag cobalto à direita.
+    const pendingPill = novos > 0
+      ? `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-200 text-[10px] font-black"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>${novos} pendente${novos === 1 ? '' : 's'}</span>`
+      : '';
+    const selTag = selCount > 0
+      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-400/30 text-indigo-200 text-[10px] font-black">${selCount} selecionado${selCount === 1 ? '' : 's'}</span>`
+      : '';
+    const structural = `<span class="text-xs text-slate-400">${nodes.length} ${nodes.length === 1 ? 'bloco' : 'blocos'} · ${edges.length} ${edges.length === 1 ? 'conexão' : 'conexões'} · ${esteiraCount} da esteira</span>`;
     return `<header onclick="if(App.state.flowBuilderPaletteOpen){App.state.flowBuilderPaletteOpen=false;App.save();App.render();}" class="p-6 border-b border-white/10 flex items-start justify-between gap-4">
       <div>
         <div class="flex items-center gap-2 mb-2"><i data-lucide="git-merge" class="w-4 h-4 text-indigo-300"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Flow Builder · Esteira do LJ</p></div>
         <h2 class="text-2xl font-black">Desenhe Produto → Campanha → Ação → Execução</h2>
-        <p class="text-sm text-slate-300 mt-1">${nodes.length} ${nodes.length === 1 ? 'bloco' : 'blocos'} · ${edges.length} ${edges.length === 1 ? 'conexão' : 'conexões'} · ${esteiraCount} da esteira${novosLabel}${selLabel}</p>
+        <div class="mt-2 flex items-center flex-wrap gap-2">${pendingPill}${structural}${selTag}</div>
       </div>
       <div class="flex items-center gap-2 flex-wrap justify-end">
-        <button onclick="Actions.openFlowBuilderDraftsModal()" title="Salvar rascunho atual ou abrir um rascunho salvo" class="px-3 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-100 text-xs font-black flex items-center gap-1"><i data-lucide="bookmark" class="w-3.5 h-3.5"></i> Rascunhos${(App.state.flowBuilderDrafts || []).length ? ` <span class="ml-1 px-1.5 py-0.5 rounded-full bg-amber-400/30 text-[10px]">${(App.state.flowBuilderDrafts || []).length}</span>` : ''}</button>
-        <button onclick="Actions.openFlowBuilderLoadCampaign()" title="Carregar campanha existente pra editar" class="px-3 py-2.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 text-sky-100 text-xs font-black flex items-center gap-1"><i data-lucide="folder-open" class="w-3.5 h-3.5"></i> Carregar campanha</button>
-        <button onclick="Actions.saveFlowBuilder()" title="Salva os blocos da esteira como Produto/Campanha/Ação/Execução reais" class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black flex items-center gap-1"><i data-lucide="save" class="w-3.5 h-3.5"></i> Salvar esteira</button>
-        <button onclick="Actions.toggleFlowBuilderHelp()" title="Como funciona" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-black flex items-center gap-1"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i> Ajuda</button>
-        <button onclick="Actions.requestFlowBuilderClear()" title="Apagar tudo do canvas" class="px-3 py-2.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-200 text-xs font-black flex items-center gap-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Limpar</button>
-        <button onclick="Actions.closeFlowBuilder()" class="px-4 py-2.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-sm font-semibold flex items-center gap-2"><i data-lucide="x" class="w-4 h-4"></i> Fechar</button>
+        ${(() => {
+          // V40.6.0 (Leonardo) — Hierarquia única: Salvar = primário verde,
+          // demais = ghost neutro. Limpar inerte com hover vermelho (destruição
+          // pede fricção, não convite). Fechar isolado por gap de 24px.
+          const draftsCount = (App.state.flowBuilderDrafts || []).length;
+          const ghostCls = 'h-9 px-3 rounded-lg border border-white/15 bg-white/[0.04] hover:bg-white/[0.10] text-slate-200 text-xs font-black flex items-center gap-1.5 transition';
+          return `
+        <button onclick="Actions.openFlowBuilderDraftsModal()" title="Salvar rascunho atual ou abrir um rascunho salvo" class="${ghostCls}"><i data-lucide="bookmark" class="w-3.5 h-3.5"></i> Rascunhos${draftsCount ? ` <span class="ml-1 px-1.5 py-0.5 rounded-full bg-white/10 text-[10px]">${draftsCount}</span>` : ''}</button>
+        <button onclick="Actions.openFlowBuilderLoadCampaign()" title="Carregar campanha existente pra editar" class="${ghostCls}"><i data-lucide="folder-open" class="w-3.5 h-3.5"></i> Carregar campanha</button>
+        <button onclick="Actions.saveFlowBuilder()" title="Salva os blocos da esteira como Produto/Campanha/Ação/Execução reais" class="h-9 px-4 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black flex items-center gap-1.5 shadow-lg shadow-emerald-500/20"><i data-lucide="save" class="w-3.5 h-3.5"></i> Salvar esteira</button>
+        <button onclick="Actions.toggleFlowBuilderHelp()" title="Como funciona" class="${ghostCls}"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i> Ajuda</button>
+        <button onclick="Actions.requestFlowBuilderClear()" title="Apagar tudo do canvas" class="h-9 px-3 rounded-lg border border-white/15 bg-transparent hover:bg-red-500/20 hover:border-red-400/40 hover:text-red-100 text-slate-400 text-xs font-black flex items-center gap-1.5 transition"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Limpar</button>
+        <div class="w-6"></div>
+        <button onclick="Actions.closeFlowBuilder()" title="Fechar" class="h-9 w-9 rounded-lg border border-white/15 bg-white/[0.04] hover:bg-white/[0.10] text-slate-300 flex items-center justify-center transition"><i data-lucide="x" class="w-4 h-4"></i></button>`;
+        })()}
       </div>
     </header>`;
   },
@@ -213,15 +232,19 @@ window.ActionFlowBuilder = {
   },
 
   _zoomControls(zoom) {
-    return `<div class="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-2xl bg-slate-950/80 border border-white/10 p-1">
-      <button onclick="Actions.setFlowBuilderZoom(-0.1)" title="Diminuir zoom" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 text-white font-black"><i data-lucide="minus" class="w-3.5 h-3.5 mx-auto"></i></button>
-      <button onclick="Actions.resetFlowBuilderZoom()" title="Resetar zoom e voltar pra origem" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-black">${Math.round(zoom * 100)}%</button>
-      <button onclick="Actions.setFlowBuilderZoom(0.1)" title="Aumentar zoom" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 text-white font-black"><i data-lucide="plus" class="w-3.5 h-3.5 mx-auto"></i></button>
+    // V40.6.0 (Leonardo) — cluster pill no canto inferior direito (irmão do
+    // pill central de navegação). Mesma linguagem visual: full pill +
+    // backdrop-blur + raio 999. Respiro 24px do canto (escala Fibonacci).
+    return `<div class="absolute right-6 bottom-6 z-30 flex items-center gap-1 rounded-full bg-slate-950/70 backdrop-blur border border-white/15 p-1 shadow-2xl">
+      <button onclick="Actions.setFlowBuilderZoom(-0.1)" title="Diminuir zoom" class="w-9 h-9 rounded-full hover:bg-white/10 text-white grid place-items-center transition"><i data-lucide="minus" class="w-3.5 h-3.5"></i></button>
+      <button onclick="Actions.resetFlowBuilderZoom()" title="Resetar zoom e voltar pra origem" class="px-3 h-9 rounded-full hover:bg-white/10 text-white text-[11px] font-black transition">${Math.round(zoom * 100)}%</button>
+      <button onclick="Actions.setFlowBuilderZoom(0.1)" title="Aumentar zoom" class="w-9 h-9 rounded-full hover:bg-white/10 text-white grid place-items-center transition"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>
     </div>`;
   },
 
   _trashBin() {
-    return `<div id="flowBuilderTrashBin" style="display:none;" class="absolute bottom-5 right-5 z-30 w-24 h-24 rounded-3xl bg-red-500/40 border-2 border-red-400/80 flex-col items-center justify-center text-red-100 pointer-events-none animate-pulse shadow-2xl">
+    // V40.6.0 — bottom-left pra não colidir com o cluster de zoom (bottom-6 right-6).
+    return `<div id="flowBuilderTrashBin" style="display:none;" class="absolute bottom-6 left-6 z-40 w-24 h-24 rounded-3xl bg-red-500/40 border-2 border-red-400/80 flex-col items-center justify-center text-red-100 pointer-events-none animate-pulse shadow-2xl">
       <i data-lucide="trash-2" class="w-9 h-9"></i>
       <span class="text-[10px] font-black uppercase tracking-wider mt-1">Apagar</span>
     </div>`;
@@ -240,7 +263,8 @@ window.ActionFlowBuilder = {
       else if (tab === 'segmentacao') content = this._segmentacaoPanel();
       else if (tab === 'mapaReceita') content = this._mapaReceitaPanel();
     }
-    return `<div class="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3 pointer-events-none">
+    // V40.6.0 (Leonardo) — respiro 24px (Fibonacci) abaixo, espelho do zoom à direita.
+    return `<div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3 pointer-events-none">
       ${isOpen ? `<div onclick="event.stopPropagation()" class="bg-slate-900/95 backdrop-blur border border-white/15 rounded-3xl p-4 w-[720px] max-w-[90vw] shadow-2xl pointer-events-auto">${content}</div>` : ''}
       ${this._bottomPill(tab, isOpen)}
     </div>`;
@@ -256,7 +280,7 @@ window.ActionFlowBuilder = {
       { id: 'mapaReceita', label: 'Mapa',        icon: 'map' }
     ];
     return `<div class="relative pt-12 pointer-events-auto">
-      <div class="bg-slate-950 border border-white/20 rounded-full px-14 py-3 flex items-center gap-7 shadow-2xl">
+      <div class="bg-slate-950/85 backdrop-blur border border-white/20 rounded-full px-14 py-3 flex items-center gap-7 shadow-2xl">
         ${tabs.map(t => {
           const active = activeTab === t.id && isOpen;
           if (active) {
@@ -1037,7 +1061,9 @@ window.ActionFlowBuilder = {
     if (!from || !to) return;
     const fromPort = this._outputPort(from);
     const toPort = this._inputPort(to);
-    const stroke = '#a78bfa';
+    // V40.6.0 (Leonardo) — linhas em azul-cobalto translúcido. A linha conecta,
+    // não compete cromaticamente com os blocos.
+    const stroke = 'rgba(110,165,255,0.55)';
     const hitArea = document.createElementNS(svgNS, 'path');
     hitArea.setAttribute('d', this._edgePath(fromPort.x, fromPort.y, toPort.x, toPort.y));
     hitArea.setAttribute('stroke', 'transparent');
@@ -1053,7 +1079,7 @@ window.ActionFlowBuilder = {
     const path = document.createElementNS(svgNS, 'path');
     path.setAttribute('d', this._edgePath(fromPort.x, fromPort.y, toPort.x, toPort.y));
     path.setAttribute('stroke', stroke);
-    path.setAttribute('stroke-width', '2.5');
+    path.setAttribute('stroke-width', '1.75');
     path.setAttribute('fill', 'none');
     path.style.pointerEvents = 'none';
     parent.appendChild(path);
@@ -1079,19 +1105,42 @@ window.ActionFlowBuilder = {
     group.setAttribute('transform', `translate(${node.x}, ${node.y})`);
     group.dataset.nodeId = String(node.id);
     group.style.cursor = isArmed ? 'not-allowed' : 'grab';
+    // V40.6.0 (Leonardo) — profundidade escalonada: Produto enraíza (sombra
+    // densa), Execução é folha no fim do galho (sombra leve). A cascata
+    // semântica vira topografia visual.
+    const shadowByType = {
+      produto:  'drop-shadow(0 8px 20px rgba(0,0,0,0.45))',
+      campanha: 'drop-shadow(0 6px 16px rgba(0,0,0,0.35))',
+      acao:     'drop-shadow(0 4px 12px rgba(0,0,0,0.28))',
+      execucao: 'drop-shadow(0 2px 8px rgba(0,0,0,0.20))'
+    };
+    if (shadowByType[node.type]) group.style.filter = shadowByType[node.type];
     group.addEventListener('dblclick', (event) => {
       event.stopPropagation();
       if (window.Actions?.openFlowBuilderEditNode) Actions.openFlowBuilderEditNode(node.id);
     });
+
+    // V40.6.0 (Leonardo) — Seleção: glow externo na cor do tipo em vez de
+    // borda branca decapitada. Stroke do rect mantém identidade cromática.
+    if (isSelected && !isArmed && !isHoveredForSeg) {
+      const glow = document.createElementNS(svgNS, 'rect');
+      glow.setAttribute('x', -5); glow.setAttribute('y', -5);
+      glow.setAttribute('width', this.NODE_WIDTH + 10); glow.setAttribute('height', this.NODE_HEIGHT + 10);
+      glow.setAttribute('rx', 18); glow.setAttribute('ry', 18);
+      glow.setAttribute('fill', 'none');
+      glow.setAttribute('stroke', type.color);
+      glow.setAttribute('stroke-width', '3');
+      glow.setAttribute('opacity', '0.45');
+      group.appendChild(glow);
+    }
 
     const rect = document.createElementNS(svgNS, 'rect');
     rect.setAttribute('x', 0); rect.setAttribute('y', 0);
     rect.setAttribute('width', this.NODE_WIDTH); rect.setAttribute('height', this.NODE_HEIGHT);
     rect.setAttribute('rx', 14); rect.setAttribute('ry', 14);
     rect.setAttribute('fill', '#0b1325');
-    // V39.12.1 — Selecionado tem stroke branco mais grosso (5px) por cima da cor do tipo.
-    rect.setAttribute('stroke', isArmed ? '#38bdf8' : (isHoveredForSeg ? '#fbbf24' : (isSelected ? '#ffffff' : type.color)));
-    rect.setAttribute('stroke-width', isHoveredForSeg ? 3.5 : (isSelected ? 4.5 : (isEsteira ? (isArmed ? 3 : 2.5) : (isArmed ? 3 : 2))));
+    rect.setAttribute('stroke', isArmed ? '#38bdf8' : (isHoveredForSeg ? '#fbbf24' : type.color));
+    rect.setAttribute('stroke-width', isHoveredForSeg ? 3.5 : (isArmed ? 3 : (isEsteira ? 2 : 1.5)));
     group.appendChild(rect);
 
     // V39.10.4 — Nuance da cor agora vem do drop-shadow individual de cada badge
@@ -1110,25 +1159,24 @@ window.ActionFlowBuilder = {
       group.appendChild(aura);
     }
 
-    // V39.12.0 — Badge de estado (saved/ready/incomplete) substitui o × removido.
-    // Hover mostra reason via <title>. Click no badge não faz nada (remoção vai pelo modal).
+    // V40.6.0 (Leonardo) — Badge de estado: dot 5px + label 7.5px sem moldura.
+    // Comunica salvabilidade sem competir com a identidade cromática do bloco.
     if (isEsteira) {
       const status = this._nodeStatus(node, edges, App.state.flowBuilderNodes || []);
       const vis = this._statusVisual(status.state);
       if (vis.label) {
         const badge = document.createElementNS(svgNS, 'g');
-        const badgeW = vis.label.length * 5.6 + 14;
-        badge.setAttribute('transform', `translate(${this.NODE_WIDTH - badgeW - 8}, 6)`);
-        const badgeBg = document.createElementNS(svgNS, 'rect');
-        badgeBg.setAttribute('x', 0); badgeBg.setAttribute('y', 0);
-        badgeBg.setAttribute('width', badgeW); badgeBg.setAttribute('height', 16);
-        badgeBg.setAttribute('rx', 8); badgeBg.setAttribute('fill', vis.bg);
-        badgeBg.setAttribute('stroke', vis.border); badgeBg.setAttribute('stroke-width', '1');
-        badge.appendChild(badgeBg);
+        const labelW = vis.label.length * 5.2;
+        const totalW = labelW + 12;
+        badge.setAttribute('transform', `translate(${this.NODE_WIDTH - totalW - 12}, 12)`);
+        const dot = document.createElementNS(svgNS, 'circle');
+        dot.setAttribute('cx', 4); dot.setAttribute('cy', 4); dot.setAttribute('r', 3);
+        dot.setAttribute('fill', vis.color);
+        badge.appendChild(dot);
         const badgeTxt = document.createElementNS(svgNS, 'text');
-        badgeTxt.setAttribute('x', badgeW / 2); badgeTxt.setAttribute('y', 11);
-        badgeTxt.setAttribute('fill', vis.text); badgeTxt.setAttribute('font-size', '8'); badgeTxt.setAttribute('font-weight', '900');
-        badgeTxt.setAttribute('text-anchor', 'middle');
+        badgeTxt.setAttribute('x', 11); badgeTxt.setAttribute('y', 7);
+        badgeTxt.setAttribute('fill', vis.text); badgeTxt.setAttribute('font-size', '7.5'); badgeTxt.setAttribute('font-weight', '900');
+        badgeTxt.setAttribute('letter-spacing', '0.5');
         badgeTxt.textContent = vis.label;
         badge.appendChild(badgeTxt);
         const title = document.createElementNS(svgNS, 'title');
@@ -1144,19 +1192,45 @@ window.ActionFlowBuilder = {
     typeLabel.textContent = type.label.toUpperCase();
     group.appendChild(typeLabel);
 
-    const displayName = (node.data?.name || node.name || 'Sem nome').slice(0, 22);
+    // V40.6.0 (Leonardo) — wrap em 2 linhas, sem truncamento agressivo.
+    // Limite 24 chars/linha; quebra na palavra mais próxima do meio.
+    const rawName = String(node.data?.name || node.name || 'Sem nome');
+    const wrapName = (text, max) => {
+      if (text.length <= max) return [text];
+      const words = text.split(/\s+/);
+      const lines = ['', ''];
+      let idx = 0;
+      for (const w of words) {
+        const candidate = (lines[idx] ? lines[idx] + ' ' : '') + w;
+        if (candidate.length <= max) lines[idx] = candidate;
+        else if (idx === 0) { idx = 1; lines[1] = w; }
+        else lines[1] += (lines[1] ? ' ' : '') + w;
+      }
+      if (lines[1].length > max) lines[1] = lines[1].slice(0, max - 1) + '…';
+      return lines[1] ? [lines[0], lines[1]] : [lines[0]];
+    };
+    const nameLines = wrapName(rawName, 24);
     const nameText = document.createElementNS(svgNS, 'text');
     nameText.setAttribute('x', 16); nameText.setAttribute('y', 48);
     nameText.setAttribute('fill', '#ffffff'); nameText.setAttribute('font-size', '14'); nameText.setAttribute('font-weight', '800');
-    nameText.textContent = displayName;
+    nameLines.forEach((line, i) => {
+      const tspan = document.createElementNS(svgNS, 'tspan');
+      tspan.setAttribute('x', 16);
+      if (i === 0) tspan.setAttribute('y', 48);
+      else tspan.setAttribute('dy', '18');
+      tspan.textContent = line;
+      nameText.appendChild(tspan);
+    });
     group.appendChild(nameText);
 
     // V39.12.0 — × removido do card (era atropelado por acidente ao mover).
     // Remoção agora vai pelo modal de edição (duplo clique → botão Excluir bloco).
 
     const outgoing = edges.filter(e => e.fromId === node.id).length;
+    // V40.6.0 — stats desce conforme número de linhas do nome.
+    const statsY = nameLines.length > 1 ? 86 : 70;
     const stats = document.createElementNS(svgNS, 'text');
-    stats.setAttribute('x', 16); stats.setAttribute('y', 66);
+    stats.setAttribute('x', 16); stats.setAttribute('y', statsY);
     stats.setAttribute('fill', '#94a3b8'); stats.setAttribute('font-size', '10');
     stats.textContent = isExecucao ? 'fim de fluxo' : (outgoing > 0 ? `${outgoing} ${outgoing === 1 ? 'saída' : 'saídas'}` : 'sem saídas');
     group.appendChild(stats);
@@ -1170,7 +1244,8 @@ window.ActionFlowBuilder = {
         const seg = this.segmentationByKey(segKey);
         if (!seg) return;
         const badgeG = document.createElementNS(svgNS, 'g');
-        badgeG.setAttribute('transform', `translate(${16 + i * 86}, 80)`);
+        // V40.6.0 — badge desce pra y=106 (depois do espaço do nome em 2 linhas).
+        badgeG.setAttribute('transform', `translate(${16 + i * 86}, 106)`);
         badgeG.setAttribute('class', 'flow-no-drag flow-badge-static');
         badgeG.dataset.nodeId = String(node.id);
         badgeG.dataset.segKey = String(segKey);
@@ -1235,8 +1310,10 @@ window.ActionFlowBuilder = {
       // V39.12.1 — Quando armament é em massa, mostra contagem no botão.
       label = armedCount > 1 ? `Conectando ${armedCount}...` : 'Conectando...';
     }
-    else if (outgoing > 0) { fill = 'rgba(16,185,129,0.20)'; stroke = '#34d399'; textFill = '#a7f3d0'; label = `Conectada (${outgoing})`; }
-    else { fill = 'rgba(255,255,255,0.06)'; stroke = '#475569'; textFill = '#cbd5e1'; label = 'Conexão'; }
+    // V40.6.0 (Leonardo) — "Conectada (N)" sai do verde-Execução pra cobalto neutro.
+    // Confirmação não compete cromaticamente com o tipo do bloco.
+    else if (outgoing > 0) { fill = 'rgba(110,165,255,0.14)'; stroke = 'rgba(110,165,255,0.45)'; textFill = 'rgba(186,210,255,0.85)'; label = `Conectada (${outgoing})`; }
+    else { fill = 'rgba(255,255,255,0.04)'; stroke = 'rgba(255,255,255,0.18)'; textFill = '#94a3b8'; label = 'Conexão'; }
     const btnY = this.NODE_HEIGHT - 28;
     const btnH = 22, btnX = 12, btnW = this.NODE_WIDTH - 24;
     const btn = document.createElementNS(svgNS, 'g');
@@ -1254,11 +1331,12 @@ window.ActionFlowBuilder = {
     rect.setAttribute('rx', 6); rect.setAttribute('ry', 6);
     rect.setAttribute('fill', fill); rect.setAttribute('stroke', stroke); rect.setAttribute('stroke-width', '1');
     btn.appendChild(rect);
-    btn.addEventListener('mouseenter', () => { rect.setAttribute('fill', isArmed ? 'rgba(56,189,248,0.45)' : (outgoing > 0 ? 'rgba(16,185,129,0.32)' : 'rgba(255,255,255,0.14)')); });
+    // V40.6.0 (Leonardo) — hover absorve a mesma família neutra/cobalto.
+    btn.addEventListener('mouseenter', () => { rect.setAttribute('fill', isArmed ? 'rgba(56,189,248,0.45)' : (outgoing > 0 ? 'rgba(110,165,255,0.24)' : 'rgba(255,255,255,0.10)')); });
     btn.addEventListener('mouseleave', () => { rect.setAttribute('fill', fill); });
     const dot = document.createElementNS(svgNS, 'circle');
     dot.setAttribute('cx', 14); dot.setAttribute('cy', btnH / 2); dot.setAttribute('r', 3.2);
-    dot.setAttribute('fill', isArmed ? '#7dd3fc' : (outgoing > 0 ? '#6ee7b7' : '#94a3b8'));
+    dot.setAttribute('fill', isArmed ? '#7dd3fc' : (outgoing > 0 ? '#bad2ff' : '#94a3b8'));
     btn.appendChild(dot);
     const txt = document.createElementNS(svgNS, 'text');
     txt.setAttribute('x', btnW / 2 + 6); txt.setAttribute('y', btnH / 2 + 3.5);
@@ -1382,9 +1460,9 @@ window.ActionFlowBuilder = {
     const w = this.GHOST_WIDTH * zoom;
     const h = this.GHOST_HEIGHT * zoom;
 
-    // Alvo: onde a badge vai aparecer no card (16 + i * 86, 80)
+    // Alvo: onde a badge vai aparecer no card (16 + i * 86, 106 desde V40.6.0)
     const badgeWorldX = acao.x + 16 + segIndex * 86;
-    const badgeWorldY = acao.y + 80;
+    const badgeWorldY = acao.y + 106;
     const toX = canvasRect.left + (badgeWorldX * zoom) + panX;
     const toY = canvasRect.top + (badgeWorldY * zoom) + panY;
 
