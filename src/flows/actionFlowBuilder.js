@@ -1351,7 +1351,12 @@ window.ActionFlowBuilder = {
         badgeG.style.pointerEvents = 'none';
         // V39.10.4 — Drop-shadow colorido em volta da badge = nuance localizada
         // no canto onde a badge fica. Com 2 badges, 2 halos de cores distintas.
-        badgeG.style.filter = `drop-shadow(0 0 14px ${seg.color}aa) drop-shadow(0 0 4px ${seg.color})`;
+        // V40.6.5 — Quando o card é selecionado, drop-shadow do badge fica MAIS
+        // contida (3px de blur, sem halo grande) — evita o halo colorido vazar
+        // pra fora do card e parecer "sombra explodindo".
+        badgeG.style.filter = isSelected
+          ? `drop-shadow(0 0 3px ${seg.color}66)`
+          : `drop-shadow(0 0 14px ${seg.color}aa) drop-shadow(0 0 4px ${seg.color})`;
         const bRect = document.createElementNS(svgNS, 'rect');
         bRect.setAttribute('x', 0); bRect.setAttribute('y', 0);
         bRect.setAttribute('width', 80); bRect.setAttribute('height', 18);
