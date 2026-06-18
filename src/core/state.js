@@ -1048,7 +1048,9 @@ var State = {
               x: Number(n.x) || 0,
               y: Number(n.y) || 0,
               data: (n.data && typeof n.data === 'object') ? n.data : {},
-              linkedRealId: n.linkedRealId != null ? n.linkedRealId : null
+              linkedRealId: n.linkedRealId != null ? n.linkedRealId : null,
+              // V39.12.2 — Habilita regra Delete sem confirm nos primeiros 10s.
+              createdAt: n.createdAt != null ? Number(n.createdAt) : null
             }))
         : [],
       flowBuilderEdges: Array.isArray(raw.flowBuilderEdges)

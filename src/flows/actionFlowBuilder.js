@@ -128,8 +128,11 @@ window.ActionFlowBuilder = {
   render() {
     if (!App.state.showFlowBuilderModal) return '';
     const zoom = Number(App.state.flowBuilderZoom || 1.0);
-    return `<div class="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center">
-      <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:90vw;max-width:none;background: radial-gradient(circle at 18% 10%, rgba(99,102,241,.22), transparent 30%), #071326;">
+    // V39.12.2 — user-select: none global no modal evita que arrastar o mouse
+    // selecione texto no header/popup. Inputs/textarea/select recebem override.
+    return `<div class="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm p-4 overflow-auto grid place-items-start justify-items-center" style="user-select:none;-webkit-user-select:none;-moz-user-select:none;">
+      <style>.flow-builder-modal-root { user-select: none; -webkit-user-select: none; -moz-user-select: none; } .flow-builder-modal-root input, .flow-builder-modal-root textarea, .flow-builder-modal-root select { user-select: text !important; -webkit-user-select: text !important; }</style>
+      <div class="flow-builder-modal-root rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:90vw;max-width:none;background: radial-gradient(circle at 18% 10%, rgba(99,102,241,.22), transparent 30%), #071326;">
         ${this._header()}
         ${App.state.flowBuilderShowHelp ? this._helpPanel() : ''}
         <div class="p-6">
@@ -191,7 +194,7 @@ window.ActionFlowBuilder = {
         <li>• <b>Segmentação:</b> botão "Segmentação" na pílula. Arraste uma seg pro canvas (vira fantasma) ou direto pra uma Ação (vira badge). Máx 2 badges por Ação.</li>
         <li>• <b>Remover segmentação:</b> duplo clique no card de Ação abre o modal — lá tem a lista de badges com botão pra remover. Fantasmas soltos podem ir pra lixeira vermelha arrastando.</li>
         <li>• <b>Rascunhos:</b> botão âmbar no header. Salva snapshot do canvas pra continuar depois sem subir nas abas reais. Abrir um rascunho substitui o canvas.</li>
-        <li>• <b>Atalhos:</b> <kbd>CTRL+arrastar</kbd> num card cria o filho da hierarquia já conectado (Produto→Campanha, Campanha→Ação, Ação→Execução). <kbd>Click</kbd> seleciona (shift estende). <kbd>ALT+arrastar</kbd> com seleção desenha retângulo que pega só do mesmo tipo. Vários selecionados + Conexão = conecta todos de uma vez no mesmo destino. <kbd>ESC</kbd> fecha pílula.</li>
+        <li>• <b>Atalhos:</b> <kbd>CTRL+arrastar</kbd> em card pai cria filho da hierarquia conectado. <kbd>CTRL+SHIFT+arrastar</kbd> duplica o card (menos Produto). <kbd>Click</kbd> seleciona (shift estende; duplo-clique abre edição). <kbd>ALT+arrastar</kbd> com seleção desenha retângulo que pega só do mesmo tipo. Vários selecionados + Conexão = conecta todos. <kbd>Delete</kbd> apaga selecionados (sem confirm nos primeiros 10s de vida do card). <kbd>ESC</kbd> fecha pílula.</li>
         <li>• <b>Carregar campanha:</b> botão azul. Importa Produto + Campanha + Ações + Execuções como blocos pré-vinculados.</li>
         <li>• <b>Salvar:</b> botão verde. Topological: Produto → Campanha → Ação → Execução. Re-saves não duplicam.</li>
       </ul>
@@ -684,23 +687,38 @@ window.ActionFlowBuilder = {
     this._drawCanvas();
     // V39.12.1 — ESC fecha pílula expandida quando builder está aberto. Listener
     // global registrado UMA vez (idempotente via flag interna).
+    // V39.12.2 — Mesmo listener cuida do Delete/Backspace pra apagar selecionados
+    // (regra: < 10s sem confirm, ≥ 10s com confirm).
     if (!this._internal._escListenerAttached) {
       window.addEventListener('keydown', (e) => {
-        if (e.key !== 'Escape') return;
         if (!App.state.showFlowBuilderModal) return;
-        // Não interfere se algum modal interno está aberto (deixa o handler do
-        // input próprio cuidar). Esses modais já fecham via tecla Escape via
-        // onkeydown nos inputs/textareas.
-        if (App.state.flowBuilderEditNodeId) return;
-        if (App.state.flowBuilderCustomSegModal) return;
-        if (App.state.flowBuilderDraftsModal) return;
-        if (App.state.flowBuilderLoadCampaignModal) return;
-        if (App.state.flowBuilderClearConfirm) return;
-        if (App.state.flowBuilderDisconnectEdgeId) return;
-        if (App.state.flowBuilderPaletteOpen) {
-          App.state.flowBuilderPaletteOpen = false;
-          App.save(); App.render();
+        // Modais internos abertos: deixa o handler nativo cuidar.
+        const modalOpen = (
+          App.state.flowBuilderEditNodeId ||
+          App.state.flowBuilderCustomSegModal ||
+          App.state.flowBuilderDraftsModal ||
+          App.state.flowBuilderLoadCampaignModal ||
+          App.state.flowBuilderClearConfirm ||
+          App.state.flowBuilderDisconnectEdgeId
+        );
+        // Foco em input/textarea: deixa o input controlar suas próprias teclas
+        // (não apagar cards quando user digita Delete dentro do input).
+        const active = document.activeElement;
+        const inField = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.isContentEditable);
+        if (e.key === 'Escape') {
+          if (modalOpen) return;
+          if (App.state.flowBuilderPaletteOpen) {
+            App.state.flowBuilderPaletteOpen = false;
+            App.save(); App.render();
+            e.preventDefault();
+          }
+          return;
+        }
+        if ((e.key === 'Delete' || e.key === 'Backspace') && !modalOpen && !inField) {
+          const sel = App.state.flowBuilderSelectedNodeIds || [];
+          if (!sel.length) return;
           e.preventDefault();
+          if (window.Actions?.deleteFlowBuilderSelected) Actions.deleteFlowBuilderSelected();
         }
       });
       this._internal._escListenerAttached = true;
@@ -1265,6 +1283,18 @@ window.ActionFlowBuilder = {
 
   _onMouseDown(event, svg) {
     const target = event.target;
+    // V39.12.2 — QUALQUER click dentro do canvas SVG fecha a pílula expandida.
+    // (Antes só "área vazia" fechava. Click em card não fechava, gerando "às
+    // vezes fecha às vezes não".)
+    if (App.state.flowBuilderPaletteOpen) {
+      App.state.flowBuilderPaletteOpen = false;
+      // Atualização sem re-render destrutivo do canvas — popup HTML some
+      // sozinho via render() do App, e os drag handlers do SVG seguem vivos.
+      App.save();
+      // Re-render imediato pra esconder o popup, mas sem chamar attach() (não
+      // destruir o SVG; o resto do canvas só precisa esconder o div HTML do popup).
+      App.render();
+    }
     if (target.closest && target.closest('.flow-no-drag')) {
       const ghost = target.closest('.flow-ghost');
       if (ghost) {
@@ -1302,6 +1332,35 @@ window.ActionFlowBuilder = {
       if (armedIds.length && armedIds.includes(String(nodeId))) return;
       const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(nodeId));
       if (!node) return;
+      // V39.12.2 — CTRL+SHIFT+drag duplica o card (mesmo tipo, mesmos dados,
+      // sem linkedRealId) e arrasta o duplicado. Produto NÃO pode (regra:
+      // 1 Produto por canvas).
+      if ((event.ctrlKey || event.metaKey) && event.shiftKey) {
+        if (node.type === 'produto') {
+          Utils.toast('Produto não pode ser duplicado — cada esteira tem 1 só.');
+          event.preventDefault();
+          return;
+        }
+        const wp = this._screenToWorld(svg, event);
+        const cloneData = JSON.parse(JSON.stringify(node.data || {}));
+        const dup = {
+          id: ActionFlowBuilder.genId(),
+          type: node.type,
+          name: node.name || '',
+          x: Math.round(wp.x - this.NODE_WIDTH / 2),
+          y: Math.round(wp.y - this.NODE_HEIGHT / 2),
+          data: cloneData,
+          linkedRealId: null,
+          createdAt: Date.now()
+        };
+        App.state.flowBuilderNodes = [...(App.state.flowBuilderNodes || []), dup];
+        App.state.flowBuilderSelectedNodeIds = [String(dup.id)];
+        this._internal.dragNode = { nodeId: String(dup.id), offsetX: this.NODE_WIDTH / 2, offsetY: this.NODE_HEIGHT / 2 };
+        App.save();
+        setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+        event.preventDefault();
+        return;
+      }
       // V39.12.1 — CTRL+drag em card pai cria filho hierárquico já conectado
       // e arrasta o NOVO. Útil pra desenhar a esteira em fluência.
       if (event.ctrlKey || event.metaKey) {
@@ -1319,7 +1378,8 @@ window.ActionFlowBuilder = {
           x: Math.round(wp.x - this.NODE_WIDTH / 2),
           y: Math.round(wp.y - this.NODE_HEIGHT / 2),
           data: ActionFlowBuilder.defaultData(childType),
-          linkedRealId: null
+          linkedRealId: null,
+          createdAt: Date.now()
         };
         const newEdge = {
           id: 'e_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
@@ -1350,17 +1410,50 @@ window.ActionFlowBuilder = {
         return;
       }
       // V39.12.1 — Click seleciona (shift estende, sem shift substitui).
+      // V39.12.2 — NÃO re-renderizar SVG aqui (destrói o group e mata o dblclick
+      // listener antes do 2º click chegar). Atualiza stroke no DOM e força App.render()
+      // apenas pra o header refletir contador no próximo tick.
       const cur = App.state.flowBuilderSelectedNodeIds || [];
+      let next = cur;
       if (event.shiftKey) {
         if (cur.includes(String(nodeId))) {
-          App.state.flowBuilderSelectedNodeIds = cur.filter(id => id !== String(nodeId));
+          next = cur.filter(id => id !== String(nodeId));
         } else {
-          App.state.flowBuilderSelectedNodeIds = [...cur, String(nodeId)];
+          next = [...cur, String(nodeId)];
         }
       } else if (!cur.includes(String(nodeId))) {
-        App.state.flowBuilderSelectedNodeIds = [String(nodeId)];
+        next = [String(nodeId)];
       }
-      // Continua com drag normal
+      const changed = next.length !== cur.length || next.some((v, i) => v !== cur[i]);
+      App.state.flowBuilderSelectedNodeIds = next;
+      // Atualiza visual de TODOS os cards via DOM (sem destruir SVG).
+      if (changed) {
+        const selSet = new Set(next.map(String));
+        const allGroups = svg.querySelectorAll('g[data-node-id]');
+        for (const g of allGroups) {
+          const id = g.dataset.nodeId;
+          const rect = g.querySelector('rect');
+          if (!rect) continue;
+          const isSel = selSet.has(String(id));
+          if (isSel) {
+            rect.setAttribute('stroke', '#ffffff');
+            rect.setAttribute('stroke-width', 4.5);
+          } else {
+            // Restaura aproximação — não vai pegar isArmed/isHoveredForSeg
+            // mas o próximo render natural resolve isso. Para click simples
+            // de seleção é só visual.
+            const node2 = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(id));
+            if (node2) {
+              const type2 = this.typeById(node2.type);
+              rect.setAttribute('stroke', type2.color);
+              rect.setAttribute('stroke-width', this.isEsteira(node2.type) ? 2.5 : 2);
+            }
+          }
+        }
+        App.save(); // persiste sem render
+      }
+      // Continua com drag normal — drag move o card. dblclick continua armado
+      // porque o group SVG não foi destruído.
       const wp = this._screenToWorld(svg, event);
       this._internal.dragNode = {
         nodeId,
@@ -1368,8 +1461,6 @@ window.ActionFlowBuilder = {
         offsetY: wp.y - node.y
       };
       group.style.cursor = 'grabbing';
-      App.save();
-      setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
       return;
     }
     // Área vazia
