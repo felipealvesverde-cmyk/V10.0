@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.1.0',
+    date: '2026-06-18',
+    title: 'Onda 2 do cockpit: plugins liberados por tenant',
+    bullets: [
+      'Tela nova "Plugins" no cockpit /admin. Você seleciona um tenant e vê a lista do catálogo com toggle por plugin (hoje só Flow Builder, mas a estrutura comporta os próximos). Ligar ou desligar é instantâneo — aplica na próxima vez que o cliente abrir o app.',
+      'No LJ-cliente, o menu Plugins agora respeita a liberação. Cliente que não tem o plugin liberado vê uma mensagem clara "Nenhum plugin liberado pra este tenant — entre em contato com o LJ pra liberar acesso". Sem botão fantasma que dá erro.',
+      'Operador LJ continua vendo tudo (override). Tenant que ainda não foi gerenciado vê o default do catálogo (hoje: Flow Builder ligado por compat retroativa — Sansone segue tendo acesso sem você precisar tocar).',
+      'Por trás: tabela tenant_plugins gating com upsert. 3 endpoints novos: GET /api/admin-tenant-plugins (listar status por tenant), POST /api/admin-tenant-plugin-toggle (liga/desliga), GET /api/my-tenant-plugins (cliente consulta o próprio acesso no boot). Catálogo canônico em lib/plugins-catalog.js + espelho frontend.'
+    ]
+  },
+  {
     version: 'V40.0.0',
     date: '2026-06-18',
     title: 'V40 — Separação dos dois mundos: LJ-cliente vira tenant comum, cockpit operacional ganha porta própria em /admin',

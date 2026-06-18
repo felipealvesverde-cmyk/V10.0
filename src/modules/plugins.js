@@ -6,15 +6,32 @@
 // da esteira do LJ: desenha Produto→Campanha→Ação→Execução no canvas, salva,
 // e essas entidades aparecem normalmente nas abas Produtos/Campanhas/Ações.
 var PluginsModule = {
+  // V40.1.0 — Gating por tenant: enabledPluginIds vem de /api/my-tenant-plugins.
+  // null = ainda carregando (mostra tudo otimisticamente, fail-open).
+  // array = lista canônica de plugins habilitados.
+  _isEnabled(pluginId) {
+    const list = App.state.enabledPluginIds;
+    if (!Array.isArray(list)) return true; // fail-open enquanto carrega
+    return list.includes(pluginId);
+  },
+
   render() {
+    const cards = [];
+    if (this._isEnabled('flow-builder')) cards.push(this.pluginCardFlowBuilder());
+    const empty = cards.length === 0;
     return `<div class="space-y-4">
       ${this.headerLayer()}
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
         <h2 class="text-xl font-black mb-1">Catálogo de plugins</h2>
         <p class="text-sm text-slate-500 mb-5">Ferramentas avançadas, fora do fluxo principal. Cada plugin abre seu próprio espaço de trabalho.</p>
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          ${this.pluginCardFlowBuilder()}
-        </div>
+        ${empty
+          ? `<div class="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
+              <i data-lucide="lock" class="w-8 h-8 text-slate-400 mx-auto mb-2"></i>
+              <p class="text-sm font-black text-slate-600">Nenhum plugin liberado pra este tenant.</p>
+              <p class="text-xs text-slate-500 mt-1">Entre em contato com o LJ pra liberar acesso.</p>
+            </div>`
+          : `<div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">${cards.join('')}</div>`
+        }
       </div>
       ${window.ActionFlowBuilder ? ActionFlowBuilder.render() : ''}
     </div>`;

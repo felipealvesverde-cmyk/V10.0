@@ -5,7 +5,7 @@
 window.AdminApp = {
   state: {
     currentUser: null,
-    activeScreen: 'tenants',     // 'tenants' | 'snapshots'
+    activeScreen: 'tenants',     // 'tenants' | 'snapshots' | 'plugins'
     tenants: [],
     tenantsLoading: false,
     selectedTenantId: null,
@@ -16,6 +16,10 @@ window.AdminApp = {
     snapshots: [],
     snapshotsLoading: false,
     selectedSnapshotTenantId: null,
+    // V40.1.0 — Gating de plugins por tenant
+    pluginsTenantId: null,
+    pluginsList: [],
+    pluginsLoading: false,
     toast: null,
     plugDbDraft: { tenantId: null, connString: '' }
   },
@@ -68,7 +72,39 @@ window.AdminApp = {
   setScreen(screen) {
     this.state.activeScreen = screen;
     if (screen === 'snapshots') this.loadSnapshots();
+    if (screen === 'plugins') this.loadPluginsList();
     this.render();
+  },
+
+  // ===== PLUGINS (gating por tenant) =====
+  async loadPluginsList() {
+    if (!this.state.pluginsTenantId) return;
+    this.state.pluginsLoading = true; this.render();
+    const r = await this.fetch(`/api/admin-tenant-plugins?tenantId=${this.state.pluginsTenantId}`);
+    this.state.pluginsLoading = false;
+    if (r?.ok) this.state.pluginsList = r.data.plugins || [];
+    this.render();
+  },
+  setPluginsTenant(tenantId) {
+    this.state.pluginsTenantId = Number(tenantId) || null;
+    this.loadPluginsList();
+  },
+  async togglePlugin(pluginId, currentlyEnabled) {
+    if (!this.state.pluginsTenantId) return;
+    const r = await this.fetch('/api/admin-tenant-plugin-toggle', {
+      method: 'POST',
+      body: JSON.stringify({
+        tenantId: this.state.pluginsTenantId,
+        pluginId,
+        enabled: !currentlyEnabled
+      })
+    });
+    if (r?.ok) {
+      this.toast(`✓ Plugin ${!currentlyEnabled ? 'liberado' : 'desativado'}.`, 'success');
+      this.loadPluginsList();
+    } else {
+      this.toast(r?.data?.message || 'Erro ao toggle plugin.', 'error');
+    }
   },
 
   openCreateTenantModal() {
@@ -287,6 +323,7 @@ window.AdminApp = {
           </div>
         </div>
         ${this._navBtn('tenants', 'Tenants', 'users')}
+        ${this._navBtn('plugins', 'Plugins', 'puzzle')}
         ${this._navBtn('snapshots', 'Snapshots', 'database-backup')}
         <div class="flex-1"></div>
         <div class="px-2 py-3 border-t border-white/10 mt-3">
@@ -296,7 +333,9 @@ window.AdminApp = {
         </div>
       </aside>
       <main class="flex-1 admin-content p-8 overflow-auto" style="max-height:100vh;">
-        ${this.state.activeScreen === 'tenants' ? this._tenantsScreen() : this._snapshotsScreen()}
+        ${this.state.activeScreen === 'tenants' ? this._tenantsScreen()
+          : this.state.activeScreen === 'plugins' ? this._pluginsScreen()
+          : this._snapshotsScreen()}
       </main>
       ${this.state.showCreateTenantModal ? this._createTenantModal() : ''}
       ${this.state.showCreateUserModal ? this._createUserModal() : ''}
@@ -424,6 +463,55 @@ window.AdminApp = {
           <button onclick="AdminApp.submitPlugDb()" class="admin-btn-primary px-4 py-2.5 rounded-xl text-sm">Plugar</button>
         </div>
       </div>
+    </div>`;
+  },
+
+  _pluginsScreen() {
+    const tenant = this.state.tenants.find(t => Number(t.id) === Number(this.state.pluginsTenantId));
+    return `<div class="flex items-center justify-between mb-6">
+      <div>
+        <p class="text-[10px] font-black text-indigo-300 uppercase tracking-wider">Gating</p>
+        <h1 class="text-2xl font-black">Plugins por tenant</h1>
+        <p class="text-sm text-slate-400 mt-1">Libere ou corte plugins individualmente pra cada cliente. Tenant sem registro vê o default do catálogo.</p>
+      </div>
+    </div>
+    <div class="admin-card p-4 mb-4">
+      <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Tenant</label>
+      <select onchange="AdminApp.setPluginsTenant(this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+        <option value="">— escolha um tenant —</option>
+        ${this.state.tenants.map(t => `<option value="${t.id}" ${Number(this.state.pluginsTenantId) === Number(t.id) ? 'selected' : ''}>${this._escape(t.name)}</option>`).join('')}
+      </select>
+    </div>
+    ${!this.state.pluginsTenantId
+      ? `<p class="text-sm text-slate-400">Escolha um tenant pra ver e gerenciar os plugins dele.</p>`
+      : this.state.pluginsLoading
+        ? `<p class="text-sm text-slate-400">Carregando…</p>`
+        : !this.state.pluginsList.length
+          ? `<div class="admin-card p-10 text-center"><p class="text-sm text-slate-400">Catálogo vazio.</p></div>`
+          : `<div class="space-y-2">${this.state.pluginsList.map(p => this._pluginRow(p)).join('')}</div>
+             <p class="text-[11px] text-slate-400 mt-4">Mudança aplica na próxima vez que ${this._escape(tenant?.name || '')} abrir o app. Operador LJ sempre vê tudo (override).</p>`
+    }`;
+  },
+
+  _pluginRow(p) {
+    const enabled = !!p.enabled;
+    const onColor = enabled ? '#10b981' : '#475569';
+    const offColor = enabled ? '#0b1325' : '#0b1325';
+    return `<div class="admin-card p-4 flex items-center gap-4">
+      <span class="w-10 h-10 rounded-xl grid place-items-center shrink-0" style="background:${p.color}22;color:${p.color};border:1px solid ${p.color}55;"><i data-lucide="${this._escape(p.icon || 'puzzle')}" class="w-5 h-5"></i></span>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <p class="font-black text-white">${this._escape(p.name)}</p>
+          ${enabled ? `<span class="admin-pill admin-pill-emerald">ATIVO</span>` : `<span class="admin-pill admin-pill-slate">DESATIVADO</span>`}
+          ${!p.hasRecord ? `<span class="admin-pill admin-pill-amber">DEFAULT</span>` : ''}
+        </div>
+        <p class="text-[11px] text-slate-400 mt-0.5">${this._escape(p.description)}</p>
+      </div>
+      <button onclick="AdminApp.togglePlugin('${this._escape(p.id)}', ${enabled})"
+              class="shrink-0 inline-flex items-center gap-2 px-1 py-1 rounded-full transition"
+              style="background:${onColor};width:48px;justify-content:${enabled ? 'flex-end' : 'flex-start'};border:1px solid ${enabled ? 'rgba(52,211,153,0.5)' : 'rgba(148,163,184,0.4)'};">
+        <span class="block w-5 h-5 rounded-full bg-white shadow"></span>
+      </button>
     </div>`;
   },
 
