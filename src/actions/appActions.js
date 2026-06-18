@@ -1755,42 +1755,7 @@ Object.assign(Actions, {
       quadroICP: Array.isArray(w.quadroICP) ? w.quadroICP : [],
       quadroBP: Array.isArray(w.quadroBP) ? w.quadroBP : []
     };
-    // V40.1.0 — Carrega lista de pluginIds habilitados pro tenant atual.
-  // Chamada no boot do main.js após login. Operador LJ recebe tudo (override).
-  // Fail-open: erro de rede mantém estado anterior pra não travar.
-  async loadEnabledPlugins() {
-    try {
-      const token = localStorage.getItem('lj_jwt');
-      if (!token) return;
-      const res = await fetch('/api/my-tenant-plugins', { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json().catch(() => ({}));
-      if (data?.ok && Array.isArray(data.enabledPluginIds)) {
-        App.state.enabledPluginIds = data.enabledPluginIds;
-        App.render();
-      }
-    } catch (err) {
-      console.warn('[loadEnabledPlugins] falhou (mantém estado anterior):', err.message);
-    }
-  },
-
-  // V40.2.0 — Carrega lista de integrationIds habilitados pro tenant atual.
-  // Mesmo padrão do loadEnabledPlugins. Operador LJ recebe tudo. Fail-open.
-  async loadEnabledIntegrations() {
-    try {
-      const token = localStorage.getItem('lj_jwt');
-      if (!token) return;
-      const res = await fetch('/api/my-tenant-integrations', { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json().catch(() => ({}));
-      if (data?.ok && Array.isArray(data.enabledIntegrationIds)) {
-        App.state.enabledIntegrationIds = data.enabledIntegrationIds;
-        App.render();
-      }
-    } catch (err) {
-      console.warn('[loadEnabledIntegrations] falhou (mantém estado anterior):', err.message);
-    }
-  },
-
-  // V39.12.0 — Quando o wizard foi aberto pelo Flow Builder pra um node
+    // V39.12.0 — Quando o wizard foi aberto pelo Flow Builder pra um node
     // específico, devolve o audience no draft do bloco (não salva em produto
     // real). Só vira product.audience quando "Salvar esteira" rodar.
     if (w.mode === 'flowBuilderNode' && w.flowBuilderNodeId) {
@@ -1862,6 +1827,41 @@ Object.assign(Actions, {
         if (window.StrategicZoomNavigation) StrategicZoomNavigation.set('vision');
         App.save(); App.render();
       }, 80);
+    }
+  },
+
+  // V40.1.0 — Carrega lista de pluginIds habilitados pro tenant atual.
+  // Chamada no boot do main.js após login. Operador LJ recebe tudo (override).
+  // Fail-open: erro de rede mantém estado anterior pra não travar.
+  async loadEnabledPlugins() {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      if (!token) return;
+      const res = await fetch('/api/my-tenant-plugins', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok && Array.isArray(data.enabledPluginIds)) {
+        App.state.enabledPluginIds = data.enabledPluginIds;
+        App.render();
+      }
+    } catch (err) {
+      console.warn('[loadEnabledPlugins] falhou (mantém estado anterior):', err.message);
+    }
+  },
+
+  // V40.2.0 — Carrega lista de integrationIds habilitados pro tenant atual.
+  // Mesmo padrão do loadEnabledPlugins. Operador LJ recebe tudo. Fail-open.
+  async loadEnabledIntegrations() {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      if (!token) return;
+      const res = await fetch('/api/my-tenant-integrations', { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json().catch(() => ({}));
+      if (data?.ok && Array.isArray(data.enabledIntegrationIds)) {
+        App.state.enabledIntegrationIds = data.enabledIntegrationIds;
+        App.render();
+      }
+    } catch (err) {
+      console.warn('[loadEnabledIntegrations] falhou (mantém estado anterior):', err.message);
     }
   },
 

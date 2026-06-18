@@ -18,6 +18,14 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.4.1',
+    date: '2026-06-18',
+    title: 'Fix grave: botões de Configurações/Sair, menu Plugins e status de integrações voltam a funcionar',
+    bullets: [
+      'Bug crítico latente desde V40.1.0: duas funções de carregamento (gating de plugins e integrações) foram acidentalmente inseridas DENTRO de outra função (audienceWizardFinish) em appActions.js. Isso é syntax error em JS — o parser quebrava ali e tudo definido daquele ponto em diante (várias actions, modais, status, sair, etc) ficava indefinido. Sintoma aparecia conforme o cliente clicava em botões que dependiam de Actions inacessíveis. Funções movidas pro lugar correto entre audienceWizardFinish e openNewProductWithMapaPopup. Botão Sair, Configurações, status de conexões e menu de Plugins voltam a responder normalmente.'
+    ]
+  },
+  {
     version: 'V40.4.0',
     date: '2026-06-18',
     title: 'Cockpit: gestão completa de usuários consolidada no card do Tenant + custo de IA visível',
