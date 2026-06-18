@@ -21,12 +21,23 @@ window.ActionFlowBuilder = {
   GHOST_HEIGHT: 34,
   VIEWPORT_MARGIN: 200,
 
+  // V40.6.1 (Leonardo) — Paleta semântica oficial do LJ alinhada ao Pulso da
+  // Receita: Produto=RevOps roxo, Campanha=Marketing rosa, Ação=DINÂMICA por
+  // setor (Marketing/Vendas/CS), Execução=herda cor da ação parent.
   ESTEIRA_TYPES: [
-    { id: 'produto',   label: 'Produto',   icon: 'package',   color: '#a855f7', hierarchy: 1 },
-    { id: 'campanha',  label: 'Campanha',  icon: 'megaphone', color: '#06b6d4', hierarchy: 2 },
-    { id: 'acao',      label: 'Ação',      icon: 'zap',       color: '#f59e0b', hierarchy: 3 },
-    { id: 'execucao',  label: 'Execução',  icon: 'play',      color: '#10b981', hierarchy: 4 }
+    { id: 'produto',   label: 'Produto',   icon: 'package',   color: '#AB3ED8', hierarchy: 1 },
+    { id: 'campanha',  label: 'Campanha',  icon: 'megaphone', color: '#F472B6', hierarchy: 2 },
+    { id: 'acao',      label: 'Ação',      icon: 'zap',       color: '#F472B6', hierarchy: 3 },
+    { id: 'execucao',  label: 'Execução',  icon: 'play',      color: '#6BBEF9', hierarchy: 4 }
   ],
+
+  // V40.6.1 — Cores semânticas oficiais por setor (Marketing/Vendas/CS).
+  // Espelho do que está em var(--lj-X) no CSS.
+  SECTOR_COLOR: {
+    'Marketing': '#F472B6',
+    'Vendas':    '#00CBCC',
+    'CS':        '#6BBEF9'
+  },
 
   // Mantido pra renderizar nodes legacy de tenants antigos. Sem path pra criar novos.
   LEGACY_AUX_TYPES: [
@@ -99,6 +110,37 @@ window.ActionFlowBuilder = {
   },
   isEsteira(typeId) { return this.ESTEIRA_TYPES.some(t => t.id === typeId); },
 
+  // V40.6.1 (Leonardo) — Cor semântica resolvida por node, não por tipo estático:
+  // - Produto: RevOps roxo (estratégico)
+  // - Campanha: Marketing rosa (território nativo de campanha)
+  // - Ação: cor do setor (Marketing/Vendas/CS) — repinta quando user troca setor no modal
+  // - Execução: cor da ação parent (cascata cromática — execução é braço operacional da ação)
+  // Quando não encontra parent ou setor desconhecido, cai no default do tipo.
+  nodeColor(node, nodesPool) {
+    if (!node) return '#94a3b8';
+    if (node.type === 'produto')  return '#AB3ED8';
+    if (node.type === 'campanha') return '#F472B6';
+    if (node.type === 'acao') {
+      const sector = String(node.data?.sector || 'Marketing');
+      return this.SECTOR_COLOR[sector] || '#F472B6';
+    }
+    if (node.type === 'execucao') {
+      const pool = nodesPool || App.state.flowBuilderNodes || [];
+      const edges = App.state.flowBuilderEdges || [];
+      const incoming = edges.find(e => String(e.toId) === String(node.id));
+      if (incoming) {
+        const parent = pool.find(n => String(n.id) === String(incoming.fromId));
+        if (parent && parent.type === 'acao') {
+          const sector = String(parent.data?.sector || 'Marketing');
+          return this.SECTOR_COLOR[sector] || '#F472B6';
+        }
+      }
+      return '#6BBEF9';
+    }
+    const t = this.typeById(node.type);
+    return t?.color || '#94a3b8';
+  },
+
   segmentationByKey(key) {
     if (!key) return null;
     for (const cat of this.SEGMENTATION_CATEGORIES) {
@@ -143,6 +185,7 @@ window.ActionFlowBuilder = {
             <div id="flowBuilderCanvas" class="relative rounded-3xl border border-white/10 bg-white/[0.04] h-[78vh] overflow-hidden min-w-0"
                  ondragover="ActionFlowBuilder._onCanvasDragOver(event)"
                  ondrop="ActionFlowBuilder._onCanvasDrop(event)">
+              ${this._prototypeModeBanner()}
               ${this._emptyCanvasHint()}
               ${this._trashBin()}
             </div>
@@ -228,6 +271,21 @@ window.ActionFlowBuilder = {
         <i data-lucide="git-merge" class="w-8 h-8 text-indigo-300 mx-auto mb-3"></i>
         <p class="text-sm text-slate-300">Canvas vazio. Clique no botão <b>Esteira</b> na pílula embaixo pra começar a desenhar, ou em <b>Carregar campanha</b> no header pra continuar uma existente.</p>
       </div>
+    </div>`;
+  },
+
+  // V40.6.1 (Leonardo) — Aviso global "MODO PROTÓTIPO" no canto superior
+  // esquerdo do canvas. Aparece SÓ quando há pelo menos 1 bloco em estado
+  // protótipo (não-salvo, válido pra salvar). A maioria dos blocos no canvas
+  // é protótipo — repetir o badge em cada um era ruído. Aviso único no canto
+  // comunica o modo de trabalho atual com peso visual leve.
+  _prototypeModeBanner() {
+    const nodes = App.state.flowBuilderNodes || [];
+    const hasPrototype = nodes.some(n => this.isEsteira(n.type) && !n.linkedRealId);
+    if (!hasPrototype) return '';
+    return `<div class="absolute left-4 top-4 z-10 pointer-events-none flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/15 backdrop-blur border border-amber-400/35 text-amber-200 text-[10px] font-black uppercase tracking-wider shadow">
+      <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+      Modo protótipo
     </div>`;
   },
 
@@ -1087,6 +1145,10 @@ window.ActionFlowBuilder = {
 
   _renderNode(svgNS, parent, node, armedId, edges) {
     const type = this.typeById(node.type);
+    // V40.6.1 (Leonardo) — Cor resolvida dinamicamente: Ação por setor,
+    // Execução por cascata da ação parent.
+    const allNodes = App.state.flowBuilderNodes || [];
+    const resolvedColor = this.isEsteira(node.type) ? this.nodeColor(node, allNodes) : type.color;
     // V39.12.1 — armedId pode ser string única ou array (massa).
     const armedArr = Array.isArray(armedId) ? armedId.map(String) : (armedId ? [String(armedId)] : []);
     const isArmed = armedArr.includes(String(node.id));
@@ -1128,7 +1190,7 @@ window.ActionFlowBuilder = {
       glow.setAttribute('width', this.NODE_WIDTH + 10); glow.setAttribute('height', this.NODE_HEIGHT + 10);
       glow.setAttribute('rx', 18); glow.setAttribute('ry', 18);
       glow.setAttribute('fill', 'none');
-      glow.setAttribute('stroke', type.color);
+      glow.setAttribute('stroke', resolvedColor);
       glow.setAttribute('stroke-width', '3');
       glow.setAttribute('opacity', '0.45');
       group.appendChild(glow);
@@ -1139,8 +1201,10 @@ window.ActionFlowBuilder = {
     rect.setAttribute('width', this.NODE_WIDTH); rect.setAttribute('height', this.NODE_HEIGHT);
     rect.setAttribute('rx', 14); rect.setAttribute('ry', 14);
     rect.setAttribute('fill', '#0b1325');
-    rect.setAttribute('stroke', isArmed ? '#38bdf8' : (isHoveredForSeg ? '#fbbf24' : type.color));
-    rect.setAttribute('stroke-width', isHoveredForSeg ? 3.5 : (isArmed ? 3 : (isEsteira ? 2 : 1.5)));
+    // V40.6.1 (Leonardo) — Borda 1px: a sombra dominante já desenha o contorno.
+    // Onde a luz fez o trabalho, a tinta vira excesso.
+    rect.setAttribute('stroke', isArmed ? '#38bdf8' : (isHoveredForSeg ? '#fbbf24' : resolvedColor));
+    rect.setAttribute('stroke-width', isHoveredForSeg ? 3.5 : (isArmed ? 3 : 1));
     group.appendChild(rect);
 
     // V39.10.4 — Nuance da cor agora vem do drop-shadow individual de cada badge
@@ -1159,12 +1223,14 @@ window.ActionFlowBuilder = {
       group.appendChild(aura);
     }
 
-    // V40.6.0 (Leonardo) — Badge de estado: dot 5px + label 7.5px sem moldura.
-    // Comunica salvabilidade sem competir com a identidade cromática do bloco.
+    // V40.6.1 (Leonardo) — Badge individual aparece SÓ pra SALVO (verde) e
+    // INCOMPLETO (vermelho). PROTÓTIPO virou aviso global no canto sup esquerdo
+    // do canvas — a maioria dos blocos é protótipo, repetir em cada um era ruído.
     if (isEsteira) {
       const status = this._nodeStatus(node, edges, App.state.flowBuilderNodes || []);
-      const vis = this._statusVisual(status.state);
-      if (vis.label) {
+      const showBadge = status.state === 'saved' || status.state === 'incomplete';
+      if (showBadge) {
+        const vis = this._statusVisual(status.state);
         const badge = document.createElementNS(svgNS, 'g');
         const labelW = vis.label.length * 5.2;
         const totalW = labelW + 12;
@@ -1188,7 +1254,7 @@ window.ActionFlowBuilder = {
 
     const typeLabel = document.createElementNS(svgNS, 'text');
     typeLabel.setAttribute('x', 16); typeLabel.setAttribute('y', 24);
-    typeLabel.setAttribute('fill', type.color); typeLabel.setAttribute('font-size', '10'); typeLabel.setAttribute('font-weight', '900');
+    typeLabel.setAttribute('fill', resolvedColor); typeLabel.setAttribute('font-size', '10'); typeLabel.setAttribute('font-weight', '900');
     typeLabel.textContent = type.label.toUpperCase();
     group.appendChild(typeLabel);
 

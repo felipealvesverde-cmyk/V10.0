@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.6.1',
+    date: '2026-06-18',
+    title: 'Flow Builder: paleta semântica oficial + Ação por setor + Modo Protótipo global',
+    bullets: [
+      'Cores dos blocos do Flow Builder agora seguem a paleta semântica oficial do LJ — a mesma do Pulso da Receita na Home. Produto = roxo RevOps. Campanha = rosa Marketing. Ação = cor do setor (Marketing rosa / Vendas turquesa / CS azul). Execução = herda a cor do setor da ação parent (cascata cromática: a execução é o braço operacional da ação).',
+      'Trocar o setor de uma Ação no modal de edição (Marketing → Vendas → CS) repinta o card automaticamente e propaga pra todas as Execuções vinculadas. A esteira agora conta uma história visual coerente do setor responsável.',
+      'Borda dos blocos baixou de 2px pra 1px. Quem desenha o contorno agora é a sombra escalonada — onde a luz já trabalhou, a tinta vira excesso.',
+      'Badge "PROTÓTIPO" individual saiu de todos os cards. No lugar, um aviso global "● MODO PROTÓTIPO" aparece no canto superior esquerdo do canvas quando há pelo menos 1 bloco não-salvo. A maioria dos blocos é protótipo — repetir em cada um virava ruído. Aviso único comunica o modo de trabalho com peso visual leve.',
+      'Badges individuais permanecem só pra estados acionáveis: SALVO (verde — distingue o que já entrou no LJ) e INCOMPLETO (vermelho — sinaliza problema). Ambos refinados desde V40.6.0 com dot 3px + texto fino sem moldura.'
+    ]
+  },
+  {
     version: 'V40.6.0',
     date: '2026-06-18',
     title: 'Flow Builder: passada visual (Leonardo) — paleta, profundidade, hierarquia',
