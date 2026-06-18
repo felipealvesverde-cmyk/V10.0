@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.10.3',
+    date: '2026-06-18',
+    title: 'Fix: badges de segmentação agora aparecem DENTRO do card da Ação',
+    bullets: [
+      'Bug grave da V39.10.0: as badges de segmentação estavam sendo adicionadas no `parent` (o layer geral dos blocos do canvas) em vez do `group` (o card específico da Ação). Resultado: ao aplicar uma segmentação, a badge era criada em world coord (16, 80) — flutuando solta em algum lugar do canvas, longe da Ação, possivelmente atrás de outros blocos. Parecia que "nada acontecia" porque você não via a badge no card.',
+      'Fix de uma palavra: trocado `parent.appendChild(badgeG)` por `group.appendChild(badgeG)`. Agora a badge fica anexada ao grupo do card e segue o card quando você arrasta. Posição (16, 80) é relativa ao top-left do card, não do mundo.',
+      'Se você tinha aplicado segmentações antes (que viraram badges órfãs no canvas), elas continuam no state — agora vão renderizar no lugar certo: dentro do card.'
+    ]
+  },
+  {
     version: 'V39.10.2',
     date: '2026-06-18',
     title: 'Fix: lixeira agora apaga + fantasma vira badge na Ação (animação tirada por enquanto)',
