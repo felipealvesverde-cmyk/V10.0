@@ -1101,36 +1101,30 @@ window.ActionFlowBuilder = {
     if (this._internal.dragGhost) {
       const ghostId = this._internal.dragGhost.ghostId;
       this._internal.dragGhost = null;
+      // V39.10.2 — Checar lixeira ANTES de esconder (senão _isOverTrash retorna
+      // false porque vê o display:none que _hideTrash acabou de setar).
+      const overTrash = this._isOverTrash(event.clientX, event.clientY);
       this._hideTrash();
-      // Lixeira tem prioridade
-      if (this._isOverTrash(event.clientX, event.clientY)) {
+      this._internal.hoveredActionId = null;
+      if (overTrash) {
         Actions.removeFlowBuilderGhostSegmentation(ghostId);
-        this._internal.hoveredActionId = null;
         return;
       }
-      // Ação sob o ponteiro: anima ghost encolhendo pro card, depois aplica badge
+      // V39.10.2 — Aplicação síncrona (sem animação). A animação assíncrona da
+      // V39.10.1 entrava em race com re-render do canvas: quando o callback
+      // de 280ms rodava, o SVG já tinha sido recriado e o resultado era
+      // imprevisível. Volta o caminho direto: solta na Ação → badge aparece.
       const wp = this._screenToWorld(svg, event);
       const acao = this._findActionAtWorld(wp.x, wp.y);
       if (acao) {
         const ghost = (App.state.flowBuilderGhostSegmentations || []).find(g => String(g.id) === String(ghostId));
         if (ghost) {
-          const ghostGroup = svg.querySelector(`g.flow-ghost[data-ghost-id="${ghostId}"]`);
-          // Alvo: posição que a badge ocuparia (16, 80) + offset pra "voar" pra dentro
-          const targetX = acao.x + 16 - this.GHOST_WIDTH / 2 + 40;
-          const targetY = acao.y + 80 - this.GHOST_HEIGHT / 2 + 9;
-          this._internal.hoveredActionId = null;
-          this._animateGhostToAction(ghostGroup, ghost.x, ghost.y, targetX, targetY, () => {
-            const ok = Actions.applyFlowBuilderSegmentationToAction(ghost.segKey, acao.id);
-            if (ok) Actions.removeFlowBuilderGhostSegmentation(ghostId);
-            else Actions.removeFlowBuilderGhostSegmentation(ghostId); // se falhou (já tem 2), libera ghost mesmo assim
-          });
-        } else {
-          this._internal.hoveredActionId = null;
+          const ok = Actions.applyFlowBuilderSegmentationToAction(ghost.segKey, acao.id);
+          if (ok) Actions.removeFlowBuilderGhostSegmentation(ghostId);
         }
         return;
       }
       // Else: fantasma fica onde está
-      this._internal.hoveredActionId = null;
       App.save();
       setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
       return;
