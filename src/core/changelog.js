@@ -18,6 +18,29 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.6.2',
+    date: '2026-06-18',
+    title: 'Flow Builder: paleta correta — terra/horizonte na hierarquia, setor só na Ação',
+    bullets: [
+      'Corrigindo V40.6.1: as cores Produto/Campanha/Execução estavam erradas. A regra cravada pelo Felipe em 2026-05-22 (Design Director, comentário V32.3.3) é clara: a hierarquia Produto→Campanha→Ação→Execução tem paleta PRÓPRIA — escala TERRA/HORIZONTE (bege amplo → marrom granular). Dessaturada. Respira como mapa de fundo. As cores semânticas (Marketing rosa, Vendas turquesa, CS azul) são vozes VIBRANTES reservadas pras áreas operacionais.',
+      'Aplicação correta: Produto = bege claro #FCD9B6 (amplo). Campanha = bege médio #D4A574 (caminho). Execução = marrom claro #7A5A47 (chão). Campanha não é vinculada a Marketing — campanha é campanha, território próprio da hierarquia.',
+      'Ação continua sendo a ÚNICA dinâmica: pega a cor do setor (Marketing rosa / Vendas turquesa / CS azul) porque Ação é o ato — merece a voz vibrante do setor que age. Trocar setor no modal repinta o card automaticamente. Default visual #A77B5B (marrom escuro original da escala) caso setor seja desconhecido.',
+      'Resultado: a hierarquia inteira respira em terra dessaturada, e SÓ a Ação salta com a cor vibrante do setor — o ato vira o foco visual, exatamente como a lei Leonardo prescreve.'
+    ]
+  },
+  {
+    version: 'V40.6.1',
+    date: '2026-06-18',
+    title: 'Flow Builder: paleta semântica oficial + Ação por setor + Modo Protótipo global',
+    bullets: [
+      'Cores dos blocos do Flow Builder agora seguem a paleta semântica oficial do LJ — a mesma do Pulso da Receita na Home. Produto = roxo RevOps. Campanha = rosa Marketing. Ação = cor do setor (Marketing rosa / Vendas turquesa / CS azul). Execução = herda a cor do setor da ação parent (cascata cromática: a execução é o braço operacional da ação).',
+      'Trocar o setor de uma Ação no modal de edição (Marketing → Vendas → CS) repinta o card automaticamente e propaga pra todas as Execuções vinculadas. A esteira agora conta uma história visual coerente do setor responsável.',
+      'Borda dos blocos baixou de 2px pra 1px. Quem desenha o contorno agora é a sombra escalonada — onde a luz já trabalhou, a tinta vira excesso.',
+      'Badge "PROTÓTIPO" individual saiu de todos os cards. No lugar, um aviso global "● MODO PROTÓTIPO" aparece no canto superior esquerdo do canvas quando há pelo menos 1 bloco não-salvo. A maioria dos blocos é protótipo — repetir em cada um virava ruído. Aviso único comunica o modo de trabalho com peso visual leve.',
+      'Badges individuais permanecem só pra estados acionáveis: SALVO (verde — distingue o que já entrou no LJ) e INCOMPLETO (vermelho — sinaliza problema). Ambos refinados desde V40.6.0 com dot 3px + texto fino sem moldura.'
+    ]
+  },
+  {
     version: 'V40.6.0',
     date: '2026-06-18',
     title: 'Flow Builder: passada visual (Leonardo) — paleta, profundidade, hierarquia',
