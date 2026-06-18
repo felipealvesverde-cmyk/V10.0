@@ -1793,6 +1793,22 @@ window.ActionFlowBuilder = {
             execucao: 'drop-shadow(0 2px 8px rgba(0,0,0,0.20))'
           };
           g.style.filter = isSel ? 'none' : (shadowMap[node2.type] || 'none');
+          // V40.6.6 — Atualizar TAMBÉM o filter das badges de segmentação
+          // dentro do card. Antes o fast-path não tocava nelas, então o
+          // drop-shadow 14px da cor da seg vazava pra fora do card
+          // selecionado (halo colorido grande). Agora: badge selecionada
+          // ganha blur contido (3px), badge não-selecionada mantém a aura
+          // vibrante (14px).
+          const badges = g.querySelectorAll('g.flow-badge-static');
+          for (const bg of badges) {
+            const segKey = bg.dataset.segKey;
+            if (!segKey) continue;
+            const seg = this.segmentationByKey(segKey);
+            if (!seg) continue;
+            bg.style.filter = isSel
+              ? `drop-shadow(0 0 3px ${seg.color}66)`
+              : `drop-shadow(0 0 14px ${seg.color}aa) drop-shadow(0 0 4px ${seg.color})`;
+          }
           // Glow externo do selecionado (V40.6.4 — sutil)
           if (isSel) {
             const glow = document.createElementNS(svg.namespaceURI || 'http://www.w3.org/2000/svg', 'rect');

@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.6.6',
+    date: '2026-06-18',
+    title: 'Flow Builder: fix-pra-valer halo das badges no card selecionado',
+    bullets: [
+      'Última camada do bug do halo. V40.6.5 desligou o drop-shadow grande das badges quando o card é selecionado, MAS só no _renderNode. O fast-path do mouseDown (que atualiza visual via DOM sem re-render) NÃO tocava nas badges — então clicar pra selecionar deixava as badges com o drop-shadow forte (14px) da renderização anterior. O halo colorido continuava vazando.',
+      'Agora o fast-path também busca os g.flow-badge-static dentro do group e ajusta o filter conforme a seleção: contido (3px blur) quando selecionado, vibrante (14px blur) quando não. Os dois caminhos (render natural + fast-path) ficam coerentes.'
+    ]
+  },
+  {
     version: 'V40.6.5',
     date: '2026-06-18',
     title: 'Flow Builder: fix halo colorido das badges vazando no card selecionado',
