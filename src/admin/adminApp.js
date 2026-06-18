@@ -520,11 +520,11 @@ window.AdminApp = {
       ? `<p class="text-sm text-slate-400">Carregando…</p>`
       : !this.state.tenants.length
         ? `<div class="admin-card p-10 text-center"><p class="text-sm text-slate-400">Nenhum tenant ainda. Crie o primeiro.</p></div>`
-        : `<div class="space-y-2">${this.state.tenants.map(t => this._tenantRow(t)).join('')}</div>`
+        : `<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">${this.state.tenants.map(t => this._tenantCard(t)).join('')}</div>`
     }`;
   },
 
-  _tenantRow(t) {
+  _tenantCard(t) {
     const statusPill = t.status === 'active'
       ? `<span class="admin-pill admin-pill-emerald">ATIVO</span>`
       : t.status === 'demo'
@@ -533,24 +533,37 @@ window.AdminApp = {
     const dbPill = t.db_plugged
       ? `<span class="admin-pill admin-pill-emerald">DB próprio</span>`
       : `<span class="admin-pill admin-pill-slate">Control plane</span>`;
-    return `<div class="admin-card p-4">
-      <div class="flex items-center gap-4">
+    const accent = t.status === 'active' ? '#10b981' : t.status === 'demo' ? '#f59e0b' : '#64748b';
+    const initials = String(t.name || t.slug || '?').replace(/[^a-zA-Z0-9]/g, '').slice(0, 2).toUpperCase();
+    return `<div class="admin-card p-5 flex flex-col gap-4 relative overflow-hidden" style="border-left:3px solid ${accent};">
+      <div class="flex items-start gap-3">
+        <div class="shrink-0 w-12 h-12 rounded-xl grid place-items-center text-white text-sm font-black" style="background:linear-gradient(135deg,${accent}aa,${accent}55);border:1px solid ${accent}55;">${this._escape(initials)}</div>
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 flex-wrap">
-            <h3 class="font-black text-white text-lg truncate">${this._escape(t.name || t.slug)}</h3>
-            ${statusPill}
-            ${dbPill}
-          </div>
-          <p class="text-[11px] text-slate-400 mt-0.5">slug: <span class="font-mono text-slate-300">${this._escape(t.slug)}</span> · ${t.members_count} membro${t.members_count === 1 ? '' : 's'} ${t.owner_username ? `· owner: <span class="text-slate-300">${this._escape(t.owner_username)}</span>` : ''}</p>
+          <h3 class="font-black text-white text-base truncate" title="${this._escape(t.name || t.slug)}">${this._escape(t.name || t.slug)}</h3>
+          <p class="text-[10px] text-slate-400 mt-0.5 font-mono truncate">${this._escape(t.slug)}</p>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <button onclick="AdminApp.impersonate(${t.id})" title="Abrir LJ como este tenant em nova aba" class="px-3 py-2 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-400/30 text-indigo-100 text-[11px] font-black flex items-center gap-1"><i data-lucide="log-in" class="w-3.5 h-3.5"></i> Entrar como</button>
-          <button onclick="AdminApp.openCreateUserModal(${t.id})" title="Criar novo usuário pra este tenant" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-[11px] font-black flex items-center gap-1"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Novo user</button>
-          ${t.db_plugged
-            ? `<button onclick="AdminApp.unplugDb(${t.id})" class="px-3 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-200 text-[11px] font-black flex items-center gap-1"><i data-lucide="database-zap" class="w-3.5 h-3.5"></i> Desplugar DB</button>`
-            : `<button onclick="AdminApp.openPlugDb(${t.id})" class="px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/30 text-emerald-200 text-[11px] font-black flex items-center gap-1"><i data-lucide="database" class="w-3.5 h-3.5"></i> Plugar DB</button>`
-          }
+      </div>
+      <div class="flex flex-wrap gap-1.5">
+        ${statusPill}
+        ${dbPill}
+      </div>
+      <div class="grid grid-cols-2 gap-2 py-2 border-y border-white/5">
+        <div>
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Membros</p>
+          <p class="text-sm font-black text-white">${t.members_count}</p>
         </div>
+        <div class="min-w-0">
+          <p class="text-[9px] font-black text-slate-500 uppercase tracking-wider">Owner</p>
+          <p class="text-[11px] font-semibold text-slate-300 truncate" title="${this._escape(t.owner_username || '—')}">${this._escape(t.owner_username || '—')}</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <button onclick="AdminApp.impersonate(${t.id})" title="Abrir LJ como este tenant em nova aba" class="col-span-2 px-3 py-2.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-400/40 text-indigo-100 text-[11px] font-black flex items-center justify-center gap-1.5"><i data-lucide="log-in" class="w-3.5 h-3.5"></i> Entrar como</button>
+        <button onclick="AdminApp.openCreateUserModal(${t.id})" title="Criar novo usuário pra este tenant" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 text-[10px] font-black flex items-center justify-center gap-1"><i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Novo user</button>
+        ${t.db_plugged
+          ? `<button onclick="AdminApp.unplugDb(${t.id})" class="px-3 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-200 text-[10px] font-black flex items-center justify-center gap-1"><i data-lucide="database-zap" class="w-3.5 h-3.5"></i> Desplugar DB</button>`
+          : `<button onclick="AdminApp.openPlugDb(${t.id})" class="px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/30 text-emerald-200 text-[10px] font-black flex items-center justify-center gap-1"><i data-lucide="database" class="w-3.5 h-3.5"></i> Plugar DB</button>`
+        }
       </div>
     </div>`;
   },

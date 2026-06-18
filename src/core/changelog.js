@@ -18,6 +18,14 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.3.1',
+    date: '2026-06-18',
+    title: 'Cockpit: Tenants em grid de cards',
+    bullets: [
+      'A tela "Tenants" do /admin saiu da lista vertical esticada e virou grid de cards (1 coluna no mobile, 2 no tablet, 3 no desktop). Cada card tem avatar com iniciais, faixa lateral colorida pelo status (ATIVO verde, DEMO âmbar), pills de status/DB, blocos de Membros e Owner com tipografia hierarquizada, e os 3 botões de ação (Entrar como em destaque full-width + Novo user e Plugar/Desplugar DB lado a lado). Bem mais leve de bater o olho e achar o cliente certo.'
+    ]
+  },
+  {
     version: 'V40.3.0',
     date: '2026-06-18',
     title: 'Onda 5 do cockpit: usuários por tenant + liberação de uso da IA',
