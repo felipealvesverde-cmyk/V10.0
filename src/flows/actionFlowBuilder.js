@@ -102,9 +102,13 @@ window.ActionFlowBuilder = {
 
   defaultData(typeId) {
     switch (typeId) {
-      case 'produto':  return { name: '', revenueModel: 'Venda única', type: '', price: '' };
+      // V39.12.0 — Produto agora carrega audienceDraft (ICP) em rascunho;
+      // vira product.audience apenas quando "Salvar esteira" rodar.
+      case 'produto':  return { name: '', revenueModel: 'Venda única', type: '', price: '', operationalCost: '', audienceDraft: null };
       case 'campanha': return { name: '' };
-      case 'acao':     return { name: '', sector: 'Marketing', funnel: 'MOF', objective: '', segmentations: [] };
+      // V39.12.0 — Ação ganha form completo: setor/funil de origem, canal, tipo,
+      // destino (calcula fluxo via FlowResolutionEngine), objetivo, segmentações.
+      case 'acao':     return { name: '', sector: 'Marketing', funnel: 'MOF', channel: 'Instagram Orgânico', actionType: 'Post', destinationSector: 'Marketing', destinationFunnel: 'MOF', objective: '', segmentations: [] };
       case 'execucao': return { name: '' };
       default:         return { name: '' };
     }
@@ -145,7 +149,7 @@ window.ActionFlowBuilder = {
     const esteiraCount = nodes.filter(n => this.isEsteira(n.type)).length;
     const novos = nodes.filter(n => this.isEsteira(n.type) && !n.linkedRealId).length;
     const novosLabel = novos > 0 ? ` · ${novos} pendente${novos === 1 ? '' : 's'} de salvar` : '';
-    return `<header class="p-6 border-b border-white/10 flex items-start justify-between gap-4">
+    return `<header onclick="if(App.state.flowBuilderPaletteOpen){App.state.flowBuilderPaletteOpen=false;App.save();App.render();}" class="p-6 border-b border-white/10 flex items-start justify-between gap-4">
       <div>
         <div class="flex items-center gap-2 mb-2"><i data-lucide="git-merge" class="w-4 h-4 text-indigo-300"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Flow Builder · Esteira do LJ</p></div>
         <h2 class="text-2xl font-black">Desenhe Produto → Campanha → Ação → Execução</h2>
@@ -220,32 +224,33 @@ window.ActionFlowBuilder = {
       else if (tab === 'mapaReceita') content = this._mapaReceitaPanel();
     }
     return `<div class="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3 pointer-events-none">
-      ${isOpen ? `<div class="bg-slate-900/95 backdrop-blur border border-white/15 rounded-3xl p-4 w-[720px] max-w-[90vw] shadow-2xl pointer-events-auto">${content}</div>` : ''}
+      ${isOpen ? `<div onclick="event.stopPropagation()" class="bg-slate-900/95 backdrop-blur border border-white/15 rounded-3xl p-4 w-[720px] max-w-[90vw] shadow-2xl pointer-events-auto">${content}</div>` : ''}
       ${this._bottomPill(tab, isOpen)}
     </div>`;
   },
 
-  // V39.11.1 — Pílula ~20% maior + ativo com texto/ícone preto pra contraste.
-  // Style inline em color: garante que SVG do Lucide herde o tom escuro (stroke=currentColor).
+  // V39.12.0 — Pílula horizontal ~80% maior (px-14 + gap-7 = mais respiro entre
+  // botões); ativo 92px x 92px cabe "Segmentação" sem cortar com leading-tight.
+  // Ícone/texto pretos via style inline (garante Lucide herde via currentColor).
   _bottomPill(activeTab, isOpen) {
     const tabs = [
       { id: 'esteira',     label: 'Esteira',     icon: 'layers' },
       { id: 'segmentacao', label: 'Segmentação', icon: 'tag' },
       { id: 'mapaReceita', label: 'Mapa',        icon: 'map' }
     ];
-    return `<div class="relative pt-11 pointer-events-auto">
-      <div class="bg-slate-950 border border-white/20 rounded-full px-3 py-2.5 flex items-center gap-1.5 shadow-2xl">
+    return `<div class="relative pt-12 pointer-events-auto">
+      <div class="bg-slate-950 border border-white/20 rounded-full px-14 py-3 flex items-center gap-7 shadow-2xl">
         ${tabs.map(t => {
           const active = activeTab === t.id && isOpen;
           if (active) {
-            return `<button onclick="Actions.setFlowBuilderPaletteTab('${t.id}')" title="${Utils.escape(t.label)} — clique pra fechar" class="w-[68px] h-[68px] rounded-full bg-white shadow-xl flex flex-col items-center justify-center -translate-y-4 hover:bg-slate-100 transition" style="color:#0f172a;">
+            return `<button onclick="Actions.setFlowBuilderPaletteTab('${t.id}')" title="${Utils.escape(t.label)} — clique pra fechar" class="w-[92px] h-[92px] rounded-full bg-white shadow-xl flex flex-col items-center justify-center -translate-y-5 hover:bg-slate-100 transition" style="color:#0f172a;">
               <i data-lucide="${t.icon}" class="w-5 h-5" style="color:#0f172a;"></i>
-              <span class="text-[10px] font-black mt-0.5" style="color:#0f172a;">${Utils.escape(t.label)}</span>
+              <span class="text-[10px] font-black mt-1 px-1 leading-tight text-center" style="color:#0f172a;">${Utils.escape(t.label)}</span>
             </button>`;
           }
-          return `<button onclick="Actions.setFlowBuilderPaletteTab('${t.id}')" title="${Utils.escape(t.label)}" class="w-[58px] h-[58px] rounded-full bg-transparent text-white flex flex-col items-center justify-center hover:bg-white/10 transition">
+          return `<button onclick="Actions.setFlowBuilderPaletteTab('${t.id}')" title="${Utils.escape(t.label)}" class="w-[70px] h-[70px] rounded-full bg-transparent text-white flex flex-col items-center justify-center hover:bg-white/10 transition">
             <i data-lucide="${t.icon}" class="w-5 h-5"></i>
-            <span class="text-[10px] font-black mt-0.5">${Utils.escape(t.label)}</span>
+            <span class="text-[10px] font-black mt-1 px-0.5 leading-tight text-center">${Utils.escape(t.label)}</span>
           </button>`;
         }).join('')}
       </div>
@@ -406,12 +411,16 @@ window.ActionFlowBuilder = {
     const draft = App.state.flowBuilderEditNodeDraft || {};
     const isEsteira = this.isEsteira(node.type);
     const linked = node.linkedRealId ? `<span class="ml-2 text-[10px] font-black text-emerald-300 bg-emerald-500/15 border border-emerald-400/30 rounded-full px-2 py-0.5">já no LJ</span>` : '';
+    // V39.12.0 — Ação tem layout largo (form completo); execução também.
+    const widthClass = (node.type === 'acao' || node.type === 'execucao') ? 'max-w-2xl' : 'max-w-md';
     return `<div class="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm grid place-items-center p-4">
-      <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md text-white">
+      <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full ${widthClass} text-white max-h-[88vh] flex flex-col">
         <h3 class="text-xl font-black mb-1 flex items-center">Editar bloco ${linked}</h3>
-        <p class="text-xs text-slate-400 mb-4">Tipo: <span style="color:${type.color}">${Utils.escape(type.label)}</span>${isEsteira ? ' · vira entidade real ao salvar' : ' · só rascunho visual (legacy)'}</p>
-        ${this._editNodeFields(node.type, draft)}
-        <div class="flex justify-end gap-2 mt-5">
+        <p class="text-xs text-slate-400 mb-4">Tipo: <span style="color:${type.color}">${Utils.escape(type.label)}</span>${isEsteira ? (node.linkedRealId ? ' · re-salvar atualiza o que já está no LJ' : ' · vira entidade real ao salvar') : ' · só rascunho visual (legacy)'}</p>
+        <div class="overflow-auto flex-1 pr-1">${this._editNodeFields(node.type, draft, node)}</div>
+        <div class="flex items-center gap-2 mt-5 pt-4 border-t border-white/10">
+          <button onclick="Actions.removeFlowBuilderNodeFromModal('${node.id}')" title="Apaga este bloco do canvas (não desfaz o que já entrou no LJ)" class="px-3 py-3 rounded-2xl bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-200 font-black text-xs flex items-center gap-1.5"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Excluir bloco</button>
+          <div class="flex-1"></div>
           <button onclick="Actions.cancelFlowBuilderEditNode()" class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-white font-black">Cancelar</button>
           <button onclick="Actions.saveFlowBuilderEditNode()" class="px-4 py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white font-black">Salvar</button>
         </div>
@@ -419,29 +428,75 @@ window.ActionFlowBuilder = {
     </div>`;
   },
 
-  _editNodeFields(typeId, draft) {
+  _editNodeFields(typeId, draft, node) {
     const v = (k, fallback) => Utils.escape(String(draft[k] != null ? draft[k] : (fallback || '')));
     const nameInput = `
       <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Nome</label>
       <input id="flowBuilderEditNodeInput" value="${v('name')}" oninput="Actions.updateFlowBuilderEditNodeField('name', this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();Actions.saveFlowBuilderEditNode();}else if(event.key==='Escape'){event.preventDefault();Actions.cancelFlowBuilderEditNode();}" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" placeholder="Nome..." />
     `;
+
     if (typeId === 'produto') {
+      // V39.12.0 — Seletor de ICP em rascunho (igual a print 3). Pill verde se
+      // já configurado; CTA cinza se não. Click abre o AudienceWizard com flag
+      // de target (volta pro draft do bloco em vez de product.audience).
+      const a = draft.audienceDraft || null;
+      let icpPill;
+      if (a && a.configured) {
+        const tags = [a.modeloNegocio, a.modeloOperacional].filter(Boolean).map(s => String(s).toUpperCase()).join(' · ');
+        icpPill = `<button onclick="Actions.openFlowBuilderAudienceWizard('${node.id}')" class="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl bg-emerald-500/15 border border-emerald-400/40 text-emerald-100 hover:bg-emerald-500/25 transition">
+          <span class="flex items-center gap-2 min-w-0"><i data-lucide="target" class="w-4 h-4 shrink-0"></i><span class="text-xs font-black truncate">ICP ${Utils.escape(tags)}</span></span>
+          <span class="text-[11px] font-black">Editar</span>
+        </button>`;
+      } else {
+        icpPill = `<button onclick="Actions.openFlowBuilderAudienceWizard('${node.id}')" class="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl bg-slate-950 border border-white/15 text-slate-300 hover:bg-white/[0.06] transition">
+          <span class="flex items-center gap-2"><i data-lucide="target" class="w-4 h-4"></i><span class="text-xs font-black">Definir audiência (ICP)</span></span>
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </button>`;
+      }
       return `${nameInput}
-        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider mt-3 block">Recorrência</label>
-        <select onchange="Actions.updateFlowBuilderEditNodeField('revenueModel', this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
-          <option value="Venda única" ${draft.revenueModel === 'Venda única' ? 'selected' : ''}>Venda única</option>
-          <option value="Mensal" ${draft.revenueModel === 'Mensal' ? 'selected' : ''}>Mensal</option>
-          <option value="Anual" ${draft.revenueModel === 'Anual' ? 'selected' : ''}>Anual</option>
-          <option value="Trimestral" ${draft.revenueModel === 'Trimestral' ? 'selected' : ''}>Trimestral</option>
-          <option value="Outro" ${draft.revenueModel === 'Outro' ? 'selected' : ''}>Outro</option>
-        </select>
-        <p class="text-[10px] text-slate-500 mt-2">Audiência (ICP), preço e custo são preenchidos depois na aba <b>Produtos</b> do LJ.</p>`;
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider mt-3 block">Audiência (ICP)</label>
+        <div class="mt-1">${icpPill}</div>
+        <p class="text-[10px] text-slate-500 mt-1">Rascunho até salvar — o ICP só entra no LJ quando você clicar <b>Salvar esteira</b>.</p>
+
+        <div class="grid grid-cols-2 gap-2 mt-3">
+          <div>
+            <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider block">Recorrência</label>
+            <select onchange="Actions.updateFlowBuilderEditNodeField('revenueModel', this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+              <option value="Venda única" ${draft.revenueModel === 'Venda única' ? 'selected' : ''}>Venda única</option>
+              <option value="Mensal" ${draft.revenueModel === 'Mensal' ? 'selected' : ''}>Mensal</option>
+              <option value="Anual" ${draft.revenueModel === 'Anual' ? 'selected' : ''}>Anual</option>
+              <option value="Trimestral" ${draft.revenueModel === 'Trimestral' ? 'selected' : ''}>Trimestral</option>
+              <option value="Outro" ${draft.revenueModel === 'Outro' ? 'selected' : ''}>Outro</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider block">Tipo (opcional)</label>
+            <input value="${v('type')}" oninput="Actions.updateFlowBuilderEditNodeField('type', this.value)" placeholder="SaaS / Curso / Serviço" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" />
+          </div>
+        </div>
+        <p class="text-[10px] text-slate-500 mt-2">Preço, custo e demais detalhes ficam pra ajustar depois na aba <b>Produtos</b>.</p>`;
     }
+
     if (typeId === 'campanha') {
       return `${nameInput}
         <p class="text-[10px] text-slate-500 mt-2">A campanha herda o produto via conexão no canvas. Setor, owner, objetivo e demais detalhes ficam pra editar depois na aba <b>Campanhas</b>.</p>`;
     }
+
     if (typeId === 'acao') {
+      // V39.12.0 — Form COMPLETO igual à tela "Criar ação" do LJ (print 4):
+      // Setor + Funil (Contexto operacional) · Canal + Tipo (com "+ Adicionar")
+      // · Destino setor + Destino funil (Travessia) · Fluxo obrigatório calculado.
+      const sector = draft.sector || 'Marketing';
+      const funnel = draft.funnel || 'MOF';
+      const destSector = draft.destinationSector || sector;
+      const destFunnel = draft.destinationFunnel || funnel;
+      const channels = window.Config?.allChannels ? Config.allChannels() : ['Instagram Orgânico', 'Email', 'Google Ads'];
+      const actionTypes = window.Config?.allActionTypes ? Config.allActionTypes() : ['Post', 'Sequência', 'Automação'];
+      const sectors = (window.Config?.sectors) || ['Marketing', 'Vendas', 'CS'];
+      const funnels = (window.Config?.funnels) || ['TOF', 'MOF', 'BOF'];
+      const flowPath = window.FlowResolutionEngine ? FlowResolutionEngine.resolve(sector, funnel, destSector, destFunnel) : [];
+      const flowLabels = window.FlowResolutionEngine ? flowPath.map(s => FlowResolutionEngine.label(s)) : [];
+
       const segKeys = Array.isArray(draft.segmentations) ? draft.segmentations.slice(0, 2) : [];
       const segChips = segKeys.length
         ? segKeys.map(k => {
@@ -454,33 +509,94 @@ window.ActionFlowBuilder = {
             </div>`;
           }).join('')
         : `<p class="text-[11px] text-slate-500 px-1">Nenhuma segmentação. Arraste uma seg do botão <b>Segmentação</b> da pílula pro card.</p>`;
+
       return `${nameInput}
-        <div class="grid grid-cols-2 gap-2 mt-3">
-          <div>
-            <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider block">Setor</label>
-            <select onchange="Actions.updateFlowBuilderEditNodeField('sector', this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
-              <option value="Marketing" ${draft.sector === 'Marketing' ? 'selected' : ''}>Marketing</option>
-              <option value="Vendas" ${draft.sector === 'Vendas' ? 'selected' : ''}>Vendas</option>
-              <option value="CS" ${draft.sector === 'CS' ? 'selected' : ''}>CS</option>
-            </select>
-          </div>
-          <div>
-            <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider block">Funil</label>
-            <select onchange="Actions.updateFlowBuilderEditNodeField('funnel', this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
-              <option value="TOF" ${draft.funnel === 'TOF' ? 'selected' : ''}>TOF</option>
-              <option value="MOF" ${draft.funnel === 'MOF' ? 'selected' : ''}>MOF</option>
-              <option value="BOF" ${draft.funnel === 'BOF' ? 'selected' : ''}>BOF</option>
-            </select>
+
+        <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-4 mt-3">
+          <h4 class="text-sm font-black mb-3">Contexto operacional</h4>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider block">Setor</label>
+              <select onchange="Actions.updateFlowBuilderEditNodeField('sector', this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+                ${sectors.map(s => `<option value="${Utils.escape(s)}" ${sector === s ? 'selected' : ''}>${Utils.escape(s)}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider block">Funil</label>
+              <select onchange="Actions.updateFlowBuilderEditNodeField('funnel', this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+                ${funnels.map(f => `<option value="${Utils.escape(f)}" ${funnel === f ? 'selected' : ''}>${Utils.escape(f)}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-1"><label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Canal</label><button onclick="Actions.addCustomChannel(); setTimeout(()=>App.render(),50)" class="text-[10px] font-black text-indigo-300 hover:text-indigo-200 flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i>Adicionar Canal</button></div>
+              <select onchange="Actions.updateFlowBuilderEditNodeField('channel', this.value)" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+                ${channels.map(c => `<option value="${Utils.escape(c)}" ${draft.channel === c ? 'selected' : ''}>${Utils.escape(c)}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-1"><label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Tipo</label><button onclick="Actions.addCustomActionType(); setTimeout(()=>App.render(),50)" class="text-[10px] font-black text-indigo-300 hover:text-indigo-200 flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i>Adicionar Tipo</button></div>
+              <select onchange="Actions.updateFlowBuilderEditNodeField('actionType', this.value)" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+                ${actionTypes.map(t => `<option value="${Utils.escape(t)}" ${draft.actionType === t ? 'selected' : ''}>${Utils.escape(t)}</option>`).join('')}
+              </select>
+            </div>
           </div>
         </div>
+
+        <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-4 mt-3">
+          <h4 class="text-sm font-black mb-1">Travessia da ação</h4>
+          <p class="text-[11px] text-slate-400 mb-3">A origem é definida automaticamente pelo Contexto operacional: <b>${Utils.escape(sector)} ${Utils.escape(funnel)}</b>. Aqui você só define onde a ação deve terminar.</p>
+          <div class="grid grid-cols-2 gap-2 mb-3">
+            <div>
+              <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider block">Destino setor</label>
+              <select onchange="Actions.updateFlowBuilderEditNodeField('destinationSector', this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+                ${sectors.map(s => `<option value="${Utils.escape(s)}" ${destSector === s ? 'selected' : ''}>${Utils.escape(s)}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider block">Destino funil</label>
+              <select onchange="Actions.updateFlowBuilderEditNodeField('destinationFunnel', this.value)" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+                ${funnels.map(f => `<option value="${Utils.escape(f)}" ${destFunnel === f ? 'selected' : ''}>${Utils.escape(f)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Fluxo obrigatório resolvido automaticamente</div>
+          <div class="flex flex-wrap gap-2">${flowLabels.map((label, i) => `<span class="px-3 py-1.5 rounded-full bg-slate-950 border border-white/15 text-[11px] font-black text-slate-200">${i + 1}. ${Utils.escape(label)}</span>`).join('')}</div>
+        </div>
+
         <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider mt-3 block">Objetivo (opcional)</label>
         <textarea oninput="Actions.updateFlowBuilderEditNodeField('objective', this.value)" rows="2" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" placeholder="O que a ação visa entregar...">${v('objective')}</textarea>
+
         <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider mt-3 block">Segmentações (máx 2)</label>
-        <div class="mt-1 space-y-1.5">${segChips}</div>
-        <p class="text-[10px] text-slate-500 mt-2">Canal, OKRs e configurações operacionais entram depois na aba <b>Ações</b> do LJ.</p>`;
+        <div class="mt-1 space-y-1.5">${segChips}</div>`;
     }
+
     if (typeId === 'execucao') {
-      return nameInput + `<p class="text-[10px] text-slate-500 mt-2">Título da tarefa que aparecerá em <b>Execuções</b>.</p>`;
+      // V39.12.0 — Modal de Execução com gate de ClickUp. Se já está salvo (linkedRealId
+      // existe → execução real no LJ + ação real referenciada), permite abrir o
+      // editor de tarefa ClickUp. Senão, mostra aviso pra salvar primeiro.
+      const linkedRealId = node?.linkedRealId || null;
+      const linkedTask = linkedRealId && window.ExecutionTaskStore
+        ? (App.state.executionTasks || []).find(t => String(t.task_id) === String(linkedRealId))
+        : null;
+      const hasProvider = !!(linkedTask?.provider_task_id);
+      const ctaLabel = hasProvider ? 'Atualizar tarefa no ClickUp' : 'Criar tarefa no ClickUp';
+      const linkedActionId = linkedTask?.linked_action_id || null;
+      const gateOk = !!(linkedRealId && linkedActionId);
+      return `${nameInput}
+        <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-4 mt-3">
+          <h4 class="text-sm font-black mb-1">Tarefa no ClickUp</h4>
+          ${gateOk
+            ? `<p class="text-[11px] text-slate-400 mb-3">Esta execução já existe no LJ. Clique pra editar a tarefa do ClickUp (datas, responsáveis, descrição) no editor padrão.</p>
+               <button onclick="Actions.openTaskCreationModal(${linkedActionId}, ${hasProvider ? `'${linkedTask.task_id}'` : `'${linkedTask.task_id}'`})" class="w-full px-4 py-3 rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-black flex items-center justify-center gap-2"><i data-lucide="send" class="w-4 h-4"></i> ${ctaLabel}</button>`
+            : `<div class="rounded-xl bg-amber-500/15 border border-amber-400/40 p-3 flex items-start gap-2">
+                 <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-300 shrink-0 mt-0.5"></i>
+                 <div class="text-xs text-amber-100">
+                   Esta execução ainda é <b>protótipo</b>. Salve a esteira primeiro (botão verde no header) — ao virar entidade real no LJ, o botão de criar tarefa no ClickUp aparece aqui.
+                 </div>
+               </div>`
+          }
+        </div>
+        <p class="text-[10px] text-slate-500 mt-2">Título acima vira o nome da tarefa em <b>Execuções</b>.</p>`;
     }
     return nameInput;
   },
@@ -679,6 +795,44 @@ window.ActionFlowBuilder = {
     this._attachSvgListeners(svg);
   },
 
+  // V39.12.0 — Estado do bloco: 'saved' (já no LJ) | 'ready' (válido pra salvar) | 'incomplete' (faltam campos/conexões).
+  // Função pura: recebe node + edges + nodes, devolve {state, reason}.
+  _nodeStatus(node, edges, nodes) {
+    if (!this.isEsteira(node.type)) return { state: 'auxiliary', reason: '' };
+    if (node.linkedRealId) return { state: 'saved', reason: 'Já entrou no LJ.' };
+    const name = String(node.data?.name || node.name || '').trim();
+    if (!name) return { state: 'incomplete', reason: 'Falta nome.' };
+    const findIncoming = (parentType) => {
+      const in_ = edges.filter(e => String(e.toId) === String(node.id));
+      return in_.map(e => nodes.find(n => String(n.id) === String(e.fromId))).filter(n => n && n.type === parentType);
+    };
+    if (node.type === 'campanha') {
+      const parents = findIncoming('produto');
+      if (parents.length === 0) return { state: 'incomplete', reason: 'Falta conectar a um Produto.' };
+      if (parents.length > 1)   return { state: 'incomplete', reason: 'Conectada a mais de 1 Produto (esperado 1).' };
+    }
+    if (node.type === 'acao') {
+      const parents = findIncoming('campanha');
+      if (parents.length === 0) return { state: 'incomplete', reason: 'Falta conectar a uma Campanha.' };
+      if (parents.length > 1)   return { state: 'incomplete', reason: 'Conectada a mais de 1 Campanha (esperado 1).' };
+    }
+    if (node.type === 'execucao') {
+      const parents = findIncoming('acao');
+      if (parents.length === 0) return { state: 'incomplete', reason: 'Falta conectar a uma Ação.' };
+      if (parents.length > 1)   return { state: 'incomplete', reason: 'Conectada a mais de 1 Ação (esperado 1).' };
+    }
+    return { state: 'ready', reason: 'Pronto pra salvar.' };
+  },
+
+  _statusVisual(state) {
+    switch (state) {
+      case 'saved':       return { color: '#10b981', label: 'SALVO',     bg: 'rgba(16,185,129,0.20)', border: 'rgba(52,211,153,0.55)', text: '#6ee7b7' };
+      case 'ready':       return { color: '#fbbf24', label: 'PROTÓTIPO', bg: 'rgba(251,191,36,0.20)', border: 'rgba(251,191,36,0.55)', text: '#fde68a' };
+      case 'incomplete':  return { color: '#ef4444', label: 'INCOMPLETO',bg: 'rgba(239,68,68,0.20)',  border: 'rgba(239,68,68,0.55)',  text: '#fca5a5' };
+      default:            return { color: '#64748b', label: '',          bg: 'rgba(100,116,139,0.15)',border: 'rgba(100,116,139,0.4)', text: '#cbd5e1' };
+    }
+  },
+
   _renderEdge(svgNS, parent, edge, nodes) {
     const from = nodes.find(n => n.id === edge.fromId);
     const to = nodes.find(n => n.id === edge.toId);
@@ -752,22 +906,32 @@ window.ActionFlowBuilder = {
       group.appendChild(aura);
     }
 
-    if (linked) {
-      const badge = document.createElementNS(svgNS, 'g');
-      badge.setAttribute('transform', `translate(${this.NODE_WIDTH - 56}, 6)`);
-      const badgeBg = document.createElementNS(svgNS, 'rect');
-      badgeBg.setAttribute('x', 0); badgeBg.setAttribute('y', 0);
-      badgeBg.setAttribute('width', 26); badgeBg.setAttribute('height', 14);
-      badgeBg.setAttribute('rx', 7); badgeBg.setAttribute('fill', 'rgba(16,185,129,0.20)');
-      badgeBg.setAttribute('stroke', 'rgba(52,211,153,0.55)'); badgeBg.setAttribute('stroke-width', '1');
-      badge.appendChild(badgeBg);
-      const badgeTxt = document.createElementNS(svgNS, 'text');
-      badgeTxt.setAttribute('x', 13); badgeTxt.setAttribute('y', 10);
-      badgeTxt.setAttribute('fill', '#6ee7b7'); badgeTxt.setAttribute('font-size', '8'); badgeTxt.setAttribute('font-weight', '900');
-      badgeTxt.setAttribute('text-anchor', 'middle');
-      badgeTxt.textContent = 'SALVO';
-      badge.appendChild(badgeTxt);
-      group.appendChild(badge);
+    // V39.12.0 — Badge de estado (saved/ready/incomplete) substitui o × removido.
+    // Hover mostra reason via <title>. Click no badge não faz nada (remoção vai pelo modal).
+    if (isEsteira) {
+      const status = this._nodeStatus(node, edges, App.state.flowBuilderNodes || []);
+      const vis = this._statusVisual(status.state);
+      if (vis.label) {
+        const badge = document.createElementNS(svgNS, 'g');
+        const badgeW = vis.label.length * 5.6 + 14;
+        badge.setAttribute('transform', `translate(${this.NODE_WIDTH - badgeW - 8}, 6)`);
+        const badgeBg = document.createElementNS(svgNS, 'rect');
+        badgeBg.setAttribute('x', 0); badgeBg.setAttribute('y', 0);
+        badgeBg.setAttribute('width', badgeW); badgeBg.setAttribute('height', 16);
+        badgeBg.setAttribute('rx', 8); badgeBg.setAttribute('fill', vis.bg);
+        badgeBg.setAttribute('stroke', vis.border); badgeBg.setAttribute('stroke-width', '1');
+        badge.appendChild(badgeBg);
+        const badgeTxt = document.createElementNS(svgNS, 'text');
+        badgeTxt.setAttribute('x', badgeW / 2); badgeTxt.setAttribute('y', 11);
+        badgeTxt.setAttribute('fill', vis.text); badgeTxt.setAttribute('font-size', '8'); badgeTxt.setAttribute('font-weight', '900');
+        badgeTxt.setAttribute('text-anchor', 'middle');
+        badgeTxt.textContent = vis.label;
+        badge.appendChild(badgeTxt);
+        const title = document.createElementNS(svgNS, 'title');
+        title.textContent = status.reason;
+        badge.appendChild(title);
+        group.appendChild(badge);
+      }
     }
 
     const typeLabel = document.createElementNS(svgNS, 'text');
@@ -783,28 +947,8 @@ window.ActionFlowBuilder = {
     nameText.textContent = displayName;
     group.appendChild(nameText);
 
-    // Botão remover (×) — canto superior direito, deslocado pra esquerda se linked
-    const trash = document.createElementNS(svgNS, 'g');
-    trash.setAttribute('transform', `translate(${linked ? this.NODE_WIDTH - 84 : this.NODE_WIDTH - 26}, 6)`);
-    trash.setAttribute('class', 'flow-no-drag');
-    trash.style.cursor = 'pointer';
-    trash.addEventListener('click', (event) => {
-      event.stopPropagation();
-      if (window.Actions?.removeFlowBuilderNode) Actions.removeFlowBuilderNode(node.id);
-    });
-    const trashBg = document.createElementNS(svgNS, 'rect');
-    trashBg.setAttribute('x', 0); trashBg.setAttribute('y', 0);
-    trashBg.setAttribute('width', 20); trashBg.setAttribute('height', 20);
-    trashBg.setAttribute('rx', 6); trashBg.setAttribute('fill', 'rgba(239,68,68,0.15)');
-    trashBg.setAttribute('stroke', 'rgba(239,68,68,0.35)'); trashBg.setAttribute('stroke-width', '1');
-    trash.appendChild(trashBg);
-    const trashIcon = document.createElementNS(svgNS, 'text');
-    trashIcon.setAttribute('x', 10); trashIcon.setAttribute('y', 14);
-    trashIcon.setAttribute('fill', '#fca5a5'); trashIcon.setAttribute('font-size', '11');
-    trashIcon.setAttribute('text-anchor', 'middle');
-    trashIcon.textContent = '×';
-    trash.appendChild(trashIcon);
-    group.appendChild(trash);
+    // V39.12.0 — × removido do card (era atropelado por acidente ao mover).
+    // Remoção agora vai pelo modal de edição (duplo clique → botão Excluir bloco).
 
     const outgoing = edges.filter(e => e.fromId === node.id).length;
     const stats = document.createElementNS(svgNS, 'text');
@@ -1122,7 +1266,12 @@ window.ActionFlowBuilder = {
       group.style.cursor = 'grabbing';
       return;
     }
-    // Área vazia: inicia pan
+    // Área vazia: inicia pan + fecha pílula expandida (V39.12.0 — click fora fecha)
+    if (App.state.flowBuilderPaletteOpen) {
+      App.state.flowBuilderPaletteOpen = false;
+      App.save();
+      setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+    }
     const sp = this._screenToSvg(svg, event);
     this._internal.panning = {
       startX: sp.x,
