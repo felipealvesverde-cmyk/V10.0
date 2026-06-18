@@ -212,6 +212,10 @@ var App = {
           if (window.Actions?.loadEnabledPlugins) {
             setTimeout(() => Actions.loadEnabledPlugins(), 100);
           }
+          // V40.2.0 — Mesma coisa pras integrações.
+          if (window.Actions?.loadEnabledIntegrations) {
+            setTimeout(() => Actions.loadEnabledIntegrations(), 100);
+          }
           // V39.1.0 — Force-prompt de salesChannel: produtos com audience
           // configurado pré-V39.1 não têm campo `salesChannel`. Abre modal
           // bloqueante até cliente preencher cada um. Reabre todo boot até

@@ -199,6 +199,9 @@ var State = {
       // no boot via Actions.loadEnabledPlugins(). Operador LJ recebe tudo.
       // Fonte: GET /api/my-tenant-plugins. null = ainda não carregou.
       enabledPluginIds: null,
+      // V40.2.0 — Lista de integrationIds habilitados pro tenant atual.
+      // Fonte: GET /api/my-tenant-integrations. null = ainda não carregou.
+      enabledIntegrationIds: null,
       // V37.0.8 — showLpModal/lpDraft/lpEvents/lpRegistry/lpLastPolledAt REMOVIDOS
       // (fluxo LP modal vestigial pré-Tracking V33, sem consumidor moderno).
       showCampaignFlowModal: false,
@@ -1099,6 +1102,7 @@ var State = {
       flowBuilderSelectedNodeIds: [],
       flowBuilderMapResolveView: null,
       enabledPluginIds: null,
+      enabledIntegrationIds: null,
       flowBuilderDisconnectEdgeId: null,
       flowBuilderEditNodeId: null,
       flowBuilderEditNodeDraft: {},
@@ -1928,6 +1932,8 @@ var State = {
         'flowBuilderMapResolveView',
         // V40.1.0 — gating de plugins é runtime (vem do backend a cada boot).
         'enabledPluginIds',
+        // V40.2.0 — gating de integrações também runtime.
+        'enabledIntegrationIds',
         'djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',
