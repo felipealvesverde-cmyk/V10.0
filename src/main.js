@@ -206,6 +206,12 @@ var App = {
           if (window.Actions?.loadPinsForCurrentUrl) {
             setTimeout(() => Actions.loadPinsForCurrentUrl(), 100);
           }
+          // V40.1.0 — Carrega plugins habilitados pro tenant no boot.
+          // Antes a renderização da aba Plugins mostrava tudo do catálogo
+          // direto, sem gating. Agora consulta /api/my-tenant-plugins.
+          if (window.Actions?.loadEnabledPlugins) {
+            setTimeout(() => Actions.loadEnabledPlugins(), 100);
+          }
           // V39.1.0 — Force-prompt de salesChannel: produtos com audience
           // configurado pré-V39.1 não têm campo `salesChannel`. Abre modal
           // bloqueante até cliente preencher cada um. Reabre todo boot até

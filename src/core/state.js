@@ -195,6 +195,10 @@ var State = {
       // V39.13.0 — View de Resolver inline no popup do Mapa da Receita do
       // Builder (transient): null | 'vision' | 'owner' | 'krs'.
       flowBuilderMapResolveView: null,
+      // V40.1.0 — Lista de pluginIds habilitados pro tenant atual. Carregada
+      // no boot via Actions.loadEnabledPlugins(). Operador LJ recebe tudo.
+      // Fonte: GET /api/my-tenant-plugins. null = ainda não carregou.
+      enabledPluginIds: null,
       // V37.0.8 — showLpModal/lpDraft/lpEvents/lpRegistry/lpLastPolledAt REMOVIDOS
       // (fluxo LP modal vestigial pré-Tracking V33, sem consumidor moderno).
       showCampaignFlowModal: false,
@@ -1094,6 +1098,7 @@ var State = {
       flowBuilderDraftNameDraft: '',
       flowBuilderSelectedNodeIds: [],
       flowBuilderMapResolveView: null,
+      enabledPluginIds: null,
       flowBuilderDisconnectEdgeId: null,
       flowBuilderEditNodeId: null,
       flowBuilderEditNodeDraft: {},
@@ -1921,6 +1926,8 @@ var State = {
         'flowBuilderSelectedNodeIds',
         // V39.13.0 — view de Resolver inline do Mapa da Receita do Builder é transient.
         'flowBuilderMapResolveView',
+        // V40.1.0 — gating de plugins é runtime (vem do backend a cada boot).
+        'enabledPluginIds',
         'djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',

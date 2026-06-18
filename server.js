@@ -433,6 +433,21 @@ async function runMigrations() {
         created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `);
+    // V40.1.0 — Gating de plugins por tenant. Default: tenant sem registro
+    // vê TODOS os plugins (compat retroativa). Operador desativa explicitamente
+    // criando registro enabled=FALSE ou removendo. Catálogo canon em
+    // lib/plugins-catalog.js.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS tenant_plugins (
+        id SERIAL PRIMARY KEY,
+        tenant_id INT NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        plugin_id VARCHAR(64) NOT NULL,
+        enabled BOOLEAN DEFAULT TRUE,
+        enabled_at TIMESTAMPTZ DEFAULT NOW(),
+        enabled_by_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+        UNIQUE(tenant_id, plugin_id)
+      );
+    `);
     // V34.8.0.1 — Tabela lj_reconciliation_alerts foi MOVIDA pra tenant-db-schema.sql.
     // Motivo: tenants com Postgres próprio (Sansone via "Meu Banco") não tinham a
     // tabela porque migration master não roda lá. Endpoint usa req.tenantDb →
