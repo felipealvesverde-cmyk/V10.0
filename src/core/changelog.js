@@ -18,6 +18,22 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.12.0',
+    date: '2026-06-18',
+    title: 'Flow Builder vira maquete completa: ICP, form de Ação, gate de ClickUp e Salvar all-or-nothing',
+    bullets: [
+      'Paradigma protótipo-vs-salvo cravado: cada bloco da esteira agora tem badge de estado visível (verde SALVO se já entrou no LJ, amarelo PROTÓTIPO se está pronto pra subir, vermelho INCOMPLETO se falta nome ou conexão). Hover na badge mostra o motivo. Substitui o × que ficava no canto e atropelava ao mover o card.',
+      'Botão "Salvar esteira" agora é all-or-nothing: valida TUDO antes (todos os blocos da esteira, conexões hierárquicas, nomes preenchidos) e SE falta qualquer coisa, mostra a lista de problemas num alerta e NÃO toca em nada do LJ. Se passar, faz tudo de uma vez em ordem topológica (Produto → Campanha → Ação → Execução). Se qualquer parte explodir no meio, rollback completo via snapshot — estado do LJ volta exatamente como estava.',
+      'Re-salvar bloco já salvo = UPDATE silencioso. Mudou o nome de uma Campanha no canvas que já entrou no LJ? Salvar de novo propaga a mudança sem duplicar nem perder vínculo. Vale pra Produto, Campanha, Ação e Execução.',
+      'Modal de edição do Produto (duplo clique) ganhou seletor de Audiência (ICP) embutido. Click no pill abre o AudienceWizard de 4 passos do LJ — mas a configuração escolhida fica como RASCUNHO no bloco (não sobe pro produto real). Só vira product.audience quando você clicar "Salvar esteira".',
+      'Modal de edição da Ação agora tem o form COMPLETO da tela "Criar ação" do LJ: Setor + Funil de origem, Canal (com "+ Adicionar Canal"), Tipo (com "+ Adicionar Tipo"), Destino setor + Destino funil, e o "Fluxo obrigatório resolvido automaticamente" calculado em tempo real via FlowResolutionEngine. As segmentações continuam na lista de remoção dentro do modal.',
+      'Modal de edição da Execução tem GATE de ClickUp: se a execução já está salva no LJ (entrou via "Salvar esteira"), aparece botão azul "Criar/Atualizar tarefa no ClickUp" que abre o editor padrão de tarefa (datas, responsáveis, descrição). Se ainda é protótipo, mostra aviso amarelo: salve a esteira primeiro pra criar a tarefa no ClickUp.',
+      'Pílula off-canvas ficou 80% mais larga horizontalmente (mais respiro entre botões) e o botão ativo cresceu pra 92px — "Segmentação" agora cabe sem cortar.',
+      'Pílula expandida fecha automaticamente ao clicar fora dela: no header, num bloco do canvas ou em área vazia. Antes só fechava clicando no botão ativo.',
+      'O × pra remover bloco saiu do canto superior direito (era atropelado por acidente ao mover o card). Agora a remoção fica num botão vermelho "Excluir bloco" DENTRO do modal de edição (duplo clique no card). Apagar bloco já salvo limpa só o desenho — não desfaz o que já entrou no LJ.'
+    ]
+  },
+  {
     version: 'V39.11.1',
     date: '2026-06-18',
     title: 'Flow Builder: rascunhos salvos + badges fixas no card + pílula 20% maior com contraste',

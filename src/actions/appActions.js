@@ -1755,6 +1755,22 @@ Object.assign(Actions, {
       quadroICP: Array.isArray(w.quadroICP) ? w.quadroICP : [],
       quadroBP: Array.isArray(w.quadroBP) ? w.quadroBP : []
     };
+    // V39.12.0 — Quando o wizard foi aberto pelo Flow Builder pra um node
+    // específico, devolve o audience no draft do bloco (não salva em produto
+    // real). Só vira product.audience quando "Salvar esteira" rodar.
+    if (w.mode === 'flowBuilderNode' && w.flowBuilderNodeId) {
+      const nodes = App.state.flowBuilderNodes || [];
+      App.state.flowBuilderNodes = nodes.map(n =>
+        String(n.id) === String(w.flowBuilderNodeId)
+          ? { ...n, data: { ...(n.data || {}), audienceDraft: audience } }
+          : n
+      );
+      App.state.audienceWizard = null;
+      App.save(); App.render();
+      Utils.toast('Audiência (ICP) salva no rascunho. Sobe pro LJ ao clicar "Salvar esteira".');
+      setTimeout(() => { try { if (window.ActionFlowBuilder) ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+      return;
+    }
     if (w.mode === 'existingProduct') {
       // V38.1.47 — Fix defensivo: setar via index (não confiar em mutação de
       // referência retornada por find()) e renormalizar o produto pra garantir
@@ -3189,16 +3205,66 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V39.12.0 — Abre o AudienceWizard do LJ com mode 'flowBuilderNode': ao final,
+  // o audience vai pro node.data.audienceDraft (não pra product.audience). Hook
+  // de interceptação fica em audienceWizardFinish().
+  openFlowBuilderAudienceWizard(nodeId) {
+    const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(nodeId));
+    if (!node) return;
+    const existing = (node.data && node.data.audienceDraft) || null;
+    App.state.audienceWizard = {
+      open: true,
+      mode: 'flowBuilderNode',
+      flowBuilderNodeId: String(nodeId),
+      step: existing ? 3 : 0,
+      modeloNegocio: existing?.modeloNegocio || null,
+      modeloOperacional: existing?.modeloOperacional || null,
+      salesChannel: existing?.salesChannel || null,
+      customFields: existing?.customFields || { pa: [], icp: [], bp: [] },
+      quadroPA: existing?.quadroPA || [],
+      quadroICP: existing?.quadroICP || [],
+      quadroBP: existing?.quadroBP || [],
+      djowLoading: false,
+      djowAnalise: null
+    };
+    App.save(); App.render();
+  },
+
+  // V39.12.0 — Botão "Excluir bloco" dentro do modal de edição: apaga node
+  // do canvas e suas conexões. Não desfaz o que já entrou no LJ (linkedRealId
+  // preservado pra histórico/audit, mas o bloco some do desenho).
+  removeFlowBuilderNodeFromModal(nodeId) {
+    const id = String(nodeId);
+    const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === id);
+    if (!node) return;
+    const displayName = String(node.data?.name || node.name || 'sem nome').trim();
+    const wasLinked = !!node.linkedRealId;
+    const msg = wasLinked
+      ? `Apagar o bloco "${displayName}" do canvas? O que já está no LJ não é desfeito — só o desenho.`
+      : `Apagar o bloco "${displayName}" do canvas?`;
+    if (!confirm(msg)) return;
+    App.state.flowBuilderNodes = (App.state.flowBuilderNodes || []).filter(n => String(n.id) !== id);
+    App.state.flowBuilderEdges = (App.state.flowBuilderEdges || []).filter(e => String(e.fromId) !== id && String(e.toId) !== id);
+    if (String(App.state.flowBuilderConnectionArm) === id) App.state.flowBuilderConnectionArm = null;
+    App.state.flowBuilderEditNodeId = null;
+    App.state.flowBuilderEditNodeDraft = {};
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+  },
+
   cancelFlowBuilderClear() {
     App.state.flowBuilderClearConfirm = false;
     App.save(); App.render();
   },
 
-  // V39.9.0 — Salva esteira: blocos Produto/Campanha/Ação/Execução com
-  // linkedRealId nulo viram entidades reais nas abas correspondentes.
-  // Topological: Produto → Campanha (incoming de Produto) → Ação (incoming
-  // de Campanha) → Execução (incoming de Ação). Blocos auxiliares são ignorados.
-  // Re-saves não duplicam — só processa nós sem linkedRealId.
+  // V39.12.0 — Salva esteira com SEMÂNTICA ALL-OR-NOTHING:
+  //   1) Valida TUDO antes (nomes, conexões hierárquicas, cada bloco status='ready' ou 'saved').
+  //      Se faltar QUALQUER coisa, NÃO toca em nada do LJ e devolve TODOS os erros num modal.
+  //   2) Snapshot dos arrays antes (products/campaigns/actions/executionTasks) pra rollback.
+  //   3) Topological: cria/atualiza Produto → Campanha → Ação → Execução.
+  //      Bloco com linkedRealId existente → UPDATE silencioso (preserva ID, atualiza campos).
+  //      Bloco sem linkedRealId → INSERT.
+  //   4) Se qualquer exceção durante a criação, restaura os snapshots e avisa.
   saveFlowBuilder() {
     if (!window.ActionFlowBuilder) return;
     const nodes = App.state.flowBuilderNodes || [];
@@ -3206,174 +3272,283 @@ Object.assign(Actions, {
     const esteira = nodes.filter(n => ActionFlowBuilder.isEsteira(n.type));
     if (!esteira.length) return Utils.toast('Adicione pelo menos 1 bloco da Esteira (Produto/Campanha/Ação/Execução) antes de salvar.');
 
-    // 1) Valida nomes obrigatórios e conexões hierárquicas
+    // ===== Fase 1: validação completa, acumulando todos os erros =====
     const findIncoming = (nodeId, parentType) => {
       const in_ = edges.filter(e => String(e.toId) === String(nodeId));
       return in_.map(e => nodes.find(n => String(n.id) === String(e.fromId))).filter(n => n && n.type === parentType);
     };
+    const problems = [];
     for (const n of esteira) {
+      const typeLabel = ActionFlowBuilder.typeById(n.type).label;
       const displayName = String(n.data?.name || n.name || '').trim();
-      if (!displayName) return Utils.toast(`Há um bloco ${ActionFlowBuilder.typeById(n.type).label} sem nome. Edite antes de salvar.`);
-      if (n.linkedRealId) continue; // já sincronizado, ignora validação de pai
+      const label = displayName ? `"${displayName}"` : `(sem nome)`;
+      if (!displayName) problems.push(`${typeLabel} ${label}: falta nome.`);
       if (n.type === 'campanha') {
         const parents = findIncoming(n.id, 'produto');
-        if (parents.length === 0) return Utils.toast(`A campanha "${displayName}" não está conectada a nenhum Produto. Conecte antes de salvar.`);
-        if (parents.length > 1) return Utils.toast(`A campanha "${displayName}" está conectada a ${parents.length} Produtos. Cada campanha pertence a 1 só.`);
+        if (parents.length === 0) problems.push(`Campanha ${label}: falta conectar a um Produto.`);
+        if (parents.length > 1)   problems.push(`Campanha ${label}: conectada a ${parents.length} Produtos (esperado 1).`);
       }
       if (n.type === 'acao') {
         const parents = findIncoming(n.id, 'campanha');
-        if (parents.length === 0) return Utils.toast(`A ação "${displayName}" não está conectada a nenhuma Campanha. Conecte antes de salvar.`);
-        if (parents.length > 1) return Utils.toast(`A ação "${displayName}" está conectada a ${parents.length} Campanhas. Cada ação pertence a 1 só.`);
+        if (parents.length === 0) problems.push(`Ação ${label}: falta conectar a uma Campanha.`);
+        if (parents.length > 1)   problems.push(`Ação ${label}: conectada a ${parents.length} Campanhas (esperado 1).`);
       }
       if (n.type === 'execucao') {
         const parents = findIncoming(n.id, 'acao');
-        if (parents.length === 0) return Utils.toast(`A execução "${displayName}" não está conectada a nenhuma Ação. Conecte antes de salvar.`);
-        if (parents.length > 1) return Utils.toast(`A execução "${displayName}" está conectada a ${parents.length} Ações. Cada execução pertence a 1 só.`);
+        if (parents.length === 0) problems.push(`Execução ${label}: falta conectar a uma Ação.`);
+        if (parents.length > 1)   problems.push(`Execução ${label}: conectada a ${parents.length} Ações (esperado 1).`);
       }
     }
+    if (problems.length) {
+      const list = problems.map(p => `• ${p}`).join('\n');
+      // Modal cancela tudo e avisa o que faltou (Felipe — fix 6, 2026-06-18).
+      alert(`Não dá pra salvar — ${problems.length} ${problems.length === 1 ? 'problema' : 'problemas'} no canvas:\n\n${list}\n\nResolva e tente de novo. Nada foi alterado no LJ.`);
+      return;
+    }
+
+    // ===== Fase 2: snapshot pra rollback =====
+    const snap = {
+      products: JSON.parse(JSON.stringify(App.state.products || [])),
+      campaigns: JSON.parse(JSON.stringify(App.state.campaigns || [])),
+      actions: JSON.parse(JSON.stringify(App.state.actions || [])),
+      executionTasks: JSON.parse(JSON.stringify(App.state.executionTasks || [])),
+      flowBuilderNodes: JSON.parse(JSON.stringify(nodes))
+    };
 
     const created = { produtos: 0, campanhas: 0, acoes: 0, execucoes: 0 };
+    const updated = { produtos: 0, campanhas: 0, acoes: 0, execucoes: 0 };
     let nextId = Date.now();
     const newId = () => ++nextId;
-
-    // Mutação in-place dos nodes pra preservar identidade entre reads
     const nodeMap = new Map(nodes.map(n => [String(n.id), n]));
 
-    // 2) Cria Produtos
-    for (const n of esteira.filter(n => n.type === 'produto' && !n.linkedRealId)) {
-      const d = n.data || {};
-      const draft = {
-        id: newId(),
-        name: String(d.name || n.name).trim(),
-        type: d.type || '',
-        price: d.price || '',
-        revenueModel: d.revenueModel || 'Venda única',
-        operationalCost: d.operationalCost || ''
-      };
-      const product = window.ProductRevenueEngine?.normalize
-        ? ProductRevenueEngine.normalize({ ...draft, createdAt: new Date().toISOString() })
-        : { ...draft, createdAt: new Date().toISOString() };
-      App.state.products = [...(App.state.products || []), product];
-      n.linkedRealId = product.id;
-      created.produtos++;
-    }
-
-    // 3) Cria Campanhas (já sabe productId via linkedRealId do pai)
-    for (const n of esteira.filter(n => n.type === 'campanha' && !n.linkedRealId)) {
-      const parents = findIncoming(n.id, 'produto');
-      const productId = parents[0]?.linkedRealId;
-      if (!productId) continue;
-      const d = n.data || {};
-      const campaign = {
-        id: newId(),
-        productId: Number(productId),
-        name: String(d.name || n.name).trim(),
-        objective: String(d.objective || '').trim(),
-        owner: '',
-        sector: d.sector || 'Marketing',
-        status: 'Ativa',
-        createdAt: new Date().toISOString()
-      };
-      App.state.campaigns = [campaign, ...(App.state.campaigns || [])];
-      n.linkedRealId = campaign.id;
-      created.campanhas++;
-      if (window.LJEmit) {
-        const product = (App.state.products || []).find(p => Number(p.id) === Number(campaign.productId));
-        try {
-          window.LJEmit({
-            audience: 'tenant_wide', kind: 'event.campaign_created', category: 'event', severity: 'info',
-            title: `Nova campanha: ${campaign.name}`, body: product ? `No produto ${product.name}` : null,
-            data: { campaignId: campaign.id, campaignName: campaign.name, productId: campaign.productId, productName: product?.name, source: 'flow_builder' },
-            entityKind: 'campaign', entityId: String(campaign.id)
-          });
-        } catch (_) {}
+    try {
+      // ===== Fase 3: Produtos (INSERT ou UPDATE silencioso) =====
+      for (const n of esteira.filter(n => n.type === 'produto')) {
+        const d = n.data || {};
+        if (n.linkedRealId) {
+          // UPDATE: aplica patch sem mudar id.
+          const products = App.state.products || [];
+          const idx = products.findIndex(p => Number(p.id) === Number(n.linkedRealId));
+          if (idx < 0) continue;
+          const existing = products[idx];
+          const patched = {
+            ...existing,
+            name: String(d.name || n.name).trim() || existing.name,
+            type: d.type !== undefined ? d.type : existing.type,
+            revenueModel: d.revenueModel || existing.revenueModel,
+            ...(d.audienceDraft ? { audience: d.audienceDraft } : {})
+          };
+          const normalized = window.ProductRevenueEngine?.normalize
+            ? ProductRevenueEngine.normalize(patched, idx)
+            : patched;
+          App.state.products = [...products.slice(0, idx), normalized, ...products.slice(idx + 1)];
+          updated.produtos++;
+          continue;
+        }
+        const draft = {
+          id: newId(),
+          name: String(d.name || n.name).trim(),
+          type: d.type || '',
+          price: d.price || '',
+          revenueModel: d.revenueModel || 'Venda única',
+          operationalCost: d.operationalCost || '',
+          ...(d.audienceDraft ? { audience: d.audienceDraft } : {})
+        };
+        const product = window.ProductRevenueEngine?.normalize
+          ? ProductRevenueEngine.normalize({ ...draft, createdAt: new Date().toISOString() })
+          : { ...draft, createdAt: new Date().toISOString() };
+        App.state.products = [...(App.state.products || []), product];
+        n.linkedRealId = product.id;
+        created.produtos++;
       }
-    }
 
-    // 4) Cria Ações
-    for (const n of esteira.filter(n => n.type === 'acao' && !n.linkedRealId)) {
-      const parents = findIncoming(n.id, 'campanha');
-      const campaignId = parents[0]?.linkedRealId;
-      if (!campaignId) continue;
-      const d = n.data || {};
-      const sector = d.sector || 'Marketing';
-      const funnel = d.funnel || 'MOF';
-      const flowPath = window.FlowResolutionEngine ? FlowResolutionEngine.resolve(sector, funnel, sector, funnel) : [];
-      const flowConfig = window.FlowResolutionEngine ? FlowResolutionEngine.buildDefaultFlowConfig(flowPath, '') : {};
-      const action = {
-        id: newId(),
-        campaignId: Number(campaignId),
-        name: String(d.name || n.name).trim(),
-        channel: '',
-        actionType: 'Post',
-        sector, funnel,
-        originSector: sector, originFunnel: funnel,
-        destinationSector: sector, destinationFunnel: funnel,
-        conversionObjective: '',
-        objective: String(d.objective || '').trim(),
-        expectedConversion: 25,
-        mailingDefined: false,
-        okrs: [],
-        flowPath,
-        scoreId: App.state.scores?.[0]?.id || 1,
-        connected: false,
-        connectionStatus: 'ready',
-        status: 'Pronta para conectar',
-        leads: [],
-        flowConfig,
-        createdAt: new Date().toISOString()
-      };
-      App.state.actions = [action, ...(App.state.actions || [])];
-      n.linkedRealId = action.id;
-      created.acoes++;
-      if (window.LJEmit) {
-        const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
-        try {
-          window.LJEmit({
-            audience: 'tenant_wide', kind: 'event.action_created', category: 'event', severity: 'info',
-            title: `Nova ação: ${action.name}`, body: campaign ? `Na campanha ${campaign.name}` : null,
-            data: { actionId: action.id, actionName: action.name, campaignId: action.campaignId, source: 'flow_builder' },
-            entityKind: 'action', entityId: String(action.id)
-          });
-        } catch (_) {}
+      // ===== Fase 4: Campanhas =====
+      for (const n of esteira.filter(n => n.type === 'campanha')) {
+        const parents = findIncoming(n.id, 'produto');
+        const productId = parents[0]?.linkedRealId;
+        if (!productId) continue;
+        const d = n.data || {};
+        if (n.linkedRealId) {
+          const list = App.state.campaigns || [];
+          const idx = list.findIndex(c => Number(c.id) === Number(n.linkedRealId));
+          if (idx < 0) continue;
+          const existing = list[idx];
+          const patched = {
+            ...existing,
+            name: String(d.name || n.name).trim() || existing.name,
+            objective: d.objective !== undefined ? String(d.objective).trim() : existing.objective,
+            productId: Number(productId)
+          };
+          App.state.campaigns = [...list.slice(0, idx), patched, ...list.slice(idx + 1)];
+          updated.campanhas++;
+          continue;
+        }
+        const campaign = {
+          id: newId(),
+          productId: Number(productId),
+          name: String(d.name || n.name).trim(),
+          objective: String(d.objective || '').trim(),
+          owner: '',
+          sector: d.sector || 'Marketing',
+          status: 'Ativa',
+          createdAt: new Date().toISOString()
+        };
+        App.state.campaigns = [campaign, ...(App.state.campaigns || [])];
+        n.linkedRealId = campaign.id;
+        created.campanhas++;
+        if (window.LJEmit) {
+          const product = (App.state.products || []).find(p => Number(p.id) === Number(campaign.productId));
+          try {
+            window.LJEmit({
+              audience: 'tenant_wide', kind: 'event.campaign_created', category: 'event', severity: 'info',
+              title: `Nova campanha: ${campaign.name}`, body: product ? `No produto ${product.name}` : null,
+              data: { campaignId: campaign.id, campaignName: campaign.name, productId: campaign.productId, productName: product?.name, source: 'flow_builder' },
+              entityKind: 'campaign', entityId: String(campaign.id)
+            });
+          } catch (_) {}
+        }
       }
+
+      // ===== Fase 5: Ações =====
+      for (const n of esteira.filter(n => n.type === 'acao')) {
+        const parents = findIncoming(n.id, 'campanha');
+        const campaignId = parents[0]?.linkedRealId;
+        if (!campaignId) continue;
+        const d = n.data || {};
+        const sector = d.sector || 'Marketing';
+        const funnel = d.funnel || 'MOF';
+        const destSector = d.destinationSector || sector;
+        const destFunnel = d.destinationFunnel || funnel;
+        const channel = d.channel || 'Instagram Orgânico';
+        const actionType = d.actionType || 'Post';
+        const flowPath = window.FlowResolutionEngine ? FlowResolutionEngine.resolve(sector, funnel, destSector, destFunnel) : [];
+        const flowConfig = window.FlowResolutionEngine ? FlowResolutionEngine.buildDefaultFlowConfig(flowPath, '') : {};
+        if (n.linkedRealId) {
+          const list = App.state.actions || [];
+          const idx = list.findIndex(a => Number(a.id) === Number(n.linkedRealId));
+          if (idx < 0) continue;
+          const existing = list[idx];
+          const patched = {
+            ...existing,
+            name: String(d.name || n.name).trim() || existing.name,
+            sector, funnel, originSector: sector, originFunnel: funnel,
+            destinationSector: destSector, destinationFunnel: destFunnel,
+            channel, actionType,
+            objective: d.objective !== undefined ? String(d.objective).trim() : existing.objective,
+            flowPath, flowConfig,
+            campaignId: Number(campaignId)
+          };
+          App.state.actions = [...list.slice(0, idx), patched, ...list.slice(idx + 1)];
+          updated.acoes++;
+          continue;
+        }
+        const action = {
+          id: newId(),
+          campaignId: Number(campaignId),
+          name: String(d.name || n.name).trim(),
+          channel, actionType,
+          sector, funnel,
+          originSector: sector, originFunnel: funnel,
+          destinationSector: destSector, destinationFunnel: destFunnel,
+          conversionObjective: '',
+          objective: String(d.objective || '').trim(),
+          expectedConversion: 25,
+          mailingDefined: false,
+          okrs: [],
+          flowPath,
+          scoreId: App.state.scores?.[0]?.id || 1,
+          connected: false,
+          connectionStatus: 'ready',
+          status: 'Pronta para conectar',
+          leads: [],
+          flowConfig,
+          createdAt: new Date().toISOString()
+        };
+        App.state.actions = [action, ...(App.state.actions || [])];
+        n.linkedRealId = action.id;
+        created.acoes++;
+        if (window.LJEmit) {
+          const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
+          try {
+            window.LJEmit({
+              audience: 'tenant_wide', kind: 'event.action_created', category: 'event', severity: 'info',
+              title: `Nova ação: ${action.name}`, body: campaign ? `Na campanha ${campaign.name}` : null,
+              data: { actionId: action.id, actionName: action.name, campaignId: action.campaignId, source: 'flow_builder' },
+              entityKind: 'action', entityId: String(action.id)
+            });
+          } catch (_) {}
+        }
+      }
+
+      // ===== Fase 6: Execuções (via ExecutionTaskStore) =====
+      for (const n of esteira.filter(n => n.type === 'execucao')) {
+        const parents = findIncoming(n.id, 'acao');
+        const actionId = parents[0]?.linkedRealId;
+        if (!actionId) continue;
+        if (!window.ExecutionTaskStore) continue;
+        const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
+        const d = n.data || {};
+        const title = String(d.name || n.name).trim();
+        if (n.linkedRealId) {
+          // UPDATE: usa store.update se disponível, senão patch direto no array.
+          if (typeof ExecutionTaskStore.update === 'function') {
+            try {
+              ExecutionTaskStore.update(n.linkedRealId, { title, linked_action_id: Number(actionId), linked_campaign_id: action?.campaignId });
+            } catch (_) {}
+          } else {
+            const list = App.state.executionTasks || [];
+            const idx = list.findIndex(t => String(t.task_id) === String(n.linkedRealId));
+            if (idx >= 0) {
+              const patched = { ...list[idx], title, linked_action_id: Number(actionId), linked_campaign_id: action?.campaignId };
+              App.state.executionTasks = [...list.slice(0, idx), patched, ...list.slice(idx + 1)];
+            }
+          }
+          updated.execucoes++;
+          continue;
+        }
+        const task = ExecutionTaskStore.create({
+          linked_action_id: Number(actionId),
+          linked_campaign_id: action?.campaignId,
+          title,
+          status: 'pending',
+          source_agent: 'flow_builder'
+        });
+        n.linkedRealId = task?.task_id || null;
+        if (n.linkedRealId) created.execucoes++;
+      }
+
+      App.state.flowBuilderNodes = nodes.map(n => nodeMap.get(String(n.id)) || n);
+    } catch (err) {
+      // ===== Rollback completo se qualquer fase explodir =====
+      App.state.products = snap.products;
+      App.state.campaigns = snap.campaigns;
+      App.state.actions = snap.actions;
+      App.state.executionTasks = snap.executionTasks;
+      App.state.flowBuilderNodes = snap.flowBuilderNodes;
+      App.save(); App.render();
+      alert(`Falha ao salvar esteira: ${err?.message || err}\n\nNada foi alterado no LJ — estado restaurado pro snapshot anterior.`);
+      return;
     }
 
-    // 5) Cria Execuções via ExecutionTaskStore
-    for (const n of esteira.filter(n => n.type === 'execucao' && !n.linkedRealId)) {
-      const parents = findIncoming(n.id, 'acao');
-      const actionId = parents[0]?.linkedRealId;
-      if (!actionId) continue;
-      if (!window.ExecutionTaskStore) continue;
-      const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
-      const d = n.data || {};
-      const title = String(d.name || n.name).trim();
-      const task = ExecutionTaskStore.create({
-        linked_action_id: Number(actionId),
-        linked_campaign_id: action?.campaignId,
-        title,
-        status: 'pending',
-        source_agent: 'flow_builder'
-      });
-      n.linkedRealId = task?.task_id || null;
-      if (n.linkedRealId) created.execucoes++;
-    }
-
-    App.state.flowBuilderNodes = nodes.map(n => nodeMap.get(String(n.id)) || n);
     App.save(); App.render();
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
 
-    const total = created.produtos + created.campanhas + created.acoes + created.execucoes;
-    if (total === 0) {
-      Utils.toast('Nada novo pra salvar — todos os blocos da esteira já estão sincronizados com o LJ.');
+    const totalCreated = created.produtos + created.campanhas + created.acoes + created.execucoes;
+    const totalUpdated = updated.produtos + updated.campanhas + updated.acoes + updated.execucoes;
+    if (totalCreated === 0 && totalUpdated === 0) {
+      Utils.toast('Nada pra salvar — canvas vazio de mudanças.');
       return;
     }
-    const parts = [];
-    if (created.produtos)  parts.push(`${created.produtos} ${created.produtos === 1 ? 'produto' : 'produtos'}`);
-    if (created.campanhas) parts.push(`${created.campanhas} ${created.campanhas === 1 ? 'campanha' : 'campanhas'}`);
-    if (created.acoes)     parts.push(`${created.acoes} ${created.acoes === 1 ? 'ação' : 'ações'}`);
-    if (created.execucoes) parts.push(`${created.execucoes} ${created.execucoes === 1 ? 'execução' : 'execuções'}`);
-    Utils.toast(`✓ Esteira salva no LJ: ${parts.join(' · ')}`);
+    const fmt = (counts, verb) => {
+      const parts = [];
+      if (counts.produtos)  parts.push(`${counts.produtos} ${counts.produtos === 1 ? 'produto' : 'produtos'}`);
+      if (counts.campanhas) parts.push(`${counts.campanhas} ${counts.campanhas === 1 ? 'campanha' : 'campanhas'}`);
+      if (counts.acoes)     parts.push(`${counts.acoes} ${counts.acoes === 1 ? 'ação' : 'ações'}`);
+      if (counts.execucoes) parts.push(`${counts.execucoes} ${counts.execucoes === 1 ? 'execução' : 'execuções'}`);
+      return parts.length ? `${verb} ${parts.join(' · ')}` : '';
+    };
+    const msg = [fmt(created, 'Criou'), fmt(updated, 'Atualizou')].filter(Boolean).join(' · ');
+    Utils.toast(`✓ Esteira salva no LJ: ${msg}`);
   },
 
   // V39.9.0 — Modal de "Carregar campanha existente" pra continuar editando
