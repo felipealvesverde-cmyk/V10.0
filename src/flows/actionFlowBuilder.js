@@ -201,6 +201,7 @@ window.ActionFlowBuilder = {
               ${this._emptyCanvasHint()}
               ${this._trashBin()}
             </div>
+            ${this._ghostPaletteOverlay()}
             ${this._bottomPanelOverlay()}
           </div>
         </div>
@@ -337,6 +338,55 @@ window.ActionFlowBuilder = {
     return `<div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3 pointer-events-none">
       ${isOpen ? `<div onclick="event.stopPropagation()" class="bg-slate-900/95 backdrop-blur border border-white/15 rounded-3xl p-4 w-[720px] max-w-[90vw] shadow-2xl pointer-events-auto">${content}</div>` : ''}
       ${this._bottomPill(tab, isOpen)}
+    </div>`;
+  },
+
+  // V40.7.0 — Pílula fantasma flutuante. Aparece onde o mouse estava quando user
+  // apertou Space. Toggle no Space novamente OU clicando no x OU Esc. Reusa as
+  // mesmas tabs e conteúdo da pílula inferior pra cliente não reaprender nada.
+  _ghostPaletteOverlay() {
+    if (!App.state.flowBuilderGhostPaletteOpen) return '';
+    const x = Number(App.state.flowBuilderGhostPaletteX || 0);
+    const y = Number(App.state.flowBuilderGhostPaletteY || 0);
+    const tab = App.state.flowBuilderPaletteTab || 'esteira';
+    let content = '';
+    if (tab === 'esteira') content = this._esteiraPanel();
+    else if (tab === 'segmentacao') content = this._segmentacaoPanel();
+    else if (tab === 'mapaReceita') content = this._mapaReceitaPanel();
+    const tabs = [
+      { id: 'esteira',     label: 'Esteira',     icon: 'layers' },
+      { id: 'segmentacao', label: 'Segmentação', icon: 'tag' },
+      { id: 'mapaReceita', label: 'Mapa',        icon: 'map' }
+    ];
+    const tabsBar = tabs.map(t => {
+      const active = tab === t.id;
+      const cls = active
+        ? 'bg-indigo-500/25 text-white border-indigo-400/60'
+        : 'bg-white/[0.04] text-slate-300 border-transparent hover:bg-white/[0.08]';
+      return `<button onclick="Actions.setFlowBuilderPaletteTab('${t.id}')" class="px-3 py-1.5 rounded-full text-[11px] font-black border ${cls} flex items-center gap-1.5 transition">
+        <i data-lucide="${t.icon}" class="w-3.5 h-3.5"></i>${Utils.escape(t.label)}
+      </button>`;
+    }).join('');
+    // Anchor: cursor é o centro horizontal; pill cresce pra baixo com leve offset.
+    // max-w/max-h + overflow-auto pra não estourar o canvas.
+    return `<div class="absolute z-40 pointer-events-none" style="left:${x}px;top:${y}px;">
+      <div class="-translate-x-1/2 translate-y-2">
+        <div onclick="event.stopPropagation()"
+             class="bg-slate-900/90 backdrop-blur border border-indigo-400/40 rounded-3xl p-4 w-[640px] max-w-[80vw] max-h-[60vh] overflow-auto shadow-2xl pointer-events-auto ring-1 ring-indigo-500/20">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-[10px] font-black text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+              <i data-lucide="zap" class="w-3.5 h-3.5"></i> Atalho rápido · Space pra fechar
+            </p>
+            <button onclick="Actions.closeFlowBuilderGhostPalette()" class="text-slate-400 hover:text-white transition" title="Fechar (Esc / Space)">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+          <div class="flex items-center gap-1.5 mb-3 border-b border-white/10 pb-2">
+            ${tabsBar}
+          </div>
+          ${content}
+        </div>
+      </div>
     </div>`;
   },
 
@@ -924,8 +974,9 @@ window.ActionFlowBuilder = {
     this._drawCanvas();
     // V39.12.1 — ESC fecha pílula expandida quando builder está aberto. Listener
     // global registrado UMA vez (idempotente via flag interna).
-    // V39.12.2 — Mesmo listener cuida do Delete/Backspace pra apagar selecionados
-    // (regra: < 10s sem confirm, ≥ 10s com confirm).
+    // V39.12.2 — Mesmo listener cuida do Delete/Backspace pra apagar selecionados.
+    // V40.7.0 — Esc cascade (ghost > arm > seleção > paleta), Setas pan, Space ghost pill,
+    // Alt+wheel zoom.
     if (!this._internal._escListenerAttached) {
       window.addEventListener('keydown', (e) => {
         if (!App.state.showFlowBuilderModal) return;
@@ -939,16 +990,14 @@ window.ActionFlowBuilder = {
           App.state.flowBuilderDisconnectEdgeId
         );
         // Foco em input/textarea: deixa o input controlar suas próprias teclas
-        // (não apagar cards quando user digita Delete dentro do input).
+        // (não apagar cards quando user digita Delete dentro do input, não panar
+        // canvas quando user usa setas pra navegar texto).
         const active = document.activeElement;
         const inField = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT' || active.isContentEditable);
         if (e.key === 'Escape') {
           if (modalOpen) return;
-          if (App.state.flowBuilderPaletteOpen) {
-            App.state.flowBuilderPaletteOpen = false;
-            App.save(); App.render();
-            e.preventDefault();
-          }
+          const cancelled = window.Actions?.cancelFlowBuilderSelection?.();
+          if (cancelled) e.preventDefault();
           return;
         }
         if ((e.key === 'Delete' || e.key === 'Backspace') && !modalOpen && !inField) {
@@ -956,9 +1005,60 @@ window.ActionFlowBuilder = {
           if (!sel.length) return;
           e.preventDefault();
           if (window.Actions?.deleteFlowBuilderSelected) Actions.deleteFlowBuilderSelected();
+          return;
+        }
+        if (modalOpen || inField) return;
+        // V40.7.0 — Setas: pan do canvas. 40px sem zoom, escala inverso com zoom
+        // pra movimento ficar consistente (mais zoom = step menor em world coords).
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          const step = e.shiftKey ? 120 : 40;
+          let dx = 0, dy = 0;
+          if (e.key === 'ArrowLeft')  dx = +step;
+          if (e.key === 'ArrowRight') dx = -step;
+          if (e.key === 'ArrowUp')    dy = +step;
+          if (e.key === 'ArrowDown')  dy = -step;
+          e.preventDefault();
+          if (window.Actions?.panFlowBuilder) Actions.panFlowBuilder(dx, dy);
+          return;
+        }
+        // V40.7.0 — Space: pílula fantasma na posição do mouse. Toggle.
+        if (e.key === ' ' || e.code === 'Space') {
+          e.preventDefault();
+          const last = this._internal.lastMouseCanvas;
+          const cx = last ? last.x : (root.clientWidth / 2);
+          const cy = last ? last.y : (root.clientHeight / 2);
+          if (window.Actions?.toggleFlowBuilderGhostPalette) Actions.toggleFlowBuilderGhostPalette(cx, cy);
+          return;
         }
       });
       this._internal._escListenerAttached = true;
+    }
+    // V40.7.0 — Track posição do mouse pra Space saber onde abrir a pill fantasma.
+    // Salvo no _internal (não em App.state pra não disparar render/save).
+    if (!root._mouseTrackBound) {
+      root.addEventListener('mousemove', (e) => {
+        const r = root.getBoundingClientRect();
+        this._internal.lastMouseCanvas = {
+          x: e.clientX - r.left,
+          y: e.clientY - r.top
+        };
+      });
+      root._mouseTrackBound = true;
+    }
+    // V40.7.0 — Alt+scroll: zoom no canvas com pivô na posição do cursor.
+    if (!root._wheelZoomBound) {
+      root.addEventListener('wheel', (e) => {
+        if (!e.altKey) return; // sem Alt, deixa o browser scrollar normal
+        e.preventDefault();
+        e.stopPropagation();
+        const r = root.getBoundingClientRect();
+        const sx = e.clientX - r.left;
+        const sy = e.clientY - r.top;
+        // deltaY positivo = scroll pra baixo = afasta = zoom out
+        const step = e.deltaY > 0 ? -0.1 : 0.1;
+        if (window.Actions?.zoomFlowBuilderAt) Actions.zoomFlowBuilderAt(step, { sx, sy });
+      }, { passive: false });
+      root._wheelZoomBound = true;
     }
     setTimeout(() => {
       const inputEdit = document.getElementById('flowBuilderEditNodeInput');
