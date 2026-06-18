@@ -70,13 +70,24 @@ window.ActionFlowBuilder = {
     execucao: []
   },
 
+  // V39.12.1 — Mapa de pai → filho hierárquico pra atalho CTRL+drag (cria filho conectado).
+  CHILD_TYPE: {
+    produto: 'campanha',
+    campanha: 'acao',
+    acao: 'execucao',
+    execucao: null
+  },
+
   _internal: {
     container: null,
     dragNode: null,
     pendingConnection: null,
     panning: null,
     dragGhost: null, // { ghostId, offsetX, offsetY }
-    hoveredActionId: null
+    hoveredActionId: null,
+    // V39.12.1 — Box-select com ALT (precisa ter 1 card selecionado pra ditar o tipo).
+    boxSelect: null, // { startX, startY, endX, endY, type }
+    _escListenerAttached: false
   },
 
   typeById(id) {
@@ -149,11 +160,13 @@ window.ActionFlowBuilder = {
     const esteiraCount = nodes.filter(n => this.isEsteira(n.type)).length;
     const novos = nodes.filter(n => this.isEsteira(n.type) && !n.linkedRealId).length;
     const novosLabel = novos > 0 ? ` · ${novos} pendente${novos === 1 ? '' : 's'} de salvar` : '';
+    const selCount = (App.state.flowBuilderSelectedNodeIds || []).length;
+    const selLabel = selCount > 0 ? ` · <span class="text-indigo-300">${selCount} selecionado${selCount === 1 ? '' : 's'}</span>` : '';
     return `<header onclick="if(App.state.flowBuilderPaletteOpen){App.state.flowBuilderPaletteOpen=false;App.save();App.render();}" class="p-6 border-b border-white/10 flex items-start justify-between gap-4">
       <div>
         <div class="flex items-center gap-2 mb-2"><i data-lucide="git-merge" class="w-4 h-4 text-indigo-300"></i><p class="text-xs font-black text-slate-300 uppercase tracking-wider">Flow Builder · Esteira do LJ</p></div>
         <h2 class="text-2xl font-black">Desenhe Produto → Campanha → Ação → Execução</h2>
-        <p class="text-sm text-slate-300 mt-1">${nodes.length} ${nodes.length === 1 ? 'bloco' : 'blocos'} · ${edges.length} ${edges.length === 1 ? 'conexão' : 'conexões'} · ${esteiraCount} da esteira${novosLabel}</p>
+        <p class="text-sm text-slate-300 mt-1">${nodes.length} ${nodes.length === 1 ? 'bloco' : 'blocos'} · ${edges.length} ${edges.length === 1 ? 'conexão' : 'conexões'} · ${esteiraCount} da esteira${novosLabel}${selLabel}</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap justify-end">
         <button onclick="Actions.openFlowBuilderDraftsModal()" title="Salvar rascunho atual ou abrir um rascunho salvo" class="px-3 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-100 text-xs font-black flex items-center gap-1"><i data-lucide="bookmark" class="w-3.5 h-3.5"></i> Rascunhos${(App.state.flowBuilderDrafts || []).length ? ` <span class="ml-1 px-1.5 py-0.5 rounded-full bg-amber-400/30 text-[10px]">${(App.state.flowBuilderDrafts || []).length}</span>` : ''}</button>
@@ -178,6 +191,7 @@ window.ActionFlowBuilder = {
         <li>• <b>Segmentação:</b> botão "Segmentação" na pílula. Arraste uma seg pro canvas (vira fantasma) ou direto pra uma Ação (vira badge). Máx 2 badges por Ação.</li>
         <li>• <b>Remover segmentação:</b> duplo clique no card de Ação abre o modal — lá tem a lista de badges com botão pra remover. Fantasmas soltos podem ir pra lixeira vermelha arrastando.</li>
         <li>• <b>Rascunhos:</b> botão âmbar no header. Salva snapshot do canvas pra continuar depois sem subir nas abas reais. Abrir um rascunho substitui o canvas.</li>
+        <li>• <b>Atalhos:</b> <kbd>CTRL+arrastar</kbd> num card cria o filho da hierarquia já conectado (Produto→Campanha, Campanha→Ação, Ação→Execução). <kbd>Click</kbd> seleciona (shift estende). <kbd>ALT+arrastar</kbd> com seleção desenha retângulo que pega só do mesmo tipo. Vários selecionados + Conexão = conecta todos de uma vez no mesmo destino. <kbd>ESC</kbd> fecha pílula.</li>
         <li>• <b>Carregar campanha:</b> botão azul. Importa Produto + Campanha + Ações + Execuções como blocos pré-vinculados.</li>
         <li>• <b>Salvar:</b> botão verde. Topological: Produto → Campanha → Ação → Execução. Re-saves não duplicam.</li>
       </ul>
@@ -668,6 +682,29 @@ window.ActionFlowBuilder = {
     if (!root) return;
     this._internal.container = root;
     this._drawCanvas();
+    // V39.12.1 — ESC fecha pílula expandida quando builder está aberto. Listener
+    // global registrado UMA vez (idempotente via flag interna).
+    if (!this._internal._escListenerAttached) {
+      window.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        if (!App.state.showFlowBuilderModal) return;
+        // Não interfere se algum modal interno está aberto (deixa o handler do
+        // input próprio cuidar). Esses modais já fecham via tecla Escape via
+        // onkeydown nos inputs/textareas.
+        if (App.state.flowBuilderEditNodeId) return;
+        if (App.state.flowBuilderCustomSegModal) return;
+        if (App.state.flowBuilderDraftsModal) return;
+        if (App.state.flowBuilderLoadCampaignModal) return;
+        if (App.state.flowBuilderClearConfirm) return;
+        if (App.state.flowBuilderDisconnectEdgeId) return;
+        if (App.state.flowBuilderPaletteOpen) {
+          App.state.flowBuilderPaletteOpen = false;
+          App.save(); App.render();
+          e.preventDefault();
+        }
+      });
+      this._internal._escListenerAttached = true;
+    }
     setTimeout(() => {
       const inputEdit = document.getElementById('flowBuilderEditNodeInput');
       if (inputEdit) { inputEdit.focus(); inputEdit.select(); }
@@ -863,8 +900,13 @@ window.ActionFlowBuilder = {
 
   _renderNode(svgNS, parent, node, armedId, edges) {
     const type = this.typeById(node.type);
-    const isArmed = String(armedId) === String(node.id);
-    const otherArmed = armedId && !isArmed;
+    // V39.12.1 — armedId pode ser string única ou array (massa).
+    const armedArr = Array.isArray(armedId) ? armedId.map(String) : (armedId ? [String(armedId)] : []);
+    const isArmed = armedArr.includes(String(node.id));
+    const otherArmed = armedArr.length && !isArmed;
+    // V39.12.1 — Seleção: contorno mais forte quando incluído em selectedNodeIds.
+    const selected = (App.state.flowBuilderSelectedNodeIds || []).map(String);
+    const isSelected = selected.includes(String(node.id));
     const isEsteira = this.isEsteira(node.type);
     const linked = isEsteira && !!node.linkedRealId;
     const isProduto = node.type === 'produto';
@@ -886,8 +928,9 @@ window.ActionFlowBuilder = {
     rect.setAttribute('width', this.NODE_WIDTH); rect.setAttribute('height', this.NODE_HEIGHT);
     rect.setAttribute('rx', 14); rect.setAttribute('ry', 14);
     rect.setAttribute('fill', '#0b1325');
-    rect.setAttribute('stroke', isArmed ? '#38bdf8' : (isHoveredForSeg ? '#fbbf24' : type.color));
-    rect.setAttribute('stroke-width', isHoveredForSeg ? 3.5 : (isEsteira ? (isArmed ? 3 : 2.5) : (isArmed ? 3 : 2)));
+    // V39.12.1 — Selecionado tem stroke branco mais grosso (5px) por cima da cor do tipo.
+    rect.setAttribute('stroke', isArmed ? '#38bdf8' : (isHoveredForSeg ? '#fbbf24' : (isSelected ? '#ffffff' : type.color)));
+    rect.setAttribute('stroke-width', isHoveredForSeg ? 3.5 : (isSelected ? 4.5 : (isEsteira ? (isArmed ? 3 : 2.5) : (isArmed ? 3 : 2))));
     group.appendChild(rect);
 
     // V39.10.4 — Nuance da cor agora vem do drop-shadow individual de cada badge
@@ -1020,13 +1063,17 @@ window.ActionFlowBuilder = {
       group.appendChild(outputPort);
     }
 
-    if (!isExecucao) this._renderConnButton(svgNS, group, node, isArmed, outgoing);
+    if (!isExecucao) this._renderConnButton(svgNS, group, node, isArmed, outgoing, armedArr.length);
     parent.appendChild(group);
   },
 
-  _renderConnButton(svgNS, group, node, isArmed, outgoing) {
+  _renderConnButton(svgNS, group, node, isArmed, outgoing, armedCount = 1) {
     let fill, stroke, textFill, label;
-    if (isArmed) { fill = 'rgba(56,189,248,0.30)'; stroke = '#38bdf8'; textFill = '#e0f2fe'; label = 'Conectando...'; }
+    if (isArmed) {
+      fill = 'rgba(56,189,248,0.30)'; stroke = '#38bdf8'; textFill = '#e0f2fe';
+      // V39.12.1 — Quando armament é em massa, mostra contagem no botão.
+      label = armedCount > 1 ? `Conectando ${armedCount}...` : 'Conectando...';
+    }
     else if (outgoing > 0) { fill = 'rgba(16,185,129,0.20)'; stroke = '#34d399'; textFill = '#a7f3d0'; label = `Conectada (${outgoing})`; }
     else { fill = 'rgba(255,255,255,0.06)'; stroke = '#475569'; textFill = '#cbd5e1'; label = 'Conexão'; }
     const btnY = this.NODE_HEIGHT - 28;
@@ -1219,10 +1266,6 @@ window.ActionFlowBuilder = {
   _onMouseDown(event, svg) {
     const target = event.target;
     if (target.closest && target.closest('.flow-no-drag')) {
-      // V39.11.1 — Badge dentro do card NÃO inicia drag mais. Pointer-events
-      // none nelas previne pegar acidentalmente ao mover o card. Remoção vai
-      // pelo modal de edição (duplo-clique no card).
-      // Fantasma: inicia drag direto
       const ghost = target.closest('.flow-ghost');
       if (ghost) {
         const ghostId = ghost.dataset.ghostId;
@@ -1236,27 +1279,88 @@ window.ActionFlowBuilder = {
       }
       return;
     }
-    const armedId = App.state.flowBuilderConnectionArm;
+    const armed = App.state.flowBuilderConnectionArm;
+    const armedIds = Array.isArray(armed) ? armed.map(String) : (armed ? [String(armed)] : []);
     if (target.classList?.contains('flow-port-output')) {
       const outId = target.dataset.nodeId;
-      if (armedId && String(armedId) === String(outId)) {
-        this._internal.pendingConnection = { fromId: outId };
+      if (armedIds.length && armedIds.includes(String(outId))) {
+        // V39.12.1 — pendingConnection guarda lista de fromIds (massa).
+        this._internal.pendingConnection = { fromIds: armedIds.slice() };
         event.preventDefault();
         return;
       }
-      if (!armedId) {
+      if (!armedIds.length) {
         Utils.toast('Arme a conexão clicando em "Conexão" no bloco primeiro.');
         return;
       }
-      Utils.toast('Outro bloco está armado. Use a porta de saída dele ou clique de novo em "Conexão" pra desarmar.');
+      Utils.toast('Outro bloco está armado. Use a porta de saída de um dos armados ou clique em "Conexão" pra desarmar.');
       return;
     }
     const group = target.closest('g[data-node-id]');
     if (group) {
       const nodeId = group.dataset.nodeId;
-      if (armedId && String(armedId) === String(nodeId)) return;
+      if (armedIds.length && armedIds.includes(String(nodeId))) return;
       const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(nodeId));
       if (!node) return;
+      // V39.12.1 — CTRL+drag em card pai cria filho hierárquico já conectado
+      // e arrasta o NOVO. Útil pra desenhar a esteira em fluência.
+      if (event.ctrlKey || event.metaKey) {
+        const childType = ActionFlowBuilder.CHILD_TYPE[node.type];
+        if (!childType) {
+          Utils.toast('Este bloco é o fim da cadeia (não tem próximo).');
+          event.preventDefault();
+          return;
+        }
+        const wp = this._screenToWorld(svg, event);
+        const newNode = {
+          id: ActionFlowBuilder.genId(),
+          type: childType,
+          name: '',
+          x: Math.round(wp.x - this.NODE_WIDTH / 2),
+          y: Math.round(wp.y - this.NODE_HEIGHT / 2),
+          data: ActionFlowBuilder.defaultData(childType),
+          linkedRealId: null
+        };
+        const newEdge = {
+          id: 'e_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
+          fromId: String(node.id),
+          toId: String(newNode.id)
+        };
+        App.state.flowBuilderNodes = [...(App.state.flowBuilderNodes || []), newNode];
+        App.state.flowBuilderEdges = [...(App.state.flowBuilderEdges || []), newEdge];
+        App.state.flowBuilderSelectedNodeIds = [String(newNode.id)];
+        this._internal.dragNode = { nodeId: String(newNode.id), offsetX: this.NODE_WIDTH / 2, offsetY: this.NODE_HEIGHT / 2 };
+        App.save();
+        setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+        event.preventDefault();
+        return;
+      }
+      // V39.12.1 — ALT+drag em card (com seleção existente): começa box-select
+      // por tipo. Tipo vem do primeiro selecionado, OU do próprio card clicado
+      // se não houver seleção (UX mais permissivo do que toast bloqueante).
+      if (event.altKey) {
+        const sel = App.state.flowBuilderSelectedNodeIds || [];
+        const refType = sel.length
+          ? ((App.state.flowBuilderNodes || []).find(n => String(n.id) === String(sel[0]))?.type)
+          : node.type;
+        if (!refType) return;
+        const wpAlt = this._screenToWorld(svg, event);
+        this._internal.boxSelect = { startX: wpAlt.x, startY: wpAlt.y, endX: wpAlt.x, endY: wpAlt.y, type: refType };
+        event.preventDefault();
+        return;
+      }
+      // V39.12.1 — Click seleciona (shift estende, sem shift substitui).
+      const cur = App.state.flowBuilderSelectedNodeIds || [];
+      if (event.shiftKey) {
+        if (cur.includes(String(nodeId))) {
+          App.state.flowBuilderSelectedNodeIds = cur.filter(id => id !== String(nodeId));
+        } else {
+          App.state.flowBuilderSelectedNodeIds = [...cur, String(nodeId)];
+        }
+      } else if (!cur.includes(String(nodeId))) {
+        App.state.flowBuilderSelectedNodeIds = [String(nodeId)];
+      }
+      // Continua com drag normal
       const wp = this._screenToWorld(svg, event);
       this._internal.dragNode = {
         nodeId,
@@ -1264,9 +1368,31 @@ window.ActionFlowBuilder = {
         offsetY: wp.y - node.y
       };
       group.style.cursor = 'grabbing';
+      App.save();
+      setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
       return;
     }
-    // Área vazia: inicia pan + fecha pílula expandida (V39.12.0 — click fora fecha)
+    // Área vazia
+    // V39.12.1 — ALT+drag em área vazia também começa box-select (precisa de seleção).
+    if (event.altKey) {
+      const sel = App.state.flowBuilderSelectedNodeIds || [];
+      if (!sel.length) {
+        Utils.toast('Selecione um card primeiro (click nele) pra usar Alt+arrastar.');
+        return;
+      }
+      const refType = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(sel[0]))?.type;
+      if (!refType) return;
+      const wp = this._screenToWorld(svg, event);
+      this._internal.boxSelect = { startX: wp.x, startY: wp.y, endX: wp.x, endY: wp.y, type: refType };
+      event.preventDefault();
+      return;
+    }
+    // Click em área vazia: limpa seleção + fecha pílula + inicia pan
+    if ((App.state.flowBuilderSelectedNodeIds || []).length) {
+      App.state.flowBuilderSelectedNodeIds = [];
+      App.save();
+      setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+    }
     if (App.state.flowBuilderPaletteOpen) {
       App.state.flowBuilderPaletteOpen = false;
       App.save();
@@ -1318,10 +1444,40 @@ window.ActionFlowBuilder = {
       if (world) world.setAttribute('transform', `translate(${newPanX}, ${newPanY}) scale(${zoom})`);
       return;
     }
+    // V39.12.1 — Box-select com ALT: desenha retângulo dashed enquanto arrasta.
+    if (this._internal.boxSelect) {
+      const wp = this._screenToWorld(svg, event);
+      this._internal.boxSelect.endX = wp.x;
+      this._internal.boxSelect.endY = wp.y;
+      const old = svg.querySelector('#flowBoxSelect');
+      if (old) old.remove();
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const bs = this._internal.boxSelect;
+      const xMin = Math.min(bs.startX, bs.endX);
+      const yMin = Math.min(bs.startY, bs.endY);
+      const w = Math.abs(bs.endX - bs.startX);
+      const h = Math.abs(bs.endY - bs.startY);
+      const rect = document.createElementNS(svgNS, 'rect');
+      rect.setAttribute('id', 'flowBoxSelect');
+      rect.setAttribute('x', xMin); rect.setAttribute('y', yMin);
+      rect.setAttribute('width', w); rect.setAttribute('height', h);
+      rect.setAttribute('fill', 'rgba(99,102,241,0.10)');
+      rect.setAttribute('stroke', '#818cf8');
+      rect.setAttribute('stroke-width', '1.5');
+      rect.setAttribute('stroke-dasharray', '6 4');
+      rect.style.pointerEvents = 'none';
+      const world = svg.querySelector('#flowWorld');
+      if (world) world.appendChild(rect);
+      return;
+    }
     if (this._internal.pendingConnection) {
       const overlay = svg.querySelector('#flowPendingEdge');
       if (overlay) overlay.remove();
-      const fromNode = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(this._internal.pendingConnection.fromId));
+      // V39.12.1 — Pode ser massa: pega o PRIMEIRO from pra desenhar a guia,
+      // mas o commit em mouseUp aplica em todos os fromIds.
+      const fromIds = this._internal.pendingConnection.fromIds || [];
+      if (!fromIds.length) return;
+      const fromNode = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(fromIds[0]));
       if (!fromNode) return;
       const fromPort = this._outputPort(fromNode);
       const wp = this._screenToWorld(svg, event);
@@ -1334,6 +1490,13 @@ window.ActionFlowBuilder = {
       path.setAttribute('stroke-dasharray', '6 4');
       path.setAttribute('fill', 'none');
       svg.querySelector('#flowEdgesLayer')?.appendChild(path);
+      if (fromIds.length > 1) {
+        const txt = document.createElementNS(svgNS, 'text');
+        txt.setAttribute('x', wp.x + 14); txt.setAttribute('y', wp.y - 8);
+        txt.setAttribute('fill', '#fbbf24'); txt.setAttribute('font-size', '11'); txt.setAttribute('font-weight', '900');
+        txt.textContent = `× ${fromIds.length}`;
+        svg.querySelector('#flowEdgesLayer')?.appendChild(txt);
+      }
       return;
     }
     if (!this._internal.dragNode) return;
@@ -1342,9 +1505,29 @@ window.ActionFlowBuilder = {
     const newX = wp.x - drag.offsetX;
     const newY = wp.y - drag.offsetY;
     const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(drag.nodeId));
-    if (node) { node.x = Math.round(newX); node.y = Math.round(newY); }
-    const group = svg.querySelector(`g[data-node-id="${drag.nodeId}"]`);
-    if (group) group.setAttribute('transform', `translate(${Math.round(newX)}, ${Math.round(newY)})`);
+    if (!node) return;
+    // V39.12.1 — Multi-drag: se o node arrastado faz parte da seleção e há +1
+    // selecionado, todos selecionados se movem juntos preservando offset relativo.
+    const sel = App.state.flowBuilderSelectedNodeIds || [];
+    const oldX = node.x, oldY = node.y;
+    const dx = Math.round(newX) - oldX;
+    const dy = Math.round(newY) - oldY;
+    if (sel.length > 1 && sel.includes(String(drag.nodeId))) {
+      const setSel = new Set(sel.map(String));
+      const nodes = App.state.flowBuilderNodes || [];
+      for (const n of nodes) {
+        if (setSel.has(String(n.id))) {
+          n.x = n.x + dx;
+          n.y = n.y + dy;
+          const g = svg.querySelector(`g[data-node-id="${n.id}"]`);
+          if (g) g.setAttribute('transform', `translate(${n.x}, ${n.y})`);
+        }
+      }
+    } else {
+      node.x = Math.round(newX); node.y = Math.round(newY);
+      const group = svg.querySelector(`g[data-node-id="${drag.nodeId}"]`);
+      if (group) group.setAttribute('transform', `translate(${node.x}, ${node.y})`);
+    }
     this._redrawAllEdges(svg);
   },
 
@@ -1392,6 +1575,36 @@ window.ActionFlowBuilder = {
       setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
       return;
     }
+    // V39.12.1 — Finaliza box-select com ALT: pega todos os nodes do tipo
+    // de referência que ESTÃO dentro do retângulo (qualquer intersecção do
+    // bounding-box do card com o rect serve).
+    if (this._internal.boxSelect) {
+      const bs = this._internal.boxSelect;
+      this._internal.boxSelect = null;
+      const overlay = svg.querySelector('#flowBoxSelect');
+      if (overlay) overlay.remove();
+      const xMin = Math.min(bs.startX, bs.endX);
+      const yMin = Math.min(bs.startY, bs.endY);
+      const xMax = Math.max(bs.startX, bs.endX);
+      const yMax = Math.max(bs.startY, bs.endY);
+      if (Math.abs(xMax - xMin) < 8 || Math.abs(yMax - yMin) < 8) {
+        // Drag pequeno demais — ignora (provavelmente click acidental).
+        App.save();
+        setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+        return;
+      }
+      const W = this.NODE_WIDTH, H = this.NODE_HEIGHT;
+      const matched = (App.state.flowBuilderNodes || []).filter(n =>
+        n.type === bs.type &&
+        n.x + W >= xMin && n.x <= xMax &&
+        n.y + H >= yMin && n.y <= yMax
+      );
+      App.state.flowBuilderSelectedNodeIds = matched.map(n => String(n.id));
+      Utils.toast(`✓ ${matched.length} ${matched.length === 1 ? 'card selecionado' : 'cards selecionados'} (${bs.type}).`);
+      App.save(); App.render();
+      setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+      return;
+    }
     if (this._internal.panning) {
       this._internal.panning = null;
       svg.style.cursor = 'grab';
@@ -1403,11 +1616,12 @@ window.ActionFlowBuilder = {
       const target = event.target;
       const overlay = svg.querySelector('#flowPendingEdge');
       if (overlay) overlay.remove();
-      const fromId = this._internal.pendingConnection.fromId;
+      const fromIds = this._internal.pendingConnection.fromIds || [];
       this._internal.pendingConnection = null;
       if (target.classList?.contains('flow-port-input')) {
         const toId = target.dataset.nodeId;
-        Actions.connectFlowBuilderNodes(fromId, toId);
+        // V39.12.1 — Massa: cria N edges de uma vez (1 por fromId).
+        Actions.connectFlowBuilderNodes(fromIds, toId);
       }
       Actions.cancelFlowBuilderConnection();
       return;
