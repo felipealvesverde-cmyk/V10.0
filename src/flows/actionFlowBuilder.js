@@ -630,23 +630,9 @@ window.ActionFlowBuilder = {
     rect.setAttribute('stroke-width', isHoveredForSeg ? 3.5 : (isEsteira ? (isArmed ? 3 : 2.5) : (isArmed ? 3 : 2)));
     group.appendChild(rect);
 
-    // V39.10.1 — Tint sutil da cor da 1ª segmentação no card de Ação ("nuance")
-    if (isAcao) {
-      const segKeys = Array.isArray(node.data?.segmentations) ? node.data.segmentations : [];
-      if (segKeys.length > 0) {
-        const firstSeg = this.segmentationByKey(segKeys[0]);
-        if (firstSeg && firstSeg.color) {
-          const tint = document.createElementNS(svgNS, 'rect');
-          tint.setAttribute('x', 0); tint.setAttribute('y', 0);
-          tint.setAttribute('width', this.NODE_WIDTH); tint.setAttribute('height', this.NODE_HEIGHT);
-          tint.setAttribute('rx', 14); tint.setAttribute('ry', 14);
-          tint.setAttribute('fill', firstSeg.color);
-          tint.setAttribute('opacity', '0.07');
-          tint.style.pointerEvents = 'none';
-          group.appendChild(tint);
-        }
-      }
-    }
+    // V39.10.4 — Nuance da cor agora vem do drop-shadow individual de cada badge
+    // (renderizado mais embaixo). Tint geral do card removido — quando há 2 badges,
+    // cada uma irradia sua cor no seu canto, não mistura no card inteiro.
 
     if (isArmed || isHoveredForSeg) {
       const aura = document.createElementNS(svgNS, 'rect');
@@ -733,6 +719,9 @@ window.ActionFlowBuilder = {
         badgeG.dataset.nodeId = String(node.id);
         badgeG.dataset.segKey = String(segKey);
         badgeG.style.cursor = 'grab';
+        // V39.10.4 — Drop-shadow colorido em volta da badge = nuance localizada
+        // no canto onde a badge fica. Com 2 badges, 2 halos de cores distintas.
+        badgeG.style.filter = `drop-shadow(0 0 14px ${seg.color}aa) drop-shadow(0 0 4px ${seg.color})`;
         const bRect = document.createElementNS(svgNS, 'rect');
         bRect.setAttribute('x', 0); bRect.setAttribute('y', 0);
         bRect.setAttribute('width', 80); bRect.setAttribute('height', 18);
@@ -915,28 +904,64 @@ window.ActionFlowBuilder = {
     if (trash) trash.style.display = 'none';
   },
 
-  // V39.10.1 — Anima ghost shrinking + sliding pra dentro do card de Ação antes
-  // do badge final aparecer. ease-out cubic, scale center-pivot, ~280ms.
-  _animateGhostToAction(ghostGroup, fromX, fromY, toX, toY, onComplete) {
-    if (!ghostGroup) { if (onComplete) onComplete(); return; }
-    const duration = 280;
-    const start = Date.now();
-    const W = this.GHOST_WIDTH, H = this.GHOST_HEIGHT;
-    const tick = () => {
-      const now = Date.now();
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      const x = fromX + (toX - fromX) * eased;
-      const y = fromY + (toY - fromY) * eased;
-      const scale = 1 - 0.7 * eased;
-      const opacity = 1 - eased;
-      const cx = x + W / 2, cy = y + H / 2;
-      ghostGroup.setAttribute('transform', `translate(${cx}, ${cy}) scale(${scale}) translate(${-W / 2}, ${-H / 2})`);
-      ghostGroup.style.opacity = String(opacity);
-      if (t < 1) requestAnimationFrame(tick);
-      else if (onComplete) onComplete();
-    };
-    requestAnimationFrame(tick);
+  // V39.10.4 — Anima "ghost voando" via div HTML overlay (position fixed). Sai
+  // FORA do SVG pra não morrer no re-render do canvas. CSS transition cubic-bezier
+  // pra ease-out suave. Ghost original some imediato (state update); essa div
+  // é só afterimage visual.
+  _animateGhostFlight(ghost, acao, seg, segIndex) {
+    const canvas = document.getElementById('flowBuilderCanvas');
+    if (!canvas) return;
+    const canvasRect = canvas.getBoundingClientRect();
+    const zoom = Number(App.state.flowBuilderZoom || 1.0) || 1.0;
+    const panX = Number(App.state.flowBuilderPanX || 0);
+    const panY = Number(App.state.flowBuilderPanY || 0);
+
+    // Ghost atual em screen coords (world → svg → screen)
+    const fromX = canvasRect.left + (ghost.x * zoom) + panX;
+    const fromY = canvasRect.top + (ghost.y * zoom) + panY;
+    const w = this.GHOST_WIDTH * zoom;
+    const h = this.GHOST_HEIGHT * zoom;
+
+    // Alvo: onde a badge vai aparecer no card (16 + i * 86, 80)
+    const badgeWorldX = acao.x + 16 + segIndex * 86;
+    const badgeWorldY = acao.y + 80;
+    const toX = canvasRect.left + (badgeWorldX * zoom) + panX;
+    const toY = canvasRect.top + (badgeWorldY * zoom) + panY;
+
+    const div = document.createElement('div');
+    div.style.cssText = `
+      position: fixed;
+      left: ${fromX}px;
+      top: ${fromY}px;
+      width: ${w}px;
+      height: ${h}px;
+      background: ${seg.color}33;
+      border: 1.5px dashed ${seg.color};
+      border-radius: 12px;
+      z-index: 9999;
+      pointer-events: none;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-out;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      box-sizing: border-box;
+      color: ${seg.color};
+      font-weight: 900;
+      font-size: 11px;
+      transform: translate(0, 0) scale(1);
+      opacity: 1;
+      will-change: transform, opacity;
+      box-shadow: 0 0 16px ${seg.color}99;
+    `;
+    div.textContent = (seg.name || '').slice(0, 14);
+    document.body.appendChild(div);
+
+    // Trigger animation no próximo frame (deixa o browser comprometer o estado inicial)
+    requestAnimationFrame(() => {
+      div.style.transform = `translate(${toX - fromX}px, ${toY - fromY}px) scale(0.25)`;
+      div.style.opacity = '0';
+    });
+    setTimeout(() => { try { div.remove(); } catch (_) {} }, 340);
   },
 
   _onMouseDown(event, svg) {
@@ -1110,15 +1135,17 @@ window.ActionFlowBuilder = {
         Actions.removeFlowBuilderGhostSegmentation(ghostId);
         return;
       }
-      // V39.10.2 — Aplicação síncrona (sem animação). A animação assíncrona da
-      // V39.10.1 entrava em race com re-render do canvas: quando o callback
-      // de 280ms rodava, o SVG já tinha sido recriado e o resultado era
-      // imprevisível. Volta o caminho direto: solta na Ação → badge aparece.
+      // V39.10.4 — Aplicação síncrona (badge + remove ghost) E animação em
+      // paralelo via HTML overlay fixed (sai do SVG, sobrevive ao re-render).
       const wp = this._screenToWorld(svg, event);
       const acao = this._findActionAtWorld(wp.x, wp.y);
       if (acao) {
         const ghost = (App.state.flowBuilderGhostSegmentations || []).find(g => String(g.id) === String(ghostId));
         if (ghost) {
+          const seg = this.segmentationByKey(ghost.segKey);
+          const segs = Array.isArray(acao.data?.segmentations) ? acao.data.segmentations : [];
+          const willApply = seg && segs.length < 2 && !segs.includes(ghost.segKey);
+          if (willApply) this._animateGhostFlight(ghost, acao, seg, segs.length);
           const ok = Actions.applyFlowBuilderSegmentationToAction(ghost.segKey, acao.id);
           if (ok) Actions.removeFlowBuilderGhostSegmentation(ghostId);
         }
