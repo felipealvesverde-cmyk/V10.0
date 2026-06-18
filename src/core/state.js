@@ -182,6 +182,12 @@ var State = {
       // V39.10.0 — Custom segmentations criadas pelo tenant: array de
       // `{key, name, color, icon}`. Persistido tenant-level (reuso entre fluxos).
       customSegmentations: [],
+      // V39.11.1 — Rascunhos do Flow Builder. Cada rascunho preserva
+      // `{id, name, savedAt, nodes, edges, ghostSegmentations}` pra Felipe
+      // resguardar um fluxo em andamento sem subir nas abas reais.
+      flowBuilderDrafts: [],
+      flowBuilderDraftsModal: false,
+      flowBuilderDraftNameDraft: '',
       // V37.0.8 — showLpModal/lpDraft/lpEvents/lpRegistry/lpLastPolledAt REMOVIDOS
       // (fluxo LP modal vestigial pré-Tracking V33, sem consumidor moderno).
       showCampaignFlowModal: false,
@@ -1062,6 +1068,21 @@ var State = {
               icon: typeof s.icon === 'string' ? s.icon : 'square'
             }))
         : [],
+      // V39.11.1 — Rascunhos persistidos: lista de snapshots do canvas pra resguardar.
+      flowBuilderDrafts: Array.isArray(raw.flowBuilderDrafts)
+        ? raw.flowBuilderDrafts
+            .filter(d => d && typeof d === 'object' && d.id)
+            .map(d => ({
+              id: String(d.id),
+              name: String(d.name || 'Rascunho'),
+              savedAt: d.savedAt || null,
+              nodes: Array.isArray(d.nodes) ? d.nodes : [],
+              edges: Array.isArray(d.edges) ? d.edges : [],
+              ghostSegmentations: Array.isArray(d.ghostSegmentations) ? d.ghostSegmentations : []
+            }))
+        : [],
+      flowBuilderDraftsModal: false,
+      flowBuilderDraftNameDraft: '',
       flowBuilderDisconnectEdgeId: null,
       flowBuilderEditNodeId: null,
       flowBuilderEditNodeDraft: {},
@@ -1883,6 +1904,8 @@ var State = {
         'flowBuilderPaletteTab','flowBuilderSegCategory','flowBuilderCustomSegModal','flowBuilderCustomSegDraft',
         // V39.11.0 — pílula overlay flutuante: open/close é transient.
         'flowBuilderPaletteOpen',
+        // V39.11.1 — modal de rascunhos + nome digitado são transient (rascunhos em si persistem).
+        'flowBuilderDraftsModal','flowBuilderDraftNameDraft',
         'djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',

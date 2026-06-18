@@ -134,6 +134,7 @@ window.ActionFlowBuilder = {
         ${this._clearConfirmModal()}
         ${this._loadCampaignModal()}
         ${this._customSegmentationModal()}
+        ${this._draftsModal()}
       </div>
     </div>`;
   },
@@ -151,6 +152,7 @@ window.ActionFlowBuilder = {
         <p class="text-sm text-slate-300 mt-1">${nodes.length} ${nodes.length === 1 ? 'bloco' : 'blocos'} · ${edges.length} ${edges.length === 1 ? 'conexão' : 'conexões'} · ${esteiraCount} da esteira${novosLabel}</p>
       </div>
       <div class="flex items-center gap-2 flex-wrap justify-end">
+        <button onclick="Actions.openFlowBuilderDraftsModal()" title="Salvar rascunho atual ou abrir um rascunho salvo" class="px-3 py-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-100 text-xs font-black flex items-center gap-1"><i data-lucide="bookmark" class="w-3.5 h-3.5"></i> Rascunhos${(App.state.flowBuilderDrafts || []).length ? ` <span class="ml-1 px-1.5 py-0.5 rounded-full bg-amber-400/30 text-[10px]">${(App.state.flowBuilderDrafts || []).length}</span>` : ''}</button>
         <button onclick="Actions.openFlowBuilderLoadCampaign()" title="Carregar campanha existente pra editar" class="px-3 py-2.5 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-400/30 text-sky-100 text-xs font-black flex items-center gap-1"><i data-lucide="folder-open" class="w-3.5 h-3.5"></i> Carregar campanha</button>
         <button onclick="Actions.saveFlowBuilder()" title="Salva os blocos da esteira como Produto/Campanha/Ação/Execução reais" class="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black flex items-center gap-1"><i data-lucide="save" class="w-3.5 h-3.5"></i> Salvar esteira</button>
         <button onclick="Actions.toggleFlowBuilderHelp()" title="Como funciona" class="px-3 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-black flex items-center gap-1"><i data-lucide="help-circle" class="w-3.5 h-3.5"></i> Ajuda</button>
@@ -170,7 +172,8 @@ window.ActionFlowBuilder = {
         <li>• <b>Pan do canvas:</b> segure o mouse num espaço vazio e arraste. Botão central da régua de zoom volta pra origem.</li>
         <li>• <b>Editar bloco:</b> duplo clique no bloco abre modal com os campos do tipo.</li>
         <li>• <b>Segmentação:</b> botão "Segmentação" na pílula. Arraste uma seg pro canvas (vira fantasma) ou direto pra uma Ação (vira badge). Máx 2 badges por Ação.</li>
-        <li>• <b>Remover segmentação:</b> segure a badge dentro do card e arraste pra fora (vira fantasma) ou pra lixeira vermelha. Fantasma sozinho pode ir pra lixeira também.</li>
+        <li>• <b>Remover segmentação:</b> duplo clique no card de Ação abre o modal — lá tem a lista de badges com botão pra remover. Fantasmas soltos podem ir pra lixeira vermelha arrastando.</li>
+        <li>• <b>Rascunhos:</b> botão âmbar no header. Salva snapshot do canvas pra continuar depois sem subir nas abas reais. Abrir um rascunho substitui o canvas.</li>
         <li>• <b>Carregar campanha:</b> botão azul. Importa Produto + Campanha + Ações + Execuções como blocos pré-vinculados.</li>
         <li>• <b>Salvar:</b> botão verde. Topological: Produto → Campanha → Ação → Execução. Re-saves não duplicam.</li>
       </ul>
@@ -222,25 +225,27 @@ window.ActionFlowBuilder = {
     </div>`;
   },
 
+  // V39.11.1 — Pílula ~20% maior + ativo com texto/ícone preto pra contraste.
+  // Style inline em color: garante que SVG do Lucide herde o tom escuro (stroke=currentColor).
   _bottomPill(activeTab, isOpen) {
     const tabs = [
       { id: 'esteira',     label: 'Esteira',     icon: 'layers' },
       { id: 'segmentacao', label: 'Segmentação', icon: 'tag' },
       { id: 'mapaReceita', label: 'Mapa',        icon: 'map' }
     ];
-    return `<div class="relative pt-9 pointer-events-auto">
-      <div class="bg-slate-950 border border-white/20 rounded-full px-2 py-2 flex items-center gap-1 shadow-2xl">
+    return `<div class="relative pt-11 pointer-events-auto">
+      <div class="bg-slate-950 border border-white/20 rounded-full px-3 py-2.5 flex items-center gap-1.5 shadow-2xl">
         ${tabs.map(t => {
           const active = activeTab === t.id && isOpen;
           if (active) {
-            return `<button onclick="Actions.setFlowBuilderPaletteTab('${t.id}')" title="${Utils.escape(t.label)} — clique pra fechar" class="w-14 h-14 rounded-full bg-white text-slate-900 shadow-xl flex flex-col items-center justify-center -translate-y-3 hover:bg-slate-100 transition">
-              <i data-lucide="${t.icon}" class="w-4 h-4"></i>
-              <span class="text-[8px] font-black mt-0.5">${Utils.escape(t.label)}</span>
+            return `<button onclick="Actions.setFlowBuilderPaletteTab('${t.id}')" title="${Utils.escape(t.label)} — clique pra fechar" class="w-[68px] h-[68px] rounded-full bg-white shadow-xl flex flex-col items-center justify-center -translate-y-4 hover:bg-slate-100 transition" style="color:#0f172a;">
+              <i data-lucide="${t.icon}" class="w-5 h-5" style="color:#0f172a;"></i>
+              <span class="text-[10px] font-black mt-0.5" style="color:#0f172a;">${Utils.escape(t.label)}</span>
             </button>`;
           }
-          return `<button onclick="Actions.setFlowBuilderPaletteTab('${t.id}')" title="${Utils.escape(t.label)}" class="w-12 h-12 rounded-full bg-transparent text-white flex flex-col items-center justify-center hover:bg-white/10 transition">
-            <i data-lucide="${t.icon}" class="w-4 h-4"></i>
-            <span class="text-[8px] font-black mt-0.5">${Utils.escape(t.label)}</span>
+          return `<button onclick="Actions.setFlowBuilderPaletteTab('${t.id}')" title="${Utils.escape(t.label)}" class="w-[58px] h-[58px] rounded-full bg-transparent text-white flex flex-col items-center justify-center hover:bg-white/10 transition">
+            <i data-lucide="${t.icon}" class="w-5 h-5"></i>
+            <span class="text-[10px] font-black mt-0.5">${Utils.escape(t.label)}</span>
           </button>`;
         }).join('')}
       </div>
@@ -324,6 +329,54 @@ window.ActionFlowBuilder = {
     </div>`;
   },
 
+  // V39.11.1 — Modal Rascunhos: salvar snapshot do canvas atual + lista pra reabrir/apagar.
+  _draftsModal() {
+    if (!App.state.flowBuilderDraftsModal) return '';
+    const drafts = (App.state.flowBuilderDrafts || []).slice().sort((a, b) =>
+      String(b.savedAt || '').localeCompare(String(a.savedAt || ''))
+    );
+    const nameDraft = String(App.state.flowBuilderDraftNameDraft || '');
+    const nodes = App.state.flowBuilderNodes || [];
+    const ghosts = App.state.flowBuilderGhostSegmentations || [];
+    const canSave = !!(nodes.length || ghosts.length);
+    const formatDate = (iso) => {
+      if (!iso) return '—';
+      try {
+        const d = new Date(iso);
+        return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+      } catch (_) { return '—'; }
+    };
+    const list = drafts.length
+      ? drafts.map(d => `<div class="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/10">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-black text-white truncate">${Utils.escape(d.name)}</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">${formatDate(d.savedAt)} · ${(d.nodes || []).length} blocos · ${(d.edges || []).length} conexões${(d.ghostSegmentations || []).length ? ` · ${(d.ghostSegmentations || []).length} fantasmas` : ''}</p>
+          </div>
+          <button onclick="Actions.loadFlowBuilderDraft('${d.id}')" title="Substitui o canvas atual pelo rascunho" class="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black flex items-center gap-1"><i data-lucide="folder-open" class="w-3.5 h-3.5"></i> Abrir</button>
+          <button onclick="Actions.deleteFlowBuilderDraft('${d.id}')" title="Apagar rascunho" class="px-2 py-2 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-200"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+        </div>`).join('')
+      : `<p class="text-xs text-slate-400 text-center py-6">Nenhum rascunho salvo ainda. Use o campo acima pra resguardar o canvas atual.</p>`;
+    return `<div class="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm grid place-items-center p-4">
+      <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-lg text-white max-h-[80vh] flex flex-col">
+        <h3 class="text-xl font-black mb-1 flex items-center gap-2"><i data-lucide="bookmark" class="w-5 h-5 text-amber-300"></i> Rascunhos</h3>
+        <p class="text-xs text-slate-400 mb-4">Salve um snapshot do canvas atual pra continuar depois sem precisar subir nas abas reais. Abrir um rascunho substitui o que estiver no canvas.</p>
+        <div class="rounded-2xl bg-amber-500/10 border border-amber-400/30 p-3 mb-4">
+          <label class="text-[11px] font-black text-amber-200 uppercase tracking-wider">Salvar canvas atual como rascunho</label>
+          <div class="flex gap-2 mt-1.5">
+            <input id="flowBuilderDraftNameInput" value="${Utils.escape(nameDraft)}" oninput="Actions.updateFlowBuilderDraftNameDraft(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();Actions.saveFlowBuilderDraft();}" placeholder="Ex: Lançamento Black Friday — esboço" class="flex-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" />
+            <button onclick="Actions.saveFlowBuilderDraft()" ${canSave ? '' : 'disabled'} class="${canSave ? 'bg-amber-500 hover:bg-amber-600' : 'bg-white/10 cursor-not-allowed'} px-3 py-2.5 rounded-xl text-white text-xs font-black flex items-center gap-1"><i data-lucide="save" class="w-3.5 h-3.5"></i> Salvar</button>
+          </div>
+          ${!canSave ? '<p class="text-[10px] text-slate-400 mt-1.5">Canvas vazio — nada pra rascunhar.</p>' : ''}
+        </div>
+        <p class="text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Rascunhos salvos</p>
+        <div class="flex-1 overflow-auto space-y-1.5 pr-1">${list}</div>
+        <div class="flex justify-end gap-2 mt-4 pt-4 border-t border-white/10">
+          <button onclick="Actions.closeFlowBuilderDraftsModal()" class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-white font-black">Fechar</button>
+        </div>
+      </div>
+    </div>`;
+  },
+
   _disconnectModal() {
     const edgeId = App.state.flowBuilderDisconnectEdgeId;
     if (!edgeId) return '';
@@ -389,6 +442,18 @@ window.ActionFlowBuilder = {
         <p class="text-[10px] text-slate-500 mt-2">A campanha herda o produto via conexão no canvas. Setor, owner, objetivo e demais detalhes ficam pra editar depois na aba <b>Campanhas</b>.</p>`;
     }
     if (typeId === 'acao') {
+      const segKeys = Array.isArray(draft.segmentations) ? draft.segmentations.slice(0, 2) : [];
+      const segChips = segKeys.length
+        ? segKeys.map(k => {
+            const s = this.segmentationByKey(k);
+            if (!s) return '';
+            return `<div class="flex items-center gap-2 px-3 py-2 rounded-xl border" style="background:${s.color}1a;border-color:${s.color}66;">
+              <span class="w-6 h-6 rounded-full grid place-items-center" style="background:${s.color}33;color:${s.color};"><i data-lucide="${s.icon || 'tag'}" class="w-3.5 h-3.5"></i></span>
+              <span class="flex-1 text-xs font-black" style="color:${s.color};">${Utils.escape(s.name)}</span>
+              <button onclick="Actions.removeFlowBuilderEditDraftSegmentation('${k}')" title="Remover esta segmentação" class="w-7 h-7 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-200 grid place-items-center"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+            </div>`;
+          }).join('')
+        : `<p class="text-[11px] text-slate-500 px-1">Nenhuma segmentação. Arraste uma seg do botão <b>Segmentação</b> da pílula pro card.</p>`;
       return `${nameInput}
         <div class="grid grid-cols-2 gap-2 mt-3">
           <div>
@@ -410,6 +475,8 @@ window.ActionFlowBuilder = {
         </div>
         <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider mt-3 block">Objetivo (opcional)</label>
         <textarea oninput="Actions.updateFlowBuilderEditNodeField('objective', this.value)" rows="2" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" placeholder="O que a ação visa entregar...">${v('objective')}</textarea>
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider mt-3 block">Segmentações (máx 2)</label>
+        <div class="mt-1 space-y-1.5">${segChips}</div>
         <p class="text-[10px] text-slate-500 mt-2">Canal, OKRs e configurações operacionais entram depois na aba <b>Ações</b> do LJ.</p>`;
     }
     if (typeId === 'execucao') {
@@ -490,6 +557,8 @@ window.ActionFlowBuilder = {
       if (inputEdit) { inputEdit.focus(); inputEdit.select(); }
       const inputCustom = document.getElementById('flowBuilderCustomSegInput');
       if (inputCustom) { inputCustom.focus(); inputCustom.select(); }
+      const inputDraft = document.getElementById('flowBuilderDraftNameInput');
+      if (inputDraft && !inputEdit && !inputCustom) { inputDraft.focus(); }
     }, 0);
   },
 
@@ -745,6 +814,8 @@ window.ActionFlowBuilder = {
     group.appendChild(stats);
 
     // V39.10.0 — Badges de segmentação só na Ação (máx 2)
+    // V39.11.1 — Badge dentro do card é SÓ layout. Remoção apenas via duplo-clique
+    // → modal de edição (evita arrastar badge sem querer quando move o card).
     if (isAcao) {
       const segKeys = Array.isArray(node.data?.segmentations) ? node.data.segmentations.slice(0, 2) : [];
       segKeys.forEach((segKey, i) => {
@@ -752,10 +823,10 @@ window.ActionFlowBuilder = {
         if (!seg) return;
         const badgeG = document.createElementNS(svgNS, 'g');
         badgeG.setAttribute('transform', `translate(${16 + i * 86}, 80)`);
-        badgeG.setAttribute('class', 'flow-no-drag flow-badge');
+        badgeG.setAttribute('class', 'flow-no-drag flow-badge-static');
         badgeG.dataset.nodeId = String(node.id);
         badgeG.dataset.segKey = String(segKey);
-        badgeG.style.cursor = 'grab';
+        badgeG.style.pointerEvents = 'none';
         // V39.10.4 — Drop-shadow colorido em volta da badge = nuance localizada
         // no canto onde a badge fica. Com 2 badges, 2 halos de cores distintas.
         badgeG.style.filter = `drop-shadow(0 0 14px ${seg.color}aa) drop-shadow(0 0 4px ${seg.color})`;
@@ -1004,30 +1075,9 @@ window.ActionFlowBuilder = {
   _onMouseDown(event, svg) {
     const target = event.target;
     if (target.closest && target.closest('.flow-no-drag')) {
-      // Badge: inicia drag (vira fantasma)
-      const badge = target.closest('.flow-badge');
-      if (badge) {
-        const sourceNodeId = badge.dataset.nodeId;
-        const segKey = badge.dataset.segKey;
-        const wp = this._screenToWorld(svg, event);
-        // Remove badge da Ação, cria fantasma na world coord do mouse
-        const ghostId = ActionFlowBuilder.genGhostId();
-        const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(sourceNodeId));
-        if (node) {
-          node.data = node.data || {};
-          node.data.segmentations = (node.data.segmentations || []).filter(k => k !== segKey);
-        }
-        App.state.flowBuilderGhostSegmentations = [
-          ...(App.state.flowBuilderGhostSegmentations || []),
-          { id: ghostId, segKey, x: wp.x - this.GHOST_WIDTH / 2, y: wp.y - this.GHOST_HEIGHT / 2 }
-        ];
-        this._internal.dragGhost = { ghostId, offsetX: this.GHOST_WIDTH / 2, offsetY: this.GHOST_HEIGHT / 2 };
-        this._showTrash();
-        App.save();
-        setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
-        event.preventDefault();
-        return;
-      }
+      // V39.11.1 — Badge dentro do card NÃO inicia drag mais. Pointer-events
+      // none nelas previne pegar acidentalmente ao mover o card. Remoção vai
+      // pelo modal de edição (duplo-clique no card).
       // Fantasma: inicia drag direto
       const ghost = target.closest('.flow-ghost');
       if (ghost) {
