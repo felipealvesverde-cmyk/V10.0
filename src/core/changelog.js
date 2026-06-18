@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.5.0',
+    date: '2026-06-18',
+    title: 'Polish de F5: sininho/badges/status de integração + state fields normalizados',
+    bullets: [
+      'Sininho de notificações agora hidrata no F5. Antes o badge ficava em 0 até você clicar no modal — agora aparece a contagem real no boot. Aplica também pras preferências de notificação.',
+      'Contadores de pendências (badges de menu) carregam no boot. Antes ficavam vazios e enchiam só depois de você clicar em uma aba específica que disparava o reload.',
+      'Alertas de Reconciliação RD↔LJ (V34.8) entram no F5. Antes só apareciam quando o cron de 15 min rodava — agora aparecem na hora.',
+      'Status de Ga4, Google Ads e Hotmart agora carregam no boot (igual ClickUp já fazia desde V31.2.35). O Health Check (botão verde do header) deixa de mostrar "Não conectado" no F5 pra contas que TINHAM tokens salvos.',
+      '3 state fields legados agora persistem corretamente entre F5: log de conversões RD (auditoria), timestamp do último sync RD Marketing (lógica de cooldown), área ativa do Mapa (cliente volta onde estava). 5 ids de modal/edição (editProductId, editCampaignId, coverageChipSelected, selectedResultCampaignId, strategicActionDetailModalId) classificados como UI volátil — não restauram modal aberto inesperado em F5.',
+      'Sem mudança visual ou de fluxo. É polish de estabilidade — você só nota porque o F5 deixa de "resetar" pequenas coisas.'
+    ]
+  },
+  {
     version: 'V40.4.1',
     date: '2026-06-18',
     title: 'Fix grave: botões de Configurações/Sair, menu Plugins e status de integrações voltam a funcionar',

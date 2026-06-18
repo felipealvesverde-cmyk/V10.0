@@ -202,6 +202,16 @@ var State = {
       // V40.2.0 — Lista de integrationIds habilitados pro tenant atual.
       // Fonte: GET /api/my-tenant-integrations. null = ainda não carregou.
       enabledIntegrationIds: null,
+      // V40.5.0 — Log de conversões RD CRM (histórico bridge LJ↔RD).
+      // Persiste pra debug e auditoria. Truncado pela bridge quando passa de N.
+      rdConversionLog: [],
+      // V40.5.0 — Timestamp do último sync de contatos RD Marketing. Usado
+      // pela lógica de cooldown (não syncar de novo se passou < X min).
+      // null = nunca syncou.
+      rdMarketingLastSyncAt: null,
+      // V40.5.0 — Área ativa do Mapa da Receita (Marketing/Vendas/CS/RevOps).
+      // Persiste entre F5 pro cliente voltar onde estava. null = nenhuma.
+      strategicActiveArea: null,
       // V37.0.8 — showLpModal/lpDraft/lpEvents/lpRegistry/lpLastPolledAt REMOVIDOS
       // (fluxo LP modal vestigial pré-Tracking V33, sem consumidor moderno).
       showCampaignFlowModal: false,
@@ -1103,6 +1113,13 @@ var State = {
       flowBuilderMapResolveView: null,
       enabledPluginIds: null,
       enabledIntegrationIds: null,
+      // V40.5.0 — log de conversões RD (histórico). Aceita array; cap em 500
+      // pra não inflar localStorage indefinidamente (truncate FIFO).
+      rdConversionLog: Array.isArray(raw.rdConversionLog) ? raw.rdConversionLog.slice(-500) : [],
+      // V40.5.0 — timestamp último sync RD Marketing.
+      rdMarketingLastSyncAt: raw.rdMarketingLastSyncAt || null,
+      // V40.5.0 — Área ativa do Mapa (Marketing/Vendas/CS/RevOps).
+      strategicActiveArea: typeof raw.strategicActiveArea === 'string' ? raw.strategicActiveArea : null,
       flowBuilderDisconnectEdgeId: null,
       flowBuilderEditNodeId: null,
       flowBuilderEditNodeDraft: {},
@@ -1934,6 +1951,10 @@ var State = {
         'enabledPluginIds',
         // V40.2.0 — gating de integrações também runtime.
         'enabledIntegrationIds',
+        // V40.5.0 — UI transient: ids de modal/edição em curso. Iniciam fechados
+        // a cada boot pra não restaurar modal aberto inesperado em F5.
+        'editProductId','editCampaignId','coverageChipSelected',
+        'selectedResultCampaignId','strategicActionDetailModalId',
         'djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',
