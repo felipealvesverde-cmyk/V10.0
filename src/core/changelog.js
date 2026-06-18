@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.6.8',
+    date: '2026-06-18',
+    title: 'CRÍTICO: fix syntax error no changelog.js que bloqueava JS desde V39.9.3',
+    bullets: [
+      'BUG CRÍTICO encontrado por Felipe (debug via DevTools): linha 346 do src/core/changelog.js tinha "pan´ando" com apóstrofe não escapado dentro de string com aspas simples. JavaScript interpretava como fim de string em "pan´" e depois lia "ando" como identificador inválido — Uncaught SyntaxError. Esse erro existia desde V39.9.3 (2026-06-17) e bloqueava o carregamento de TODO o changelog.js, possivelmente cascateando pra outros scripts que dependiam de window.LJChangelog estar definido.',
+      'Implicação: provavelmente os fixes que apliquei do V40.6.4 ao V40.6.7 (todos focados no halo do card selecionado do Flow Builder) NÃO chegavam a rodar por causa desse erro. Por isso o halo persistia mesmo após várias releases — não era o código que estava errado, era o syntax error impedindo o JS atualizado de carregar.',
+      'Fix: trocar "pan´ando" por "dando pan" na linha 346. Verificação adicional rodada: nenhuma outra linha do changelog tem apóstrofe ímpar não escapado.',
+      'Agora os fixes anteriores devem finalmente refletir: drop-shadow do tipo desligada no selecionado (V40.6.4), drop-shadow das badges contida (V40.6.5/6), filter off em camada dupla style+attribute (V40.6.7), glow externo sutil 1.5px.'
+    ]
+  },
+  {
     version: 'V40.6.7',
     date: '2026-06-18',
     title: 'Flow Builder: nuke total do filter no card selecionado',
@@ -343,7 +354,7 @@ window.LJChangelog = [
     title: 'Flow Builder com canvas infinito + pan com mouse + render só da viewport',
     bullets: [
       'O canvas do Flow Builder agora é infinito. Antes era um retângulo fixo de 1400×720 com scroll; agora você pode espalhar os blocos em qualquer direção e em qualquer quantidade — coordenadas dos blocos podem ser livres em qualquer lado (incluindo negativo).',
-      'Segure o mouse num espaço vazio do canvas e arraste pra mover a tela (estilo Figma/Miro). O cursor mostra grab/grabbing quando você está pan'ando. Clicar e arrastar em cima de um bloco continua movendo o bloco (não a tela). Clicar e arrastar em cima de uma porta continua armando conexão.',
+      'Segure o mouse num espaço vazio do canvas e arraste pra mover a tela (estilo Figma/Miro). O cursor mostra grab/grabbing quando você está dando pan. Clicar e arrastar em cima de um bloco continua movendo o bloco (não a tela). Clicar e arrastar em cima de uma porta continua armando conexão.',
       'O canvas agora renderiza só os blocos que estão dentro da sua janela visível (com uma margem de segurança de 200px). Blocos que estão fora não são desenhados — performance fica leve mesmo com dezenas/centenas de blocos espalhados.',
       'Zoom expandido pra 25%–300% (antes era 50%–200%). O botão central da régua de zoom agora reseta zoom (100%) E posição da tela (volta pra origem 0,0) — se você se perdeu no canvas, clica nele pra voltar.'
     ]
