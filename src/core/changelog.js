@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.6.3',
+    date: '2026-06-18',
+    title: 'Flow Builder: fix borda branca na seleção + Spotlight com árvore',
+    bullets: [
+      'Fix do bug que Felipe encontrou: ao clicar pra selecionar um card, ele virava com borda BRANCA grossa (4.5px) e os outros cards ganhavam um traço terra mais marcado. Causa: existia um "fast-path" no mouseDown (linha 1706) que atualizava o visual via DOM direto SEM passar pela regra atual do _renderNode. Esse fast-path estava com código pré-V40.6.0 (era da V39.12.1, quando a regra ainda era borda branca). Agora o fast-path reflete a regra atual: cor terra resolvida via nodeColor() + borda 1px + glow externo na cor do tipo no selecionado.',
+      'Spotlight com árvore: quando você seleciona um card, agora os ANCESTRAIS dele (toda a cadeia até o Produto) ficam meio acesos (opacity 0.9) e os DEMAIS cards ficam apagados (opacity 0.35). Identifica visualmente a árvore que o card pertence — você bate o olho no card selecionado e a esteira inteira mostra o caminho até a raiz Produto. Transição suave 0.2s. Quando desseleciona, tudo volta a 100%.',
+      'Helper interno _ancestorsOf(nodeId) sobe a cadeia via edges.toId === currentId até esgotar. Salvaguarda contra loop (max 64 iterações + Set de visitados). Funciona tanto no _renderNode normal quanto no fast-path do mouseDown.'
+    ]
+  },
+  {
     version: 'V40.6.2',
     date: '2026-06-18',
     title: 'Flow Builder: paleta correta — terra/horizonte na hierarquia, setor só na Ação',

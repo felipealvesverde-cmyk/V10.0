@@ -115,6 +115,28 @@ window.ActionFlowBuilder = {
   },
   isEsteira(typeId) { return this.ESTEIRA_TYPES.some(t => t.id === typeId); },
 
+  // V40.6.3 (Leonardo) — Ancestrais de um node na cascata Produto→...→Execução.
+  // Sobe via edges.toId === nodeId até esgotar a cadeia. Usado no spotlight de
+  // seleção: card selecionado fica bright, ancestrais semi-bright, resto dimmed.
+  _ancestorsOf(nodeId, edges, nodes) {
+    const result = new Set();
+    if (nodeId == null) return result;
+    const edgeList = edges || App.state.flowBuilderEdges || [];
+    const seen = new Set([String(nodeId)]);
+    let current = String(nodeId);
+    let safety = 64;
+    while (safety-- > 0) {
+      const incoming = edgeList.find(e => String(e.toId) === current);
+      if (!incoming) break;
+      const parentId = String(incoming.fromId);
+      if (seen.has(parentId)) break;
+      seen.add(parentId);
+      result.add(parentId);
+      current = parentId;
+    }
+    return result;
+  },
+
   // V40.6.2 (Leonardo) — Lei terra/horizonte: SÓ Ação é dinâmica por setor
   // (vira voz vibrante porque é o ato). Produto, Campanha e Execução têm cor
   // própria da escala terrosa — não são vinculadas a Marketing/Vendas/CS.
@@ -1135,8 +1157,7 @@ window.ActionFlowBuilder = {
 
   _renderNode(svgNS, parent, node, armedId, edges) {
     const type = this.typeById(node.type);
-    // V40.6.1 (Leonardo) — Cor resolvida dinamicamente: Ação por setor,
-    // Execução por cascata da ação parent.
+    // V40.6.1 (Leonardo) — Cor resolvida dinamicamente: Ação por setor.
     const allNodes = App.state.flowBuilderNodes || [];
     const resolvedColor = this.isEsteira(node.type) ? this.nodeColor(node, allNodes) : type.color;
     // V39.12.1 — armedId pode ser string única ou array (massa).
@@ -1146,6 +1167,15 @@ window.ActionFlowBuilder = {
     // V39.12.1 — Seleção: contorno mais forte quando incluído em selectedNodeIds.
     const selected = (App.state.flowBuilderSelectedNodeIds || []).map(String);
     const isSelected = selected.includes(String(node.id));
+    // V40.6.3 (Leonardo) — Spotlight com árvore: quando há card selecionado,
+    // ancestrais (cadeia até Produto) ficam semi-bright; resto dimmed. O olho
+    // identifica visualmente a árvore de origem do card focado.
+    const hasSelection = selected.length > 0;
+    let ancestorSet = null;
+    if (hasSelection && !isSelected) {
+      ancestorSet = this._ancestorsOf(selected[0], edges, allNodes);
+    }
+    const isAncestor = !!(ancestorSet && ancestorSet.has(String(node.id)));
     const isEsteira = this.isEsteira(node.type);
     const linked = isEsteira && !!node.linkedRealId;
     const isProduto = node.type === 'produto';
@@ -1157,6 +1187,14 @@ window.ActionFlowBuilder = {
     group.setAttribute('transform', `translate(${node.x}, ${node.y})`);
     group.dataset.nodeId = String(node.id);
     group.style.cursor = isArmed ? 'not-allowed' : 'grab';
+    // V40.6.3 — Spotlight opacity: 1.0 selecionado/sem seleção, 0.9 ancestral
+    // (meio aceso pra identificar a árvore), 0.35 demais (dimmed).
+    if (hasSelection && !isSelected && !isArmed && !isHoveredForSeg) {
+      group.style.opacity = isAncestor ? '0.9' : '0.35';
+    } else {
+      group.style.opacity = '1';
+    }
+    group.style.transition = 'opacity 0.2s ease';
     // V40.6.0 (Leonardo) — profundidade escalonada: Produto enraíza (sombra
     // densa), Execução é folha no fim do galho (sombra leve). A cascata
     // semântica vira topografia visual.
@@ -1703,28 +1741,52 @@ window.ActionFlowBuilder = {
       }
       const changed = next.length !== cur.length || next.some((v, i) => v !== cur[i]);
       App.state.flowBuilderSelectedNodeIds = next;
-      // Atualiza visual de TODOS os cards via DOM (sem destruir SVG).
+      // V40.6.3 (Leonardo) — Atualiza visual de TODOS os cards via DOM sem
+      // destruir SVG. ANTES tinha bug: pintava selecionado de branco 4.5px e
+      // outros com type.color (genérica) 2.5px. Agora reflete a regra V40.6.2:
+      // selecionado ganha glow externo na cor terra + ancestrais semi-bright +
+      // outros dimmed. Cor resolvida via nodeColor() (Ação dinâmica por setor).
       if (changed) {
         const selSet = new Set(next.map(String));
         const allGroups = svg.querySelectorAll('g[data-node-id]');
+        const nodesPool = App.state.flowBuilderNodes || [];
+        const edgesPool = App.state.flowBuilderEdges || [];
+        const ancestorSet = (next.length === 1)
+          ? this._ancestorsOf(next[0], edgesPool, nodesPool)
+          : new Set();
         for (const g of allGroups) {
           const id = g.dataset.nodeId;
-          const rect = g.querySelector('rect');
+          const rect = g.querySelector('rect:not([data-selection-glow])');
           if (!rect) continue;
+          const node2 = nodesPool.find(n => String(n.id) === String(id));
+          if (!node2) continue;
           const isSel = selSet.has(String(id));
+          const resolvedColor = this.isEsteira(node2.type) ? this.nodeColor(node2, nodesPool) : (this.typeById(node2.type)?.color || '#94a3b8');
+          // Limpa glow externo anterior (se houver)
+          const oldGlow = g.querySelector('rect[data-selection-glow]');
+          if (oldGlow) oldGlow.remove();
+          // Stroke do rect principal: cor terra resolvida + 1px (V40.6.1).
+          rect.setAttribute('stroke', resolvedColor);
+          rect.setAttribute('stroke-width', 1);
+          // Spotlight opacity (V40.6.3)
+          const hasSel = selSet.size > 0;
+          let opacity = '1';
+          if (hasSel && !isSel) opacity = ancestorSet.has(String(id)) ? '0.9' : '0.35';
+          g.style.opacity = opacity;
+          g.style.transition = 'opacity 0.2s ease';
+          // Glow externo do selecionado (V40.6.0 rule)
           if (isSel) {
-            rect.setAttribute('stroke', '#ffffff');
-            rect.setAttribute('stroke-width', 4.5);
-          } else {
-            // Restaura aproximação — não vai pegar isArmed/isHoveredForSeg
-            // mas o próximo render natural resolve isso. Para click simples
-            // de seleção é só visual.
-            const node2 = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(id));
-            if (node2) {
-              const type2 = this.typeById(node2.type);
-              rect.setAttribute('stroke', type2.color);
-              rect.setAttribute('stroke-width', this.isEsteira(node2.type) ? 2.5 : 2);
-            }
+            const glow = document.createElementNS(svg.namespaceURI || 'http://www.w3.org/2000/svg', 'rect');
+            glow.setAttribute('data-selection-glow', '1');
+            glow.setAttribute('x', -5); glow.setAttribute('y', -5);
+            glow.setAttribute('width', this.NODE_WIDTH + 10);
+            glow.setAttribute('height', this.NODE_HEIGHT + 10);
+            glow.setAttribute('rx', 18); glow.setAttribute('ry', 18);
+            glow.setAttribute('fill', 'none');
+            glow.setAttribute('stroke', resolvedColor);
+            glow.setAttribute('stroke-width', '3');
+            glow.setAttribute('opacity', '0.45');
+            g.insertBefore(glow, g.firstChild);
           }
         }
         App.save(); // persiste sem render
