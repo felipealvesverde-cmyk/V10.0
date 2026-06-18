@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.6.10',
+    date: '2026-06-18',
+    title: 'Flow Builder: dedup do card fantasma (cursor virava pointer + botão acendia)',
+    bullets: [
+      'Felipe achou o vetor cirúrgico: ao passar mouse no contorno do "fantasma rosa", o cursor virava pointer e o botão Conectada do card real acendia. Significa que existia um CARD INTEIRO duplicado em outra posição com todos os listeners ativos, não só um glow extra.',
+      'Causa raiz suspeita: race condition entre setTimeouts que chamam ActionFlowBuilder.attach() → _drawCanvas. _drawCanvas removia o SVG antigo com querySelector (só o primeiro). Se houvesse 2 SVGs no root (por exemplo, duas chamadas a attach() em sequência muito rápida), sobrava um SVG órfão com todos os cards duplicados.',
+      'Fix em camadas: (1) _drawCanvas agora usa querySelectorAll pra remover TODOS os SVGs antigos, não só o primeiro. (2) Fast-path do mouseDown verifica se algum data-node-id tem mais de um <g> e remove duplicatas mantendo o primeiro. (3) Adicionado console.warn quando dedup roda — Felipe pode abrir DevTools e ver se está sendo disparado.'
+    ]
+  },
+  {
     version: 'V40.6.9',
     date: '2026-06-18',
     title: 'Flow Builder: fix da "sombra rosa deslocada" no card selecionado',
