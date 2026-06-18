@@ -274,12 +274,155 @@ window.ActionFlowBuilder = {
     </div>`;
   },
 
+  // V39.13.0 — Mapa da Receita no Builder: lê produto da esteira, calcula selo
+  // via StrategicMapEngine.getMapSeal, mostra breakdown dos 5 mínimos + fortalecimentos.
+  // Rascunho usa chave proto_<nodeId> em strategicMaps (mesma engine, sem patch).
+  // Form inline de Resolver pros checks 1-3 (rascunho), botão Abrir Mapa real
+  // pros checks 4-5 (precisa publicar) e pra produto já salvo.
   _mapaReceitaPanel() {
-    return `<div class="text-center py-10">
-      <i data-lucide="map" class="w-12 h-12 text-slate-500 mx-auto mb-3"></i>
-      <p class="text-sm font-black text-slate-300">Mapa da Receita</p>
-      <p class="text-xs text-slate-500 mt-1">Em breve — ainda sem conteúdo aqui dentro.</p>
+    const produtoNode = (App.state.flowBuilderNodes || []).find(n => n.type === 'produto');
+    if (!produtoNode) {
+      return `<div class="text-center py-10">
+        <i data-lucide="map" class="w-12 h-12 text-slate-500 mx-auto mb-3"></i>
+        <p class="text-sm font-black text-slate-300">Mapa da Receita</p>
+        <p class="text-xs text-slate-500 mt-1">Adicione um Produto no canvas pra começar.</p>
+      </div>`;
+    }
+    if (!window.StrategicMapEngine?.getMapSeal) {
+      return `<div class="text-center py-10 text-xs text-amber-300">Engine não disponível.</div>`;
+    }
+    const isProto = !produtoNode.linkedRealId;
+    const productKey = isProto ? `proto_${produtoNode.id}` : Number(produtoNode.linkedRealId);
+    const productName = String(produtoNode.data?.name || produtoNode.name || 'sem nome').trim() || 'Produto';
+    const seal = StrategicMapEngine.getMapSeal(productKey);
+
+    const sealColors = {
+      'inactive':    { bg: 'rgba(100,116,139,0.18)', border: 'rgba(148,163,184,0.45)', text: '#cbd5e1', dot: '#94a3b8' },
+      'incomplete':  { bg: 'rgba(239,68,68,0.18)',   border: 'rgba(248,113,113,0.55)', text: '#fca5a5', dot: '#ef4444' },
+      'in-progress': { bg: 'rgba(16,185,129,0.18)',  border: 'rgba(52,211,153,0.55)',  text: '#6ee7b7', dot: '#10b981' }
+    };
+    const sc = sealColors[seal.state];
+
+    const protoBadge = isProto ? `<span class="text-[10px] font-black text-amber-300 bg-amber-500/15 border border-amber-400/30 rounded-full px-2 py-0.5">RASCUNHO</span>` : '';
+    const resolveView = App.state.flowBuilderMapResolveView || null;
+
+    // Header do popup
+    const head = `<div class="flex items-start justify-between gap-3 mb-3">
+      <div class="min-w-0 flex-1">
+        <p class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Mapa da Receita</p>
+        <h3 class="text-lg font-black text-white mt-0.5 truncate flex items-center gap-2">${Utils.escape(productName)} ${protoBadge}</h3>
+      </div>
+      <div class="text-right shrink-0">
+        <div class="inline-flex items-center gap-2 rounded-full px-3 py-2 border" style="background:${sc.bg};border-color:${sc.border};">
+          <span class="inline-block w-2.5 h-2.5 rounded-full" style="background:${sc.dot};"></span>
+          <span class="text-xs font-black" style="color:${sc.text};">${Utils.escape(seal.label)}</span>
+        </div>
+        <p class="text-[10px] text-slate-400 mt-1">${seal.mins} de ${seal.total} mínimos · ${seal.fortifs} fortalecimentos</p>
+      </div>
     </div>`;
+
+    // Se está numa view de resolver inline, renderiza o form
+    if (resolveView && isProto) {
+      return head + this._mapaResolveInline(produtoNode, productKey, resolveView);
+    }
+
+    // Breakdown
+    const items = seal.checks.map(c => {
+      const icon = c.ok ? '✓' : (c.protoBlocked ? '—' : '✗');
+      const iconColor = c.ok ? '#34d399' : (c.protoBlocked ? '#94a3b8' : '#f87171');
+      const iconBg = c.ok ? 'rgba(16,185,129,0.18)' : (c.protoBlocked ? 'rgba(100,116,139,0.18)' : 'rgba(239,68,68,0.18)');
+      let resolveBtn = '';
+      if (!c.ok) {
+        if (c.protoBlocked) {
+          resolveBtn = `<span class="text-[10px] text-slate-400 italic">Salve a esteira pra liberar</span>`;
+        } else if (isProto) {
+          // Pra rascunho, ✗ vision/owner/krs → form inline
+          if (c.id === 'vision') resolveBtn = `<button onclick="Actions.setFlowBuilderMapResolveView('vision')" class="text-[10px] font-black text-indigo-300 hover:text-indigo-100">Resolver →</button>`;
+          else if (c.id === 'owner') resolveBtn = `<button onclick="Actions.setFlowBuilderMapResolveView('owner')" class="text-[10px] font-black text-indigo-300 hover:text-indigo-100">Resolver →</button>`;
+          else if (c.id === 'krs') resolveBtn = `<button onclick="Actions.setFlowBuilderMapResolveView('krs')" class="text-[10px] font-black text-indigo-300 hover:text-indigo-100">Resolver →</button>`;
+        } else {
+          // Produto salvo: abre Mapa real direto no step
+          resolveBtn = `<button onclick="Actions.openStrategicMapAtStep(${productKey}, '${c.step}')" class="text-[10px] font-black text-indigo-300 hover:text-indigo-100">Abrir Mapa →</button>`;
+        }
+      }
+      return `<div class="flex items-center gap-3 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/10">
+        <span class="w-7 h-7 rounded-full grid place-items-center font-black shrink-0" style="background:${iconBg};color:${iconColor};">${icon}</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-black text-white">${Utils.escape(c.label)}</p>
+          ${c.detail ? `<p class="text-[10px] text-slate-400 mt-0.5">${Utils.escape(c.detail)}</p>` : ''}
+        </div>
+        ${resolveBtn}
+      </div>`;
+    }).join('');
+
+    // Footer: pra produto salvo, atalho geral
+    const footer = !isProto
+      ? `<div class="mt-3 flex justify-end"><button onclick="Actions.openStrategicMap(${productKey})" class="text-xs font-black text-indigo-300 hover:text-indigo-100 flex items-center gap-1">Abrir Mapa completo <i data-lucide="external-link" class="w-3 h-3"></i></button></div>`
+      : `<p class="text-[10px] text-slate-500 mt-3 text-center">Esteira em rascunho — preencha aqui o que dá. Os 2 últimos mínimos só desbloqueiam quando você Salvar esteira.</p>`;
+
+    return head + `<div class="space-y-1.5">${items}</div>${footer}`;
+  },
+
+  // V39.13.0 — Form inline pros 3 mínimos preenchíveis no rascunho.
+  // Reusa actions que tocam direto em strategicMaps[proto_<nodeId>] via engine.
+  _mapaResolveInline(produtoNode, productKey, view) {
+    const map = StrategicMapEngine.getForProduct(productKey) || {};
+    const back = `<button onclick="Actions.setFlowBuilderMapResolveView(null)" class="text-[11px] font-black text-slate-300 hover:text-white flex items-center gap-1 mb-3"><i data-lucide="arrow-left" class="w-3 h-3"></i> Voltar ao breakdown</button>`;
+    if (view === 'vision') {
+      const v = String(map.vision || '');
+      return `${back}
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Objetivo do produto</label>
+        <textarea id="flowBuilderMapVisionInput" rows="4" oninput="Actions.setFlowBuilderMapVision(this.value)" placeholder="Qual o objetivo deste produto?" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">${Utils.escape(v)}</textarea>
+        <p class="text-[10px] text-slate-500 mt-1">Vai pra <b>Etapa 1 — Objetivo</b> no Mapa da Receita quando você Salvar esteira.</p>`;
+    }
+    if (view === 'owner') {
+      const ao = map.areaOwners || {};
+      return `${back}
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Donos das frentes</label>
+        <p class="text-[10px] text-slate-500 mt-1">Pelo menos 1 frente precisa ter dono pra liberar este mínimo.</p>
+        <div class="grid grid-cols-3 gap-2 mt-2">
+          <div>
+            <label class="text-[10px] font-black text-pink-300 uppercase tracking-wider">Marketing</label>
+            <input value="${Utils.escape(String(ao.marketing || ''))}" oninput="Actions.setFlowBuilderMapOwner('marketing', this.value)" placeholder="Nome..." class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" />
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-teal-300 uppercase tracking-wider">Vendas</label>
+            <input value="${Utils.escape(String(ao.sales || ''))}" oninput="Actions.setFlowBuilderMapOwner('sales', this.value)" placeholder="Nome..." class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" />
+          </div>
+          <div>
+            <label class="text-[10px] font-black text-sky-300 uppercase tracking-wider">CS</label>
+            <input value="${Utils.escape(String(ao.cs || ''))}" oninput="Actions.setFlowBuilderMapOwner('cs', this.value)" placeholder="Nome..." class="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm" />
+          </div>
+        </div>`;
+    }
+    if (view === 'krs') {
+      const krs = StrategicMapEngine.getProductKrs(productKey);
+      const byArea = { marketing: [], sales: [], cs: [] };
+      for (const k of krs) (byArea[k.area] || []).push(k);
+      const areaBlock = (key, label, color) => {
+        const list = byArea[key] || [];
+        const items = list.map(k => `<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white/[0.04] border border-white/10">
+          <input value="${Utils.escape(String(k.name || ''))}" oninput="Actions.renameFlowBuilderMapKr('${k.id}', this.value)" class="flex-1 bg-transparent text-xs font-black text-white outline-none" />
+          <button onclick="Actions.removeFlowBuilderMapKr('${k.id}')" class="w-5 h-5 rounded text-red-300 hover:text-red-100 grid place-items-center"><i data-lucide="x" class="w-3 h-3"></i></button>
+        </div>`).join('');
+        return `<div class="rounded-xl bg-white/[0.03] border border-white/10 p-3">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-[11px] font-black uppercase tracking-wider" style="color:${color};">${label} <span class="text-slate-400">(${list.length}${list.length < 3 ? ` — faltam ${3 - list.length}` : ''})</span></p>
+            <button onclick="Actions.addFlowBuilderMapKr('${key}')" class="text-[10px] font-black text-indigo-300 hover:text-indigo-100 flex items-center gap-1"><i data-lucide="plus" class="w-3 h-3"></i>Adicionar KR</button>
+          </div>
+          <div class="space-y-1">${items || '<p class="text-[10px] text-slate-500 italic">Nenhum KR ainda. Pelo menos 3 por área.</p>'}</div>
+        </div>`;
+      };
+      return `${back}
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">KRs-mãe por frente</label>
+        <p class="text-[10px] text-slate-500 mt-1 mb-3">Mínimo cravado: <b>3 KRs por área</b>. Adicione abaixo. No Mapa real você refina nome, métrica e metas.</p>
+        <div class="space-y-2">
+          ${areaBlock('marketing', 'Marketing', '#F472B6')}
+          ${areaBlock('sales',     'Vendas',    '#00CBCC')}
+          ${areaBlock('cs',        'CS',        '#6BBEF9')}
+        </div>`;
+    }
+    return back;
   },
 
   _esteiraPanel() {

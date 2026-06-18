@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.13.0',
+    date: '2026-06-18',
+    title: 'Flow Builder ganha o selo do Mapa da Receita — funciona em rascunho e em produto salvo, sem duplicar engine',
+    bullets: [
+      'Slot Mapa da Receita da pílula off-canvas deixou de ser placeholder. Agora mostra o selo do produto da esteira atual (Inativo / Incompleto / Em Construção) calculado em tempo real pela mesma engine que alimenta o Mapa da Receita do LJ. Zero duplicação de lógica: o Builder consome `StrategicMapEngine.getMapSeal()`, ponto.',
+      '5 mínimos cravados pra passar no selo: (1) Objetivo definido, (2) Owner em pelo menos 1 frente, (3) ≥3 KRs em CADA área (Marketing/Vendas/CS), (4) cada KR-mãe com pelo menos uma ação conectada, (5) cada ação conectada com pelo menos uma execução vinculada. Campanha é mínimo implícito (sem ela não dá pra conectar ação a KR). Acima disso, fortalecimentos contam: KRs além de 3, KRs-filhos confirmados, branches plugadas. O selo verde mostra "X de 5 mínimos · Y fortalecimentos" — passou no básico, mais é melhor.',
+      'O selo respeita o rascunho. Se a esteira ainda não foi salva (Produto sem `linkedRealId`), o popup do Mapa mostra badge RASCUNHO e roda contra uma chave proto_<nodeId> dentro de `strategicMaps`. Você prototipa quantos rascunhos quiser e nunca precisa publicar pra ver os 3 primeiros mínimos (Objetivo, Owner, KRs). Os 2 últimos mínimos (ações conectadas + execuções) ficam travados em rascunho — só desbloqueiam ao Salvar esteira, com aviso "Salve a esteira pra liberar".',
+      'Botão "Resolver" em cada ✗ do breakdown leva você ao lugar certo. Em rascunho: abre form INLINE no próprio popup (textarea pro Objetivo, 3 inputs de Owner, lista com "+ Adicionar KR" por área). Em produto salvo: pula direto pro Mapa da Receita real na etapa específica (vision / objectives / okrs / campaign / execution) via `openStrategicMapAtStep`.',
+      'Migração automática ao Salvar esteira: o que você preencheu no rascunho (`strategicMaps[proto_<nodeId>]`) é transferido pra `strategicMaps[productIdReal]` no momento do INSERT do Produto. Nada se perde. Você pode prototipar TODO o Mapa de cabo a rabo no rascunho e, na hora de publicar, ele aparece pronto na aba do Mapa da Receita do LJ.'
+    ]
+  },
+  {
     version: 'V39.12.2',
     date: '2026-06-18',
     title: 'Flow Builder polimento: drag não pega texto, dblclick volta, CTRL+SHIFT duplica, Delete apaga',

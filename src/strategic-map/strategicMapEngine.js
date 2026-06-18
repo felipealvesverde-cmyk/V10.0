@@ -878,6 +878,100 @@ window.StrategicMapEngine = {
     return this.getForProduct(productId)?.productKrs || [];
   },
 
+  // V39.13.0 — Selo de status do Mapa pra ser consumido por outros lugares
+  // (Flow Builder, dashboards futuros). Critérios cravados pelo Felipe (2026-06-18):
+  //   1. Objetivo (vision) preenchido
+  //   2. ≥1 owner em qualquer das 3 frentes (alinha com etapa "objectives" do engine)
+  //   3. ≥3 productKrs em CADA área (marketing, sales, cs) — RIGOROSO
+  //   4. Cada productKr com ≥1 connectedActionIds em alguma branch
+  //   5. Cada ação conectada com ≥1 executionTask
+  //   - Campanha plugada é implícito (sem campanha não dá pra conectar ação a KR).
+  // Aceita productKey como número (real) ou string com prefixo 'proto_' (rascunho
+  // do Flow Builder). Engine grava no mesmo `strategicMaps`, JS aceita ambas as chaves.
+  getMapSeal(productKey) {
+    const map = this.getForProduct(productKey);
+    const isProto = typeof productKey === 'string' && productKey.startsWith('proto_');
+    const vision = String(map?.vision || '').trim();
+    const areaOwners = map?.areaOwners || {};
+    const productKrs = this.getProductKrs(productKey);
+
+    // Branches: só faz sentido pra produto real (rascunho não tem campanhas reais)
+    const branches = isProto ? [] : this.getBranchesByProduct(productKey);
+    const allBranchOkrs = branches.flatMap(b => (b.objectives || []).flatMap(o => o.okrs || []));
+
+    // (1) Objetivo
+    const c1 = Boolean(vision);
+
+    // (2) Owner (≥1 frente — critério do engine, confirmado pelo Felipe)
+    const ownersFilled = ['marketing', 'sales', 'cs'].filter(area => String(areaOwners[area] || '').trim());
+    const c2 = ownersFilled.length > 0;
+
+    // (3) ≥3 productKrs em CADA área
+    const krsByArea = {
+      marketing: productKrs.filter(k => k.area === 'marketing'),
+      sales:     productKrs.filter(k => k.area === 'sales'),
+      cs:        productKrs.filter(k => k.area === 'cs')
+    };
+    const c3 = krsByArea.marketing.length >= 3 && krsByArea.sales.length >= 3 && krsByArea.cs.length >= 3;
+
+    // (4) Cada productKr com ≥1 ação conectada. KR-mãe se considera conectada se
+    // ALGUM KR-filho derivado dela (parentProductKrId === pkr.id) tem connectedActionIds.
+    const pkrIds = new Set(productKrs.map(k => k.id));
+    const connectedPkrIds = new Set();
+    for (const k of allBranchOkrs) {
+      if (k.parentProductKrId && (k.connectedActionIds || []).length > 0) {
+        connectedPkrIds.add(k.parentProductKrId);
+      }
+    }
+    const c4 = productKrs.length > 0 && pkrIds.size === [...pkrIds].filter(id => connectedPkrIds.has(id)).length;
+
+    // (5) Cada ação conectada com ≥1 executionTask
+    const allConnectedActionIds = new Set(
+      allBranchOkrs.flatMap(o => (o.connectedActionIds || []).map(Number))
+    );
+    const tasks = window.ExecutionTaskStore?.all() || [];
+    const linkedActionsWithTask = new Set(
+      tasks.map(t => Number(t.linked_action_id)).filter(id => allConnectedActionIds.has(id))
+    );
+    const c5 = allConnectedActionIds.size > 0 && linkedActionsWithTask.size === allConnectedActionIds.size;
+
+    const checks = [
+      { id: 'vision',       label: 'Objetivo definido',              ok: c1, source: 'strategicMaps.vision', step: 'vision' },
+      { id: 'owner',        label: 'Owner em ao menos 1 frente',     ok: c2, source: 'strategicMaps.areaOwners', step: 'objectives', detail: ownersFilled.length ? `Hoje: ${ownersFilled.length} frente${ownersFilled.length === 1 ? '' : 's'}` : '' },
+      { id: 'krs',          label: '≥3 KRs em cada área',            ok: c3, source: 'strategicMaps.productKrs', step: 'okrs', detail: `M:${krsByArea.marketing.length} V:${krsByArea.sales.length} CS:${krsByArea.cs.length}` },
+      { id: 'krActions',    label: 'Cada KR com ação conectada',     ok: c4, source: 'branches.objectives.okrs.connectedActionIds', step: 'campaign', protoBlocked: isProto, detail: isProto ? 'Salve a esteira pra plugar ações' : `${connectedPkrIds.size}/${productKrs.length} KRs com ação` },
+      { id: 'execTasks',    label: 'Cada ação com execução',         ok: c5, source: 'ExecutionTaskStore', step: 'execution', protoBlocked: isProto, detail: isProto ? 'Salve a esteira pra atrelar tarefas' : `${linkedActionsWithTask.size}/${allConnectedActionIds.size} ações com execução` }
+    ];
+
+    const minsPassed = checks.filter(c => c.ok).length;
+    const total = checks.length;
+    // Fortalecimentos extras: cada KR a mais do mínimo (≥4 em cada área) +
+    // cada KR-filho confirmado + branches plugadas. Recompensa investimento.
+    const extraKrs = Math.max(0, krsByArea.marketing.length - 3) + Math.max(0, krsByArea.sales.length - 3) + Math.max(0, krsByArea.cs.length - 3);
+    const confirmedChildKrs = allBranchOkrs.filter(k => k.confirmed).length;
+    const plugged = branches.length;
+    const fortifs = extraKrs + confirmedChildKrs + plugged;
+
+    let state;
+    // Inativo: nada começou (nenhum dos 5 mínimos passou E não há sinal de movimento)
+    const hasAnyMovement = c1 || c2 || productKrs.length > 0 || branches.length > 0;
+    if (!hasAnyMovement) state = 'inactive';
+    else if (minsPassed < total) state = 'incomplete';
+    else state = 'in-progress'; // "Em Construção" — passou os 5 mínimos, fortifs aumentam força
+
+    return {
+      state,                // 'inactive' | 'incomplete' | 'in-progress'
+      label: state === 'inactive' ? 'Mapa da Receita Inativo'
+           : state === 'incomplete' ? 'Mapa Incompleto'
+           : 'Mapa em Construção',
+      mins: minsPassed,
+      total,
+      fortifs,
+      isProto,
+      checks
+    };
+  },
+
   addProductKr(productId, krData, source = 'ceo') {
     const map = this.ensure(productId);
     const kr = {

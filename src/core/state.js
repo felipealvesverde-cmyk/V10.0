@@ -192,6 +192,9 @@ var State = {
       // shift+click multi-seleciona; click em área vazia limpa. Habilita
       // ALT+box-select por tipo + conexão em massa.
       flowBuilderSelectedNodeIds: [],
+      // V39.13.0 — View de Resolver inline no popup do Mapa da Receita do
+      // Builder (transient): null | 'vision' | 'owner' | 'krs'.
+      flowBuilderMapResolveView: null,
       // V37.0.8 — showLpModal/lpDraft/lpEvents/lpRegistry/lpLastPolledAt REMOVIDOS
       // (fluxo LP modal vestigial pré-Tracking V33, sem consumidor moderno).
       showCampaignFlowModal: false,
@@ -1090,6 +1093,7 @@ var State = {
       flowBuilderDraftsModal: false,
       flowBuilderDraftNameDraft: '',
       flowBuilderSelectedNodeIds: [],
+      flowBuilderMapResolveView: null,
       flowBuilderDisconnectEdgeId: null,
       flowBuilderEditNodeId: null,
       flowBuilderEditNodeDraft: {},
@@ -1915,6 +1919,8 @@ var State = {
         'flowBuilderDraftsModal','flowBuilderDraftNameDraft',
         // V39.12.1 — seleção de cards é transient (reset ao recarregar).
         'flowBuilderSelectedNodeIds',
+        // V39.13.0 — view de Resolver inline do Mapa da Receita do Builder é transient.
+        'flowBuilderMapResolveView',
         'djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',
