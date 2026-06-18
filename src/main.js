@@ -237,6 +237,39 @@ var App = {
           if (window.Actions?.loadEfficiencySummary) {
             setTimeout(() => Actions.loadEfficiencySummary(), 350);
           }
+          // V40.5.0 — Sininho de notificações + prefs. Antes só carregava na
+          // primeira abertura do modal — badge ficava 0 no F5 até clicar.
+          if (window.Actions?.loadNotifications) {
+            setTimeout(() => Actions.loadNotifications(), 400);
+          }
+          if (window.Actions?.loadNotificationPrefs) {
+            setTimeout(() => Actions.loadNotificationPrefs(), 450);
+          }
+          // V40.5.0 — Contadores de pendências (badges de menu).
+          if (window.Actions?.loadPendingCounts) {
+            setTimeout(() => Actions.loadPendingCounts(), 500);
+          }
+          // V40.5.0 — Reconciliação RD↔LJ (V34.8 Engine). Sem isso, alertas no
+          // sininho não aparecem até o cron 15min rodar.
+          if (window.Actions?.loadReconciliationCounts) {
+            setTimeout(() => Actions.loadReconciliationCounts(), 550);
+          }
+          if (window.Actions?.loadReconciliationAlerts) {
+            setTimeout(() => Actions.loadReconciliationAlerts(), 600);
+          }
+          // V40.5.0 — Paridade de status com loadClickupStatus (V31.2.35).
+          // Antes só Ga4/GoogleAds/Hotmart só carregavam ao abrir Settings.
+          // Health Check (botão verde) mostrava "Não conectado" no F5 mesmo
+          // com tokens salvos.
+          if (window.Actions?.loadGa4Status) {
+            setTimeout(() => Actions.loadGa4Status(), 650);
+          }
+          if (window.Actions?.loadGoogleAdsStatus) {
+            setTimeout(() => Actions.loadGoogleAdsStatus(), 700);
+          }
+          if (window.Actions?.loadHotmartStatus) {
+            setTimeout(() => Actions.loadHotmartStatus(), 750);
+          }
         }
         // V32.4.0 (Geraldo Item 6) — hydrateFromConfiguredDatabase removida (V11 folder).
         // V26.0.0 — Atalho global Ctrl+K (Cmd+K) abre modal Djow AI.
