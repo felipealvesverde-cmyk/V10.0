@@ -4584,7 +4584,14 @@ var SettingsModal = {
             ${window.LJCan?.('ops.integracoes') !== false ? this.sectionButton('agents','Agentes Externos','cpu') : ''}
             ${window.LJCan?.('edit.score') !== false ? this.sectionButton('ai','IA','sparkles') : ''}
             ${this.sectionButton('backup','Backup','archive')}
-            ${App.currentUser?.isMaster ? `<div class="border-t border-slate-200 my-3"></div>${this.sectionButton('admin','Administrar Lead Journey','shield-alert')}${this.sectionButton('tenants','Tenants (Global Mode)','layers')}` : ''}
+            ${/* V40.0.0 — As abas "Administrar Lead Journey" e "Tenants (Global Mode)"
+                saíram daqui. Control plane vive em /admin (cockpit separado).
+                Felipe vê o tenant dele igual a qualquer cliente — sem gate de master
+                vazando na UI de produto. Abas removidas:
+                  - admin: sectionButton('admin', 'Administrar Lead Journey', 'shield-alert')
+                  - tenants: sectionButton('tenants', 'Tenants (Global Mode)', 'layers')
+                Os endpoints/painéis ainda existem pra retrocompat de deep-link, mas
+                ninguém acessa pela navegação normal. */ ''}
           </aside>
 
           <section id="settingsModalScroll" class="p-5 lg:p-6 overflow-auto">

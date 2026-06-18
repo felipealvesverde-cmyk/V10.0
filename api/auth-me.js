@@ -17,6 +17,7 @@ module.exports = async function handler(req, res) {
       const result = await req.db.query(
         `SELECT u.id, u.username, u.email, u.is_master, u.is_approved, u.mode, u.default_tenant_id,
                 u.display_name,
+                COALESCE(u.is_lj_operator, u.is_master) AS is_lj_operator,
                 t.slug AS tenant_slug, t.name AS tenant_name, t.status AS tenant_status,
                 t.db_connection_string_enc IS NOT NULL AS tenant_db_plugged
          FROM users u
@@ -37,12 +38,15 @@ module.exports = async function handler(req, res) {
           email: row.email,
           displayName: row.display_name || null,
           isMaster: row.is_master,
+          isLjOperator: row.is_lj_operator || row.is_master,
           mode: row.mode || 'sandbox',
           tenantId: row.default_tenant_id || null,
           tenantSlug: row.tenant_slug || null,
           tenantName: row.tenant_name || null,
           tenantStatus: row.tenant_status || null,
-          tenantDbPlugged: row.tenant_db_plugged || false
+          tenantDbPlugged: row.tenant_db_plugged || false,
+          // V40.0.0 — Se sessão é impersonation, banner amarelo no LJ-cliente.
+          impersonatedBy: req.user.impersonatedBy || null
         }
       });
     } catch (err) {
