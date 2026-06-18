@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.6.9',
+    date: '2026-06-18',
+    title: 'Flow Builder: fix da "sombra rosa deslocada" no card selecionado',
+    bullets: [
+      'Bug encontrado pelo Felipe via observação cirúrgica: o halo só aparecia em Produto/Campanha/Ação (não em Execução) e "sumia depois de um tempo sozinha". Isso era a pista crítica — não era halo CSS, era um SEGUNDO rect glow duplicado.',
+      'Causa raiz: o glow externo criado pelo _renderNode (full re-render do canvas) NÃO tinha o atributo data-selection-glow="1", apenas o fast-path tinha. Quando user clicava pra selecionar, o fast-path tentava remover "rect[data-selection-glow]" — mas o glow do _renderNode não tinha esse atributo, então NÃO era removido. O fast-path então adicionava um NOVO glow, resultando em DOIS glows sobrepostos (mas em posições z-order diferentes: um na frente, outro atrás), criando a "sombra rosa deslocada". "Sumia sozinha" quando qualquer outra ação disparava _drawCanvas (full re-render), que destruía tudo e re-criava do zero.',
+      'Fix: glow do _renderNode agora também ganha data-selection-glow="1". E o fast-path usa querySelectorAll (todos) em vez de querySelector (só o primeiro) pra remover glows residuais de qualquer origem.',
+      'Por que só Produto/Campanha/Ação eram afetados e não Execução: Execução não tem botão "Conexão" nem output port, então o card termina mais "à esquerda" — o glow duplicado em posição z-order ficava menos visível por sobreposição com outros elementos. Em Produto/Campanha/Ação o efeito era óbvio porque havia mais espaço à direita pra a sombra deslocada aparecer.'
+    ]
+  },
+  {
     version: 'V40.6.8',
     date: '2026-06-18',
     title: 'CRÍTICO: fix syntax error no changelog.js que bloqueava JS desde V39.9.3',

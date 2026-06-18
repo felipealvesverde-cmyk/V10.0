@@ -1223,8 +1223,13 @@ window.ActionFlowBuilder = {
 
     // V40.6.7 (Leonardo) — Seleção: glow externo MAIS sutil que V40.6.4.
     // 1.5px stroke + opacity 0.5 + raio +3px. Presença sem qualquer inchar.
+    // V40.6.9 — CRÍTICO: glow ganha data-selection-glow="1" pro fast-path
+    // conseguir identificar e remover quando user troca seleção. Sem esse
+    // attribute, o glow do _renderNode persistia e o fast-path adicionava
+    // OUTRO glow por cima — "sombra rosa deslocada" que Felipe encontrou.
     if (isSelected && !isArmed && !isHoveredForSeg) {
       const glow = document.createElementNS(svgNS, 'rect');
+      glow.setAttribute('data-selection-glow', '1');
       glow.setAttribute('x', -3); glow.setAttribute('y', -3);
       glow.setAttribute('width', this.NODE_WIDTH + 6); glow.setAttribute('height', this.NODE_HEIGHT + 6);
       glow.setAttribute('rx', 15); glow.setAttribute('ry', 15);
@@ -1778,9 +1783,11 @@ window.ActionFlowBuilder = {
           if (!node2) continue;
           const isSel = selSet.has(String(id));
           const resolvedColor = this.isEsteira(node2.type) ? this.nodeColor(node2, nodesPool) : (this.typeById(node2.type)?.color || '#94a3b8');
-          // Limpa glow externo anterior (se houver)
-          const oldGlow = g.querySelector('rect[data-selection-glow]');
-          if (oldGlow) oldGlow.remove();
+          // V40.6.9 — querySelectorAll pega TODOS os glows residuais (caso o
+          // _renderNode anterior tenha criado um sem data-selection-glow ou
+          // tenha sobrado por race condition).
+          const oldGlows = g.querySelectorAll('rect[data-selection-glow]');
+          for (const og of oldGlows) og.remove();
           // Stroke do rect principal: cor terra resolvida + 1px (V40.6.1).
           rect.setAttribute('stroke', resolvedColor);
           rect.setAttribute('stroke-width', 1);
