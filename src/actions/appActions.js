@@ -2981,9 +2981,20 @@ Object.assign(Actions, {
     Utils.toast('✓ Canvas apagado.');
   },
 
-  // V39.10.0 — Painel inferior: tab Esteira ↔ Segmentação.
+  // V39.11.0 — Painel inferior virou pílula overlay flutuante. 3 tabs:
+  // esteira / segmentacao / mapaReceita. Click no botão ativo TOGGLE fecha
+  // o painel expandido (deixa só a pílula visível). Click em outro abre o novo.
   setFlowBuilderPaletteTab(tab) {
-    App.state.flowBuilderPaletteTab = (tab === 'segmentacao') ? 'segmentacao' : 'esteira';
+    const valid = ['esteira', 'segmentacao', 'mapaReceita'];
+    if (!valid.includes(tab)) tab = 'esteira';
+    const current = App.state.flowBuilderPaletteTab;
+    const isOpen = !!App.state.flowBuilderPaletteOpen;
+    if (current === tab && isOpen) {
+      App.state.flowBuilderPaletteOpen = false;
+    } else {
+      App.state.flowBuilderPaletteTab = tab;
+      App.state.flowBuilderPaletteOpen = true;
+    }
     App.save(); App.render();
   },
 

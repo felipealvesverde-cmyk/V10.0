@@ -175,6 +175,7 @@ var State = {
       flowBuilderLoadCampaignModal: false,
       // V39.10.0 — Painel inferior tem 2 tabs (esteira/segmentacao); seg tem 3 cats.
       flowBuilderPaletteTab: 'esteira',
+      flowBuilderPaletteOpen: false,
       flowBuilderSegCategory: 'organic',
       flowBuilderCustomSegModal: false,
       flowBuilderCustomSegDraft: { name: '', color: '#a855f7' },
@@ -1067,6 +1068,7 @@ var State = {
       flowBuilderClearConfirm: false,
       flowBuilderLoadCampaignModal: false,
       flowBuilderPaletteTab: 'esteira',
+      flowBuilderPaletteOpen: false,
       flowBuilderSegCategory: 'organic',
       flowBuilderCustomSegModal: false,
       flowBuilderCustomSegDraft: { name: '', color: '#a855f7' },
@@ -1879,6 +1881,8 @@ var State = {
         'flowBuilderPanX','flowBuilderPanY',
         // V39.10.0 — UI tabs do painel inferior são transient (default ao reabrir).
         'flowBuilderPaletteTab','flowBuilderSegCategory','flowBuilderCustomSegModal','flowBuilderCustomSegDraft',
+        // V39.11.0 — pílula overlay flutuante: open/close é transient.
+        'flowBuilderPaletteOpen',
         'djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',

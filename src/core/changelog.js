@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.11.0',
+    date: '2026-06-18',
+    title: 'Flow Builder: navegação inferior virou pílula off-canvas + Mapa da Receita entra como 3º slot',
+    bullets: [
+      'O painel inferior que reduzia a área do canvas (Esteira + Segmentação) virou uma pílula flutuante off-canvas. Agora o canvas ocupa 78vh inteiros (era 58vh) e a navegação passa POR CIMA dele, não come espaço. O canvas vira protagonista sempre.',
+      'Visual da pílula: barra escura compacta com 3 botões circulares. O botão ativo "salta" pra cima da pílula com background branco — sinaliza claramente onde você está. Inativos ficam discretos dentro da pílula.',
+      'Click no botão ativo fecha o painel expandido (só pílula visível). Click em outro botão troca direto. Click no já fechado abre. Padrão de barra de navegação mobile aplicado pro builder.',
+      'Mapa da Receita entra como 3º slot da pílula, ainda sem conteúdo dentro — placeholder "Em breve" quando você clica. O lugar fica reservado pra próximas ondas de funcionalidade.'
+    ]
+  },
+  {
     version: 'V39.10.4',
     date: '2026-06-18',
     title: 'Flow Builder: animação fantasma→badge volta + nuance de cor agora é por badge (não pelo card todo)',
