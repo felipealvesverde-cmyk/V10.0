@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.10.1',
+    date: '2026-06-18',
+    title: 'Flow Builder: lixeira agora aparece, animação no fantasma e nuances de cor na Ação',
+    bullets: [
+      'Bug: a lixeira vermelha não aparecia durante drag de fantasma. Causa: estava DENTRO do canvas div, que era destruído cada vez que o SVG era redesenhado. Fix: o canvas agora preserva a lixeira durante o redesenho (remove só o SVG anterior, mantém os overlays). Lixeira também ficou maior (96x96px) e ganhou o label "APAGAR" embaixo do ícone — bem visível no canto inferior direito do canvas.',
+      'Animação cravada no fantasma quando ele encontra uma Ação: ele encolhe + desliza pro local exato onde a badge vai aparecer, com fade-out suave (280ms, ease-out). Antes o fantasma sumia "do nada"; agora você vê ele virando badge.',
+      'O card da Ação agora ganha uma nuance sutil da cor da primeira segmentação aplicada. Se você marcou Instagram, o card fica com um tom rosa sutilíssimo (opacity 7%); se marcou Meta Ads, fica com tom azul. Só nuance — não é cor cheia, é só pra dar o sinal visual de que aquela Ação tem identidade de canal.'
+    ]
+  },
+  {
     version: 'V39.10.0',
     date: '2026-06-18',
     title: 'Flow Builder com guardrails de hierarquia + painel inferior + segmentação por canal',
