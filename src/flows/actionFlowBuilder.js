@@ -750,7 +750,7 @@ window.ActionFlowBuilder = {
         bTxt.setAttribute('fill', seg.color); bTxt.setAttribute('font-size', '9'); bTxt.setAttribute('font-weight', '900');
         bTxt.textContent = (seg.name || '').slice(0, 10);
         badgeG.appendChild(bTxt);
-        parent.appendChild(badgeG);
+        group.appendChild(badgeG);
       });
     }
 
