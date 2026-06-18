@@ -2845,13 +2845,30 @@ Object.assign(Actions, {
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
   },
 
+  // V39.10.0 — Guardrails de hierarquia Produto→Campanha→Ação→Execução.
   connectFlowBuilderNodes(fromId, toId) {
     const from = String(fromId), to = String(toId);
     if (from === to) return Utils.toast('Bloco não pode se conectar a si mesmo.');
     const nodes = App.state.flowBuilderNodes || [];
-    if (!nodes.find(n => String(n.id) === from) || !nodes.find(n => String(n.id) === to)) {
-      return Utils.toast('Bloco não encontrado.');
+    const fromNode = nodes.find(n => String(n.id) === from);
+    const toNode = nodes.find(n => String(n.id) === to);
+    if (!fromNode || !toNode) return Utils.toast('Bloco não encontrado.');
+
+    // V39.10.0 — Hierarquia esteira: só conexões permitidas
+    const allowed = window.ActionFlowBuilder?.ALLOWED_CONNECTIONS || {};
+    const isEsteiraFrom = window.ActionFlowBuilder?.isEsteira(fromNode.type);
+    const isEsteiraTo = window.ActionFlowBuilder?.isEsteira(toNode.type);
+    if (isEsteiraFrom || isEsteiraTo) {
+      if (!isEsteiraFrom || !isEsteiraTo) {
+        return Utils.toast('Blocos da Esteira só conectam com outros blocos da Esteira (Auxiliares são separados).');
+      }
+      const validTargets = allowed[fromNode.type] || [];
+      if (!validTargets.includes(toNode.type)) {
+        const typeLabel = (id) => window.ActionFlowBuilder.typeById(id).label;
+        return Utils.toast(`${typeLabel(fromNode.type)} só pode conectar com ${(allowed[fromNode.type] || []).map(typeLabel).join('/') || 'nada (fim de fluxo)'}.`);
+      }
     }
+
     const edges = App.state.flowBuilderEdges || [];
     if (edges.some(e => String(e.fromId) === from && String(e.toId) === to)) {
       return Utils.toast('Essa conexão já existe.');
@@ -2956,11 +2973,133 @@ Object.assign(Actions, {
   confirmFlowBuilderClear() {
     App.state.flowBuilderNodes = [];
     App.state.flowBuilderEdges = [];
+    App.state.flowBuilderGhostSegmentations = [];
     App.state.flowBuilderConnectionArm = null;
     App.state.flowBuilderClearConfirm = false;
     App.save(); App.render();
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
     Utils.toast('✓ Canvas apagado.');
+  },
+
+  // V39.10.0 — Painel inferior: tab Esteira ↔ Segmentação.
+  setFlowBuilderPaletteTab(tab) {
+    App.state.flowBuilderPaletteTab = (tab === 'segmentacao') ? 'segmentacao' : 'esteira';
+    App.save(); App.render();
+  },
+
+  // V39.10.0 — Subtabs da Segmentação (organic/paid/custom).
+  setFlowBuilderSegCategory(cat) {
+    App.state.flowBuilderSegCategory = ['organic','paid','custom'].includes(cat) ? cat : 'organic';
+    App.save(); App.render();
+  },
+
+  // V39.10.0 — Custom segmentation modal (cor via input type=color).
+  openFlowBuilderCustomSegModal() {
+    App.state.flowBuilderCustomSegModal = true;
+    App.state.flowBuilderCustomSegDraft = { name: '', color: '#a855f7' };
+    App.save(); App.render();
+  },
+
+  closeFlowBuilderCustomSegModal() {
+    App.state.flowBuilderCustomSegModal = false;
+    App.state.flowBuilderCustomSegDraft = { name: '', color: '#a855f7' };
+    App.save(); App.render();
+  },
+
+  updateFlowBuilderCustomSegDraft(field, value) {
+    const draft = (App.state.flowBuilderCustomSegDraft && typeof App.state.flowBuilderCustomSegDraft === 'object')
+      ? App.state.flowBuilderCustomSegDraft : { name: '', color: '#a855f7' };
+    draft[String(field)] = String(value || '');
+    App.state.flowBuilderCustomSegDraft = draft;
+    if (field === 'color') App.render(); // re-render pra mostrar preview
+  },
+
+  saveFlowBuilderCustomSegmentation() {
+    const draft = App.state.flowBuilderCustomSegDraft || {};
+    const name = String(draft.name || '').trim();
+    if (!name) return Utils.toast('Dê um nome à segmentação.');
+    if (name.length < 2) return Utils.toast('Nome muito curto.');
+    const color = /^#[0-9a-fA-F]{6}$/.test(String(draft.color || '')) ? draft.color : '#a855f7';
+    const customs = App.state.customSegmentations || [];
+    if (customs.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+      return Utils.toast(`Já existe segmentação chamada "${name}".`);
+    }
+    const key = `custom_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
+    App.state.customSegmentations = [...customs, { key, name, color, icon: 'square' }];
+    App.state.flowBuilderCustomSegModal = false;
+    App.state.flowBuilderCustomSegDraft = { name: '', color: '#a855f7' };
+    App.save(); App.render();
+    Utils.toast(`✓ Segmentação "${name}" salva no tenant.`);
+  },
+
+  deleteFlowBuilderCustomSegmentation(key) {
+    if (!key) return;
+    const seg = (App.state.customSegmentations || []).find(s => s.key === key);
+    if (!seg) return;
+    if (!confirm(`Apagar segmentação "${seg.name}" do tenant? (Badges já aplicadas em Ações ficam órfãs até serem removidas manualmente.)`)) return;
+    App.state.customSegmentations = (App.state.customSegmentations || []).filter(s => s.key !== key);
+    App.save(); App.render();
+    Utils.toast(`✓ Segmentação "${seg.name}" removida do tenant.`);
+  },
+
+  // V39.10.0 — Fantasma de segmentação no canvas (rascunho até virar badge).
+  addFlowBuilderGhostSegmentation(segKey, x, y) {
+    if (!segKey || !window.ActionFlowBuilder?.segmentationByKey(segKey)) return;
+    const ghost = {
+      id: ActionFlowBuilder.genGhostId(),
+      segKey: String(segKey),
+      x: Math.round(Number(x) || 0),
+      y: Math.round(Number(y) || 0)
+    };
+    App.state.flowBuilderGhostSegmentations = [...(App.state.flowBuilderGhostSegmentations || []), ghost];
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+  },
+
+  removeFlowBuilderGhostSegmentation(ghostId) {
+    if (!ghostId) return;
+    App.state.flowBuilderGhostSegmentations = (App.state.flowBuilderGhostSegmentations || []).filter(g => String(g.id) !== String(ghostId));
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+  },
+
+  // V39.10.0 — Aplica segmentação como badge em Ação (máx 2). Retorna boolean.
+  applyFlowBuilderSegmentationToAction(segKey, nodeId) {
+    const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(nodeId));
+    if (!node) return false;
+    if (node.type !== 'acao') {
+      Utils.toast('Segmentação só pode ser aplicada em blocos de Ação.');
+      return false;
+    }
+    const data = node.data || {};
+    const segs = Array.isArray(data.segmentations) ? data.segmentations.slice() : [];
+    if (segs.includes(segKey)) {
+      Utils.toast('Essa segmentação já está aplicada nesta ação.');
+      return false;
+    }
+    if (segs.length >= 2) {
+      Utils.toast(`Máximo 2 segmentações por Ação. Remova uma badge antes (arraste pra fora ou pra lixeira) e tente de novo.`);
+      return false;
+    }
+    segs.push(segKey);
+    App.state.flowBuilderNodes = (App.state.flowBuilderNodes || []).map(n =>
+      String(n.id) === String(nodeId) ? { ...n, data: { ...(n.data || {}), segmentations: segs } } : n
+    );
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+    const seg = ActionFlowBuilder.segmentationByKey(segKey);
+    Utils.toast(`✓ Badge "${seg?.name || segKey}" aplicada.`);
+    return true;
+  },
+
+  removeFlowBuilderSegmentationFromAction(nodeId, segKey) {
+    App.state.flowBuilderNodes = (App.state.flowBuilderNodes || []).map(n => {
+      if (String(n.id) !== String(nodeId)) return n;
+      const segs = Array.isArray(n.data?.segmentations) ? n.data.segmentations.filter(k => k !== segKey) : [];
+      return { ...n, data: { ...(n.data || {}), segmentations: segs } };
+    });
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
   },
 
   cancelFlowBuilderClear() {

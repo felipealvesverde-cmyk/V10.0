@@ -1,12 +1,22 @@
-// V39.9.3 — Flow Builder com canvas infinito + pan/zoom + viewport culling.
-// SVG cobre 100% do container; um <g id="flowWorld"> interno tem
-// transform="translate(panX, panY) scale(zoom)" — esse grupo é o "mundo".
-// Coordenadas dos nós ficam em world space (negativas/infinitas OK).
-// Pan: drag em área vazia (não em nó/porta). Reset zoom reseta pan também.
-// Viewport culling: só renderiza nós/arestas dentro da janela visível.
+// V39.10.0 — Flow Builder com guardrails de hierarquia + painel inferior + segmentação.
+// Mudanças grandes desde V39.9.3:
+//   - Guardrails: Produto sem porta de entrada (só dianteira) · Execução sem
+//     porta de saída (só traseira) · conexões bloqueadas fora da hierarquia
+//     Produto→Campanha→Ação→Execução.
+//   - Paleta lateral REMOVIDA (Auxiliares somem; nodes legacy do tipo aux ainda
+//     renderizam pra compat, mas não há como criar novos).
+//   - Painel inferior full-width com 2 tabs: Esteira (4 blocos) + Segmentação
+//     (Canais Org / Canais Pag / Custom).
+//   - Segmentação: arraste item da paleta pro canvas vira fantasma; arraste em
+//     cima de uma Ação vira badge (máx 2 por Ação). Drag manual de fantasma
+//     no canvas e badges dentro do card; lixeira vermelha aparece durante drag.
+//   - Custom segmentations: cor via input HTML5 color (paleta milhões),
+//     salvas no tenant pra reuso (`App.state.customSegmentations`).
 window.ActionFlowBuilder = {
   NODE_WIDTH: 200,
-  NODE_HEIGHT: 110,
+  NODE_HEIGHT: 130,
+  GHOST_WIDTH: 130,
+  GHOST_HEIGHT: 34,
   VIEWPORT_MARGIN: 200,
 
   ESTEIRA_TYPES: [
@@ -16,7 +26,8 @@ window.ActionFlowBuilder = {
     { id: 'execucao',  label: 'Execução',  icon: 'play',      color: '#10b981', hierarchy: 4 }
   ],
 
-  AUXILIAR_TYPES: [
+  // Mantido pra renderizar nodes legacy de tenants antigos. Sem path pra criar novos.
+  LEGACY_AUX_TYPES: [
     { id: 'channel',  label: 'Canal',    icon: 'radio',           color: '#8b5cf6' },
     { id: 'lp',       label: 'LP',       icon: 'layout',          color: '#a78bfa' },
     { id: 'email',    label: 'Email',    icon: 'mail',            color: '#0ea5e9' },
@@ -29,24 +40,71 @@ window.ActionFlowBuilder = {
     { id: 'custom',   label: 'Custom',   icon: 'square',          color: '#64748b' }
   ],
 
-  _internal: { container: null, dragNode: null, pendingConnection: null, panning: null },
+  SEGMENTATION_CATEGORIES: [
+    { key: 'organic', label: 'Canais Org', icon: 'leaf',        accent: '#10b981', items: [
+      { key: 'instagram',     name: 'Instagram',     color: '#E4405F', icon: 'instagram' },
+      { key: 'facebook',      name: 'Facebook',      color: '#1877F2', icon: 'facebook' },
+      { key: 'tiktok',        name: 'TikTok',        color: '#020617', icon: 'music' },
+      { key: 'whatsapp_org',  name: 'WhatsApp',      color: '#25D366', icon: 'message-circle' },
+      { key: 'google_org',    name: 'Google',        color: '#4285F4', icon: 'search' },
+      { key: 'youtube',       name: 'YouTube',       color: '#FF0000', icon: 'youtube' },
+      { key: 'influenciador', name: 'Influenciador', color: '#F472B6', icon: 'star' },
+      { key: 'newsletter',    name: 'Newsletter',    color: '#F59E0B', icon: 'mail' },
+      { key: 'site',          name: 'Site',          color: '#6366F1', icon: 'globe' }
+    ] },
+    { key: 'paid', label: 'Canais Pag', icon: 'dollar-sign', accent: '#F59E0B', items: [
+      { key: 'meta_ads',        name: 'Meta Ads',     color: '#0866FF', icon: 'target' },
+      { key: 'google_ads',      name: 'Google Ads',   color: '#4285F4', icon: 'megaphone' },
+      { key: 'patrocinada',     name: 'Patrocinada',  color: '#A855F7', icon: 'badge-dollar-sign' },
+      { key: 'influencer_paid', name: 'Influencer',   color: '#EC4899', icon: 'star' },
+      { key: 'retail_midia',    name: 'Retail Mídia', color: '#F97316', icon: 'shopping-bag' },
+      { key: 'linkedin',        name: 'LinkedIn',     color: '#0A66C2', icon: 'linkedin' },
+      { key: 'ooh',             name: 'OOH',          color: '#10B981', icon: 'tv' }
+    ] }
+  ],
+
+  ALLOWED_CONNECTIONS: {
+    produto: ['campanha'],
+    campanha: ['acao'],
+    acao: ['execucao'],
+    execucao: []
+  },
+
+  _internal: {
+    container: null,
+    dragNode: null,
+    pendingConnection: null,
+    panning: null,
+    dragGhost: null, // { ghostId, offsetX, offsetY }
+    hoveredActionId: null
+  },
 
   typeById(id) {
     return this.ESTEIRA_TYPES.find(t => t.id === id)
-      || this.AUXILIAR_TYPES.find(t => t.id === id)
-      || this.AUXILIAR_TYPES[this.AUXILIAR_TYPES.length - 1];
+      || this.LEGACY_AUX_TYPES.find(t => t.id === id)
+      || this.LEGACY_AUX_TYPES[this.LEGACY_AUX_TYPES.length - 1];
   },
-
   isEsteira(typeId) { return this.ESTEIRA_TYPES.some(t => t.id === typeId); },
 
-  genId() { return `n_${Date.now()}_${Math.floor(Math.random() * 100000)}`; },
+  segmentationByKey(key) {
+    if (!key) return null;
+    for (const cat of this.SEGMENTATION_CATEGORIES) {
+      const item = cat.items.find(i => i.key === key);
+      if (item) return { ...item, category: cat.key };
+    }
+    const custom = (App.state.customSegmentations || []).find(s => s.key === key);
+    if (custom) return { ...custom, category: 'custom' };
+    return null;
+  },
 
-  // Default `data` por tipo da Esteira (campos mínimos)
+  genId() { return `n_${Date.now()}_${Math.floor(Math.random() * 100000)}`; },
+  genGhostId() { return `gh_${Date.now()}_${Math.floor(Math.random() * 100000)}`; },
+
   defaultData(typeId) {
     switch (typeId) {
       case 'produto':  return { name: '', revenueModel: 'Venda única', type: '', price: '' };
       case 'campanha': return { name: '' };
-      case 'acao':     return { name: '', sector: 'Marketing', funnel: 'MOF', objective: '' };
+      case 'acao':     return { name: '', sector: 'Marketing', funnel: 'MOF', objective: '', segmentations: [] };
       case 'execucao': return { name: '' };
       default:         return { name: '' };
     }
@@ -59,19 +117,23 @@ window.ActionFlowBuilder = {
       <div class="rounded-[2rem] overflow-hidden shadow-2xl text-white" style="width:90vw;max-width:none;background: radial-gradient(circle at 18% 10%, rgba(99,102,241,.22), transparent 30%), #071326;">
         ${this._header()}
         ${App.state.flowBuilderShowHelp ? this._helpPanel() : ''}
-        <div class="p-6 grid grid-cols-[minmax(0,1fr)_300px] gap-5">
+        <div class="p-6 space-y-3">
           <div class="relative min-w-0">
             ${this._zoomControls(zoom)}
-            <div id="flowBuilderCanvas" class="relative rounded-3xl border border-white/10 bg-white/[0.04] h-[78vh] overflow-hidden min-w-0">
+            <div id="flowBuilderCanvas" class="relative rounded-3xl border border-white/10 bg-white/[0.04] h-[58vh] overflow-hidden min-w-0"
+                 ondragover="ActionFlowBuilder._onCanvasDragOver(event)"
+                 ondrop="ActionFlowBuilder._onCanvasDrop(event)">
               ${this._emptyCanvasHint()}
+              ${this._trashBin()}
             </div>
           </div>
-          ${this._palette()}
+          ${this._bottomPanel()}
         </div>
         ${this._disconnectModal()}
         ${this._editNodeModal()}
         ${this._clearConfirmModal()}
         ${this._loadCampaignModal()}
+        ${this._customSegmentationModal()}
       </div>
     </div>`;
   },
@@ -102,14 +164,15 @@ window.ActionFlowBuilder = {
     return `<div class="mx-6 mt-4 rounded-2xl bg-indigo-500/15 border border-indigo-400/30 p-4 text-sm text-indigo-100">
       <div class="flex items-start justify-between gap-3 mb-2"><p class="font-black">Como funciona o Flow Builder</p><button onclick="Actions.toggleFlowBuilderHelp()" class="text-indigo-200 text-xs font-black">×</button></div>
       <ul class="space-y-1 text-xs">
-        <li>• <b>Esteira:</b> Produto · Campanha · Ação · Execução. Quando salvar, essas entidades viram reais nas abas do LJ.</li>
-        <li>• <b>Auxiliares:</b> Email, SDR, WhatsApp, Webinar, LP, Checkout, CRM, CS, Canal, Custom. Servem só pra rascunho visual — não geram nada ao salvar.</li>
-        <li>• <b>Adicionar bloco:</b> clique num tipo na paleta direita. Esteira abre modal automático pedindo nome + campos do tipo.</li>
-        <li>• <b>Conectar:</b> Produto → Campanha → Ação → Execução. Clique em <b>Conexão</b> no bloco de origem → arraste da porta de saída até a porta de entrada do bloco de destino.</li>
+        <li>• <b>Esteira:</b> Produto · Campanha · Ação · Execução. Quando salvar, viram entidades reais nas abas do LJ.</li>
+        <li>• <b>Adicionar bloco:</b> clique num tipo da Esteira no painel embaixo. Esteira abre modal pedindo nome + campos do tipo.</li>
+        <li>• <b>Hierarquia rígida de conexão:</b> Produto → Campanha · Campanha → Ação · Ação → Execução. Tentar conectar fora dessa cadeia é bloqueado.</li>
+        <li>• <b>Pan do canvas:</b> segure o mouse num espaço vazio e arraste. Botão central da régua de zoom volta pra origem.</li>
         <li>• <b>Editar bloco:</b> duplo clique no bloco abre modal com os campos do tipo.</li>
-        <li>• <b>Carregar campanha existente:</b> botão azul no header. Importa Produto + Campanha + Ações + Execuções daquela campanha pra editar.</li>
-        <li>• <b>Salvar:</b> botão verde no header. Cria Produto/Campanha/Ação/Execução reais a partir dos blocos da esteira. Blocos já salvos (com vínculo cravado) não são duplicados.</li>
-        <li>• <b>Limpar:</b> apaga tudo do canvas (não desfaz o que já foi salvo nas abas do LJ).</li>
+        <li>• <b>Segmentação:</b> tab "Segmentação" no painel embaixo. Arraste uma seg pro canvas (vira fantasma) ou direto pra uma Ação (vira badge). Máx 2 badges por Ação.</li>
+        <li>• <b>Remover segmentação:</b> segure a badge dentro do card e arraste pra fora (vira fantasma) ou pra lixeira vermelha. Fantasma sozinho pode ir pra lixeira também.</li>
+        <li>• <b>Carregar campanha:</b> botão azul. Importa Produto + Campanha + Ações + Execuções como blocos pré-vinculados.</li>
+        <li>• <b>Salvar:</b> botão verde. Topological: Produto → Campanha → Ação → Execução. Re-saves não duplicam.</li>
       </ul>
     </div>`;
   },
@@ -120,7 +183,7 @@ window.ActionFlowBuilder = {
     return `<div class="absolute inset-0 grid place-items-center text-center p-6 pointer-events-none">
       <div class="max-w-md">
         <i data-lucide="git-merge" class="w-8 h-8 text-indigo-300 mx-auto mb-3"></i>
-        <p class="text-sm text-slate-300">Canvas vazio. Clique em <b>Produto</b> na paleta pra começar uma esteira nova, ou em <b>Carregar campanha</b> no header pra continuar uma existente.</p>
+        <p class="text-sm text-slate-300">Canvas vazio. Clique em <b>Produto</b> no painel embaixo pra começar, ou em <b>Carregar campanha</b> no header pra continuar uma existente.</p>
       </div>
     </div>`;
   },
@@ -128,35 +191,99 @@ window.ActionFlowBuilder = {
   _zoomControls(zoom) {
     return `<div class="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-2xl bg-slate-950/80 border border-white/10 p-1">
       <button onclick="Actions.setFlowBuilderZoom(-0.1)" title="Diminuir zoom" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 text-white font-black"><i data-lucide="minus" class="w-3.5 h-3.5 mx-auto"></i></button>
-      <button onclick="Actions.resetFlowBuilderZoom()" title="Resetar zoom para 100%" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-black">${Math.round(zoom * 100)}%</button>
+      <button onclick="Actions.resetFlowBuilderZoom()" title="Resetar zoom e voltar pra origem" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-[11px] font-black">${Math.round(zoom * 100)}%</button>
       <button onclick="Actions.setFlowBuilderZoom(0.1)" title="Aumentar zoom" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/15 text-white font-black"><i data-lucide="plus" class="w-3.5 h-3.5 mx-auto"></i></button>
     </div>`;
   },
 
-  _palette() {
-    const esteiraItems = this.ESTEIRA_TYPES.map(t => this._paletteItem(t, true)).join('');
-    const auxItems = this.AUXILIAR_TYPES.map(t => this._paletteItem(t, false)).join('');
-    return `<aside class="rounded-3xl border border-white/10 bg-white/[0.055] p-4 max-h-[78vh] overflow-auto space-y-5">
-      <section>
-        <h3 class="font-black text-sm uppercase tracking-wider text-emerald-300 mb-1 flex items-center gap-1.5"><i data-lucide="layers" class="w-3.5 h-3.5"></i> Esteira</h3>
-        <p class="text-xs text-slate-400 mb-2">Vira Produto/Campanha/Ação/Execução real ao salvar.</p>
-        <div class="space-y-2">${esteiraItems}</div>
-      </section>
-      <section>
-        <h3 class="font-black text-sm uppercase tracking-wider text-slate-400 mb-1 flex items-center gap-1.5"><i data-lucide="sticky-note" class="w-3.5 h-3.5"></i> Auxiliares</h3>
-        <p class="text-xs text-slate-400 mb-2">Só rascunho visual — não geram entidade ao salvar.</p>
-        <div class="space-y-2">${auxItems}</div>
-      </section>
-    </aside>`;
+  _trashBin() {
+    return `<div id="flowBuilderTrashBin" style="display:none;" class="absolute bottom-4 right-4 z-20 w-16 h-16 rounded-2xl bg-red-500/25 border-2 border-red-400/60 grid place-items-center text-red-200 pointer-events-none animate-pulse">
+      <i data-lucide="trash-2" class="w-7 h-7"></i>
+    </div>`;
   },
 
-  _paletteItem(t, isEsteira) {
-    const borderAccent = isEsteira ? `border-left: 4px solid ${t.color};` : `border-left: 3px solid ${t.color};`;
-    return `<button onclick="Actions.addFlowBuilderNode('${t.id}')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.10] border border-white/10 text-white text-left transition" style="${borderAccent}">
-      <span class="w-7 h-7 rounded-lg grid place-items-center" style="background:${t.color}22;color:${t.color};"><i data-lucide="${t.icon}" class="w-3.5 h-3.5"></i></span>
-      <span class="text-sm font-black flex-1">${Utils.escape(t.label)}</span>
-      <i data-lucide="plus" class="w-3.5 h-3.5 text-slate-400"></i>
-    </button>`;
+  _bottomPanel() {
+    const tab = App.state.flowBuilderPaletteTab || 'esteira';
+    return `<div class="rounded-3xl border border-white/10 bg-white/[0.055] p-4">
+      <div class="flex gap-2 mb-3 border-b border-white/10 pb-3">
+        <button onclick="Actions.setFlowBuilderPaletteTab('esteira')" class="${tab === 'esteira' ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-100' : 'bg-white/5 border-white/10 text-slate-300'} px-4 py-2 rounded-xl font-black text-xs border flex items-center gap-1.5">
+          <i data-lucide="layers" class="w-3.5 h-3.5"></i> Esteira
+        </button>
+        <button onclick="Actions.setFlowBuilderPaletteTab('segmentacao')" class="${tab === 'segmentacao' ? 'bg-sky-500/20 border-sky-400/40 text-sky-100' : 'bg-white/5 border-white/10 text-slate-300'} px-4 py-2 rounded-xl font-black text-xs border flex items-center gap-1.5">
+          <i data-lucide="tag" class="w-3.5 h-3.5"></i> Segmentação
+        </button>
+      </div>
+      ${tab === 'esteira' ? this._esteiraPanel() : this._segmentacaoPanel()}
+    </div>`;
+  },
+
+  _esteiraPanel() {
+    const items = this.ESTEIRA_TYPES.map(t => `
+      <button onclick="Actions.addFlowBuilderNode('${t.id}')" class="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.10] border border-white/10 text-white text-left transition" style="border-left: 4px solid ${t.color};">
+        <span class="w-9 h-9 rounded-xl grid place-items-center" style="background:${t.color}22;color:${t.color};"><i data-lucide="${t.icon}" class="w-4 h-4"></i></span>
+        <span class="text-sm font-black flex-1">${Utils.escape(t.label)}</span>
+        <i data-lucide="plus" class="w-4 h-4 text-slate-400"></i>
+      </button>
+    `).join('');
+    return `<div class="grid grid-cols-4 gap-3">${items}</div>
+      <p class="text-[10px] text-slate-500 mt-3">Hierarquia rígida: Produto → Campanha → Ação → Execução. Produto não recebe entrada; Execução não tem saída.</p>`;
+  },
+
+  _segmentacaoPanel() {
+    const cat = App.state.flowBuilderSegCategory || 'organic';
+    const customs = App.state.customSegmentations || [];
+    const subtabs = `
+      <div class="flex gap-2 mb-3 flex-wrap items-center">
+        <button onclick="Actions.setFlowBuilderSegCategory('organic')" class="${cat === 'organic' ? 'bg-emerald-500/25 border-emerald-400/50 text-emerald-100' : 'bg-white/5 border-white/10 text-slate-300'} px-3 py-1.5 rounded-full font-black text-[11px] border flex items-center gap-1.5"><i data-lucide="leaf" class="w-3 h-3"></i> Canais Org</button>
+        <button onclick="Actions.setFlowBuilderSegCategory('paid')" class="${cat === 'paid' ? 'bg-amber-500/25 border-amber-400/50 text-amber-100' : 'bg-white/5 border-white/10 text-slate-300'} px-3 py-1.5 rounded-full font-black text-[11px] border flex items-center gap-1.5"><i data-lucide="dollar-sign" class="w-3 h-3"></i> Canais Pag</button>
+        <button onclick="Actions.setFlowBuilderSegCategory('custom')" class="${cat === 'custom' ? 'bg-purple-500/25 border-purple-400/50 text-purple-100' : 'bg-white/5 border-white/10 text-slate-300'} px-3 py-1.5 rounded-full font-black text-[11px] border flex items-center gap-1.5"><i data-lucide="paintbrush" class="w-3 h-3"></i> Custom</button>
+        ${cat === 'custom' ? `<button onclick="Actions.openFlowBuilderCustomSegModal()" class="ml-auto px-3 py-1.5 rounded-full font-black text-[11px] bg-purple-500 hover:bg-purple-600 text-white flex items-center gap-1.5"><i data-lucide="plus" class="w-3 h-3"></i> Nova segmentação</button>` : ''}
+      </div>`;
+
+    let items;
+    if (cat === 'custom') items = customs;
+    else items = this.SEGMENTATION_CATEGORIES.find(c => c.key === cat)?.items || [];
+
+    if (cat === 'custom' && !items.length) {
+      return `${subtabs}<p class="text-xs text-slate-400 py-6 text-center">Nenhuma segmentação custom criada ainda. Clique em "Nova segmentação" pra criar a primeira.</p>`;
+    }
+
+    const itemsHtml = items.map(item => `
+      <div draggable="true"
+           ondragstart="ActionFlowBuilder._onPaletteSegDragStart(event, '${item.key}')"
+           class="cursor-grab active:cursor-grabbing flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.10] border border-white/10 text-white relative group"
+           style="border-left: 3px solid ${item.color};">
+        <span class="w-6 h-6 rounded-lg grid place-items-center shrink-0" style="background:${item.color}33;color:${item.color};"><i data-lucide="${item.icon || 'tag'}" class="w-3 h-3"></i></span>
+        <span class="text-xs font-black flex-1 truncate">${Utils.escape(item.name)}</span>
+        ${cat === 'custom' ? `<button onclick="event.stopPropagation();Actions.deleteFlowBuilderCustomSegmentation('${item.key}')" title="Apagar do tenant" class="opacity-0 group-hover:opacity-100 text-red-300 hover:text-red-100 transition"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>` : ''}
+      </div>
+    `).join('');
+
+    return `${subtabs}<div class="grid grid-cols-5 gap-2">${itemsHtml}</div>
+      <p class="text-[10px] text-slate-500 mt-3">Arraste pro canvas (vira fantasma) ou direto pra um bloco de <b>Ação</b> (vira badge — máx 2 por ação).</p>`;
+  },
+
+  _customSegmentationModal() {
+    if (!App.state.flowBuilderCustomSegModal) return '';
+    const draft = App.state.flowBuilderCustomSegDraft || { name: '', color: '#a855f7' };
+    return `<div class="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm grid place-items-center p-4">
+      <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md text-white">
+        <h3 class="text-xl font-black mb-1">Nova segmentação custom</h3>
+        <p class="text-xs text-slate-400 mb-4">Salva permanente no tenant — fica disponível em todos os fluxos.</p>
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider">Nome</label>
+        <input id="flowBuilderCustomSegInput" value="${Utils.escape(draft.name)}" oninput="Actions.updateFlowBuilderCustomSegDraft('name', this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();Actions.saveFlowBuilderCustomSegmentation();}else if(event.key==='Escape'){event.preventDefault();Actions.closeFlowBuilderCustomSegModal();}" placeholder="Ex: Black Friday 2026" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-slate-950 border border-white/15 text-white font-semibold text-sm">
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider mt-3 block">Cor (paleta livre)</label>
+        <div class="flex items-center gap-3 mt-1">
+          <input type="color" value="${draft.color}" oninput="Actions.updateFlowBuilderCustomSegDraft('color', this.value)" class="w-14 h-14 rounded-xl border-2 border-white/15 cursor-pointer bg-transparent" title="Clique pra abrir paleta">
+          <span class="text-xs font-black px-3 py-2 rounded-lg" style="background:${draft.color}33;color:${draft.color};border:1px solid ${draft.color}66;">${draft.color}</span>
+          <span class="text-[10px] text-slate-500">Clique no quadrado pra abrir paleta de milhões de cores.</span>
+        </div>
+        <div class="flex justify-end gap-2 mt-5">
+          <button onclick="Actions.closeFlowBuilderCustomSegModal()" class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-white font-black">Cancelar</button>
+          <button onclick="Actions.saveFlowBuilderCustomSegmentation()" class="px-4 py-3 rounded-2xl bg-purple-500 hover:bg-purple-600 text-white font-black">Salvar</button>
+        </div>
+      </div>
+    </div>`;
   },
 
   _disconnectModal() {
@@ -191,7 +318,7 @@ window.ActionFlowBuilder = {
     return `<div class="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm grid place-items-center p-4">
       <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md text-white">
         <h3 class="text-xl font-black mb-1 flex items-center">Editar bloco ${linked}</h3>
-        <p class="text-xs text-slate-400 mb-4">Tipo: <span style="color:${type.color}">${Utils.escape(type.label)}</span>${isEsteira ? ' · vira entidade real ao salvar' : ' · só rascunho visual'}</p>
+        <p class="text-xs text-slate-400 mb-4">Tipo: <span style="color:${type.color}">${Utils.escape(type.label)}</span>${isEsteira ? ' · vira entidade real ao salvar' : ' · só rascunho visual (legacy)'}</p>
         ${this._editNodeFields(node.type, draft)}
         <div class="flex justify-end gap-2 mt-5">
           <button onclick="Actions.cancelFlowBuilderEditNode()" class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-white font-black">Cancelar</button>
@@ -260,7 +387,7 @@ window.ActionFlowBuilder = {
     return `<div class="fixed inset-0 z-[80] bg-slate-950/80 backdrop-blur-sm grid place-items-center p-4">
       <div class="bg-slate-900 border border-white/10 rounded-3xl p-6 w-full max-w-md text-white">
         <h3 class="text-xl font-black mb-2">Apagar todo o canvas?</h3>
-        <p class="text-sm text-slate-300 mb-4">Vão ser removidos <b>${n}</b> blocos e <b>${e}</b> conexões do canvas. <span class="text-amber-300">O que já foi salvo nas abas do LJ não é desfeito</span> — só limpa o desenho.</p>
+        <p class="text-sm text-slate-300 mb-4">Vão ser removidos <b>${n}</b> blocos, <b>${e}</b> conexões e todos os fantasmas do canvas. <span class="text-amber-300">O que já foi salvo nas abas do LJ não é desfeito</span> — só limpa o desenho.</p>
         <div class="flex justify-end gap-2">
           <button onclick="Actions.cancelFlowBuilderClear()" class="px-4 py-3 rounded-2xl bg-white/10 border border-white/15 text-white font-black">Cancelar</button>
           <button onclick="Actions.confirmFlowBuilderClear()" class="px-4 py-3 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-black">Apagar canvas</button>
@@ -321,8 +448,10 @@ window.ActionFlowBuilder = {
     this._internal.container = root;
     this._drawCanvas();
     setTimeout(() => {
-      const input = document.getElementById('flowBuilderEditNodeInput');
-      if (input) { input.focus(); input.select(); }
+      const inputEdit = document.getElementById('flowBuilderEditNodeInput');
+      if (inputEdit) { inputEdit.focus(); inputEdit.select(); }
+      const inputCustom = document.getElementById('flowBuilderCustomSegInput');
+      if (inputCustom) { inputCustom.focus(); inputCustom.select(); }
     }, 0);
   },
 
@@ -334,15 +463,12 @@ window.ActionFlowBuilder = {
     return `M ${fromX} ${fromY} C ${fromX + dx} ${fromY}, ${toX - dx} ${toY}, ${toX} ${toY}`;
   },
 
-  // V39.9.3 — Canvas infinito: SVG cobre 100% do container; viewBox = tamanho
-  // visível. Um <g id="flowWorld"> com transform pan+zoom é o "mundo". Nós ficam
-  // em world coords (x/y podem ser quaisquer números). Viewport culling: filtra
-  // só os nós/arestas dentro da janela visível (com margem) antes de desenhar.
   _drawCanvas() {
     const root = this._internal.container;
     if (!root) return;
     const nodes = App.state.flowBuilderNodes || [];
-    if (!nodes.length) return;
+    const ghosts = App.state.flowBuilderGhostSegmentations || [];
+    if (!nodes.length && !ghosts.length) return;
     const rect = root.getBoundingClientRect();
     const viewW = Math.max(200, rect.width || 800);
     const viewH = Math.max(200, rect.height || 500);
@@ -351,14 +477,12 @@ window.ActionFlowBuilder = {
     const panX = Number(App.state.flowBuilderPanX || 0);
     const panY = Number(App.state.flowBuilderPanY || 0);
 
-    // Janela visível em world coords (com margem pra evitar pop-in)
     const margin = this.VIEWPORT_MARGIN;
     const visLeft   = (-panX) / zoom - margin;
     const visTop    = (-panY) / zoom - margin;
     const visRight  = (viewW - panX) / zoom + margin;
     const visBottom = (viewH - panY) / zoom + margin;
 
-    // Culling de nós
     const nodesVisible = nodes.filter(n =>
       (n.x + this.NODE_WIDTH) >= visLeft &&
       n.x <= visRight &&
@@ -367,7 +491,6 @@ window.ActionFlowBuilder = {
     );
     const visibleNodeIds = new Set(nodesVisible.map(n => String(n.id)));
 
-    // Edges: incluir se qualquer extremo está visível OU a linha cruza a viewport
     const edges = App.state.flowBuilderEdges || [];
     const edgesVisible = edges.filter(e => {
       const from = nodes.find(n => n.id === e.fromId);
@@ -381,6 +504,13 @@ window.ActionFlowBuilder = {
       return lR >= visLeft && lL <= visRight && lB >= visTop && lT <= visBottom;
     });
 
+    const ghostsVisible = ghosts.filter(g =>
+      (g.x + this.GHOST_WIDTH) >= visLeft &&
+      g.x <= visRight &&
+      (g.y + this.GHOST_HEIGHT) >= visTop &&
+      g.y <= visBottom
+    );
+
     const svgNS = 'http://www.w3.org/2000/svg';
     root.innerHTML = '';
     const svg = document.createElementNS(svgNS, 'svg');
@@ -393,7 +523,6 @@ window.ActionFlowBuilder = {
     world.setAttribute('transform', `translate(${panX}, ${panY}) scale(${zoom})`);
     svg.appendChild(world);
 
-    // Grid infinito: alinhado ao step e cobrindo só o que está visível
     const gridStep = 40;
     const gx0 = Math.floor(visLeft / gridStep) * gridStep;
     const gx1 = Math.ceil(visRight / gridStep) * gridStep;
@@ -428,6 +557,11 @@ window.ActionFlowBuilder = {
     nodesLayer.setAttribute('id', 'flowNodesLayer');
     world.appendChild(nodesLayer);
     for (const node of nodesVisible) this._renderNode(svgNS, nodesLayer, node, armedId, edges);
+
+    const ghostsLayer = document.createElementNS(svgNS, 'g');
+    ghostsLayer.setAttribute('id', 'flowGhostsLayer');
+    world.appendChild(ghostsLayer);
+    for (const ghost of ghostsVisible) this._renderGhost(svgNS, ghostsLayer, ghost);
 
     root.appendChild(svg);
     this._attachSvgListeners(svg);
@@ -467,6 +601,11 @@ window.ActionFlowBuilder = {
     const otherArmed = armedId && !isArmed;
     const isEsteira = this.isEsteira(node.type);
     const linked = isEsteira && !!node.linkedRealId;
+    const isProduto = node.type === 'produto';
+    const isExecucao = node.type === 'execucao';
+    const isAcao = node.type === 'acao';
+    const isHoveredForSeg = String(this._internal.hoveredActionId || '') === String(node.id);
+
     const group = document.createElementNS(svgNS, 'g');
     group.setAttribute('transform', `translate(${node.x}, ${node.y})`);
     group.dataset.nodeId = String(node.id);
@@ -481,22 +620,22 @@ window.ActionFlowBuilder = {
     rect.setAttribute('width', this.NODE_WIDTH); rect.setAttribute('height', this.NODE_HEIGHT);
     rect.setAttribute('rx', 14); rect.setAttribute('ry', 14);
     rect.setAttribute('fill', '#0b1325');
-    rect.setAttribute('stroke', isArmed ? '#38bdf8' : type.color);
-    rect.setAttribute('stroke-width', isEsteira ? (isArmed ? 3 : 2.5) : (isArmed ? 3 : 2));
+    rect.setAttribute('stroke', isArmed ? '#38bdf8' : (isHoveredForSeg ? '#fbbf24' : type.color));
+    rect.setAttribute('stroke-width', isHoveredForSeg ? 3.5 : (isEsteira ? (isArmed ? 3 : 2.5) : (isArmed ? 3 : 2)));
     group.appendChild(rect);
 
-    if (isArmed) {
+    if (isArmed || isHoveredForSeg) {
       const aura = document.createElementNS(svgNS, 'rect');
       aura.setAttribute('x', -4); aura.setAttribute('y', -4);
       aura.setAttribute('width', this.NODE_WIDTH + 8); aura.setAttribute('height', this.NODE_HEIGHT + 8);
       aura.setAttribute('rx', 18); aura.setAttribute('ry', 18);
-      aura.setAttribute('fill', 'none'); aura.setAttribute('stroke', '#38bdf8');
+      aura.setAttribute('fill', 'none');
+      aura.setAttribute('stroke', isHoveredForSeg ? '#fbbf24' : '#38bdf8');
       aura.setAttribute('stroke-width', '1.5'); aura.setAttribute('stroke-dasharray', '4 4');
       aura.setAttribute('opacity', '0.7');
       group.appendChild(aura);
     }
 
-    // Badge "salvo" se for esteira já vinculada
     if (linked) {
       const badge = document.createElementNS(svgNS, 'g');
       badge.setAttribute('transform', `translate(${this.NODE_WIDTH - 56}, 6)`);
@@ -516,21 +655,21 @@ window.ActionFlowBuilder = {
     }
 
     const typeLabel = document.createElementNS(svgNS, 'text');
-    typeLabel.setAttribute('x', 16); typeLabel.setAttribute('y', 26);
+    typeLabel.setAttribute('x', 16); typeLabel.setAttribute('y', 24);
     typeLabel.setAttribute('fill', type.color); typeLabel.setAttribute('font-size', '10'); typeLabel.setAttribute('font-weight', '900');
     typeLabel.textContent = type.label.toUpperCase();
     group.appendChild(typeLabel);
 
     const displayName = (node.data?.name || node.name || 'Sem nome').slice(0, 22);
     const nameText = document.createElementNS(svgNS, 'text');
-    nameText.setAttribute('x', 16); nameText.setAttribute('y', 52);
+    nameText.setAttribute('x', 16); nameText.setAttribute('y', 48);
     nameText.setAttribute('fill', '#ffffff'); nameText.setAttribute('font-size', '14'); nameText.setAttribute('font-weight', '800');
     nameText.textContent = displayName;
     group.appendChild(nameText);
 
-    // Botão remover (×) — canto superior direito
+    // Botão remover (×) — canto superior direito, deslocado pra esquerda se linked
     const trash = document.createElementNS(svgNS, 'g');
-    trash.setAttribute('transform', `translate(${this.NODE_WIDTH - 26}, 6)`);
+    trash.setAttribute('transform', `translate(${linked ? this.NODE_WIDTH - 84 : this.NODE_WIDTH - 26}, 6)`);
     trash.setAttribute('class', 'flow-no-drag');
     trash.style.cursor = 'pointer';
     trash.addEventListener('click', (event) => {
@@ -549,39 +688,74 @@ window.ActionFlowBuilder = {
     trashIcon.setAttribute('text-anchor', 'middle');
     trashIcon.textContent = '×';
     trash.appendChild(trashIcon);
-    // Se tem badge "salvo", empurra o × pra esquerda
-    if (linked) trash.setAttribute('transform', `translate(${this.NODE_WIDTH - 84}, 6)`);
     group.appendChild(trash);
 
     const outgoing = edges.filter(e => e.fromId === node.id).length;
     const stats = document.createElementNS(svgNS, 'text');
-    stats.setAttribute('x', 16); stats.setAttribute('y', 72);
+    stats.setAttribute('x', 16); stats.setAttribute('y', 66);
     stats.setAttribute('fill', '#94a3b8'); stats.setAttribute('font-size', '10');
-    stats.textContent = outgoing > 0 ? `${outgoing} ${outgoing === 1 ? 'saída' : 'saídas'}` : 'sem saídas';
+    stats.textContent = isExecucao ? 'fim de fluxo' : (outgoing > 0 ? `${outgoing} ${outgoing === 1 ? 'saída' : 'saídas'}` : 'sem saídas');
     group.appendChild(stats);
 
-    const inputPort = document.createElementNS(svgNS, 'circle');
-    inputPort.setAttribute('cx', 0); inputPort.setAttribute('cy', this.NODE_HEIGHT / 2);
-    inputPort.setAttribute('r', otherArmed ? 12 : 7);
-    inputPort.setAttribute('fill', otherArmed ? '#34d399' : '#10b981');
-    inputPort.setAttribute('stroke', '#0b1325'); inputPort.setAttribute('stroke-width', 2);
-    inputPort.setAttribute('class', 'flow-port-input');
-    inputPort.dataset.nodeId = String(node.id);
-    inputPort.style.cursor = 'crosshair';
-    group.appendChild(inputPort);
+    // V39.10.0 — Badges de segmentação só na Ação (máx 2)
+    if (isAcao) {
+      const segKeys = Array.isArray(node.data?.segmentations) ? node.data.segmentations.slice(0, 2) : [];
+      segKeys.forEach((segKey, i) => {
+        const seg = this.segmentationByKey(segKey);
+        if (!seg) return;
+        const badgeG = document.createElementNS(svgNS, 'g');
+        badgeG.setAttribute('transform', `translate(${16 + i * 86}, 80)`);
+        badgeG.setAttribute('class', 'flow-no-drag flow-badge');
+        badgeG.dataset.nodeId = String(node.id);
+        badgeG.dataset.segKey = String(segKey);
+        badgeG.style.cursor = 'grab';
+        const bRect = document.createElementNS(svgNS, 'rect');
+        bRect.setAttribute('x', 0); bRect.setAttribute('y', 0);
+        bRect.setAttribute('width', 80); bRect.setAttribute('height', 18);
+        bRect.setAttribute('rx', 9);
+        bRect.setAttribute('fill', `${seg.color}22`);
+        bRect.setAttribute('stroke', `${seg.color}88`);
+        bRect.setAttribute('stroke-width', 1);
+        badgeG.appendChild(bRect);
+        const dot = document.createElementNS(svgNS, 'circle');
+        dot.setAttribute('cx', 9); dot.setAttribute('cy', 9); dot.setAttribute('r', 4);
+        dot.setAttribute('fill', seg.color);
+        badgeG.appendChild(dot);
+        const bTxt = document.createElementNS(svgNS, 'text');
+        bTxt.setAttribute('x', 18); bTxt.setAttribute('y', 12.5);
+        bTxt.setAttribute('fill', seg.color); bTxt.setAttribute('font-size', '9'); bTxt.setAttribute('font-weight', '900');
+        bTxt.textContent = (seg.name || '').slice(0, 10);
+        badgeG.appendChild(bTxt);
+        parent.appendChild(badgeG);
+      });
+    }
 
-    const outputPort = document.createElementNS(svgNS, 'circle');
-    outputPort.setAttribute('cx', this.NODE_WIDTH); outputPort.setAttribute('cy', this.NODE_HEIGHT / 2);
-    outputPort.setAttribute('r', isArmed ? 11 : 7);
-    outputPort.setAttribute('fill', isArmed ? '#38bdf8' : '#10b981');
-    outputPort.setAttribute('stroke', '#0b1325'); outputPort.setAttribute('stroke-width', 2);
-    outputPort.setAttribute('class', 'flow-port-output');
-    outputPort.dataset.nodeId = String(node.id);
-    outputPort.style.cursor = 'crosshair';
-    group.appendChild(outputPort);
+    // Portas (respeitando hierarquia)
+    if (!isProduto) {
+      const inputPort = document.createElementNS(svgNS, 'circle');
+      inputPort.setAttribute('cx', 0); inputPort.setAttribute('cy', this.NODE_HEIGHT / 2);
+      inputPort.setAttribute('r', otherArmed ? 12 : 7);
+      inputPort.setAttribute('fill', otherArmed ? '#34d399' : '#10b981');
+      inputPort.setAttribute('stroke', '#0b1325'); inputPort.setAttribute('stroke-width', 2);
+      inputPort.setAttribute('class', 'flow-port-input');
+      inputPort.dataset.nodeId = String(node.id);
+      inputPort.style.cursor = 'crosshair';
+      group.appendChild(inputPort);
+    }
 
-    this._renderConnButton(svgNS, group, node, isArmed, outgoing);
+    if (!isExecucao) {
+      const outputPort = document.createElementNS(svgNS, 'circle');
+      outputPort.setAttribute('cx', this.NODE_WIDTH); outputPort.setAttribute('cy', this.NODE_HEIGHT / 2);
+      outputPort.setAttribute('r', isArmed ? 11 : 7);
+      outputPort.setAttribute('fill', isArmed ? '#38bdf8' : '#10b981');
+      outputPort.setAttribute('stroke', '#0b1325'); outputPort.setAttribute('stroke-width', 2);
+      outputPort.setAttribute('class', 'flow-port-output');
+      outputPort.dataset.nodeId = String(node.id);
+      outputPort.style.cursor = 'crosshair';
+      group.appendChild(outputPort);
+    }
 
+    if (!isExecucao) this._renderConnButton(svgNS, group, node, isArmed, outgoing);
     parent.appendChild(group);
   },
 
@@ -590,7 +764,7 @@ window.ActionFlowBuilder = {
     if (isArmed) { fill = 'rgba(56,189,248,0.30)'; stroke = '#38bdf8'; textFill = '#e0f2fe'; label = 'Conectando...'; }
     else if (outgoing > 0) { fill = 'rgba(16,185,129,0.20)'; stroke = '#34d399'; textFill = '#a7f3d0'; label = `Conectada (${outgoing})`; }
     else { fill = 'rgba(255,255,255,0.06)'; stroke = '#475569'; textFill = '#cbd5e1'; label = 'Conexão'; }
-    const btnY = this.NODE_HEIGHT - 30;
+    const btnY = this.NODE_HEIGHT - 28;
     const btnH = 22, btnX = 12, btnW = this.NODE_WIDTH - 24;
     const btn = document.createElementNS(svgNS, 'g');
     btn.setAttribute('transform', `translate(${btnX}, ${btnY})`);
@@ -622,6 +796,42 @@ window.ActionFlowBuilder = {
     group.appendChild(btn);
   },
 
+  _renderGhost(svgNS, parent, ghost) {
+    const seg = this.segmentationByKey(ghost.segKey);
+    if (!seg) return;
+    const group = document.createElementNS(svgNS, 'g');
+    group.setAttribute('transform', `translate(${ghost.x}, ${ghost.y})`);
+    group.setAttribute('class', 'flow-ghost flow-no-drag');
+    group.dataset.ghostId = String(ghost.id);
+    group.style.cursor = 'grab';
+    const rect = document.createElementNS(svgNS, 'rect');
+    rect.setAttribute('x', 0); rect.setAttribute('y', 0);
+    rect.setAttribute('width', this.GHOST_WIDTH); rect.setAttribute('height', this.GHOST_HEIGHT);
+    rect.setAttribute('rx', 12);
+    rect.setAttribute('fill', `${seg.color}33`);
+    rect.setAttribute('stroke', seg.color);
+    rect.setAttribute('stroke-width', 1.5);
+    rect.setAttribute('stroke-dasharray', '5 3');
+    rect.setAttribute('opacity', '0.85');
+    group.appendChild(rect);
+    const dot = document.createElementNS(svgNS, 'circle');
+    dot.setAttribute('cx', 14); dot.setAttribute('cy', this.GHOST_HEIGHT / 2); dot.setAttribute('r', 5);
+    dot.setAttribute('fill', seg.color);
+    group.appendChild(dot);
+    const txt = document.createElementNS(svgNS, 'text');
+    txt.setAttribute('x', 24); txt.setAttribute('y', this.GHOST_HEIGHT / 2 + 4);
+    txt.setAttribute('fill', '#ffffff'); txt.setAttribute('font-size', '11'); txt.setAttribute('font-weight', '900');
+    txt.textContent = (seg.name || '').slice(0, 12);
+    group.appendChild(txt);
+    const hint = document.createElementNS(svgNS, 'text');
+    hint.setAttribute('x', this.GHOST_WIDTH / 2); hint.setAttribute('y', this.GHOST_HEIGHT + 12);
+    hint.setAttribute('fill', '#fbbf24'); hint.setAttribute('font-size', '8'); hint.setAttribute('font-weight', '700');
+    hint.setAttribute('text-anchor', 'middle');
+    hint.textContent = 'arraste pra uma Ação';
+    group.appendChild(hint);
+    parent.appendChild(group);
+  },
+
   _attachSvgListeners(svg) {
     const self = this;
     svg.addEventListener('mousedown', (event) => self._onMouseDown(event, svg));
@@ -631,13 +841,15 @@ window.ActionFlowBuilder = {
       self._internal.dragNode = null;
       self._internal.pendingConnection = null;
       self._internal.panning = null;
+      self._internal.dragGhost = null;
+      self._internal.hoveredActionId = null;
+      self._hideTrash();
       svg.style.cursor = 'grab';
       const overlay = svg.querySelector('#flowPendingEdge');
       if (overlay) overlay.remove();
     });
   },
 
-  // V39.9.3 — Coords do mouse em SVG-space (viewport). Usado pra pan delta.
   _screenToSvg(svg, event) {
     const pt = svg.createSVGPoint();
     pt.x = event.clientX; pt.y = event.clientY;
@@ -647,8 +859,6 @@ window.ActionFlowBuilder = {
     return { x: transformed.x, y: transformed.y };
   },
 
-  // V39.9.3 — Coords do mouse em world-space (após desfazer pan+zoom). Usado
-  // pra drag de nó e pendingConnection edge (ambos vivem dentro do <g> mundo).
   _screenToWorld(svg, event) {
     const sp = this._screenToSvg(svg, event);
     const zoom = Number(App.state.flowBuilderZoom || 1.0) || 1.0;
@@ -657,9 +867,71 @@ window.ActionFlowBuilder = {
     return { x: (sp.x - panX) / zoom, y: (sp.y - panY) / zoom };
   },
 
+  _findActionAtWorld(wx, wy) {
+    return (App.state.flowBuilderNodes || []).find(n =>
+      n.type === 'acao' &&
+      wx >= n.x && wx <= n.x + this.NODE_WIDTH &&
+      wy >= n.y && wy <= n.y + this.NODE_HEIGHT
+    );
+  },
+
+  _isOverTrash(clientX, clientY) {
+    const trash = document.getElementById('flowBuilderTrashBin');
+    if (!trash || trash.style.display === 'none') return false;
+    const rect = trash.getBoundingClientRect();
+    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+  },
+
+  _showTrash() {
+    const trash = document.getElementById('flowBuilderTrashBin');
+    if (trash) trash.style.display = 'grid';
+  },
+  _hideTrash() {
+    const trash = document.getElementById('flowBuilderTrashBin');
+    if (trash) trash.style.display = 'none';
+  },
+
   _onMouseDown(event, svg) {
     const target = event.target;
-    if (target.closest && target.closest('.flow-no-drag')) return;
+    if (target.closest && target.closest('.flow-no-drag')) {
+      // Badge: inicia drag (vira fantasma)
+      const badge = target.closest('.flow-badge');
+      if (badge) {
+        const sourceNodeId = badge.dataset.nodeId;
+        const segKey = badge.dataset.segKey;
+        const wp = this._screenToWorld(svg, event);
+        // Remove badge da Ação, cria fantasma na world coord do mouse
+        const ghostId = ActionFlowBuilder.genGhostId();
+        const node = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(sourceNodeId));
+        if (node) {
+          node.data = node.data || {};
+          node.data.segmentations = (node.data.segmentations || []).filter(k => k !== segKey);
+        }
+        App.state.flowBuilderGhostSegmentations = [
+          ...(App.state.flowBuilderGhostSegmentations || []),
+          { id: ghostId, segKey, x: wp.x - this.GHOST_WIDTH / 2, y: wp.y - this.GHOST_HEIGHT / 2 }
+        ];
+        this._internal.dragGhost = { ghostId, offsetX: this.GHOST_WIDTH / 2, offsetY: this.GHOST_HEIGHT / 2 };
+        this._showTrash();
+        App.save();
+        setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+        event.preventDefault();
+        return;
+      }
+      // Fantasma: inicia drag direto
+      const ghost = target.closest('.flow-ghost');
+      if (ghost) {
+        const ghostId = ghost.dataset.ghostId;
+        const ghostObj = (App.state.flowBuilderGhostSegmentations || []).find(g => String(g.id) === String(ghostId));
+        if (!ghostObj) return;
+        const wp = this._screenToWorld(svg, event);
+        this._internal.dragGhost = { ghostId, offsetX: wp.x - ghostObj.x, offsetY: wp.y - ghostObj.y };
+        this._showTrash();
+        event.preventDefault();
+        return;
+      }
+      return;
+    }
     const armedId = App.state.flowBuilderConnectionArm;
     if (target.classList?.contains('flow-port-output')) {
       const outId = target.dataset.nodeId;
@@ -690,7 +962,7 @@ window.ActionFlowBuilder = {
       group.style.cursor = 'grabbing';
       return;
     }
-    // V39.9.3 — Área vazia: inicia pan (drag do canvas inteiro).
+    // Área vazia: inicia pan
     const sp = this._screenToSvg(svg, event);
     this._internal.panning = {
       startX: sp.x,
@@ -703,7 +975,27 @@ window.ActionFlowBuilder = {
   },
 
   _onMouseMove(event, svg) {
-    // V39.9.3 — Pan tem prioridade: move o <g id="flowWorld"> direto sem render.
+    // dragGhost: mover fantasma + detectar hover em Ação + lixeira
+    if (this._internal.dragGhost) {
+      const ghostId = this._internal.dragGhost.ghostId;
+      const wp = this._screenToWorld(svg, event);
+      const newX = wp.x - this._internal.dragGhost.offsetX;
+      const newY = wp.y - this._internal.dragGhost.offsetY;
+      const ghost = (App.state.flowBuilderGhostSegmentations || []).find(g => String(g.id) === String(ghostId));
+      if (ghost) { ghost.x = Math.round(newX); ghost.y = Math.round(newY); }
+      // Atualiza visual direto
+      const node = svg.querySelector(`g.flow-ghost[data-ghost-id="${ghostId}"]`);
+      if (node) node.setAttribute('transform', `translate(${Math.round(newX)}, ${Math.round(newY)})`);
+      // Highlight de Ação sob ponteiro
+      const acao = this._findActionAtWorld(wp.x, wp.y);
+      const prevHover = this._internal.hoveredActionId;
+      this._internal.hoveredActionId = acao ? acao.id : null;
+      if (String(prevHover || '') !== String(this._internal.hoveredActionId || '')) {
+        // re-render do canvas pra atualizar highlight (cheap pq só altera 1 node visual)
+        setTimeout(() => { try { ActionFlowBuilder._drawCanvas(); } catch (_) {} }, 0);
+      }
+      return;
+    }
     if (this._internal.panning) {
       const sp = this._screenToSvg(svg, event);
       const dx = sp.x - this._internal.panning.startX;
@@ -758,7 +1050,34 @@ window.ActionFlowBuilder = {
   },
 
   _onMouseUp(event, svg) {
-    // V39.9.3 — Fim de pan: salva state e re-renderiza pra atualizar viewport culling.
+    if (this._internal.dragGhost) {
+      const ghostId = this._internal.dragGhost.ghostId;
+      this._internal.dragGhost = null;
+      this._hideTrash();
+      // Lixeira tem prioridade
+      if (this._isOverTrash(event.clientX, event.clientY)) {
+        Actions.removeFlowBuilderGhostSegmentation(ghostId);
+        this._internal.hoveredActionId = null;
+        return;
+      }
+      // Ação sob o ponteiro: aplica badge, remove ghost
+      const wp = this._screenToWorld(svg, event);
+      const acao = this._findActionAtWorld(wp.x, wp.y);
+      if (acao) {
+        const ghost = (App.state.flowBuilderGhostSegmentations || []).find(g => String(g.id) === String(ghostId));
+        if (ghost) {
+          const ok = Actions.applyFlowBuilderSegmentationToAction(ghost.segKey, acao.id);
+          if (ok) Actions.removeFlowBuilderGhostSegmentation(ghostId);
+        }
+        this._internal.hoveredActionId = null;
+        return;
+      }
+      // Else: fantasma fica onde está
+      this._internal.hoveredActionId = null;
+      App.save();
+      setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+      return;
+    }
     if (this._internal.panning) {
       this._internal.panning = null;
       svg.style.cursor = 'grab';
@@ -784,6 +1103,42 @@ window.ActionFlowBuilder = {
       if (group) group.style.cursor = 'grab';
       this._internal.dragNode = null;
       App.save();
+    }
+  },
+
+  // ============ DRAG-AND-DROP HTML5 (paleta → canvas) ============
+  _onPaletteSegDragStart(event, segKey) {
+    if (event.dataTransfer) {
+      event.dataTransfer.setData('text/plain', `seg:${segKey}`);
+      event.dataTransfer.effectAllowed = 'copy';
+    }
+  },
+
+  _onCanvasDragOver(event) {
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  },
+
+  _onCanvasDrop(event) {
+    event.preventDefault();
+    const data = event.dataTransfer?.getData('text/plain') || '';
+    if (!data.startsWith('seg:')) return;
+    const segKey = data.slice(4);
+    const canvas = document.getElementById('flowBuilderCanvas');
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const sx = event.clientX - rect.left;
+    const sy = event.clientY - rect.top;
+    const zoom = Number(App.state.flowBuilderZoom || 1.0) || 1.0;
+    const panX = Number(App.state.flowBuilderPanX || 0);
+    const panY = Number(App.state.flowBuilderPanY || 0);
+    const wx = (sx - panX) / zoom;
+    const wy = (sy - panY) / zoom;
+    const acao = this._findActionAtWorld(wx, wy);
+    if (acao) {
+      Actions.applyFlowBuilderSegmentationToAction(segKey, acao.id);
+    } else {
+      Actions.addFlowBuilderGhostSegmentation(segKey, wx - this.GHOST_WIDTH / 2, wy - this.GHOST_HEIGHT / 2);
     }
   }
 };
