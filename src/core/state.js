@@ -165,11 +165,22 @@ var State = {
       // e `linkedRealId` (id real depois de salvar, null antes).
       flowBuilderNodes: [],
       flowBuilderEdges: [],
+      // V39.10.0 — Fantasmas de segmentação no canvas: arrasta uma seg pro espaço
+      // vazio, fica como fantasma `{id, segKey, x, y}` até ser aplicada em Ação.
+      flowBuilderGhostSegmentations: [],
       flowBuilderDisconnectEdgeId: null,
       flowBuilderEditNodeId: null,
       flowBuilderEditNodeDraft: {},
       flowBuilderClearConfirm: false,
       flowBuilderLoadCampaignModal: false,
+      // V39.10.0 — Painel inferior tem 2 tabs (esteira/segmentacao); seg tem 3 cats.
+      flowBuilderPaletteTab: 'esteira',
+      flowBuilderSegCategory: 'organic',
+      flowBuilderCustomSegModal: false,
+      flowBuilderCustomSegDraft: { name: '', color: '#a855f7' },
+      // V39.10.0 — Custom segmentations criadas pelo tenant: array de
+      // `{key, name, color, icon}`. Persistido tenant-level (reuso entre fluxos).
+      customSegmentations: [],
       // V37.0.8 — showLpModal/lpDraft/lpEvents/lpRegistry/lpLastPolledAt REMOVIDOS
       // (fluxo LP modal vestigial pré-Tracking V33, sem consumidor moderno).
       showCampaignFlowModal: false,
@@ -1034,11 +1045,31 @@ var State = {
             .filter(e => e && typeof e === 'object' && e.id && e.fromId && e.toId)
             .map(e => ({ id: String(e.id), fromId: String(e.fromId), toId: String(e.toId) }))
         : [],
+      // V39.10.0 — Ghosts de segmentação no canvas + custom segmentations do tenant.
+      flowBuilderGhostSegmentations: Array.isArray(raw.flowBuilderGhostSegmentations)
+        ? raw.flowBuilderGhostSegmentations
+            .filter(g => g && typeof g === 'object' && g.id && g.segKey)
+            .map(g => ({ id: String(g.id), segKey: String(g.segKey), x: Number(g.x) || 0, y: Number(g.y) || 0 }))
+        : [],
+      customSegmentations: Array.isArray(raw.customSegmentations)
+        ? raw.customSegmentations
+            .filter(s => s && typeof s === 'object' && s.key && s.name)
+            .map(s => ({
+              key: String(s.key),
+              name: String(s.name),
+              color: typeof s.color === 'string' ? s.color : '#a855f7',
+              icon: typeof s.icon === 'string' ? s.icon : 'square'
+            }))
+        : [],
       flowBuilderDisconnectEdgeId: null,
       flowBuilderEditNodeId: null,
       flowBuilderEditNodeDraft: {},
       flowBuilderClearConfirm: false,
       flowBuilderLoadCampaignModal: false,
+      flowBuilderPaletteTab: 'esteira',
+      flowBuilderSegCategory: 'organic',
+      flowBuilderCustomSegModal: false,
+      flowBuilderCustomSegDraft: { name: '', color: '#a855f7' },
       // V37.0.8 — campos LP modal removidos
       showCampaignFlowModal: Boolean(raw.showCampaignFlowModal),
       campaignFlowModalId: raw.campaignFlowModalId || null,
@@ -1846,6 +1877,8 @@ var State = {
         'flowBuilderLoadCampaignModal',
         // V39.9.3 — pan do canvas infinito é transient (reseta ao reabrir).
         'flowBuilderPanX','flowBuilderPanY',
+        // V39.10.0 — UI tabs do painel inferior são transient (default ao reabrir).
+        'flowBuilderPaletteTab','flowBuilderSegCategory','flowBuilderCustomSegModal','flowBuilderCustomSegDraft',
         'djowSending','djowContext',
         'showTasksModal','tasksModalActionId','showStrategicMap','strategicMapProductId',
         'strategicDjowDraft','strategicDjowSending','strategicObjectiveDraft','strategicOkrDraft',

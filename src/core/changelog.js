@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.10.0',
+    date: '2026-06-18',
+    title: 'Flow Builder com guardrails de hierarquia + painel inferior + segmentação por canal',
+    bullets: [
+      'Guardrails de conexão cravados: Produto não tem porta de entrada (é começo de fluxo), Execução não tem porta de saída (fecha o ciclo), e a hierarquia Produto → Campanha → Ação → Execução é validada com toast claro quando você tenta conectar fora dela. Acabou o risco de salvar uma esteira inválida que daria pau nas abas do LJ.',
+      'A paleta lateral à direita foi removida — agora tem um painel inferior full-width abaixo do canvas com duas tabs: ESTEIRA (Produto, Campanha, Ação, Execução em 4 botões grandes) e SEGMENTAÇÃO (3 subtabs: Canais Org, Canais Pag, Custom). Os blocos auxiliares antigos (Email, SDR, WhatsApp, etc) deixaram de existir como opção nova.',
+      'Segmentação por canal: arraste uma seg da paleta (Instagram, Meta Ads, etc) pro canvas e ela vira um fantasma — um cartão colorido pontilhado que vive solto até você arrastar pra cima de uma Ação, aí vira badge no card da Ação. Máximo 2 badges por Ação. Drag direto da paleta pra uma Ação pula o fantasma e aplica direto.',
+      'Pra remover uma badge: segura ela dentro do card da Ação e arrasta pra fora — vira fantasma de volta. Ou arrasta pra lixeira vermelha que aparece automaticamente no canto do canvas quando você está com um fantasma na mão.',
+      'Custom: clique em "Nova segmentação" na tab Custom da Segmentação. Abre modal com nome + paleta de cores HTML5 nativa (milhões de cores via clique no quadrado). Salva permanente no tenant — fica disponível em todos os fluxos que você criar. Hover na seg custom mostra ícone × pra apagar do tenant.'
+    ]
+  },
+  {
     version: 'V39.9.3',
     date: '2026-06-17',
     title: 'Flow Builder com canvas infinito + pan com mouse + render só da viewport',
