@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.0',
+    date: '2026-06-18',
+    title: 'Flow Builder: 4 atalhos de teclado/mouse — Esc, Setas, Alt+scroll, Space',
+    bullets: [
+      'Esc agora cancela em cascata: se a pílula fantasma está aberta fecha ela; senão se há card armado pra conectar (botão "Conectando…") desarma; senão se há cards selecionados limpa a seleção; senão fecha a paleta inferior. Cada Esc dá um passo pra trás.',
+      'Setas do teclado navegam o canvas: ← → ↑ ↓ panam 40px por toque. Shift+Setas pana 120px pra deslocamento rápido. Não interfere quando você está digitando num input.',
+      'Alt + scroll do mouse aumenta/diminui o zoom direto no ponto onde o cursor está. O que estava sob o cursor continua sob o cursor após o zoom — sem perder o foco do que você estava olhando.',
+      'Space abre a "pílula fantasma" na posição exata do mouse: mesmas 3 abas (Esteira / Segmentação / Mapa), totalmente navegáveis e funcionais, sem precisar levar o mouse até a base do canvas. Space de novo fecha. Esc também fecha.'
+    ]
+  },
+  {
     version: 'V40.6.10',
     date: '2026-06-18',
     title: 'Flow Builder: dedup do card fantasma (cursor virava pointer + botão acendia)',

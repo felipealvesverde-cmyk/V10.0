@@ -2823,6 +2823,90 @@ Object.assign(Actions, {
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
   },
 
+  // V40.7.0 — Esc cascade no Flow Builder. Ordem: ghost pill > arm > seleção > paleta normal.
+  // Retorna true se algo foi cancelado (chamador usa pra decidir preventDefault).
+  cancelFlowBuilderSelection() {
+    let dirty = false;
+    if (App.state.flowBuilderGhostPaletteOpen) {
+      App.state.flowBuilderGhostPaletteOpen = false;
+      dirty = true;
+    } else if (App.state.flowBuilderConnectionArm) {
+      App.state.flowBuilderConnectionArm = null;
+      dirty = true;
+    } else if ((App.state.flowBuilderSelectedNodeIds || []).length) {
+      App.state.flowBuilderSelectedNodeIds = [];
+      dirty = true;
+    } else if (App.state.flowBuilderPaletteOpen) {
+      App.state.flowBuilderPaletteOpen = false;
+      dirty = true;
+    }
+    if (dirty) { App.save(); App.render(); }
+    return dirty;
+  },
+
+  // V40.7.0 — Pan rápido via setas. Atualiza transform direto (sem App.render) e
+  // debounca save() pra não floodar localStorage em rajada de teclas.
+  panFlowBuilder(dx, dy) {
+    const nx = Number(App.state.flowBuilderPanX || 0) + Number(dx || 0);
+    const ny = Number(App.state.flowBuilderPanY || 0) + Number(dy || 0);
+    App.state.flowBuilderPanX = nx;
+    App.state.flowBuilderPanY = ny;
+    const svg = document.querySelector('#flowBuilderCanvas svg');
+    const world = svg && svg.querySelector('#flowWorld');
+    if (world) {
+      const zoom = Number(App.state.flowBuilderZoom || 1.0);
+      world.setAttribute('transform', `translate(${nx}, ${ny}) scale(${zoom})`);
+    }
+    if (this._fbPanSaveTimer) clearTimeout(this._fbPanSaveTimer);
+    this._fbPanSaveTimer = setTimeout(() => { App.save(); this._fbPanSaveTimer = null; }, 250);
+  },
+
+  // V40.7.0 — Zoom via Alt+scroll. Step menor (0.05) pra controle fino.
+  // pivot: { sx, sy } = ponto na tela (coords relativas ao container do canvas) que
+  // deve permanecer fixo durante o zoom. Sem isso, zoom puxa pra origem e o cliente
+  // perde o foco do que estava olhando.
+  zoomFlowBuilderAt(delta, pivot) {
+    const current = Number(App.state.flowBuilderZoom || 1.0);
+    const next = Math.max(0.25, Math.min(3.0, Math.round((current + delta) * 100) / 100));
+    if (next === current) return;
+    if (pivot && Number.isFinite(pivot.sx) && Number.isFinite(pivot.sy)) {
+      const panX = Number(App.state.flowBuilderPanX || 0);
+      const panY = Number(App.state.flowBuilderPanY || 0);
+      // mundo sob o cursor no zoom atual
+      const wx = (pivot.sx - panX) / current;
+      const wy = (pivot.sy - panY) / current;
+      // ajusta pan pra esse ponto continuar sob o cursor após o zoom
+      App.state.flowBuilderPanX = pivot.sx - wx * next;
+      App.state.flowBuilderPanY = pivot.sy - wy * next;
+    }
+    App.state.flowBuilderZoom = next;
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+  },
+
+  // V40.7.0 — Pílula fantasma (Space). Aparece na posição do mouse no canvas.
+  // screenX/screenY são coords RELATIVAS ao container do canvas.
+  toggleFlowBuilderGhostPalette(screenX, screenY) {
+    if (App.state.flowBuilderGhostPaletteOpen) {
+      App.state.flowBuilderGhostPaletteOpen = false;
+    } else {
+      App.state.flowBuilderGhostPaletteOpen = true;
+      App.state.flowBuilderGhostPaletteX = Math.round(Number(screenX) || 0);
+      App.state.flowBuilderGhostPaletteY = Math.round(Number(screenY) || 0);
+      // Garante que a paleta normal não fica aberta ao mesmo tempo
+      App.state.flowBuilderPaletteOpen = false;
+    }
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+  },
+
+  closeFlowBuilderGhostPalette() {
+    if (!App.state.flowBuilderGhostPaletteOpen) return;
+    App.state.flowBuilderGhostPaletteOpen = false;
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+  },
+
   toggleFlowBuilderHelp() {
     App.state.flowBuilderShowHelp = !App.state.flowBuilderShowHelp;
     App.save(); App.render();
@@ -3086,6 +3170,15 @@ Object.assign(Actions, {
   setFlowBuilderPaletteTab(tab) {
     const valid = ['esteira', 'segmentacao', 'mapaReceita'];
     if (!valid.includes(tab)) tab = 'esteira';
+    // V40.7.0 — Se a pílula fantasma está aberta, troca de aba dela sem mexer na
+    // paleta inferior (que está fechada). Sem isso, clicar Esteira/Segmentação na
+    // pill fantasma abria também a pill inferior — visual confuso.
+    if (App.state.flowBuilderGhostPaletteOpen) {
+      App.state.flowBuilderPaletteTab = tab;
+      if (tab !== 'mapaReceita') App.state.flowBuilderMapResolveView = null;
+      App.save(); App.render();
+      return;
+    }
     const current = App.state.flowBuilderPaletteTab;
     const isOpen = !!App.state.flowBuilderPaletteOpen;
     if (current === tab && isOpen) {

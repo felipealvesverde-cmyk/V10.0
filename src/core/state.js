@@ -176,6 +176,10 @@ var State = {
       // V39.10.0 — Painel inferior tem 2 tabs (esteira/segmentacao); seg tem 3 cats.
       flowBuilderPaletteTab: 'esteira',
       flowBuilderPaletteOpen: false,
+      // V40.7.0 — Pílula fantasma: aparece onde o mouse está quando user aperta Space.
+      flowBuilderGhostPaletteOpen: false,
+      flowBuilderGhostPaletteX: 0,
+      flowBuilderGhostPaletteY: 0,
       flowBuilderSegCategory: 'organic',
       flowBuilderCustomSegModal: false,
       flowBuilderCustomSegDraft: { name: '', color: '#a855f7' },
@@ -1127,6 +1131,10 @@ var State = {
       flowBuilderLoadCampaignModal: false,
       flowBuilderPaletteTab: 'esteira',
       flowBuilderPaletteOpen: false,
+      // V40.7.0 — Pílula fantasma transient (reseta ao reabrir builder).
+      flowBuilderGhostPaletteOpen: false,
+      flowBuilderGhostPaletteX: 0,
+      flowBuilderGhostPaletteY: 0,
       flowBuilderSegCategory: 'organic',
       flowBuilderCustomSegModal: false,
       flowBuilderCustomSegDraft: { name: '', color: '#a855f7' },
@@ -1941,6 +1949,8 @@ var State = {
         'flowBuilderPaletteTab','flowBuilderSegCategory','flowBuilderCustomSegModal','flowBuilderCustomSegDraft',
         // V39.11.0 — pílula overlay flutuante: open/close é transient.
         'flowBuilderPaletteOpen',
+        // V40.7.0 — pílula fantasma (Space): open + posição são transient.
+        'flowBuilderGhostPaletteOpen','flowBuilderGhostPaletteX','flowBuilderGhostPaletteY',
         // V39.11.1 — modal de rascunhos + nome digitado são transient (rascunhos em si persistem).
         'flowBuilderDraftsModal','flowBuilderDraftNameDraft',
         // V39.12.1 — seleção de cards é transient (reset ao recarregar).
