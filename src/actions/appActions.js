@@ -13983,6 +13983,10 @@ Object.assign(Actions, {
       const token = localStorage.getItem('lj_jwt');
       const r = await fetch('/api/clickup-config', { headers: { Authorization: `Bearer ${token}` } });
       const data = await r.json();
+      // V40.5.1 — Flag de "tentei carregar pelo menos uma vez" pra
+      // NotificationSync._checkClickup não emitir alerta com base no valor
+      // inicial { connected: false } enquanto fetch ainda nem respondeu.
+      App.state._clickupStatusLoaded = true;
       if (data.ok) {
         // V32.6.1 — detecta transição "acabou de conectar sem raiz" pra
         // abrir o wizard automaticamente (cliente não fica perdido procurando).
@@ -14024,7 +14028,13 @@ Object.assign(Actions, {
           setTimeout(() => Actions.openClickupSpaceWizard(), 400);
         }
       }
-    } catch (err) { console.warn('[clickup] loadStatus erro:', err); }
+    } catch (err) {
+      // V40.5.1 — Mesmo em erro de rede, marca "tentou" pra que NotificationSync
+      // diferencie "ainda não carregou" de "carregou e está desconectado".
+      // Sem isso, erro de rede transitório virava alerta falso "ClickUp desconectado".
+      App.state._clickupStatusLoaded = true;
+      console.warn('[clickup] loadStatus erro:', err);
+    }
   },
 
   // V32.1.3 — Picker de list ClickUp (Geraldo safe integration).
