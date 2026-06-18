@@ -19,9 +19,14 @@ module.exports = async function handler(req, res) {
       `SELECT
          u.id, u.username, u.email, u.display_name,
          u.is_master, u.is_approved, u.master_ai_enabled,
+         u.password_reset_pending, u.password_reset_expires_at,
          u.created_at, u.last_login_at,
          tm.role, tm.joined_at,
-         (SELECT COUNT(*) FROM user_ai_credentials WHERE user_id = u.id) AS has_own_key
+         (SELECT COUNT(*) FROM user_ai_credentials WHERE user_id = u.id) AS has_own_key,
+         (SELECT COALESCE(SUM(cost_usd), 0)
+            FROM djow_messages dm
+            JOIN djow_conversations dc ON dc.id = dm.conversation_id
+           WHERE dc.user_id = u.id) AS ai_cost_usd
        FROM tenant_members tm
        JOIN users u ON u.id = tm.user_id
        WHERE tm.tenant_id = $1
@@ -29,22 +34,32 @@ module.exports = async function handler(req, res) {
       [tenantId]
     );
 
-    const users = (r.rows || []).map(row => ({
-      id: row.id,
-      username: row.username,
-      email: row.email || row.username,
-      displayName: row.display_name || row.username,
-      role: row.role || 'user',
-      isMaster: !!row.is_master,
-      isApproved: !!row.is_approved,
-      masterAiEnabled: !!row.master_ai_enabled,
-      hasOwnAiKey: Number(row.has_own_key) > 0,
-      joinedAt: row.joined_at || null,
-      lastLoginAt: row.last_login_at || null,
-      createdAt: row.created_at || null
-    }));
+    let totalAiCost = 0;
+    const users = (r.rows || []).map(row => {
+      const cost = Number(row.ai_cost_usd || 0);
+      totalAiCost += cost;
+      const resetPending = !!row.password_reset_pending &&
+        (!row.password_reset_expires_at || new Date(row.password_reset_expires_at) > new Date());
+      return {
+        id: row.id,
+        username: row.username,
+        email: row.email || row.username,
+        displayName: row.display_name || row.username,
+        role: row.role || 'user',
+        isMaster: !!row.is_master,
+        isApproved: !!row.is_approved,
+        masterAiEnabled: !!row.master_ai_enabled,
+        hasOwnAiKey: Number(row.has_own_key) > 0,
+        passwordResetPending: resetPending,
+        passwordResetExpiresAt: row.password_reset_expires_at || null,
+        aiCostUsd: cost,
+        joinedAt: row.joined_at || null,
+        lastLoginAt: row.last_login_at || null,
+        createdAt: row.created_at || null
+      };
+    });
 
-    return res.status(200).json({ ok: true, tenantId, users });
+    return res.status(200).json({ ok: true, tenantId, users, totalAiCostUsd: totalAiCost });
   } catch (err) {
     console.error('[admin-tenant-users]', err);
     return res.status(500).json({ ok: false, message: err.message });
