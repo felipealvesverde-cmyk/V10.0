@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V39.12.2',
+    date: '2026-06-18',
+    title: 'Flow Builder polimento: drag não pega texto, dblclick volta, CTRL+SHIFT duplica, Delete apaga',
+    bullets: [
+      'Arrastar no canvas agora NÃO seleciona mais o texto do header/fora dele (irritante quando o cursor passava em cima de palavras durante o drag). CSS user-select:none global no modal, com override pra inputs/textareas/selects continuarem funcionando como esperado.',
+      'Clique fora da pílula expandida fecha consistentemente — antes às vezes fechava, às vezes não. Bug: o handler de close estava só no "área vazia" do canvas; click em card não fechava. Agora qualquer click dentro do canvas fecha a pílula como primeira ação do mousedown.',
+      'Duplo clique no card pra editar voltou a funcionar. Bug introduzido junto com a seleção: o click simples re-renderizava o SVG inteiro e destruía o group antes do 2º click chegar, então o navegador nunca completava o duplo-clique. Agora o click simples só atualiza o stroke via DOM (sem destruir o group), preservando o listener do duplo-clique.',
+      'Tecla Delete (ou Backspace) apaga os cards selecionados. Regra: cards criados há menos de 10 segundos somem direto sem confirm (corrige drag/duplicação acidental). Cards mais antigos pedem confirmação antes de apagar. Se a seleção tem mistura (jovens + antigos), os jovens somem direto e os antigos pedem confirm geral. Não dispara dentro de inputs/textarea (Delete nesses campos só apaga texto).',
+      'CTRL+SHIFT+arrastar duplica o card (mesmo tipo, mesmos dados, sem linkedRealId) e arranca drag do duplicado. Útil pra clonar uma Ação inteira (incluindo segmentações) sem refazer setor/canal/tipo. Produto NÃO pode ser duplicado — mostra aviso "Produto não pode ser duplicado, cada esteira tem 1 só".'
+    ]
+  },
+  {
     version: 'V39.12.1',
     date: '2026-06-18',
     title: 'Flow Builder ganha atalhos de produtividade: CTRL+drag pra criar filho, click pra selecionar, ALT pra box-select, conexão em massa',

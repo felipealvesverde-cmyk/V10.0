@@ -2836,7 +2836,9 @@ Object.assign(Actions, {
       x: 120 + (i % 5) * 30,
       y: 120 + Math.floor(i / 5) * 30,
       data: ActionFlowBuilder.defaultData(type.id),
-      linkedRealId: null
+      linkedRealId: null,
+      // V39.12.2 — createdAt habilita regra "Delete sem confirm nos primeiros 10s".
+      createdAt: Date.now()
     };
     App.state.flowBuilderNodes = [...nodes, node];
     if (isEsteira) {
@@ -3271,6 +3273,53 @@ Object.assign(Actions, {
       djowAnalise: null
     };
     App.save(); App.render();
+  },
+
+  // V39.12.2 — Delete key apaga cards selecionados. Regra:
+  //   - Card criado há < 10s → apaga SEM confirm (drag/duplicação acidental).
+  //   - Card antigo (≥ 10s ou createdAt ausente) → pede confirm geral.
+  //   - Se houver mistura (jovens + antigos): apaga jovens silenciosamente E
+  //     pede confirm pros antigos.
+  // Implementado como global keydown listener registrado uma vez no attach().
+  deleteFlowBuilderSelected() {
+    const ids = (App.state.flowBuilderSelectedNodeIds || []).map(String);
+    if (!ids.length) return;
+    const nodes = App.state.flowBuilderNodes || [];
+    const now = Date.now();
+    const GRACE_MS = 10000;
+    const selectedNodes = nodes.filter(n => ids.includes(String(n.id)));
+    if (!selectedNodes.length) return;
+    const youngs = selectedNodes.filter(n => n.createdAt && (now - Number(n.createdAt)) < GRACE_MS);
+    const olds = selectedNodes.filter(n => !youngs.includes(n));
+    const youngIds = new Set(youngs.map(n => String(n.id)));
+    const oldIds = new Set(olds.map(n => String(n.id)));
+    // Sempre apaga os jovens direto.
+    let toDelete = new Set(youngIds);
+    if (olds.length) {
+      const names = olds.map(n => `"${String(n.data?.name || n.name || ActionFlowBuilder.typeById(n.type).label).trim()}"`).join(', ');
+      const msg = olds.length === 1
+        ? `Apagar o bloco ${names}? Este card já tem mais de 10 segundos.`
+        : `Apagar ${olds.length} blocos antigos (${names})?`;
+      if (confirm(msg)) {
+        for (const id of oldIds) toDelete.add(id);
+      }
+    }
+    if (!toDelete.size) return;
+    const remainingNodes = nodes.filter(n => !toDelete.has(String(n.id)));
+    const edges = App.state.flowBuilderEdges || [];
+    const remainingEdges = edges.filter(e => !toDelete.has(String(e.fromId)) && !toDelete.has(String(e.toId)));
+    App.state.flowBuilderNodes = remainingNodes;
+    App.state.flowBuilderEdges = remainingEdges;
+    App.state.flowBuilderSelectedNodeIds = (App.state.flowBuilderSelectedNodeIds || []).filter(id => !toDelete.has(String(id)));
+    if (App.state.flowBuilderConnectionArm) {
+      const arm = App.state.flowBuilderConnectionArm;
+      const armArr = Array.isArray(arm) ? arm : [arm];
+      const cleaned = armArr.filter(a => !toDelete.has(String(a)));
+      App.state.flowBuilderConnectionArm = cleaned.length ? cleaned : null;
+    }
+    App.save(); App.render();
+    setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
+    Utils.toast(`${toDelete.size} ${toDelete.size === 1 ? 'bloco apagado' : 'blocos apagados'}.`);
   },
 
   // V39.12.0 — Botão "Excluir bloco" dentro do modal de edição: apaga node
