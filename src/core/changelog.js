@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.3.0',
+    date: '2026-06-18',
+    title: 'Onda 5 do cockpit: usuários por tenant + liberação de uso da IA',
+    bullets: [
+      'Tela nova "Usuários" no cockpit /admin. Você seleciona um tenant e vê a lista completa dos usuários cadastrados nele — quem é owner, quem é gerente, quem é usuário comum, último login de cada um. Sansone, Mariano e qualquer cliente com vários acessos aparece aqui sem precisar mexer em SQL.',
+      'Toggle de "IA liberada" por usuário. Quando você liga, o usuário passa a usar o saldo Anthropic do LJ pra Djow, enriquecimento, etc. Quando você desliga, o usuário precisa plugar a própria chave em Configurações → IA ou recebe mensagem clara de que precisa de liberação. Decisão sua, cliente por cliente, conta por conta.',
+      'Card resumo mostra "Cadastrados" e "Com IA disponível" (soma quem tem saldo LJ liberado + quem já plugou chave própria). Você vê de bate-pronto a saúde de IA do tenant.',
+      'Botão "Novo usuário" também presente nessa tela — não precisa mais voltar pra aba Tenants pra criar acesso pro time do cliente.',
+      'Por trás: endpoint novo /api/admin-tenant-users (JOIN tenant_members + users + user_ai_credentials), gate do /api/users-toggle-master-ai ampliado pra aceitar operador LJ além do master. Sidebar do cockpit agora tem 6 abas: Tenants, Usuários, Plugins, Integrações, Cobrança, Snapshots.'
+    ]
+  },
+  {
     version: 'V40.2.0',
     date: '2026-06-18',
     title: 'Ondas 3 + 4 do cockpit: cobrança manual por hora + gating de integrações por tenant',
