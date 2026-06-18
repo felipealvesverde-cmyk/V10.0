@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.6.5',
+    date: '2026-06-18',
+    title: 'Flow Builder: fix halo colorido das badges vazando no card selecionado',
+    bullets: [
+      'Fix: halo colorido (rosa/azul/laranja) das badges de segmentação dentro do card vazava pra fora quando o card era selecionado. Causa: cada badge de seg tem drop-shadow colorido (blur 14px da cor da seg) pra criar nuance localizada — mas o blur de 14px sai do limite do card. Quando os outros cards estavam dimmed (V40.6.3 spotlight), o halo dele ficava mais aparente ainda.',
+      'Quando o card está selecionado, drop-shadow das badges fica MAIS contida — só 3px de blur com opacidade reduzida. Suficiente pra manter a nuance da cor da seg sem o halo "explodir" pra fora. Quando desseleciona, drop-shadow forte volta normal pra mostrar a vivacidade das segmentações.'
+    ]
+  },
+  {
     version: 'V40.6.4',
     date: '2026-06-18',
     title: 'Flow Builder: fix sombra borrando glow no card selecionado',
