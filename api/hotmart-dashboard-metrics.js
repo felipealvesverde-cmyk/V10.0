@@ -7,14 +7,26 @@
 //   from_date, to_date  (opcional — filtra janela; default 30 dias)
 //   reason              (V35.2.1 opcional — filtra transações por
 //                        cancellation_reason quando ativo no breakdown)
+//
+// V40.7.11 — Branch demo isolado no início. Retorna mock convincente pra
+// demo@leadjourney.app sem tocar no banco. Atalho consciente até atacar
+// [[backlog-provider-abstraction]] — quando refator de checkout providers
+// rolar, esse branch sai junto e o demo passa a usar `demoProvider`.
 
 const { REASON_MAP, REASON_OTHERS } = require('../lib/lj-hotmart-service');
 const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+const { buildDemoCheckoutMock } = require('../lib/demo-checkout-mock');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+
+  // V40.7.11 — Atalho demo. NÃO toca em req.tenantDb (demo não tem tabelas).
+  if (req.user.username === 'demo@leadjourney.app') {
+    return res.status(200).json(buildDemoCheckoutMock(req.query || {}));
+  }
+
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
   // V37.4.34 — Purchases vivem na linha do OWNER do tenant.

@@ -10,6 +10,35 @@ const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/
 module.exports = async function handler(req, res) {
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+
+  // V40.7.11 — Demo: simula checkout "conectado" sem tocar no banco
+  // (tabela hotmart_config não foi criada pro tenant demo). Mutations no demo
+  // não fazem sentido mesmo — ele é "checkout fingindo estar plugado".
+  // Backlog do refator: [[backlog-provider-abstraction]].
+  if (req.user.username === 'demo@leadjourney.app') {
+    if (req.method === 'GET') {
+      return res.status(200).json({
+        ok: true,
+        configured: true,
+        hottokMasked: 'demo…demo',
+        oauthConfigured: false,
+        clientIdMasked: null,
+        syncWindowDays: 30,
+        lastSyncAt: new Date().toISOString(),
+        lastSyncResult: { ok: true, processed: 4230, source: 'demo-mock' },
+        productMappings: {
+          'demo_pilsen':      { ljProductId: 1781869701831 },
+          'demo_weiss':       { ljProductId: 5001 },
+          'demo_chopp_vinho': { ljProductId: 5002 }
+        },
+        connectedAt: '2026-03-15T00:00:00Z',
+        updatedAt: new Date().toISOString(),
+        __demoMock: true
+      });
+    }
+    return res.status(403).json({ ok: false, message: 'Demo é read-only nessa rota.' });
+  }
+
   if (!isEncryptionReady()) return res.status(503).json({ ok: false, message: 'ENCRYPTION_KEY não configurada.' });
 
   // V37.4.34 — Credenciais Hotmart vivem na linha do OWNER do tenant.

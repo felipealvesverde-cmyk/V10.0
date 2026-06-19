@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.11',
+    date: '2026-06-19',
+    title: 'Demo: dashboard de Checkout populado com vendas fictícias dos 3 produtos',
+    bullets: [
+      'Tab Checkout do Dashboard agora mostra vendas simuladas dos últimos 30 dias: ~4.230 vendas aprovadas, R$ 125k em receita, ticket médio coerente por produto (Pilsen R$ 22 · Weiss R$ 28 · Chopp R$ 72).',
+      'KPIs completos: aprovadas, recusadas, reembolsadas, chargeback, boletos pendentes + breakdown dos 7 principais motivos de recusa.',
+      '50 transações fictícias na lista + série temporal de 30 dias pro gráfico. Realista pra cervejaria operando online em paralelo com vendas offline (bares/eventos).',
+      'Aviso técnico: implementado como atalho enquanto o refator de "checkout provider abstrato" não rola (ver backlog). Hoje o LJ acopla nome "Hotmart" no endpoint — cliente novo com Stripe/Pagar.me/etc. precisaria de mock próprio também.'
+    ]
+  },
+  {
     version: 'V40.7.10',
     date: '2026-06-19',
     title: 'Endpoint admin-add-demo-revops: retorna o newState pra evitar race com auto-save',
