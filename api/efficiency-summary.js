@@ -12,11 +12,19 @@
 // Engine calcula LTV:CAC, Payback e NRR no frontend combinando.
 
 const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+const { buildEfficiencySummary } = require('../lib/demo-system-mocks');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+
+  // V40.7.19 — Branch demo (tabela lj_hotmart_purchases não existe). Alimenta
+  // card A4 "Eficiência de Capital" da RevOps & Velocidade com LTV/refunds.
+  if (req.user.username === 'demo@leadjourney.app') {
+    return res.status(200).json(buildEfficiencySummary());
+  }
+
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
   const userId = Number(await resolveCredentialOwnerId(req));

@@ -14,10 +14,19 @@
 // visíveis até processarem). Master pode ?user_id=X pra inspecionar outro tenant.
 
 const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+const { buildReconciliationAlerts } = require('../lib/demo-system-mocks');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+
+  // V40.7.19 — Branch demo (tabelas lj_reconciliation_alerts + lj_visitors RD não existem).
+  if (req.user.username === 'demo@leadjourney.app') {
+    if (req.method === 'GET') return res.status(200).json(buildReconciliationAlerts(req.query || {}));
+    if (req.method === 'POST') return res.status(200).json({ ok: true });
+    return res.status(405).json({ ok: false, message: 'Use GET ou POST.' });
+  }
+
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
   // V37.4.34 — Alertas vivem na linha do OWNER do tenant. Master pode override ?user_id=X.

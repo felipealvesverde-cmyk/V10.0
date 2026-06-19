@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.19',
+    date: '2026-06-19',
+    title: 'Demo: 9 endpoints de sistema mockados — console limpo + Health 9/9',
+    bullets: [
+      'O console do demo tava cheio de 500 Internal Server Error em endpoints que dependem de tabelas inexistentes no tenant demo: notifications-list, notifications-daily-summary, notification-preferences, pins-list, reconciliation-alerts, efficiency-summary, governance-closings, visitors-pending-counts, google-ads-config.',
+      'Adicionado branch demo em cada um. Sininho zerado (estado válido vazio), Pins vazio, Alertas RD zerados, Eficiência rica (LTV/customers/refunds coerentes com Velocity), Governance Closings vazio, Identity Resolution sem pendências, Google Ads não conectado.',
+      'Mocks centralizados em lib/demo-system-mocks.js pra evitar drift. Refator quando provider abstraction acontecer (backlog).',
+      'Health card do menu deve voltar pra 9/9 (estava 6/9). Console fica limpo pra demo de CEO técnico que abre DevTools.'
+    ]
+  },
+  {
     version: 'V40.7.18',
     date: '2026-06-19',
     title: 'Demo: Chopp em rota errada — LJ vira diagnóstico, não dashboard verde',

@@ -25,6 +25,7 @@
 //       product_ids escolhidos. snapshot_json é recomposto.
 
 const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
+const { buildGovernanceClosings } = require('../lib/demo-system-mocks');
 
 const VALID_KINDS = ['product_auto', 'product_custom', 'consolidated_monthly', 'consolidated_custom'];
 
@@ -70,6 +71,17 @@ async function loadStateJson(db, userId) {
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+
+  // V40.7.19 — Branch demo (tabela lj_governance_closings não existe).
+  // Sem fechamentos é estado válido (cliente ainda não fechou nenhum período).
+  if (req.user.username === 'demo@leadjourney.app') {
+    if (req.method === 'GET') return res.status(200).json(buildGovernanceClosings());
+    if (req.method === 'POST' || req.method === 'PATCH') {
+      return res.status(503).json({ ok: false, message: 'Fechamento de governança não disponível no tenant demo.' });
+    }
+    return res.status(405).json({ ok: false, message: 'Método não suportado.' });
+  }
+
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Banco do tenant indisponível.' });
 
   // V37.4.34 — Snapshots vivem na linha do OWNER do tenant.
