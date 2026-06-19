@@ -193,6 +193,48 @@
       const periodLabel = cfg.period === 'yearly' ? 'Anual' : cfg.period === 'quarterly' ? 'Trimestral' : 'Mensal';
       const selectedProduct = products.find(p => Number(p.id) === Number(productId));
       const selectedName = selectedProduct?.name || 'Produto';
+
+      // V40.11.0 — Subtítulo dinâmico por tab + cards duais em modo leitura.
+      // Modelagem (Custos, Ofertas) = só Projetado. Leitura (Resultado, KPIs,
+      // DRE, Fechamento) = Realizado grande + Projetado small embaixo.
+      const activeTab = this._activeTab();
+      const SUBTITLE_BY_TAB = {
+        costs:      'Estrutura de custos',
+        offers:     'Modele sua operação como ela é',
+        result:     'Vida da operação',
+        revops:     'Saúde dos indicadores',
+        dre:        'Demonstrativo financeiro',
+        fechamento: 'Mês fechado'
+      };
+      const subtitle = SUBTITLE_BY_TAB[activeTab] || 'Operação de receita';
+      const isReading = ['result', 'revops', 'dre', 'fechamento'].includes(activeTab);
+
+      // Em modo leitura, calcula evReal usando vendas Hotmart approved últimos
+      // 30d + ticket CRM. Se sem dados, evReal=null e cards mostram "—".
+      let evReal = null;
+      if (isReading && window.RevopsFinanceEngine) {
+        const summary = RevopsFinanceEngine.productRevenueSummary?.(productId);
+        if (summary && summary.convertedCount > 0 && summary.crmTicket > 0) {
+          evReal = RevopsWhitelabelEngine.evaluate(cfg, { sales: summary.convertedCount, ticket: summary.crmTicket });
+        }
+      }
+
+      const metricsGrid = isReading ? `
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+          ${this._metricCellDual('Ticket Médio', evReal ? this._moneyPrecise(evReal.ticket) : null, this._moneyPrecise(ev.ticket), 'violet')}
+          ${this._metricCellDual(`Faturamento Bruto (${periodLabel})`, evReal ? this._money(evReal.fatBruto) : null, this._money(ev.fatBruto), 'emerald')}
+          ${this._metricCellDual('Faturamento Líquido', evReal ? this._money(evReal.fatLiquido) : null, this._money(ev.fatLiquido), 'sky')}
+          ${this._metricCellDual('EBITDA', evReal ? this._money(evReal.ebitda) : null, this._money(ev.ebitda), evReal ? (evReal.ebitda >= 0 ? 'emerald' : 'rose') : (ev.ebitda >= 0 ? 'emerald' : 'rose'))}
+          ${this._metricCellDual('Margem EBITDA', evReal ? `${evReal.ebitdaMargin.toFixed(1)}%` : null, `${ev.ebitdaMargin.toFixed(1)}%`, evReal ? (evReal.ebitdaMargin >= 25 ? 'emerald' : evReal.ebitdaMargin >= 0 ? 'amber' : 'rose') : (ev.ebitdaMargin >= 25 ? 'emerald' : ev.ebitdaMargin >= 0 ? 'amber' : 'rose'))}
+        </div>` : `
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+          ${this._metricCell('Ticket Médio', this._moneyPrecise(ev.ticket), 'violet')}
+          ${this._metricCell(`Faturamento Bruto (${periodLabel})`, this._money(ev.fatBruto), 'emerald')}
+          ${this._metricCell('Faturamento Líquido', this._money(ev.fatLiquido), 'sky')}
+          ${this._metricCell('EBITDA', this._money(ev.ebitda), ev.ebitda >= 0 ? 'emerald' : 'rose')}
+          ${this._metricCell('Margem EBITDA', `${ev.ebitdaMargin.toFixed(1)}%`, ev.ebitdaMargin >= 25 ? 'emerald' : ev.ebitdaMargin >= 0 ? 'amber' : 'rose')}
+        </div>`;
+
       return `<div class="bg-gradient-to-br from-slate-900 via-violet-950 to-slate-900 rounded-3xl border border-violet-500/30 p-5 shadow-2xl">
         <!-- V38.1.1 — Breadcrumb pra voltar ao Overview -->
         <div class="flex items-center gap-2 mb-3 text-[11px] font-bold">
@@ -206,8 +248,8 @@
         <div class="flex items-start justify-between gap-3 flex-wrap mb-4">
           <div class="min-w-0">
             <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest">RevOps & Governança · CFO</p>
-            <h2 class="text-2xl font-black text-white mt-1 leading-tight">Operação de Receita · ${Utils.escape(selectedName)}</h2>
-            <p class="text-[12px] text-violet-200/70 mt-1">Modele sua operação como ela é</p>
+            <h2 class="text-2xl font-black text-white mt-1 leading-tight">${Utils.escape(selectedName)}</h2>
+            <p class="text-[12px] text-violet-200/70 mt-1">${Utils.escape(subtitle)}</p>
           </div>
           <div class="flex items-center gap-2 shrink-0">
             <select onchange="Actions.setRevopsActiveProductId(this.value)" class="px-3 py-2 rounded-xl bg-slate-800/60 border border-violet-400/30 text-sm font-bold text-white hover:bg-slate-800 focus:outline-none focus:border-violet-300">
@@ -222,19 +264,7 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-          ${this._metricCell('Ticket Médio', this._moneyPrecise(ev.ticket), 'violet')}
-          ${this._metricCell(`Faturamento Bruto (${periodLabel})`, this._money(ev.fatBruto), 'emerald')}
-          ${this._metricCell('Faturamento Líquido', this._money(ev.fatLiquido), 'sky')}
-          ${this._metricCell('EBITDA', this._money(ev.ebitda), ev.ebitda >= 0 ? 'emerald' : 'rose')}
-          ${this._metricCell('Margem EBITDA', `${ev.ebitdaMargin.toFixed(1)}%`, ev.ebitdaMargin >= 25 ? 'emerald' : ev.ebitdaMargin >= 0 ? 'amber' : 'rose')}
-        </div>
-
-        <div class="mt-4 flex items-center gap-3 flex-wrap">
-          <label class="text-[10px] font-black text-violet-300 uppercase tracking-wider">Vendas previstas no período</label>
-          <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" min="0" value="${cfg.salesProjection}" onchange="Actions.setRevopsSalesProjection('${productId}', this.value)" placeholder="0" class="px-3 py-1.5 rounded-lg bg-slate-800/60 border border-violet-400/30 text-sm font-bold text-white placeholder-slate-500 focus:outline-none focus:border-violet-300 w-32" />
-          <span class="text-[11px] text-violet-200/60 italic">Usado pra calcular Faturamento Bruto = Vendas × Ticket.</span>
-        </div>
+        ${metricsGrid}
       </div>`;
     },
 
@@ -256,6 +286,28 @@
       return `<div class="rounded-xl border ${toneCls} px-3.5 py-2.5 backdrop-blur-sm flex flex-col justify-between gap-1.5 min-h-[72px]">
         <p class="text-[11px] font-black uppercase tracking-wider opacity-75 leading-tight">${label}</p>
         <p class="text-xl font-black truncate">${value}</p>
+      </div>`;
+    },
+
+    // V40.11.0 — Versão dual do _metricCell: Realizado grande em cima,
+    // Projetado em letra menor embaixo. Usado em tabs de leitura (Resultado,
+    // RevOps KPIs, DRE, Fechamento). Quando realValue=null, mostra "—" sem
+    // mentir o Projetado.
+    _metricCellDual(label, realValue, projValue, tone) {
+      const toneCls = {
+        violet:  'bg-violet-500/15  border-violet-400/30  text-violet-100',
+        emerald: 'bg-emerald-500/15 border-emerald-400/30 text-emerald-100',
+        sky:     'bg-sky-500/15     border-sky-400/30     text-sky-100',
+        amber:   'bg-amber-500/15   border-amber-400/30   text-amber-100',
+        rose:    'bg-rose-500/15    border-rose-400/30    text-rose-100'
+      }[tone] || 'bg-slate-500/15 border-slate-400/30 text-slate-100';
+      const displayReal = realValue !== null && realValue !== undefined ? realValue : '—';
+      return `<div class="rounded-xl border ${toneCls} px-3.5 py-2.5 backdrop-blur-sm flex flex-col justify-between gap-1 min-h-[72px]">
+        <p class="text-[11px] font-black uppercase tracking-wider opacity-75 leading-tight">${label}</p>
+        <div>
+          <p class="text-xl font-black truncate">${displayReal}</p>
+          <p class="text-[10px] opacity-60 mt-0.5 truncate">Proj. ${projValue}</p>
+        </div>
       </div>`;
     },
 
@@ -291,14 +343,18 @@
       const faltas = [];
       if (!unlocked.hasCosts) faltas.push('1 custo');
       if (!unlocked.hasOffers) faltas.push('1 oferta com preço');
-      if (!unlocked.hasSales) faltas.push('vendas previstas > 0');
+      if (!unlocked.hasSales) faltas.push('meta de vendas em pelo menos 1 oferta');
       return `Pra abrir: ${faltas.join(' + ')}`;
     },
 
+    // V40.11.0 — Gating: input "Vendas Previstas" saiu do header. Meta agora
+    // mora exclusivamente nas ofertas. Aceita salesProjection legado pra não
+    // travar cliente que cadastrou pré-V40.11 sem migrar pra Ofertas ainda.
     _tabUnlockState(cfg) {
       const hasCosts = (cfg.groups || []).some(g => (g.items || []).length > 0);
       const hasOffers = (cfg.offers || []).some(o => Number(o.price) > 0);
-      const hasSales = Number(cfg.salesProjection) > 0;
+      const hasOffersWithMeta = (cfg.offers || []).some(o => Number(o.metaVendas) > 0);
+      const hasSales = Number(cfg.salesProjection) > 0 || hasOffersWithMeta;
       return { hasCosts, hasOffers, hasSales, all: hasCosts && hasOffers && hasSales };
     },
 

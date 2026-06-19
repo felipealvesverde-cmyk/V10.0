@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.0',
+    date: '2026-06-19',
+    title: 'RevOps · Header do produto: Realizado · Projetado dual + subtítulo dinâmico + input Vendas Previstas removido',
+    bullets: [
+      'O header roxo do produto deixa de mentir. Antes, em qualquer tab, mostrava só Projetado (Ticket × Vendas Previstas) inflado pelo input manual no rodapé — então o cliente via EBITDA -R$ 98.700 em "Resultado" mesmo a operação rodando. Era projeção vestida de realidade.',
+      'Em tabs de leitura (Resultado, RevOps KPIs, DRE, Fechamento), cada KPI (Ticket Médio, Faturamento Bruto, Faturamento Líquido, EBITDA, Margem) virou dual: Realizado em letra grande, Projetado em letra menor embaixo ("Proj. R$ X"). O Realizado vem do engine novo (vendas Checkout aprovadas + ticket CRM).',
+      'Em tabs de modelagem (Custos, Ofertas), continua mostrando só Projetado — porque lá você está modelando, não lendo. Sem ruído de Real.',
+      'Subtítulo do header passa a falar a linguagem da tab ativa: Custos → "Estrutura de custos", Ofertas → "Modele sua operação como ela é", Resultado → "Vida da operação", RevOps KPIs → "Saúde dos indicadores", DRE → "Demonstrativo financeiro", Fechamento → "Mês fechado". Mata a dissonância antiga onde subtítulo dizia "modele" em telas de leitura pura.',
+      'O input "Vendas previstas no período" saiu do header. Era o cordão umbilical da fórmula antiga (Vendas × Ticket = Faturamento). Agora a projeção vem do engine — leads vivos × taxa de conversão × ticket CRM — sem cliente precisar digitar nada.',
+      'Gating de tabs migrou de "vendas previstas > 0" pra "1 oferta com meta de vendas". Quem cadastrou ofertas com meta em Ofertas já desbloqueia tudo. Cliente legado com salesProjection > 0 continua passando (sem migration forçada).',
+      'Título do produto enxugou: "Operação de Receita · Cerveja Pilsen" virou só "Cerveja Pilsen" — o tab/subtítulo já contextualiza, redundância caiu.'
+    ]
+  },
+  {
     version: 'V40.10.0',
     date: '2026-06-19',
     title: 'RevOps · Resultado: tela limpa com card único de Receita — Realizado · Projetado · Meta numa régua',
