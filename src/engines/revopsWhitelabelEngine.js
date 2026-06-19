@@ -685,13 +685,23 @@
       };
     },
 
+    // V40.7.20 — Leonardo: alavanca única. Antes filtrava `selectedForTicket`
+    // (checkbox redundante) + `price > 0`. Agora filtra só `mix > 0 && price > 0`
+    // — uma decisão por linha (peso no ticket). Mix=0 = oferta fora do cálculo.
+    // selectedForTicket legacy ainda é respeitado se estiver explicitamente false
+    // por algum config antigo, mas o default é "se tem mix, entra".
     _computeTicket(cfg) {
       if (cfg.ticketMode === 'manual') return this._num(cfg.ticketManualValue);
-      const offers = (cfg.offers || []).filter(o => o.selectedForTicket && this._num(o.price) > 0);
+      const offers = (cfg.offers || []).filter(o => {
+        if (this._num(o.price) <= 0) return false;
+        if (this._num(o.mix) <= 0) return false;
+        // Respeita selectedForTicket=false explícito (config legacy)
+        if (o.selectedForTicket === false) return false;
+        return true;
+      });
       if (!offers.length) return 0;
       const totalMix = offers.reduce((s, o) => s + this._num(o.mix), 0);
       if (totalMix <= 0) {
-        // sem mix definido → média simples
         return offers.reduce((s, o) => s + this._num(o.price), 0) / offers.length;
       }
       return offers.reduce((s, o) => s + (this._num(o.price) * this._num(o.mix) / totalMix), 0);

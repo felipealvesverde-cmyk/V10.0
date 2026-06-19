@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.20',
+    date: '2026-06-19',
+    title: 'RevOps · Ofertas: card redesenhado pra fim de fricção e confusão',
+    bullets: [
+      'A aba Ofertas tinha 3 decisões empilhadas no mesmo plano visual (modo do ticket, peso de cada oferta, exclusão por checkbox) — usuário cansava sem entender por quê. Agora as 3 camadas têm hierarquia clara: decisão estrutural acima, ofertas no meio, ticket calculado embaixo como resposta.',
+      'Modo de Cálculo do Ticket Médio virou bloco próprio com 2 cards (Ponderado vs Manual) e microcopy explicando QUANDO usar cada um. Antes era só radio button perdido em label.',
+      'Checkbox "TM" da linha eliminada. Agora MIX % é a única alavanca: MIX > 0 entra no cálculo, MIX = 0 fica fora. Quando você zera o mix, o card da oferta vai pra 55% opacidade e mostra "fora do cálculo do TM" — você VÊ a exclusão sem precisar interpretar checkbox.',
+      'Bug do arredondamento corrigido: ticket de R$ 4,80 agora aparece R$ 4,80, não R$ 5. Centavos importam — sumir com eles é dizer "não confio no número o suficiente pra mostrar inteiro".',
+      'Tipo de oferta (Principal/Cross-sell/Up-sell/Down-sell) ganhou subdescrição inline embaixo do select: "Principal — o produto que define o ticket". Sem precisar adivinhar o que cada tipo significa.',
+      'Bloco "Ticket Médio Calculado" embaixo do card mostra o número grande em roxo + sub-linha de auditoria: "média ponderada de 3 ofertas · 100% do mix". CEO vê de onde o número saiu sem abrir outra tela.',
+      'Botão "+ Nova oferta" voltou pra paleta do RevOps (outline roxo). Não rompe mais a temperatura visual do card.'
+    ]
+  },
+  {
     version: 'V40.7.19',
     date: '2026-06-19',
     title: 'Demo: 9 endpoints de sistema mockados — console limpo + Health 9/9',
