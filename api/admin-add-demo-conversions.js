@@ -94,8 +94,14 @@ module.exports = async function handler(req, res) {
             })) : []);
 
         if (flowConfig.length) {
-          // Última etapa do flow recebe o manualConverted
-          flowConfig[flowConfig.length - 1].manualConverted = converted;
+          // V40.7.14 — Setar em TODAS as stages. FlowResolutionEngine usa a
+          // PRIMEIRA stage pra definir `current` (volume inicial). Se só a
+          // última tem manualConverted, Math.min(current=0, X) zera. Setando
+          // em todas, cada stage retorna o mesmo `converted` na cascata e a
+          // última (que o engine reporta) bate com nosso target.
+          for (const stage of flowConfig) {
+            stage.manualConverted = converted;
+          }
           a.flowConfig = flowConfig;
           updatedActionIds.add(a.id);
         }
