@@ -1136,6 +1136,11 @@ app.get('/', (_req, res) => res.sendFile(indexPath));
 app.get('/accept-invite.html', (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'accept-invite.html'));
 });
+// V40.7.6 — Página de admin pra imputar state JSON no demo (master only no client-side
+// + endpoint /api/admin-restore-demo-state valida master server-side via JWT).
+app.get('/admin-restore-demo.html', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-restore-demo.html'));
+});
 // V40.0.0 — Portal /admin separado (cockpit operacional do LJ-business). Gate
 // real fica no boot do portal (JWT.isLjOperator); o servidor só serve o HTML.
 app.get('/admin*', (_req, res) => {
