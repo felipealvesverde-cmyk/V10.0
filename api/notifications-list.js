@@ -3,10 +3,17 @@
 // Query: ?status=inbox|saved|archive|snoozed&category=X&severity=Y&limit=100
 
 const { listNotifications, countByStatus } = require('../lib/notification-engine');
+const { buildNotificationsList } = require('../lib/demo-system-mocks');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+
+  // V40.7.19 — Branch demo (tabela `notifications` não existe no tenant demo).
+  if (req.user.username === 'demo@leadjourney.app') {
+    return res.status(200).json(buildNotificationsList());
+  }
+
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não plugado.' });
 
   const tenantId = req.user.tenantId;

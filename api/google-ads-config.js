@@ -8,10 +8,22 @@
 
 const { encrypt, decrypt } = require('../lib/clickup-crypto');
 const { resolveCredentialOwnerId, assertCanWriteCredentials } = require('../lib/credentials-owner');
+const { buildGoogleAdsConfig } = require('../lib/demo-system-mocks');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+
+  // V40.7.19 — Branch demo (tabela lj_google_ads_config não existe). Demo não
+  // tem Google Ads conectado por design — retorna configured:false.
+  if (req.user.username === 'demo@leadjourney.app') {
+    if (req.method === 'GET') return res.status(200).json(buildGoogleAdsConfig());
+    if (req.method === 'POST' || req.method === 'DELETE') {
+      return res.status(503).json({ ok: false, message: 'Google Ads não disponível no tenant demo.' });
+    }
+    return res.status(405).json({ ok: false, message: 'Método não suportado.' });
+  }
+
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
   // V37.4.34 — Credenciais Google Ads vivem na linha do OWNER do tenant.

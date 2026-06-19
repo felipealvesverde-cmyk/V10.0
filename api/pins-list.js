@@ -8,9 +8,17 @@
 // (V36.8.0+). Refatorado pra 2 queries separadas (pins → tenantDb,
 // users → controlPlane) e composição no JS.
 
+const { buildPinsList } = require('../lib/demo-system-mocks');
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+
+  // V40.7.19 — Branch demo (tabela `pins` não existe no tenant demo).
+  if (req.user.username === 'demo@leadjourney.app') {
+    return res.status(200).json(buildPinsList());
+  }
+
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não plugado.' });
   if (!req.db) return res.status(503).json({ ok: false, message: 'Control plane DB indisponível.' });
 

@@ -2,6 +2,8 @@
 // GET: retorna prefs do user logado por categoria + opt-in digest semanal
 // POST: salva (body: { category, inApp?, email? } OU { weeklyDigest: bool })
 
+const { buildNotificationPreferences } = require('../lib/demo-system-mocks');
+
 const CATEGORIES = ['handoff', 'event', 'state', 'operational', 'integration', 'health'];
 
 // Defaults: tudo no sininho (in_app), nada no email exceto handoff/integration crítico
@@ -16,6 +18,14 @@ const DEFAULT_PREFS = {
 
 module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+
+  // V40.7.19 — Branch demo (GET retorna defaults; POST vira no-op).
+  if (req.user.username === 'demo@leadjourney.app') {
+    if (req.method === 'GET') return res.status(200).json(buildNotificationPreferences());
+    if (req.method === 'POST') return res.status(200).json({ ok: true });
+    return res.status(405).json({ ok: false, message: 'Use GET ou POST.' });
+  }
+
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não plugado.' });
 
   const tenantId = req.user.tenantId;

@@ -15,11 +15,18 @@
 //   }
 
 const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+const { buildVisitorsPendingCounts } = require('../lib/demo-system-mocks');
 
 module.exports = async function handler(req, res) {
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
-  if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
+
+  // V40.7.19 — Branch demo (tabelas lj_visitors + lj_merges + lj_tag_audit_log não existem).
+  if (req.user.username === 'demo@leadjourney.app') {
+    return res.status(200).json(buildVisitorsPendingCounts());
+  }
+
+  if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
   // V37.4.34 — Counts vivem na linha do OWNER do tenant.
   const userId = await resolveCredentialOwnerId(req);
