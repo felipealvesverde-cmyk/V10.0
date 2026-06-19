@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.1',
+    date: '2026-06-19',
+    title: 'Sidebar: scrollbar escondida visualmente (mantém scroll funcional)',
+    bullets: [
+      'Em browser zoom ≥ 110% aparecia uma barra de scroll cinza vertical entre a sidebar e o conteúdo — eram logo + 11 tabs + Configurações/Sair + bloco Health (9 linhas) não cabendo nos 100vh da viewport.',
+      'A barra agora é invisível em Firefox e Chromium, mas o scroll continua funcionando pela roda do mouse e pelas setas do teclado.',
+      'A barra continuava aparecendo só quando o conteúdo realmente estourava — não era um bug, era a indicação visual do overflow. Esconder o indicador mantém o comportamento limpo enquanto preserva a acessibilidade do scroll.'
+    ]
+  },
+  {
     version: 'V40.7.0',
     date: '2026-06-18',
     title: 'Flow Builder: 4 atalhos de teclado/mouse — Esc, Setas, Alt+scroll, Space',

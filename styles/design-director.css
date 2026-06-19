@@ -219,6 +219,15 @@ body.lj-app-body {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  /* V40.7.1 — Esconde a scrollbar visualmente mas mantém scroll funcional
+     (roda do mouse / setas). A barra aparecia em browser zoom ≥ 110% quando
+     logo + 11 tabs + Account + Health não cabiam em 100vh. Firefox lê
+     scrollbar-width; Chromium lê ::-webkit-scrollbar (regra abaixo). */
+  scrollbar-width: none;
+}
+
+.lj-master-nav::-webkit-scrollbar {
+  display: none;
 }
 
 .lj-master-brand {
