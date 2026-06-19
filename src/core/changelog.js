@@ -18,6 +18,32 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.10.0',
+    date: '2026-06-19',
+    title: 'RevOps · Resultado: tela limpa com card único de Receita — Realizado · Projetado · Meta numa régua',
+    bullets: [
+      'A aba Resultado deixa de ser uma colcha de retalhos (2 cards de meta + cascata RevOps + realizado do funil + microcopy órfã) e vira UM card só: Receita do mês.',
+      'O card mostra 3 números (Realizado, Projetado, Meta) em hierarquia visual única + uma régua horizontal com 3 marcadores proporcionais à Meta. Em meio segundo você lê onde está, onde vai chegar, e onde queria chegar.',
+      'Realizado em ciano (Checkout aprovado), Projetado em violeta (CRM/operação), Meta em verde (alvo). Cada um carrega % relativo à Meta embaixo do marcador.',
+      'Rastreio cinza embaixo de cada número expõe a origem: "312 vendas aprovadas no Checkout", "1.500 leads vivos × 12% conversão × R$ 528 ticket CRM", "soma de 3 ofertas configuradas em Ofertas". Sem caixa-preta.',
+      'Drill saiu: cascata RevOps, indicadores principais, leitura do funil — tudo isso é trabalho de discussão, não de leitura. Migra pra Velocidade nas próximas ondas. Aqui você esbarra com a verdade, não argumenta com ela.',
+      'CTA "Ajustar nas Ofertas" saiu também — Resultado é leitura, não configuração. Quem quer mexer em meta volta na aba Ofertas.',
+      'Side accent ciano cravado no card (lei [[side-accent-law]]) — sinaliza que esse é o cockpit de Receita, não mais "metas + funil".'
+    ]
+  },
+  {
+    version: 'V40.9.0',
+    date: '2026-06-19',
+    title: 'RevOps · Resultado: engine novo de Receita do mês (Realizado · Projetado · Meta)',
+    bullets: [
+      'A tela Resultado Consolidado vai ganhar nas próximas ondas um quadro de Receita com 3 marcadores: Realizado, Projetado, Meta. Esta versão entrega o motor que alimenta esses 3 — UI vem em V40.10.',
+      'Conceito cravado: CRM dita timing/operação (quando uma venda é uma venda) e Checkout dita o dinheiro confirmado. Realizado = vendas Checkout aprovadas últimos 30 dias. Projetado = Leads vivos no LJ × Taxa de conversão × Ticket médio. Meta = soma das ofertas configuradas.',
+      'Taxa de conversão é dinâmica: dados dos últimos 30 dias. Janela curta aceita oscilação inicial pra reagir rápido a mudança boa ou ruim na operação — Felipe cravou que prefere reatividade a estabilidade engessada.',
+      'Funções novas no engine: productLeadsAlive, productConvertedCount, productConversionRate, productCrmTicket, productRealRevenue, productProjectedRevenue, productRevenueSummary. Zero mudança visual nesta versão.',
+      'Limitação consciente: hoje LJ não tem timestamp granular de avanço Vendas BOF → CS TOF. Pra Onda 1, Realizado e numerador da taxa usam Checkout (Hotmart approved) como proxy. Quando CRM granular for plugado, troca-se a fonte sem mexer na UI — engine já está modular pra isso.'
+    ]
+  },
+  {
     version: 'V40.8.1',
     date: '2026-06-19',
     title: 'RevOps · Ofertas: rollback do over-engineering — campo agora se chama "Projetado"',

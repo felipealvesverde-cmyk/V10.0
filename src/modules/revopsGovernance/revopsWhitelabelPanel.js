@@ -1597,32 +1597,17 @@
     // Mantém indicadores principais + realizado + simulator + comparador.
     _resultTab(cfg, ev) {
       const productId = cfg.productId;
-      const realSales = RevopsFinanceEngine?.productRealSales?.(productId) || 0;
-      const realRevenue = realSales * ev.ticket;
 
       // Período visível (default = mês corrente)
       const now = new Date();
       const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       const period = App.state.resultadoPeriod?.[productId] || currentPeriod;
-      const meta = (App.state.metasResultado?.[productId]?.[period]) || { vendas: 0, cac: 0 };
 
-      // Simulator (mantido)
+      // Simulator (mantido — overrides movidos pra dentro do bloco)
       const sim = App.state.revopsSimulator || { active: false };
       const simSales = sim.active && sim.salesOverride != null ? sim.salesOverride : ev.sales;
       const simTicket = sim.active && sim.ticketOverride != null ? sim.ticketOverride : ev.ticket;
       const simEv = sim.active ? RevopsWhitelabelEngine.evaluate(cfg, { sales: simSales, ticket: simTicket }) : ev;
-
-      const totalSales = simEv.sales;
-      const ctc = simEv.acquisitionTotal;
-      const cac = totalSales > 0 ? ctc / totalSales : 0;
-      const fatBruto = simEv.fatBruto;
-      const baseTotalSales = ev.sales;
-      const baseCtc = ev.acquisitionTotal;
-      const baseCac = baseTotalSales > 0 ? baseCtc / baseTotalSales : 0;
-      const baseFatBruto = ev.fatBruto;
-
-      // CAC realizado (do funil): CTC ÷ vendas reais
-      const realCac = realSales > 0 ? ev.acquisitionTotal / realSales : 0;
 
       // Selector de período: 3 atrás + corrente + 3 à frente
       const periodOpts = [];
@@ -1650,43 +1635,11 @@
 
       return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
         <div class="space-y-3 min-w-0">
-          ${this._tabHeader('Resultado · Indicadores', 'Resultado Consolidado', 'Meta vs realizado de Vendas e CAC, indicadores principais e leitura do funil.', rightSide)}
+          ${this._tabHeader('Resultado', 'Receita do mês', 'Realizado, Projetado e Meta numa régua única. Diagnóstico fica em Velocidade — aqui você esbarra com a verdade.', rightSide)}
           <section class="rounded-3xl border p-5 shadow-md space-y-4" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
             ${sim.active ? this._simulatorPanel(cfg, ev, simEv) : ''}
 
-            <!-- V37.0.0 — METAS DO PERÍODO -->
-            <div>
-              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Metas · ${Utils.escape(currentPeriodLabel)}</p>
-              <div class="grid sm:grid-cols-2 gap-3">
-                ${this._metaCard(productId, period, 'vendas', meta.vendas || 0, realSales)}
-                ${this._metaCard(productId, period, 'cac', meta.cac || 0, realCac)}
-              </div>
-            </div>
-
-            <!-- Indicadores principais -->
-            <div class="pt-2 border-t border-stone-200">
-              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Indicadores principais (cascata RevOps)</p>
-              <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
-                ${this._bigCellWithDelta('Número Total de Vendas', Math.round(totalSales).toLocaleString('pt-BR'), Math.round(baseTotalSales).toLocaleString('pt-BR'), totalSales, baseTotalSales, 'violet', sim.active)}
-                ${this._bigCellWithDelta('Custo Total Comercial (CTC)', this._money(ctc), this._money(baseCtc), ctc, baseCtc, 'rose', sim.active, true)}
-                ${this._bigCellWithDelta('Custo de Aquisição (CAC)', this._money(cac), this._money(baseCac), cac, baseCac, cac > 0 && cac <= simEv.ticket ? 'emerald' : 'amber', sim.active, true)}
-                ${this._bigCellWithDelta('Faturamento Bruto', this._money(fatBruto), this._money(baseFatBruto), fatBruto, baseFatBruto, 'emerald', sim.active)}
-              </div>
-              <div class="mt-2 grid md:grid-cols-2 gap-2 text-[11px] text-slate-600">
-                <p><b>CAC fórmula:</b> CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = <b class="text-slate-900">${this._money(cac)}</b></p>
-                <p><b>Fat. Bruto fórmula:</b> Total Vendas × TM = ${Math.round(totalSales).toLocaleString('pt-BR')} × ${this._moneyPrecise(simEv.ticket)} = <b class="text-slate-900">${this._money(fatBruto)}</b></p>
-              </div>
-            </div>
-
-            <!-- Realizado (do funil) -->
-            <div class="pt-2 border-t border-stone-200">
-              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Realizado (lido do funil)</p>
-              <div class="grid md:grid-cols-2 gap-3">
-                ${this._bigCell('Vendas reais (convertidas)', Math.round(realSales).toLocaleString('pt-BR'), 'sky')}
-                ${this._bigCell('Faturamento real', this._money(realRevenue), 'sky')}
-              </div>
-              <p class="text-[11px] text-slate-500 mt-2 italic">Vendas reais vêm dos convertidos no funil das ações. Se previsto × real estiver muito distante, calibre sua projeção.</p>
-            </div>
+            ${this._revenueCard(productId, currentPeriodLabel)}
 
             ${sim.active ? this._simulatorEbitdaCompare(ev, simEv) : ''}
             ${this._scenarioCompareBlock(cfg, ev)}
@@ -1793,6 +1746,96 @@
             ${varLabel}
           </span>
         </div>
+      </div>`;
+    },
+
+    // V40.10.0 — Card de Receita do mês — Realizado · Projetado · Meta numa
+    // régua única. Substitui os 2 cards "Meta de Vendas" + "Meta de CAC" da
+    // tab Resultado. Conceito Djow: Governança é leitura, não diagnóstico —
+    // cliente esbarra com o número, não discute com ele. Sem CTA, sem badge
+    // de divergência, sem banner. Drill vai pra Velocidade.
+    _revenueCard(productId, currentPeriodLabel) {
+      const summary = RevopsFinanceEngine?.productRevenueSummary?.(productId) || {
+        realRevenue: 0, projectedRevenue: 0, metaRevenue: 0,
+        convertedCount: 0, leadsAlive: 0, conversionRate: 0,
+        crmTicket: 0, metaSales: 0, sourceLabel: ''
+      };
+      const { realRevenue, projectedRevenue, metaRevenue, convertedCount, leadsAlive, conversionRate, crmTicket, metaSales } = summary;
+
+      // Escala da régua: Meta vira 100%. Se Realizado > Meta, respira 5% à direita.
+      const baseScale = metaRevenue > 0 ? metaRevenue : Math.max(projectedRevenue, realRevenue, 1);
+      const maxValue = Math.max(realRevenue, projectedRevenue, metaRevenue) * 1.05;
+      const realPos = Math.min(100, (realRevenue / maxValue) * 100);
+      const projPos = Math.min(100, (projectedRevenue / maxValue) * 100);
+      const metaPos = Math.min(100, (metaRevenue / maxValue) * 100);
+
+      // % relativo à Meta (não à escala visual)
+      const realPctMeta = metaRevenue > 0 ? (realRevenue / metaRevenue) * 100 : 0;
+      const projPctMeta = metaRevenue > 0 ? (projectedRevenue / metaRevenue) * 100 : 0;
+
+      const moneyDigits = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+      const fmt = (v) => moneyDigits.format(Number(v) || 0);
+      const conversionPct = (conversionRate * 100).toFixed(1);
+
+      // Rastreio cinza — selo de procedência de cada número
+      const rastreio = `
+        <div class="pt-3 border-t border-stone-200 space-y-1 text-[11px] text-slate-500">
+          <p><span class="font-bold text-slate-600">Realizado:</span> ${convertedCount.toLocaleString('pt-BR')} vendas aprovadas no Checkout (últimos 30d)</p>
+          <p><span class="font-bold text-slate-600">Projetado:</span> ${leadsAlive.toLocaleString('pt-BR')} leads vivos × ${conversionPct}% conversão × ${this._moneyPrecise(crmTicket)} ticket CRM</p>
+          <p><span class="font-bold text-slate-600">Meta:</span> ${metaSales > 0 ? `soma de ${metaSales.toLocaleString('pt-BR')} vendas configuradas em Ofertas` : 'sem meta configurada · ajuste em Ofertas'}</p>
+          ${summary.sourceLabel ? `<p class="italic pt-1">Fonte atual: ${summary.sourceLabel}</p>` : ''}
+        </div>`;
+
+      // Régua: barra cinza + 3 marcadores absolutos posicionados em % da escala
+      const regua = `
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-8">
+          ${metaRevenue > 0 ? `
+            <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
+            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
+              <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
+              <p class="text-[10px] text-slate-500">100%</p>
+            </div>
+          ` : ''}
+          ${projectedRevenue > 0 ? `
+            <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
+            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
+              <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
+              ${metaRevenue > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
+            </div>
+          ` : ''}
+          ${realRevenue > 0 ? `
+            <div class="absolute -top-1 w-3 h-3 rounded-full bg-sky-600 ring-2 ring-white shadow" style="left: ${realPos.toFixed(1)}%; transform: translateX(-50%);"></div>
+            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${realPos.toFixed(1)}%;">
+              <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
+              ${metaRevenue > 0 ? `<p class="text-[10px] text-slate-500">${realPctMeta.toFixed(0)}%</p>` : ''}
+            </div>
+          ` : ''}
+        </div>`;
+
+      return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #00CBCC;">
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Receita · ${Utils.escape(currentPeriodLabel)}</p>
+        </div>
+        <p class="text-sm text-slate-500 mb-4">A vida da operação: o que entrou, o que vai entrar, o que se comprometeu a entregar.</p>
+
+        <div class="grid grid-cols-3 gap-3 mb-2">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
+            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${fmt(realRevenue)}</p>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
+            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${fmt(projectedRevenue)}</p>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
+            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${metaRevenue > 0 ? fmt(metaRevenue) : '—'}</p>
+          </div>
+        </div>
+
+        ${regua}
+
+        ${rastreio}
       </div>`;
     },
 
