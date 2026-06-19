@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.2',
+    date: '2026-06-19',
+    title: 'Pílula fantasma: faixa superior vira drag handle (segurar e arrastar)',
+    bullets: [
+      'O header da pílula fantasma (faixa "Atalho rápido · Space pra fechar") agora é uma área de arrasto: segure e arraste pra reposicionar a pílula sem fechar e abrir de novo em outro lugar.',
+      'Cursor vira "mãozinha" no hover do header e "grabbing" enquanto arrasta. Clicar no botão x continua fechando normal (não inicia arrasto).',
+      'Movimento é instantâneo (style direto, sem re-render); posição é gravada no estado só ao soltar o mouse pra não pesar.',
+      'Ícone do header trocou pra grip-horizontal pra deixar visual da affordance.'
+    ]
+  },
+  {
     version: 'V40.7.1',
     date: '2026-06-19',
     title: 'Sidebar: scrollbar escondida visualmente (mantém scroll funcional)',

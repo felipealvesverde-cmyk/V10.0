@@ -369,15 +369,21 @@ window.ActionFlowBuilder = {
     }).join('');
     // Anchor: cursor é o centro horizontal; pill cresce pra baixo com leve offset.
     // max-w/max-h + overflow-auto pra não estourar o canvas.
-    return `<div class="absolute z-40 pointer-events-none" style="left:${x}px;top:${y}px;">
+    // V40.7.2 — Header é drag handle (segurar + arrastar). onmousedown no header
+    // dispara _onGhostDragStart; clicar no botão x não inicia drag (handler checa
+    // closest('button')).
+    return `<div id="flowGhostPaletteRoot" class="absolute z-40 pointer-events-none" style="left:${x}px;top:${y}px;">
       <div class="-translate-x-1/2 translate-y-2">
         <div onclick="event.stopPropagation()"
              class="bg-slate-900/90 backdrop-blur border border-indigo-400/40 rounded-3xl p-4 w-[640px] max-w-[80vw] max-h-[60vh] overflow-auto shadow-2xl pointer-events-auto ring-1 ring-indigo-500/20">
-          <div class="flex items-center justify-between mb-3">
-            <p class="text-[10px] font-black text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
-              <i data-lucide="zap" class="w-3.5 h-3.5"></i> Atalho rápido · Space pra fechar
+          <div onmousedown="ActionFlowBuilder._onGhostDragStart(event)"
+               class="flex items-center justify-between mb-3 -mx-4 -mt-4 px-4 pt-4 pb-3 rounded-t-3xl bg-gradient-to-b from-indigo-500/10 to-transparent border-b border-white/5"
+               style="cursor:grab;user-select:none;">
+            <p class="text-[10px] font-black text-indigo-300 uppercase tracking-wider flex items-center gap-1.5 pointer-events-none">
+              <i data-lucide="grip-horizontal" class="w-3.5 h-3.5"></i>
+              <span>Atalho rápido · Space pra fechar · arraste pra mover</span>
             </p>
-            <button onclick="Actions.closeFlowBuilderGhostPalette()" class="text-slate-400 hover:text-white transition" title="Fechar (Esc / Space)">
+            <button onclick="Actions.closeFlowBuilderGhostPalette()" onmousedown="event.stopPropagation()" class="text-slate-400 hover:text-white transition" title="Fechar (Esc / Space)">
               <i data-lucide="x" class="w-4 h-4"></i>
             </button>
           </div>
@@ -388,6 +394,45 @@ window.ActionFlowBuilder = {
         </div>
       </div>
     </div>`;
+  },
+
+  // V40.7.2 — Drag handle do header da pílula fantasma. Captura posição inicial,
+  // registra listeners temporários no window, atualiza style.left/top direto no
+  // root (fast-path, sem App.render). Mouseup commita pra App.state e libera.
+  _onGhostDragStart(event) {
+    // Clicar no botão x: deixa o botão tratar; não inicia drag.
+    if (event.target.closest('button')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const root = document.getElementById('flowGhostPaletteRoot');
+    if (!root) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const initialX = Number(App.state.flowBuilderGhostPaletteX || 0);
+    const initialY = Number(App.state.flowBuilderGhostPaletteY || 0);
+    root.style.cursor = 'grabbing';
+    const headerEl = event.currentTarget;
+    if (headerEl) headerEl.style.cursor = 'grabbing';
+    const onMove = (e) => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const nx = initialX + dx;
+      const ny = initialY + dy;
+      root.style.left = `${nx}px`;
+      root.style.top = `${ny}px`;
+    };
+    const onUp = (e) => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      App.state.flowBuilderGhostPaletteX = Math.round(initialX + dx);
+      App.state.flowBuilderGhostPaletteY = Math.round(initialY + dy);
+      App.save();
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      if (headerEl) headerEl.style.cursor = 'grab';
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   },
 
   // V39.12.0 — Pílula horizontal ~80% maior (px-14 + gap-7 = mais respiro entre
