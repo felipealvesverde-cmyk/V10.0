@@ -510,33 +510,26 @@ var RevopsFinanceEngine = {
     return (cache.byProduct || []).find(r => Number(r.product_id_lj) === Number(productId)) || null;
   },
 
-  // Leads "vivos" no LJ — todos os leads atribuídos a actions do produto
-  // que ainda não avançaram pra CS (proxy: leads em actions cujo destino
-  // final NÃO é cs-tof/cs-mof/cs-bof). Janela 30d ainda não aplica por
-  // ausência de timestamp por lead — Onda futura crava.
+  // V40.11.2 — Trocou fonte: antes contava leads em actions LJ (action.leads
+  // + flow.steps[0].impacted), que descasa do numerador (Hotmart approved).
+  // Resultado: taxa de conversão impossível (964,8% em demo Pilsen). Agora puxa
+  // visitors únicos do tracker (mesma fonte que PipelineVelocityEngine usa).
+  // Numerador (vendas Checkout) e denominador (visitors) vêm do mesmo plano
+  // observacional → taxa visitor→customer nunca passa de 100%.
+  // Nome mantido pra não quebrar callers; semântica passa a ser "visitas únicas".
+  // Achado #13 do inventário cobre o débito de timestamp granular de avanço.
   productLeadsAlive(productId) {
     if (!productId || !window.App?.state) return 0;
-    const campaigns = (App.state.campaigns || []).filter(c => Number(c.productId) === Number(productId));
-    const campaignIds = new Set(campaigns.map(c => Number(c.id)));
-    const actions = (App.state.actions || []).filter(a => campaignIds.has(Number(a.campaignId)));
+    const cache = window.App.state.pipelineVelocityCache;
+    if (!cache || cache.loading || cache.error) return 0;
+    const campanhasDoProduto = (App.state.campaigns || [])
+      .filter(c => Number(c.productId) === Number(productId))
+      .map(c => Number(c.id));
+    const campanhaSet = new Set(campanhasDoProduto);
     let total = 0;
-    for (const action of actions) {
-      const destFunnel = String(action.destinationFunnel || action.funnel || '').toUpperCase();
-      const destSector = String(action.destinationSector || action.sector || '').toLowerCase();
-      const isCsBound = destSector.includes('cs') || destSector.includes('customer');
-      if (isCsBound) {
-        // Conta só os "drop" (impactados − convertidos): convertidos viraram customer.
-        try {
-          const flow = FlowResolutionEngine.buildActionFlow(action);
-          const impacted = Number(flow.steps?.[0]?.impacted || 0);
-          const converted = Number(flow.converted || 0);
-          total += Math.max(0, impacted - converted);
-        } catch (_) {
-          total += (action.leads || []).length;
-        }
-      } else {
-        // Action que não chega em CS: todos os leads ainda estão vivos no funil.
-        total += (action.leads || []).length;
+    for (const row of (cache.byCampaign || [])) {
+      if (campanhaSet.has(Number(row.campaign_id))) {
+        total += Number(row.visitors || 0);
       }
     }
     return total;

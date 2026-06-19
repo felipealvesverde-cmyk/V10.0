@@ -1884,7 +1884,7 @@
       const rastreio = `
         <div class="pt-3 border-t border-stone-200 space-y-1 text-[11px] text-slate-500">
           <p><span class="font-bold text-slate-600">Realizado:</span> ${convertedCount.toLocaleString('pt-BR')} vendas aprovadas no Checkout (últimos 30d)</p>
-          <p><span class="font-bold text-slate-600">Projetado:</span> ${leadsAlive.toLocaleString('pt-BR')} leads vivos × ${conversionPct}% conversão × ${this._moneyPrecise(crmTicket)} ticket CRM</p>
+          <p><span class="font-bold text-slate-600">Projetado:</span> ${leadsAlive.toLocaleString('pt-BR')} visitas únicas × ${conversionPct}% conversão × ${this._moneyPrecise(crmTicket)} ticket CRM</p>
           <p><span class="font-bold text-slate-600">Meta:</span> ${metaSales > 0 ? `soma de ${metaSales.toLocaleString('pt-BR')} vendas configuradas em Ofertas` : 'sem meta configurada · ajuste em Ofertas'}</p>
           ${summary.sourceLabel ? `<p class="italic pt-1">Fonte atual: ${summary.sourceLabel}</p>` : ''}
         </div>`;
