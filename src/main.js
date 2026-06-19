@@ -469,31 +469,39 @@ var App = {
 
       // V23.0.0 — Carrega state: remoto primeiro (se produção/master), local depois.
       // V31.0.0 — Demo: força carga remota sempre (state vem do DB, local é descartado).
+      // V40.7.7 — Impersonation (master entrou via "Entrar como"): trata igual demo,
+      // SEMPRE usa remoto. Sem isso, a aba de impersonation herda o localStorage do
+      // master (vazio ou de outro tenant) e a tela do tenant alvo aparece em branco.
       async _loadStateWithRemoteFallback() {
         const local = State.load();
         let useState = local;
         const user = this.currentUser || {};
+        const isImpersonation = (() => {
+          try { return sessionStorage.getItem('lj_impersonation_session') === '1'; }
+          catch (_) { return false; }
+        })();
         const isDemo = user.mode === 'demo';
+        const forceRemote = isDemo || isImpersonation;
         const canSync = user.mode === 'production' || user.mode === 'demo' || user.isMaster === true;
         if (canSync && window.RemoteSyncAdapter) {
           try {
             const remote = await RemoteSyncAdapter.loadRemoteState();
             if (remote?.state) {
-              if (isDemo) {
-                // Demo: SEMPRE usa remoto. Local é descartado (não confiável — pode ter
-                // sobras do master ou de outra sessão demo).
+              if (forceRemote) {
+                // Demo OU impersonation: SEMPRE usa remoto. Local é descartado
+                // (não confiável — pode ter sobras do master ou de outra sessão).
                 // V31.0.1: pre-assign this.state ANTES de normalize. ScoreEngine (e outros
                 // engines) lêem App.state.scores durante normalizeLead — se App.state for
                 // null, crashava e caía no fallback local (mostrando dados do master).
                 this.state = remote.state;
-                useState = remote.state; // fallback raw: se normalize crashar, ainda mostra Engenho Norte
+                useState = remote.state; // fallback raw: se normalize crashar, ainda mostra dados reais
                 try {
                   useState = State.normalize(remote.state);
                   useState = DatabaseService.applyMigrations(useState);
                 } catch (normErr) {
-                  console.warn('[App] DEMO normalize falhou — usando state raw do DB:', normErr);
+                  console.warn(`[App] ${isImpersonation ? 'IMPERSONATION' : 'DEMO'} normalize falhou — usando state raw do DB:`, normErr);
                 }
-                console.log('[App] DEMO mode: state remoto Engenho Norte carregado.');
+                console.log(`[App] ${isImpersonation ? 'IMPERSONATION' : 'DEMO'} mode: state remoto carregado.`);
               } else {
                 // Master/production: compara remoto vs local, usa o mais recente.
                 const localUpdated = local?.lastSavedAt ? new Date(local.lastSavedAt).getTime() : 0;
