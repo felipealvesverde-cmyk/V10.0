@@ -497,6 +497,111 @@ var RevopsFinanceEngine = {
     return total;
   },
 
+  // V40.9.0 — Quadro de Receita do mês (Realizado · Projetado · Meta).
+  // Conceito cravado com Felipe: CRM dita timing/operação, Checkout dita
+  // dinheiro confirmado. Proxy de Onda 1: hoje a fonte de "venda fechada"
+  // é Hotmart approved (Checkout) pra Realizado E numerador da taxa, porque
+  // o LJ ainda não tem timestamp granular de avanço Vendas BOF → CS TOF.
+  // Quando RD CRM granular for plugado, troca-se a fonte aqui sem mexer
+  // na UI. Achado #13 do [[demo-population-findings]] cobre o débito.
+  _velocityCacheRow(productId) {
+    const cache = window.App?.state?.pipelineVelocityCache;
+    if (!cache || cache.loading || cache.error) return null;
+    return (cache.byProduct || []).find(r => Number(r.product_id_lj) === Number(productId)) || null;
+  },
+
+  // Leads "vivos" no LJ — todos os leads atribuídos a actions do produto
+  // que ainda não avançaram pra CS (proxy: leads em actions cujo destino
+  // final NÃO é cs-tof/cs-mof/cs-bof). Janela 30d ainda não aplica por
+  // ausência de timestamp por lead — Onda futura crava.
+  productLeadsAlive(productId) {
+    if (!productId || !window.App?.state) return 0;
+    const campaigns = (App.state.campaigns || []).filter(c => Number(c.productId) === Number(productId));
+    const campaignIds = new Set(campaigns.map(c => Number(c.id)));
+    const actions = (App.state.actions || []).filter(a => campaignIds.has(Number(a.campaignId)));
+    let total = 0;
+    for (const action of actions) {
+      const destFunnel = String(action.destinationFunnel || action.funnel || '').toUpperCase();
+      const destSector = String(action.destinationSector || action.sector || '').toLowerCase();
+      const isCsBound = destSector.includes('cs') || destSector.includes('customer');
+      if (isCsBound) {
+        // Conta só os "drop" (impactados − convertidos): convertidos viraram customer.
+        try {
+          const flow = FlowResolutionEngine.buildActionFlow(action);
+          const impacted = Number(flow.steps?.[0]?.impacted || 0);
+          const converted = Number(flow.converted || 0);
+          total += Math.max(0, impacted - converted);
+        } catch (_) {
+          total += (action.leads || []).length;
+        }
+      } else {
+        // Action que não chega em CS: todos os leads ainda estão vivos no funil.
+        total += (action.leads || []).length;
+      }
+    }
+    return total;
+  },
+
+  // Vendas confirmadas no Checkout (últimos 30d). Hoje serve TANTO pro
+  // Realizado QUANTO pro numerador da taxa — proxy até CRM granular.
+  productConvertedCount(productId) {
+    const row = this._velocityCacheRow(productId);
+    return row ? Number(row.approved_count || 0) : 0;
+  },
+
+  // Taxa de conversão: vendas Checkout ÷ leads vivos. Quando ambos vêm
+  // da mesma janela natural (mês corrente), conversa. Oscila quando
+  // operação muda — Felipe aceitou (modo brasileiro).
+  productConversionRate(productId) {
+    const leadsAlive = this.productLeadsAlive(productId);
+    const converted = this.productConvertedCount(productId);
+    return leadsAlive > 0 ? converted / leadsAlive : 0;
+  },
+
+  // Ticket médio CRM. Proxy: hoje é o ticket médio do Checkout (Hotmart
+  // approved). Quando RD CRM granular existir, vira média dos valores
+  // cravados nos deals que avançaram pra CS TOF.
+  productCrmTicket(productId) {
+    const row = this._velocityCacheRow(productId);
+    if (!row) return 0;
+    const cents = Number(row.avg_value_cents || row.avg_ticket * 100 || 0);
+    return cents / 100;
+  },
+
+  // Realizado: soma das vendas Checkout aprovadas últimos 30d.
+  productRealRevenue(productId) {
+    return this.productConvertedCount(productId) * this.productCrmTicket(productId);
+  },
+
+  // Projetado: Leads vivos × Taxa de conversão × Ticket médio CRM.
+  productProjectedRevenue(productId) {
+    return this.productLeadsAlive(productId) * this.productConversionRate(productId) * this.productCrmTicket(productId);
+  },
+
+  // Resumo consolidado pra UI consumir em 1 read, evitando 6 chamadas.
+  productRevenueSummary(productId) {
+    const leadsAlive = this.productLeadsAlive(productId);
+    const convertedCount = this.productConvertedCount(productId);
+    const crmTicket = this.productCrmTicket(productId);
+    const conversionRate = leadsAlive > 0 ? convertedCount / leadsAlive : 0;
+    const realRevenue = convertedCount * crmTicket;
+    const projectedRevenue = leadsAlive * conversionRate * crmTicket;
+    const offers = App.state.revopsFinanceV2?.[productId]?.offers || [];
+    const metaSales = offers.reduce((s, o) => s + (Number(o.metaVendas) || 0), 0);
+    const metaRevenue = metaSales * crmTicket;
+    return {
+      leadsAlive,
+      convertedCount,
+      crmTicket,
+      conversionRate,
+      realRevenue,
+      projectedRevenue,
+      metaSales,
+      metaRevenue,
+      sourceLabel: 'Checkout · CRM granular pendente'
+    };
+  },
+
   computeDashboard(config = {}) {
     const normalized = this.normalize(config);
     const metrics = this.computeMetrics(normalized);

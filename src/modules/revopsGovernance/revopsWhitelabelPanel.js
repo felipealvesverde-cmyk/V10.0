@@ -193,6 +193,48 @@
       const periodLabel = cfg.period === 'yearly' ? 'Anual' : cfg.period === 'quarterly' ? 'Trimestral' : 'Mensal';
       const selectedProduct = products.find(p => Number(p.id) === Number(productId));
       const selectedName = selectedProduct?.name || 'Produto';
+
+      // V40.11.0 — Subtítulo dinâmico por tab + cards duais em modo leitura.
+      // Modelagem (Custos, Ofertas) = só Projetado. Leitura (Resultado, KPIs,
+      // DRE, Fechamento) = Realizado grande + Projetado small embaixo.
+      const activeTab = this._activeTab();
+      const SUBTITLE_BY_TAB = {
+        costs:      'Estrutura de custos',
+        offers:     'Modele sua operação como ela é',
+        result:     'Vida da operação',
+        revops:     'Saúde dos indicadores',
+        dre:        'Demonstrativo financeiro',
+        fechamento: 'Mês fechado'
+      };
+      const subtitle = SUBTITLE_BY_TAB[activeTab] || 'Operação de receita';
+      const isReading = ['result', 'revops', 'dre', 'fechamento'].includes(activeTab);
+
+      // Em modo leitura, calcula evReal usando vendas Hotmart approved últimos
+      // 30d + ticket CRM. Se sem dados, evReal=null e cards mostram "—".
+      let evReal = null;
+      if (isReading && window.RevopsFinanceEngine) {
+        const summary = RevopsFinanceEngine.productRevenueSummary?.(productId);
+        if (summary && summary.convertedCount > 0 && summary.crmTicket > 0) {
+          evReal = RevopsWhitelabelEngine.evaluate(cfg, { sales: summary.convertedCount, ticket: summary.crmTicket });
+        }
+      }
+
+      const metricsGrid = isReading ? `
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+          ${this._metricCellDual('Ticket Médio', evReal ? this._moneyPrecise(evReal.ticket) : null, this._moneyPrecise(ev.ticket), 'violet')}
+          ${this._metricCellDual(`Faturamento Bruto (${periodLabel})`, evReal ? this._money(evReal.fatBruto) : null, this._money(ev.fatBruto), 'emerald')}
+          ${this._metricCellDual('Faturamento Líquido', evReal ? this._money(evReal.fatLiquido) : null, this._money(ev.fatLiquido), 'sky')}
+          ${this._metricCellDual('EBITDA', evReal ? this._money(evReal.ebitda) : null, this._money(ev.ebitda), evReal ? (evReal.ebitda >= 0 ? 'emerald' : 'rose') : (ev.ebitda >= 0 ? 'emerald' : 'rose'))}
+          ${this._metricCellDual('Margem EBITDA', evReal ? `${evReal.ebitdaMargin.toFixed(1)}%` : null, `${ev.ebitdaMargin.toFixed(1)}%`, evReal ? (evReal.ebitdaMargin >= 25 ? 'emerald' : evReal.ebitdaMargin >= 0 ? 'amber' : 'rose') : (ev.ebitdaMargin >= 25 ? 'emerald' : ev.ebitdaMargin >= 0 ? 'amber' : 'rose'))}
+        </div>` : `
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+          ${this._metricCell('Ticket Médio', this._moneyPrecise(ev.ticket), 'violet')}
+          ${this._metricCell(`Faturamento Bruto (${periodLabel})`, this._money(ev.fatBruto), 'emerald')}
+          ${this._metricCell('Faturamento Líquido', this._money(ev.fatLiquido), 'sky')}
+          ${this._metricCell('EBITDA', this._money(ev.ebitda), ev.ebitda >= 0 ? 'emerald' : 'rose')}
+          ${this._metricCell('Margem EBITDA', `${ev.ebitdaMargin.toFixed(1)}%`, ev.ebitdaMargin >= 25 ? 'emerald' : ev.ebitdaMargin >= 0 ? 'amber' : 'rose')}
+        </div>`;
+
       return `<div class="bg-gradient-to-br from-slate-900 via-violet-950 to-slate-900 rounded-3xl border border-violet-500/30 p-5 shadow-2xl">
         <!-- V38.1.1 — Breadcrumb pra voltar ao Overview -->
         <div class="flex items-center gap-2 mb-3 text-[11px] font-bold">
@@ -206,8 +248,8 @@
         <div class="flex items-start justify-between gap-3 flex-wrap mb-4">
           <div class="min-w-0">
             <p class="text-[10px] font-black text-violet-300 uppercase tracking-widest">RevOps & Governança · CFO</p>
-            <h2 class="text-2xl font-black text-white mt-1 leading-tight">Operação de Receita · ${Utils.escape(selectedName)}</h2>
-            <p class="text-[12px] text-violet-200/70 mt-1">Modele sua operação como ela é</p>
+            <h2 class="text-2xl font-black text-white mt-1 leading-tight">${Utils.escape(selectedName)}</h2>
+            <p class="text-[12px] text-violet-200/70 mt-1">${Utils.escape(subtitle)}</p>
           </div>
           <div class="flex items-center gap-2 shrink-0">
             <select onchange="Actions.setRevopsActiveProductId(this.value)" class="px-3 py-2 rounded-xl bg-slate-800/60 border border-violet-400/30 text-sm font-bold text-white hover:bg-slate-800 focus:outline-none focus:border-violet-300">
@@ -222,19 +264,7 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-          ${this._metricCell('Ticket Médio', this._moneyPrecise(ev.ticket), 'violet')}
-          ${this._metricCell(`Faturamento Bruto (${periodLabel})`, this._money(ev.fatBruto), 'emerald')}
-          ${this._metricCell('Faturamento Líquido', this._money(ev.fatLiquido), 'sky')}
-          ${this._metricCell('EBITDA', this._money(ev.ebitda), ev.ebitda >= 0 ? 'emerald' : 'rose')}
-          ${this._metricCell('Margem EBITDA', `${ev.ebitdaMargin.toFixed(1)}%`, ev.ebitdaMargin >= 25 ? 'emerald' : ev.ebitdaMargin >= 0 ? 'amber' : 'rose')}
-        </div>
-
-        <div class="mt-4 flex items-center gap-3 flex-wrap">
-          <label class="text-[10px] font-black text-violet-300 uppercase tracking-wider">Vendas previstas no período</label>
-          <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" min="0" value="${cfg.salesProjection}" onchange="Actions.setRevopsSalesProjection('${productId}', this.value)" placeholder="0" class="px-3 py-1.5 rounded-lg bg-slate-800/60 border border-violet-400/30 text-sm font-bold text-white placeholder-slate-500 focus:outline-none focus:border-violet-300 w-32" />
-          <span class="text-[11px] text-violet-200/60 italic">Usado pra calcular Faturamento Bruto = Vendas × Ticket.</span>
-        </div>
+        ${metricsGrid}
       </div>`;
     },
 
@@ -256,6 +286,28 @@
       return `<div class="rounded-xl border ${toneCls} px-3.5 py-2.5 backdrop-blur-sm flex flex-col justify-between gap-1.5 min-h-[72px]">
         <p class="text-[11px] font-black uppercase tracking-wider opacity-75 leading-tight">${label}</p>
         <p class="text-xl font-black truncate">${value}</p>
+      </div>`;
+    },
+
+    // V40.11.0 — Versão dual do _metricCell: Realizado grande em cima,
+    // Projetado em letra menor embaixo. Usado em tabs de leitura (Resultado,
+    // RevOps KPIs, DRE, Fechamento). Quando realValue=null, mostra "—" sem
+    // mentir o Projetado.
+    _metricCellDual(label, realValue, projValue, tone) {
+      const toneCls = {
+        violet:  'bg-violet-500/15  border-violet-400/30  text-violet-100',
+        emerald: 'bg-emerald-500/15 border-emerald-400/30 text-emerald-100',
+        sky:     'bg-sky-500/15     border-sky-400/30     text-sky-100',
+        amber:   'bg-amber-500/15   border-amber-400/30   text-amber-100',
+        rose:    'bg-rose-500/15    border-rose-400/30    text-rose-100'
+      }[tone] || 'bg-slate-500/15 border-slate-400/30 text-slate-100';
+      const displayReal = realValue !== null && realValue !== undefined ? realValue : '—';
+      return `<div class="rounded-xl border ${toneCls} px-3.5 py-2.5 backdrop-blur-sm flex flex-col justify-between gap-1 min-h-[72px]">
+        <p class="text-[11px] font-black uppercase tracking-wider opacity-75 leading-tight">${label}</p>
+        <div>
+          <p class="text-xl font-black truncate">${displayReal}</p>
+          <p class="text-[10px] opacity-60 mt-0.5 truncate">Proj. ${projValue}</p>
+        </div>
       </div>`;
     },
 
@@ -291,14 +343,18 @@
       const faltas = [];
       if (!unlocked.hasCosts) faltas.push('1 custo');
       if (!unlocked.hasOffers) faltas.push('1 oferta com preço');
-      if (!unlocked.hasSales) faltas.push('vendas previstas > 0');
+      if (!unlocked.hasSales) faltas.push('meta de vendas em pelo menos 1 oferta');
       return `Pra abrir: ${faltas.join(' + ')}`;
     },
 
+    // V40.11.0 — Gating: input "Vendas Previstas" saiu do header. Meta agora
+    // mora exclusivamente nas ofertas. Aceita salesProjection legado pra não
+    // travar cliente que cadastrou pré-V40.11 sem migrar pra Ofertas ainda.
     _tabUnlockState(cfg) {
       const hasCosts = (cfg.groups || []).some(g => (g.items || []).length > 0);
       const hasOffers = (cfg.offers || []).some(o => Number(o.price) > 0);
-      const hasSales = Number(cfg.salesProjection) > 0;
+      const hasOffersWithMeta = (cfg.offers || []).some(o => Number(o.metaVendas) > 0);
+      const hasSales = Number(cfg.salesProjection) > 0 || hasOffersWithMeta;
       return { hasCosts, hasOffers, hasSales, all: hasCosts && hasOffers && hasSales };
     },
 
@@ -1597,32 +1653,17 @@
     // Mantém indicadores principais + realizado + simulator + comparador.
     _resultTab(cfg, ev) {
       const productId = cfg.productId;
-      const realSales = RevopsFinanceEngine?.productRealSales?.(productId) || 0;
-      const realRevenue = realSales * ev.ticket;
 
       // Período visível (default = mês corrente)
       const now = new Date();
       const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       const period = App.state.resultadoPeriod?.[productId] || currentPeriod;
-      const meta = (App.state.metasResultado?.[productId]?.[period]) || { vendas: 0, cac: 0 };
 
-      // Simulator (mantido)
+      // Simulator (mantido — overrides movidos pra dentro do bloco)
       const sim = App.state.revopsSimulator || { active: false };
       const simSales = sim.active && sim.salesOverride != null ? sim.salesOverride : ev.sales;
       const simTicket = sim.active && sim.ticketOverride != null ? sim.ticketOverride : ev.ticket;
       const simEv = sim.active ? RevopsWhitelabelEngine.evaluate(cfg, { sales: simSales, ticket: simTicket }) : ev;
-
-      const totalSales = simEv.sales;
-      const ctc = simEv.acquisitionTotal;
-      const cac = totalSales > 0 ? ctc / totalSales : 0;
-      const fatBruto = simEv.fatBruto;
-      const baseTotalSales = ev.sales;
-      const baseCtc = ev.acquisitionTotal;
-      const baseCac = baseTotalSales > 0 ? baseCtc / baseTotalSales : 0;
-      const baseFatBruto = ev.fatBruto;
-
-      // CAC realizado (do funil): CTC ÷ vendas reais
-      const realCac = realSales > 0 ? ev.acquisitionTotal / realSales : 0;
 
       // Selector de período: 3 atrás + corrente + 3 à frente
       const periodOpts = [];
@@ -1650,43 +1691,11 @@
 
       return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
         <div class="space-y-3 min-w-0">
-          ${this._tabHeader('Resultado · Indicadores', 'Resultado Consolidado', 'Meta vs realizado de Vendas e CAC, indicadores principais e leitura do funil.', rightSide)}
+          ${this._tabHeader('Resultado', 'Receita do mês', 'Realizado, Projetado e Meta numa régua única. Diagnóstico fica em Velocidade — aqui você esbarra com a verdade.', rightSide)}
           <section class="rounded-3xl border p-5 shadow-md space-y-4" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
             ${sim.active ? this._simulatorPanel(cfg, ev, simEv) : ''}
 
-            <!-- V37.0.0 — METAS DO PERÍODO -->
-            <div>
-              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Metas · ${Utils.escape(currentPeriodLabel)}</p>
-              <div class="grid sm:grid-cols-2 gap-3">
-                ${this._metaCard(productId, period, 'vendas', meta.vendas || 0, realSales)}
-                ${this._metaCard(productId, period, 'cac', meta.cac || 0, realCac)}
-              </div>
-            </div>
-
-            <!-- Indicadores principais -->
-            <div class="pt-2 border-t border-stone-200">
-              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Indicadores principais (cascata RevOps)</p>
-              <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
-                ${this._bigCellWithDelta('Número Total de Vendas', Math.round(totalSales).toLocaleString('pt-BR'), Math.round(baseTotalSales).toLocaleString('pt-BR'), totalSales, baseTotalSales, 'violet', sim.active)}
-                ${this._bigCellWithDelta('Custo Total Comercial (CTC)', this._money(ctc), this._money(baseCtc), ctc, baseCtc, 'rose', sim.active, true)}
-                ${this._bigCellWithDelta('Custo de Aquisição (CAC)', this._money(cac), this._money(baseCac), cac, baseCac, cac > 0 && cac <= simEv.ticket ? 'emerald' : 'amber', sim.active, true)}
-                ${this._bigCellWithDelta('Faturamento Bruto', this._money(fatBruto), this._money(baseFatBruto), fatBruto, baseFatBruto, 'emerald', sim.active)}
-              </div>
-              <div class="mt-2 grid md:grid-cols-2 gap-2 text-[11px] text-slate-600">
-                <p><b>CAC fórmula:</b> CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = <b class="text-slate-900">${this._money(cac)}</b></p>
-                <p><b>Fat. Bruto fórmula:</b> Total Vendas × TM = ${Math.round(totalSales).toLocaleString('pt-BR')} × ${this._moneyPrecise(simEv.ticket)} = <b class="text-slate-900">${this._money(fatBruto)}</b></p>
-              </div>
-            </div>
-
-            <!-- Realizado (do funil) -->
-            <div class="pt-2 border-t border-stone-200">
-              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Realizado (lido do funil)</p>
-              <div class="grid md:grid-cols-2 gap-3">
-                ${this._bigCell('Vendas reais (convertidas)', Math.round(realSales).toLocaleString('pt-BR'), 'sky')}
-                ${this._bigCell('Faturamento real', this._money(realRevenue), 'sky')}
-              </div>
-              <p class="text-[11px] text-slate-500 mt-2 italic">Vendas reais vêm dos convertidos no funil das ações. Se previsto × real estiver muito distante, calibre sua projeção.</p>
-            </div>
+            ${this._revenueCard(productId, currentPeriodLabel)}
 
             ${sim.active ? this._simulatorEbitdaCompare(ev, simEv) : ''}
             ${this._scenarioCompareBlock(cfg, ev)}
@@ -1793,6 +1802,96 @@
             ${varLabel}
           </span>
         </div>
+      </div>`;
+    },
+
+    // V40.10.0 — Card de Receita do mês — Realizado · Projetado · Meta numa
+    // régua única. Substitui os 2 cards "Meta de Vendas" + "Meta de CAC" da
+    // tab Resultado. Conceito Djow: Governança é leitura, não diagnóstico —
+    // cliente esbarra com o número, não discute com ele. Sem CTA, sem badge
+    // de divergência, sem banner. Drill vai pra Velocidade.
+    _revenueCard(productId, currentPeriodLabel) {
+      const summary = RevopsFinanceEngine?.productRevenueSummary?.(productId) || {
+        realRevenue: 0, projectedRevenue: 0, metaRevenue: 0,
+        convertedCount: 0, leadsAlive: 0, conversionRate: 0,
+        crmTicket: 0, metaSales: 0, sourceLabel: ''
+      };
+      const { realRevenue, projectedRevenue, metaRevenue, convertedCount, leadsAlive, conversionRate, crmTicket, metaSales } = summary;
+
+      // Escala da régua: Meta vira 100%. Se Realizado > Meta, respira 5% à direita.
+      const baseScale = metaRevenue > 0 ? metaRevenue : Math.max(projectedRevenue, realRevenue, 1);
+      const maxValue = Math.max(realRevenue, projectedRevenue, metaRevenue) * 1.05;
+      const realPos = Math.min(100, (realRevenue / maxValue) * 100);
+      const projPos = Math.min(100, (projectedRevenue / maxValue) * 100);
+      const metaPos = Math.min(100, (metaRevenue / maxValue) * 100);
+
+      // % relativo à Meta (não à escala visual)
+      const realPctMeta = metaRevenue > 0 ? (realRevenue / metaRevenue) * 100 : 0;
+      const projPctMeta = metaRevenue > 0 ? (projectedRevenue / metaRevenue) * 100 : 0;
+
+      const moneyDigits = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+      const fmt = (v) => moneyDigits.format(Number(v) || 0);
+      const conversionPct = (conversionRate * 100).toFixed(1);
+
+      // Rastreio cinza — selo de procedência de cada número
+      const rastreio = `
+        <div class="pt-3 border-t border-stone-200 space-y-1 text-[11px] text-slate-500">
+          <p><span class="font-bold text-slate-600">Realizado:</span> ${convertedCount.toLocaleString('pt-BR')} vendas aprovadas no Checkout (últimos 30d)</p>
+          <p><span class="font-bold text-slate-600">Projetado:</span> ${leadsAlive.toLocaleString('pt-BR')} leads vivos × ${conversionPct}% conversão × ${this._moneyPrecise(crmTicket)} ticket CRM</p>
+          <p><span class="font-bold text-slate-600">Meta:</span> ${metaSales > 0 ? `soma de ${metaSales.toLocaleString('pt-BR')} vendas configuradas em Ofertas` : 'sem meta configurada · ajuste em Ofertas'}</p>
+          ${summary.sourceLabel ? `<p class="italic pt-1">Fonte atual: ${summary.sourceLabel}</p>` : ''}
+        </div>`;
+
+      // Régua: barra cinza + 3 marcadores absolutos posicionados em % da escala
+      const regua = `
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-8">
+          ${metaRevenue > 0 ? `
+            <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
+            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
+              <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
+              <p class="text-[10px] text-slate-500">100%</p>
+            </div>
+          ` : ''}
+          ${projectedRevenue > 0 ? `
+            <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
+            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
+              <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
+              ${metaRevenue > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
+            </div>
+          ` : ''}
+          ${realRevenue > 0 ? `
+            <div class="absolute -top-1 w-3 h-3 rounded-full bg-sky-600 ring-2 ring-white shadow" style="left: ${realPos.toFixed(1)}%; transform: translateX(-50%);"></div>
+            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${realPos.toFixed(1)}%;">
+              <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
+              ${metaRevenue > 0 ? `<p class="text-[10px] text-slate-500">${realPctMeta.toFixed(0)}%</p>` : ''}
+            </div>
+          ` : ''}
+        </div>`;
+
+      return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #00CBCC;">
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Receita · ${Utils.escape(currentPeriodLabel)}</p>
+        </div>
+        <p class="text-sm text-slate-500 mb-4">A vida da operação: o que entrou, o que vai entrar, o que se comprometeu a entregar.</p>
+
+        <div class="grid grid-cols-3 gap-3 mb-2">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
+            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${fmt(realRevenue)}</p>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
+            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${fmt(projectedRevenue)}</p>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
+            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${metaRevenue > 0 ? fmt(metaRevenue) : '—'}</p>
+          </div>
+        </div>
+
+        ${regua}
+
+        ${rastreio}
       </div>`;
     },
 
