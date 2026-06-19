@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.17',
+    date: '2026-06-19',
+    title: 'Demo: ajustes de coerência B2B nos números (Mapa × RevOps × Checkout × Velocity)',
+    bullets: [
+      'Mapa da Receita alinhado com Receita realizada: Pilsen "Receita trimestral" atual sobe R$ 480k → R$ 633k (3× R$ 211k/mês do Checkout); Chopp sobe R$ 95k → R$ 207k (3× R$ 69k/mês). Antes Mapa ficava abaixo do realizado e dava sensação de KR desatualizado.',
+      'Weiss "Ticket médio por bar" desce R$ 2.400 → R$ 610 (target R$ 3.500 → R$ 750). Conta agora fecha: 165 bares × R$ 610 ≈ R$ 100k/mês do Checkout. Antes a multiplicação dava 4× a receita real.',
+      'Velocity reinterpretado como B2B: Customers = PDV ÚNICO ATIVO no mês (não transação). Pilsen 1.920 PDVs × ~5 pedidos = 9.600 vendas. Benchmarks atualizados (conv 10% B2B, ciclo médio 21d).',
+      'Ciclo Chopp Vinho sobe 18 → 45 dias — coerente com vender pra Top 50 / restaurantes Michelin (validação de produto leva mais tempo).',
+      'Leads dobrados: Pilsen 70 → 250, Weiss 50 → 150, Chopp 30 → 60. Tela "Leads" do produto deixa de parecer vazia vs KRs em milhares.',
+      'Checkout com nomes B2B: transações agora aparecem como "Bar do Toninho — Antonio Silva", "Adega Centro SP — Marcos Oliveira", "Restaurante Mani SP — Vitória Araujo". Não tem mais "Marina Silva pagou R$ 22 via PIX" — toda a narrativa do tenant (PA/ICP/KRs em "bares parceiros") agora bate com quem aparece no checkout.'
+    ]
+  },
+  {
     version: 'V40.7.16',
     date: '2026-06-19',
     title: 'Demo: RevOps & Velocidade decomposto por produto (V × C × T / Ciclo)',
