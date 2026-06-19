@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.2',
+    date: '2026-06-19',
+    title: 'RevOps · Receita do mês: fix da taxa de conversão impossível (964,8% → leitura sã)',
+    bullets: [
+      'O card Receita do mês mostrava taxa de conversão de 964,8% pra Cerveja Pilsen no demo. Matematicamente impossível. Causa: o denominador "leads vivos" puxava de uma fonte (actions LJ), e o numerador "vendas confirmadas" puxava de outra (Hotmart approved). Os dois mundos não se conheciam.',
+      'O denominador agora vem da mesma fonte que o numerador: visitors únicos do tracker (mesmo cache que o Pipeline Velocity usa). Como ambos descendem do mesmo plano observacional (visitor → customer no funil Hotmart), a taxa nunca passa de 100%.',
+      'Rastreio do card atualizado: "X visitas únicas × Y% conversão × R$ Z ticket CRM". Vocabulário mudou de "leads vivos" pra "visitas únicas" — coerente com a fonte real.',
+      'Fix de fórmula puro. Zero mudança visual além do micro-texto do rastreio. Card, régua, header, blocos vizinhos seguem exatamente iguais.'
+    ]
+  },
+  {
     version: 'V40.11.1',
     date: '2026-06-19',
     title: 'RevOps · Resultado: rollback cirúrgico — devolve tudo, mantém só a troca do card de Vendas',
