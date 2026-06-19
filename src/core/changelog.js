@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.8.0',
+    date: '2026-06-19',
+    title: 'RevOps · Ofertas: Participação Plano vs Real — ticket deixa de mentir quando real divergir',
+    bullets: [
+      'A "Participação" de cada oferta era input manual puro. Você podia digitar 70% pra Pilsen achando que ia ser carro-chefe e vender 30% no mês — o Ticket Médio continuava calculado pela premissa errada e a cascata inteira (CAC, EBITDA, projeção) saía distorcida. Lane Adint chama isso de "algoritmo de correção de forecast": diretor declara R$1M, taxa histórica corrige pra R$315k.',
+      'Agora cada oferta tem 2 colunas: PLANO (sua premissa) e REAL (derivado das vendas do mês). Toggle no topo escolhe qual fonte calcula o Ticket — pode usar Plano pra planejamento/projeção e Real pra leitura de operação rodando.',
+      'Quando Plano e Real divergem mais de 10% em alguma oferta, a UI mostra badge "divergência X%" em laranja na coluna Real + banner topo. Não força ação — só revela. Decisão fica com você: ajustar premissa, investigar o canal, ou aceitar a divergência.',
+      'Quando você seleciona "Real" e ainda não há dado granular (caso típico de cliente com mais de 1 oferta no mesmo produto), banner amarelo explica honestamente: "Sem dado real granular ainda. LJ rastreia vendas no nível do produto, não por oferta. Real usa Plano como fallback enquanto roadmap não trata." Sem mentir o número.',
+      'Caso trivial (1 oferta com vendas) — Real preenche automaticamente em 100%. Caso N ofertas — Real mostra "—" até roadmap de rastreabilidade venda → oferta sair.',
+      'Sub-linha de auditoria do Ticket Calculado mostra qual fonte foi usada: "média ponderada de 3 ofertas · usando participação PLANO" OU "...usando participação REAL". Quando cai em fallback, marca "(fallback)" em âmbar pra você saber.',
+      'Engine: novo helper `_realParticipationByOffer(cfg)` deriva % real por oferta; `_computeTicket(cfg)` é source-aware (plan/real); `participationBreakdown(cfg)` expõe metadados pra UI. Tudo backwards-compatible — configs antigas seguem como "plan" por default sem migration.'
+    ]
+  },
+  {
     version: 'V40.7.21',
     date: '2026-06-19',
     title: 'RevOps · Ofertas: campo "Mix no TM" virou "Participação"',
