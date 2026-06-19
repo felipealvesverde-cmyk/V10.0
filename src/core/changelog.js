@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.5',
+    date: '2026-06-19',
+    title: 'Demo Engenho Norte: Cerveja Weiss + Chopp de Vinho disponíveis pra ativar',
+    bullets: [
+      'A demo agora tem 2 novos produtos preparados (Cerveja Weiss e Chopp de Vinho), com 3 campanhas cada (Marketing/Vendas/CS) e 16 ações por produto distribuídas com origem/destino travados — TOF→MOF→BOF dentro do setor e handoffs entre MKT→Vendas→CS.',
+      'Cada ação ganha 2 execuções: uma do ciclo atual (já rodando ou concluída) e uma do próximo (pendente no calendário). Total: 64 execuções fictícias com assignee (Marina/Rafael/Beatriz) e datas plausíveis.',
+      'Os produtos NÃO entram automaticamente — endpoint admin /api/admin-add-demo-products precisa ser chamado pelo master pra injetar tudo no state do demo, sem mexer na Cerveja Pilsen existente.',
+      'Idempotente: chamar de novo retorna "já aplicado". Pra reaplicar (sobrescrever), passar { "force": true } no body.'
+    ]
+  },
+  {
     version: 'V40.7.4',
     date: '2026-06-19',
     title: 'Flow Builder: conectar agora é 1 click (em vez de 2)',
