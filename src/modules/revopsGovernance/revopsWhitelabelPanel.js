@@ -223,7 +223,7 @@
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
-          ${this._metricCell('Ticket Médio', this._money(ev.ticket), 'violet')}
+          ${this._metricCell('Ticket Médio', this._moneyPrecise(ev.ticket), 'violet')}
           ${this._metricCell(`Faturamento Bruto (${periodLabel})`, this._money(ev.fatBruto), 'emerald')}
           ${this._metricCell('Faturamento Líquido', this._money(ev.fatLiquido), 'sky')}
           ${this._metricCell('EBITDA', this._money(ev.ebitda), ev.ebitda >= 0 ? 'emerald' : 'rose')}
@@ -1417,20 +1417,62 @@
       const offers = cfg.offers || [];
       const productId = cfg.productId;
       const djowPanel = window.DjowRevOpsPanel ? DjowRevOpsPanel.render(productId, 'offers') : '';
-      const rightSide = `<button onclick="Actions.addRevopsOffer('${productId}')" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm" style="color:#fff!important;">
+      // V40.7.20 — Leonardo: botão "+ Nova oferta" volta pra paleta. Outline
+      // roxo --lj-revops (#AB3ED8) ao invés de fill verde. Mesma família do
+      // header da aba — card respira a mesma temperatura emocional.
+      const rightSide = `<button onclick="Actions.addRevopsOffer('${productId}')" class="px-3 py-2 rounded-xl bg-white border-2 hover:bg-violet-50 text-xs font-black flex items-center gap-1.5 shadow-sm transition" style="border-color:#AB3ED8;color:#7e22ce;">
         <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nova oferta
       </button>`;
+
+      // V40.7.20 — Leonardo: contagem auditável das ofertas que entram no TM.
+      // Sub-linha sob o número grande responde silenciosamente "como esse
+      // ticket foi calculado?" sem o CEO precisar abrir outra tela.
+      const ticketContributors = (cfg.offers || []).filter(o => {
+        if (Number(o.price) <= 0) return false;
+        if (Number(o.mix) <= 0) return false;
+        if (o.selectedForTicket === false) return false;
+        return true;
+      });
+      const totalMixIn = ticketContributors.reduce((s, o) => s + Number(o.mix || 0), 0);
+      const offerCountLabel = ticketContributors.length === 1 ? '1 oferta' : `${ticketContributors.length} ofertas`;
+
       return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
         <div class="space-y-3 min-w-0">
-          ${this._tabHeader('Ofertas · Pricing', 'Ofertas e Ticket Médio', 'Cadastre ofertas com preço, mix e meta de vendas. O sistema calcula o TM ponderado, ou você define manual.', rightSide)}
-          <section class="rounded-3xl border p-5 shadow-md space-y-3" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
-            <div class="rounded-2xl bg-white border border-stone-200 p-3 flex items-center gap-3 flex-wrap">
-              <label class="text-[11px] font-black text-slate-600 uppercase tracking-wider">Modo do TM:</label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer"><input type="radio" name="lj-tm-mode" ${cfg.ticketMode === 'weighted' ? 'checked' : ''} onchange="Actions.setRevopsTicketMode('${productId}', 'weighted')" class="accent-violet-600" /> Ponderado (preço × mix)</label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer"><input type="radio" name="lj-tm-mode" ${cfg.ticketMode === 'manual' ? 'checked' : ''} onchange="Actions.setRevopsTicketMode('${productId}', 'manual')" class="accent-violet-600" /> Manual</label>
-              ${cfg.ticketMode === 'manual'
-                ? `<input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(cfg.ticketManualValue || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.setRevopsTicketManual('${productId}', Utils.parseBRL(this.value))" placeholder="Ticket manual" class="px-2 py-1 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800 w-32" />`
-                : `<span class="text-xs text-stone-500">TM calculado: <b class="text-stone-800">${this._money(ev.ticket)}</b></span>`}
+          ${this._tabHeader('Ofertas · Pricing', 'Ofertas e Ticket Médio', 'Cadastre suas ofertas. O ticket médio nasce daqui.', rightSide)}
+          <section class="rounded-3xl border p-5 shadow-md" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
+
+            <!-- CAMADA 1: Decisão estrutural — Modo de Cálculo do Ticket Médio -->
+            <div class="rounded-2xl bg-white border p-4 mb-5" style="border-color:#e7e5e0;">
+              <div class="flex items-center gap-2 mb-3">
+                <i data-lucide="settings-2" class="w-3.5 h-3.5" style="color:#7e22ce;"></i>
+                <p class="text-[11px] font-black uppercase tracking-wider" style="color:#7e22ce;">Modo de cálculo do ticket médio</p>
+              </div>
+              <div class="grid sm:grid-cols-2 gap-2">
+                <label class="flex items-start gap-2.5 p-3 rounded-xl border-2 cursor-pointer transition ${cfg.ticketMode === 'weighted' ? 'bg-violet-50' : 'bg-stone-50 hover:bg-stone-100 border-stone-200'}" ${cfg.ticketMode === 'weighted' ? 'style="border-color:#AB3ED8;"' : ''}>
+                  <input type="radio" name="lj-tm-mode" ${cfg.ticketMode === 'weighted' ? 'checked' : ''} onchange="Actions.setRevopsTicketMode('${productId}', 'weighted')" class="mt-0.5 accent-violet-600" />
+                  <div class="min-w-0">
+                    <div class="text-[13px] font-black text-slate-900">Ponderado</div>
+                    <div class="text-[11px] text-slate-600 leading-snug">TM = média das ofertas, peso pelo mix. Use quando o cliente compra um mix variado.</div>
+                  </div>
+                </label>
+                <label class="flex items-start gap-2.5 p-3 rounded-xl border-2 cursor-pointer transition ${cfg.ticketMode === 'manual' ? 'bg-violet-50' : 'bg-stone-50 hover:bg-stone-100 border-stone-200'}" ${cfg.ticketMode === 'manual' ? 'style="border-color:#AB3ED8;"' : ''}>
+                  <input type="radio" name="lj-tm-mode" ${cfg.ticketMode === 'manual' ? 'checked' : ''} onchange="Actions.setRevopsTicketMode('${productId}', 'manual')" class="mt-0.5 accent-violet-600" />
+                  <div class="min-w-0">
+                    <div class="text-[13px] font-black text-slate-900">Manual</div>
+                    <div class="text-[11px] text-slate-600 leading-snug">TM fixo definido por você. Use quando todo cliente compra o mesmo pacote.</div>
+                  </div>
+                </label>
+              </div>
+              ${cfg.ticketMode === 'manual' ? `<div class="mt-3 pt-3 border-t border-stone-200 flex items-center gap-3">
+                <label class="text-[11px] font-black text-slate-600 uppercase tracking-wider">Ticket fixo:</label>
+                <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(cfg.ticketManualValue || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.setRevopsTicketManual('${productId}', Utils.parseBRL(this.value))" placeholder="0,00" class="px-3 py-1.5 rounded-lg bg-white border border-stone-300 text-sm font-bold text-slate-800 w-36" />
+              </div>` : ''}
+            </div>
+
+            <!-- CAMADA 2: Operação contínua — Ofertas cadastradas -->
+            <div class="flex items-baseline justify-between mb-3">
+              <p class="text-[11px] font-black uppercase tracking-wider" style="color:#7e22ce;">Suas ofertas</p>
+              <p class="text-[10px] text-stone-500">${offers.length === 0 ? 'Nenhuma' : `${offers.length} cadastrada${offers.length > 1 ? 's' : ''}`}</p>
             </div>
 
             ${offers.length === 0
@@ -1439,59 +1481,103 @@
                   <p class="text-xs text-amber-800">Sem oferta, Faturamento Bruto = 0. Crie ao menos uma.</p>
                 </div>`
               : `<div class="space-y-2">${offers.map(o => this._offerRow(productId, o, cfg.ticketMode)).join('')}</div>`}
+
+            <!-- CAMADA 3: Síntese — Ticket médio calculado (resposta do card) -->
+            ${cfg.ticketMode === 'weighted' && offers.length > 0 ? `
+              <div class="mt-5 rounded-2xl border p-5" style="background:rgba(171,62,216,0.06);border-color:rgba(171,62,216,0.25);">
+                <div class="flex items-baseline gap-2 mb-1">
+                  <i data-lucide="calculator" class="w-3 h-3" style="color:#7e22ce;"></i>
+                  <p class="text-[10px] font-black uppercase tracking-wider" style="color:#7e22ce;">Ticket médio calculado</p>
+                </div>
+                <div class="text-3xl font-black" style="color:#7e22ce;">${this._moneyPrecise(ev.ticket)}</div>
+                <p class="text-[11px] text-stone-600 mt-1">
+                  ${ticketContributors.length === 0
+                    ? 'Nenhuma oferta entra no cálculo. Garanta MIX > 0 em ao menos uma.'
+                    : `média ponderada de <b>${offerCountLabel}</b> · <b>${totalMixIn.toFixed(0)}%</b> do mix${offers.length > ticketContributors.length ? ` <span class="text-stone-400">(${offers.length - ticketContributors.length} fora — mix 0)</span>` : ''}`}
+                </p>
+              </div>
+            ` : ''}
           </section>
         </div>
         <aside class="xl:sticky xl:top-4 xl:self-start">${djowPanel}</aside>
       </div>`;
     },
 
-    // V32.11.3 — Leonardo: linha de oferta executiva. Left-border emerald (cor
-    // de Ofertas/Receita), inputs sóbrios com focus violet, delete Lucide.
-    // V38.0.3 — Linha de oferta ganhou 2 campos novos: Tipo (kind enum)
-    // e Meta de Vendas. Tipo aparece como selector compacto; Meta é input
-    // numérico em unidades de venda (não R$ — quantas vendas espero?).
+    // V40.7.20 — Leonardo: refator do card de oferta.
+    //   - Checkbox TM REMOVIDA. MIX agora é alavanca única (mix=0 = excluída).
+    //   - Card "respira" mais (p-4, gap maior, hierarquia tipográfica clara).
+    //   - Quando mix=0, card vai pra 55% opacity + side accent fica cinza.
+    //     Usuário VÊ que oferta está fora sem precisar interpretar checkbox.
+    //   - TIPO dropdown ganhou subdescrição inline abaixo do select.
+    //   - Side accent emerald (semântica de Receita preservada — coerência).
+    //   - Barra de progresso lateral ao número do mix ancora a percepção de
+    //     peso no agregado.
     _offerRow(productId, offer, ticketMode) {
       const isWeighted = ticketMode === 'weighted';
       const kind = offer.kind || 'main';
-      // V38.1.3 — Alinhamento: todos campos com label uppercase em cima,
-      // inputs alinhados na base (items-end). Tag e botões com pt-4 pra
-      // compensar a altura da label e ficar no nível dos inputs.
+      const mix = Number(offer.mix || 0);
+      const excluded = isWeighted && mix <= 0;
+
+      const KIND_LABELS = {
+        'main':       { label: 'Principal',    desc: 'o produto que define o ticket' },
+        'cross-sell': { label: 'Cross-sell',   desc: 'soma no checkout, peso menor' },
+        'up-sell':    { label: 'Up-sell',      desc: 'pós-compra, peso maior' },
+        'down-sell':  { label: 'Down-sell',    desc: 'recuperação, peso menor' }
+      };
+      const kindMeta = KIND_LABELS[kind] || KIND_LABELS.main;
+
       const labelCls = 'text-[9px] font-black text-slate-500 uppercase tracking-wider';
-      const inputCls = 'mt-0.5 w-full px-2 py-1 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white';
-      return `<div class="rounded-xl bg-white border border-slate-200 border-l-4 border-l-emerald-500 hover:border-slate-300 transition p-3 flex items-end gap-2.5 flex-wrap">
-        <span class="shrink-0 w-7 h-7 rounded-lg bg-emerald-500/15 grid place-items-center text-emerald-700 mb-0.5">
-          <i data-lucide="tag" class="w-3.5 h-3.5"></i>
-        </span>
-        <label class="block w-32 shrink-0">
-          <span class="${labelCls}">Tipo</span>
-          <select onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'kind', this.value)" class="${inputCls} text-xs">
-            <option value="main" ${kind === 'main' ? 'selected' : ''}>Principal</option>
-            <option value="cross-sell" ${kind === 'cross-sell' ? 'selected' : ''}>Cross-sell</option>
-            <option value="up-sell" ${kind === 'up-sell' ? 'selected' : ''}>Up-sell</option>
-            <option value="down-sell" ${kind === 'down-sell' ? 'selected' : ''}>Down-sell</option>
-          </select>
-        </label>
-        <label class="block flex-1 min-w-0">
-          <span class="${labelCls}">Nome da oferta</span>
-          <input value="${Utils.escape(offer.name)}" onchange="Actions.renameRevopsOffer('${productId}', '${offer.id}', this.value)" placeholder="Nome da oferta" class="${inputCls}" />
-        </label>
-        <label class="block w-28">
-          <span class="${labelCls}">Preço (R$)</span>
-          <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(offer.price || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'price', Utils.parseBRL(this.value))" class="${inputCls}" />
-        </label>
-        <label class="block w-20">
-          <span class="${labelCls}">Meta</span>
-          <input type="number" min="0" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${offer.metaVendas || 0}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'metaVendas', this.value)" placeholder="0" title="Meta de vendas no período" class="${inputCls}" />
-        </label>
-        ${isWeighted ? `<label class="block w-20">
-          <span class="${labelCls}">Mix (%)</span>
-          <input type="number" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${offer.mix}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'mix', this.value)" class="${inputCls}" />
-        </label>
-        <label class="flex items-center gap-1 text-[10px] font-black text-slate-700 uppercase tracking-wider px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
-          <input type="checkbox" ${offer.selectedForTicket ? 'checked' : ''} onchange="Actions.toggleRevopsOfferTicket('${productId}', '${offer.id}')" class="accent-violet-600" />
-          TM
-        </label>` : ''}
-        <button onclick="if(confirm('Apagar oferta \\'${Utils.escape(offer.name)}\\'?')) Actions.deleteRevopsOffer('${productId}', '${offer.id}')" title="Apagar oferta" class="px-2 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700 shrink-0"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+      const inputCls = 'mt-0.5 w-full px-2 py-1.5 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white';
+
+      const sideAccent = excluded ? 'border-l-stone-300' : 'border-l-emerald-500';
+      const iconBg = excluded ? 'bg-stone-200 text-stone-500' : 'bg-emerald-500/15 text-emerald-700';
+      const cardStyle = excluded ? 'opacity:0.55;' : '';
+
+      // V40.7.20 — Barra de progresso do mix (ancora percepção de peso)
+      const mixBar = isWeighted ? `<div class="mt-1 h-1 w-full rounded-full bg-slate-200 overflow-hidden">
+        <div class="h-full rounded-full transition-all" style="width:${Math.min(100, mix)}%;background:${excluded ? '#cbd5e1' : '#10b981'};"></div>
+      </div>` : '';
+
+      return `<div class="rounded-xl bg-white border border-slate-200 border-l-4 ${sideAccent} hover:border-slate-300 transition p-4" style="${cardStyle}">
+        <div class="flex items-end gap-3 flex-wrap">
+          <span class="shrink-0 w-8 h-8 rounded-lg ${iconBg} grid place-items-center mb-0.5">
+            <i data-lucide="tag" class="w-3.5 h-3.5"></i>
+          </span>
+          <label class="block w-32 shrink-0">
+            <span class="${labelCls}">Tipo</span>
+            <select onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'kind', this.value)" class="${inputCls} text-xs">
+              <option value="main" ${kind === 'main' ? 'selected' : ''} title="o produto que define o ticket">Principal</option>
+              <option value="cross-sell" ${kind === 'cross-sell' ? 'selected' : ''} title="soma no checkout, peso menor">Cross-sell</option>
+              <option value="up-sell" ${kind === 'up-sell' ? 'selected' : ''} title="pós-compra, peso maior">Up-sell</option>
+              <option value="down-sell" ${kind === 'down-sell' ? 'selected' : ''} title="recuperação, peso menor">Down-sell</option>
+            </select>
+          </label>
+          <label class="block flex-1 min-w-0">
+            <span class="${labelCls}">Nome da oferta</span>
+            <input value="${Utils.escape(offer.name)}" onchange="Actions.renameRevopsOffer('${productId}', '${offer.id}', this.value)" placeholder="Nome da oferta" class="${inputCls}" />
+          </label>
+          <label class="block w-28">
+            <span class="${labelCls}">Preço (R$)</span>
+            <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(offer.price || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'price', Utils.parseBRL(this.value))" class="${inputCls}" />
+          </label>
+          <label class="block w-20">
+            <span class="${labelCls}">Meta</span>
+            <input type="number" min="0" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${offer.metaVendas || 0}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'metaVendas', this.value)" placeholder="0" title="Meta de vendas no período" class="${inputCls}" />
+          </label>
+          ${isWeighted ? `<label class="block w-24">
+            <span class="${labelCls}">Mix no TM</span>
+            <div class="flex items-center gap-1">
+              <input type="number" min="0" max="100" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${offer.mix}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'mix', this.value)" title="${excluded ? 'Mix 0 = oferta fora do cálculo do ticket médio' : 'Peso desta oferta no ticket médio'}" class="${inputCls}" />
+              <span class="text-[10px] font-black text-slate-400">%</span>
+            </div>
+            ${mixBar}
+          </label>` : ''}
+          <button onclick="if(confirm('Apagar oferta \\'${Utils.escape(offer.name)}\\'?')) Actions.deleteRevopsOffer('${productId}', '${offer.id}')" title="Apagar oferta" class="px-2 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700 shrink-0 self-end mb-0.5"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+        </div>
+        <!-- V40.7.20 — Subdescrição inline do tipo. Conecta dropdown ao significado. -->
+        <p class="mt-2 pl-11 text-[11px] text-slate-500 italic">
+          <span class="font-bold not-italic text-slate-600">${kindMeta.label}</span> — ${kindMeta.desc}${excluded ? ' · <span class="text-stone-500 not-italic">fora do cálculo do TM (mix 0)</span>' : ''}
+        </p>
       </div>`;
     },
 
@@ -1582,7 +1668,7 @@
               </div>
               <div class="mt-2 grid md:grid-cols-2 gap-2 text-[11px] text-slate-600">
                 <p><b>CAC fórmula:</b> CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = <b class="text-slate-900">${this._money(cac)}</b></p>
-                <p><b>Fat. Bruto fórmula:</b> Total Vendas × TM = ${Math.round(totalSales).toLocaleString('pt-BR')} × ${this._money(simEv.ticket)} = <b class="text-slate-900">${this._money(fatBruto)}</b></p>
+                <p><b>Fat. Bruto fórmula:</b> Total Vendas × TM = ${Math.round(totalSales).toLocaleString('pt-BR')} × ${this._moneyPrecise(simEv.ticket)} = <b class="text-slate-900">${this._money(fatBruto)}</b></p>
               </div>
             </div>
 
@@ -1744,7 +1830,7 @@
             <span class="text-[10px] font-black text-slate-500 uppercase tracking-wider">Ticket Médio (R$)</span>
             <div class="flex items-center gap-2">
               <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(sim.ticketOverride ?? ev.ticket)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.setRevopsSimulatorOverride('ticketOverride', Utils.parseBRL(this.value))" placeholder="${Utils.formatCents(ev.ticket)}" class="mt-0.5 flex-1 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm font-bold text-slate-800 focus:border-violet-400 focus:bg-white" />
-              <span class="text-[10px] text-slate-500 mt-0.5 whitespace-nowrap">baseline: <b>${this._money(ev.ticket)}</b></span>
+              <span class="text-[10px] text-slate-500 mt-0.5 whitespace-nowrap">baseline: <b>${this._moneyPrecise(ev.ticket)}</b></span>
             </div>
           </label>
         </div>
@@ -1979,7 +2065,7 @@
         <div class="space-y-3 min-w-0">
           ${this._tabHeader('RevOps · Cascata', 'Equilíbrio da Operação', 'Lê de cima pra baixo. Cada linha mostra o que sai a cada etapa até o Breakeven — quantas vendas pra empatar o mês. Clique numa linha de fórmula pra pedir ajuda ao Djow na lateral.')}
           <section class="rounded-3xl border p-5 shadow-md space-y-2" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
-            ${this._cascadeLine('coins', 'PONTO DE PARTIDA', 'TM · Ticket Médio', this._money(tm), 'emerald',
+            ${this._cascadeLine('coins', 'PONTO DE PARTIDA', 'TM · Ticket Médio', this._moneyPrecise(tm), 'emerald',
               'Receita média por venda. Vem da tab Ofertas (média ponderada).')}
             ${this._cascadeArrow('↓')}
 
@@ -2871,6 +2957,14 @@
     _money(value) {
       const n = Number(value) || 0;
       return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(n);
+    },
+
+    // V40.7.20 — Leonardo: pra números sensíveis como Ticket Médio, centavos
+    // são emocionais — sumir com eles é dizer "não confio no número o suficiente
+    // pra mostrar inteiro". Usado no ticket calculado da aba Ofertas.
+    _moneyPrecise(value) {
+      const n = Number(value) || 0;
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
     },
 
     // V37.0.10 — Helpers de collapse pra linhas DRE e cards RevOps.
