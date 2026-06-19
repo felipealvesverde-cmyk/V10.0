@@ -1492,8 +1492,8 @@
                 <div class="text-3xl font-black" style="color:#7e22ce;">${this._moneyPrecise(ev.ticket)}</div>
                 <p class="text-[11px] text-stone-600 mt-1">
                   ${ticketContributors.length === 0
-                    ? 'Nenhuma oferta entra no cálculo. Garanta MIX > 0 em ao menos uma.'
-                    : `média ponderada de <b>${offerCountLabel}</b> · <b>${totalMixIn.toFixed(0)}%</b> do mix${offers.length > ticketContributors.length ? ` <span class="text-stone-400">(${offers.length - ticketContributors.length} fora — mix 0)</span>` : ''}`}
+                    ? 'Nenhuma oferta entra no cálculo. Garanta Participação > 0% em ao menos uma.'
+                    : `média ponderada de <b>${offerCountLabel}</b> · <b>${totalMixIn.toFixed(0)}%</b> de participação total${offers.length > ticketContributors.length ? ` <span class="text-stone-400">(${offers.length - ticketContributors.length} fora — participação 0%)</span>` : ''}`}
                 </p>
               </div>
             ` : ''}
@@ -1565,9 +1565,9 @@
             <input type="number" min="0" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${offer.metaVendas || 0}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'metaVendas', this.value)" placeholder="0" title="Meta de vendas no período" class="${inputCls}" />
           </label>
           ${isWeighted ? `<label class="block w-24">
-            <span class="${labelCls}">Mix no TM</span>
+            <span class="${labelCls}">Participação</span>
             <div class="flex items-center gap-1">
-              <input type="number" min="0" max="100" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${offer.mix}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'mix', this.value)" title="${excluded ? 'Mix 0 = oferta fora do cálculo do ticket médio' : 'Peso desta oferta no ticket médio'}" class="${inputCls}" />
+              <input type="number" min="0" max="100" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${offer.mix}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'mix', this.value)" title="${excluded ? 'Participação 0% = oferta fora do cálculo do ticket médio' : 'Fatia desta oferta no ticket médio do produto. Pondera a média.'}" class="${inputCls}" />
               <span class="text-[10px] font-black text-slate-400">%</span>
             </div>
             ${mixBar}
@@ -1576,7 +1576,7 @@
         </div>
         <!-- V40.7.20 — Subdescrição inline do tipo. Conecta dropdown ao significado. -->
         <p class="mt-2 pl-11 text-[11px] text-slate-500 italic">
-          <span class="font-bold not-italic text-slate-600">${kindMeta.label}</span> — ${kindMeta.desc}${excluded ? ' · <span class="text-stone-500 not-italic">fora do cálculo do TM (mix 0)</span>' : ''}
+          <span class="font-bold not-italic text-slate-600">${kindMeta.label}</span> — ${kindMeta.desc}${excluded ? ' · <span class="text-stone-500 not-italic">fora do cálculo do TM (participação 0%)</span>' : ''}
         </p>
       </div>`;
     },
