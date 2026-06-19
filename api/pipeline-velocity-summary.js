@@ -12,11 +12,33 @@
 // Modo CRM/híbrido vai precisar de outra peça (deals fechados RD) em onda futura.
 
 const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+const { buildDemoVelocityMock } = require('../lib/demo-checkout-mock');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+
+  // V40.7.16 — Branch demo. RevOps & Velocidade decompõe receita em VxCxT/Ciclo
+  // por produto. Sem lj_visitor_touchpoints + lj_hotmart_purchases, mock direto.
+  // Backlog: [[backlog-provider-abstraction]].
+  if (req.user.username === 'demo@leadjourney.app') {
+    // Precisa do state pra distribuir visitas/customers por campaign
+    try {
+      const userRow = await req.db.query('SELECT id FROM users WHERE username = $1', ['demo@leadjourney.app']);
+      const demoUserId = userRow.rows[0]?.id;
+      let state = {};
+      if (demoUserId) {
+        const stateRow = await req.db.query('SELECT state_json FROM journey_state WHERE user_id = $1', [demoUserId]);
+        state = stateRow.rows[0]?.state_json || {};
+      }
+      return res.status(200).json(buildDemoVelocityMock(state));
+    } catch (err) {
+      console.warn('[pipeline-velocity-summary demo] erro:', err.message);
+      return res.status(200).json(buildDemoVelocityMock({}));
+    }
+  }
+
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
   const userId = Number(await resolveCredentialOwnerId(req));
