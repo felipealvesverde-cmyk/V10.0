@@ -11,10 +11,12 @@
 // Por ação: setor BOF/Vendas pega mais peso; TOF/Marketing pega menos.
 // Retorna newState pra evitar race com auto-save (mesmo padrão V40.7.10).
 
+// V40.7.18 — Chopp em rota errada: 960 → 440 vendas (~37% da meta de 1.200).
+// Pilsen + Weiss saudáveis. Conta uma história de diagnóstico no Resultado.
 const VOLUMES = {
   1781869701831: 9600,
   5001:          3600,
-  5002:           960
+  5002:           440
 };
 
 // Peso por setor — Vendas converte mais, depois CS, depois Marketing.

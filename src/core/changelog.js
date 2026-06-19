@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.18',
+    date: '2026-06-19',
+    title: 'Demo: Chopp em rota errada — LJ vira diagnóstico, não dashboard verde',
+    bullets: [
+      'Antes o demo tinha 3 produtos rodando a 80% da meta — visual bonito mas plano, não mostrava pra que o LJ serve. Agora 2 produtos rodam saudáveis (Pilsen e Weiss em ~80% da meta) e 1 está em rota errada (Chopp de Vinho em ~37%).',
+      'Chopp Checkout: 960 → 440 vendas/mês. Receita realizada de R$ 69k cai pra R$ 31,7k contra meta de R$ 86k. Cancelamento + chargeback levemente piores (sinal de problema no ciclo).',
+      'Chopp Velocity: 190 → 88 PDVs ativos. Conversão de 15.8% → 7.3% (abaixo do benchmark B2B de 10%). Velocidade R$ 304/dia → R$ 141/dia. Máquina rodando devagar.',
+      'Chopp Mapa da Receita vermelho: "Receita trimestral" current R$ 207k → R$ 95k (vs target R$ 259k); "Top 50 ativos" 12 → 6; "Embaixadores ativos" 9 → 4; "NPS embaixador" 71 → 52; "Leads sommelier/mês" 32 → 18.',
+      'Pilsen e Weiss inalterados — eles seguem rodando saudáveis. Demo conta agora: "Pilsen carro-chefe e Weiss em crescimento. Chopp ainda buscando lugar no Top 50/Michelin — o LJ aponta onde mexer."'
+    ]
+  },
+  {
     version: 'V40.7.17',
     date: '2026-06-19',
     title: 'Demo: ajustes de coerência B2B nos números (Mapa × RevOps × Checkout × Velocity)',

@@ -56,13 +56,15 @@ const STRATEGIC_MAPS_CONFIG = [
     productId: PRODUCT_IDS.CHOPP,
     vision: 'Liderar o conceito de Chopp de Vinho no Brasil, presente nas 50 mesas mais sofisticadas até 2027.',
     areaOwners: { marketing: 'Eduardo Lima', sales: 'Fernanda Rocha', cs: 'André Carvalho' },
+    // V40.7.18 — Chopp em rota errada (~37% da meta). KRs vermelhos pra LJ
+    // virar diagnóstico ("ainda buscando lugar no Top 50/Michelin").
     krs: [
-      { area: 'marketing', name: 'Cobertura mídia gastronômica', target: 12,  current: 4,       unit: 'publicações', catalogId: 'mkt_pr',  owner: 'Eduardo Lima' },
-      { area: 'marketing', name: 'Leads sommelier/mês',      target: 80,      current: 32,      unit: 'leads', catalogId: 'mkt_leads',  owner: 'Eduardo Lima' },
-      { area: 'sales',     name: 'Top 50 ativos',            target: 35,      current: 12,      unit: 'restaurantes', catalogId: 'sal_top50', owner: 'Fernanda Rocha' },
-      { area: 'sales',     name: 'Receita trimestral',       target: 259200,  current: 207360,  unit: 'R$',    catalogId: 'sal_revenue', owner: 'Fernanda Rocha' },
-      { area: 'cs',        name: 'Embaixadores ativos',      target: 25,      current: 9,       unit: 'un',    catalogId: 'cs_ambassadors', owner: 'André Carvalho' },
-      { area: 'cs',        name: 'NPS embaixador',           target: 80,      current: 71,      unit: 'pts',   catalogId: 'cs_nps',     owner: 'André Carvalho' }
+      { area: 'marketing', name: 'Cobertura mídia gastronômica', target: 12,  current: 3,       unit: 'publicações', catalogId: 'mkt_pr',  owner: 'Eduardo Lima' },
+      { area: 'marketing', name: 'Leads sommelier/mês',      target: 80,      current: 18,      unit: 'leads', catalogId: 'mkt_leads',  owner: 'Eduardo Lima' },
+      { area: 'sales',     name: 'Top 50 ativos',            target: 35,      current: 6,       unit: 'restaurantes', catalogId: 'sal_top50', owner: 'Fernanda Rocha' },
+      { area: 'sales',     name: 'Receita trimestral',       target: 259200,  current: 95040,   unit: 'R$',    catalogId: 'sal_revenue', owner: 'Fernanda Rocha' },
+      { area: 'cs',        name: 'Embaixadores ativos',      target: 25,      current: 4,       unit: 'un',    catalogId: 'cs_ambassadors', owner: 'André Carvalho' },
+      { area: 'cs',        name: 'NPS embaixador',           target: 80,      current: 52,      unit: 'pts',   catalogId: 'cs_nps',     owner: 'André Carvalho' }
     ]
   }
 ];
