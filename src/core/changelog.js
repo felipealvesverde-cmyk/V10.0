@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.8',
+    date: '2026-06-19',
+    title: 'Demo: RevOps & Governança populado nos 3 produtos da cervejaria',
+    bullets: [
+      'Cerveja Pilsen, Cerveja Weiss e Chopp de Vinho agora têm RevOps configurado com projeção mensal, oferta principal, ticket weighted e estrutura de custos completa (S&M / CMV / G&A).',
+      'Cada produto traz 3 grupos de custos com items realistas + 4 KPIs customizados (CAC, margem, recompra, NPS adaptados ao contexto) + 2 linhas extras de DRE (deduções/comissões).',
+      'Faturamento bruto agregado simulado: ~R$ 476k/mês entre os 3 produtos. Demonstrável agora no card de RevOps & Governança como cervejaria operando.',
+      'Endpoint admin /api/admin-add-demo-revops aplica tudo via uma chamada (master only). Idempotente.'
+    ]
+  },
+  {
     version: 'V40.7.7',
     date: '2026-06-19',
     title: 'Impersonation: tenant alvo agora aparece populado direto (sem hack de localStorage)',
