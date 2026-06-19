@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.13',
+    date: '2026-06-19',
+    title: 'Demo: vendas realizadas distribuídas nas ações dos 3 produtos',
+    bullets: [
+      'O card "Vendas Reais (convertidas)" do Resultado Consolidado lê do funil das ações (flowConfig[última_etapa].manualConverted), não do Hotmart. Por isso ficava em zero mesmo com checkout populado.',
+      'Endpoint admin /api/admin-add-demo-conversions distribui as vendas realizadas (Pilsen 9.600 / Weiss 3.600 / Chopp 960) nas ações de cada produto, com peso maior pra Vendas-BOF, médio pra CS-MOF e menor pra Marketing-TOF — distribuição realista de onde a conversão acontece.',
+      'Resultado Consolidado, RevOps e Mapa da Receita passam a refletir essas conversões automaticamente porque ambos leem do mesmo engine.'
+    ]
+  },
+  {
     version: 'V40.7.12',
     date: '2026-06-19',
     title: 'Demo: vendas chegam no Resultado Consolidado (Faturamento Real + Vendas Reais)',
