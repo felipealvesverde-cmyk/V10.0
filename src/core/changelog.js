@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.15',
+    date: '2026-06-19',
+    title: 'Demo: Mapa da Receita + Audiência + 150 leads pros 3 produtos',
+    bullets: [
+      'Mapa da Receita populado pros 3 produtos: visão de longo prazo, 9 donos das frentes (Marina/Rafael/Beatriz no Pilsen, Júlia/Thiago/Camila no Weiss, Eduardo/Fernanda/André no Chopp Vinho), 6 KRs por produto (2 por área Marketing/Vendas/CS) com meta vs atual realistas mostrando operação rodando abaixo da meta.',
+      'Audiência composicional preenchida: cada produto tem PA (Persona Aspiracional) com 3 perfis, ICP com 3 tiers e BP com 2 personas — coerentes com o perfil (Pilsen popular B2B2C, Weiss premium gastronômico, Chopp Vinho alta gastronomia).',
+      '150 leads fictícios distribuídos nas ações dos 3 produtos (Pilsen 70 / Weiss 50 / Chopp 30), com lifecycle (subscriber→customer), score, cohort, eventHistory básico. ~30% conversão pros lifecycle=customer.',
+      'Endpoint admin /api/admin-add-demo-mapa-audiencia-leads aplica tudo numa chamada. Aceita master ou próprio demo. Retorna newState pra evitar race com auto-save.'
+    ]
+  },
+  {
     version: 'V40.7.14',
     date: '2026-06-19',
     title: 'Demo: fix da distribuição de conversões nas ações',
