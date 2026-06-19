@@ -7,7 +7,7 @@ var ActionModule = {
     return `<div class="space-y-4">
       ${this.actionLayer(selectedCampaign, product, actions)}
       ${window.FlowBreadcrumb ? FlowBreadcrumb.render('actions') : ''}
-      <div class="grid lg:grid-cols-3 gap-4"><div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-1">Criar ação</h2><p class="text-sm text-slate-500 mb-4">Defina contexto operacional, origem, destino e base de leads.</p>${this._manualCreatePanel()}</div><div class="lg:col-span-2 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-3">Ações plugadas</h2>${this._actionsListFilter(actions)}<div class="space-y-3">${this._filteredActionsList(actions)}</div></div></div>
+      <div class="grid lg:grid-cols-3 gap-4"><div class="lg:col-span-1 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><h2 class="text-xl font-black mb-1">Criar ação</h2><p class="text-sm text-slate-500 mb-4">Defina contexto operacional, origem, destino e base de leads.</p>${this._manualCreatePanel()}</div><div class="lg:col-span-2 bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="flex items-start justify-between gap-3 mb-3"><h2 class="text-xl font-black">Ações plugadas</h2>${this._campaignViewFilter(selectedCampaign)}</div>${this._actionsListFilter(actions)}<div class="space-y-3">${this._filteredActionsList(actions)}</div></div></div>
       ${window.ActionEditModal ? ActionEditModal.render() : ''}
       ${/* V32.4.1 (Geraldo Item 1) — DjowModal V16.3 aposentado. DjowAIModal global cobre. */ ''}
       ${/* V37.0.8 — ActionLpModal removido (era vestigial pré-Tracking V33). */ ''}
@@ -108,13 +108,15 @@ var ActionModule = {
     const d = App.state.actionDraft;
     const path = FlowResolutionEngine.resolve(d.originSector, d.originFunnel, d.destinationSector, d.destinationFunnel);
     const campaigns = App.state.campaigns || [];
-    const currentCampaignId = App.state.selectedCampaignId;
+    // V40.7.3 — Draft tem própria campaignId (desacoplado de selectedCampaignId).
+    // Fallback pra selectedCampaignId só na primeira vez que o draft não foi tocado.
+    const draftCampaignId = d.campaignId || App.state.selectedCampaignId;
     return `<div class="space-y-3">
       <div>
         <label class="text-xs font-black text-slate-500">Campanha</label>
-        <select onchange="Actions.selectCampaignFromActions(Number(this.value))" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold">
+        <select onchange="Actions.setActionDraftCampaign(Number(this.value)); App.render();" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold">
           ${campaigns.length === 0 ? '<option value="">— nenhuma campanha cadastrada —</option>' : ''}
-          ${campaigns.map(c => `<option value="${c.id}" ${Number(currentCampaignId) === Number(c.id) ? 'selected' : ''}>${Utils.escape(c.name)}</option>`).join('')}
+          ${campaigns.map(c => `<option value="${c.id}" ${Number(draftCampaignId) === Number(c.id) ? 'selected' : ''}>${Utils.escape(c.name)}</option>`).join('')}
         </select>
       </div>
       <div><label class="text-xs font-black text-slate-500">Nome da ação</label><input value="${Utils.escape(d.name)}" oninput="App.state.actionDraft.name=this.value; App.save();" placeholder="Ex: Post orgânico Instagram" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
@@ -293,6 +295,21 @@ var ActionModule = {
   _executionStatusLine(action) {
     const s = window.ExecutionStatusEngine ? ExecutionStatusEngine.forAction(action.id) : { toExecute: 0, executed: 0 };
     return `<div class="w-full text-[11px] text-slate-500 font-bold text-right">Execução: <span class="text-slate-700">${s.toExecute} para executar</span> • <span class="text-emerald-700">${s.executed} executada${s.executed === 1 ? '' : 's'}</span></div>`;
+  },
+
+  // V40.7.3 — Filtro de campanha logo ao lado do título "Ações plugadas".
+  // Desacoplado do select do form "Criar ação": muda só a campanha-visão
+  // (selectedCampaignId), sem mexer no actionDraft.campaignId.
+  _campaignViewFilter(selectedCampaign) {
+    const campaigns = App.state.campaigns || [];
+    if (!campaigns.length) return '';
+    const currentId = selectedCampaign ? Number(selectedCampaign.id) : null;
+    return `<div class="flex items-center gap-2 shrink-0">
+      <span class="text-[11px] font-black text-slate-500 uppercase tracking-wider whitespace-nowrap"><i data-lucide="filter" class="w-3 h-3 inline mr-1"></i>Campanha</span>
+      <select onchange="Actions.selectCampaignFromActions(Number(this.value))" class="px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 font-black text-xs">
+        ${campaigns.map(c => `<option value="${c.id}" ${currentId === Number(c.id) ? 'selected' : ''}>${Utils.escape(c.name)}</option>`).join('')}
+      </select>
+    </div>`;
   },
 
   _actionsListFilter(actions) {

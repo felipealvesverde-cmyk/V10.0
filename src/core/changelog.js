@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.3',
+    date: '2026-06-19',
+    title: 'Aba Ações: select do "Criar ação" não filtra mais a tela inteira',
+    bullets: [
+      'Antes: escolher uma campanha no card "Criar ação" filtrava também o header (KPIs) e a lista "Ações plugadas" — os dois mundos estavam acoplados na mesma variável (selectedCampaignId).',
+      'Agora desacoplados: o select do form "Criar ação" controla só o destino da nova ação (actionDraft.campaignId). KPIs e lista continuam respondendo à campanha "vista".',
+      'Filtro de campanha novo, logo ao lado do título "Ações plugadas": dropdown discreto pra alternar a campanha-visão sem mexer no form do lado.',
+      'Sem perder familiaridade: o filtro continua a mesma seleção global do FlowBreadcrumb e da aba Campanhas — só o select do form Criar ação que ficou independente.'
+    ]
+  },
+  {
     version: 'V40.7.2',
     date: '2026-06-19',
     title: 'Pílula fantasma: faixa superior vira drag handle (segurar e arrastar)',
