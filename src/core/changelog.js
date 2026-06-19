@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.10',
+    date: '2026-06-19',
+    title: 'Endpoint admin-add-demo-revops: retorna o newState pra evitar race com auto-save',
+    bullets: [
+      'Quando o endpoint gravava o RevOps no banco, o frontend tinha state em memória sem esses dados e em ~2s o auto-save debouncado mandava state vazio por cima — race.',
+      'Agora o endpoint retorna `newState` completo no JSON. O caller atualiza App.state com isso imediatamente, e o próximo auto-save persiste o state correto em vez do vazio.'
+    ]
+  },
+  {
     version: 'V40.7.9',
     date: '2026-06-19',
     title: 'Endpoints de seed do demo: aceitam o próprio user demo (não só master global)',
