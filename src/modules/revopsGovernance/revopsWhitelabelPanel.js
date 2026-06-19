@@ -1653,17 +1653,32 @@
     // Mantém indicadores principais + realizado + simulator + comparador.
     _resultTab(cfg, ev) {
       const productId = cfg.productId;
+      const realSales = RevopsFinanceEngine?.productRealSales?.(productId) || 0;
+      const realRevenue = realSales * ev.ticket;
 
       // Período visível (default = mês corrente)
       const now = new Date();
       const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
       const period = App.state.resultadoPeriod?.[productId] || currentPeriod;
+      const meta = (App.state.metasResultado?.[productId]?.[period]) || { vendas: 0, cac: 0 };
 
-      // Simulator (mantido — overrides movidos pra dentro do bloco)
+      // Simulator (mantido)
       const sim = App.state.revopsSimulator || { active: false };
       const simSales = sim.active && sim.salesOverride != null ? sim.salesOverride : ev.sales;
       const simTicket = sim.active && sim.ticketOverride != null ? sim.ticketOverride : ev.ticket;
       const simEv = sim.active ? RevopsWhitelabelEngine.evaluate(cfg, { sales: simSales, ticket: simTicket }) : ev;
+
+      const totalSales = simEv.sales;
+      const ctc = simEv.acquisitionTotal;
+      const cac = totalSales > 0 ? ctc / totalSales : 0;
+      const fatBruto = simEv.fatBruto;
+      const baseTotalSales = ev.sales;
+      const baseCtc = ev.acquisitionTotal;
+      const baseCac = baseTotalSales > 0 ? baseCtc / baseTotalSales : 0;
+      const baseFatBruto = ev.fatBruto;
+
+      // CAC realizado (do funil): CTC ÷ vendas reais
+      const realCac = realSales > 0 ? ev.acquisitionTotal / realSales : 0;
 
       // Selector de período: 3 atrás + corrente + 3 à frente
       const periodOpts = [];
@@ -1691,11 +1706,43 @@
 
       return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
         <div class="space-y-3 min-w-0">
-          ${this._tabHeader('Resultado', 'Receita do mês', 'Realizado, Projetado e Meta numa régua única. Diagnóstico fica em Velocidade — aqui você esbarra com a verdade.', rightSide)}
+          ${this._tabHeader('Resultado · Indicadores', 'Resultado Consolidado', 'Meta vs realizado de Vendas e CAC, indicadores principais e leitura do funil.', rightSide)}
           <section class="rounded-3xl border p-5 shadow-md space-y-4" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
             ${sim.active ? this._simulatorPanel(cfg, ev, simEv) : ''}
 
-            ${this._revenueCard(productId, currentPeriodLabel)}
+            <!-- V37.0.0 — METAS DO PERÍODO. V40.11.1 — Card de Vendas trocou pelo Card Receita; Meta de CAC mantida abaixo. -->
+            <div class="space-y-3">
+              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider">Metas · ${Utils.escape(currentPeriodLabel)}</p>
+              ${this._revenueCard(productId, currentPeriodLabel)}
+              <div class="grid sm:grid-cols-2 gap-3">
+                ${this._metaCard(productId, period, 'cac', meta.cac || 0, realCac)}
+              </div>
+            </div>
+
+            <!-- Indicadores principais -->
+            <div class="pt-2 border-t border-stone-200">
+              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Indicadores principais (cascata RevOps)</p>
+              <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
+                ${this._bigCellWithDelta('Número Total de Vendas', Math.round(totalSales).toLocaleString('pt-BR'), Math.round(baseTotalSales).toLocaleString('pt-BR'), totalSales, baseTotalSales, 'violet', sim.active)}
+                ${this._bigCellWithDelta('Custo Total Comercial (CTC)', this._money(ctc), this._money(baseCtc), ctc, baseCtc, 'rose', sim.active, true)}
+                ${this._bigCellWithDelta('Custo de Aquisição (CAC)', this._money(cac), this._money(baseCac), cac, baseCac, cac > 0 && cac <= simEv.ticket ? 'emerald' : 'amber', sim.active, true)}
+                ${this._bigCellWithDelta('Faturamento Bruto', this._money(fatBruto), this._money(baseFatBruto), fatBruto, baseFatBruto, 'emerald', sim.active)}
+              </div>
+              <div class="mt-2 grid md:grid-cols-2 gap-2 text-[11px] text-slate-600">
+                <p><b>CAC fórmula:</b> CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = <b class="text-slate-900">${this._money(cac)}</b></p>
+                <p><b>Fat. Bruto fórmula:</b> Total Vendas × TM = ${Math.round(totalSales).toLocaleString('pt-BR')} × ${this._moneyPrecise(simEv.ticket)} = <b class="text-slate-900">${this._money(fatBruto)}</b></p>
+              </div>
+            </div>
+
+            <!-- Realizado (do funil) -->
+            <div class="pt-2 border-t border-stone-200">
+              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Realizado (lido do funil)</p>
+              <div class="grid md:grid-cols-2 gap-3">
+                ${this._bigCell('Vendas reais (convertidas)', Math.round(realSales).toLocaleString('pt-BR'), 'sky')}
+                ${this._bigCell('Faturamento real', this._money(realRevenue), 'sky')}
+              </div>
+              <p class="text-[11px] text-slate-500 mt-2 italic">Vendas reais vêm dos convertidos no funil das ações. Se previsto × real estiver muito distante, calibre sua projeção.</p>
+            </div>
 
             ${sim.active ? this._simulatorEbitdaCompare(ev, simEv) : ''}
             ${this._scenarioCompareBlock(cfg, ev)}

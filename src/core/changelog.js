@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.1',
+    date: '2026-06-19',
+    title: 'RevOps · Resultado: rollback cirúrgico — devolve tudo, mantém só a troca do card de Vendas',
+    bullets: [
+      'Felipe pediu pra mexer SÓ no card "Meta de Vendas" da aba Resultado. Eu estiquei e mexi na tela inteira — sumiram a cascata RevOps, o Realizado do funil, o Meta de CAC. Mesmo erro de over-engineering da V40.8.0. Reconhecido e corrigido.',
+      'Voltam pra tela: Card Meta de CAC, bloco "Indicadores principais (cascata RevOps)" com 4 BigCells (Total Vendas, CTC, CAC, Faturamento Bruto), bloco "Realizado (lido do funil)" com 2 BigCells, microcopy de calibração da projeção.',
+      'O que fica do refator: Card Receita do mês continua substituindo só o antigo card "Meta de Vendas". Engine novo no RevopsFinanceEngine dorme pronto. Header dual + subtítulo dinâmico + input "Vendas Previstas" removido + gating atualizado continuam vivos (Felipe confirmou que o header fica como está).',
+      'Tab Resultado volta ao subtítulo original "Resultado Consolidado · Meta vs realizado de Vendas e CAC".'
+    ]
+  },
+  {
     version: 'V40.11.0',
     date: '2026-06-19',
     title: 'RevOps · Header do produto: Realizado · Projetado dual + subtítulo dinâmico + input Vendas Previstas removido',
