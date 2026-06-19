@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.21',
+    date: '2026-06-19',
+    title: 'RevOps · Ofertas: campo "Mix no TM" virou "Participação"',
+    bullets: [
+      'O label "Mix no TM" exigia 3 saltos cognitivos pra entender: o que é Mix? o que é TM? como um relaciona ao outro? Felipe pegou exatamente esse atrito.',
+      'Renomeado pra "Participação" — operacional, business-language, lê como o usuário pensa: "essa oferta participa 100% no ticket".',
+      'Tooltip refinado: "Fatia desta oferta no ticket médio do produto. Pondera a média." Quando participação é 0%, tooltip muda pra explicar exclusão.',
+      'Sub-linha de auditoria do ticket calculado também renomeada: "100% do mix" → "100% de participação total". Subdescrição inline da oferta excluída diz "(participação 0%)" em vez de "(mix 0)".'
+    ]
+  },
+  {
     version: 'V40.7.20',
     date: '2026-06-19',
     title: 'RevOps · Ofertas: card redesenhado pra fim de fricção e confusão',
