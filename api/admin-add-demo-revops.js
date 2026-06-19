@@ -74,7 +74,11 @@ module.exports = async function handler(req, res) {
         kpisPerProduct: Object.fromEntries(
           Object.entries(addon).map(([pid, cfg]) => [pid, (cfg.customKpis || []).length])
         )
-      }
+      },
+      // V40.7.10 — Retorna o newState completo pra o caller atualizar
+      // App.state IMEDIATAMENTE, sem deixar o auto-save debouncado do
+      // frontend (~2s) gravar state em memória vazio por cima.
+      newState
     });
   } catch (err) {
     console.error('[admin-add-demo-revops]', err);
