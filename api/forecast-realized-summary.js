@@ -17,11 +17,20 @@
 // }
 
 const { resolveCredentialOwnerId } = require('../lib/credentials-owner');
+const { buildDemoForecastRealizedMock } = require('../lib/demo-checkout-mock');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
+
+  // V40.7.12 — Branch demo: retorna mock coerente com /api/hotmart-dashboard-metrics
+  // sem tocar em lj_hotmart_purchases (tabela inexistente no demo). Backlog:
+  // [[backlog-provider-abstraction]].
+  if (req.user.username === 'demo@leadjourney.app') {
+    return res.status(200).json(buildDemoForecastRealizedMock(req.query || {}));
+  }
+
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
 
   const userId = Number(await resolveCredentialOwnerId(req));

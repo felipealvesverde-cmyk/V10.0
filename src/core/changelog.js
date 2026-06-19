@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.12',
+    date: '2026-06-19',
+    title: 'Demo: vendas chegam no Resultado Consolidado (Faturamento Real + Vendas Reais)',
+    bullets: [
+      'O endpoint /api/forecast-realized-summary agora retorna mock pro demo, espelhando o que o Dashboard de Checkout mostra. Faturamento Real e Vendas Reais (convertidas) dos 3 produtos aparecem populados em Resultados.',
+      'Volume calibrado em 80% das metas RevOps (Pilsen 9.600 / Weiss 3.600 / Chopp 960) — operação visível como "rodando bem", próximo da meta mas ainda com gap pro fechamento do mês.',
+      'Checkout dashboard reajustado pra ficar coerente: mesmas projeções nas duas telas, mesmos números, sem disparidade entre o que cliente vê em Dashboard > Checkout e Resultados.'
+    ]
+  },
+  {
     version: 'V40.7.11',
     date: '2026-06-19',
     title: 'Demo: dashboard de Checkout populado com vendas fictícias dos 3 produtos',
