@@ -34,7 +34,7 @@ const STRATEGIC_MAPS_CONFIG = [
       { area: 'marketing', name: 'Leads gerados/mês',        target: 3500,    current: 1900,    unit: 'leads', catalogId: 'mkt_leads',  owner: 'Marina Costa' },
       { area: 'marketing', name: 'CPL médio',                target: 15,      current: 22,      unit: 'R$',    catalogId: 'mkt_cpl',    owner: 'Marina Costa' },
       { area: 'sales',     name: 'Bares parceiros ativos',   target: 1200,    current: 740,     unit: 'un',    catalogId: 'sal_b2b_customers', owner: 'Rafael Almeida' },
-      { area: 'sales',     name: 'Receita trimestral',       target: 800000,  current: 480000,  unit: 'R$',    catalogId: 'sal_revenue', owner: 'Rafael Almeida' },
+      { area: 'sales',     name: 'Receita trimestral',       target: 800000,  current: 633600,  unit: 'R$',    catalogId: 'sal_revenue', owner: 'Rafael Almeida' },
       { area: 'cs',        name: 'Recompra bar 30d',         target: 65,      current: 42,      unit: '%',     catalogId: 'cs_retention', owner: 'Beatriz Ribeiro' },
       { area: 'cs',        name: 'NPS',                      target: 70,      current: 56,      unit: 'pts',   catalogId: 'cs_nps',     owner: 'Beatriz Ribeiro' }
     ]
@@ -47,7 +47,7 @@ const STRATEGIC_MAPS_CONFIG = [
       { area: 'marketing', name: 'Alcance qualificado/mês',  target: 50000,   current: 28000,   unit: 'pessoas', catalogId: 'mkt_reach', owner: 'Júlia Mendes' },
       { area: 'marketing', name: 'Conversão LP',             target: 4,       current: 2.1,     unit: '%',     catalogId: 'mkt_conv',   owner: 'Júlia Mendes' },
       { area: 'sales',     name: 'Bares premium ativos',     target: 280,     current: 165,     unit: 'un',    catalogId: 'sal_premium_customers', owner: 'Thiago Pereira' },
-      { area: 'sales',     name: 'Ticket médio por bar',     target: 3500,    current: 2400,    unit: 'R$',    catalogId: 'sal_avg_ticket', owner: 'Thiago Pereira' },
+      { area: 'sales',     name: 'Ticket médio por bar',     target: 750,     current: 610,     unit: 'R$',    catalogId: 'sal_avg_ticket', owner: 'Thiago Pereira' },
       { area: 'cs',        name: 'Recompra 60d',             target: 55,      current: 38,      unit: '%',     catalogId: 'cs_retention', owner: 'Camila Souza' },
       { area: 'cs',        name: 'Eventos com presença Weiss', target: 18,    current: 8,       unit: 'un',    catalogId: 'cs_events',  owner: 'Camila Souza' }
     ]
@@ -60,7 +60,7 @@ const STRATEGIC_MAPS_CONFIG = [
       { area: 'marketing', name: 'Cobertura mídia gastronômica', target: 12,  current: 4,       unit: 'publicações', catalogId: 'mkt_pr',  owner: 'Eduardo Lima' },
       { area: 'marketing', name: 'Leads sommelier/mês',      target: 80,      current: 32,      unit: 'leads', catalogId: 'mkt_leads',  owner: 'Eduardo Lima' },
       { area: 'sales',     name: 'Top 50 ativos',            target: 35,      current: 12,      unit: 'restaurantes', catalogId: 'sal_top50', owner: 'Fernanda Rocha' },
-      { area: 'sales',     name: 'Receita trimestral',       target: 200000,  current: 95000,   unit: 'R$',    catalogId: 'sal_revenue', owner: 'Fernanda Rocha' },
+      { area: 'sales',     name: 'Receita trimestral',       target: 259200,  current: 207360,  unit: 'R$',    catalogId: 'sal_revenue', owner: 'Fernanda Rocha' },
       { area: 'cs',        name: 'Embaixadores ativos',      target: 25,      current: 9,       unit: 'un',    catalogId: 'cs_ambassadors', owner: 'André Carvalho' },
       { area: 'cs',        name: 'NPS embaixador',           target: 80,      current: 71,      unit: 'pts',   catalogId: 'cs_nps',     owner: 'André Carvalho' }
     ]
@@ -218,10 +218,12 @@ const ESTADOS = ['SP', 'RJ', 'MG', 'RS', 'PR', 'SC', 'BA'];
 const CIDADES = { SP: 'São Paulo', RJ: 'Rio de Janeiro', MG: 'Belo Horizonte', RS: 'Porto Alegre', PR: 'Curitiba', SC: 'Florianópolis', BA: 'Salvador' };
 const LIFECYCLES = ['subscriber', 'lead', 'lead', 'mql', 'sql', 'customer'];
 
+// V40.7.17 — distribuição inflada pra a tela "Leads" do produto não parecer vazia
+// vs os KRs de leads/mês em milhares. Antes: 70/50/30 = 150 totais.
 const PRODUCT_LEAD_DIST = {
-  [PRODUCT_IDS.PILSEN]: 70,
-  [PRODUCT_IDS.WEISS]: 50,
-  [PRODUCT_IDS.CHOPP]: 30
+  [PRODUCT_IDS.PILSEN]: 250,
+  [PRODUCT_IDS.WEISS]: 150,
+  [PRODUCT_IDS.CHOPP]: 60
 };
 
 function buildLeadsForActions(state) {
