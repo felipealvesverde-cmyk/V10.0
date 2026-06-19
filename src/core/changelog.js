@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.16',
+    date: '2026-06-19',
+    title: 'Demo: RevOps & Velocidade decomposto por produto (V × C × T / Ciclo)',
+    bullets: [
+      'A tela RevOps & Velocidade ficava em loading infinito porque dependia de tabelas tracker (lj_visitor_touchpoints) + Hotmart (lj_hotmart_purchases) que não existem no demo.',
+      'Branch demo no /api/pipeline-velocity-summary: retorna Visitas / Customers / Ticket / Ciclo coerentes pros 3 produtos — Pilsen 12k visitas → 950 customers (8% conv) → R$ 22 ticket / 5d ciclo; Weiss 4.5k → 380 (8,5%) → R$ 28 / 9d; Chopp 1.2k → 95 (7,9%) → R$ 72 / 18d.',
+      'Visitas/customers também distribuídos por campanha pra agregação por produto bater.'
+    ]
+  },
+  {
     version: 'V40.7.15',
     date: '2026-06-19',
     title: 'Demo: Mapa da Receita + Audiência + 150 leads pros 3 produtos',
