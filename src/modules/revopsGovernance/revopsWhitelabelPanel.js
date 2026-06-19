@@ -1436,17 +1436,11 @@
       const totalMixIn = ticketContributors.reduce((s, o) => s + Number(o.mix || 0), 0);
       const offerCountLabel = ticketContributors.length === 1 ? '1 oferta' : `${ticketContributors.length} ofertas`;
 
-      // V40.8.0 — Djow + Leonardo: breakdown Plano vs Real por oferta.
-      // Engine retorna [{ offerId, planPercent, realPercent, hasRealData, diverges }].
-      // Indexa por offerId pra _offerRow consumir direto.
-      const breakdown = window.RevopsWhitelabelEngine?.participationBreakdown
-        ? RevopsWhitelabelEngine.participationBreakdown(cfg)
-        : [];
-      const breakdownByOffer = {};
-      breakdown.forEach(b => { breakdownByOffer[b.offerId] = b; });
-      const source = cfg.participationSource === 'real' ? 'real' : 'plan';
-      const hasAnyRealData = breakdown.some(b => b.hasRealData);
-      const divergentCount = breakdown.filter(b => b.diverges).length;
+      // V40.8.1 — Rollback do toggle Plano/Real na UI. Felipe avaliou como
+      // over-engineering. Conceito Projetado vs Real fica pra ser tratado em
+      // outro lugar (Resultado Consolidado, futuro). Engine mantém capacidade
+      // source-aware (`participationBreakdown`, `_realParticipationByOffer`)
+      // pra reuso quando hora chegar — não há dívida técnica aqui.
 
       return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
         <div class="space-y-3 min-w-0">
@@ -1481,35 +1475,6 @@
               </div>` : ''}
             </div>
 
-            <!-- CAMADA 1.5: Fonte da Participação (Plano vs Real). Só weighted. -->
-            ${cfg.ticketMode === 'weighted' && offers.length > 0 ? `
-              <div class="rounded-2xl bg-white border p-4 mb-5" style="border-color:#e7e5e0;">
-                <div class="flex items-center gap-2 mb-2">
-                  <i data-lucide="git-branch" class="w-3.5 h-3.5" style="color:#7e22ce;"></i>
-                  <p class="text-[11px] font-black uppercase tracking-wider" style="color:#7e22ce;">Fonte da participação</p>
-                </div>
-                <p class="text-[11px] text-slate-600 mb-3">Define se o ticket é calculado pela <b>premissa que você planejou</b> ou pelas <b>vendas reais do mês</b>. Use Plano pra planejamento e projeção; use Real pra leitura de operação rodando.</p>
-                <div class="inline-flex rounded-lg border bg-stone-100 p-1" style="border-color:#e7e5e0;">
-                  <button onclick="Actions.setRevopsParticipationSource('${productId}', 'plan')" class="px-3 py-1.5 rounded-md text-[11px] font-black uppercase tracking-wider transition ${source === 'plan' ? 'shadow-sm' : 'text-slate-500 hover:text-slate-700'}" ${source === 'plan' ? 'style="background:#fff;color:#7e22ce;"' : ''}>
-                    <i data-lucide="clipboard-list" class="w-3 h-3 inline -mt-0.5"></i> Plano
-                  </button>
-                  <button onclick="Actions.setRevopsParticipationSource('${productId}', 'real')" class="px-3 py-1.5 rounded-md text-[11px] font-black uppercase tracking-wider transition ${source === 'real' ? 'shadow-sm' : 'text-slate-500 hover:text-slate-700'}" ${source === 'real' ? 'style="background:#fff;color:#7e22ce;"' : ''}>
-                    <i data-lucide="activity" class="w-3 h-3 inline -mt-0.5"></i> Real
-                  </button>
-                </div>
-                ${source === 'real' && !hasAnyRealData ? `
-                  <div class="mt-3 rounded-lg p-2.5 border" style="background:#fef3c7;border-color:#fcd34d;">
-                    <p class="text-[11px] text-amber-900 leading-snug"><b>Sem dado real granular ainda.</b> Hoje o LJ rastreia vendas no nível do produto, não por oferta. Enquanto isso, Real usa o Plano como fallback. Roadmap: rastreabilidade venda → oferta.</p>
-                  </div>
-                ` : ''}
-                ${divergentCount > 0 ? `
-                  <div class="mt-3 rounded-lg p-2.5 border" style="background:#fff7ed;border-color:#fdba74;">
-                    <p class="text-[11px] text-orange-900 leading-snug"><b>${divergentCount} oferta${divergentCount > 1 ? 's' : ''} com divergência ≥10%</b> entre Plano e Real. Vale revisar a premissa ou investigar o canal.</p>
-                  </div>
-                ` : ''}
-              </div>
-            ` : ''}
-
             <!-- CAMADA 2: Operação contínua — Ofertas cadastradas -->
             <div class="flex items-baseline justify-between mb-3">
               <p class="text-[11px] font-black uppercase tracking-wider" style="color:#7e22ce;">Suas ofertas</p>
@@ -1521,7 +1486,7 @@
                   <p class="text-sm font-bold text-amber-900 mb-1">Nenhuma oferta cadastrada</p>
                   <p class="text-xs text-amber-800">Sem oferta, Faturamento Bruto = 0. Crie ao menos uma.</p>
                 </div>`
-              : `<div class="space-y-2">${offers.map(o => this._offerRow(productId, o, cfg.ticketMode, breakdownByOffer[o.id], source)).join('')}</div>`}
+              : `<div class="space-y-2">${offers.map(o => this._offerRow(productId, o, cfg.ticketMode)).join('')}</div>`}
 
             <!-- CAMADA 3: Síntese — Ticket médio calculado (resposta do card) -->
             ${cfg.ticketMode === 'weighted' && offers.length > 0 ? `
@@ -1533,8 +1498,8 @@
                 <div class="text-3xl font-black" style="color:#7e22ce;">${this._moneyPrecise(ev.ticket)}</div>
                 <p class="text-[11px] text-stone-600 mt-1">
                   ${ticketContributors.length === 0
-                    ? 'Nenhuma oferta entra no cálculo. Garanta Participação > 0% em ao menos uma.'
-                    : `média ponderada de <b>${offerCountLabel}</b> · usando <b style="color:#7e22ce;">${source === 'real' ? 'participação REAL' : 'participação PLANO'}</b>${source === 'real' && !hasAnyRealData ? ' <span class="text-amber-700">(fallback)</span>' : ''}${offers.length > ticketContributors.length ? ` <span class="text-stone-400">· (${offers.length - ticketContributors.length} fora — participação 0%)</span>` : ''}`}
+                    ? 'Nenhuma oferta entra no cálculo. Garanta Projetado > 0% em ao menos uma.'
+                    : `média ponderada de <b>${offerCountLabel}</b> · <b>${totalMixIn.toFixed(0)}%</b> de projeção total${offers.length > ticketContributors.length ? ` <span class="text-stone-400">(${offers.length - ticketContributors.length} fora — projetado 0%)</span>` : ''}`}
                 </p>
               </div>
             ` : ''}
@@ -1553,18 +1518,11 @@
     //   - Side accent emerald (semântica de Receita preservada — coerência).
     //   - Barra de progresso lateral ao número do mix ancora a percepção de
     //     peso no agregado.
-    _offerRow(productId, offer, ticketMode, breakdown, source) {
+    _offerRow(productId, offer, ticketMode) {
       const isWeighted = ticketMode === 'weighted';
       const kind = offer.kind || 'main';
       const mix = Number(offer.mix || 0);
       const excluded = isWeighted && mix <= 0;
-
-      // V40.8.0 — breakdown opcional pra mostrar Plano vs Real lado a lado
-      const planPercent = breakdown ? breakdown.planPercent : null;
-      const realPercent = breakdown ? breakdown.realPercent : null;
-      const hasRealData = breakdown ? breakdown.hasRealData : false;
-      const diverges = breakdown ? breakdown.diverges : false;
-      const activeSource = source === 'real' ? 'real' : 'plan';
 
       const KIND_LABELS = {
         'main':       { label: 'Principal',    desc: 'o produto que define o ticket' },
@@ -1608,39 +1566,23 @@
             <span class="${labelCls}">Preço (R$)</span>
             <input type="text" inputmode="decimal" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${Utils.formatCents(offer.price || 0)}" oninput="Utils.applyMoneyMask(this)" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'price', Utils.parseBRL(this.value))" class="${inputCls}" />
           </label>
-          <label class="block w-20">
+          <label class="block w-24">
             <span class="${labelCls}">Meta</span>
             <input type="number" min="0" step="1" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" value="${offer.metaVendas || 0}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'metaVendas', this.value)" placeholder="0" title="Meta de vendas no período" class="${inputCls}" />
           </label>
-          ${isWeighted ? `<div class="flex items-end gap-2">
-            <label class="block w-24">
-              <span class="${labelCls} flex items-center gap-1">
-                <span>Plano</span>
-                ${activeSource === 'plan' ? '<span class="px-1 rounded text-[8px]" style="background:#7e22ce;color:#fff;">EM USO</span>' : ''}
-              </span>
-              <div class="flex items-center gap-1">
-                <input type="number" min="0" max="100" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${offer.mix}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'mix', this.value)" title="${excluded ? 'Participação 0% = oferta fora do cálculo do ticket médio' : 'Participação planejada desta oferta no ticket médio. Premissa de planejamento.'}" class="${inputCls}" />
-                <span class="text-[10px] font-black text-slate-400">%</span>
-              </div>
-              ${mixBar}
-            </label>
-            <label class="block w-24">
-              <span class="${labelCls} flex items-center gap-1">
-                <span>Real</span>
-                ${activeSource === 'real' ? '<span class="px-1 rounded text-[8px]" style="background:#7e22ce;color:#fff;">EM USO</span>' : ''}
-              </span>
-              <div class="mt-0.5 w-full px-2 py-1.5 rounded-lg bg-stone-100 border border-stone-200 text-sm font-bold ${hasRealData ? 'text-slate-800' : 'text-stone-400'} flex items-center justify-between" title="${hasRealData ? 'Participação real derivada das vendas no funil/checkout deste mês' : 'Sem dado real granular por oferta ainda. Roadmap: rastreabilidade venda → oferta.'}">
-                <span>${hasRealData ? realPercent.toFixed(1) : '—'}</span>
-                <span class="text-[10px] font-black text-stone-400">${hasRealData ? '%' : ''}</span>
-              </div>
-              ${diverges ? `<div class="mt-1 flex items-center gap-1 text-[10px] font-bold" style="color:#c2410c;"><i data-lucide="alert-triangle" class="w-2.5 h-2.5"></i> divergência ${Math.abs(realPercent - planPercent).toFixed(0)}%</div>` : '<div class="mt-1 h-3"></div>'}
-            </label>
-          </div>` : ''}
+          ${isWeighted ? `<label class="block w-24">
+            <span class="${labelCls}">Projetado</span>
+            <div class="flex items-center gap-1">
+              <input type="number" min="0" max="100" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}" step="0.1" value="${offer.mix}" onchange="Actions.updateRevopsOfferField('${productId}', '${offer.id}', 'mix', this.value)" title="${excluded ? 'Projetado 0% = oferta fora do cálculo do ticket médio' : 'Participação projetada desta oferta no ticket médio. Premissa que alimenta as projeções/KRs.'}" class="${inputCls}" />
+              <span class="text-[10px] font-black text-slate-400">%</span>
+            </div>
+            ${mixBar}
+          </label>` : ''}
           <button onclick="if(confirm('Apagar oferta \\'${Utils.escape(offer.name)}\\'?')) Actions.deleteRevopsOffer('${productId}', '${offer.id}')" title="Apagar oferta" class="px-2 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 hover:border-rose-300 text-slate-600 hover:text-rose-700 shrink-0 self-end mb-0.5"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
         </div>
         <!-- V40.7.20 — Subdescrição inline do tipo. Conecta dropdown ao significado. -->
         <p class="mt-2 pl-11 text-[11px] text-slate-500 italic">
-          <span class="font-bold not-italic text-slate-600">${kindMeta.label}</span> — ${kindMeta.desc}${excluded ? ' · <span class="text-stone-500 not-italic">fora do cálculo do TM (participação 0%)</span>' : ''}
+          <span class="font-bold not-italic text-slate-600">${kindMeta.label}</span> — ${kindMeta.desc}${excluded ? ' · <span class="text-stone-500 not-italic">fora do cálculo do TM (projetado 0%)</span>' : ''}
         </p>
       </div>`;
     },

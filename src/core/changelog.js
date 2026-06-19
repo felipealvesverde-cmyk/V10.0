@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.8.1',
+    date: '2026-06-19',
+    title: 'RevOps · Ofertas: rollback do over-engineering — campo agora se chama "Projetado"',
+    bullets: [
+      'A V40.8.0 transformou uma distinção simples (Projetado vs Real) em toggle + 2 colunas + 3 badges + 2 banners. Felipe avaliou direto: "construiu algo difícil de entender" + "o espaço da Meta ficou ruim". Erro reconhecido.',
+      'Volta a UMA coluna só, agora renomeada conceitualmente: "Projetado" (no lugar de "Participação"). O nome carrega a intenção: é a premissa que alimenta as projeções e os KRs.',
+      'Sai o toggle Plano/Real do topo. Saem badges "EM USO", divergência, fallback. Sai o banner amarelo e o laranja. Card volta a respirar.',
+      'Meta ganha mais espaço (w-20 → w-24) pra caber 120.000 sem aperto. Projetado mantém w-24.',
+      'Sub-linha de auditoria do Ticket Médio Projetado volta ao simples: "média ponderada de N ofertas · 100% de projeção total".',
+      'Engine mantém capacidade source-aware no código (participationBreakdown, _realParticipationByOffer, cfg.participationSource) — sem UI por enquanto. Quando vier a hora de mostrar Projetado vs Real no Resultado Consolidado (lugar conceitualmente correto pra isso), a infraestrutura já está pronta. Zero dívida técnica.'
+    ]
+  },
+  {
     version: 'V40.8.0',
     date: '2026-06-19',
     title: 'RevOps · Ofertas: Participação Plano vs Real — ticket deixa de mentir quando real divergir',
