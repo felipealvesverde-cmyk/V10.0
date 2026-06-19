@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.6',
+    date: '2026-06-19',
+    title: 'Ferramenta admin: página de upload pra imputar snapshot no demo',
+    bullets: [
+      'Nova página /admin-restore-demo.html (só usável por master) recebe um arquivo JSON de snapshot local e grava direto no journey_state do tenant demo. Útil quando o restore via UI normal falha por causa de schema antigo ou outro motivo.',
+      'Checkbox no fluxo aplica em paralelo o addon de 2 produtos (Cerveja Weiss + Chopp de Vinho) preparado em V40.7.5 — uma operação só imputa Pilsen + Weiss + Chopp ao mesmo tempo.',
+      'Endpoint /api/admin-restore-demo-state valida master via JWT; nada além disso pode tocar o state.'
+    ]
+  },
+  {
     version: 'V40.7.5',
     date: '2026-06-19',
     title: 'Demo Engenho Norte: Cerveja Weiss + Chopp de Vinho disponíveis pra ativar',

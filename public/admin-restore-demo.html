@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Restaurar Demo · LeadJourney Admin</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 24px;
+      padding: 32px;
+      max-width: 560px;
+      width: 100%;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+    }
+    h1 { font-size: 22px; font-weight: 900; margin: 0 0 8px; }
+    .subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 24px; }
+    label.block { display: block; margin-bottom: 16px; }
+    label.block .lbl {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 8px; display: block;
+    }
+    input[type="file"] {
+      width: 100%; padding: 12px; background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+      color: #e2e8f0; font-size: 13px;
+    }
+    .check { display: flex; align-items: center; gap: 8px; margin: 16px 0; }
+    .check input[type="checkbox"] { width: 18px; height: 18px; }
+    .check label { font-size: 13px; cursor: pointer; }
+    button {
+      width: 100%; padding: 14px; border-radius: 12px;
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: white; border: none; font-weight: 800; font-size: 14px;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.9; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .result {
+      margin-top: 20px; padding: 16px; border-radius: 12px;
+      font-family: 'Monaco', 'Consolas', monospace; font-size: 12px;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .result.ok { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .result.err { background: rgba(239, 68, 68, 0.15); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .hint {
+      font-size: 11px; color: #64748b; margin-top: 6px;
+    }
+    .preview {
+      background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; padding: 12px; margin-top: 12px; font-size: 12px;
+      color: #94a3b8;
+    }
+    .preview b { color: #e2e8f0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Restaurar state do demo</h1>
+    <p class="subtitle">Esta página imputa um snapshot JSON no tenant <b>demo@leadjourney.app</b>. Você precisa estar logado como master no LJ pra autorizar.</p>
+
+    <label class="block">
+      <span class="lbl">Arquivo JSON do snapshot</span>
+      <input type="file" id="fileInput" accept=".json,application/json" />
+      <div class="hint">Selecione o arquivo `leadjourney-snapshot-*.json` baixado.</div>
+    </label>
+
+    <div id="preview" class="preview" style="display:none;"></div>
+
+    <div class="check">
+      <input type="checkbox" id="addonChk" checked />
+      <label for="addonChk">Aplicar addon Weiss + Chopp de Vinho na mesma operação</label>
+    </div>
+
+    <button id="applyBtn" disabled>Aplicar no demo</button>
+
+    <div id="result" class="result" style="display:none;"></div>
+  </div>
+
+  <script>
+    let parsedState = null;
+    const fileInput = document.getElementById('fileInput');
+    const preview = document.getElementById('preview');
+    const applyBtn = document.getElementById('applyBtn');
+    const result = document.getElementById('result');
+    const addonChk = document.getElementById('addonChk');
+
+    fileInput.addEventListener('change', async (e) => {
+      result.style.display = 'none';
+      const file = e.target.files[0];
+      if (!file) { parsedState = null; applyBtn.disabled = true; preview.style.display = 'none'; return; }
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+        // Aceita tanto envelope (com .state) quanto state direto
+        parsedState = json.state ? json.state : json;
+        if (!parsedState.products || !Array.isArray(parsedState.products)) {
+          throw new Error('O JSON não parece um state válido (sem products[]).');
+        }
+        preview.style.display = 'block';
+        preview.innerHTML = `<b>OK</b> — produtos: ${parsedState.products.length} · campanhas: ${(parsedState.campaigns || []).length} · ações: ${(parsedState.actions || []).length} · execuções: ${(parsedState.executionTasks || []).length}`;
+        applyBtn.disabled = false;
+      } catch (err) {
+        parsedState = null;
+        preview.style.display = 'block';
+        preview.innerHTML = '<b style="color:#fca5a5;">Erro ao ler:</b> ' + err.message;
+        applyBtn.disabled = true;
+      }
+    });
+
+    applyBtn.addEventListener('click', async () => {
+      if (!parsedState) return;
+      applyBtn.disabled = true;
+      applyBtn.textContent = 'Aplicando…';
+      result.style.display = 'none';
+      try {
+        const jwt = localStorage.getItem('lj_jwt');
+        if (!jwt) throw new Error('Sem JWT no localStorage. Faça login no LJ primeiro como master.');
+        const r = await fetch('/api/admin-restore-demo-state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + jwt },
+          body: JSON.stringify({ state: parsedState, applyAddon: addonChk.checked })
+        });
+        const data = await r.json();
+        result.style.display = 'block';
+        result.className = 'result ' + (data.ok ? 'ok' : 'err');
+        result.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        result.style.display = 'block';
+        result.className = 'result err';
+        result.textContent = 'Erro: ' + err.message;
+      } finally {
+        applyBtn.disabled = false;
+        applyBtn.textContent = 'Aplicar no demo';
+      }
+    });
+  </script>
+</body>
+</html>
