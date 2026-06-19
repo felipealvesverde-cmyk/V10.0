@@ -7837,6 +7837,14 @@ Object.assign(Actions, {
     });
   },
 
+  // V40.8.0 — Toggle fonte da Participação (Plano vs Real) usado pra calcular
+  // Ticket Médio Ponderado. Tenant-agnostic.
+  setRevopsParticipationSource(productId, source) {
+    Actions._revopsV2Mutate(productId, cfg => {
+      cfg.participationSource = source === 'real' ? 'real' : 'plan';
+    });
+  },
+
   setRevopsTicketManual(productId, value) {
     Actions._revopsV2Mutate(productId, cfg => {
       cfg.ticketManualValue = Number(value) || 0;

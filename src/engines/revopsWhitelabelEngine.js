@@ -56,6 +56,11 @@
         offers: [],
         ticketMode: 'weighted',
         ticketManualValue: 0,
+        // V40.8.0 — Fonte da participação usada no cálculo ponderado.
+        //   'plan' (default) — usa o.mix configurado pelo usuário (premissa)
+        //   'real'           — deriva da proporção de vendas reais por oferta
+        //                       (fallback pro plano quando sem dado granular)
+        participationSource: 'plan',
         // Grupos dinâmicos substituem fixedCosts categorias + acquisitionCosts + variableCosts
         groups: [],
         // Custom KPIs (rosa da planilha do Felipe) — array de { id, name, formula, unit }
@@ -330,6 +335,8 @@
         })) : [],
         ticketMode: raw.ticketMode === 'manual' ? 'manual' : 'weighted',
         ticketManualValue: this._num(raw.ticketManualValue),
+        // V40.8.0 — participationSource (Plano vs Real). Default plan.
+        participationSource: raw.participationSource === 'real' ? 'real' : 'plan',
         groups: Array.isArray(raw.groups) ? raw.groups.map(g => this._normalizeGroup(g)).filter(Boolean) : [],
         customKpis: Array.isArray(raw.customKpis) ? raw.customKpis.map(k => ({
           id: String(k.id || `kpi_${Date.now().toString(36).slice(-4)}`),
@@ -690,21 +697,110 @@
     // — uma decisão por linha (peso no ticket). Mix=0 = oferta fora do cálculo.
     // selectedForTicket legacy ainda é respeitado se estiver explicitamente false
     // por algum config antigo, mas o default é "se tem mix, entra".
+    //
+    // V40.8.0 — Djow + Leonardo: ticket aceita 2 fontes de participação.
+    //   - 'plan' (default): usa o.mix configurado (premissa de planejamento)
+    //   - 'real':           usa proporção de vendas reais por oferta
+    //                        com fallback pro plano quando não há dado granular
+    // Lei [[no-source-no-dash]]: nunca inventar real. Fallback é EXPLÍCITO.
     _computeTicket(cfg) {
       if (cfg.ticketMode === 'manual') return this._num(cfg.ticketManualValue);
       const offers = (cfg.offers || []).filter(o => {
         if (this._num(o.price) <= 0) return false;
-        if (this._num(o.mix) <= 0) return false;
-        // Respeita selectedForTicket=false explícito (config legacy)
         if (o.selectedForTicket === false) return false;
         return true;
       });
       if (!offers.length) return 0;
-      const totalMix = offers.reduce((s, o) => s + this._num(o.mix), 0);
-      if (totalMix <= 0) {
-        return offers.reduce((s, o) => s + this._num(o.price), 0) / offers.length;
+
+      const source = cfg.participationSource === 'real' ? 'real' : 'plan';
+      const realByOffer = source === 'real' ? this._realParticipationByOffer(cfg) : null;
+
+      // Pra cada oferta, decide o peso a aplicar
+      const weighted = offers.map(o => {
+        let weight;
+        if (source === 'real' && realByOffer && realByOffer[o.id] != null) {
+          weight = realByOffer[o.id]; // % (0-100) real
+        } else {
+          weight = this._num(o.mix); // % planejada
+        }
+        return { price: this._num(o.price), weight };
+      }).filter(w => w.weight > 0);
+
+      if (!weighted.length) return 0;
+      const totalWeight = weighted.reduce((s, w) => s + w.weight, 0);
+      if (totalWeight <= 0) {
+        return weighted.reduce((s, w) => s + w.price, 0) / weighted.length;
       }
-      return offers.reduce((s, o) => s + (this._num(o.price) * this._num(o.mix) / totalMix), 0);
+      return weighted.reduce((s, w) => s + (w.price * w.weight / totalWeight), 0);
+    },
+
+    // V40.8.0 — Djow + Leonardo: deriva participação REAL por oferta a partir
+    // das vendas realizadas. Retorna `{ [offerId]: percent | null }`.
+    //
+    // PROBLEMA ARQUITETURAL CONHECIDO: hoje não há rastreabilidade granular de
+    // vendas → oferta. `productRealSales` agrega tudo no nível PRODUTO. Por isso:
+    //   - Se cliente tem 1 oferta com price>0 → real = 100% (caso trivial)
+    //   - Se cliente tem N ofertas → null (sem dado, UI mostra placeholder honesto
+    //     e fallback automático pro plano daquela oferta)
+    //
+    // Backlog: rastreabilidade venda → oferta (achado #12 do inventário
+    // [[project_demo_population_findings_2026_06_19]]). Quando resolvido, este
+    // método cresce sem mexer no resto.
+    _realParticipationByOffer(cfg) {
+      const productId = cfg.productId;
+      if (!productId || !window.RevopsFinanceEngine?.productRealSales) return null;
+      const totalRealSales = window.RevopsFinanceEngine.productRealSales(productId);
+      if (totalRealSales <= 0) return null;
+
+      const activeOffers = (cfg.offers || []).filter(o => {
+        if (this._num(o.price) <= 0) return false;
+        if (o.selectedForTicket === false) return false;
+        return true;
+      });
+
+      // Caso trivial: 1 oferta ativa → 100% real
+      if (activeOffers.length === 1) {
+        return { [activeOffers[0].id]: 100 };
+      }
+
+      // Caso N ofertas: sem rastreabilidade granular. Cada oferta retorna null
+      // → o consumidor (_computeTicket) faz fallback pro plano automaticamente.
+      const result = {};
+      for (const o of activeOffers) {
+        result[o.id] = null;
+      }
+      return result;
+    },
+
+    // V40.8.0 — Expõe metadado da participação por oferta pra UI mostrar
+    // Plano vs Real lado a lado + badge de divergência. Retorna array
+    // `[{ offerId, planPercent, realPercent, source, hasRealData, diverges }]`.
+    participationBreakdown(cfg) {
+      if (!cfg || cfg.ticketMode !== 'weighted') return [];
+      const offers = (cfg.offers || []).filter(o => {
+        if (this._num(o.price) <= 0) return false;
+        if (o.selectedForTicket === false) return false;
+        return true;
+      });
+      if (!offers.length) return [];
+      const realByOffer = this._realParticipationByOffer(cfg) || {};
+      const totalPlanMix = offers.reduce((s, o) => s + this._num(o.mix), 0);
+
+      return offers.map(o => {
+        const planPercent = totalPlanMix > 0
+          ? (this._num(o.mix) / totalPlanMix) * 100
+          : (100 / offers.length);
+        const realPercent = realByOffer[o.id]; // pode ser null ou número
+        const hasRealData = realPercent != null;
+        const diverges = hasRealData && Math.abs(realPercent - planPercent) >= 10;
+        return {
+          offerId: o.id,
+          planPercent,
+          realPercent,
+          hasRealData,
+          diverges
+        };
+      });
     },
 
     _evalItem(item, group, symbols, itemValues, cfg) {
