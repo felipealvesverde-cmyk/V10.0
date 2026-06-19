@@ -369,15 +369,21 @@ window.ActionFlowBuilder = {
     }).join('');
     // Anchor: cursor é o centro horizontal; pill cresce pra baixo com leve offset.
     // max-w/max-h + overflow-auto pra não estourar o canvas.
-    return `<div class="absolute z-40 pointer-events-none" style="left:${x}px;top:${y}px;">
+    // V40.7.2 — Header é drag handle (segurar + arrastar). onmousedown no header
+    // dispara _onGhostDragStart; clicar no botão x não inicia drag (handler checa
+    // closest('button')).
+    return `<div id="flowGhostPaletteRoot" class="absolute z-40 pointer-events-none" style="left:${x}px;top:${y}px;">
       <div class="-translate-x-1/2 translate-y-2">
         <div onclick="event.stopPropagation()"
              class="bg-slate-900/90 backdrop-blur border border-indigo-400/40 rounded-3xl p-4 w-[640px] max-w-[80vw] max-h-[60vh] overflow-auto shadow-2xl pointer-events-auto ring-1 ring-indigo-500/20">
-          <div class="flex items-center justify-between mb-3">
-            <p class="text-[10px] font-black text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
-              <i data-lucide="zap" class="w-3.5 h-3.5"></i> Atalho rápido · Space pra fechar
+          <div onmousedown="ActionFlowBuilder._onGhostDragStart(event)"
+               class="flex items-center justify-between mb-3 -mx-4 -mt-4 px-4 pt-4 pb-3 rounded-t-3xl bg-gradient-to-b from-indigo-500/10 to-transparent border-b border-white/5"
+               style="cursor:grab;user-select:none;">
+            <p class="text-[10px] font-black text-indigo-300 uppercase tracking-wider flex items-center gap-1.5 pointer-events-none">
+              <i data-lucide="grip-horizontal" class="w-3.5 h-3.5"></i>
+              <span>Atalho rápido · Space pra fechar · arraste pra mover</span>
             </p>
-            <button onclick="Actions.closeFlowBuilderGhostPalette()" class="text-slate-400 hover:text-white transition" title="Fechar (Esc / Space)">
+            <button onclick="Actions.closeFlowBuilderGhostPalette()" onmousedown="event.stopPropagation()" class="text-slate-400 hover:text-white transition" title="Fechar (Esc / Space)">
               <i data-lucide="x" class="w-4 h-4"></i>
             </button>
           </div>
@@ -388,6 +394,45 @@ window.ActionFlowBuilder = {
         </div>
       </div>
     </div>`;
+  },
+
+  // V40.7.2 — Drag handle do header da pílula fantasma. Captura posição inicial,
+  // registra listeners temporários no window, atualiza style.left/top direto no
+  // root (fast-path, sem App.render). Mouseup commita pra App.state e libera.
+  _onGhostDragStart(event) {
+    // Clicar no botão x: deixa o botão tratar; não inicia drag.
+    if (event.target.closest('button')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const root = document.getElementById('flowGhostPaletteRoot');
+    if (!root) return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const initialX = Number(App.state.flowBuilderGhostPaletteX || 0);
+    const initialY = Number(App.state.flowBuilderGhostPaletteY || 0);
+    root.style.cursor = 'grabbing';
+    const headerEl = event.currentTarget;
+    if (headerEl) headerEl.style.cursor = 'grabbing';
+    const onMove = (e) => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const nx = initialX + dx;
+      const ny = initialY + dy;
+      root.style.left = `${nx}px`;
+      root.style.top = `${ny}px`;
+    };
+    const onUp = (e) => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      App.state.flowBuilderGhostPaletteX = Math.round(initialX + dx);
+      App.state.flowBuilderGhostPaletteY = Math.round(initialY + dy);
+      App.save();
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      if (headerEl) headerEl.style.cursor = 'grab';
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   },
 
   // V39.12.0 — Pílula horizontal ~80% maior (px-14 + gap-7 = mais respiro entre
@@ -1751,6 +1796,30 @@ window.ActionFlowBuilder = {
     }
     const armed = App.state.flowBuilderConnectionArm;
     const armedIds = Array.isArray(armed) ? armed.map(String) : (armed ? [String(armed)] : []);
+    // V40.7.4 — Click-to-connect ativo: o próximo click decide.
+    //   - Click em flow-port-input ou em card → conecta (se não for o próprio armado)
+    //   - Click em qualquer outra coisa → cancela
+    // Click em outro botão Conexão NÃO chega aqui (botão tem stopPropagation);
+    // o handler do botão vai re-armar pra esse novo card e manter clickToConnect.
+    if (this._internal.clickToConnect && armedIds.length) {
+      // Limpa overlay visual do cabinho.
+      const overlay = svg.querySelector('#flowPendingEdge');
+      if (overlay) overlay.remove();
+      let toId = null;
+      if (target.classList?.contains('flow-port-input')) {
+        toId = target.dataset.nodeId;
+      } else {
+        const card = target.closest('g[data-node-id]');
+        if (card) toId = card.dataset.nodeId;
+      }
+      if (toId && !armedIds.includes(String(toId))) {
+        Actions.connectFlowBuilderNodes(armedIds.slice(), toId);
+      }
+      this._internal.clickToConnect = false;
+      Actions.cancelFlowBuilderConnection();
+      event.preventDefault();
+      return;
+    }
     if (target.classList?.contains('flow-port-output')) {
       const outId = target.dataset.nodeId;
       if (armedIds.length && armedIds.includes(String(outId))) {
@@ -2099,6 +2168,36 @@ window.ActionFlowBuilder = {
         txt.setAttribute('x', wp.x + 14); txt.setAttribute('y', wp.y - 8);
         txt.setAttribute('fill', '#fbbf24'); txt.setAttribute('font-size', '11'); txt.setAttribute('font-weight', '900');
         txt.textContent = `× ${fromIds.length}`;
+        svg.querySelector('#flowEdgesLayer')?.appendChild(txt);
+      }
+      return;
+    }
+    // V40.7.4 — Click-to-connect (1 click): cabinho sai da bolinha do card
+    // armado e segue o cursor até o user clicar em outro card.
+    if (this._internal.clickToConnect && App.state.flowBuilderConnectionArm) {
+      const overlay = svg.querySelector('#flowPendingEdge');
+      if (overlay) overlay.remove();
+      const armed = App.state.flowBuilderConnectionArm;
+      const armedIds = Array.isArray(armed) ? armed.map(String) : [String(armed)];
+      const fromNode = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(armedIds[0]));
+      if (!fromNode) return;
+      const fromPort = this._outputPort(fromNode);
+      const wp = this._screenToWorld(svg, event);
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const path = document.createElementNS(svgNS, 'path');
+      path.setAttribute('id', 'flowPendingEdge');
+      path.setAttribute('d', this._edgePath(fromPort.x, fromPort.y, wp.x, wp.y));
+      path.setAttribute('stroke', '#fbbf24');
+      path.setAttribute('stroke-width', '3');
+      path.setAttribute('stroke-dasharray', '6 4');
+      path.setAttribute('fill', 'none');
+      path.style.pointerEvents = 'none';
+      svg.querySelector('#flowEdgesLayer')?.appendChild(path);
+      if (armedIds.length > 1) {
+        const txt = document.createElementNS(svgNS, 'text');
+        txt.setAttribute('x', wp.x + 14); txt.setAttribute('y', wp.y - 8);
+        txt.setAttribute('fill', '#fbbf24'); txt.setAttribute('font-size', '11'); txt.setAttribute('font-weight', '900');
+        txt.textContent = `× ${armedIds.length}`;
         svg.querySelector('#flowEdgesLayer')?.appendChild(txt);
       }
       return;

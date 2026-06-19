@@ -143,7 +143,18 @@ var Actions = {
         App.state.activeTab = 'actions';
         App.save(); App.render();
       },
-      selectCampaignFromActions(id) { App.state.selectedCampaignId = id; App.state.actionDraft.campaignId = id; App.state.selectedActionId = null; App.save(); App.render(); },
+      // V40.7.3 — selectCampaignFromActions agora NÃO mexe mais no actionDraft.campaignId.
+      // Os dois mundos foram desacoplados: o seletor "Filtrar por campanha" acima da lista
+      // de Ações plugadas controla a visão (selectedCampaignId), e o select "Campanha" do
+      // form Criar ação controla só o destino da nova ação (actionDraft.campaignId via
+      // setActionDraftCampaign). Antes, escolher campanha no form filtrava toda a tela.
+      selectCampaignFromActions(id) { App.state.selectedCampaignId = id; App.state.selectedActionId = null; App.save(); App.render(); },
+      // V40.7.3 — Apenas atualiza a campanha-destino da nova ação. Não filtra lista.
+      setActionDraftCampaign(id) {
+        App.state.actionDraft = App.state.actionDraft || {};
+        App.state.actionDraft.campaignId = Number(id);
+        App.save();
+      },
       // V37.0.9 — setLeadInputMode e setMailingDefined REMOVIDAS junto com o
       // bloco "Mailing definido?" do form. Importação inline saiu — base de
       // leads agora só via Actions.openLeadImportModal (Lead Import Wizard).
@@ -2825,6 +2836,8 @@ Object.assign(Actions, {
 
   // V40.7.0 — Esc cascade no Flow Builder. Ordem: ghost pill > arm > seleção > paleta normal.
   // Retorna true se algo foi cancelado (chamador usa pra decidir preventDefault).
+  // V40.7.4 — Cancelar arm também sai do modo click-to-connect (e remove overlay
+  // do cabinho fantasma — limpo no próximo attach via _drawCanvas).
   cancelFlowBuilderSelection() {
     let dirty = false;
     if (App.state.flowBuilderGhostPaletteOpen) {
@@ -2832,6 +2845,7 @@ Object.assign(Actions, {
       dirty = true;
     } else if (App.state.flowBuilderConnectionArm) {
       App.state.flowBuilderConnectionArm = null;
+      if (window.ActionFlowBuilder) window.ActionFlowBuilder._internal.clickToConnect = false;
       dirty = true;
     } else if ((App.state.flowBuilderSelectedNodeIds || []).length) {
       App.state.flowBuilderSelectedNodeIds = [];
@@ -2997,12 +3011,20 @@ Object.assign(Actions, {
     } else {
       App.state.flowBuilderConnectionArm = [id];
     }
+    // V40.7.4 — Click no botão Conexão já entra em "click-to-connect": o cabinho
+    // sai da bolinha do card armado seguindo o cursor, e o próximo click em
+    // outro card fecha a conexão. Elimina o 2º passo (clicar na bolinha) que
+    // existia antes. Sync com o state de armed: se desarmou, sai do modo.
+    if (window.ActionFlowBuilder) {
+      window.ActionFlowBuilder._internal.clickToConnect = !!App.state.flowBuilderConnectionArm;
+    }
     App.save(); App.render();
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
   },
 
   cancelFlowBuilderConnection() {
     App.state.flowBuilderConnectionArm = null;
+    if (window.ActionFlowBuilder) window.ActionFlowBuilder._internal.clickToConnect = false;
     App.save(); App.render();
     setTimeout(() => { try { ActionFlowBuilder.attach(); } catch (_) {} }, 0);
   },

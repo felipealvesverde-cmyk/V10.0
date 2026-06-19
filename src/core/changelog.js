@@ -18,6 +18,39 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.4',
+    date: '2026-06-19',
+    title: 'Flow Builder: conectar agora é 1 click (em vez de 2)',
+    bullets: [
+      'Antes: clicar em "Conexão" só armava o card. Pra puxar o cabinho era preciso ainda clicar na bolinha verde do output. Eram dois cliques pra começar e mais um pra fechar — três no total.',
+      'Agora: clicar em "Conexão" já puxa o cabinho da bolinha automaticamente, seguindo o cursor. Um click em outro card fecha a conexão. Dois cliques no total.',
+      'Esc cancela a operação a qualquer momento (cabinho some, botão volta pro estado normal). Clicar em "Conexão" de outro card durante o modo ativo troca a origem do cabinho.',
+      'O fluxo antigo (clicar na bolinha pra puxar) continua funcionando — quem aprendeu daquele jeito não perde nada.'
+    ]
+  },
+  {
+    version: 'V40.7.3',
+    date: '2026-06-19',
+    title: 'Aba Ações: select do "Criar ação" não filtra mais a tela inteira',
+    bullets: [
+      'Antes: escolher uma campanha no card "Criar ação" filtrava também o header (KPIs) e a lista "Ações plugadas" — os dois mundos estavam acoplados na mesma variável (selectedCampaignId).',
+      'Agora desacoplados: o select do form "Criar ação" controla só o destino da nova ação (actionDraft.campaignId). KPIs e lista continuam respondendo à campanha "vista".',
+      'Filtro de campanha novo, logo ao lado do título "Ações plugadas": dropdown discreto pra alternar a campanha-visão sem mexer no form do lado.',
+      'Sem perder familiaridade: o filtro continua a mesma seleção global do FlowBreadcrumb e da aba Campanhas — só o select do form Criar ação que ficou independente.'
+    ]
+  },
+  {
+    version: 'V40.7.2',
+    date: '2026-06-19',
+    title: 'Pílula fantasma: faixa superior vira drag handle (segurar e arrastar)',
+    bullets: [
+      'O header da pílula fantasma (faixa "Atalho rápido · Space pra fechar") agora é uma área de arrasto: segure e arraste pra reposicionar a pílula sem fechar e abrir de novo em outro lugar.',
+      'Cursor vira "mãozinha" no hover do header e "grabbing" enquanto arrasta. Clicar no botão x continua fechando normal (não inicia arrasto).',
+      'Movimento é instantâneo (style direto, sem re-render); posição é gravada no estado só ao soltar o mouse pra não pesar.',
+      'Ícone do header trocou pra grip-horizontal pra deixar visual da affordance.'
+    ]
+  },
+  {
     version: 'V40.7.1',
     date: '2026-06-19',
     title: 'Sidebar: scrollbar escondida visualmente (mantém scroll funcional)',
