@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.7',
+    date: '2026-06-19',
+    title: 'Impersonation: tenant alvo agora aparece populado direto (sem hack de localStorage)',
+    bullets: [
+      'Antes: clicar "Entrar como" no cockpit /admin abria nova aba mas o frontend usava o localStorage do master (vazio ou de outro tenant), descartando o state remoto. Tenant aparecia em branco e era preciso abrir DevTools pra limpar localStorage manualmente.',
+      'Agora: quando a aba é uma sessão de impersonation (flag sessionStorage.lj_impersonation_session === 1), o state remoto é SEMPRE usado, igual ao mode demo. Local é ignorado por princípio.',
+      'Próxima vez que você clicar "Entrar como" em qualquer tenant, ele vai carregar populado direto.'
+    ]
+  },
+  {
     version: 'V40.7.6',
     date: '2026-06-19',
     title: 'Ferramenta admin: página de upload pra imputar snapshot no demo',
