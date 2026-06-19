@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.4',
+    date: '2026-06-19',
+    title: 'Flow Builder: conectar agora é 1 click (em vez de 2)',
+    bullets: [
+      'Antes: clicar em "Conexão" só armava o card. Pra puxar o cabinho era preciso ainda clicar na bolinha verde do output. Eram dois cliques pra começar e mais um pra fechar — três no total.',
+      'Agora: clicar em "Conexão" já puxa o cabinho da bolinha automaticamente, seguindo o cursor. Um click em outro card fecha a conexão. Dois cliques no total.',
+      'Esc cancela a operação a qualquer momento (cabinho some, botão volta pro estado normal). Clicar em "Conexão" de outro card durante o modo ativo troca a origem do cabinho.',
+      'O fluxo antigo (clicar na bolinha pra puxar) continua funcionando — quem aprendeu daquele jeito não perde nada.'
+    ]
+  },
+  {
     version: 'V40.7.3',
     date: '2026-06-19',
     title: 'Aba Ações: select do "Criar ação" não filtra mais a tela inteira',

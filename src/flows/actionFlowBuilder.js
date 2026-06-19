@@ -1796,6 +1796,30 @@ window.ActionFlowBuilder = {
     }
     const armed = App.state.flowBuilderConnectionArm;
     const armedIds = Array.isArray(armed) ? armed.map(String) : (armed ? [String(armed)] : []);
+    // V40.7.4 — Click-to-connect ativo: o próximo click decide.
+    //   - Click em flow-port-input ou em card → conecta (se não for o próprio armado)
+    //   - Click em qualquer outra coisa → cancela
+    // Click em outro botão Conexão NÃO chega aqui (botão tem stopPropagation);
+    // o handler do botão vai re-armar pra esse novo card e manter clickToConnect.
+    if (this._internal.clickToConnect && armedIds.length) {
+      // Limpa overlay visual do cabinho.
+      const overlay = svg.querySelector('#flowPendingEdge');
+      if (overlay) overlay.remove();
+      let toId = null;
+      if (target.classList?.contains('flow-port-input')) {
+        toId = target.dataset.nodeId;
+      } else {
+        const card = target.closest('g[data-node-id]');
+        if (card) toId = card.dataset.nodeId;
+      }
+      if (toId && !armedIds.includes(String(toId))) {
+        Actions.connectFlowBuilderNodes(armedIds.slice(), toId);
+      }
+      this._internal.clickToConnect = false;
+      Actions.cancelFlowBuilderConnection();
+      event.preventDefault();
+      return;
+    }
     if (target.classList?.contains('flow-port-output')) {
       const outId = target.dataset.nodeId;
       if (armedIds.length && armedIds.includes(String(outId))) {
@@ -2144,6 +2168,36 @@ window.ActionFlowBuilder = {
         txt.setAttribute('x', wp.x + 14); txt.setAttribute('y', wp.y - 8);
         txt.setAttribute('fill', '#fbbf24'); txt.setAttribute('font-size', '11'); txt.setAttribute('font-weight', '900');
         txt.textContent = `× ${fromIds.length}`;
+        svg.querySelector('#flowEdgesLayer')?.appendChild(txt);
+      }
+      return;
+    }
+    // V40.7.4 — Click-to-connect (1 click): cabinho sai da bolinha do card
+    // armado e segue o cursor até o user clicar em outro card.
+    if (this._internal.clickToConnect && App.state.flowBuilderConnectionArm) {
+      const overlay = svg.querySelector('#flowPendingEdge');
+      if (overlay) overlay.remove();
+      const armed = App.state.flowBuilderConnectionArm;
+      const armedIds = Array.isArray(armed) ? armed.map(String) : [String(armed)];
+      const fromNode = (App.state.flowBuilderNodes || []).find(n => String(n.id) === String(armedIds[0]));
+      if (!fromNode) return;
+      const fromPort = this._outputPort(fromNode);
+      const wp = this._screenToWorld(svg, event);
+      const svgNS = 'http://www.w3.org/2000/svg';
+      const path = document.createElementNS(svgNS, 'path');
+      path.setAttribute('id', 'flowPendingEdge');
+      path.setAttribute('d', this._edgePath(fromPort.x, fromPort.y, wp.x, wp.y));
+      path.setAttribute('stroke', '#fbbf24');
+      path.setAttribute('stroke-width', '3');
+      path.setAttribute('stroke-dasharray', '6 4');
+      path.setAttribute('fill', 'none');
+      path.style.pointerEvents = 'none';
+      svg.querySelector('#flowEdgesLayer')?.appendChild(path);
+      if (armedIds.length > 1) {
+        const txt = document.createElementNS(svgNS, 'text');
+        txt.setAttribute('x', wp.x + 14); txt.setAttribute('y', wp.y - 8);
+        txt.setAttribute('fill', '#fbbf24'); txt.setAttribute('font-size', '11'); txt.setAttribute('font-weight', '900');
+        txt.textContent = `× ${armedIds.length}`;
         svg.querySelector('#flowEdgesLayer')?.appendChild(txt);
       }
       return;
