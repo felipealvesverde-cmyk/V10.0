@@ -17,7 +17,9 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
-  if (!req.user.isMaster) return res.status(403).json({ ok: false, message: 'Apenas master pode aplicar.' });
+  // V40.7.9 — Aceita master global OU o próprio user demo (admin do tenant engenho-norte).
+  const isAllowed = req.user.isMaster || req.user.username === 'demo@leadjourney.app';
+  if (!isAllowed) return res.status(403).json({ ok: false, message: 'Permissão negada.' });
 
   try {
     const { buildWeissChoppAddon, ADDON_VERSION } = require('../scripts/demo-add-weiss-chopp');

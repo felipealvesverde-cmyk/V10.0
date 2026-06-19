@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.9',
+    date: '2026-06-19',
+    title: 'Endpoints de seed do demo: aceitam o próprio user demo (não só master global)',
+    bullets: [
+      'Os 3 endpoints de populate do demo (produtos, restore-state, revops) estavam exigindo master global do LJ (felipealvesverde@gmail.com). Errado conceitualmente: o user demo@leadjourney.app é o owner do tenant Engenho Norte e deve poder popular o próprio tenant dele.',
+      'Agora aceitam: master global OU o próprio demo@leadjourney.app. Da próxima vez que precisar imputar dados, basta logar como demo (sem precisar trocar de aba pra master).'
+    ]
+  },
+  {
     version: 'V40.7.8',
     date: '2026-06-19',
     title: 'Demo: RevOps & Governança populado nos 3 produtos da cervejaria',
