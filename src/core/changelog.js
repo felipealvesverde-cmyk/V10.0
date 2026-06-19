@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.7.14',
+    date: '2026-06-19',
+    title: 'Demo: fix da distribuição de conversões nas ações',
+    bullets: [
+      'O FlowResolutionEngine usa a primeira stage do flow pra definir o volume inicial (current). Setando manualConverted só na última, o Math.min(current=0, X) zerava o reportado.',
+      'Agora o endpoint /api/admin-add-demo-conversions seta manualConverted em TODAS as stages, garantindo que cada cascata propague o valor e a última stage (que o engine reporta como `converted`) bata com o target distribuído.'
+    ]
+  },
+  {
     version: 'V40.7.13',
     date: '2026-06-19',
     title: 'Demo: vendas realizadas distribuídas nas ações dos 3 produtos',
