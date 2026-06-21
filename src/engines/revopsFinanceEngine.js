@@ -595,6 +595,47 @@ var RevopsFinanceEngine = {
     };
   },
 
+  // V40.11.3 — CAC summary espelho do Receita. Triangulação Realizado · Projetado · Meta.
+  // Realizado: gasto real de mídia ÷ vendas Checkout aprovadas (productMediaInvestment ÷ convertedCount).
+  // Projetado: CTC modelado (acquisitionTotal da composição) ÷ vendas projetadas (visitors × rate).
+  // Meta: valor cravado em metasResultado pelo cliente.
+  // Mesma semântica do Revenue, mas direção inversa: menor é melhor. UI lida com o sinal — engine só entrega valores.
+  productCacSummary(productId) {
+    if (!productId || !window.App?.state) {
+      return { realCAC: 0, projectedCAC: 0, metaCAC: 0, mediaInvestment: 0, convertedCount: 0, ctcModel: 0, projectedSales: 0, sourceLabel: '' };
+    }
+    const now = new Date();
+    const periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const selectedPeriod = App.state.resultadoPeriod?.[productId] || periodKey;
+
+    const mediaInvestment = this.productMediaInvestment(productId);
+    const convertedCount = this.productConvertedCount(productId);
+    const realCAC = convertedCount > 0 ? mediaInvestment / convertedCount : 0;
+
+    const cfg = App.state.revopsFinanceV2?.[productId] || {};
+    let ctcModel = 0;
+    try {
+      ctcModel = window.RevopsWhitelabelEngine?.evaluate?.(cfg)?.acquisitionTotal || 0;
+    } catch (_) {}
+    const leadsAlive = this.productLeadsAlive(productId);
+    const conversionRate = this.productConversionRate(productId);
+    const projectedSales = leadsAlive * conversionRate;
+    const projectedCAC = projectedSales > 0 ? ctcModel / projectedSales : 0;
+
+    const metaCAC = Number(App.state.metasResultado?.[productId]?.[selectedPeriod]?.cac) || 0;
+
+    return {
+      realCAC,
+      projectedCAC,
+      metaCAC,
+      mediaInvestment,
+      convertedCount,
+      ctcModel,
+      projectedSales,
+      sourceLabel: 'Mídia Ads (Real) · Composição (Proj) · Meta cravada'
+    };
+  },
+
   computeDashboard(config = {}) {
     const normalized = this.normalize(config);
     const metrics = this.computeMetrics(normalized);

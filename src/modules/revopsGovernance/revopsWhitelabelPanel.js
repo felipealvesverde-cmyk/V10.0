@@ -1710,27 +1710,26 @@
           <section class="rounded-3xl border p-5 shadow-md space-y-4" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
             ${sim.active ? this._simulatorPanel(cfg, ev, simEv) : ''}
 
-            <!-- V37.0.0 — METAS DO PERÍODO. V40.11.1 — Card de Vendas trocou pelo Card Receita; Meta de CAC mantida abaixo. -->
+            <!-- V37.0.0 — METAS DO PERÍODO. V40.11.3 — Receita + CAC agora são
+                 dois cards de triangulação (Real · Proj · Meta) lado a lado. -->
             <div class="space-y-3">
               <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider">Metas · ${Utils.escape(currentPeriodLabel)}</p>
               ${this._revenueCard(productId, currentPeriodLabel)}
-              <div class="grid sm:grid-cols-2 gap-3">
-                ${this._metaCard(productId, period, 'cac', meta.cac || 0, realCac)}
-              </div>
+              ${this._cacCard(productId, currentPeriodLabel)}
             </div>
 
-            <!-- Indicadores principais -->
+            <!-- V40.11.3 — Cascata enxuta: Vendas saiu (já aparece no rastreio do
+                 Receita), CAC subiu pro bloco Metas. Sobram CTC (composição) +
+                 Fat. Bruto Realizado (Checkout). -->
             <div class="pt-2 border-t border-stone-200">
               <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Indicadores principais (cascata RevOps)</p>
-              <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-3">
-                ${this._bigCellWithDelta('Número Total de Vendas', Math.round(totalSales).toLocaleString('pt-BR'), Math.round(baseTotalSales).toLocaleString('pt-BR'), totalSales, baseTotalSales, 'violet', sim.active)}
+              <div class="grid md:grid-cols-2 gap-3">
                 ${this._bigCellWithDelta('Custo Total Comercial (CTC)', this._money(ctc), this._money(baseCtc), ctc, baseCtc, 'rose', sim.active, true)}
-                ${this._bigCellWithDelta('Custo de Aquisição (CAC)', this._money(cac), this._money(baseCac), cac, baseCac, cac > 0 && cac <= simEv.ticket ? 'emerald' : 'amber', sim.active, true)}
-                ${this._bigCellWithDelta('Faturamento Bruto', this._money(fatBruto), this._money(baseFatBruto), fatBruto, baseFatBruto, 'emerald', sim.active)}
+                ${this._bigCell('Faturamento Bruto Realizado', this._money(RevopsFinanceEngine?.productRealRevenue?.(productId) || 0), 'emerald')}
               </div>
-              <div class="mt-2 grid md:grid-cols-2 gap-2 text-[11px] text-slate-600">
-                <p><b>CAC fórmula:</b> CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = <b class="text-slate-900">${this._money(cac)}</b></p>
-                <p><b>Fat. Bruto fórmula:</b> Total Vendas × TM = ${Math.round(totalSales).toLocaleString('pt-BR')} × ${this._moneyPrecise(simEv.ticket)} = <b class="text-slate-900">${this._money(fatBruto)}</b></p>
+              <div class="mt-2 grid md:grid-cols-2 gap-2 text-[11px] text-slate-500 italic">
+                <p>Soma da composição de custos comerciais do produto.</p>
+                <p>Vendas confirmadas no Checkout (últimos 30d) × ticket médio real.</p>
               </div>
             </div>
 
@@ -1933,6 +1932,94 @@
           <div class="min-w-0">
             <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
             <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${metaRevenue > 0 ? fmt(metaRevenue) : '—'}</p>
+          </div>
+        </div>
+
+        ${regua}
+
+        ${rastreio}
+      </div>`;
+    },
+
+    // V40.11.3 — Card de CAC do mês — espelho do _revenueCard. Triangulação
+    // Realizado · Projetado · Meta numa régua única. Substitui o card
+    // "Meta de CAC" (que era 1 input + variância) e o card "CAC" da cascata
+    // (que era modelo puro). Semântica de CAC é inversa (menor=melhor) mas
+    // estrutura visual é idêntica à de Receita pra coerência cognitiva.
+    _cacCard(productId, currentPeriodLabel) {
+      const summary = RevopsFinanceEngine?.productCacSummary?.(productId) || {
+        realCAC: 0, projectedCAC: 0, metaCAC: 0,
+        mediaInvestment: 0, convertedCount: 0, ctcModel: 0, projectedSales: 0, sourceLabel: ''
+      };
+      const { realCAC, projectedCAC, metaCAC, mediaInvestment, convertedCount, ctcModel, projectedSales } = summary;
+
+      // Escala da régua: usa o MAIOR valor como teto (CAC é menor=melhor, mas
+      // visualmente a régua segue a mesma escala pra coerência com Receita).
+      const maxValue = Math.max(realCAC, projectedCAC, metaCAC, 1) * 1.05;
+      const realPos = Math.min(100, (realCAC / maxValue) * 100);
+      const projPos = Math.min(100, (projectedCAC / maxValue) * 100);
+      const metaPos = Math.min(100, (metaCAC / maxValue) * 100);
+
+      // % relativo à Meta (não à escala visual)
+      const realPctMeta = metaCAC > 0 ? (realCAC / metaCAC) * 100 : 0;
+      const projPctMeta = metaCAC > 0 ? (projectedCAC / metaCAC) * 100 : 0;
+
+      const moneyDigits = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+      const fmt = (v) => moneyDigits.format(Number(v) || 0);
+
+      // Rastreio cinza — selo de procedência de cada número
+      const rastreio = `
+        <div class="pt-3 border-t border-stone-200 space-y-1 text-[11px] text-slate-500">
+          <p><span class="font-bold text-slate-600">Realizado:</span> ${this._money(mediaInvestment)} de mídia ÷ ${convertedCount.toLocaleString('pt-BR')} vendas Checkout</p>
+          <p><span class="font-bold text-slate-600">Projetado:</span> ${this._money(ctcModel)} CTC da composição ÷ ${Math.round(projectedSales).toLocaleString('pt-BR')} vendas projetadas</p>
+          <p><span class="font-bold text-slate-600">Meta:</span> ${metaCAC > 0 ? `${this._money(metaCAC)} cravado para o período` : 'sem meta configurada · ajuste abaixo'}</p>
+          ${summary.sourceLabel ? `<p class="italic pt-1">Fonte atual: ${summary.sourceLabel}</p>` : ''}
+        </div>`;
+
+      // Régua: barra cinza + 3 marcadores absolutos posicionados em % da escala
+      const regua = `
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-8">
+          ${metaCAC > 0 ? `
+            <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
+            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
+              <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
+              <p class="text-[10px] text-slate-500">100%</p>
+            </div>
+          ` : ''}
+          ${projectedCAC > 0 ? `
+            <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
+            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
+              <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
+              ${metaCAC > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
+            </div>
+          ` : ''}
+          ${realCAC > 0 ? `
+            <div class="absolute -top-1 w-3 h-3 rounded-full bg-sky-600 ring-2 ring-white shadow" style="left: ${realPos.toFixed(1)}%; transform: translateX(-50%);"></div>
+            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${realPos.toFixed(1)}%;">
+              <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
+              ${metaCAC > 0 ? `<p class="text-[10px] text-slate-500">${realPctMeta.toFixed(0)}%</p>` : ''}
+            </div>
+          ` : ''}
+        </div>`;
+
+      return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #00CBCC;">
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">CAC · ${Utils.escape(currentPeriodLabel)}</p>
+        </div>
+        <p class="text-sm text-slate-500 mb-4">O preço de cada cliente novo. Menor é melhor — meta é o teto que a operação não quer cruzar.</p>
+
+        <div class="grid grid-cols-3 gap-3 mb-2">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
+            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${realCAC > 0 ? fmt(realCAC) : '—'}</p>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
+            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${projectedCAC > 0 ? fmt(projectedCAC) : '—'}</p>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
+            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${metaCAC > 0 ? fmt(metaCAC) : '—'}</p>
           </div>
         </div>
 
