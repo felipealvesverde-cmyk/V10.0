@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.3',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: cascata enxuta + CAC vira espelho do Receita (triangulação dupla no topo)',
+    bullets: [
+      'O bloco "Indicadores principais" tinha 4 cards de modelo (Vendas, CTC, CAC, Faturamento Bruto). Felipe revisou: o card de Vendas era redundante (a quantidade já aparece no rastreio do Card Receita logo acima), e o CAC merecia o mesmo tratamento de triangulação que o Receita ganhou — Realizado · Projetado · Meta numa régua.',
+      'O bloco de Metas do período agora tem dois cards lado a lado: Receita do mês (já existia) e CAC do mês (novo, espelho visual). Ambos com Realizado em sky, Projetado em violet, Meta em emerald, régua única e rastreio cinza de procedência.',
+      'CAC Realizado puxa do gasto real de mídia ÷ vendas Checkout aprovadas. Projetado puxa do CTC da composição ÷ vendas projetadas (visitas × taxa). Meta vem do valor cravado pra esse período. Microcopy do card explica direção: menor é melhor — meta é o teto que a operação não quer cruzar.',
+      'A cascata RevOps abaixo enxugou pra 2 cards: CTC (mantido, soma da composição) e Faturamento Bruto Realizado (Hotmart approved × ticket real). O Faturamento Bruto deixou de mostrar modelo (Vendas × TM inflado pelo input antigo) — agora é só o número real. Microcopy curto embaixo explica a origem.',
+      'O card "Meta de CAC" separado, que ainda existia abaixo do Card Receita, sumiu — a triangulação do novo Card CAC absorve tudo (Meta, Projetado, Realizado) num lugar só. Sem duplicidade.'
+    ]
+  },
+  {
     version: 'V40.11.2',
     date: '2026-06-19',
     title: 'RevOps · Receita do mês: fix da taxa de conversão impossível (964,8% → leitura sã)',
