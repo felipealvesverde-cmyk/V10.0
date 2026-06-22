@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.20',
+    date: '2026-06-21',
+    title: 'CAC fmt 2 casas decimais quando < R$ 10 + endpoint admin pra popular lj_hotmart_purchases',
+    bullets: [
+      'Fix arredondamento no Card CAC: valores menores que R$ 10 ganham 2 casas decimais (R$ 0,19 em vez de R$ 0). Pra valores acima de R$ 10, mantém arredondamento limpo. Receita continua com 0 casas (não importa centavo em R$ 2,57 mi).',
+      'Novo endpoint /api/admin-populate-demo-hotmart que popula lj_hotmart_purchases (mesma tabela que o webhook do Hotmart escreve) com N transações aprovadas espalhadas no janela. Permite popular 122k vendas pra Pilsen sem precisar de 122k webhooks HTTP — mas mantém schema 1:1 com o que o webhook geraria.',
+      'Body do endpoint: { productId, count, avgValueCents, windowDays }. Retorna { ok, inserted, deleted } — sem newState destrutivo (achado #15 evitado). Caller dispara Actions.loadPipelineVelocitySummary({force:true}) pra refetch do cache.'
+    ]
+  },
+  {
     version: 'V40.11.19',
     date: '2026-06-21',
     title: 'Demo · Endpoint admin de funil retorna delta (actions) em vez de newState — fim do replace destrutivo',

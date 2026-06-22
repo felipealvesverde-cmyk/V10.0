@@ -2041,8 +2041,16 @@
       const realPctMeta = metaCAC > 0 ? (realCAC / metaCAC) * 100 : 0;
       const projPctMeta = metaCAC > 0 ? (projectedCAC / metaCAC) * 100 : 0;
 
-      const moneyDigits = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
-      const fmt = (v) => moneyDigits.format(Number(v) || 0);
+      // V40.11.20 — Fmt do CAC mostra 2 casas decimais quando valor < R$ 10.
+      // CAC pode ser muito pequeno (ex: R$ 0,19 = composição R$ 22k ÷ 117k vendas)
+      // — arredondar pra 0 mata leitura. Acima de R$ 10, mantém arredondamento.
+      const moneyDigits0 = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+      const moneyDigits2 = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2, minimumFractionDigits: 2 });
+      const fmt = (v) => {
+        const n = Number(v) || 0;
+        if (n > 0 && n < 10) return moneyDigits2.format(n);
+        return moneyDigits0.format(n);
+      };
 
       // Rastreio cinza — selo de procedência (V40.11.10: colapsa via details)
       const rastreio = `
