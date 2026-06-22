@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.22',
+    date: '2026-06-21',
+    title: 'Demo · Lê de Hotmart real (não mock) — auto-bootstrap das 3 tabelas + fallback no pipeline-velocity-summary',
+    bullets: [
+      'Descoberta: as 1.920 vendas do Pilsen vinham de mock estático hardcoded em lib/demo-checkout-mock.js (branch demo no pipeline-velocity-summary). A tabela lj_hotmart_purchases nem existia no tenant DB do demo (achado #2 migrations silent failure).',
+      'Caminho B do Djow entregue: agora o demo lê de Hotmart de verdade.',
+      'admin-populate-demo-hotmart cria as 3 tabelas (lj_visitors, lj_visitor_touchpoints, lj_hotmart_purchases) com CREATE TABLE IF NOT EXISTS antes do INSERT — idempotente, espelha tenant-db-schema.sql. Auto-bootstrap pro tenant demo.',
+      'pipeline-velocity-summary branch demo agora tem fallback: SE lj_hotmart_purchases existe E tem dados approved → cai na query real (mesmo path dos outros tenants). SENÃO → mock. Demo migrado vira leitura real; demo não-migrado ainda funciona.',
+      'Outros tenants (Sansone, qualquer cliente real) nunca tocam essa branch — comportamento idêntico ao anterior. Risco zero pra eles.',
+      'Demo agora vira teste de integração real do LJ (lei [[feedback_demo_exposes_core_bugs]]). Qualquer bug do pipeline Hotmart aparece no demo antes do cliente real ver.'
+    ]
+  },
+  {
     version: 'V40.11.21',
     date: '2026-06-21',
     title: 'Fix: admin-populate-demo-hotmart usava current_tenant_id (não existe) — troca pra default_tenant_id',

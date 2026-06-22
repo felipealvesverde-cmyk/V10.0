@@ -19,11 +19,12 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
 
-  // V40.7.16 — Branch demo. RevOps & Velocidade decompõe receita em VxCxT/Ciclo
-  // por produto. Sem lj_visitor_touchpoints + lj_hotmart_purchases, mock direto.
-  // Backlog: [[backlog-provider-abstraction]].
+  // V40.7.16 → V40.11.22 — Branch demo com fallback.
+  // SE lj_hotmart_purchases existe E tem dados pra esse user → cai na query
+  // real (mesmo path dos outros tenants). SENÃO → mock estático.
+  // Permite popular demo via admin-populate-demo-hotmart pra simular Checkout
+  // real, sem quebrar demo que nunca rodou migration.
   if (req.user.username === 'demo@leadjourney.app') {
-    // Precisa do state pra distribuir visitas/customers por campaign
     try {
       const userRow = await req.db.query('SELECT id FROM users WHERE username = $1', ['demo@leadjourney.app']);
       const demoUserId = userRow.rows[0]?.id;
@@ -32,11 +33,34 @@ module.exports = async function handler(req, res) {
         const stateRow = await req.db.query('SELECT state_json FROM journey_state WHERE user_id = $1', [demoUserId]);
         state = stateRow.rows[0]?.state_json || {};
       }
-      return res.status(200).json(buildDemoVelocityMock(state));
+
+      // Tenta query real se tabela existir + tiver dados pra esse user
+      if (req.tenantDb) {
+        try {
+          const hasRealData = await req.tenantDb.query(
+            `SELECT COUNT(*)::int AS n FROM lj_hotmart_purchases
+              WHERE user_id = $1 AND purchase_status = 'approved'
+              LIMIT 1`,
+            [demoUserId]
+          );
+          if (hasRealData.rows[0]?.n > 0) {
+            // Tem dados reais → deixa cair no path real (não retorna mock)
+            console.log(`[pipeline-velocity-summary demo] usando query real (${hasRealData.rows[0].n} purchases approved)`);
+          } else {
+            return res.status(200).json(buildDemoVelocityMock(state));
+          }
+        } catch (probeErr) {
+          // Tabela não existe ou outro erro → fallback mock
+          return res.status(200).json(buildDemoVelocityMock(state));
+        }
+      } else {
+        return res.status(200).json(buildDemoVelocityMock(state));
+      }
     } catch (err) {
       console.warn('[pipeline-velocity-summary demo] erro:', err.message);
       return res.status(200).json(buildDemoVelocityMock({}));
     }
+    // Se chegou aqui: tem dados reais → cai no path normal abaixo
   }
 
   if (!req.tenantDb) return res.status(503).json({ ok: false, message: 'Tenant DB não configurado.' });
