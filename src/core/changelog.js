@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.6',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: bloco CTC + Fat. Bruto removido — página vira tríade pura',
+    bullets: [
+      'O bloco "Indicadores principais (cascata RevOps)" com Custo Total Comercial (R$ 22.000) e Faturamento Bruto Realizado (R$ 42.240) saiu da página. Quebrava o vocabulário visual: dois números soltos no meio de três cards de triangulação Real/Proj/Meta + régua + rastreio.',
+      'Página agora é tríade pura — Card Receita (R$), Card CAC (R$ por venda), Card Vendas (quantidade) — todos com o mesmo padrão visual. Leitura única: olhou um, sabe ler os outros dois.',
+      'CTC continua vivo no Card CAC (linha "Projetado: R$ X CTC da composição ÷ Y vendas") como parte da fórmula. Não some do produto — só não aparece como número solto na home da tab Resultado.',
+      'Próximo passo conhecido: análise do Leonardo sobre o equilíbrio visual da tríade — sobreposição de marcadores quando valores estão próximos, hierarquia entre os 3 cards, paleta semântica de cor (hoje os 3 cards estão em ciano de Vendas — RevOps é roxo).'
+    ]
+  },
+  {
     version: 'V40.11.5',
     date: '2026-06-21',
     title: 'RevOps · Resultado: Card Vendas (qtd) — Realizado · Projetado · Meta — fecha a tríade',

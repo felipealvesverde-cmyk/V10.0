@@ -1718,24 +1718,9 @@
               ${this._cacCard(productId, currentPeriodLabel)}
             </div>
 
-            <!-- V40.11.3 — Cascata enxuta: Vendas saiu (já aparece no rastreio do
-                 Receita), CAC subiu pro bloco Metas. Sobram CTC (composição) +
-                 Fat. Bruto Realizado (Checkout). -->
-            <div class="pt-2 border-t border-stone-200">
-              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Indicadores principais (cascata RevOps)</p>
-              <div class="grid md:grid-cols-2 gap-3">
-                ${this._bigCellWithDelta('Custo Total Comercial (CTC)', this._money(ctc), this._money(baseCtc), ctc, baseCtc, 'rose', sim.active, true)}
-                ${this._bigCell('Faturamento Bruto Realizado', this._money(RevopsFinanceEngine?.productRealRevenue?.(productId) || 0), 'emerald')}
-              </div>
-              <div class="mt-2 grid md:grid-cols-2 gap-2 text-[11px] text-slate-500 italic">
-                <p>Soma da composição de custos comerciais do produto.</p>
-                <p>Vendas confirmadas no Checkout (últimos 30d) × ticket médio real.</p>
-              </div>
-            </div>
-
-            <!-- V40.11.5 — Card Vendas triangular substitui o bloco "Realizado
-                 (lido do funil)" antigo (que tinha 9.600 vendas e R$ 46.080
-                 faturamento, contradizendo o Card Receita acima). -->
+            <!-- V40.11.6 — Bloco "Indicadores principais (cascata RevOps)" removido.
+                 CTC e Fat. Bruto não eram triangulação Real/Proj/Meta e quebravam o
+                 vocabulário visual. Página vira tríade pura de cards triangulares. -->
             ${this._salesCard(productId, currentPeriodLabel)}
 
             ${sim.active ? this._simulatorEbitdaCompare(ev, simEv) : ''}
