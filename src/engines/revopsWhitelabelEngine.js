@@ -533,7 +533,29 @@
 
     evaluate(config, context = {}) {
       const cfg = this.normalize(config);
-      const sales = context.sales != null ? this._num(context.sales) : cfg.salesProjection;
+      // V40.11.29 — Fonte primária de `sales` passa a ser o funil das actions
+      // (RevopsFinanceEngine.productRealSales). Antes era `cfg.salesProjection`,
+      // campo manual cadastrado pelo cliente — defasou em relação ao resto do
+      // app, que já consumia productRealSales (Receita Projetada V40.11.4,
+      // CAC Projetado, Card Vendas Resultado Consolidado).
+      //
+      // Cascata RevOps inteira (Equilíbrio + DRE + Home) agora bebe da mesma
+      // fonte. cfg.salesProjection vira FALLBACK pra:
+      //   - Tenants sem funil ativo (cliente novo sem actions/flow)
+      //   - Override manual hipotético em cenários "e se?"
+      //   - Override explícito via context.sales (mantido pra simulações)
+      //
+      // Lei [[feedback_no_source_no_dash]]: se ambas as fontes forem zero,
+      // sales fica 0 — placeholder honesto, sem inventar.
+      let sales;
+      if (context.sales != null) {
+        sales = this._num(context.sales);
+      } else {
+        const fromFunnel = (cfg.productId && window.RevopsFinanceEngine?.productRealSales)
+          ? RevopsFinanceEngine.productRealSales(cfg.productId)
+          : 0;
+        sales = fromFunnel > 0 ? fromFunnel : this._num(cfg.salesProjection);
+      }
       const ticket = context.ticket != null ? this._num(context.ticket) : this._computeTicket(cfg);
       const fatBruto = sales * ticket;
 

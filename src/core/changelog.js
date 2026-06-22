@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.29',
+    date: '2026-06-22',
+    title: 'RevOps Equilíbrio · Vendas Previstas agora vêm do funil das actions (não mais do campo manual legado)',
+    bullets: [
+      'Antes a cascata Equilíbrio lia "Vendas Previstas" de um campo manual cadastrado no produto (`salesProjection`). Receita Projetada, CAC Projetado e Card Vendas do Resultado Consolidado já liam do funil real — só o Equilíbrio ficou pra trás.',
+      'Agora `evaluate()` busca primeiro `RevopsFinanceEngine.productRealSales(productId)` (soma do funil 9 etapas das actions ativas do produto). Se houver, usa. Senão cai no `cfg.salesProjection` manual.',
+      'Cascata inteira do Equilíbrio recalibra automaticamente: CAC, MSU, Breakeven passam a falar a verdade do funil. Pra Pilsen com Cenário A Marketing de Massa: vendas previstas de 12.000 → 117.000. CAC Projetado: R$ 22 → R$ 2,29. MSU: -R$ 0,33 → ~R$ 19,71. Breakeven: 0 → ~1.335 vendas.',
+      'Cliente legado que cadastrou `salesProjection` manual continua protegido — se o funil ainda não roda no tenant, o campo manual segue valendo como fallback.',
+      'Override explícito via `context.sales` mantido pra simulações ("e se vendêssemos 150k?"). Estrutura inteiramente global.'
+    ]
+  },
+  {
     version: 'V40.11.28',
     date: '2026-06-22',
     title: 'Fix CORE · MCU agora desce o CMV cadastrado em PT-BR (aliases na cascata Equilíbrio)',
