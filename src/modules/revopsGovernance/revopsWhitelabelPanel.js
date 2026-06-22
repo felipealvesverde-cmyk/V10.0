@@ -1706,7 +1706,7 @@
 
       return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
         <div class="space-y-3 min-w-0">
-          ${this._tabHeader('Resultado · Indicadores', 'Resultado Consolidado', 'Meta vs realizado de Vendas e CAC, indicadores principais e leitura do funil.', rightSide)}
+          ${this._tabHeader('Resultado · Indicadores', 'Resultado Consolidado', 'A vida da operação em três cards: Receita, CAC e Vendas. Realizado · Projetado · Meta.', rightSide)}
           <section class="rounded-3xl border p-5 shadow-md space-y-4" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
             ${sim.active ? this._simulatorPanel(cfg, ev, simEv) : ''}
 
@@ -1914,20 +1914,21 @@
           </div>
         </details>`;
 
-      // V40.11.11 — Linha fantasma "hoje" na régua: referência temporal cinza
-      // posicionada em (dia_atual / dias_do_mês) × metaPos. Mostra onde o
-      // Realizado "deveria estar" se a operação estivesse on-track com o calendário.
+      // V40.11.11 — Linha fantasma "hoje" + V40.11.12 — label "hoje" visível +
+      // anti-colisão de labels Realizado/Projetado quando próximos (< 12%).
       const _now = new Date();
       const _day = _now.getDate();
       const _totalDays = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).getDate();
       const _monthRatio = _day / _totalDays;
       const _ghostPos = metaRevenue > 0 ? _monthRatio * metaPos : 0;
+      const _collision = realRevenue > 0 && projectedRevenue > 0 && Math.abs(realPos - projPos) < 12;
+      const _projTop = _collision ? 'top-10' : 'top-5';
 
-      // Régua: barra cinza + linha fantasma "hoje" + 3 marcadores absolutos
       const regua = `
-        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-8">
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-10">
           ${metaRevenue > 0 ? `
-            <div class="absolute -top-0.5 w-px h-2.5 bg-slate-400 opacity-60 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
+            <span class="absolute -top-3.5 text-[8px] font-bold text-slate-500 -translate-x-1/2 select-none pointer-events-none" style="left: ${_ghostPos.toFixed(1)}%;">hoje</span>
+            <div class="absolute -top-1 w-0.5 h-3.5 bg-slate-500 opacity-90 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
             <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
             <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
               <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
@@ -1936,7 +1937,7 @@
           ` : ''}
           ${projectedRevenue > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
-            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
+            <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
               <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
               ${metaRevenue > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
             </div>
@@ -2022,9 +2023,13 @@
           </div>
         </details>`;
 
-      // Régua: barra cinza + 3 marcadores absolutos posicionados em % da escala
+      // V40.11.12 — Anti-colisão de labels Realizado/Projetado quando proximos
+      const _collision = realCAC > 0 && projectedCAC > 0 && Math.abs(realPos - projPos) < 12;
+      const _projTop = _collision ? 'top-10' : 'top-5';
+
+      // Régua: barra cinza + 3 marcadores absolutos. Sem linha "hoje" — CAC é taxa contínua.
       const regua = `
-        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-8">
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-10">
           ${metaCAC > 0 ? `
             <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
             <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
@@ -2034,7 +2039,7 @@
           ` : ''}
           ${projectedCAC > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
-            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
+            <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
               <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
               ${metaCAC > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
             </div>
@@ -2053,13 +2058,12 @@
       const realCacClass = realExceedsMeta ? 'text-rose-700' : 'text-slate-900';
       const projCacClass = projectedExceedsMeta ? 'text-rose-700' : 'text-slate-700';
 
-      // V40.11.11 — Detector de meta absurda: se Projetado é >5× a Meta, provavelmente
-      // alguém digitou Meta errada (ex: R$ 1 em vez de R$ 1.000).
-      const metaAbsurd = metaCAC > 0 && projectedCAC > 0 && (projectedCAC / metaCAC) > 5;
+      // V40.11.12 — Threshold absurd 5× → 2× (CAC raramente dobra em operação calibrada).
+      const metaAbsurd = metaCAC > 0 && projectedCAC > 0 && (projectedCAC / metaCAC) > 2;
       const absurdAlert = metaAbsurd ? `
         <div class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 mb-3 flex items-start gap-2 text-[11px] text-amber-800">
           <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mt-0.5 shrink-0"></i>
-          <span><b>Meta provavelmente incorreta.</b> Projetado é ${Math.round(projectedCAC / metaCAC)}× maior que a meta — revise o valor em Modelagem.</span>
+          <span><b>Meta provavelmente incorreta.</b> Projetado é ${(projectedCAC / metaCAC).toFixed(1)}× maior que a meta — revise o valor em Modelagem.</span>
         </div>
       ` : '';
 
@@ -2078,7 +2082,12 @@
         <div class="grid grid-cols-3 gap-3 mb-2 items-end">
           <div class="min-w-0">
             <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
-            <p class="text-3xl font-black ${realCacClass} mt-0.5 truncate leading-tight">${realCAC > 0 ? fmt(realCAC) : '—'}</p>
+            ${realCAC > 0
+              ? `<p class="text-3xl font-black ${realCacClass} mt-0.5 truncate leading-tight">${fmt(realCAC)}</p>`
+              : `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-stone-100 border border-stone-200 text-[10px] font-bold text-slate-500 mt-1.5">
+                  <i data-lucide="clock" class="w-3 h-3"></i> Aguardando Ads
+                </span>`
+            }
           </div>
           <div class="min-w-0">
             <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
@@ -2132,17 +2141,20 @@
           </div>
         </details>`;
 
-      // V40.11.11 — Linha fantasma "hoje" (referência temporal)
+      // V40.11.11 + V40.11.12 — Linha fantasma "hoje" visível + anti-colisão
       const _now = new Date();
       const _day = _now.getDate();
       const _totalDays = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).getDate();
       const _monthRatio = _day / _totalDays;
       const _ghostPos = metaSales > 0 ? _monthRatio * metaPos : 0;
+      const _collision = realSales > 0 && projectedSales > 0 && Math.abs(realPos - projPos) < 12;
+      const _projTop = _collision ? 'top-10' : 'top-5';
 
       const regua = `
-        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-8">
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-10">
           ${metaSales > 0 ? `
-            <div class="absolute -top-0.5 w-px h-2.5 bg-slate-400 opacity-60 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
+            <span class="absolute -top-3.5 text-[8px] font-bold text-slate-500 -translate-x-1/2 select-none pointer-events-none" style="left: ${_ghostPos.toFixed(1)}%;">hoje</span>
+            <div class="absolute -top-1 w-0.5 h-3.5 bg-slate-500 opacity-90 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
             <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
             <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
               <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
@@ -2151,7 +2163,7 @@
           ` : ''}
           ${projectedSales > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
-            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
+            <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
               <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
               ${metaSales > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
             </div>
