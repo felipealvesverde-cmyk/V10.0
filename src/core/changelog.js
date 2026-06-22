@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.31',
+    date: '2026-06-22',
+    title: 'RevOps Equilíbrio · Polidores no Custo Fixo e Breakeven (formatação BR + folga gigante legível)',
+    bullets: [
+      'Custo Fixo: texto vestigial "0 ou 10.000" trocado por "vendas em qualquer volume não mudam esse número" — agnóstico ao tamanho da operação.',
+      'Breakeven · hint: "1408 vendas" e "115592 vendas" agora aparecem com separador de milhar ("1.408", "115.592") via toLocaleString.',
+      'Breakeven · health: folga ≥ 200% deixa de mostrar "8310%" (ilegível) e vira "83,1× o Breakeven · Breakeven dissolvido · operação em zona confortável". Entre 100-200% continua mostrando como % (faz sentido nessa faixa). Abaixo de 100%, mantém o aviso "queima caixa".',
+      'Operação no vermelho (folga negativa) tambem ganha formatação BR no número que falta vender.',
+      'Tudo no `revopsWhitelabelPanel.js` — afeta qualquer tenant que abrir a cascata Equilíbrio.'
+    ]
+  },
+  {
     version: 'V40.11.30',
     date: '2026-06-22',
     title: 'RevOps Equilíbrio · Centavos voltam pros números pequenos (MCU, CAC, MSU)',
