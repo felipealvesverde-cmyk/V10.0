@@ -2585,12 +2585,19 @@
       ev.symbols.breakeven = breakeven;
 
       // Microcopy operacional
-      const previstas = totalSales;
+      // V40.11.31 — Formatação BR nos números soltos + threshold pra folga
+      // gigante (≥200% vira "N× o Breakeven" em vez de "8310%" ilegível).
+      const previstas = Math.round(totalSales);
       const folgaPct = breakeven > 0 ? (previstas / breakeven) * 100 : 0;
+      const previstasFmt = previstas.toLocaleString('pt-BR');
+      const bkRatio = folgaPct >= 200
+        ? `${(folgaPct / 100).toFixed(1).replace('.', ',')}× o Breakeven`
+        : `${folgaPct.toFixed(0)}% do Breakeven`;
       let bkHealth;
-      if (folgaPct >= 130)      bkHealth = { cls: 'emerald', msg: `previstas ${previstas} = ${folgaPct.toFixed(0)}% do Breakeven · folga sólida` };
-      else if (folgaPct >= 100) bkHealth = { cls: 'amber',   msg: `previstas ${previstas} = ${folgaPct.toFixed(0)}% do Breakeven · operação respira justo` };
-      else                       bkHealth = { cls: 'rose',    msg: `previstas ${previstas} = ${folgaPct.toFixed(0)}% do Breakeven · operação queima caixa` };
+      if (folgaPct >= 200)       bkHealth = { cls: 'emerald', msg: `previstas ${previstasFmt} = ${bkRatio} · Breakeven dissolvido · operação em zona confortável` };
+      else if (folgaPct >= 130)  bkHealth = { cls: 'emerald', msg: `previstas ${previstasFmt} = ${bkRatio} · folga sólida` };
+      else if (folgaPct >= 100)  bkHealth = { cls: 'amber',   msg: `previstas ${previstasFmt} = ${bkRatio} · operação respira justo` };
+      else                       bkHealth = { cls: 'rose',    msg: `previstas ${previstasFmt} = ${bkRatio} · operação queima caixa` };
       const folgaVendas = previstas - breakeven;
       const ebitdaProjetado = folgaVendas * msu;
 
@@ -2617,7 +2624,7 @@
             ${this._cascadeArrow('÷')}
 
             ${this._cascadeLine('shield', 'BARREIRA FIXA', 'Custo Fixo de Operação', this._money(fixedTotal), 'rose',
-              'Soma do bucket Fixos (G&A). Mensalidade pra existir — independe de vender 0 ou 10.000.')}
+              'Soma do bucket Fixos (G&A). Mensalidade pra existir — vendas em qualquer volume não mudam esse número.')}
             ${this._cascadeArrow('↓')}
 
             ${this._cascadeBreakeven(breakeven, msu, fixedTotal, bkHealth, folgaVendas, ebitdaProjetado)}
@@ -3036,7 +3043,7 @@
           </div>
           <div class="mt-2 flex items-start gap-1.5 text-[11px] text-slate-500">
             <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
-            <span>${this._money(fixedTotal)} ÷ MSU ${this._moneySmart(msu)} = ${breakeven} vendas pra o mês empatar.</span>
+            <span>${this._money(fixedTotal)} ÷ MSU ${this._moneySmart(msu)} = ${breakeven.toLocaleString('pt-BR')} vendas pra o mês empatar.</span>
           </div>
           <div class="mt-3 rounded-xl ${h.bg} border ${h.border} p-3">
             <div class="flex items-start gap-2 ${h.text}">
@@ -3044,9 +3051,9 @@
               <div class="min-w-0">
                 <p class="text-[11px] font-black">${health.msg}</p>
                 ${folgaVendas > 0
-                  ? `<p class="text-[11px] mt-1 font-bold">Folga: ${folgaVendas} vendas × ${this._moneySmart(msu)} = <b>${this._money(ebitdaProjetado)} de EBITDA projetado</b></p>`
+                  ? `<p class="text-[11px] mt-1 font-bold">Folga: ${folgaVendas.toLocaleString('pt-BR')} vendas × ${this._moneySmart(msu)} = <b>${this._money(ebitdaProjetado)} de EBITDA projetado</b></p>`
                   : folgaVendas < 0
-                  ? `<p class="text-[11px] mt-1 font-bold">Faltam ${Math.abs(folgaVendas)} vendas pra cobrir os fixos. Prejuízo projetado: <b>${this._money(Math.abs(ebitdaProjetado))}</b></p>`
+                  ? `<p class="text-[11px] mt-1 font-bold">Faltam ${Math.abs(folgaVendas).toLocaleString('pt-BR')} vendas pra cobrir os fixos. Prejuízo projetado: <b>${this._money(Math.abs(ebitdaProjetado))}</b></p>`
                   : ''}
               </div>
             </div>
