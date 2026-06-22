@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.4',
+    date: '2026-06-21',
+    title: 'RevOps · Receita do mês: Projetado deixa de empatar com Realizado (fim da tautologia)',
+    bullets: [
+      'O Card Receita mostrava Realizado e Projetado idênticos (R$ 42.240 = R$ 42.240). Não era coincidência — era erro de fórmula. O Projetado fazia visitas × taxa × ticket, mas a taxa era calculada como vendas ÷ visitas na mesma janela. Algebricamente, isso colapsa em vendas × ticket — o mesmo Realizado, vestido de Projetado.',
+      'O Projetado agora reflete o que você cravou desde o início: CRM. Lê a soma de vendas projetadas pelo funil das actions (FlowResolutionEngine.buildActionFlow.converted) × ticket médio do CRM. Realizado segue Checkout (Hotmart approved). Fontes diferentes, números diferentes, leitura honesta.',
+      'O rastreio do card mudou de "X visitas únicas × Y% conversão × R$ Z ticket" pra "X vendas projetadas no funil do CRM × R$ Z ticket CRM". Linguagem alinhada com o que o número significa de verdade.',
+      'O Card CAC ganhou a mesma correção: o "Projetado" do CAC era CTC ÷ (visitas × taxa) tautológica; agora é CTC ÷ vendas projetadas pelo funil do CRM.',
+      'Quando RD CRM granular for plugado, a fonte do "vendas no funil" troca de actions do LJ pra deals em estágio CRM avançado, sem mexer em UI nem em fórmula da régua. Achado #13 do inventário segue de pé.'
+    ]
+  },
+  {
     version: 'V40.11.3',
     date: '2026-06-21',
     title: 'RevOps · Resultado: cascata enxuta + CAC vira espelho do Receita (triangulação dupla no topo)',

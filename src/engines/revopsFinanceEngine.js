@@ -566,9 +566,16 @@ var RevopsFinanceEngine = {
     return this.productConvertedCount(productId) * this.productCrmTicket(productId);
   },
 
-  // Projetado: Leads vivos × Taxa de conversão × Ticket médio CRM.
+  // V40.11.4 — Projetado vem do CRM (vendas cadenciadas no funil das actions),
+  // NÃO de visitas × taxa. Fórmula anterior era tautológica por construção:
+  // como conversionRate = converted/leadsAlive, então leadsAlive × conversionRate × ticket
+  // sempre reduzia a convertedCount × ticket = Realizado.
+  // Agora Projetado lê productRealSales (somatório de FlowResolutionEngine.buildActionFlow.converted
+  // das actions do produto) × ticket CRM. Realizado segue Checkout (Hotmart approved).
+  // Achado #13 do inventário: quando RD CRM granular for plugado, productRealSales muda
+  // de fonte (funil das actions → deals em estágio CRM avançado) sem mexer aqui.
   productProjectedRevenue(productId) {
-    return this.productLeadsAlive(productId) * this.productConversionRate(productId) * this.productCrmTicket(productId);
+    return this.productRealSales(productId) * this.productCrmTicket(productId);
   },
 
   // Resumo consolidado pra UI consumir em 1 read, evitando 6 chamadas.
@@ -576,9 +583,10 @@ var RevopsFinanceEngine = {
     const leadsAlive = this.productLeadsAlive(productId);
     const convertedCount = this.productConvertedCount(productId);
     const crmTicket = this.productCrmTicket(productId);
+    const crmProjectedSales = this.productRealSales(productId);
     const conversionRate = leadsAlive > 0 ? convertedCount / leadsAlive : 0;
     const realRevenue = convertedCount * crmTicket;
-    const projectedRevenue = leadsAlive * conversionRate * crmTicket;
+    const projectedRevenue = crmProjectedSales * crmTicket;
     const offers = App.state.revopsFinanceV2?.[productId]?.offers || [];
     const metaSales = offers.reduce((s, o) => s + (Number(o.metaVendas) || 0), 0);
     const metaRevenue = metaSales * crmTicket;
@@ -586,12 +594,13 @@ var RevopsFinanceEngine = {
       leadsAlive,
       convertedCount,
       crmTicket,
+      crmProjectedSales,
       conversionRate,
       realRevenue,
       projectedRevenue,
       metaSales,
       metaRevenue,
-      sourceLabel: 'Checkout · CRM granular pendente'
+      sourceLabel: 'Realizado: Checkout · Projetado: funil CRM · Meta: Ofertas'
     };
   },
 
@@ -617,9 +626,8 @@ var RevopsFinanceEngine = {
     try {
       ctcModel = window.RevopsWhitelabelEngine?.evaluate?.(cfg)?.acquisitionTotal || 0;
     } catch (_) {}
-    const leadsAlive = this.productLeadsAlive(productId);
-    const conversionRate = this.productConversionRate(productId);
-    const projectedSales = leadsAlive * conversionRate;
+    // V40.11.4 — projectedSales agora vem do CRM (funil das actions), não de visitas × taxa.
+    const projectedSales = this.productRealSales(productId);
     const projectedCAC = projectedSales > 0 ? ctcModel / projectedSales : 0;
 
     const metaCAC = Number(App.state.metasResultado?.[productId]?.[selectedPeriod]?.cac) || 0;
