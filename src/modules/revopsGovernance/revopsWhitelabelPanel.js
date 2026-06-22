@@ -1545,20 +1545,62 @@
               : `<div class="space-y-2">${offers.map(o => this._offerRow(productId, o, cfg.ticketMode)).join('')}</div>`}
 
             <!-- CAMADA 3: Síntese — Ticket médio calculado (resposta do card) -->
-            ${cfg.ticketMode === 'weighted' && offers.length > 0 ? `
+            <!-- V40.11.26 — Dual Projetado · Realizado. Projetado vem das ofertas
+                 cadastradas (média ponderada plano). Realizado vem do Checkout
+                 (Hotmart approved últimos 30d, via RevopsFinanceEngine.productRealTicket).
+                 Lei [[feedback_no_source_no_dash]]: sem dado real, mostra
+                 placeholder honesto, não inventa número. -->
+            ${cfg.ticketMode === 'weighted' && offers.length > 0 ? (() => {
+              const tmReal = window.RevopsFinanceEngine
+                ? RevopsFinanceEngine.productRealTicket(productId)
+                : 0;
+              const hasReal = tmReal > 0;
+              const divergePct = hasReal && ev.ticket > 0
+                ? ((tmReal - ev.ticket) / ev.ticket) * 100
+                : 0;
+              const divergeBadge = hasReal && Math.abs(divergePct) >= 10
+                ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-black ${divergePct > 0 ? 'bg-emerald-500/15 text-emerald-700' : 'bg-rose-500/15 text-rose-700'} uppercase tracking-wider">
+                    <i data-lucide="${divergePct > 0 ? 'trending-up' : 'trending-down'}" class="w-2.5 h-2.5"></i>
+                    ${divergePct > 0 ? '+' : ''}${divergePct.toFixed(0)}%
+                  </span>`
+                : '';
+              return `
               <div class="mt-5 rounded-2xl border p-5" style="background:rgba(171,62,216,0.06);border-color:rgba(171,62,216,0.25);">
-                <div class="flex items-baseline gap-2 mb-1">
+                <div class="flex items-baseline gap-2 mb-3">
                   <i data-lucide="calculator" class="w-3 h-3" style="color:#7e22ce;"></i>
                   <p class="text-[10px] font-black uppercase tracking-wider" style="color:#7e22ce;">Ticket médio calculado</p>
                 </div>
-                <div class="text-3xl font-black" style="color:#7e22ce;">${this._moneyPrecise(ev.ticket)}</div>
-                <p class="text-[11px] text-stone-600 mt-1">
-                  ${ticketContributors.length === 0
-                    ? 'Nenhuma oferta entra no cálculo. Garanta Projetado > 0% em ao menos uma.'
-                    : `média ponderada de <b>${offerCountLabel}</b> · <b>${totalMixIn.toFixed(0)}%</b> de projeção total${offers.length > ticketContributors.length ? ` <span class="text-stone-400">(${offers.length - ticketContributors.length} fora — projetado 0%)</span>` : ''}`}
-                </p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <p class="text-[9px] font-black text-stone-500 uppercase tracking-wider mb-0.5">Projetado <span class="font-normal normal-case text-stone-400">· ofertas cadastradas</span></p>
+                    <div class="text-2xl font-black text-stone-700">${this._moneyPrecise(ev.ticket)}</div>
+                    <p class="text-[10px] text-stone-500 mt-0.5">
+                      ${ticketContributors.length === 0
+                        ? 'Nenhuma oferta entra no cálculo.'
+                        : `${offerCountLabel} · ${totalMixIn.toFixed(0)}% de projeção`}
+                    </p>
+                  </div>
+                  <div>
+                    <p class="text-[9px] font-black uppercase tracking-wider mb-0.5 flex items-center gap-1.5" style="color:#7e22ce;">
+                      Realizado <span class="font-normal normal-case text-stone-400">· checkout últimos 30d</span>
+                      ${divergeBadge}
+                    </p>
+                    ${hasReal
+                      ? `<div class="text-3xl font-black" style="color:#7e22ce;">${this._moneyPrecise(tmReal)}</div>
+                         <p class="text-[10px] text-stone-500 mt-0.5">média Hotmart approved</p>`
+                      : `<div class="text-2xl font-black text-stone-400">—</div>
+                         <p class="text-[10px] text-stone-500 mt-0.5">Sem vendas Hotmart approved ainda</p>`}
+                  </div>
+                </div>
+                ${hasReal && Math.abs(divergePct) >= 25 ? `
+                  <div class="mt-3 pt-3 border-t border-violet-200/50 flex items-start gap-2 text-[11px] text-stone-600">
+                    <i data-lucide="alert-circle" class="w-3 h-3 mt-0.5 shrink-0" style="color:#7e22ce;"></i>
+                    <span>Ticket real está ${divergePct > 0 ? 'acima' : 'abaixo'} do projetado em ${Math.abs(divergePct).toFixed(0)}%. Revise o <b>preço</b> ou o <b>mix</b> das ofertas pra cascata refletir a operação.</span>
+                  </div>
+                ` : ''}
               </div>
-            ` : ''}
+              `;
+            })() : ''}
           </section>
         </div>
         <aside class="xl:sticky xl:top-4 xl:self-start">${djowPanel}</aside>
@@ -2490,8 +2532,14 @@
     _revopsTab(cfg, ev) {
       const productId = cfg.productId;
 
-      // 1. TM (auto, vem das Ofertas)
+      // 1. TM (auto, vem das Ofertas) + Realizado (Checkout Hotmart approved 30d)
+      // V40.11.26 — Cascata abaixo ainda usa Projetado (`tm`). Linha do TM mostra
+      // ambos lado a lado. Quando Felipe topar, posso plugar Realizado na cascata
+      // inteira (MCU/MSU/Breakeven seguir realidade do Checkout).
       const tm = ev.ticket;
+      const tmReal = window.RevopsFinanceEngine
+        ? RevopsFinanceEngine.productRealTicket(productId)
+        : 0;
 
       // 2. MCU auto (TM − Σ custos variáveis unitários inferidos)
       const mcuAuto = RevopsWhitelabelEngine.computeAutoMCU(cfg, ev);
@@ -2546,8 +2594,8 @@
         <div class="space-y-3 min-w-0">
           ${this._tabHeader('RevOps · Cascata', 'Equilíbrio da Operação', 'Lê de cima pra baixo. Cada linha mostra o que sai a cada etapa até o Breakeven — quantas vendas pra empatar o mês. Clique numa linha de fórmula pra pedir ajuda ao Djow na lateral.')}
           <section class="rounded-3xl border p-5 shadow-md space-y-2" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
-            ${this._cascadeLine('coins', 'PONTO DE PARTIDA', 'TM · Ticket Médio', this._moneyPrecise(tm), 'emerald',
-              'Receita média por venda. Vem da tab Ofertas (média ponderada).')}
+            ${this._cascadeLineDual('coins', 'PONTO DE PARTIDA', 'TM · Ticket Médio', tm, tmReal, 'emerald',
+              'Projetado vem das Ofertas (média ponderada). Realizado é o ticket médio do Checkout (Hotmart approved últimos 30d).')}
             ${this._cascadeArrow('↓')}
 
             ${this._cascadeMcu(productId, mcuAuto, mcuOverride, mcuResolved, ev)}
@@ -2602,6 +2650,46 @@
               </div>
             </div>
             <p class="text-2xl font-black ${tone.text} whitespace-nowrap shrink-0">${value}</p>
+          </div>
+          ${hint ? `<div class="mt-2 flex items-start gap-1.5 text-[11px] text-stone-600">
+            <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
+            <span>${hint}</span>
+          </div>` : ''}
+        </div>
+      </div>`;
+    },
+
+    // V40.11.26 — Variante da linha cascata com Projetado · Realizado lado a
+    // lado. Espelha o padrão dos cards triangulares do Resultado Consolidado
+    // (Receita/CAC/Vendas). Quando `realValue` é null/0 → mostra placeholder
+    // honesto no Realizado (lei [[feedback_no_source_no_dash]]).
+    _cascadeLineDual(iconLucide, badge, name, projValue, realValue, color, hint) {
+      const tone = this._cascadeTone(color);
+      const hasReal = realValue != null && Number.isFinite(realValue) && realValue !== 0;
+      return `<div class="rounded-2xl bg-white/70 border border-stone-200 ${tone.borderL} overflow-hidden shadow-sm">
+        <div class="p-4">
+          <div class="flex items-start justify-between gap-3 mb-1">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="shrink-0 w-9 h-9 rounded-xl ${tone.iconBg} grid place-items-center ${tone.iconText}">
+                <i data-lucide="${iconLucide}" class="w-4 h-4"></i>
+              </span>
+              <div class="min-w-0">
+                <p class="text-[10px] font-black ${tone.pill} uppercase tracking-widest">${badge}</p>
+                <p class="text-sm font-black text-slate-900 leading-tight">${Utils.escape(name)}</p>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3 mt-2">
+            <div>
+              <p class="text-[9px] font-black text-stone-500 uppercase tracking-wider">Projetado</p>
+              <p class="text-xl font-black text-stone-700 whitespace-nowrap">${this._moneyPrecise(projValue)}</p>
+            </div>
+            <div>
+              <p class="text-[9px] font-black ${tone.pill} uppercase tracking-wider">Realizado</p>
+              ${hasReal
+                ? `<p class="text-2xl font-black ${tone.text} whitespace-nowrap">${this._moneyPrecise(realValue)}</p>`
+                : `<p class="text-xl font-black text-stone-400 whitespace-nowrap">—</p>`}
+            </div>
           </div>
           ${hint ? `<div class="mt-2 flex items-start gap-1.5 text-[11px] text-stone-600">
             <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
