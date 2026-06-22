@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.18',
+    date: '2026-06-21',
+    title: 'Demo · Endpoint admin pra popular funil 9 etapas com taxas decrescentes por stage',
+    bullets: [
+      'Novo endpoint /api/admin-populate-demo-funnel que aceita um funnelShape com 9 valores específicos (um por stage) e popula as actions do produto demo proporcionalmente ao peso natural (sector × funnel).',
+      'Diferente do admin-add-demo-conversions (V40.7.13) que usava o MESMO manualConverted em todas as stages (workaround V40.7.14), agora cada stage tem seu próprio número — modela funis reais com taxas decrescentes (Cenário A: 875k topo → 117k fundo).',
+      'Suporta os 3 cenários discutidos com Djow (Massa, Inbound, Outbound B2B) e qualquer outro shape customizado.',
+      'Distribui cross-actions: se o produto tem N actions, cada uma recebe sua fatia do shape. Soma cross = funnelShape total. Última action absorve resto pra fechar exato.',
+      'Retorna newState pra caller atualizar App.state direto (padrão V40.7.10 contra race com auto-save).'
+    ]
+  },
+  {
     version: 'V40.11.17',
     date: '2026-06-21',
     title: 'RevOps · Resultado: régua reescrita do zero — legenda em row embaixo, fim das colisões',
