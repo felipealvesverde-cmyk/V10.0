@@ -2628,11 +2628,13 @@
             ${this._cascadeArrow('↓')}
 
             ${this._cascadeBreakeven(breakeven, msu, fixedTotal, bkHealth, folgaVendas, ebitdaProjetado)}
+
+            ${this._kpisAvancadosSection(productId, ev)}
           </section>
 
           <div class="rounded-2xl border p-3" style="background:#faf8f5;border-color:#e7e5e0;">
             <div class="flex items-center justify-between mb-2">
-              <p class="text-[11px] font-black text-stone-700 uppercase tracking-widest">KPIs Custom (fórmula livre)</p>
+              <p class="text-[11px] font-black text-stone-700 uppercase tracking-widest">KPIs Personalizados (fórmula livre)</p>
               <button onclick="Actions.addRevopsCustomKpi('${cfg.productId}')" class="px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black" style="color:#fff!important;">+ KPI</button>
             </div>
             ${customKpis.length === 0
@@ -3012,6 +3014,67 @@
           ${s.badge}
           <span class="${s.valueColor} font-black text-base whitespace-nowrap">${s.valueLabel}</span>
         </div>
+      </div>`;
+    },
+
+    // V40.11.32 — Seção "KPIs Avançados" — 4 cards auto-calculados que
+    // tipicamente esbarramos em RevOps mas que não cabem na cascata padrão:
+    // ROAS, Payback CAC, %CAC/TM, Margem MCU%. Colapsada por default
+    // (cliente expande quando precisa). Sem custom — todos derivam de `ev`.
+    // Lei [[feedback_no_source_no_dash]]: divisão por 0 vira "—".
+    _kpisAvancadosSection(productId, ev) {
+      const isOpen = Boolean(App.state.revopsAdvancedKpisOpen?.[productId]);
+      const fatBruto = Number(ev.fatBruto) || 0;
+      const aquisicao = Number(ev.acquisitionTotal) || 0;
+      const ticket = Number(ev.ticket) || 0;
+      const cac = (Number(ev.sales) || 0) > 0 ? aquisicao / ev.sales : 0;
+      const variableUnit = (Number(ev.sales) || 0) > 0 ? (Number(ev.variableTotal) || 0) / ev.sales : 0;
+      const mcu = ticket - variableUnit;
+      const msu = mcu - cac;
+
+      const roas = aquisicao > 0 ? fatBruto / aquisicao : null;
+      const payback = msu > 0 ? cac / msu : null;
+      const cacPctTm = ticket > 0 ? (cac / ticket) * 100 : null;
+      const margemMcuPct = ticket > 0 ? (mcu / ticket) * 100 : null;
+
+      const fmtMultiple = (v) => v == null ? '—' : `${v.toFixed(1).replace('.', ',')}×`;
+      const fmtPct = (v) => v == null ? '—' : `${v.toFixed(1).replace('.', ',')}%`;
+      const fmtPayback = () => {
+        if (msu <= 0) return 'Operação no vermelho';
+        if (payback == null) return '—';
+        if (payback < 1) return `${payback.toFixed(2).replace('.', ',')} venda`;
+        return `${payback.toFixed(1).replace('.', ',')} vendas`;
+      };
+
+      const card = (label, value, formula, tone) => {
+        const t = this._cascadeTone(tone);
+        return `<div class="rounded-xl bg-white border border-stone-200 ${t.borderL} p-3 shadow-sm">
+          <p class="text-[9px] font-black ${t.pill} uppercase tracking-widest leading-tight">${label}</p>
+          <p class="text-xl font-black ${t.text} mt-1.5 leading-tight">${value}</p>
+          <p class="text-[10px] text-stone-500 mt-1 font-mono">${formula}</p>
+        </div>`;
+      };
+
+      const chevronIcon = isOpen ? 'chevron-down' : 'chevron-right';
+      const collapsedHint = isOpen ? '' : `<span class="text-[10px] text-stone-500 font-normal normal-case ml-2">ROAS · Payback · %CAC/TM · Margem MCU</span>`;
+
+      return `<div class="rounded-2xl bg-white/60 border border-stone-200 mt-3">
+        <button type="button" onclick="Actions.toggleRevopsAdvancedKpis('${productId}')" class="w-full flex items-center justify-between px-4 py-3 hover:bg-stone-50 transition rounded-2xl">
+          <span class="flex items-center gap-2">
+            <i data-lucide="${chevronIcon}" class="w-4 h-4 text-stone-500"></i>
+            <span class="text-[11px] font-black text-stone-700 uppercase tracking-widest">KPIs Avançados</span>
+            ${collapsedHint}
+          </span>
+          <span class="text-[10px] text-stone-400 font-normal normal-case">${isOpen ? 'recolher' : 'expandir'}</span>
+        </button>
+        ${isOpen ? `
+          <div class="px-4 pb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+            ${card('ROAS · Retorno sobre Aquisição', fmtMultiple(roas), '= fat_bruto ÷ s&m', 'violet')}
+            ${card('Payback CAC', fmtPayback(), '= cac ÷ msu', 'amber')}
+            ${card('% CAC do Ticket', fmtPct(cacPctTm), '= cac ÷ tm × 100', 'rose')}
+            ${card('Margem MCU %', fmtPct(margemMcuPct), '= mcu ÷ tm × 100', 'emerald')}
+          </div>
+        ` : ''}
       </div>`;
     },
 

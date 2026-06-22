@@ -511,6 +511,7 @@ var State = {
       fechamentoAssociacao: {},       // V37.0.4 — checkboxes UI por closingId {closingId: [productIds]}
       customConsolidadoDraft: null,   // V37.0.5 — wizard inline {period, name, productIds[]} ou null
       revopsCollapsed: {},            // V37.0.10 — collapse de linhas DRE/RevOps {productId: {key: bool}}
+      revopsAdvancedKpisOpen: {},     // V40.11.32 — toggle por produto da seção KPIs Avançados (default colapsado)
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart
@@ -1359,6 +1360,7 @@ var State = {
       fechamentoAssociacao: {},       // V37.0.4 — UI volátil de checkboxes de associação
       customConsolidadoDraft: null,   // V37.0.5 — wizard inline (volátil)
       revopsCollapsed: (raw.revopsCollapsed && typeof raw.revopsCollapsed === 'object') ? raw.revopsCollapsed : {},
+      revopsAdvancedKpisOpen: (raw.revopsAdvancedKpisOpen && typeof raw.revopsAdvancedKpisOpen === 'object') ? raw.revopsAdvancedKpisOpen : {},
       checkoutDashboard: {
         loadedAt: null,
         activeSubTab: 'all',           // 'all' | productIdHotmart

@@ -11281,6 +11281,17 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V40.11.32 — Toggle do chevron "KPIs Avançados" no fim da cascata Equilíbrio.
+  // Default colapsado (cliente expande quando precisa). Semântica oposta de
+  // toggleRevopsCollapsed (true = aberto aqui, true = fechado lá) pra ficar
+  // intuitivo no nome.
+  toggleRevopsAdvancedKpis(productId) {
+    if (!productId) return;
+    App.state.revopsAdvancedKpisOpen = App.state.revopsAdvancedKpisOpen || {};
+    App.state.revopsAdvancedKpisOpen[productId] = !App.state.revopsAdvancedKpisOpen[productId];
+    App.save(); App.render();
+  },
+
   // V37.0.5 — Inicia draft de Custom Consolidado. Default: mês anterior.
   startCustomConsolidadoDraft() {
     const now = new Date();
