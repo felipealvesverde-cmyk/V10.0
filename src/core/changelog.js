@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.11',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: linha "hoje" na régua + detector de meta absurda no CAC',
+    bullets: [
+      'Onda 5 do Leonardo entregue. As réguas dos cards Receita e Vendas afundavam no canto esquerdo (Realizado em 2%, Projetado em 8%, Meta no extremo) — visualmente "muito longe", sem contexto temporal.',
+      'Agora cada régua ganha uma linha fantasma cinza posicionada em (dia atual ÷ dias totais do mês) × Meta. Mostra onde o Realizado deveria estar HOJE pra ficar on-track com o calendário. Hover na linha mostra "Hoje: dia X de Y".',
+      'Card CAC ganha detector de meta absurda. Quando Projetado > 5× Meta (situação típica de erro de digitação, ex: Meta R$ 1 em vez de R$ 1.000), aparece banner amber: "Meta provavelmente incorreta. Projetado é Nx maior que a meta — revise em Modelagem."',
+      'Régua do CAC não ganha linha "hoje" — CAC não acumula no mês como Receita/Vendas, é taxa contínua. Linha fantasma só faz sentido em métricas acumulativas.'
+    ]
+  },
+  {
     version: 'V40.11.10',
     date: '2026-06-21',
     title: 'RevOps · Resultado: cards encolhem ~30% — subtítulo vira tooltip, rastreio colapsa',
