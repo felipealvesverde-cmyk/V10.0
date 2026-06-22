@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.15',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: fio conector vira seta chevron-up no label descido (régua deixa de ser invadida)',
+    bullets: [
+      'O fio pontilhado vertical violet que ligava o marcador descido ao label cruzava a barra horizontal cinza da régua — visualmente parecia que a régua "invadia" o conector. Geometricamente inevitável: linha vertical × barra horizontal = ponto de cruzamento.',
+      'Estratégia trocada: fio sumiu, seta chevron-up minúscula violet apareceu ACIMA do label descido. Aponta visualmente pro marcador acima sem cruzar nada.',
+      'Aplicado nos 3 cards (Receita, CAC, Vendas) — toda vez que Realizado e Projetado caem perto na régua (< 12% de distância) e o label de Projetado desce pra second-row.',
+      'Mais leve e mais elegante. Conector deixa de competir visualmente com a régua.'
+    ]
+  },
+  {
     version: 'V40.11.14',
     date: '2026-06-21',
     title: 'RevOps · Resultado: edit-in-place da Meta de CAC — botão Meta abre modal de edição',

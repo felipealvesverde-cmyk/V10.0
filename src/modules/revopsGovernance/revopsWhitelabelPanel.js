@@ -1964,8 +1964,8 @@
           ` : ''}
           ${projectedRevenue > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
-            ${_collision ? `<div class="absolute w-px border-l border-dashed border-violet-300" style="left: ${projPos.toFixed(1)}%; top: 0.6rem; height: 1.8rem; transform: translateX(-50%);"></div>` : ''}
-            <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
+            <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap text-center" style="left: ${projPos.toFixed(1)}%;">
+              ${_collision ? `<i data-lucide="chevron-up" class="w-3 h-3 text-violet-400 inline-block -mb-1"></i>` : ''}
               <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
               ${metaRevenue > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
             </div>
@@ -2067,8 +2067,8 @@
           ` : ''}
           ${projectedCAC > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
-            ${_collision ? `<div class="absolute w-px border-l border-dashed border-violet-300" style="left: ${projPos.toFixed(1)}%; top: 0.6rem; height: 1.8rem; transform: translateX(-50%);"></div>` : ''}
-            <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
+            <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap text-center" style="left: ${projPos.toFixed(1)}%;">
+              ${_collision ? `<i data-lucide="chevron-up" class="w-3 h-3 text-violet-400 inline-block -mb-1"></i>` : ''}
               <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
               ${metaCAC > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
             </div>
@@ -2195,8 +2195,8 @@
           ` : ''}
           ${projectedSales > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
-            ${_collision ? `<div class="absolute w-px border-l border-dashed border-violet-300" style="left: ${projPos.toFixed(1)}%; top: 0.6rem; height: 1.8rem; transform: translateX(-50%);"></div>` : ''}
-            <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
+            <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap text-center" style="left: ${projPos.toFixed(1)}%;">
+              ${_collision ? `<i data-lucide="chevron-up" class="w-3 h-3 text-violet-400 inline-block -mb-1"></i>` : ''}
               <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
               ${metaSales > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
             </div>
