@@ -55,6 +55,74 @@ module.exports = async function handler(req, res) {
     }
     if (!tenantDb) tenantDb = req.db;
 
+    // V40.11.22 — Auto-bootstrap: cria as 3 tabelas que pipeline-velocity-summary
+    // usa, no tenant DB do demo. Schema espelha tenant-db-schema.sql (linhas
+    // 228-316 e 396-429). Idempotente (IF NOT EXISTS). Resolve achado #2 pro
+    // tenant demo. Tabelas sem dados não quebram a query principal (LEFT JOIN).
+    await tenantDb.query(`
+      CREATE TABLE IF NOT EXISTS lj_visitors (
+        id BIGSERIAL PRIMARY KEY,
+        lj_visitor_id VARCHAR(64) NOT NULL,
+        user_id INT NOT NULL,
+        product_id BIGINT,
+        entity_type VARCHAR(16) NOT NULL DEFAULT 'suspect',
+        current_stage VARCHAR(32) NOT NULL DEFAULT 'marketing-tof',
+        email VARCHAR(255),
+        phone VARCHAR(64),
+        name VARCHAR(255),
+        first_seen_at TIMESTAMPTZ DEFAULT NOW(),
+        last_seen_at TIMESTAMPTZ DEFAULT NOW(),
+        promoted_to_lead_at TIMESTAMPTZ,
+        promoted_to_customer_at TIMESTAMPTZ,
+        total_value_cents INT DEFAULT 0,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        CONSTRAINT lj_visitors_visitor_id_user_uniq UNIQUE (user_id, lj_visitor_id)
+      );
+      CREATE TABLE IF NOT EXISTS lj_visitor_touchpoints (
+        id BIGSERIAL PRIMARY KEY,
+        lj_visitor_id VARCHAR(64) NOT NULL,
+        user_id INT NOT NULL,
+        campaign_id BIGINT,
+        source VARCHAR(64),
+        source_type VARCHAR(16),
+        utm_source VARCHAR(128),
+        utm_medium VARCHAR(128),
+        utm_campaign VARCHAR(128),
+        utm_content VARCHAR(255),
+        utm_term VARCHAR(128),
+        referrer_url TEXT,
+        landing_url TEXT,
+        cost_cents INT DEFAULT 0,
+        is_first BOOLEAN DEFAULT FALSE,
+        occurred_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS lj_hotmart_purchases (
+        id BIGSERIAL PRIMARY KEY,
+        user_id INT NOT NULL,
+        transaction_id VARCHAR(128) NOT NULL,
+        product_id_hotmart VARCHAR(64),
+        product_id_lj BIGINT,
+        lj_visitor_id VARCHAR(64),
+        buyer_email VARCHAR(255),
+        buyer_name VARCHAR(255),
+        buyer_phone VARCHAR(64),
+        purchase_status VARCHAR(32),
+        transaction_value_cents INT DEFAULT 0,
+        commission_cents INT DEFAULT 0,
+        currency VARCHAR(8) DEFAULT 'BRL',
+        is_recurring BOOLEAN DEFAULT FALSE,
+        recurrence_number INT,
+        cancellation_reason VARCHAR(64),
+        raw_payload JSONB,
+        occurred_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        CONSTRAINT lj_hotmart_purchases_tx_uniq UNIQUE (user_id, transaction_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_lj_hotmart_purchases_user_status
+        ON lj_hotmart_purchases(user_id, purchase_status, occurred_at);
+    `);
+
     // Deleta linhas existentes do produto pra esse user (substitui o cenário)
     const delRes = await tenantDb.query(
       `DELETE FROM lj_hotmart_purchases WHERE user_id = $1 AND product_id_lj = $2`,
