@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.23',
+    date: '2026-06-21',
+    title: 'Demo · Endpoint admin pra ajustar Composição de Custos (S&M, G&A, variáveis)',
+    bullets: [
+      'Novo endpoint /api/admin-set-demo-composition que substitui o group de um bucket específico no revopsFinanceV2[productId].groups por items fornecidos.',
+      'Genérico: serve pra calibrar S&M (bucket="acquisition"), G&A (bucket="fixed"), variáveis (bucket="variable") sem precisar mexer pela UI.',
+      'Retorna delta (apenas revopsFinanceV2[productId]) pra caller fazer patch cirúrgico — evita achado #15 (replace destrutivo de cache).',
+      'Pra Pilsen: setar S&M em R$ 268.000 (10% do faturamento ~R$ 2,68 mi) → CAC Projetado vira ~R$ 2,29 (= 268k ÷ 117k vendas projetadas).'
+    ]
+  },
+  {
     version: 'V40.11.22',
     date: '2026-06-21',
     title: 'Demo · Lê de Hotmart real (não mock) — auto-bootstrap das 3 tabelas + fallback no pipeline-velocity-summary',
