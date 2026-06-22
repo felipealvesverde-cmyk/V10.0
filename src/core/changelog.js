@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.12',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: polidura final — anti-colisão, placeholder Ads, threshold meta CAC, "hoje" visível',
+    bullets: [
+      'Onda 6 (polidura final) do Leonardo. Cinco ajustes pontuais sobre a tríade que já estava madura.',
+      'Anti-colisão de labels REALIZADO/PROJETADO: quando os marcadores caem a menos de 12% de distância na régua (caso do Pilsen, 2% e 8%), o label de Projetado desce pra second-row em vez de empilhar com Realizado. Aplicado nos 3 cards (Receita, CAC, Vendas).',
+      'Realizado vazio no CAC saiu do traço grosso esquisito. Agora é uma pílula cinza honesta "Aguardando Ads" com ícone clock. Coluna mantém presença visual sem inventar dado.',
+      'Detector de meta absurda no CAC: threshold 5× → 2×. CAC raramente dobra dentro de operação calibrada — quando Projetado é 2× a Meta, já é sinal de input incorreto (caso típico: Meta R$ 1 vs Projetado R$ 2 no Pilsen). Mensagem mostra a multiplicador exato com 1 decimal.',
+      'Linha fantasma "hoje" na régua ganhou label minúsculo "hoje" acima e ficou mais grossa (w-0.5, opacity-90, stroke slate-500). Antes era invisível.',
+      'Subtítulo do tab Resultado atualizado de "Meta vs realizado de Vendas e CAC, indicadores principais e leitura do funil" pra "A vida da operação em três cards: Receita, CAC e Vendas. Realizado · Projetado · Meta." — falando da tríade real, não do mundo antigo.'
+    ]
+  },
+  {
     version: 'V40.11.11',
     date: '2026-06-21',
     title: 'RevOps · Resultado: linha "hoje" na régua + detector de meta absurda no CAC',
