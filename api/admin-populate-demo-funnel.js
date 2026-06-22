@@ -150,13 +150,17 @@ module.exports = async function handler(req, res) {
       [newState, demoUserId]
     );
 
+    // V40.11.19 — Retorna APENAS o delta (actions), não o state inteiro.
+    // Caller faz patch cirúrgico (App.state.actions = data.actions) preservando
+    // caches voláteis (pipelineVelocityCache, etc) que State.normalize zeraria.
+    // Achado #15 do inventário cobre o débito do padrão antigo.
     return res.status(200).json({
       ok: true,
       applied: true,
       productId,
       actionsUpdated: updatedActionIds.size,
       stageDistribution,
-      newState
+      actions
     });
   } catch (err) {
     console.error('[admin-populate-demo-funnel]', err);

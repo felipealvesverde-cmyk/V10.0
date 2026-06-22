@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.19',
+    date: '2026-06-21',
+    title: 'Demo · Endpoint admin de funil retorna delta (actions) em vez de newState — fim do replace destrutivo',
+    bullets: [
+      'A V40.11.18 retornava newState inteiro do endpoint /api/admin-populate-demo-funnel. Caller fazia App.state = State.normalize(data.newState) — padrão V40.7.10 contra race com auto-save. Mas State.normalize zera campos voláteis (pipelineVelocityCache, governanceClosings, etc) que NÃO estão no schema persistido mas são populados em runtime via load.',
+      'Resultado quando rodou no Pilsen: Realizado Vendas, Receita inteira, CAC Projetado zeraram na tela. O dado certo estava no DB, só o state em memória descalibrou.',
+      'Endpoint agora retorna APENAS o delta (actions array), não newState inteiro. Caller faz patch cirúrgico (App.state.actions = data.actions) preservando todos os caches voláteis.',
+      'Achado #15 cravado no inventário (mesma família do #3 race auto-save). Outros endpoints admin com o mesmo bug pendente: admin-add-demo-conversions, admin-add-demo-products, admin-add-demo-revops, admin-restore-demo-state. Refator pra padrão "delta-only" entra na onda quando population fechar.'
+    ]
+  },
+  {
     version: 'V40.11.18',
     date: '2026-06-21',
     title: 'Demo · Endpoint admin pra popular funil 9 etapas com taxas decrescentes por stage',
