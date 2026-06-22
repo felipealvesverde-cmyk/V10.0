@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.30',
+    date: '2026-06-22',
+    title: 'RevOps Equilíbrio · Centavos voltam pros números pequenos (MCU, CAC, MSU)',
+    bullets: [
+      'Cascata "Equilíbrio da Operação" mostrava MCU R$ 21 (real R$ 20,98) e CAC R$ 2 (real R$ 2,29) — o arredondamento sumia com 14% do CAC e distorcia leitura visual.',
+      'Promovido pra helper compartilhado o fmt adaptativo que a tríade do Resultado Consolidado já usava (V40.11.20): valores < R$ 100 mostram 2 casas decimais, valores ≥ R$ 100 arredondam.',
+      'Agora MCU exibe R$ 20,98, CAC R$ 2,29, MSU R$ 19,71. Valores grandes (Custo Fixo R$ 26.300, EBITDA Projetado R$ X mi) continuam inteiros — sem ",00" inútil.',
+      'Vale pra todos os tenants. Leitura visual da cascata passa a conversar com a tríade do Resultado Consolidado sem dúvida.'
+    ]
+  },
+  {
     version: 'V40.11.29',
     date: '2026-06-22',
     title: 'RevOps Equilíbrio · Vendas Previstas agora vêm do funil das actions (não mais do campo manual legado)',

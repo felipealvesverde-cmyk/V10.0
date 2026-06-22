@@ -2609,8 +2609,8 @@
             ${this._cascadeMcu(productId, mcuAuto, mcuOverride, mcuResolved, ev)}
             ${this._cascadeArrow('↓')}
 
-            ${this._cascadeLine('minus-circle', 'SUBTRAÇÃO', 'CAC · Custo de Aquisição', this._money(cac), 'rose',
-              `Fórmula: CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = ${this._money(cac)}. O preço de cada cliente novo.`)}
+            ${this._cascadeLine('minus-circle', 'SUBTRAÇÃO', 'CAC · Custo de Aquisição', this._moneySmart(cac), 'rose',
+              `Fórmula: CTC ÷ Total de Vendas = ${this._money(ctc)} ÷ ${Math.round(totalSales).toLocaleString('pt-BR')} = ${this._moneySmart(cac)}. O preço de cada cliente novo.`)}
             ${this._cascadeArrow('↓')}
 
             ${this._cascadeMsu(productId, msuAuto, msuOverride, msuResolved, mcu, cac, ev)}
@@ -2745,7 +2745,7 @@
       const isOverride = override.mode === 'manual' || override.mode === 'composed';
       const diff = isOverride ? (value - mcuAuto.value) : 0;
       const diffHint = isOverride && Math.abs(diff) > 0.5
-        ? `<p class="text-[10px] text-violet-700 mt-1 font-bold">Auto seria ${this._money(mcuAuto.value)} · diferença ${diff > 0 ? '+' : ''}${this._money(diff)}</p>`
+        ? `<p class="text-[10px] text-violet-700 mt-1 font-bold">Auto seria ${this._moneySmart(mcuAuto.value)} · diferença ${diff > 0 ? '+' : ''}${this._moneySmart(diff)}</p>`
         : '';
       // V37.0.10 — Chevron de collapse do painel de edição.
       const collapseKey = 'revops:mcu';
@@ -2766,7 +2766,7 @@
             </div>
             <div class="flex items-start gap-2 shrink-0">
               <div class="text-right">
-                <p class="text-2xl font-black ${tone.text} whitespace-nowrap">${this._money(value)}</p>
+                <p class="text-2xl font-black ${tone.text} whitespace-nowrap">${this._moneySmart(value)}</p>
                 <div class="mt-1">${this._cascadeOverrideBadge(override.mode)}</div>
                 ${diffHint}
               </div>
@@ -2792,7 +2792,7 @@
       const isOverride = override.mode === 'manual' || override.mode === 'composed';
       const diff = isOverride ? (value - msuAuto.value) : 0;
       const diffHint = isOverride && Math.abs(diff) > 0.5
-        ? `<p class="text-[10px] text-violet-700 mt-1 font-bold">Auto seria ${this._money(msuAuto.value)} · diferença ${diff > 0 ? '+' : ''}${this._money(diff)}</p>`
+        ? `<p class="text-[10px] text-violet-700 mt-1 font-bold">Auto seria ${this._moneySmart(msuAuto.value)} · diferença ${diff > 0 ? '+' : ''}${this._moneySmart(diff)}</p>`
         : '';
       const tmPct = ev.ticket > 0 ? (value / ev.ticket) * 100 : 0;
       const healthPill = tmPct >= 40
@@ -2814,12 +2814,12 @@
               <div class="min-w-0">
                 <p class="text-[10px] font-black ${tone.pill} uppercase tracking-widest">= Margem Real</p>
                 <p class="text-sm font-black text-slate-900 leading-tight">MSU · Margem de Segurança Unitária</p>
-                <p class="text-[10px] text-stone-500">após CAC · Fórmula: MCU (${this._money(mcu)}) − CAC (${this._money(cac)})</p>
+                <p class="text-[10px] text-stone-500">após CAC · Fórmula: MCU (${this._moneySmart(mcu)}) − CAC (${this._moneySmart(cac)})</p>
               </div>
             </div>
             <div class="flex items-start gap-2 shrink-0">
               <div class="text-right">
-                <p class="text-2xl font-black ${tone.text} whitespace-nowrap">${this._money(value)}</p>
+                <p class="text-2xl font-black ${tone.text} whitespace-nowrap">${this._moneySmart(value)}</p>
                 <div class="mt-1">${this._cascadeOverrideBadge(override.mode)}</div>
                 ${diffHint}
               </div>
@@ -3036,7 +3036,7 @@
           </div>
           <div class="mt-2 flex items-start gap-1.5 text-[11px] text-slate-500">
             <i data-lucide="info" class="w-3 h-3 mt-0.5 shrink-0"></i>
-            <span>${this._money(fixedTotal)} ÷ MSU ${this._money(msu)} = ${breakeven} vendas pra o mês empatar.</span>
+            <span>${this._money(fixedTotal)} ÷ MSU ${this._moneySmart(msu)} = ${breakeven} vendas pra o mês empatar.</span>
           </div>
           <div class="mt-3 rounded-xl ${h.bg} border ${h.border} p-3">
             <div class="flex items-start gap-2 ${h.text}">
@@ -3044,7 +3044,7 @@
               <div class="min-w-0">
                 <p class="text-[11px] font-black">${health.msg}</p>
                 ${folgaVendas > 0
-                  ? `<p class="text-[11px] mt-1 font-bold">Folga: ${folgaVendas} vendas × ${this._money(msu)} = <b>${this._money(ebitdaProjetado)} de EBITDA projetado</b></p>`
+                  ? `<p class="text-[11px] mt-1 font-bold">Folga: ${folgaVendas} vendas × ${this._moneySmart(msu)} = <b>${this._money(ebitdaProjetado)} de EBITDA projetado</b></p>`
                   : folgaVendas < 0
                   ? `<p class="text-[11px] mt-1 font-bold">Faltam ${Math.abs(folgaVendas)} vendas pra cobrir os fixos. Prejuízo projetado: <b>${this._money(Math.abs(ebitdaProjetado))}</b></p>`
                   : ''}
@@ -3542,6 +3542,19 @@
     _moneyPrecise(value) {
       const n = Number(value) || 0;
       return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+    },
+
+    // V40.11.30 — Fmt adaptativo: valores < R$ 100 mostram 2 casas decimais
+    // (CAC R$ 2,29, MCU R$ 20,98 — onde 29 centavos = 14% de diferença);
+    // valores ≥ R$ 100 arredondam (R$ 26.300 não precisa de ",00"). Replica
+    // o `fmt` local do `_cacCard` (V40.11.20) elevando pra helper reusável.
+    // Lei Leonardo: centavos são emocionais quando o número é pequeno.
+    _moneySmart(value) {
+      const n = Number(value) || 0;
+      if (Math.abs(n) > 0 && Math.abs(n) < 100) {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+      }
+      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(n);
     },
 
     // V37.0.10 — Helpers de collapse pra linhas DRE e cards RevOps.
