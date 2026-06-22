@@ -1831,6 +1831,47 @@
       </div>`;
     },
 
+    // V40.11.9 — Leonardo Onda 3: pulse semafórico de saúde.
+    // kind='higher' (Receita, Vendas): healthRatio = (real/meta) ÷ (dia/totalDias do mês).
+    //   ≥1 verde "No ritmo", 0.7-1 amber "Atenção", <0.7 rose "Crítico".
+    // kind='lower' (CAC): healthRatio = real/meta. ≤1 verde, ≤1.3 amber, >1.3 rose.
+    // Sem meta ou sem real → badge cinza neutro com label honesto.
+    _healthBadge(realValue, metaValue, kind) {
+      if (!metaValue || metaValue <= 0) {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest" style="background: #F3F4F6; color: #6B7280;">
+          <span class="w-1.5 h-1.5 rounded-full" style="background: #9CA3AF;"></span>
+          Sem meta
+        </span>`;
+      }
+      if (!realValue || realValue <= 0) {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest" style="background: #F3F4F6; color: #6B7280;">
+          <span class="w-1.5 h-1.5 rounded-full" style="background: #9CA3AF;"></span>
+          Aguardando dado
+        </span>`;
+      }
+      let color, label;
+      if (kind === 'lower') {
+        const ratio = realValue / metaValue;
+        if (ratio <= 1.0) { color = '#10B981'; label = 'Dentro da meta'; }
+        else if (ratio <= 1.3) { color = '#F59E0B'; label = 'Acima da meta'; }
+        else { color = '#EF4444'; label = 'Crítico'; }
+      } else {
+        const now = new Date();
+        const day = now.getDate();
+        const totalDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const monthRatio = day / totalDays;
+        const progressRatio = realValue / metaValue;
+        const healthRatio = monthRatio > 0 ? progressRatio / monthRatio : 0;
+        if (healthRatio >= 1) { color = '#10B981'; label = 'No ritmo'; }
+        else if (healthRatio >= 0.7) { color = '#F59E0B'; label = 'Atenção'; }
+        else { color = '#EF4444'; label = 'Crítico'; }
+      }
+      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest" style="background: ${color}1A; color: ${color};">
+        <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background: ${color};"></span>
+        ${label}
+      </span>`;
+    },
+
     // V40.10.0 — Card de Receita do mês — Realizado · Projetado · Meta numa
     // régua única. Substitui os 2 cards "Meta de Vendas" + "Meta de CAC" da
     // tab Resultado. Conceito Djow: Governança é leitura, não diagnóstico —
@@ -1899,6 +1940,7 @@
             <span class="w-2 h-2 rounded-full" style="background: #F6DB5C;"></span>
             Receita · ${Utils.escape(currentPeriodLabel)}
           </p>
+          ${this._healthBadge(realRevenue, metaRevenue, 'higher')}
         </div>
         <p class="text-sm text-slate-500 mb-4">A vida da operação: o que entrou, o que vai entrar, o que se comprometeu a entregar.</p>
 
@@ -1984,23 +2026,29 @@
           ` : ''}
         </div>`;
 
+      const projectedExceedsMeta = metaCAC > 0 && projectedCAC > metaCAC;
+      const realExceedsMeta = metaCAC > 0 && realCAC > metaCAC;
+      const realCacClass = realExceedsMeta ? 'text-rose-700' : 'text-slate-900';
+      const projCacClass = projectedExceedsMeta ? 'text-rose-700' : 'text-slate-700';
+
       return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #AB3ED8;">
         <div class="flex items-center justify-between gap-2 mb-1">
           <p class="text-xs font-black uppercase tracking-widest inline-flex items-center gap-1.5" style="color: #6D28D9;">
             <span class="w-2 h-2 rounded-full" style="background: #AB3ED8;"></span>
             CAC · ${Utils.escape(currentPeriodLabel)}
           </p>
+          ${this._healthBadge(realCAC, metaCAC, 'lower')}
         </div>
         <p class="text-sm text-slate-500 mb-4">O preço de cada cliente novo. Menor é melhor — meta é o teto que a operação não quer cruzar.</p>
 
         <div class="grid grid-cols-3 gap-3 mb-2 items-end">
           <div class="min-w-0">
             <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
-            <p class="text-3xl font-black text-slate-900 mt-0.5 truncate leading-tight">${realCAC > 0 ? fmt(realCAC) : '—'}</p>
+            <p class="text-3xl font-black ${realCacClass} mt-0.5 truncate leading-tight">${realCAC > 0 ? fmt(realCAC) : '—'}</p>
           </div>
           <div class="min-w-0">
             <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
-            <p class="text-2xl font-black text-slate-700 mt-0.5 truncate leading-tight">${projectedCAC > 0 ? fmt(projectedCAC) : '—'}</p>
+            <p class="text-2xl font-black ${projCacClass} mt-0.5 truncate leading-tight">${projectedCAC > 0 ? fmt(projectedCAC) : '—'}</p>
           </div>
           <div class="min-w-0">
             <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
@@ -2075,6 +2123,7 @@
             <span class="w-2 h-2 rounded-full" style="background: #00CBCC;"></span>
             Vendas · ${Utils.escape(currentPeriodLabel)}
           </p>
+          ${this._healthBadge(realSales, metaSales, 'higher')}
         </div>
         <p class="text-sm text-slate-500 mb-4">Quantas vendas tivemos: o que entrou, o que está cadenciando, o que se prometeu.</p>
 

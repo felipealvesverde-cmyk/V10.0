@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.9',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: pulse semafórico de saúde + cor inversa no CAC quando estoura',
+    bullets: [
+      'Onda 3 do Leonardo entregue. Os 3 cards triangulares mostravam distância pra meta na régua, mas não opinavam sobre saúde. Cliente via 8% atingido no dia 21/30 do mês e não sabia se é catástrofe ou tranquilo.',
+      'Cada card ganha um badge de saúde no canto direito do cabeçalho, pulsando suave: "No ritmo" (verde) se progresso ≥ proporção do mês corrido, "Atenção" (amber) entre 70-99% on-track, "Crítico" (rose) abaixo de 70%. Cálculo: (Realizado ÷ Meta) ÷ (dia atual ÷ dias totais do mês).',
+      'No Card CAC a lógica inverte (menor é melhor): badge verde quando Realizado ≤ Meta, amber até 30% acima, rose quando estoura 30%. E os números (Realizado e Projetado) ficam rose-700 visualmente quando passam da Meta — coloração condicional avisa antes do badge.',
+      'Quando faltar Meta ou Realizado, badge fica neutro cinza com label honesto ("Sem meta", "Aguardando dado"). Não inventa saúde sem base.',
+      'Pra Pilsen no dia 21 com Realizado em 2% da Meta: badge rosa "Crítico" em Receita e Vendas. CAC com Projetado R$ 2 contra Meta R$ 1: badge "Crítico" + Projetado em rose-700. Cliente esbarra com o número E com o sentimento.'
+    ]
+  },
+  {
     version: 'V40.11.8',
     date: '2026-06-21',
     title: 'RevOps · Resultado: hierarquia tipográfica — Realizado vira protagonista nos 3 cards',
