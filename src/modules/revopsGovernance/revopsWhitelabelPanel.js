@@ -1859,10 +1859,10 @@
     _revenueCard(productId, currentPeriodLabel) {
       const summary = RevopsFinanceEngine?.productRevenueSummary?.(productId) || {
         realRevenue: 0, projectedRevenue: 0, metaRevenue: 0,
-        convertedCount: 0, leadsAlive: 0, conversionRate: 0,
+        convertedCount: 0, leadsAlive: 0, crmProjectedSales: 0, conversionRate: 0,
         crmTicket: 0, metaSales: 0, sourceLabel: ''
       };
-      const { realRevenue, projectedRevenue, metaRevenue, convertedCount, leadsAlive, conversionRate, crmTicket, metaSales } = summary;
+      const { realRevenue, projectedRevenue, metaRevenue, convertedCount, crmProjectedSales, crmTicket, metaSales } = summary;
 
       // Escala da régua: Meta vira 100%. Se Realizado > Meta, respira 5% à direita.
       const baseScale = metaRevenue > 0 ? metaRevenue : Math.max(projectedRevenue, realRevenue, 1);
@@ -1877,13 +1877,12 @@
 
       const moneyDigits = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
       const fmt = (v) => moneyDigits.format(Number(v) || 0);
-      const conversionPct = (conversionRate * 100).toFixed(1);
 
       // Rastreio cinza — selo de procedência de cada número
       const rastreio = `
         <div class="pt-3 border-t border-stone-200 space-y-1 text-[11px] text-slate-500">
           <p><span class="font-bold text-slate-600">Realizado:</span> ${convertedCount.toLocaleString('pt-BR')} vendas aprovadas no Checkout (últimos 30d)</p>
-          <p><span class="font-bold text-slate-600">Projetado:</span> ${leadsAlive.toLocaleString('pt-BR')} visitas únicas × ${conversionPct}% conversão × ${this._moneyPrecise(crmTicket)} ticket CRM</p>
+          <p><span class="font-bold text-slate-600">Projetado:</span> ${crmProjectedSales.toLocaleString('pt-BR')} vendas projetadas no funil do CRM × ${this._moneyPrecise(crmTicket)} ticket CRM</p>
           <p><span class="font-bold text-slate-600">Meta:</span> ${metaSales > 0 ? `soma de ${metaSales.toLocaleString('pt-BR')} vendas configuradas em Ofertas` : 'sem meta configurada · ajuste em Ofertas'}</p>
           ${summary.sourceLabel ? `<p class="italic pt-1">Fonte atual: ${summary.sourceLabel}</p>` : ''}
         </div>`;
