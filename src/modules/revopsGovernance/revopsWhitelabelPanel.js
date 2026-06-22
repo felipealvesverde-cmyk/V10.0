@@ -2601,7 +2601,13 @@
       const folgaVendas = previstas - breakeven;
       const ebitdaProjetado = folgaVendas * msu;
 
-      const customKpis = cfg.customKpis || [];
+      // V40.11.33 — Seção "KPIs Personalizados" removida da UI. Felipe confirmou
+      // que ninguém usa (feature de fórmula livre era poder demais pra pouco uso).
+      // Substituída pela seção "KPIs Avançados" (V40.11.32) — 4 cards auto-
+      // calculados que cobrem os casos universais sem pedir cadastro.
+      // Dados em cfg.customKpis ficam vivos em journey_state (sem perda).
+      // Engine, actions e helper _customKpiRow ficam dormentes — descomentar
+      // o trecho abaixo restaura a UI se necessário.
       const djowPanel = window.DjowRevOpsPanel ? DjowRevOpsPanel.render(productId, 'revops') : '';
 
       // V36.14.0 — Tema light igual DRE + grid 2-col com Djow lateral sticky.
@@ -2632,15 +2638,6 @@
             ${this._kpisAvancadosSection(productId, ev)}
           </section>
 
-          <div class="rounded-2xl border p-3" style="background:#faf8f5;border-color:#e7e5e0;">
-            <div class="flex items-center justify-between mb-2">
-              <p class="text-[11px] font-black text-stone-700 uppercase tracking-widest">KPIs Personalizados (fórmula livre)</p>
-              <button onclick="Actions.addRevopsCustomKpi('${cfg.productId}')" class="px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-black" style="color:#fff!important;">+ KPI</button>
-            </div>
-            ${customKpis.length === 0
-              ? '<p class="text-[11px] text-stone-500 italic">Crie KPIs personalizados como % crescimento receita, NRR, etc.</p>'
-              : customKpis.map(k => this._customKpiRow(cfg.productId, k, ev)).join('')}
-          </div>
         </div>
         <aside class="xl:sticky xl:top-4 xl:self-start">${djowPanel}</aside>
       </div>`;
