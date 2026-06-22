@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.14',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: edit-in-place da Meta de CAC — botão Meta abre modal de edição',
+    bullets: [
+      'A Meta de CAC tinha ficado órfã desde a V40.11.3 — o dado vivia no state mas não havia UI pra editar. Demo Pilsen tinha Meta R$ 1 cravada lá atrás e ninguém conseguia ajustar.',
+      'Agora o header do Card CAC tem um botão "✎ Meta" violet ao lado do badge de saúde. Click abre modal pequeno (320px) com input numérico de valor + botões Salvar/Cancelar. Enter salva, Escape cancela, click no overlay fecha.',
+      'Modal segue a paleta do CAC (side accent roxo RevOps + título violet). Não polui outras tabs — vive no mesmo lugar onde a meta é lida.',
+      'Padrão "edit-in-place" — onde vê é onde edita. Lei "Resultado é leitura" não quebra (continua válida pra modelagem ampla); edit-in-place é micro-edição pontual de 1 campo, exceção bem delimitada.',
+      'Quando outras metas autônomas aparecerem no futuro (EBITDA target, Margem target, etc.), cada uma vira botão "Meta" no seu próprio card. Padrão escalável sem criar tab nova.'
+    ]
+  },
+  {
     version: 'V40.11.13',
     date: '2026-06-21',
     title: 'RevOps · Resultado: polidura² Leonardo — fio conector, "—" elegante, banner enxuto, header reforçado',

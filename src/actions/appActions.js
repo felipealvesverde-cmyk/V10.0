@@ -11418,6 +11418,45 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V40.11.14 — Edit-in-place da Meta de CAC. Modal pequeno renderizado no
+  // _resultTab quando cacMetaEditOpen != null. Salvar usa updateMetaResultado.
+  openCacMetaEdit(productId) {
+    if (!productId) return;
+    const now = new Date();
+    const currentPeriod = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const period = App.state.resultadoPeriod?.[productId] || currentPeriod;
+    const currentValue = Number(App.state.metasResultado?.[productId]?.[period]?.cac) || 0;
+    App.state.cacMetaEditOpen = {
+      productId: String(productId),
+      period,
+      draft: currentValue > 0 ? String(currentValue.toFixed(2).replace('.', ',')) : ''
+    };
+    App.save(); App.render();
+  },
+
+  closeCacMetaEdit() {
+    App.state.cacMetaEditOpen = null;
+    App.save(); App.render();
+  },
+
+  updateCacMetaEditDraft(value) {
+    if (!App.state.cacMetaEditOpen) return;
+    App.state.cacMetaEditOpen.draft = String(value || '');
+    // sem render — preserva foco do input
+  },
+
+  saveCacMetaEdit() {
+    const edit = App.state.cacMetaEditOpen;
+    if (!edit) return;
+    const parsed = Utils.parseBRL ? Utils.parseBRL(edit.draft) : Number(String(edit.draft).replace(/[^0-9.,]/g, '').replace(',', '.'));
+    const num = Number(parsed) || 0;
+    if (num < 0) return Utils.toast('Meta inválida.');
+    this.updateMetaResultado(edit.productId, edit.period, 'cac', num);
+    App.state.cacMetaEditOpen = null;
+    App.save(); App.render();
+    Utils.toast('✓ Meta de CAC atualizada.');
+  },
+
   updateDjowRevopsInput(value) {
     App.state.revopsDjowInput = String(value || '');
     // Sem render — preserva foco do textarea.
