@@ -1269,7 +1269,7 @@
         <select id="lj-revops-item-${item.id}-mode" onchange="Actions.changeRevopsItemMode('${productId}', '${group.id}', '${item.id}', this.value)" class="relative w-full px-2 py-1 rounded-lg bg-white border border-stone-300 text-[10px] font-bold text-slate-800">
           ${CALC_MODES.map(m => `<option value="${m.id}" ${calc.mode === m.id ? 'selected' : ''}>${m.label}</option>`).join('')}
         </select>
-        <div class="relative">${this._calcInputsCompact(productId, group, item, calc)}</div>
+        <div class="relative">${this._calcInputsCompact(productId, group, item, calc, ev)}</div>
         <div class="relative mt-auto flex items-center justify-between gap-2 pt-1 border-t border-stone-200">
           <p class="text-[9px] font-black text-stone-500 uppercase tracking-widest">Calculado</p>
           <span class="text-rose-700 font-black text-base whitespace-nowrap">−${this._money(value)}</span>
@@ -1279,7 +1279,11 @@
 
     // V36.14.4 — Versão compacta dos inputs por modo de cálculo, pra caber no
     // card vertical. Sem labels redundantes, sem badges expandidos.
-    _calcInputsCompact(productId, group, item, calc) {
+    // V40.11.27 — Recebe `ev` do caller pra evitar re-evaluate(cfg) em cada
+    // render de card (antes: cada card custom_formula re-rodava o engine,
+    // 5 iterações × N items extras por card). Foi parte do "piscar" e da
+    // lentidão na digitação reportados por Felipe 2026-06-22.
+    _calcInputsCompact(productId, group, item, calc, ev) {
       const update = (field) => `Actions.updateRevopsItemCalc('${productId}', '${group.id}', '${item.id}', '${field}', this.value)`;
       const moneyUpdate = (field) => `Actions.updateRevopsItemCalc('${productId}', '${group.id}', '${item.id}', '${field}', Utils.parseBRL(this.value))`;
       const baseId = `lj-revops-calc-${item.id}`;
@@ -1309,9 +1313,9 @@
           </select>`;
         }
         case 'custom_formula': {
-          const cfg = this._currentConfig(productId);
-          const evNow = RevopsWhitelabelEngine.evaluate(cfg);
-          const validation = RevopsWhitelabelEngine.validateFormula(calc.formula, evNow.symbols, item.id);
+          // V40.11.27 — Usa `ev.symbols` do caller (sem re-evaluate). Achado:
+          // chamava evaluate(cfg) dentro de cada card custom_formula no render.
+          const validation = RevopsWhitelabelEngine.validateFormula(calc.formula, ev?.symbols || {}, item.id);
           const status = !String(calc.formula || '').trim() || calc.formula === '=0' ? 'empty'
                        : validation.status === 'error' ? 'error'
                        : validation.status === 'warn' ? 'warn'
@@ -1365,13 +1369,14 @@
             </select>
           </div>
           <div>
-            ${this._calcInputs(productId, group, item, calc)}
+            ${this._calcInputs(productId, group, item, calc, ev)}
           </div>
         </div>
       </div>`;
     },
 
-    _calcInputs(productId, group, item, calc) {
+    // V40.11.27 — Recebe `ev` do caller (evita re-evaluate dentro de cada card).
+    _calcInputs(productId, group, item, calc, ev) {
       const update = (field) => `Actions.updateRevopsItemCalc('${productId}', '${group.id}', '${item.id}', '${field}', this.value)`;
       // V32.9.5 — Inputs monetários usam mask BRL live (Utils.applyMoneyMask) +
       // parser tolerante no save (Utils.parseBRL). Aceita 115,29 / 1.234,56 /
@@ -1424,9 +1429,12 @@
           </label>`;
         }
         case 'custom_formula': {
+          // V40.11.27 — Usa `ev.symbols` do caller. Antes: re-rodava o engine
+          // inteiro a cada render de card custom_formula. Quando o cliente tem
+          // 3+ items custom, eram 3+ evaluates redundantes por render — parte
+          // do "piscar" e da lentidão de digitação.
           const cfg = this._currentConfig(productId);
-          const evNow = RevopsWhitelabelEngine.evaluate(cfg);
-          const validation = RevopsWhitelabelEngine.validateFormula(calc.formula, evNow.symbols, item.id);
+          const validation = RevopsWhitelabelEngine.validateFormula(calc.formula, ev?.symbols || {}, item.id);
           const status = !String(calc.formula || '').trim() || calc.formula === '=0' ? 'empty'
                        : validation.status === 'error' ? 'error'
                        : validation.status === 'warn' ? 'warn'

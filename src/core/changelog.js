@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.27',
+    date: '2026-06-22',
+    title: 'Fix CORE · Fórmulas PT-BR (vendas, faturamento) funcionam + Composição RevOps mais rápida',
+    bullets: [
+      'Bug estrutural global: fórmulas custom em items da Composição de Custos que usavam aliases brasileiros (`=vendas*0,77`, `=faturamento*0,1`, `=faturamento_liquido*0,15`) resolviam silenciosamente pra 0 — o engine só populava os aliases DEPOIS do loop de items. Resultado: cliente preenchia fórmula correta, card mostrava "−R$ 0" sem aviso.',
+      'Fix: aliases agora ficam disponíveis ANTES do pass de avaliação. Fórmulas PT-BR funcionam como a UI prometia ("Vírgula BR ou ponto — ambos funcionam, vendas/faturamento/tm são handles válidos").',
+      'Vale pra todos os tenants — qualquer cliente que tinha fórmula com `vendas`/`faturamento` rodando silenciosa em zero passa a ler corretamente.',
+      'Otimização nos cards de Composição: cada card com fórmula custom estava re-rodando o engine inteiro (5 iterações × N items) durante o render. Agora reusa o cálculo do caller. Render mais rápido, "piscar" durante edição reduz.'
+    ]
+  },
+  {
     version: 'V40.11.26',
     date: '2026-06-22',
     title: 'RevOps · Ticket Médio ganha face dupla (Projetado das Ofertas · Realizado do Checkout)',
