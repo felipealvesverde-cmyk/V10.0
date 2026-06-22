@@ -964,7 +964,16 @@
             }
           } else if (calc.mode === 'custom_formula') {
             const f = String(calc.formula || '').toLowerCase();
-            if (/fat_bruto|fat_liquido|ticket|sales/.test(f)) {
+            // V40.11.28 — Regex inclui aliases BR (vendas/faturamento/
+            // faturamento_liquido/tm) além dos handles canônicos. Antes só
+            // testava sales/ticket/fat_bruto/fat_liquido — cliente que escrevia
+            // `=vendas*0,77` (que JÁ funciona no evaluate via HANDLE_ALIASES)
+            // tinha o item AVALIADO corretamente mas IGNORADO pra MCU porque o
+            // detector aqui não reconhecia o token. Resultado: CMV calculava
+            // R$ 12.240 mas MCU continuava em R$ 22 (TM puro). Fix: adicionar
+            // os 4 aliases ao regex. Usar \b pra não casar substring (ex: "ticket"
+            // não casa dentro de "ticketmedio" — mas no padrão atual já não casaria).
+            if (/\b(fat_bruto|fat_liquido|ticket|sales|vendas|faturamento|faturamento_liquido|tm)\b/.test(f)) {
               // Escala com receita/vendas — pega valor total já calculado e divide por vendas
               const itemValue = ev.itemValues[item.id] || 0;
               unitCost = sales > 0 ? itemValue / sales : 0;

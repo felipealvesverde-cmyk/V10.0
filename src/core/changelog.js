@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.28',
+    date: '2026-06-22',
+    title: 'Fix CORE · MCU agora desce o CMV cadastrado em PT-BR (aliases na cascata Equilíbrio)',
+    bullets: [
+      'Continuação do fix V40.11.27. O engine PASSAVA a avaliar `=vendas*0,77` corretamente (item mostrava −R$ 9.240), MAS o `computeAutoMCU` ainda IGNORAVA esses items na hora de inferir o custo unitário pro MCU.',
+      'Causa: regex hardcoded só testava handles canônicos (sales/ticket/fat_bruto/fat_liquido). Fórmulas escritas com aliases BR (vendas/faturamento/faturamento_liquido/tm) eram silenciosamente classificadas como "não-escalam-com-vendas" → unitCost = 0 → MCU = TM puro.',
+      'Fix: regex agora inclui os 4 aliases BR. MCU passa a refletir o CMV cadastrado em PT-BR, sem cliente precisar reescrever as fórmulas pra inglês.',
+      'Pra Pilsen com CMV R$ 12.240 / 12.000 vendas: MCU desce de R$ 22 → R$ 20,98 automaticamente. Cascata abaixo (MSU, Breakeven) recalibra junto.'
+    ]
+  },
+  {
     version: 'V40.11.27',
     date: '2026-06-22',
     title: 'Fix CORE · Fórmulas PT-BR (vendas, faturamento) funcionam + Composição RevOps mais rápida',
