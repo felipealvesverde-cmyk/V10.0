@@ -550,6 +550,16 @@
         resultado_apos_fixos: 0 // recomputado abaixo
       };
 
+      // V40.11.27 — Aliases brasileiros (vendas, faturamento, faturamento_liquido)
+      // populados ANTES do pass 1. Antes eram aplicados em linha 596 — depois do
+      // loop de items — então fórmulas custom em items que usavam `=vendas*0,77`
+      // resolviam pra `=0*0,77` (handle vazio → '0'). `tm` já estava no symbols
+      // inicial direto (V36.8.4); essa onda completa o padrão pros 3 outros.
+      // Fórmulas PT-BR finalmente funcionam como a UI promete.
+      for (const [alias, canonical] of Object.entries(this.HANDLE_ALIASES)) {
+        if (canonical in symbols) symbols[alias] = symbols[canonical];
+      }
+
       // Pass 1: resolve cada item por grupo. Itens podem referenciar outros via handle.
       // Iteração com max depth = 5 pra suportar refs encadeadas (item→item→item) sem loop infinito.
       const groupTotals = {};
