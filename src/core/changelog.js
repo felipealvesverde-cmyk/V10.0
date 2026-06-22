@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.8',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: hierarquia tipográfica — Realizado vira protagonista nos 3 cards',
+    bullets: [
+      'Onda 2 do Leonardo entregue. Os 3 números (Realizado, Projetado, Meta) tinham o mesmo tamanho — text-2xl pra todos. Mas não têm o mesmo peso narrativo na decisão: Realizado é verdade do mês, Projetado é previsão, Meta é referência de longo prazo.',
+      'Agora a tipografia escala em Fibonacci: Realizado em text-3xl peso black slate-900 (protagonista), Projetado em text-2xl peso black slate-700 (secundário), Meta em text-xl peso black slate-600 (referência).',
+      'Aplicado nos 3 cards triangulares (Receita, CAC, Vendas) com items-end no grid pra alinhar os números pela base — o olho pousa primeiro no Realizado, depois esquadrinha o resto.',
+      'leading-tight nos números pra eliminar respiro vertical excessivo quando o número quebra (R$ 2.640.000 no card Receita).'
+    ]
+  },
+  {
     version: 'V40.11.7',
     date: '2026-06-21',
     title: 'RevOps · Resultado: paleta semântica nos 3 cards — Receita amarelo, CAC roxo, Vendas ciano',

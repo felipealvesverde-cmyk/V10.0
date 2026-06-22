@@ -1902,18 +1902,18 @@
         </div>
         <p class="text-sm text-slate-500 mb-4">A vida da operação: o que entrou, o que vai entrar, o que se comprometeu a entregar.</p>
 
-        <div class="grid grid-cols-3 gap-3 mb-2">
+        <div class="grid grid-cols-3 gap-3 mb-2 items-end">
           <div class="min-w-0">
             <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
-            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${fmt(realRevenue)}</p>
+            <p class="text-3xl font-black text-slate-900 mt-0.5 truncate leading-tight">${fmt(realRevenue)}</p>
           </div>
           <div class="min-w-0">
             <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
-            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${fmt(projectedRevenue)}</p>
+            <p class="text-2xl font-black text-slate-700 mt-0.5 truncate leading-tight">${fmt(projectedRevenue)}</p>
           </div>
           <div class="min-w-0">
             <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
-            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${metaRevenue > 0 ? fmt(metaRevenue) : '—'}</p>
+            <p class="text-xl font-black text-slate-600 mt-0.5 truncate leading-tight">${metaRevenue > 0 ? fmt(metaRevenue) : '—'}</p>
           </div>
         </div>
 
@@ -1993,18 +1993,18 @@
         </div>
         <p class="text-sm text-slate-500 mb-4">O preço de cada cliente novo. Menor é melhor — meta é o teto que a operação não quer cruzar.</p>
 
-        <div class="grid grid-cols-3 gap-3 mb-2">
+        <div class="grid grid-cols-3 gap-3 mb-2 items-end">
           <div class="min-w-0">
             <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
-            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${realCAC > 0 ? fmt(realCAC) : '—'}</p>
+            <p class="text-3xl font-black text-slate-900 mt-0.5 truncate leading-tight">${realCAC > 0 ? fmt(realCAC) : '—'}</p>
           </div>
           <div class="min-w-0">
             <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
-            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${projectedCAC > 0 ? fmt(projectedCAC) : '—'}</p>
+            <p class="text-2xl font-black text-slate-700 mt-0.5 truncate leading-tight">${projectedCAC > 0 ? fmt(projectedCAC) : '—'}</p>
           </div>
           <div class="min-w-0">
             <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
-            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${metaCAC > 0 ? fmt(metaCAC) : '—'}</p>
+            <p class="text-xl font-black text-slate-600 mt-0.5 truncate leading-tight">${metaCAC > 0 ? fmt(metaCAC) : '—'}</p>
           </div>
         </div>
 
@@ -2078,18 +2078,18 @@
         </div>
         <p class="text-sm text-slate-500 mb-4">Quantas vendas tivemos: o que entrou, o que está cadenciando, o que se prometeu.</p>
 
-        <div class="grid grid-cols-3 gap-3 mb-2">
+        <div class="grid grid-cols-3 gap-3 mb-2 items-end">
           <div class="min-w-0">
             <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
-            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${fmt(realSales)}</p>
+            <p class="text-3xl font-black text-slate-900 mt-0.5 truncate leading-tight">${fmt(realSales)}</p>
           </div>
           <div class="min-w-0">
             <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
-            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${fmt(projectedSales)}</p>
+            <p class="text-2xl font-black text-slate-700 mt-0.5 truncate leading-tight">${fmt(projectedSales)}</p>
           </div>
           <div class="min-w-0">
             <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
-            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${metaSales > 0 ? fmt(metaSales) : '—'}</p>
+            <p class="text-xl font-black text-slate-600 mt-0.5 truncate leading-tight">${metaSales > 0 ? fmt(metaSales) : '—'}</p>
           </div>
         </div>
 
