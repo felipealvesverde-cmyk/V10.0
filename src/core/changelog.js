@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.16',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: mb da régua sobe pra mb-20 com colisão (label descido não invade mais o rastreio)',
+    bullets: [
+      'A seta chevron-up resolveu o cruzamento da régua na V40.11.15, mas trouxe um efeito colateral: o label PROJETADO descido + chevron + 2 linhas de texto totaliza ~32-36px de altura, e o mb-12 (48px) abaixo da régua era insuficiente. O label invadia o link "Como esse número foi calculado?" embaixo.',
+      'Margin-bottom da régua sobe de mb-12 pra mb-20 (80px) quando há colisão. Folga de ~4-6px embaixo do label descido. Sem colisão fica mb-8 (32px) — não desperdiça altura.',
+      'Aplicado nos 3 cards (Receita, CAC, Vendas).'
+    ]
+  },
+  {
     version: 'V40.11.15',
     date: '2026-06-21',
     title: 'RevOps · Resultado: fio conector vira seta chevron-up no label descido (régua deixa de ser invadida)',

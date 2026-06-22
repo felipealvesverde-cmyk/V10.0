@@ -1952,7 +1952,7 @@
       const _projTop = _collision ? 'top-10' : 'top-5';
 
       const regua = `
-        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 ${_collision ? 'mb-12' : 'mb-8'}">
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 ${_collision ? 'mb-20' : 'mb-8'}">
           ${metaRevenue > 0 ? `
             <span class="absolute -top-4 text-[9px] font-black uppercase tracking-wider text-slate-600 -translate-x-1/2 select-none pointer-events-none" style="left: ${_ghostPos.toFixed(1)}%;">hoje</span>
             <div class="absolute -top-1.5 w-0.5 h-4 bg-slate-600 opacity-90 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
@@ -2057,7 +2057,7 @@
 
       // Régua: barra cinza + 3 marcadores. CAC sem linha "hoje" (taxa contínua).
       const regua = `
-        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 ${_collision ? 'mb-12' : 'mb-8'}">
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 ${_collision ? 'mb-20' : 'mb-8'}">
           ${metaCAC > 0 ? `
             <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
             <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
@@ -2183,7 +2183,7 @@
       const _projTop = _collision ? 'top-10' : 'top-5';
 
       const regua = `
-        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 ${_collision ? 'mb-12' : 'mb-8'}">
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 ${_collision ? 'mb-20' : 'mb-8'}">
           ${metaSales > 0 ? `
             <span class="absolute -top-4 text-[9px] font-black uppercase tracking-wider text-slate-600 -translate-x-1/2 select-none pointer-events-none" style="left: ${_ghostPos.toFixed(1)}%;">hoje</span>
             <div class="absolute -top-1.5 w-0.5 h-4 bg-slate-600 opacity-90 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
