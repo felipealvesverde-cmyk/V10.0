@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.21',
+    date: '2026-06-21',
+    title: 'Fix: admin-populate-demo-hotmart usava current_tenant_id (não existe) — troca pra default_tenant_id',
+    bullets: [
+      'Endpoint da V40.11.20 chutou o nome da coluna users.current_tenant_id sem verificar. A coluna correta é default_tenant_id — mesmo padrão usado em cron-daily-tick, debug-tenant-state, clickup-oauth-callback e outros endpoints. 500 com error "column current_tenant_id does not exist".',
+      'Bug de copilot. Aprendizado: antes de query em coluna nova, grep noutros endpoints pra confirmar nomenclatura.'
+    ]
+  },
+  {
     version: 'V40.11.20',
     date: '2026-06-21',
     title: 'CAC fmt 2 casas decimais quando < R$ 10 + endpoint admin pra popular lj_hotmart_purchases',

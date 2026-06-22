@@ -47,8 +47,8 @@ module.exports = async function handler(req, res) {
 
     // Tenant DB: pega o pool do tenant do demo
     const tenantPoolHelper = require('../lib/tenant-pool');
-    const tenantInfo = await req.db.query('SELECT current_tenant_id FROM users WHERE id = $1', [demoUserId]);
-    const tenantId = tenantInfo.rows[0]?.current_tenant_id;
+    const tenantInfo = await req.db.query('SELECT default_tenant_id FROM users WHERE id = $1', [demoUserId]);
+    const tenantId = tenantInfo.rows[0]?.default_tenant_id;
     let tenantDb = req.db;
     if (tenantId) {
       try { tenantDb = await tenantPoolHelper.getTenantPool(req.db, tenantId); } catch (_) { tenantDb = req.db; }
