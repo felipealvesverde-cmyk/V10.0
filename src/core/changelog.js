@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.5',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: Card Vendas (qtd) — Realizado · Projetado · Meta — fecha a tríade',
+    bullets: [
+      'O bloco "Realizado (lido do funil)" tinha 2 BigCells (9.600 vendas + R$ 46.080 faturamento) lendo do funil das actions. Mesmo período, mesmo produto, mas mostrava 9.600 vendas enquanto o Card Receita acima dizia 1.920 (Checkout). Duas fontes de "real" disputando a página, sem hierarquia clara.',
+      'Bloco virou Card Vendas triangular: Realizado · Projetado · Meta na mesma linguagem visual do Receita e CAC — três números no topo, régua única, rastreio cinza de procedência. Espelho perfeito da tríade que já estava em cima.',
+      'Realizado = vendas Checkout (1.920 Hotmart approved). Projetado = vendas cadenciadas no funil do CRM (9.600 das actions). Meta = soma de vendas configuradas nas Ofertas (120.000 Pilsen). O que era contradição virou triangulação.',
+      'O "Faturamento real R$ 46.080" sai da página — já tinha "Faturamento Bruto Realizado R$ 42.240" na cascata acima, fonte mais confiável (Checkout × ticket real). Sem dois faturamentos na mesma tela.',
+      'A tab Resultado agora é: 3 cards triangulares no topo (Receita, CAC, Vendas) + cascata enxuta (CTC + Fat. Bruto) embaixo. Tríade Real/Proj/Meta vira o vocabulário único de leitura da página.'
+    ]
+  },
+  {
     version: 'V40.11.4',
     date: '2026-06-21',
     title: 'RevOps · Receita do mês: Projetado deixa de empatar com Realizado (fim da tautologia)',

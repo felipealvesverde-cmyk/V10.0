@@ -1733,15 +1733,10 @@
               </div>
             </div>
 
-            <!-- Realizado (do funil) -->
-            <div class="pt-2 border-t border-stone-200">
-              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Realizado (lido do funil)</p>
-              <div class="grid md:grid-cols-2 gap-3">
-                ${this._bigCell('Vendas reais (convertidas)', Math.round(realSales).toLocaleString('pt-BR'), 'sky')}
-                ${this._bigCell('Faturamento real', this._money(realRevenue), 'sky')}
-              </div>
-              <p class="text-[11px] text-slate-500 mt-2 italic">Vendas reais vêm dos convertidos no funil das ações. Se previsto × real estiver muito distante, calibre sua projeção.</p>
-            </div>
+            <!-- V40.11.5 — Card Vendas triangular substitui o bloco "Realizado
+                 (lido do funil)" antigo (que tinha 9.600 vendas e R$ 46.080
+                 faturamento, contradizendo o Card Receita acima). -->
+            ${this._salesCard(productId, currentPeriodLabel)}
 
             ${sim.active ? this._simulatorEbitdaCompare(ev, simEv) : ''}
             ${this._scenarioCompareBlock(cfg, ev)}
@@ -2019,6 +2014,88 @@
           <div class="min-w-0">
             <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
             <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${metaCAC > 0 ? fmt(metaCAC) : '—'}</p>
+          </div>
+        </div>
+
+        ${regua}
+
+        ${rastreio}
+      </div>`;
+    },
+
+    // V40.11.5 — Card de Vendas (quantidade) — Realizado · Projetado · Meta na
+    // mesma triangulação dos cards de Receita e CAC. Substitui o antigo bloco
+    // "Realizado (lido do funil)" que tinha 2 BigCells redundantes e confusos
+    // (mostrava 9.600 vendas reais e R$ 46.080 faturamento real — duas fontes
+    // de "real" contradizendo o Card Receita acima).
+    _salesCard(productId, currentPeriodLabel) {
+      const summary = RevopsFinanceEngine?.productSalesSummary?.(productId) || {
+        realSales: 0, projectedSales: 0, metaSales: 0, sourceLabel: ''
+      };
+      const { realSales, projectedSales, metaSales } = summary;
+
+      // Escala da régua: Meta = 100%. Se Projetado > Meta, respira 5% à direita.
+      const maxValue = Math.max(realSales, projectedSales, metaSales, 1) * 1.05;
+      const realPos = Math.min(100, (realSales / maxValue) * 100);
+      const projPos = Math.min(100, (projectedSales / maxValue) * 100);
+      const metaPos = Math.min(100, (metaSales / maxValue) * 100);
+
+      const realPctMeta = metaSales > 0 ? (realSales / metaSales) * 100 : 0;
+      const projPctMeta = metaSales > 0 ? (projectedSales / metaSales) * 100 : 0;
+
+      const fmt = (v) => Math.round(Number(v) || 0).toLocaleString('pt-BR');
+
+      const rastreio = `
+        <div class="pt-3 border-t border-stone-200 space-y-1 text-[11px] text-slate-500">
+          <p><span class="font-bold text-slate-600">Realizado:</span> ${fmt(realSales)} vendas aprovadas no Checkout (últimos 30d)</p>
+          <p><span class="font-bold text-slate-600">Projetado:</span> ${fmt(projectedSales)} vendas cadenciadas no funil do CRM</p>
+          <p><span class="font-bold text-slate-600">Meta:</span> ${metaSales > 0 ? `soma de ${fmt(metaSales)} vendas configuradas em Ofertas` : 'sem meta configurada · ajuste em Ofertas'}</p>
+          ${summary.sourceLabel ? `<p class="italic pt-1">Fonte atual: ${summary.sourceLabel}</p>` : ''}
+        </div>`;
+
+      const regua = `
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-8">
+          ${metaSales > 0 ? `
+            <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
+            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
+              <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
+              <p class="text-[10px] text-slate-500">100%</p>
+            </div>
+          ` : ''}
+          ${projectedSales > 0 ? `
+            <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
+            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
+              <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
+              ${metaSales > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
+            </div>
+          ` : ''}
+          ${realSales > 0 ? `
+            <div class="absolute -top-1 w-3 h-3 rounded-full bg-sky-600 ring-2 ring-white shadow" style="left: ${realPos.toFixed(1)}%; transform: translateX(-50%);"></div>
+            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${realPos.toFixed(1)}%;">
+              <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
+              ${metaSales > 0 ? `<p class="text-[10px] text-slate-500">${realPctMeta.toFixed(0)}%</p>` : ''}
+            </div>
+          ` : ''}
+        </div>`;
+
+      return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #00CBCC;">
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Vendas · ${Utils.escape(currentPeriodLabel)}</p>
+        </div>
+        <p class="text-sm text-slate-500 mb-4">Quantas vendas tivemos: o que entrou, o que está cadenciando, o que se prometeu.</p>
+
+        <div class="grid grid-cols-3 gap-3 mb-2">
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
+            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${fmt(realSales)}</p>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
+            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${fmt(projectedSales)}</p>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
+            <p class="text-2xl font-black text-slate-900 mt-0.5 truncate">${metaSales > 0 ? fmt(metaSales) : '—'}</p>
           </div>
         </div>
 

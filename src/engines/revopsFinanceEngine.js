@@ -644,6 +644,27 @@ var RevopsFinanceEngine = {
     };
   },
 
+  // V40.11.5 — Quantas vendas tivemos. Triangulação Realizado · Projetado · Meta
+  // na mesma lógica de fonte do Receita, sem o multiplicador de ticket.
+  // Realizado: vendas Checkout aprovadas (Hotmart approved 30d).
+  // Projetado: somatório de vendas cadenciadas no funil das actions (CRM proxy).
+  // Meta: soma das metaVendas das ofertas configuradas.
+  productSalesSummary(productId) {
+    if (!productId || !window.App?.state) {
+      return { realSales: 0, projectedSales: 0, metaSales: 0, sourceLabel: '' };
+    }
+    const realSales = this.productConvertedCount(productId);
+    const projectedSales = this.productRealSales(productId);
+    const offers = App.state.revopsFinanceV2?.[productId]?.offers || [];
+    const metaSales = offers.reduce((s, o) => s + (Number(o.metaVendas) || 0), 0);
+    return {
+      realSales,
+      projectedSales,
+      metaSales,
+      sourceLabel: 'Realizado: Checkout · Projetado: funil CRM · Meta: Ofertas'
+    };
+  },
+
   computeDashboard(config = {}) {
     const normalized = this.normalize(config);
     const metrics = this.computeMetrics(normalized);
