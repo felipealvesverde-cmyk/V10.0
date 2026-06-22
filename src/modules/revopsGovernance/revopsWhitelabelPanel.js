@@ -1710,18 +1710,18 @@
           <section class="rounded-3xl border p-5 shadow-md space-y-4" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
             ${sim.active ? this._simulatorPanel(cfg, ev, simEv) : ''}
 
-            <!-- V37.0.0 — METAS DO PERÍODO. V40.11.3 — Receita + CAC agora são
-                 dois cards de triangulação (Real · Proj · Meta) lado a lado. -->
-            <div class="space-y-3">
-              <p class="text-[10px] font-black text-slate-500 uppercase tracking-wider">Metas · ${Utils.escape(currentPeriodLabel)}</p>
+            <!-- V40.11.13 — Bloco Metas: header reforçado (ícone target + texto sm),
+                 3 cards triangulares dentro do MESMO bloco (Receita, CAC, Vendas) com
+                 space-y-5 entre cards pra Gestalt da proximidade ficar clara. -->
+            <div class="space-y-5">
+              <div class="flex items-center gap-2 pb-1.5 border-b border-stone-300">
+                <i data-lucide="target" class="w-4 h-4 text-slate-700"></i>
+                <p class="text-sm font-black text-slate-700 uppercase tracking-wider">Metas · ${Utils.escape(currentPeriodLabel)}</p>
+              </div>
               ${this._revenueCard(productId, currentPeriodLabel)}
               ${this._cacCard(productId, currentPeriodLabel)}
+              ${this._salesCard(productId, currentPeriodLabel)}
             </div>
-
-            <!-- V40.11.6 — Bloco "Indicadores principais (cascata RevOps)" removido.
-                 CTC e Fat. Bruto não eram triangulação Real/Proj/Meta e quebravam o
-                 vocabulário visual. Página vira tríade pura de cards triangulares. -->
-            ${this._salesCard(productId, currentPeriodLabel)}
 
             ${sim.active ? this._simulatorEbitdaCompare(ev, simEv) : ''}
             ${this._scenarioCompareBlock(cfg, ev)}
@@ -1925,10 +1925,10 @@
       const _projTop = _collision ? 'top-10' : 'top-5';
 
       const regua = `
-        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-10">
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 ${_collision ? 'mb-12' : 'mb-8'}">
           ${metaRevenue > 0 ? `
-            <span class="absolute -top-3.5 text-[8px] font-bold text-slate-500 -translate-x-1/2 select-none pointer-events-none" style="left: ${_ghostPos.toFixed(1)}%;">hoje</span>
-            <div class="absolute -top-1 w-0.5 h-3.5 bg-slate-500 opacity-90 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
+            <span class="absolute -top-4 text-[9px] font-black uppercase tracking-wider text-slate-600 -translate-x-1/2 select-none pointer-events-none" style="left: ${_ghostPos.toFixed(1)}%;">hoje</span>
+            <div class="absolute -top-1.5 w-0.5 h-4 bg-slate-600 opacity-90 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
             <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
             <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
               <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
@@ -1937,6 +1937,7 @@
           ` : ''}
           ${projectedRevenue > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
+            ${_collision ? `<div class="absolute w-px border-l border-dashed border-violet-300" style="left: ${projPos.toFixed(1)}%; top: 0.6rem; height: 1.8rem; transform: translateX(-50%);"></div>` : ''}
             <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
               <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
               ${metaRevenue > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
@@ -2023,13 +2024,13 @@
           </div>
         </details>`;
 
-      // V40.11.12 — Anti-colisão de labels Realizado/Projetado quando proximos
+      // V40.11.13 — Anti-colisão + fio conector quando label desce
       const _collision = realCAC > 0 && projectedCAC > 0 && Math.abs(realPos - projPos) < 12;
       const _projTop = _collision ? 'top-10' : 'top-5';
 
-      // Régua: barra cinza + 3 marcadores absolutos. Sem linha "hoje" — CAC é taxa contínua.
+      // Régua: barra cinza + 3 marcadores. CAC sem linha "hoje" (taxa contínua).
       const regua = `
-        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-10">
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 ${_collision ? 'mb-12' : 'mb-8'}">
           ${metaCAC > 0 ? `
             <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
             <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
@@ -2039,6 +2040,7 @@
           ` : ''}
           ${projectedCAC > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
+            ${_collision ? `<div class="absolute w-px border-l border-dashed border-violet-300" style="left: ${projPos.toFixed(1)}%; top: 0.6rem; height: 1.8rem; transform: translateX(-50%);"></div>` : ''}
             <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
               <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
               ${metaCAC > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
@@ -2058,12 +2060,12 @@
       const realCacClass = realExceedsMeta ? 'text-rose-700' : 'text-slate-900';
       const projCacClass = projectedExceedsMeta ? 'text-rose-700' : 'text-slate-700';
 
-      // V40.11.12 — Threshold absurd 5× → 2× (CAC raramente dobra em operação calibrada).
+      // V40.11.13 — Banner amber compactado: uma linha curta, inline-flex, padding mínimo.
       const metaAbsurd = metaCAC > 0 && projectedCAC > 0 && (projectedCAC / metaCAC) > 2;
       const absurdAlert = metaAbsurd ? `
-        <div class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 mb-3 flex items-start gap-2 text-[11px] text-amber-800">
-          <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mt-0.5 shrink-0"></i>
-          <span><b>Meta provavelmente incorreta.</b> Projetado é ${(projectedCAC / metaCAC).toFixed(1)}× maior que a meta — revise o valor em Modelagem.</span>
+        <div class="rounded-md bg-amber-50 border border-amber-200 px-2 py-1 mb-2 inline-flex items-center gap-1.5 text-[10px] text-amber-800">
+          <i data-lucide="alert-triangle" class="w-3 h-3 shrink-0"></i>
+          <span><b>Meta ${(projectedCAC / metaCAC).toFixed(1)}× pequena</b> · revise em Modelagem</span>
         </div>
       ` : '';
 
@@ -2084,9 +2086,7 @@
             <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
             ${realCAC > 0
               ? `<p class="text-3xl font-black ${realCacClass} mt-0.5 truncate leading-tight">${fmt(realCAC)}</p>`
-              : `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-stone-100 border border-stone-200 text-[10px] font-bold text-slate-500 mt-1.5">
-                  <i data-lucide="clock" class="w-3 h-3"></i> Aguardando Ads
-                </span>`
+              : `<p class="text-3xl font-black text-stone-300 mt-0.5 truncate leading-tight" title="Aguardando pull de gasto Ads">—</p>`
             }
           </div>
           <div class="min-w-0">
@@ -2151,10 +2151,10 @@
       const _projTop = _collision ? 'top-10' : 'top-5';
 
       const regua = `
-        <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-10">
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 ${_collision ? 'mb-12' : 'mb-8'}">
           ${metaSales > 0 ? `
-            <span class="absolute -top-3.5 text-[8px] font-bold text-slate-500 -translate-x-1/2 select-none pointer-events-none" style="left: ${_ghostPos.toFixed(1)}%;">hoje</span>
-            <div class="absolute -top-1 w-0.5 h-3.5 bg-slate-500 opacity-90 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
+            <span class="absolute -top-4 text-[9px] font-black uppercase tracking-wider text-slate-600 -translate-x-1/2 select-none pointer-events-none" style="left: ${_ghostPos.toFixed(1)}%;">hoje</span>
+            <div class="absolute -top-1.5 w-0.5 h-4 bg-slate-600 opacity-90 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
             <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
             <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
               <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
@@ -2163,6 +2163,7 @@
           ` : ''}
           ${projectedSales > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
+            ${_collision ? `<div class="absolute w-px border-l border-dashed border-violet-300" style="left: ${projPos.toFixed(1)}%; top: 0.6rem; height: 1.8rem; transform: translateX(-50%);"></div>` : ''}
             <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap" style="left: ${projPos.toFixed(1)}%;">
               <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
               ${metaSales > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}

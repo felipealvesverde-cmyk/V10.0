@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.13',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: polidura² Leonardo — fio conector, "—" elegante, banner enxuto, header reforçado',
+    bullets: [
+      'Onda 7 do Leonardo (polidura sobre a polidura). Foram 7 ajustes cirúrgicos sobre a tríade que já estava boa mas tinha micro-defeitos.',
+      'Fio conector pontilhado violet entre marcador e label quando o label desce pra second-row (anti-colisão). Antes parecia label perdido no espaço; agora linka visualmente "essa bolinha pertence a esse texto".',
+      'Pílula "Aguardando Ads" no CAC virou um simples "—" em text-3xl text-stone-300 — mesmo tamanho dos outros números, mantém a grid balanceada. Tooltip explica origem.',
+      'Banner "Meta provavelmente incorreta" no CAC encolheu de full-width 55px pra inline-flex 28px: "⚠ Meta 2.3× pequena · revise em Modelagem". Compacto, não empurra a régua.',
+      'Label "hoje" da régua subiu de text-[8px] pra text-[9px] font-black uppercase + slate-600 + linha h-4. Antes invisível, agora se lê.',
+      'mb da régua virou condicional: mb-12 quando há colisão (precisa de espaço pro label descido), mb-8 quando não há. Cards sem colisão não desperdiçam altura.',
+      'Bloco "METAS · JUN DE 2026" virou header de verdade: ícone target + text-sm font-black slate-700 + linha divisória embaixo. Antes era text-[10px] quase invisível.',
+      'Os 3 cards (Receita, CAC, Vendas) agora vivem no MESMO bloco "Metas" com space-y-5. Antes Vendas estava num bloco separado, sem agrupamento visual.'
+    ]
+  },
+  {
     version: 'V40.11.12',
     date: '2026-06-21',
     title: 'RevOps · Resultado: polidura final — anti-colisão, placeholder Ads, threshold meta CAC, "hoje" visível',
