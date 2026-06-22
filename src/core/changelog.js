@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.25',
+    date: '2026-06-21',
+    title: 'Demo · Pipeline Google Ads → S&M → CAC fechado (auto-bootstrap + popula gasto sintético)',
+    bullets: [
+      'Novo endpoint /api/admin-populate-demo-google-ads que fecha o ciclo Google Ads → S&M → CAC.',
+      'Auto-bootstrap da tabela lj_google_ads_campaigns_daily no tenant DB do demo (idempotente, espelha tenant-db-schema.sql).',
+      'Cria N campanhas Google Ads sintéticas (1 por campanha LJ ativa do produto), distribui gasto 30d (cost_micros, impressions, clicks, conversions coerentes).',
+      'Vincula em state.campaigns[].externalLinks.googleAds — quando V35.9.1 recomputeAcquisitionAutoItem rodar, o item [LJ]Google ads aparece em revopsFinanceV2.groups[bucket=acquisition].',
+      'Combinado com V40.11.24 (productMediaInvestment lê de revopsFinanceV2), o CAC Realizado reflete gasto Ads de verdade — sem cliente digitar mediaInvestment manual.',
+      'Body aceita manualSmItems opcional pra cravar items manuais (time comercial, marketing brand) que ficam ao lado do item auto. S&M total = auto Google Ads + manuais.',
+      'Retorna delta (campaigns + productFinance) — evita achado #15.'
+    ]
+  },
+  {
     version: 'V40.11.24',
     date: '2026-06-21',
     title: 'Fix CORE · CAC Realizado e Projetado bebem da mesma S&M (Composição V2)',
