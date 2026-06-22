@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.32',
+    date: '2026-06-22',
+    title: 'RevOps Equilíbrio · Nova seção KPIs Avançados (ROAS, Payback, %CAC/TM, Margem MCU%)',
+    bullets: [
+      'Adicionada seção colapsável "KPIs Avançados" entre o Breakeven e os KPIs Personalizados. Default colapsado — abre só quando o cliente quer ver.',
+      '4 cards auto-calculados que tipicamente esbarramos em RevOps: ROAS (fat_bruto ÷ aquisição), Payback CAC (cac ÷ msu), %CAC do Ticket (cac ÷ tm), Margem MCU % (mcu ÷ tm). Tons semânticos (violet/amber/rose/emerald).',
+      'Pra Pilsen calibrada: ROAS 9,6× · Payback 0,12 venda · %CAC/TM 10,4% · Margem MCU 95,4%. Cliente vê em um relance se a operação está sadia em 4 dimensões diferentes da cascata principal.',
+      'Edge cases honestos: divisão por 0 vira "—" (sem aquisição → ROAS indefinido), operação no vermelho mostra "Operação no vermelho" no Payback em vez de número absurdo. Lei feedback_no_source_no_dash.',
+      'Seção "KPIs Custom (fórmula livre)" renomeada pra "KPIs Personalizados" — fica embaixo, intacta, pra clientes que queiram criar fórmulas próprias. Sem perda de funcionalidade.',
+      'Estrutura global — todo tenant ganha os 4 KPIs sem precisar cadastrar nada.'
+    ]
+  },
+  {
     version: 'V40.11.31',
     date: '2026-06-22',
     title: 'RevOps Equilíbrio · Polidores no Custo Fixo e Breakeven (formatação BR + folga gigante legível)',
