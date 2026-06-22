@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.33',
+    date: '2026-06-22',
+    title: 'RevOps Equilíbrio · Removida seção "KPIs Personalizados" (fórmula livre) — substituída pelos KPIs Avançados',
+    bullets: [
+      'A seção "KPIs Personalizados (fórmula livre)" foi descontinuada da UI. A feature pedia que o cliente escrevesse fórmulas tipo Excel — poder alto, uso baixo, fricção real pra novato.',
+      'Substituição: a seção "KPIs Avançados" (V40.11.32) cobre os 4 KPIs universais (ROAS, Payback, %CAC/TM, Margem MCU%) sem cadastro nem fricção. Cliente abre o chevron e vê tudo calculado.',
+      'Dados em journey_state preservados: nenhum tenant perde KPIs custom que tenha cadastrado. UI desaparece, dados continuam vivos. Reativar é descomentar 1 trecho.',
+      'Engine, actions e helpers permanecem dormentes (zero CPU adicional, zero risco). Snapshots/exports continuam funcionando.',
+      'Único efeito downstream: o prompt do Djow RevOps lateral deixa de listar KPIs custom quando cliente não tem nenhum cadastrado. Quem tem, continua vendo.'
+    ]
+  },
+  {
     version: 'V40.11.32',
     date: '2026-06-22',
     title: 'RevOps Equilíbrio · Nova seção KPIs Avançados (ROAS, Payback, %CAC/TM, Margem MCU%)',
