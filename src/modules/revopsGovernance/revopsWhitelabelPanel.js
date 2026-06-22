@@ -1914,10 +1914,20 @@
           </div>
         </details>`;
 
-      // Régua: barra cinza + 3 marcadores absolutos posicionados em % da escala
+      // V40.11.11 — Linha fantasma "hoje" na régua: referência temporal cinza
+      // posicionada em (dia_atual / dias_do_mês) × metaPos. Mostra onde o
+      // Realizado "deveria estar" se a operação estivesse on-track com o calendário.
+      const _now = new Date();
+      const _day = _now.getDate();
+      const _totalDays = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).getDate();
+      const _monthRatio = _day / _totalDays;
+      const _ghostPos = metaRevenue > 0 ? _monthRatio * metaPos : 0;
+
+      // Régua: barra cinza + linha fantasma "hoje" + 3 marcadores absolutos
       const regua = `
         <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-8">
           ${metaRevenue > 0 ? `
+            <div class="absolute -top-0.5 w-px h-2.5 bg-slate-400 opacity-60 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
             <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
             <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
               <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
@@ -2043,6 +2053,16 @@
       const realCacClass = realExceedsMeta ? 'text-rose-700' : 'text-slate-900';
       const projCacClass = projectedExceedsMeta ? 'text-rose-700' : 'text-slate-700';
 
+      // V40.11.11 — Detector de meta absurda: se Projetado é >5× a Meta, provavelmente
+      // alguém digitou Meta errada (ex: R$ 1 em vez de R$ 1.000).
+      const metaAbsurd = metaCAC > 0 && projectedCAC > 0 && (projectedCAC / metaCAC) > 5;
+      const absurdAlert = metaAbsurd ? `
+        <div class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 mb-3 flex items-start gap-2 text-[11px] text-amber-800">
+          <i data-lucide="alert-triangle" class="w-3.5 h-3.5 mt-0.5 shrink-0"></i>
+          <span><b>Meta provavelmente incorreta.</b> Projetado é ${Math.round(projectedCAC / metaCAC)}× maior que a meta — revise o valor em Modelagem.</span>
+        </div>
+      ` : '';
+
       return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #AB3ED8;">
         <div class="flex items-center justify-between gap-2 mb-4">
           <p class="text-xs font-black uppercase tracking-widest inline-flex items-center gap-1.5" style="color: #6D28D9;">
@@ -2052,6 +2072,8 @@
           </p>
           ${this._healthBadge(realCAC, metaCAC, 'lower')}
         </div>
+
+        ${absurdAlert}
 
         <div class="grid grid-cols-3 gap-3 mb-2 items-end">
           <div class="min-w-0">
@@ -2110,9 +2132,17 @@
           </div>
         </details>`;
 
+      // V40.11.11 — Linha fantasma "hoje" (referência temporal)
+      const _now = new Date();
+      const _day = _now.getDate();
+      const _totalDays = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).getDate();
+      const _monthRatio = _day / _totalDays;
+      const _ghostPos = metaSales > 0 ? _monthRatio * metaPos : 0;
+
       const regua = `
         <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-8">
           ${metaSales > 0 ? `
+            <div class="absolute -top-0.5 w-px h-2.5 bg-slate-400 opacity-60 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
             <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
             <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
               <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
