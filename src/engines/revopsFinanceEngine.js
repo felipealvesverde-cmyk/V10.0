@@ -480,8 +480,31 @@ var RevopsFinanceEngine = {
     return total;
   },
 
+  // V40.11.24 — Fonte primária do CAC Realizado vira a S&M da Composição V2
+  // (revopsFinanceV2.groups[bucket=acquisition]). Mesma fonte do Projetado CAC.
+  // Diferença CAC Projetado vs Realizado fica no DENOMINADOR (vendas CRM vs
+  // vendas Checkout), não no numerador. Google Ads pull alimenta o item
+  // auto-google-ads dentro dessa S&M (V35.9.1), então Realizado reflete gasto
+  // real sem cliente precisar digitar mediaInvestment manualmente nas campanhas.
+  //
+  // Fallback pra tenants antigos: se Composição V2 não tem bucket=acquisition
+  // com items, lê de campaigns[].mediaInvestment + revopsFinance V1 (legado).
   productMediaInvestment(productId) {
     if (!productId || !window.App?.state) return 0;
+
+    // Primário: acquisitionTotal da Composição V2 (respeita calc modes:
+    // fixed, percent_self, percent_of, derived, custom_formula).
+    const v2 = window.App.state.revopsFinanceV2?.[productId];
+    const hasAcquisition = v2?.groups
+      && v2.groups.some(g => g.bucket === 'acquisition' && Array.isArray(g.items) && g.items.length > 0);
+    if (hasAcquisition && window.RevopsWhitelabelEngine?.evaluate) {
+      try {
+        const ev = window.RevopsWhitelabelEngine.evaluate(v2);
+        if (ev && typeof ev.acquisitionTotal === 'number') return ev.acquisitionTotal;
+      } catch (_) { /* fallback abaixo */ }
+    }
+
+    // Fallback legacy: campaigns[].mediaInvestment manual + revopsFinance V1
     let total = 0;
     for (const campaign of (App.state.campaigns || [])) {
       if (Number(campaign.productId) !== Number(productId)) continue;
