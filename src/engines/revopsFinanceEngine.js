@@ -584,6 +584,17 @@ var RevopsFinanceEngine = {
     return cents / 100;
   },
 
+  // V40.11.26 — TM Realizado: SUM(value_cents)/COUNT(*) das vendas Hotmart
+  // approved do produto últimos 30d. Hoje é alias semântico de productCrmTicket
+  // (que já lê de pipeline-velocity-summary.byProduct[].avg_ticket). Mantemos
+  // os dois nomes: "crmTicket" pra calls antigas (Receita Realizada usa proxy
+  // CRM), "realTicket" pra calls que querem nomear "verdade do Checkout" sem
+  // ambiguidade. Quando CRM granular plugar, productCrmTicket muda fonte SEM
+  // afetar este aqui (que continua sempre Checkout).
+  productRealTicket(productId) {
+    return this.productCrmTicket(productId);
+  },
+
   // Realizado: soma das vendas Checkout aprovadas últimos 30d.
   productRealRevenue(productId) {
     return this.productConvertedCount(productId) * this.productCrmTicket(productId);

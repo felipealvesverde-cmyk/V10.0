@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.26',
+    date: '2026-06-22',
+    title: 'RevOps · Ticket Médio ganha face dupla (Projetado das Ofertas · Realizado do Checkout)',
+    bullets: [
+      'O card "Ticket Médio Calculado" da aba Ofertas e a linha "TM · Ticket Médio" do Equilíbrio da Operação agora mostram Projetado e Realizado lado a lado.',
+      'Projetado segue como hoje — média ponderada das ofertas cadastradas (preço × mix).',
+      'Realizado vem do Checkout: SUM(value_cents)/COUNT(*) das vendas Hotmart approved do produto nos últimos 30 dias. Se o tenant não tem dado, mostra placeholder honesto ("—") em vez de inventar.',
+      'Badge de divergência (+/-N%) aparece quando Real foge ≥10% do Projetado. Acima de 25% surge linha de orientação: "revise preço ou mix das ofertas".',
+      'Estrutura é global — qualquer tenant Hotmart real já recebe product.id no payload do webhook, então o número aparece naturalmente. Sansone vai ver assim que o próximo lote de purchases chegar.',
+      'Cascata abaixo (MCU/MSU/Breakeven) ainda segue Projetado por enquanto — desplugar pra Realizado é o próximo passo da onda RevOps Equilíbrio.'
+    ]
+  },
+  {
     version: 'V40.11.25',
     date: '2026-06-21',
     title: 'Demo · Pipeline Google Ads → S&M → CAC fechado (auto-bootstrap + popula gasto sintético)',
