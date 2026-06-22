@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.10',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: cards encolhem ~30% — subtítulo vira tooltip, rastreio colapsa',
+    bullets: [
+      'Onda 4 do Leonardo entregue. Cada card carregava ~5 zonas verticais: header, subtítulo poético, 3 números, régua, rastreio (4 linhas cinza). × 3 cards = 15 zonas. Página pesava.',
+      'Subtítulo poético ("A vida da operação...", "O preço de cada cliente...", "Quantas vendas tivemos...") saiu da view padrão. Virou tooltip no ícone "info" ao lado do título — passa o mouse, lê. Libera 24px por card.',
+      'Rastreio cinza (4 linhas explicando origem de cada número) virou bloco colapsado "▸ Como esse número foi calculado?". Click pra abrir, click pra fechar (HTML details nativo, sem JS). Libera 60-80px por card quando colapsado.',
+      'Cards encolhem ~30% de altura. Página vira tríade enxuta: 3 cards triangulares respiráveis no topo, com badge de saúde e número protagonista. Subtítulo e rastreio acessíveis em 1 clique.'
+    ]
+  },
+  {
     version: 'V40.11.9',
     date: '2026-06-21',
     title: 'RevOps · Resultado: pulse semafórico de saúde + cor inversa no CAC quando estoura',

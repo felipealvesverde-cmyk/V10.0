@@ -1899,14 +1899,20 @@
       const moneyDigits = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
       const fmt = (v) => moneyDigits.format(Number(v) || 0);
 
-      // Rastreio cinza — selo de procedência de cada número
+      // Rastreio cinza — selo de procedência (V40.11.10: colapsa via details)
       const rastreio = `
-        <div class="pt-3 border-t border-stone-200 space-y-1 text-[11px] text-slate-500">
-          <p><span class="font-bold text-slate-600">Realizado:</span> ${convertedCount.toLocaleString('pt-BR')} vendas aprovadas no Checkout (últimos 30d)</p>
-          <p><span class="font-bold text-slate-600">Projetado:</span> ${crmProjectedSales.toLocaleString('pt-BR')} vendas projetadas no funil do CRM × ${this._moneyPrecise(crmTicket)} ticket CRM</p>
-          <p><span class="font-bold text-slate-600">Meta:</span> ${metaSales > 0 ? `soma de ${metaSales.toLocaleString('pt-BR')} vendas configuradas em Ofertas` : 'sem meta configurada · ajuste em Ofertas'}</p>
-          ${summary.sourceLabel ? `<p class="italic pt-1">Fonte atual: ${summary.sourceLabel}</p>` : ''}
-        </div>`;
+        <details class="pt-3 border-t border-stone-200 group">
+          <summary class="text-[10px] font-black text-slate-500 hover:text-slate-700 cursor-pointer uppercase tracking-widest inline-flex items-center gap-1 select-none">
+            <i data-lucide="chevron-right" class="w-3 h-3 transition-transform group-open:rotate-90"></i>
+            Como esse número foi calculado?
+          </summary>
+          <div class="space-y-1 text-[11px] text-slate-500 mt-2 pl-4">
+            <p><span class="font-bold text-slate-600">Realizado:</span> ${convertedCount.toLocaleString('pt-BR')} vendas aprovadas no Checkout (últimos 30d)</p>
+            <p><span class="font-bold text-slate-600">Projetado:</span> ${crmProjectedSales.toLocaleString('pt-BR')} vendas projetadas no funil do CRM × ${this._moneyPrecise(crmTicket)} ticket CRM</p>
+            <p><span class="font-bold text-slate-600">Meta:</span> ${metaSales > 0 ? `soma de ${metaSales.toLocaleString('pt-BR')} vendas configuradas em Ofertas` : 'sem meta configurada · ajuste em Ofertas'}</p>
+            ${summary.sourceLabel ? `<p class="italic pt-1">Fonte atual: ${summary.sourceLabel}</p>` : ''}
+          </div>
+        </details>`;
 
       // Régua: barra cinza + 3 marcadores absolutos posicionados em % da escala
       const regua = `
@@ -1935,14 +1941,14 @@
         </div>`;
 
       return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #F6DB5C;">
-        <div class="flex items-center justify-between gap-2 mb-1">
+        <div class="flex items-center justify-between gap-2 mb-4">
           <p class="text-xs font-black uppercase tracking-widest inline-flex items-center gap-1.5" style="color: #92660D;">
             <span class="w-2 h-2 rounded-full" style="background: #F6DB5C;"></span>
             Receita · ${Utils.escape(currentPeriodLabel)}
+            <i data-lucide="info" class="w-3 h-3 text-slate-400 hover:text-slate-600 cursor-help ml-1" title="A vida da operação: o que entrou, o que vai entrar, o que se comprometeu a entregar."></i>
           </p>
           ${this._healthBadge(realRevenue, metaRevenue, 'higher')}
         </div>
-        <p class="text-sm text-slate-500 mb-4">A vida da operação: o que entrou, o que vai entrar, o que se comprometeu a entregar.</p>
 
         <div class="grid grid-cols-3 gap-3 mb-2 items-end">
           <div class="min-w-0">
@@ -1991,14 +1997,20 @@
       const moneyDigits = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
       const fmt = (v) => moneyDigits.format(Number(v) || 0);
 
-      // Rastreio cinza — selo de procedência de cada número
+      // Rastreio cinza — selo de procedência (V40.11.10: colapsa via details)
       const rastreio = `
-        <div class="pt-3 border-t border-stone-200 space-y-1 text-[11px] text-slate-500">
-          <p><span class="font-bold text-slate-600">Realizado:</span> ${this._money(mediaInvestment)} de mídia ÷ ${convertedCount.toLocaleString('pt-BR')} vendas Checkout</p>
-          <p><span class="font-bold text-slate-600">Projetado:</span> ${this._money(ctcModel)} CTC da composição ÷ ${Math.round(projectedSales).toLocaleString('pt-BR')} vendas projetadas</p>
-          <p><span class="font-bold text-slate-600">Meta:</span> ${metaCAC > 0 ? `${this._money(metaCAC)} cravado para o período` : 'sem meta configurada · ajuste abaixo'}</p>
-          ${summary.sourceLabel ? `<p class="italic pt-1">Fonte atual: ${summary.sourceLabel}</p>` : ''}
-        </div>`;
+        <details class="pt-3 border-t border-stone-200 group">
+          <summary class="text-[10px] font-black text-slate-500 hover:text-slate-700 cursor-pointer uppercase tracking-widest inline-flex items-center gap-1 select-none">
+            <i data-lucide="chevron-right" class="w-3 h-3 transition-transform group-open:rotate-90"></i>
+            Como esse número foi calculado?
+          </summary>
+          <div class="space-y-1 text-[11px] text-slate-500 mt-2 pl-4">
+            <p><span class="font-bold text-slate-600">Realizado:</span> ${this._money(mediaInvestment)} de mídia ÷ ${convertedCount.toLocaleString('pt-BR')} vendas Checkout</p>
+            <p><span class="font-bold text-slate-600">Projetado:</span> ${this._money(ctcModel)} CTC da composição ÷ ${Math.round(projectedSales).toLocaleString('pt-BR')} vendas projetadas</p>
+            <p><span class="font-bold text-slate-600">Meta:</span> ${metaCAC > 0 ? `${this._money(metaCAC)} cravado para o período` : 'sem meta configurada · ajuste abaixo'}</p>
+            ${summary.sourceLabel ? `<p class="italic pt-1">Fonte atual: ${summary.sourceLabel}</p>` : ''}
+          </div>
+        </details>`;
 
       // Régua: barra cinza + 3 marcadores absolutos posicionados em % da escala
       const regua = `
@@ -2032,14 +2044,14 @@
       const projCacClass = projectedExceedsMeta ? 'text-rose-700' : 'text-slate-700';
 
       return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #AB3ED8;">
-        <div class="flex items-center justify-between gap-2 mb-1">
+        <div class="flex items-center justify-between gap-2 mb-4">
           <p class="text-xs font-black uppercase tracking-widest inline-flex items-center gap-1.5" style="color: #6D28D9;">
             <span class="w-2 h-2 rounded-full" style="background: #AB3ED8;"></span>
             CAC · ${Utils.escape(currentPeriodLabel)}
+            <i data-lucide="info" class="w-3 h-3 text-slate-400 hover:text-slate-600 cursor-help ml-1" title="O preço de cada cliente novo. Menor é melhor — meta é o teto que a operação não quer cruzar."></i>
           </p>
           ${this._healthBadge(realCAC, metaCAC, 'lower')}
         </div>
-        <p class="text-sm text-slate-500 mb-4">O preço de cada cliente novo. Menor é melhor — meta é o teto que a operação não quer cruzar.</p>
 
         <div class="grid grid-cols-3 gap-3 mb-2 items-end">
           <div class="min-w-0">
@@ -2085,12 +2097,18 @@
       const fmt = (v) => Math.round(Number(v) || 0).toLocaleString('pt-BR');
 
       const rastreio = `
-        <div class="pt-3 border-t border-stone-200 space-y-1 text-[11px] text-slate-500">
-          <p><span class="font-bold text-slate-600">Realizado:</span> ${fmt(realSales)} vendas aprovadas no Checkout (últimos 30d)</p>
-          <p><span class="font-bold text-slate-600">Projetado:</span> ${fmt(projectedSales)} vendas cadenciadas no funil do CRM</p>
-          <p><span class="font-bold text-slate-600">Meta:</span> ${metaSales > 0 ? `soma de ${fmt(metaSales)} vendas configuradas em Ofertas` : 'sem meta configurada · ajuste em Ofertas'}</p>
-          ${summary.sourceLabel ? `<p class="italic pt-1">Fonte atual: ${summary.sourceLabel}</p>` : ''}
-        </div>`;
+        <details class="pt-3 border-t border-stone-200 group">
+          <summary class="text-[10px] font-black text-slate-500 hover:text-slate-700 cursor-pointer uppercase tracking-widest inline-flex items-center gap-1 select-none">
+            <i data-lucide="chevron-right" class="w-3 h-3 transition-transform group-open:rotate-90"></i>
+            Como esse número foi calculado?
+          </summary>
+          <div class="space-y-1 text-[11px] text-slate-500 mt-2 pl-4">
+            <p><span class="font-bold text-slate-600">Realizado:</span> ${fmt(realSales)} vendas aprovadas no Checkout (últimos 30d)</p>
+            <p><span class="font-bold text-slate-600">Projetado:</span> ${fmt(projectedSales)} vendas cadenciadas no funil do CRM</p>
+            <p><span class="font-bold text-slate-600">Meta:</span> ${metaSales > 0 ? `soma de ${fmt(metaSales)} vendas configuradas em Ofertas` : 'sem meta configurada · ajuste em Ofertas'}</p>
+            ${summary.sourceLabel ? `<p class="italic pt-1">Fonte atual: ${summary.sourceLabel}</p>` : ''}
+          </div>
+        </details>`;
 
       const regua = `
         <div class="relative h-1.5 bg-stone-200 rounded-full mt-6 mb-8">
@@ -2118,14 +2136,14 @@
         </div>`;
 
       return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #00CBCC;">
-        <div class="flex items-center justify-between gap-2 mb-1">
+        <div class="flex items-center justify-between gap-2 mb-4">
           <p class="text-xs font-black uppercase tracking-widest inline-flex items-center gap-1.5" style="color: #0E7490;">
             <span class="w-2 h-2 rounded-full" style="background: #00CBCC;"></span>
             Vendas · ${Utils.escape(currentPeriodLabel)}
+            <i data-lucide="info" class="w-3 h-3 text-slate-400 hover:text-slate-600 cursor-help ml-1" title="Quantas vendas tivemos: o que entrou, o que está cadenciando, o que se prometeu."></i>
           </p>
           ${this._healthBadge(realSales, metaSales, 'higher')}
         </div>
-        <p class="text-sm text-slate-500 mb-4">Quantas vendas tivemos: o que entrou, o que está cadenciando, o que se prometeu.</p>
 
         <div class="grid grid-cols-3 gap-3 mb-2 items-end">
           <div class="min-w-0">
