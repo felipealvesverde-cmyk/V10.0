@@ -1704,7 +1704,34 @@
 
       const djowPanel = window.DjowRevOpsPanel ? DjowRevOpsPanel.render(productId, 'result') : '';
 
-      return `<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
+      // V40.11.14 — Modal edit-in-place da Meta de CAC.
+      const cacMetaEdit = App.state.cacMetaEditOpen;
+      const cacMetaModal = (cacMetaEdit && String(cacMetaEdit.productId) === String(productId)) ? `
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40" onclick="if(event.target === this) Actions.closeCacMetaEdit()">
+          <div class="bg-white rounded-2xl shadow-xl p-5 w-80 border border-stone-200" style="border-left: 4px solid #AB3ED8;">
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="w-2 h-2 rounded-full" style="background: #AB3ED8;"></span>
+              <h3 class="text-xs font-black uppercase tracking-widest" style="color: #6D28D9;">Meta de CAC · ${Utils.escape(currentPeriodLabel)}</h3>
+            </div>
+            <p class="text-[11px] text-slate-500 mb-4">Quanto você quer pagar, no máximo, pra adquirir cada cliente novo neste período. Menor é melhor.</p>
+            <label class="block">
+              <span class="text-[10px] font-black text-slate-500 uppercase tracking-wider">Valor (R$)</span>
+              <input id="lj-cac-meta-input" type="text" inputmode="decimal" autofocus
+                     value="${Utils.escape(cacMetaEdit.draft)}"
+                     oninput="Utils.applyMoneyMask && Utils.applyMoneyMask(this); Actions.updateCacMetaEditDraft(this.value);"
+                     onkeydown="if(event.key==='Enter'){event.preventDefault();Actions.saveCacMetaEdit();}if(event.key==='Escape'){Actions.closeCacMetaEdit();}"
+                     placeholder="R$ 0,00"
+                     class="mt-0.5 w-full px-3 py-2 rounded-lg bg-white border border-stone-300 text-base font-bold text-slate-800 focus:border-violet-400 focus:outline-none" />
+            </label>
+            <div class="flex items-center gap-2 mt-4">
+              <button onclick="Actions.closeCacMetaEdit()" class="flex-1 px-3 py-2 rounded-lg bg-white border border-stone-300 hover:bg-stone-50 text-xs font-black text-slate-700">Cancelar</button>
+              <button onclick="Actions.saveCacMetaEdit()" class="flex-1 px-3 py-2 rounded-lg bg-violet-600 hover:bg-violet-700 text-xs font-black" style="color:#fff!important;">Salvar</button>
+            </div>
+          </div>
+        </div>
+      ` : '';
+
+      return `${cacMetaModal}<div class="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-4">
         <div class="space-y-3 min-w-0">
           ${this._tabHeader('Resultado · Indicadores', 'Resultado Consolidado', 'A vida da operação em três cards: Receita, CAC e Vendas. Realizado · Projetado · Meta.', rightSide)}
           <section class="rounded-3xl border p-5 shadow-md space-y-4" style="background:#f5f3f0;border-color:#e7e5e0;color-scheme:light;">
@@ -2076,7 +2103,12 @@
             CAC · ${Utils.escape(currentPeriodLabel)}
             <i data-lucide="info" class="w-3 h-3 text-slate-400 hover:text-slate-600 cursor-help ml-1" title="O preço de cada cliente novo. Menor é melhor — meta é o teto que a operação não quer cruzar."></i>
           </p>
-          ${this._healthBadge(realCAC, metaCAC, 'lower')}
+          <div class="flex items-center gap-2">
+            <button onclick="Actions.openCacMetaEdit('${productId}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-widest text-violet-700 hover:bg-violet-50 transition-colors" title="Editar Meta de CAC">
+              <i data-lucide="edit-3" class="w-3 h-3"></i> Meta
+            </button>
+            ${this._healthBadge(realCAC, metaCAC, 'lower')}
+          </div>
         </div>
 
         ${absurdAlert}
