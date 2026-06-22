@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.17',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: régua reescrita do zero — legenda em row embaixo, fim das colisões',
+    bullets: [
+      'Cinco versões tentaram resolver colisão de labels com absolute positioning (V40.11.12 anti-colisão, V40.11.13 fio, V40.11.15 chevron, V40.11.16 mb-20). Cada conserto trazia outro problema. Estratégia errada.',
+      'Régua reescrita do zero. Marcadores ficam SÓ na barra (bolinhas + tick verde). Labels saem do absolute positioning e viram uma LEGENDA em row embaixo da régua: [● Realizado 2%] [● Projetado 8%] [● Meta 100%].',
+      'Sem absolute, sem colisão, sem mb gigante, sem chevron, sem fio. Régua mostra POSIÇÃO, legenda mostra IDENTIDADE — separação limpa de responsabilidades.',
+      'Linha "hoje" mantida na régua (referência temporal). Aplicado nos 3 cards (Receita, CAC, Vendas). Card encolhe ~40px vs versão anterior.'
+    ]
+  },
+  {
     version: 'V40.11.16',
     date: '2026-06-21',
     title: 'RevOps · Resultado: mb da régua sobe pra mb-20 com colisão (label descido não invade mais o rastreio)',

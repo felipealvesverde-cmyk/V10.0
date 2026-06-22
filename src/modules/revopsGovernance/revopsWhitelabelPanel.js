@@ -1941,41 +1941,49 @@
           </div>
         </details>`;
 
-      // V40.11.11 — Linha fantasma "hoje" + V40.11.12 — label "hoje" visível +
-      // anti-colisão de labels Realizado/Projetado quando próximos (< 12%).
+      // V40.11.17 — Régua sem labels posicionais. Marcadores na barra +
+      // legenda em row embaixo (chips com cor · nome · %). Acabou colisão.
       const _now = new Date();
       const _day = _now.getDate();
       const _totalDays = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).getDate();
       const _monthRatio = _day / _totalDays;
       const _ghostPos = metaRevenue > 0 ? _monthRatio * metaPos : 0;
-      const _collision = realRevenue > 0 && projectedRevenue > 0 && Math.abs(realPos - projPos) < 12;
-      const _projTop = _collision ? 'top-10' : 'top-5';
 
       const regua = `
-        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 ${_collision ? 'mb-20' : 'mb-8'}">
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 mb-3">
           ${metaRevenue > 0 ? `
             <span class="absolute -top-4 text-[9px] font-black uppercase tracking-wider text-slate-600 -translate-x-1/2 select-none pointer-events-none" style="left: ${_ghostPos.toFixed(1)}%;">hoje</span>
             <div class="absolute -top-1.5 w-0.5 h-4 bg-slate-600 opacity-90 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
             <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
-            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
-              <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
-              <p class="text-[10px] text-slate-500">100%</p>
-            </div>
           ` : ''}
           ${projectedRevenue > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
-            <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap text-center" style="left: ${projPos.toFixed(1)}%;">
-              ${_collision ? `<i data-lucide="chevron-up" class="w-3 h-3 text-violet-400 inline-block -mb-1"></i>` : ''}
-              <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
-              ${metaRevenue > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
-            </div>
           ` : ''}
           ${realRevenue > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-sky-600 ring-2 ring-white shadow" style="left: ${realPos.toFixed(1)}%; transform: translateX(-50%);"></div>
-            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${realPos.toFixed(1)}%;">
-              <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
-              ${metaRevenue > 0 ? `<p class="text-[10px] text-slate-500">${realPctMeta.toFixed(0)}%</p>` : ''}
-            </div>
+          ` : ''}
+        </div>
+        <div class="flex items-center gap-x-5 gap-y-1 flex-wrap text-[11px] mb-4">
+          ${realRevenue > 0 ? `
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-sky-600"></span>
+              <span class="font-black text-sky-700 uppercase tracking-wider">Realizado</span>
+              ${metaRevenue > 0 ? `<span class="text-slate-500">${realPctMeta.toFixed(0)}%</span>` : ''}
+            </span>
+          ` : ''}
+          ${projectedRevenue > 0 ? `
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-violet-600"></span>
+              <span class="font-black text-violet-700 uppercase tracking-wider">Projetado</span>
+              ${metaRevenue > 0 ? `<span class="text-slate-500">${projPctMeta.toFixed(0)}%</span>` : ''}
+            </span>
+          ` : ''}
+          ${metaRevenue > 0 ? `
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-0.5 h-2.5 bg-emerald-600"></span>
+              <span class="font-black text-emerald-700 uppercase tracking-wider">Meta</span>
+              <span class="text-slate-500">100%</span>
+            </span>
           ` : ''}
         </div>`;
 
@@ -2051,34 +2059,40 @@
           </div>
         </details>`;
 
-      // V40.11.13 — Anti-colisão + fio conector quando label desce
-      const _collision = realCAC > 0 && projectedCAC > 0 && Math.abs(realPos - projPos) < 12;
-      const _projTop = _collision ? 'top-10' : 'top-5';
-
-      // Régua: barra cinza + 3 marcadores. CAC sem linha "hoje" (taxa contínua).
+      // V40.11.17 — Régua sem labels posicionais. Marcadores + legenda em row.
       const regua = `
-        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 ${_collision ? 'mb-20' : 'mb-8'}">
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 mb-3">
           ${metaCAC > 0 ? `
             <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
-            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
-              <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
-              <p class="text-[10px] text-slate-500">100%</p>
-            </div>
           ` : ''}
           ${projectedCAC > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
-            <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap text-center" style="left: ${projPos.toFixed(1)}%;">
-              ${_collision ? `<i data-lucide="chevron-up" class="w-3 h-3 text-violet-400 inline-block -mb-1"></i>` : ''}
-              <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
-              ${metaCAC > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
-            </div>
           ` : ''}
           ${realCAC > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-sky-600 ring-2 ring-white shadow" style="left: ${realPos.toFixed(1)}%; transform: translateX(-50%);"></div>
-            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${realPos.toFixed(1)}%;">
-              <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
-              ${metaCAC > 0 ? `<p class="text-[10px] text-slate-500">${realPctMeta.toFixed(0)}%</p>` : ''}
-            </div>
+          ` : ''}
+        </div>
+        <div class="flex items-center gap-x-5 gap-y-1 flex-wrap text-[11px] mb-4">
+          ${realCAC > 0 ? `
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-sky-600"></span>
+              <span class="font-black text-sky-700 uppercase tracking-wider">Realizado</span>
+              ${metaCAC > 0 ? `<span class="text-slate-500">${realPctMeta.toFixed(0)}%</span>` : ''}
+            </span>
+          ` : ''}
+          ${projectedCAC > 0 ? `
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-violet-600"></span>
+              <span class="font-black text-violet-700 uppercase tracking-wider">Projetado</span>
+              ${metaCAC > 0 ? `<span class="text-slate-500">${projPctMeta.toFixed(0)}%</span>` : ''}
+            </span>
+          ` : ''}
+          ${metaCAC > 0 ? `
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-0.5 h-2.5 bg-emerald-600"></span>
+              <span class="font-black text-emerald-700 uppercase tracking-wider">Meta</span>
+              <span class="text-slate-500">100%</span>
+            </span>
           ` : ''}
         </div>`;
 
@@ -2173,40 +2187,48 @@
           </div>
         </details>`;
 
-      // V40.11.11 + V40.11.12 — Linha fantasma "hoje" visível + anti-colisão
+      // V40.11.17 — Régua sem labels posicionais. Marcadores + legenda em row.
       const _now = new Date();
       const _day = _now.getDate();
       const _totalDays = new Date(_now.getFullYear(), _now.getMonth() + 1, 0).getDate();
       const _monthRatio = _day / _totalDays;
       const _ghostPos = metaSales > 0 ? _monthRatio * metaPos : 0;
-      const _collision = realSales > 0 && projectedSales > 0 && Math.abs(realPos - projPos) < 12;
-      const _projTop = _collision ? 'top-10' : 'top-5';
 
       const regua = `
-        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 ${_collision ? 'mb-20' : 'mb-8'}">
+        <div class="relative h-1.5 bg-stone-200 rounded-full mt-7 mb-3">
           ${metaSales > 0 ? `
             <span class="absolute -top-4 text-[9px] font-black uppercase tracking-wider text-slate-600 -translate-x-1/2 select-none pointer-events-none" style="left: ${_ghostPos.toFixed(1)}%;">hoje</span>
             <div class="absolute -top-1.5 w-0.5 h-4 bg-slate-600 opacity-90 hover:opacity-100 transition-opacity" style="left: ${_ghostPos.toFixed(1)}%;" title="Hoje: dia ${_day} de ${_totalDays} — Realizado deveria estar aqui se on-track."></div>
             <div class="absolute -top-1 w-0.5 h-3.5 bg-emerald-600" style="left: ${metaPos.toFixed(1)}%;"></div>
-            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${metaPos.toFixed(1)}%;">
-              <p class="text-[10px] font-black text-emerald-700 uppercase tracking-wider">Meta</p>
-              <p class="text-[10px] text-slate-500">100%</p>
-            </div>
           ` : ''}
           ${projectedSales > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-violet-600 ring-2 ring-white" style="left: ${projPos.toFixed(1)}%; transform: translateX(-50%);"></div>
-            <div class="absolute ${_projTop} -translate-x-1/2 whitespace-nowrap text-center" style="left: ${projPos.toFixed(1)}%;">
-              ${_collision ? `<i data-lucide="chevron-up" class="w-3 h-3 text-violet-400 inline-block -mb-1"></i>` : ''}
-              <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider">Projetado</p>
-              ${metaSales > 0 ? `<p class="text-[10px] text-slate-500">${projPctMeta.toFixed(0)}%</p>` : ''}
-            </div>
           ` : ''}
           ${realSales > 0 ? `
             <div class="absolute -top-1 w-3 h-3 rounded-full bg-sky-600 ring-2 ring-white shadow" style="left: ${realPos.toFixed(1)}%; transform: translateX(-50%);"></div>
-            <div class="absolute top-5 -translate-x-1/2 whitespace-nowrap" style="left: ${realPos.toFixed(1)}%;">
-              <p class="text-[10px] font-black text-sky-700 uppercase tracking-wider">Realizado</p>
-              ${metaSales > 0 ? `<p class="text-[10px] text-slate-500">${realPctMeta.toFixed(0)}%</p>` : ''}
-            </div>
+          ` : ''}
+        </div>
+        <div class="flex items-center gap-x-5 gap-y-1 flex-wrap text-[11px] mb-4">
+          ${realSales > 0 ? `
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-sky-600"></span>
+              <span class="font-black text-sky-700 uppercase tracking-wider">Realizado</span>
+              ${metaSales > 0 ? `<span class="text-slate-500">${realPctMeta.toFixed(0)}%</span>` : ''}
+            </span>
+          ` : ''}
+          ${projectedSales > 0 ? `
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-violet-600"></span>
+              <span class="font-black text-violet-700 uppercase tracking-wider">Projetado</span>
+              ${metaSales > 0 ? `<span class="text-slate-500">${projPctMeta.toFixed(0)}%</span>` : ''}
+            </span>
+          ` : ''}
+          ${metaSales > 0 ? `
+            <span class="inline-flex items-center gap-1.5">
+              <span class="w-0.5 h-2.5 bg-emerald-600"></span>
+              <span class="font-black text-emerald-700 uppercase tracking-wider">Meta</span>
+              <span class="text-slate-500">100%</span>
+            </span>
           ` : ''}
         </div>`;
 
