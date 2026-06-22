@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.7',
+    date: '2026-06-21',
+    title: 'RevOps · Resultado: paleta semântica nos 3 cards — Receita amarelo, CAC roxo, Vendas ciano',
+    bullets: [
+      'Onda 1 do Leonardo entregue. Os 3 cards triangulares estavam todos pintados de ciano (#00CBCC) — cor que na paleta cravada é só de Vendas. Receita, CAC e Vendas usando a mesma cor apagavam a leitura por significado.',
+      'Cada card agora veste a cor da sua semântica: Receita ganha amarelo Receita (#F6DB5C) na faixa lateral, CAC ganha roxo RevOps (#AB3ED8), Vendas mantém ciano Vendas (#00CBCC). Cliente bate o olho na faixa lateral e sabe o que é antes de ler o título.',
+      'Título dos cards saiu do slate-500 minúsculo (text-[10px]) pra peso black, text-xs, cor escura da família (amber-800 pra Receita, violet-700 pra CAC, cyan-700 pra Vendas). Dot colorido antes do título reforça a identidade visual.',
+      'Próximas ondas do Leonardo conhecidas: hierarquia tipográfica (Realizado vira protagonista), sinal de saúde (pulse semafórico), rastreio vira tooltip, régua adaptativa.'
+    ]
+  },
+  {
     version: 'V40.11.6',
     date: '2026-06-21',
     title: 'RevOps · Resultado: bloco CTC + Fat. Bruto removido — página vira tríade pura',

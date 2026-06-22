@@ -1893,9 +1893,12 @@
           ` : ''}
         </div>`;
 
-      return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #00CBCC;">
+      return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #F6DB5C;">
         <div class="flex items-center justify-between gap-2 mb-1">
-          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Receita · ${Utils.escape(currentPeriodLabel)}</p>
+          <p class="text-xs font-black uppercase tracking-widest inline-flex items-center gap-1.5" style="color: #92660D;">
+            <span class="w-2 h-2 rounded-full" style="background: #F6DB5C;"></span>
+            Receita · ${Utils.escape(currentPeriodLabel)}
+          </p>
         </div>
         <p class="text-sm text-slate-500 mb-4">A vida da operação: o que entrou, o que vai entrar, o que se comprometeu a entregar.</p>
 
@@ -1981,9 +1984,12 @@
           ` : ''}
         </div>`;
 
-      return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #00CBCC;">
+      return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #AB3ED8;">
         <div class="flex items-center justify-between gap-2 mb-1">
-          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">CAC · ${Utils.escape(currentPeriodLabel)}</p>
+          <p class="text-xs font-black uppercase tracking-widest inline-flex items-center gap-1.5" style="color: #6D28D9;">
+            <span class="w-2 h-2 rounded-full" style="background: #AB3ED8;"></span>
+            CAC · ${Utils.escape(currentPeriodLabel)}
+          </p>
         </div>
         <p class="text-sm text-slate-500 mb-4">O preço de cada cliente novo. Menor é melhor — meta é o teto que a operação não quer cruzar.</p>
 
@@ -2065,7 +2071,10 @@
 
       return `<div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" style="border-left: 4px solid #00CBCC;">
         <div class="flex items-center justify-between gap-2 mb-1">
-          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Vendas · ${Utils.escape(currentPeriodLabel)}</p>
+          <p class="text-xs font-black uppercase tracking-widest inline-flex items-center gap-1.5" style="color: #0E7490;">
+            <span class="w-2 h-2 rounded-full" style="background: #00CBCC;"></span>
+            Vendas · ${Utils.escape(currentPeriodLabel)}
+          </p>
         </div>
         <p class="text-sm text-slate-500 mb-4">Quantas vendas tivemos: o que entrou, o que está cadenciando, o que se prometeu.</p>
 
