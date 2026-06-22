@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.24',
+    date: '2026-06-21',
+    title: 'Fix CORE · CAC Realizado e Projetado bebem da mesma S&M (Composição V2)',
+    bullets: [
+      'Bug estrutural que afetava TODOS os tenants: o numerador do CAC Realizado (productMediaInvestment) lia só de campaigns[].mediaInvestment (input manual) + revopsFinance V1 (legacy). NÃO lia da Composição V2 (revopsFinanceV2.groups[bucket=acquisition]).',
+      'Consequência: mesmo cliente com Google Ads conectado (que popula o item auto-google-ads na Composição V2 via V35.9.1) via CAC Realizado zerado se não tivesse digitado mediaInvestment manualmente em cada campanha. Sansone provavelmente afetado.',
+      'Fix: productMediaInvestment agora lê PRIMEIRO de revopsFinanceV2 (via RevopsWhitelabelEngine.evaluate.acquisitionTotal). Mesma fonte que alimenta o Projetado CAC. Diferença Projetado vs Realizado fica no denominador (vendas CRM vs Checkout), não no numerador.',
+      'Fallback preservado: se cliente não cadastrou Composição V2 com bucket=acquisition, lê do caminho legacy (campaigns + V1). Tenants antigos continuam funcionando.',
+      'Arquitetura agora alinhada com lei cravada por Felipe: "Google Ads alimenta S&M, S&M alimenta CAC". Pipeline coerente.'
+    ]
+  },
+  {
     version: 'V40.11.23',
     date: '2026-06-21',
     title: 'Demo · Endpoint admin pra ajustar Composição de Custos (S&M, G&A, variáveis)',
