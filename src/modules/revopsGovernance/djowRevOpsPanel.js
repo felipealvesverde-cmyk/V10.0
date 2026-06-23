@@ -22,10 +22,25 @@ window.DjowRevOpsPanel = {
     if (App.state.revopsDjowTabContext !== tabId) {
       App.state.revopsDjowTabContext = tabId;
     }
+    // V40.12.4 — Sprint 5: persiste productId pro _intro e _adaptiveHint usarem.
+    if (App.state.revopsDjowProductId !== productId) {
+      App.state.revopsDjowProductId = productId;
+    }
     const messages = Array.isArray(App.state.revopsDjowMessages) ? App.state.revopsDjowMessages : [];
     const selected = App.state.revopsDjowSelectedLine;
     const inputVal = App.state.revopsDjowInput || '';
     const stepLabel = selected ? this._stepLabel(selected.afterStep) : null;
+
+    // V40.12.4 — Sprint 5: badge do arquétipo no header.
+    const arch = window.AudienceConsumerEngine
+      ? AudienceConsumerEngine.getArchetype(productId)
+      : null;
+    const archKey = window.AudienceConsumerEngine
+      ? AudienceConsumerEngine.getArchetypeKey(productId)
+      : null;
+    const archHeaderBadge = arch && archKey
+      ? `<span class="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/15 border border-white/20 text-[9px] font-black text-white uppercase tracking-widest" title="${Utils.escape(arch.tagline || '')}"><i data-lucide="target" class="w-2.5 h-2.5"></i>${Utils.escape(arch.label || '')}</span>`
+      : '';
 
     return `<div class="rounded-3xl border-2 border-violet-200 shadow-md overflow-hidden flex flex-col" style="background:#f5f3f0;color-scheme:light;max-height:calc(100vh - 6rem);">
       <header class="bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-3 flex items-center gap-3">
@@ -34,7 +49,7 @@ window.DjowRevOpsPanel = {
         </div>
         <div class="min-w-0 flex-1">
           <p class="text-[9px] font-black text-violet-100 uppercase tracking-widest">Djow · ajudante de fórmulas</p>
-          <h3 class="text-sm font-black text-white">Como posso te ajudar?</h3>
+          <h3 class="text-sm font-black text-white flex items-center gap-2 flex-wrap">Como posso te ajudar? ${archHeaderBadge}</h3>
         </div>
         ${messages.length > 0 ? `<button onclick="Actions.clearDjowRevopsHistory()" title="Limpar conversa" class="text-white/70 hover:text-white text-[10px] font-bold inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/10 hover:bg-white/20">
           <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
@@ -106,7 +121,23 @@ window.DjowRevOpsPanel = {
          <li class="text-emerald-700 font-bold">• <span class="font-mono">"adiciona item Hotmart em variáveis = 5,9% do ticket"</span> ⚡</li>
          <li>• <span class="font-mono">"O que entra em deduções?"</span> (explico)</li>`;
     }
+    // V40.12.4 — Sprint 5: hint adaptativo de tom + foco quando o produto
+    // tem Audiência classificada. Aparece em cima dos exemplos pra dar
+    // "modo de operar" ao Djow no contexto do negócio do cliente.
+    const productId = App.state.revopsDjowProductId;
+    const djowConfig = window.AudienceConsumerEngine
+      ? AudienceConsumerEngine.getDjowConfig(productId)
+      : null;
+    const adaptiveHint = djowConfig?.tone
+      ? `<div class="rounded-xl bg-white border border-violet-200 p-2.5 mb-2">
+          <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider mb-1">Eu vou te responder com:</p>
+          <p class="text-[11px] text-stone-700 leading-relaxed"><b>Tom:</b> ${Utils.escape(djowConfig.tone)}</p>
+          ${djowConfig.focus ? `<p class="text-[11px] text-stone-700 leading-relaxed mt-0.5"><b>Foco:</b> ${Utils.escape(djowConfig.focus)}</p>` : ''}
+        </div>`
+      : '';
+
     return `<div class="rounded-2xl border border-violet-200 bg-violet-50/60 p-3 space-y-1.5">
+      ${adaptiveHint}
       <p class="text-[11px] font-black text-violet-900 leading-snug">Quer ajuda com a fórmula ou com o preenchimento?</p>
       <p class="text-[11px] text-stone-700 leading-snug">Escreve em português que eu monto a fórmula no formato certo. Exemplos:</p>
       <ul class="text-[10px] text-stone-600 space-y-0.5 pl-3">${examples}</ul>

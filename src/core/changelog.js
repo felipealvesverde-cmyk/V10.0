@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.4',
+    date: '2026-06-23',
+    title: 'Audiência V2 · Sprint 5 — RevOps Equilíbrio adaptativo + Djow lateral adaptativo',
+    bullets: [
+      'Continuação da onda V2: agora RevOps Equilíbrio (KPIs Avançados) e Djow lateral também leem o arquétipo da Audiência.',
+      'RevOps Equilíbrio · KPIs Avançados: cada card (ROAS, Payback, %CAC/TM, Margem MCU) ganha uma linha "Saudável: X" abaixo do valor, lendo do arquétipo. Pra B2B Atacado mostra "Payback saudável 3-6 meses"; pra B2C E-commerce Impulso mostra "Payback saudável < 1 mês". ROAS mostra o limiar mínimo do tipo de negócio.',
+      'Header da seção ganha badge do arquétipo + nova linha "Foco do arquétipo" mostrando o que o tipo de negócio prioriza acompanhar (ex: "pipeline coverage + ticket médio do pedido + churn de estabelecimento").',
+      'Djow lateral · header ganha badge do arquétipo. _intro ganha card "Eu vou te responder com:" mostrando tom + foco da conversa pré-configurados pelo arquétipo. Cliente sabe ANTES de perguntar que linguagem o Djow vai usar.',
+      'Pra Pilsen Atacado: Djow vai usar tom "comercial sênior, sem jargão de Ads", focado em "pipeline coverage, win rate, rampagem do SDR, ticket por pedido".',
+      'Pra produto sem Audiência ou sem arquétipo: tudo cai em fallback genérico — sem quebrar nada.'
+    ]
+  },
+  {
     version: 'V40.12.3',
     date: '2026-06-23',
     title: 'Audiência V2 · Sprint 4 — Card de Velocidade adaptativo + banner pra audiências legadas',

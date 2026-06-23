@@ -3054,33 +3054,62 @@
         return `${payback.toFixed(1).replace('.', ',')} vendas`;
       };
 
-      const card = (label, value, formula, tone) => {
+      // V40.12.4 — Sprint 5 da Onda V2 de Audiência: KPIs Avançados leem
+      // ranges saudáveis do arquétipo da Audiência. Cliente vê ROAS atual
+      // vs benchmark do tipo de negócio dele (ex: B2B Wholesale Payback
+      // saudável 3-6 meses; B2C E-commerce Impulso < 1 mês).
+      const revopsConfig = window.AudienceConsumerEngine
+        ? AudienceConsumerEngine.getRevopsConfig(productId)
+        : null;
+      const arch = window.AudienceConsumerEngine
+        ? AudienceConsumerEngine.getArchetype(productId)
+        : null;
+      const archKey = window.AudienceConsumerEngine
+        ? AudienceConsumerEngine.getArchetypeKey(productId)
+        : null;
+
+      const card = (label, value, formula, tone, saudavel) => {
         const t = this._cascadeTone(tone);
         return `<div class="rounded-xl bg-white border border-stone-200 ${t.borderL} p-3 shadow-sm">
           <p class="text-[9px] font-black ${t.pill} uppercase tracking-widest leading-tight">${label}</p>
           <p class="text-xl font-black ${t.text} mt-1.5 leading-tight">${value}</p>
           <p class="text-[10px] text-stone-500 mt-1 font-mono">${formula}</p>
+          ${saudavel ? `<p class="text-[9px] mt-1.5 pt-1.5 border-t border-stone-100 text-stone-500"><span class="font-black">Saudável:</span> ${Utils.escape(saudavel)}</p>` : ''}
         </div>`;
       };
 
       const chevronIcon = isOpen ? 'chevron-down' : 'chevron-right';
       const collapsedHint = isOpen ? '' : `<span class="text-[10px] text-stone-500 font-normal normal-case ml-2">ROAS · Payback · %CAC/TM · Margem MCU</span>`;
 
+      // V40.12.4 — Badge do arquétipo no header quando o produto tem Audiência classificada.
+      const archBadge = arch && archKey
+        ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-violet-50 border border-violet-200 text-[9px] font-black text-violet-700 uppercase tracking-widest ml-2" title="${Utils.escape(arch.tagline || '')}"><i data-lucide="target" class="w-2.5 h-2.5"></i>${Utils.escape(arch.label || '')}</span>`
+        : '';
+
+      // V40.12.4 — Ranges saudáveis derivados do arquétipo, apenas pros que se aplicam.
+      const paybackSaudavel = revopsConfig?.payback_saudavel || null;
+      const roasSaudavel = revopsConfig?.roas_min ? `≥ ${revopsConfig.roas_min}×` : null;
+      // Margem MCU% e %CAC/TM: ranges não estão no catálogo ainda — Sprint 6 pode cravar.
+
       return `<div class="rounded-2xl bg-white/60 border border-stone-200 mt-3">
         <button type="button" onclick="Actions.toggleRevopsAdvancedKpis('${productId}')" class="w-full flex items-center justify-between px-4 py-3 hover:bg-stone-50 transition rounded-2xl">
           <span class="flex items-center gap-2">
             <i data-lucide="${chevronIcon}" class="w-4 h-4 text-stone-500"></i>
             <span class="text-[11px] font-black text-stone-700 uppercase tracking-widest">KPIs Avançados</span>
+            ${archBadge}
             ${collapsedHint}
           </span>
           <span class="text-[10px] text-stone-400 font-normal normal-case">${isOpen ? 'recolher' : 'expandir'}</span>
         </button>
         ${isOpen ? `
+          ${revopsConfig?.foco ? `<div class="px-4 pt-2 pb-1">
+            <p class="text-[10px] text-stone-600"><span class="font-black text-stone-700 uppercase tracking-wider">Foco do arquétipo:</span> ${Utils.escape(revopsConfig.foco)}</p>
+          </div>` : ''}
           <div class="px-4 pb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-            ${card('ROAS · Retorno sobre Aquisição', fmtMultiple(roas), '= fat_bruto ÷ s&m', 'violet')}
-            ${card('Payback CAC', fmtPayback(), '= cac ÷ msu', 'amber')}
-            ${card('% CAC do Ticket', fmtPct(cacPctTm), '= cac ÷ tm × 100', 'rose')}
-            ${card('Margem MCU %', fmtPct(margemMcuPct), '= mcu ÷ tm × 100', 'emerald')}
+            ${card('ROAS · Retorno sobre Aquisição', fmtMultiple(roas), '= fat_bruto ÷ s&m', 'violet', roasSaudavel)}
+            ${card('Payback CAC', fmtPayback(), '= cac ÷ msu', 'amber', paybackSaudavel)}
+            ${card('% CAC do Ticket', fmtPct(cacPctTm), '= cac ÷ tm × 100', 'rose', null)}
+            ${card('Margem MCU %', fmtPct(margemMcuPct), '= mcu ÷ tm × 100', 'emerald', null)}
           </div>
         ` : ''}
       </div>`;
