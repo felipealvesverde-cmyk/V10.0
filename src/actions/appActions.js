@@ -11120,6 +11120,10 @@ Object.assign(Actions, {
     const cache = App.state.governanceClosings || {};
     const fresh = cache.loadedAt && (Date.now() - cache.loadedAt) < 60_000;
     if (fresh && !opts.force) return;
+    // V40.12.9 — Guard de loop: se já tem fetch em curso, NÃO dispara outro.
+    // Caller no topBar.js render() disparava setTimeout a cada re-render;
+    // sem esse guard a função aceitava todos e o endpoint apanhava 100+ requests.
+    if (cache.loading && !opts.force) return;
     App.state.governanceClosings = { ...cache, loading: true, error: null };
     App.render();
     try {

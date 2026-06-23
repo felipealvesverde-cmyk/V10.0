@@ -30,7 +30,12 @@ window.TopBar = {
       if (App.state.ga4Status === null && window.Actions?.loadGa4Status) {
         setTimeout(() => Actions.loadGa4Status(), 350);
       }
-      if (window.Actions?.loadGovernanceClosings) {
+      // V40.12.9 — Guard de loop: sem checar `loadedAt` e `loading`, cada
+      // re-render dispara outro setTimeout → loadGovernanceClosings → render →
+      // outro setTimeout. Endpoint demora 15-30s sob concorrência e gera
+      // centenas de requests em loop infinito travando o app.
+      const govCache = App.state.governanceClosings;
+      if (window.Actions?.loadGovernanceClosings && !govCache?.loadedAt && !govCache?.loading) {
         setTimeout(() => Actions.loadGovernanceClosings(), 400);
       }
     }

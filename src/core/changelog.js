@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.9',
+    date: '2026-06-23',
+    title: 'Fix loop infinito de /api/governance-closings (estava travando o app)',
+    bullets: [
+      'Bug: o TopBar renderiza a cada App.render() e disparava um setTimeout pra carregar os Fechamentos Mensais sem checar se a chamada já estava em curso. A função interna também não tinha guard de loading, só de cache fresh.',
+      'Sintoma: navegador acumulava centenas de requests pendentes pra /api/governance-closings, cada um demorando 15-30s, app ficava lentíssimo e o backend respondia cada vez mais devagar pelo acúmulo.',
+      'Fix: dois guards de loop. (1) TopBar só dispara o setTimeout se cache ainda não carregou E não está em fetch. (2) Função loadGovernanceClosings retorna cedo se já tem fetch em curso (defesa em profundidade).',
+      'Bug existia desde V37.0.4 mas só apareceu agora porque o backend ficou lento sob carga e cada render abria nova chamada antes da anterior terminar.'
+    ]
+  },
+  {
     version: 'V40.12.7',
     date: '2026-06-23',
     title: 'Wizard Audiência · blindagem contra modelos legados + seed do demo corrigido',
