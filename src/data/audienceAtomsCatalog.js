@@ -170,6 +170,122 @@
       ],
       refina: {},
       notas: 'Cadastro é começo do funil de uso, não lead quente. Sem eventos instrumentados, degrada.'
+    },
+
+    // V40.12.1 — Sprint 2 da Onda V2 de Audiência (Felipe 2026-06-23).
+    // 4 modelos operacionais novos cobrindo lacunas que apareceram durante a
+    // reflexão sobre Pilsen Atacado (cervejaria → bar). Sem esses, B2B Atacado
+    // clássico, Consultoria de alto ticket, Manufatura B2B e Agribusiness
+    // tinham que se enfiar em saas/ecommerce/marketplace (sempre errado).
+
+    atacado: {
+      label: 'Atacado / Wholesale',
+      contribui: [
+        { key: 'pj_revenda',                    layer: 'pa',  type: 'fit',        label: 'PJ de revenda',                  inferenciaRd: 'CNPJ + CNAE de comércio/distribuição',                                criterio: 'lead é PJ com CNAE compatível com revenda/distribuição',                tooltip: 'Estabelecimento que revende — bar, mercado, restaurante, distribuidor.' },
+        { key: 'volume_minimo',                 layer: 'pa',  type: 'fit',        label: 'Volume mínimo viável',           inferenciaRd: 'oportunidade com qty ≥ volume mínimo do produto',                     criterio: 'pedido bate ou supera o volume mínimo de fardo/caixa/pallet',           tooltip: 'Compra em quantidade que vale a operação (não pega 1 unidade).' },
+        { key: 'frequencia_pedido',             layer: 'icp', type: 'fit',        label: 'Frequência de pedido',           inferenciaRd: 'histórico de pedidos OU tag "recorrente"',                            criterio: 'pelo menos 1 pedido na janela esperada (ex: mensal)',                   tooltip: 'Faz pedido recorrente — não é one-shot.' },
+        { key: 'ticket_pedido',                 layer: 'icp', type: 'fit',        label: 'Ticket de pedido compatível',    inferenciaRd: 'valor médio do pedido ∈ faixa do produto',                            criterio: 'valor médio bate com faixa de pedido do Atacado',                       tooltip: 'Ticket de pedido (não unitário) compatível com a operação.' },
+        { key: 'decisor_compras',               layer: 'bp',  type: 'fit',        label: 'Decisor de compras',             inferenciaRd: 'cargo "gerente de compras"/"sócio"/"dono"',                            criterio: 'cargo decisor de compras (não dono de RH, etc)',                        tooltip: 'Pessoa que decide a compra do estabelecimento.' },
+        { key: 'relacionamento_continuo',       layer: 'bp',  type: 'completude', label: 'Relacionamento contínuo',        inferenciaRd: 'tag "cliente ativo" OU oportunidades fechadas > 1',                   criterio: null,                                                                    tooltip: 'Relação contínua — visita do SDR, contato regular, não cliente esporádico.' }
+      ],
+      refina: {},
+      notas: 'Estabelecimento revende. Ticket é por PEDIDO (fardo/caixa), não unitário. SDR/representante visita. Inimigo é perder shelf-space ou virar commodity.'
+    },
+
+    consultoria: {
+      label: 'Consultoria',
+      contribui: [
+        { key: 'empresa_porte_consultivel',     layer: 'pa',  type: 'fit',        label: 'Empresa porte consultível',      inferenciaRd: 'porte ≥ piso da consultoria',                                          criterio: 'porte/faturamento bate com piso pra contratar consultoria',             tooltip: 'Empresa tem porte/faturamento pra absorver um projeto de consultoria.' },
+        { key: 'dor_estrategica',               layer: 'icp', type: 'fit',        label: 'Dor estratégica',                inferenciaRd: 'tag de dor estratégica (margem, market share, M&A)',                  criterio: 'dor mapeada é estratégica, não puramente operacional',                  tooltip: 'Dor mexe com estratégia, não só processo. Operacional não compra consultoria de R$ 100k.' },
+        { key: 'verba_projeto',                 layer: 'icp', type: 'fit',        label: 'Verba disponível pro projeto',   inferenciaRd: 'oportunidade ≥ piso de fee do projeto',                                criterio: 'valor ∈ faixa de fee da consultoria',                                   tooltip: 'Tem verba pra ciclo de projeto (não só workshop avulso).' },
+        { key: 'urgencia_definida',             layer: 'icp', type: 'completude', label: 'Urgência clara',                 inferenciaRd: 'tag/formulário "prazo até X"',                                          criterio: null,                                                                    tooltip: 'Há urgência clara — sem ela, projeto não fecha.' },
+        { key: 'decisor_mandato',               layer: 'bp',  type: 'fit',        label: 'Decisor com mandato real',       inferenciaRd: "cargo ∈ {CEO, Sócio, Board, C-Level com mandato}",                     criterio: 'tem poder de assinar projeto sem 6 níveis acima',                       tooltip: 'Quem fala com você assina. Sem isso, consultoria empaca em comitê.' },
+        { key: 'historico_consultoria',         layer: 'bp',  type: 'completude', label: 'Histórico com consultoria',      inferenciaRd: 'tag "contratou consultoria antes" OU mencionado no formulário',       criterio: null,                                                                    tooltip: 'Já contratou consultoria — entende o ciclo e o investimento.' }
+      ],
+      refina: {},
+      notas: 'Ticket alto, ciclo longo, decisor sênior. Sem mandato, projeto vira reunião eterna. Inimigo é "vou pensar e te volto".'
+    },
+
+    manufatura: {
+      label: 'Manufatura B2B',
+      contribui: [
+        { key: 'industria_compradora',          layer: 'pa',  type: 'fit',        label: 'Indústria compradora',           inferenciaRd: 'CNAE industrial + aplicação compatível',                                criterio: 'lead é indústria com aplicação clara do insumo/componente',              tooltip: 'Cliente é indústria — não revenda nem consumidor final.' },
+        { key: 'aplicacao_produto',             layer: 'pa',  type: 'completude', label: 'Aplicação do produto',           inferenciaRd: 'tag/formulário com aplicação descrita',                                criterio: null,                                                                    tooltip: 'Sabe pra onde o produto vai (linha de produção X, montagem Y).' },
+        { key: 'volume_industrial',             layer: 'icp', type: 'fit',        label: 'Volume industrial',              inferenciaRd: 'demanda mensal/anual estimada ≥ MOQ',                                  criterio: 'volume bate com MOQ e capacidade de produção',                          tooltip: 'Volume justifica setup de produção (não é amostra grátis).' },
+        { key: 'compatibilidade_tecnica',       layer: 'icp', type: 'fit',        label: 'Compatibilidade técnica',        inferenciaRd: 'spec do cliente bate com spec do produto',                              criterio: 'especificação técnica bate ou tem ajuste viável',                       tooltip: 'Spec do cliente roda no seu produto — sem isso, não há venda.' },
+        { key: 'decisor_tecnico_comercial',     layer: 'bp',  type: 'fit',        label: 'Decisor técnico + comercial',    inferenciaRd: 'dupla de contatos identificada (engenharia + compras)',                criterio: 'mapeou tanto o decisor técnico quanto o comercial',                      tooltip: 'B2B industrial tem duas portas: spec passa pela engenharia, preço pela compra.' },
+        { key: 'homologacao_concluida',         layer: 'bp',  type: 'completude', label: 'Homologação',                    inferenciaRd: 'tag "homologado" OU oportunidades pós-amostra',                        criterio: null,                                                                    tooltip: 'Homologação concluída ou em curso — destrava pedidos firmes.' }
+      ],
+      refina: {},
+      notas: 'B2B industrial. Dois decisores (técnico + comercial). Ciclo longo, homologação trava ou destrava tudo. Inimigo é spec que muda no meio do ciclo.'
+    },
+
+    agribusiness: {
+      label: 'Agribusiness',
+      contribui: [
+        { key: 'produtor_ou_distribuidor',      layer: 'pa',  type: 'fit',        label: 'Produtor ou distribuidor',       inferenciaRd: 'CNAE rural OU cooperativa OU revenda agro',                            criterio: 'lead é produtor rural, cooperativa ou distribuidor de insumos agro',     tooltip: 'Lado do cliente na cadeia agro — produtor, cooperativa ou revenda.' },
+        { key: 'cadeia_definida',               layer: 'pa',  type: 'completude', label: 'Cadeia de comercialização',      inferenciaRd: 'tag/formulário com cadeia mapeada',                                    criterio: null,                                                                    tooltip: 'Sabe pra quem vai vender depois (mercado, frigorífico, exportação).' },
+        { key: 'safra_compativel',              layer: 'icp', type: 'fit',        label: 'Safra/janela compatível',        inferenciaRd: 'data atual ∈ janela de safra do produto',                              criterio: 'momento do ano bate com plantio/colheita/comercialização',              tooltip: 'Agro tem janela. Fora dela, lead esfria por meses.' },
+        { key: 'escala_produtiva',              layer: 'icp', type: 'fit',        label: 'Escala produtiva viável',        inferenciaRd: 'hectares/cabeças ≥ piso da operação',                                  criterio: 'escala bate com piso de logística/preço',                                tooltip: 'Volume justifica a operação (frete, técnico, embalagem industrial).' },
+        { key: 'decisor_proprietario',          layer: 'bp',  type: 'fit',        label: 'Decisor proprietário ou técnico',inferenciaRd: 'cargo ∈ {dono, sócio, técnico cooperativa}',                            criterio: 'decisor é o dono/família ou o técnico de confiança da cooperativa',     tooltip: 'Agro é familiar/de confiança — decisor é o dono ou o técnico que ele escuta.' },
+        { key: 'confianca_relacional',          layer: 'bp',  type: 'completude', label: 'Confiança relacional',           inferenciaRd: 'tag "indicação" OU histórico de pedidos > 0',                          criterio: null,                                                                    tooltip: 'Negócio rural vive de confiança — sem relacionamento, não fecha.' }
+      ],
+      refina: {},
+      notas: 'Cadeia agro. Vendedor visita ou cooperativa intermedia. Inimigo é janela de safra e ruptura de confiança. Negociação no boca a boca.'
+    }
+  };
+
+  // V40.12.1 — Sprint 2: ÁTOMOS REFINADORES.
+  // Nova categoria de átomos que NÃO contribuem com campos pra classificação
+  // PA/ICP/BP, mas modulam como os módulos consumidores (card de Velocidade,
+  // RevOps, Djow, Score) se comportam.
+  //
+  // Exemplo: ticket=micro + ciclo=impulso + time=autoatendimento + tracking=parcial
+  // → card de Velocidade vai dizer "V = sessão única" e "Payback saudável < 1 mês".
+  // Já ticket=alto + ciclo=longo + time=outbound + tracking=sim → "V = MQL no CRM"
+  // e "Payback saudável 6-12 meses".
+  //
+  // Sem esses 4, modelos como B2B + Atacado ou B2C + E-commerce dariam o MESMO
+  // arquétipo — sem nuance. Com eles, triangulação fina.
+  const ATOMS_REFINAMENTO = {
+    ticket: {
+      label: 'Faixa de ticket por venda',
+      tagline: 'Quanto cada venda vale, em média?',
+      opcoes: [
+        { id: 'micro',      label: 'Micro',      tagline: '< R$ 100',         description: 'Garrafa de cerveja, e-book, ingresso, app pago.' },
+        { id: 'medio',      label: 'Médio',      tagline: 'R$ 100 a 1k',      description: 'Curso online, assinatura SaaS mensal, peça de roupa premium.' },
+        { id: 'alto',       label: 'Alto',       tagline: 'R$ 1k a 10k',      description: 'Software corporativo, mentoria, treinamento.' },
+        { id: 'enterprise', label: 'Enterprise', tagline: '> R$ 10k',         description: 'Contrato anual SaaS enterprise, consultoria estratégica, projeto industrial.' }
+      ]
+    },
+    ciclo: {
+      label: 'Ciclo de venda esperado',
+      tagline: 'Quanto tempo do interesse até o fechamento?',
+      opcoes: [
+        { id: 'impulso', label: 'Impulso',    tagline: 'Minutos a horas',   description: 'Compra de impulso em e-commerce, infoproduto digital, ticket de evento.' },
+        { id: 'curto',   label: 'Curto',      tagline: 'Dias',              description: 'SaaS self-service, curso com lançamento, atacado recorrente.' },
+        { id: 'medio',   label: 'Médio',      tagline: 'Semanas',           description: 'B2B com SDR, agência, atacado novo cliente.' },
+        { id: 'longo',   label: 'Longo',      tagline: 'Meses',             description: 'Enterprise SaaS, consultoria estratégica, manufatura, agribusiness.' }
+      ]
+    },
+    time_comercial: {
+      label: 'Time comercial',
+      tagline: 'Quem fecha a venda?',
+      opcoes: [
+        { id: 'autoatendimento', label: 'Autoatendimento', tagline: 'Cliente fecha sozinho',    description: 'Checkout no site, signup self-service, app store. Sem humano no meio.' },
+        { id: 'inbound',         label: 'Inbound',          tagline: 'SDR responde interesse',   description: 'Lead pede demo/orçamento, SDR responde e qualifica.' },
+        { id: 'outbound',        label: 'Outbound consultivo', tagline: 'SDR prospecta ativo',  description: 'SDR/representante prospecta empresas, qualifica, agenda reunião.' },
+        { id: 'hibrido',         label: 'Híbrido',           tagline: 'Auto + SDR',             description: 'Self-service pra baixo ticket, SDR pra alto. Comum em SaaS.' }
+      ]
+    },
+    tracking_maduro: {
+      label: 'Tracking maduro hoje?',
+      tagline: 'O quanto a operação está instrumentada?',
+      opcoes: [
+        { id: 'sim',     label: 'Sim',     tagline: 'Tudo conectado',      description: 'UTM + GA4/Pixel + CRM integrado + atribuição confiável funcionando.' },
+        { id: 'parcial', label: 'Parcial', tagline: 'Algumas peças',       description: 'Parte funciona (ex: UTM mas sem GA4, ou Pixel sem CRM integrado).' },
+        { id: 'nao',     label: 'Não',     tagline: 'Vai começar do zero', description: 'Vai começar a instrumentar agora. Sem tracking ainda.' }
+      ]
     }
   };
 
@@ -213,11 +329,16 @@
   ];
 
   window.AudienceAtomsCatalog = {
-    CATALOG_VERSION: '1.0.0',
+    // V40.12.1 — Bump minor (1.0.0 → 1.1.0): adicionado ATOMS_REFINAMENTO e
+    // 4 novos modelos operacionais (atacado, consultoria, manufatura, agribusiness).
+    // Retrocompat 100% — campos antigos continuam funcionando. Audiências
+    // fundidas em 1.0.0 ficam dormentes; banner opcional pode oferecer refusão.
+    CATALOG_VERSION: '1.1.0',
     RULES_VERSION:   '1.0.0',
     NUCLEO_COMUM,
     ATOMS_NEGOCIO,
     ATOMS_OPERACIONAL,
+    ATOMS_REFINAMENTO,
     INCOMPATIBILIDADES,
     DEDUPE_PAIRS
   };

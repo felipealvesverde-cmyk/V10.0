@@ -24,11 +24,16 @@ var ProductAudienceModal = {
     { id: 'c2c',   label: 'C2C',   tagline: 'Consumidor → Consumidor', body: 'Transações diretas entre consumidores, geralmente intermediadas por plataforma digital. Ex: marketplaces de usados ou artesanato.' }
   ],
   OPERATIONAL_MODELS: [
-    { id: 'saas',        label: 'SaaS',        tagline: 'Software por assinatura', body: 'Software hospedado na nuvem. Cliente paga assinatura (mensal/anual) para usar. Ex: streaming, automação de marketing.' },
-    { id: 'ecommerce',   label: 'E-commerce',  tagline: 'Loja online',             body: 'Venda de produtos físicos ou digitais exclusivamente pela internet. Ex: lojas virtuais de roupas, eletrônicos.' },
-    { id: 'agencia',     label: 'Agência',     tagline: 'Serviços especializados', body: 'Time vende tempo, conhecimento e execução pra outras empresas. Ex: publicidade, marketing digital, desenvolvimento web.' },
-    { id: 'marketplace', label: 'Marketplace', tagline: 'Plataforma de conexão',   body: 'Conecta múltiplos vendedores a múltiplos compradores. Cobra taxa/comissão. Ex: apps de transporte, grandes varejistas.' },
-    { id: 'freemium',    label: 'Freemium',    tagline: 'Grátis + premium',        body: 'Produto básico grátis; recursos avançados, mais capacidade ou exclusividade são cobrados. Ex: apps de edição, jogos com compras.' }
+    { id: 'saas',         label: 'SaaS',                tagline: 'Software por assinatura',   body: 'Software hospedado na nuvem. Cliente paga assinatura (mensal/anual) para usar. Ex: streaming, automação de marketing.' },
+    { id: 'ecommerce',    label: 'E-commerce',          tagline: 'Loja online',               body: 'Venda de produtos físicos ou digitais exclusivamente pela internet. Ex: lojas virtuais de roupas, eletrônicos.' },
+    { id: 'agencia',      label: 'Agência',             tagline: 'Serviços especializados',   body: 'Time vende tempo, conhecimento e execução pra outras empresas. Ex: publicidade, marketing digital, desenvolvimento web.' },
+    { id: 'marketplace',  label: 'Marketplace',         tagline: 'Plataforma de conexão',     body: 'Conecta múltiplos vendedores a múltiplos compradores. Cobra taxa/comissão. Ex: apps de transporte, grandes varejistas.' },
+    { id: 'freemium',     label: 'Freemium',            tagline: 'Grátis + premium',          body: 'Produto básico grátis; recursos avançados, mais capacidade ou exclusividade são cobrados. Ex: apps de edição, jogos com compras.' },
+    // V40.12.1 — Sprint 2 da Onda V2 de Audiência. Modelos pra cobrir lacunas.
+    { id: 'atacado',      label: 'Atacado / Wholesale', tagline: 'Vende pra estabelecimento', body: 'Vende em quantidade pra estabelecimento que revende (bar, mercado, distribuidor). Ticket por pedido (fardo/caixa), não unitário. SDR/representante visita. Ex: cervejaria → bar, fornecedor de alimentos → supermercado.' },
+    { id: 'consultoria',  label: 'Consultoria',         tagline: 'Estratégia + alto ticket',  body: 'Vende serviço estratégico de alto valor com ciclo longo e decisor sênior. Dor é estratégica (margem, market share), não operacional. Ex: consultoria de transformação, planejamento estratégico, M&A.' },
+    { id: 'manufatura',   label: 'Manufatura B2B',      tagline: 'Indústria → indústria',     body: 'Fornece produto/insumo industrial pra outra indústria. Dois decisores (engenharia + compras). Ciclo longo, homologação trava ou destrava. Ex: autopeça → montadora, embalagem → fábrica.' },
+    { id: 'agribusiness', label: 'Agribusiness',        tagline: 'Cadeia agro',               body: 'Atua na cadeia rural (produtor → cooperativa → mercado). Vendedor visita ou coop intermedia. Janela de safra manda. Negócio de confiança. Ex: insumo agrícola, máquina agrícola, grão pra exportação.' }
   ],
   // V39.1.0 — Canal de fechamento da venda. Define a fonte do Realizado
   // (Forecast × Realizado em Resultados) E o ponto crítico que o tenant
@@ -139,6 +144,52 @@ var ProductAudienceModal = {
         </div>
         ${this.SALES_CHANNELS.map(m => this._choiceCard('salesChannel', m, w.salesChannel === m.id)).join('')}
       </div>
+      ${this._refinamentoSection(w)}
+    </div>`;
+  },
+
+  // V40.12.1 — Sprint 2: seção de Átomos Refinadores. Aparece ao final do
+  // Step 2 com 4 grupos (ticket, ciclo, time, tracking). OPCIONAL — cliente
+  // pode pular. Quando preenchido, alimenta os módulos consumidores (card de
+  // Velocidade muda V/C/L/T conforme combinação; Djow ajusta tom; etc).
+  _refinamentoSection(w) {
+    if (!window.AudienceFusionEngine) return '';
+    const refinamento = w.refinamento || {};
+    const groups = ['ticket', 'ciclo', 'time_comercial', 'tracking_maduro'];
+    const cards = groups.map(key => {
+      const meta = AudienceFusionEngine.refinamentoMeta(key);
+      const opcoes = AudienceFusionEngine.refinamentoOpcoes(key);
+      if (!meta || !opcoes.length) return '';
+      const selected = refinamento[key] || null;
+      return `<div class="rounded-2xl border border-slate-200 bg-white p-4">
+        <div class="flex items-baseline justify-between mb-2">
+          <div>
+            <p class="text-[11px] font-black text-violet-700 uppercase tracking-widest">${Utils.escape(meta.label)}</p>
+            <p class="text-[10px] text-slate-500">${Utils.escape(meta.tagline || '')}</p>
+          </div>
+          ${selected ? '<span class="text-[10px] font-black text-emerald-700 inline-flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i>preenchido</span>' : '<span class="text-[10px] text-slate-400">opcional</span>'}
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          ${opcoes.map(op => {
+            const isSelected = selected === op.id;
+            return `<button onclick="Actions.audienceWizardRefinamento('${key}', '${op.id}')" class="text-left rounded-xl border-2 p-2.5 transition ${isSelected ? 'border-violet-600 bg-violet-50' : 'border-slate-200 bg-white hover:bg-slate-50'}">
+              <div class="flex items-baseline gap-1.5 mb-0.5">
+                <p class="text-[12px] font-black text-slate-900">${Utils.escape(op.label)}</p>
+                <span class="text-[10px] font-bold text-slate-500">${Utils.escape(op.tagline || '')}</span>
+              </div>
+              <p class="text-[11px] text-slate-600 leading-snug">${Utils.escape(op.description || '')}</p>
+            </button>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+
+    return `<div class="pt-5 border-t border-slate-200 space-y-3">
+      <div>
+        <p class="text-sm text-slate-600 font-black">Refinamento</p>
+        <p class="text-[11px] text-slate-500 mt-0.5">4 escolhas que ajudam o LJ a triangular melhor. Opcionais — pode preencher agora ou voltar depois. Cada combinação muda como o card de Velocidade fala com você, como o Djow sugere ações e quais ranges o RevOps usa.</p>
+      </div>
+      ${cards}
     </div>`;
   },
 
@@ -161,7 +212,8 @@ var ProductAudienceModal = {
     if (!window.AudienceFusionEngine) {
       return `<div class="rounded-2xl bg-amber-50 border border-amber-300 p-4 text-sm text-amber-900">Motor de fusão de audiência não carregado. Recarregue a página.</div>`;
     }
-    const fused = AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional);
+    // V40.12.1 — Passa refinamento (Sprint 2). Opcional — quando vazio, viaja como null.
+    const fused = AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional, w.refinamento || null);
     if (!fused.ok) {
       return `<div class="rounded-2xl bg-rose-50 border border-rose-300 p-4 text-sm text-rose-900">${Utils.escape(fused.error || 'Erro ao montar quadro.')}</div>`;
     }

@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.1',
+    date: '2026-06-23',
+    title: 'Audiência V2 · Sprint 2 — +4 modelos operacionais (Atacado, Consultoria, Manufatura, Agribusiness) + 4 Átomos Refinadores',
+    bullets: [
+      'O wizard "Definir Audiência" passa a cobrir modelos que antes não cabiam em saas/ecommerce/agencia/marketplace/freemium: ATACADO/WHOLESALE (cervejaria → bar, distribuidor → varejo), CONSULTORIA (alto ticket, ciclo longo), MANUFATURA B2B (autopeça → montadora, fornecedor industrial), AGRIBUSINESS (cadeia agro, cooperativa, produtor rural).',
+      'Cada modelo novo vem com 6 campos próprios na fusão (PA/ICP/BP) — Atacado pede frequência de pedido e decisor de compras, Consultoria pede decisor com mandato e dor estratégica, etc.',
+      'Step 2 do wizard ganhou seção "Refinamento" com 4 átomos opcionais: TICKET (micro/médio/alto/enterprise), CICLO (impulso/curto/médio/longo), TIME (autoatendimento/inbound/outbound/híbrido), TRACKING (sim/parcial/não).',
+      'Refinamento NÃO altera PA/ICP/BP — viaja na Audiência como metadado pra módulos consumidores (Velocidade, RevOps, Djow, Score) lerem e adaptarem comportamento. Sprint 3 vai consumir.',
+      'Catálogo bumpa CATALOG_VERSION 1.0.0 → 1.1.0. Audiências antigas continuam funcionando (versions ficam carimbadas) — sprint 4 vai oferecer banner opcional de refusão.',
+      'Próximo passo (Sprint 3): Step 5 de Conclusão "esfregando na cara" — cliente vê em uma tela só TODAS as consequências da Audiência (Velocidade, Score, Djow, RevOps, Mapa) antes de salvar. Mais a confidence score e o catálogo de consequências por arquétipo.'
+    ]
+  },
+  {
     version: 'V40.12.0',
     date: '2026-06-23',
     title: 'Audiência V2 · Sprint 1 — Catálogo de Átomos externalizado + versionamento na fusão',

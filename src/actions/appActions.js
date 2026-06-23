@@ -1609,6 +1609,23 @@ Object.assign(Actions, {
     }
     App.save(); App.render();
   },
+
+  // V40.12.1 — Sprint 2 da Onda V2 de Audiência: refinadores (ticket, ciclo,
+  // time_comercial, tracking_maduro). Opcionais — não bloqueiam advance.
+  // Clicar 2× na mesma opção desmarca (toggle).
+  audienceWizardRefinamento(key, value) {
+    const w = App.state.audienceWizard;
+    if (!w || !w.open) return;
+    if (!['ticket', 'ciclo', 'time_comercial', 'tracking_maduro'].includes(key)) return;
+    w.refinamento = w.refinamento && typeof w.refinamento === 'object' ? w.refinamento : {};
+    if (w.refinamento[key] === value) {
+      w.refinamento[key] = null;  // toggle off
+    } else {
+      w.refinamento[key] = String(value || '') || null;
+    }
+    // V40.12.1 — Refinamento não muda PA/ICP/BP, então NÃO invalida o Djow.
+    App.save(); App.render();
+  },
   audienceWizardNext() {
     const w = App.state.audienceWizard;
     if (!w || !w.open) return;
@@ -1734,7 +1751,8 @@ Object.assign(Actions, {
       : { pa: [], icp: [], bp: [] };
     const totalCustom = customFields.pa.length + customFields.icp.length + customFields.bp.length;
     if (window.AudienceFusionEngine && w.modeloNegocio && w.modeloOperacional) {
-      const fused = AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional);
+      // V40.12.1 — passa refinamento (Sprint 2). Opcional.
+      const fused = AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional, w.refinamento || null);
       if (fused.ok) {
         const paAll  = [...fused.pa,  ...customFields.pa];
         const icpAll = [...fused.icp, ...customFields.icp];
@@ -1763,6 +1781,15 @@ Object.assign(Actions, {
       // Define a fonte do Realizado em Forecast × Realizado e o ponto crítico
       // do tenant (integração checkout vs disciplina do preenchimento no CRM).
       salesChannel: w.salesChannel || null,
+      // V40.12.1 — Refinamento Sprint 2: ticket/ciclo/time/tracking. Opcional.
+      // Modula como os módulos consumidores (Velocidade, RevOps, Djow, Score)
+      // se comportam — sem alterar PA/ICP/BP. Pode ser null se cliente pulou.
+      refinamento: (w.refinamento && typeof w.refinamento === 'object') ? {
+        ticket:           w.refinamento.ticket || null,
+        ciclo:            w.refinamento.ciclo || null,
+        time_comercial:   w.refinamento.time_comercial || null,
+        tracking_maduro:  w.refinamento.tracking_maduro || null
+      } : null,
       schema,
       customFields,
       customized: totalCustom > 0,
