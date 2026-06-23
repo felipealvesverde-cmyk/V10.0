@@ -56,6 +56,19 @@ var AudienceFusionEngine = {
   _rulesVersion() {
     return this._catalog().RULES_VERSION || '0.0.0';
   },
+  // V40.12.1 — Sprint 2: Átomos Refinadores (ticket, ciclo, time, tracking).
+  // Lidos do catálogo pra UI montar a seção de refinamento no wizard.
+  _atomsRefinamento() {
+    return this._catalog().ATOMS_REFINAMENTO || {};
+  },
+  refinamentoOpcoes(key) {
+    return (this._atomsRefinamento()[key] || {}).opcoes || [];
+  },
+  refinamentoMeta(key) {
+    const a = this._atomsRefinamento()[key];
+    if (!a) return null;
+    return { label: a.label, tagline: a.tagline };
+  },
 
   // V40.12.0 — Retrocompat: expõe getters pros consumidores que ainda
   // referenciam ATOMS_NEGOCIO/ATOMS_OPERACIONAL etc direto no engine.
@@ -69,7 +82,10 @@ var AudienceFusionEngine = {
   get DEDUPE_PAIRS()      { return this._dedupePairs(); },
 
   // Fusão principal — chama os 8 passos da KB §5
-  fuse(modeloNegocio, modeloOperacional) {
+  // V40.12.1 — Sprint 2: 3º parâmetro `refinamento` opcional (ticket, ciclo,
+  // time_comercial, tracking_maduro). Não afeta PA/ICP/BP — só viaja na
+  // Audiência salva pra ser consumido por Velocidade/RevOps/Djow depois.
+  fuse(modeloNegocio, modeloOperacional, refinamento = null) {
     const negocio = this._atomNegocio(modeloNegocio);
     const operacional = this._atomOperacional(modeloOperacional);
     if (!negocio || !operacional) {
@@ -143,6 +159,17 @@ var AudienceFusionEngine = {
     const obrigatoriosBp  = bp.filter(f => !f.optional);
 
     // Passo 8 — Entrega
+    // V40.12.1 — Refinamento entra no output. Não muda PA/ICP/BP — viaja como
+    // metadados pra ser consumido por Velocidade/RevOps/Djow/Score depois.
+    const refinamentoNormalizado = (refinamento && typeof refinamento === 'object')
+      ? {
+          ticket:           refinamento.ticket || null,
+          ciclo:            refinamento.ciclo || null,
+          time_comercial:   refinamento.time_comercial || null,
+          tracking_maduro:  refinamento.tracking_maduro || null
+        }
+      : null;
+
     return {
       ok: true,
       modeloNegocio,
@@ -160,6 +187,7 @@ var AudienceFusionEngine = {
         bp: obrigatoriosBp.length
       },
       notas,
+      refinamento: refinamentoNormalizado,
       // V40.12.0 — Carimbo de versões pra auditoria + migração futura.
       // Audiência salva (em product.audience) deve copiar essas 3 versões.
       versions: {
