@@ -1378,15 +1378,38 @@ Object.assign(Actions, {
     // V39.1.0 — Se o produto existente já tem audience configurado mas falta
     // salesChannel (pré-V39.1), abre direto no Step 2 pra o cliente escolher.
     const needsSalesChannel = a.configured && !a.salesChannel;
+    // V40.12.7 — Defesa contra modelos legados/inválidos. Audiência salva pode
+    // ter IDs não-canônicos (ex: seed antigo do demo com 'B2B2C'/'híbrido' em
+    // vez de 'b2b2c'/'atacado'). Sem validar, o wizard abre no step 3+ e o
+    // motor de fusão devolve "Modelo de Negócio ou Operacional inválido"
+    // no rosto do cliente. Em vez disso: normaliza pra lowercase, valida
+    // contra o catálogo e rebobina pro step 1 quando algum modelo é inválido.
+    const catalog = window.AudienceAtomsCatalog || {};
+    const negocioMap = catalog.ATOMS_NEGOCIO || {};
+    const operacionalMap = catalog.ATOMS_OPERACIONAL || {};
+    const validChannels = ['checkout', 'crm', 'hybrid'];
+    const negocioRaw = String(a.modeloNegocio || '').toLowerCase().trim() || null;
+    const operacionalRaw = String(a.modeloOperacional || '').toLowerCase().trim() || null;
+    const channelRaw = String(a.salesChannel || '').toLowerCase().trim() || null;
+    const negocioValid = negocioRaw && negocioMap[negocioRaw];
+    const operacionalValid = operacionalRaw && operacionalMap[operacionalRaw];
+    const channelValid = channelRaw && validChannels.includes(channelRaw);
+    const hasInvalidLegacy = a.configured && (!negocioValid || !operacionalValid || !channelValid);
+    let initialStep;
+    if (hasInvalidLegacy) initialStep = 1;
+    else if (needsSalesChannel) initialStep = 2;
+    else if (a.configured) initialStep = 3;
+    else initialStep = 0;
     App.state.audienceWizard = {
       open: true,
       mode: 'existingProduct',
-      step: needsSalesChannel ? 2 : (a.configured ? 3 : 0),
+      step: initialStep,
       productId: Number(productId),
       pendingDraft: null,
-      modeloNegocio: a.modeloNegocio || null,
-      modeloOperacional: a.modeloOperacional || null,
-      salesChannel: a.salesChannel || null,
+      modeloNegocio: negocioValid ? negocioRaw : null,
+      modeloOperacional: operacionalValid ? operacionalRaw : null,
+      salesChannel: channelValid ? channelRaw : null,
+      refinamento: (a.refinamento && typeof a.refinamento === 'object') ? { ...a.refinamento } : null,
       quadroPA: Array.isArray(a.quadroPA) ? [...a.quadroPA] : [],
       quadroICP: Array.isArray(a.quadroICP) ? [...a.quadroICP] : [],
       quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : [],
@@ -1395,6 +1418,7 @@ Object.assign(Actions, {
         : { pa: [], icp: [], bp: [] }
     };
     App.save(); App.render();
+    if (hasInvalidLegacy) Utils.toast('A audiência deste produto foi configurada num formato antigo. Vamos refazer rapidamente.');
   },
   cancelAudienceWizard() {
     App.state.audienceWizard = null;

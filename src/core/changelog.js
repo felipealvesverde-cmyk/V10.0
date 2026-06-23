@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.7',
+    date: '2026-06-23',
+    title: 'Wizard Audiência · blindagem contra modelos legados + seed do demo corrigido',
+    bullets: [
+      'Bug: ao editar audiência de um produto com modelo de negócio/operacional fora do catálogo (ex: gravado num formato antigo), o wizard abria direto no passo 5 e mostrava "Modelo de Negócio ou Operacional inválido" no rosto.',
+      'Fix global: quando o wizard detecta modelos não-canônicos, agora rebobina pro passo 1 e mostra toast "A audiência deste produto foi configurada num formato antigo. Vamos refazer rapidamente." Cliente segue o fluxo normal e re-salva com IDs válidos.',
+      'Fix do demo: seed do Pilsen/Weiss/Chopp Vinho estava com strings PT-BR ("B2B2C", "híbrido", "multi-canal" / "gastronômico" / "alta-gastronomia") em vez dos IDs canônicos. Agora bate certinho com o catálogo: B2B2C × Atacado, Pilsen com canal híbrido (D2C + B2B), Weiss e Chopp via CRM.',
+      'Produtos do demo já existentes no banco continuam com a configuração antiga até alguém abrir Editar Audiência e refazer (a blindagem global cobre esse caminho sem erro). Próxima carga limpa do demo já nasce correta.'
+    ]
+  },
+  {
     version: 'V40.12.6',
     date: '2026-06-23',
     title: 'Wizard Audiência · fix scroll voltando pro topo a cada clique',
