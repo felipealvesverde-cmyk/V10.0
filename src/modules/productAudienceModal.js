@@ -50,7 +50,7 @@ var ProductAudienceModal = {
     const w = App.state.audienceWizard;
     if (!w || !w.open) return '';
     const step = Number(w.step || 0);
-    return `<div class="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
+    return `<div id="audienceWizardBackdrop" class="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
       <div class="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-3xl mx-auto mt-8 overflow-hidden">
         ${this._header(w, step)}
         <div class="p-6 lg:p-8">
@@ -495,50 +495,6 @@ var ProductAudienceModal = {
       </div>
       <div class="space-y-1.5">${items || `<p class="text-[10px] text-slate-400 italic">Sem campos.</p>`}</div>
       ${addBtn}
-    </div>`;
-  },
-
-  _step4Deprecated(w) {
-    const negocio = this.BUSINESS_MODELS.find(m => m.id === w.modeloNegocio);
-    const operacional = this.OPERATIONAL_MODELS.find(m => m.id === w.modeloOperacional);
-    const fused = (window.AudienceFusionEngine && w.modeloNegocio && w.modeloOperacional)
-      ? AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional)
-      : null;
-    const counts = fused?.requiredCounts || { pa: 0, icp: 0, bp: 0 };
-    return `<div class="space-y-5">
-      <p class="text-sm text-slate-600">Confirme antes de salvar.</p>
-      <div class="grid md:grid-cols-2 gap-3">
-        <div class="rounded-2xl bg-white border border-slate-200 border-l-4 border-l-violet-600 p-4">
-          <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-1">Modelo de Negócio</p>
-          <p class="font-black text-slate-900">${negocio?.label || '—'}</p>
-          <p class="text-xs text-slate-500 mt-1">${negocio?.tagline || ''}</p>
-        </div>
-        <div class="rounded-2xl bg-white border border-slate-200 border-l-4 border-l-pink-500 p-4">
-          <p class="text-[10px] font-black text-pink-700 uppercase tracking-widest mb-1">Modelo Operacional</p>
-          <p class="font-black text-slate-900">${operacional?.label || '—'}</p>
-          <p class="text-xs text-slate-500 mt-1">${operacional?.tagline || ''}</p>
-        </div>
-      </div>
-      <div class="grid grid-cols-3 gap-3">
-        <div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 p-3 text-center">
-          <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest">PA</p>
-          <p class="font-black text-2xl text-slate-900 mt-0.5">${counts.pa}</p>
-          <p class="text-[10px] text-slate-500">obrigatórios</p>
-        </div>
-        <div class="rounded-2xl bg-pink-50 border border-pink-200 border-l-4 border-l-pink-500 p-3 text-center">
-          <p class="text-[10px] font-black text-pink-700 uppercase tracking-widest">ICP</p>
-          <p class="font-black text-2xl text-slate-900 mt-0.5">${counts.icp}</p>
-          <p class="text-[10px] text-slate-500">obrigatórios</p>
-        </div>
-        <div class="rounded-2xl bg-amber-50 border border-amber-200 border-l-4 border-l-amber-500 p-3 text-center">
-          <p class="text-[10px] font-black text-amber-700 uppercase tracking-widest">BP</p>
-          <p class="font-black text-2xl text-slate-900 mt-0.5">${counts.bp}</p>
-          <p class="text-[10px] text-slate-500">obrigatórios</p>
-        </div>
-      </div>
-      <div class="rounded-2xl bg-emerald-50 border border-emerald-200 border-l-4 border-l-emerald-600 p-4">
-        <p class="text-xs text-emerald-900 leading-relaxed"><b>Pronto.</b> Ao salvar, o produto ganha o quadro de audiência completo e a badge <b>"ICP CONFIGURADO"</b>. Threshold default 80% por camada. Você pode editar a audiência depois pelo mesmo botão no card.</p>
-      </div>
     </div>`;
   }
 };

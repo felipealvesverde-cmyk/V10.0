@@ -718,7 +718,11 @@ var App = {
         // refresh de RD, click em botão, etc.).
         // V31.2.43 — Adicionado settingsModalBackdrop também (o outer container do
         // modal de Settings também rola — antes só preservávamos o inner).
-        ['djowHomeRecent', 'djowMessages', 'strategicMapScrollContainer', 'settingsModalScroll', 'settingsModalBackdrop'].forEach(id => {
+        // V40.12.6 — audienceWizardBackdrop: mesmo problema dentro do wizard
+        // "Definir Audiência" — clicar num modelo/canal/refinador re-renderizava
+        // e zerava o scroll do modal. Inner do wizard é overflow-hidden, scroll
+        // vive no backdrop.
+        ['djowHomeRecent', 'djowMessages', 'strategicMapScrollContainer', 'settingsModalScroll', 'settingsModalBackdrop', 'audienceWizardBackdrop'].forEach(id => {
           const el = document.getElementById(id);
           if (el) {
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
