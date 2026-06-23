@@ -233,7 +233,7 @@ var ProductsModule = {
       </button>`;
     }
     return `<button onclick="Actions.openAudienceWizardForMapaPopup()" class="mt-1 w-full px-4 py-3 rounded-2xl border-2 border-amber-300 bg-amber-50 text-amber-900 font-black text-sm text-left flex items-center justify-between gap-2 hover:bg-amber-100 transition">
-      <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i><span class="truncate">Definir arquétipo de vendas</span></span>
+      <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i><span class="truncate">Definir arquétipo</span></span>
       <span class="text-xs font-bold opacity-70 shrink-0">Obrigatório</span>
     </button>`;
   },
@@ -252,7 +252,7 @@ var ProductsModule = {
       </button>`;
     }
     return `<button onclick="Actions.openAudienceWizardForDraft()" class="w-full px-3 py-2.5 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-900 font-black text-xs text-left flex items-center justify-between gap-2 hover:bg-amber-100 transition">
-      <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0"></i><span class="truncate">Definir arquétipo de vendas</span></span>
+      <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0"></i><span class="truncate">Definir arquétipo</span></span>
       <span class="text-[10px] font-bold opacity-70 shrink-0">Obrigatório</span>
     </button>`;
   },
@@ -277,9 +277,9 @@ var ProductsModule = {
         <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
       </button>`;
     }
-    return `<button onclick="event.stopPropagation(); Actions.openAudienceWizardForExisting(${product.id})" class="w-full text-left px-3 py-2 rounded-2xl border-2 border-amber-300 bg-amber-50 text-amber-900 text-xs font-black flex items-center justify-between hover:bg-amber-100 transition">
-      <span class="flex items-center gap-1.5"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Definir arquétipo de vendas — obrigatório</span>
-      <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+    return `<button onclick="event.stopPropagation(); Actions.openAudienceWizardForExisting(${product.id})" class="w-full text-left px-3 py-2 rounded-2xl border-2 border-amber-300 bg-amber-50 text-amber-900 text-xs font-black flex items-center justify-between gap-2 hover:bg-amber-100 transition">
+      <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0"></i><span class="truncate">Definir arquétipo · obrigatório</span></span>
+      <i data-lucide="chevron-right" class="w-3.5 h-3.5 shrink-0"></i>
     </button>`;
   },
 

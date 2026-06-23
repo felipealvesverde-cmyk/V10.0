@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.2',
+    date: '2026-06-23',
+    title: 'Fix: botões "Definir arquétipo de vendas" estavam truncando',
+    bullets: [
+      'Os botões pra abrir o wizard nos formulários de criar produto (sem Mapa e com Mapa) tinham texto longo demais ("Definir arquétipo de vendas") e cortavam no meio em telas estreitas.',
+      'Encurtado pra "Definir arquétipo". A label acima do botão já diz "ARQUÉTIPO DE VENDAS", então não perdeu contexto.',
+      'CTA do card do produto também encurtada pra "Definir arquétipo · obrigatório" (com truncate e min-w-0 pra não vazar).'
+    ]
+  },
+  {
     version: 'V40.14.1',
     date: '2026-06-23',
     title: 'Wizard "Definir Audiência" virou "Definir Arquétipo de Vendas"',
