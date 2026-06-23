@@ -35,17 +35,9 @@ var LeadsModule = {
     if (App.state.profileActive && App.state.profileFilters.length) {
       displayLeads = ProfileFinder.applyFilters(allLeads, App.state.profileFilters);
     }
-    // V38.1.42 — filtro de camada de audiência (Suspect/PA/ICP/BP).
-    const aFilter = App.state.leadAudienceFilter || 'all';
-    if (aFilter !== 'all' && window.AudienceTransmutationEngine) {
-      displayLeads = displayLeads.filter(l => {
-        const r = AudienceTransmutationEngine.getLayerForLead(l, App.state.selectedProductId);
-        return r && r.layer === aFilter;
-      });
-    }
+    // V40.13.1 — Filtro de camada de audiência removido (engine legada).
 
     return heroAndTabs
-      + (window.AudienceLayerDrillModal ? AudienceLayerDrillModal.render() : '')
       + this._campaignContextChips()
       + this._subStageActiveBanner()
       + this.profileFinderUI(displayLeads, allLeads.length)
@@ -1093,44 +1085,7 @@ var LeadsModule = {
       }
     }
 
-    return `<div class="space-y-4"><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5"><div><h2 class="text-2xl font-black">${title}</h2><p class="text-sm text-slate-500">${subtitle}</p></div><div class="grid grid-cols-3 gap-2 text-center"><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${leads.length}</div><div class="text-xs text-slate-500">Leads</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${quentes}</div><div class="text-xs text-slate-500">Quentes</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${avg}</div><div class="text-xs text-slate-500">Score médio</div></div></div></div>${this._audienceFilterBar(leads)}${this._bulkLinkBar(leads)}<div class="grid gap-3">${leads.map(lead => this.card(lead)).join('') || Components.empty('Nenhum lead encontrado.')}</div></div></div>`;
-  },
-
-  // V38.1.42 — Chip bar de filtro por camada de audiência. Aparece quando
-  // existe pelo menos 1 produto com audience.configured. Os counts mostram
-  // a distribuição global; o chip ativo destaca em violet.
-  _audienceFilterBar(leadsAfterPrior) {
-    if (!window.AudienceTransmutationEngine) return '';
-    const products = App.state.products || [];
-    const productHint = App.state.selectedProductId;
-    const refProduct = products.find(p => Number(p.id) === Number(productHint) && p.audience?.configured && p.audience?.schema)
-      || products.find(p => p.audience?.configured && p.audience?.schema);
-    if (!refProduct) return '';
-
-    // Aplica filtro de perfil mas IGNORA o filtro de audiência (pra mostrar contagem real)
-    const allDisplayed = App.state.profileActive && App.state.profileFilters.length && window.ProfileFinder
-      ? ProfileFinder.applyFilters(this.getGlobalLeads(), App.state.profileFilters)
-      : this.getGlobalLeads();
-    const counts = { all: allDisplayed.length, 'lj-suspect': 0, 'lj-pa': 0, 'lj-icp': 0, 'lj-bp': 0 };
-    for (const lead of allDisplayed) {
-      const r = AudienceTransmutationEngine.transmute(lead, refProduct.audience.schema, refProduct.audience.threshold);
-      if (r && counts[r.layer] !== undefined) counts[r.layer]++;
-    }
-    const active = App.state.leadAudienceFilter || 'all';
-    const chip = (id, label, tone) => {
-      const isActive = active === id;
-      const cls = isActive ? `bg-${tone}-600 text-white border-${tone}-700` : `bg-white text-${tone}-800 border-${tone}-200 hover:bg-${tone}-50`;
-      const styleColor = isActive ? 'style="color:#fff!important;"' : '';
-      return `<button onclick="Actions.setLeadAudienceFilter('${id}')" ${styleColor} class="px-2.5 py-1.5 rounded-full border-2 text-[11px] font-black flex items-center gap-1.5 transition ${cls}"><span>${label}</span><span class="px-1.5 py-0.5 rounded-md ${isActive ? 'bg-white/20' : `bg-${tone}-100`} text-[10px] font-black">${counts[id]}</span></button>`;
-    };
-    return `<div class="rounded-2xl bg-slate-50 border border-slate-200 px-3 py-2.5 mb-3 flex items-center gap-2 flex-wrap">
-      <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Audiência (vs ${Utils.escape(refProduct.name)})</p>
-      ${chip('all',         'Todos',   'slate')}
-      ${chip('lj-suspect',  'Suspect', 'slate')}
-      ${chip('lj-pa',       'PA',      'violet')}
-      ${chip('lj-icp',      'ICP',     'pink')}
-      ${chip('lj-bp',       'BP',      'amber')}
-    </div>`;
+    return `<div class="space-y-4"><div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100"><div class="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5"><div><h2 class="text-2xl font-black">${title}</h2><p class="text-sm text-slate-500">${subtitle}</p></div><div class="grid grid-cols-3 gap-2 text-center"><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${leads.length}</div><div class="text-xs text-slate-500">Leads</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${quentes}</div><div class="text-xs text-slate-500">Quentes</div></div><div class="bg-slate-50 rounded-2xl px-4 py-3"><div class="text-2xl font-black">${avg}</div><div class="text-xs text-slate-500">Score médio</div></div></div></div>${this._bulkLinkBar(leads)}<div class="grid gap-3">${leads.map(lead => this.card(lead)).join('') || Components.empty('Nenhum lead encontrado.')}</div></div></div>`;
   },
 
   // V21.3 — Faixa de bulk-link visível quando há contexto de campanha. Mostra
@@ -1202,24 +1157,8 @@ var LeadsModule = {
           ? `<button onclick="event.stopPropagation(); Actions.unlinkLeadFromCampaign('${safeId}', ${campaignId})" class="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-black flex items-center gap-1 whitespace-nowrap"><i data-lucide="check" class="w-3 h-3"></i> Vinculado · clique p/ remover</button>`
           : `<button onclick="event.stopPropagation(); Actions.linkLeadToCampaignFromBuscador('${safeId}')" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center gap-1 whitespace-nowrap" style="color:#fff!important;"><i data-lucide="link" class="w-3 h-3"></i> Vincular à campanha</button>`)
       : '';
-    // V38.1.42 — Badge de camada de audiência (lj-suspect/lj-pa/lj-icp/lj-bp).
-    // V38.1.43 — Clique abre modal drill-down "Por que esse lead virou X?".
-    const audienceBadge = (() => {
-      if (!window.AudienceTransmutationEngine) return '';
-      const r = AudienceTransmutationEngine.getLayerForLead(lead, App.state.selectedProductId);
-      if (!r) return '';
-      const map = {
-        'lj-suspect': { tone: 'slate',  label: 'SUSPECT', icon: 'help-circle' },
-        'lj-pa':      { tone: 'violet', label: 'PA',      icon: 'circle' },
-        'lj-icp':     { tone: 'pink',   label: 'ICP',     icon: 'target' },
-        'lj-bp':      { tone: 'amber',  label: 'BP',      icon: 'user-check' }
-      };
-      const m = map[r.layer];
-      const shortcutSuffix = r.shortcut ? ` · atalho ${r.shortcut.via}` : '';
-      const title = `Audiência contra "${r.productName}": PA ${r.paPct}% · ICP ${r.icpPct}% · BP ${r.bpPct}%${shortcutSuffix} · clique pra ver detalhe`;
-      const shortcutIcon = r.shortcut ? '<i data-lucide=\\"zap\\" class=\\"w-2.5 h-2.5\\"></i>' : '';
-      return `<button onclick="event.stopPropagation(); Actions.openAudienceDrillModal('${safeId}', ${r.productId})" title="${Utils.escape(title)}" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-${m.tone}-100 text-${m.tone}-700 border border-${m.tone}-200 hover:bg-${m.tone}-200 transition cursor-pointer"><i data-lucide="${m.icon}" class="w-2.5 h-2.5"></i>${m.label}${shortcutIcon}</button>`;
-    })();
+    // V40.13.1 — Badge de camada de audiência removida junto com a engine legada.
+    const audienceBadge = '';
     return `<div class="p-4 rounded-3xl bg-slate-50 border border-slate-100 hover:bg-slate-100 transition">
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div onclick="Actions.openLead('${safeId}')" class="cursor-pointer min-w-0 flex-1">

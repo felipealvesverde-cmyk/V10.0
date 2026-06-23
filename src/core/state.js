@@ -787,8 +787,7 @@ var State = {
       // V38.1.51 — cache de análises do Djow do Roadmap por campanha.
       // shape: { [campaignId]: { text, model, timestamp, tokens_in, tokens_out, loading? } }
       roadmapInsights: {},
-      leadAudienceFilter: 'all', // 'all' | 'lj-suspect' | 'lj-pa' | 'lj-icp' | 'lj-bp'
-      audienceDrillModal: null,
+      // V40.13.1 — leadAudienceFilter e audienceDrillModal removidos (engine legada).
       okrDraft: { objective: '', keyResult: '', target: '', unit: 'R$', owner: '', deadline: '', status: 'Em andamento' },
       kpiDraft: { name: '', metric: 'revenue', scope: 'global', productId: null, target: '', unit: 'R$', frequency: 'Semanal', source: 'Automático pelo Revenue Engine', relatedOkrId: null },
       campaignDraft: { name: '', objective: '', productId: null, owner: '', sector: 'Marketing' },
@@ -1636,8 +1635,7 @@ var State = {
       roadmapInsights: (raw.roadmapInsights && typeof raw.roadmapInsights === 'object')
         ? Object.fromEntries(Object.entries(raw.roadmapInsights).filter(([_, v]) => v && typeof v.text === 'string').map(([k, v]) => [k, { text: v.text, model: v.model || '', timestamp: v.timestamp || null, tokens_in: v.tokens_in || 0, tokens_out: v.tokens_out || 0 }]))
         : {},
-      leadAudienceFilter: ['all','lj-suspect','lj-pa','lj-icp','lj-bp'].includes(raw.leadAudienceFilter) ? raw.leadAudienceFilter : 'all',
-      audienceDrillModal: (raw.audienceDrillModal && typeof raw.audienceDrillModal === 'object' && raw.audienceDrillModal.open) ? raw.audienceDrillModal : null,
+      // V40.13.1 — leadAudienceFilter e audienceDrillModal removidos (engine legada).
       okrDraft: { ...base.okrDraft, ...(raw.okrDraft || {}) },
       kpiDraft: { ...base.kpiDraft, ...(raw.kpiDraft || {}), productId: raw.kpiDraft?.productId || selectedProductId || null, relatedOkrId: raw.kpiDraft?.relatedOkrId || raw.selectedOkrId || null },
       campaignDraft: { ...base.campaignDraft, ...(raw.campaignDraft || {}), productId: raw.campaignDraft?.productId || selectedProductId },

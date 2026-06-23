@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.0',
+    date: '2026-06-23',
+    title: 'Removida engine legada de Audiência + Coleta (substituída pela Audiência V2)',
+    bullets: [
+      'A engine de transmutação de leads (Suspect/PA/ICP/BP) e o Assistente de Coleta de campos foram removidos do app. Faziam classificação de leads contra schema antigo e sugeriam estratégias de coleta com artefatos prontos (pergunta pro RD, script SDR, snippet de webhook).',
+      'Saíram: card "Saúde da coleta" no card do produto; sumário "Audiência (N leads)" com distribuição Suspect/PA/ICP/BP; tile "Audiência" no roadmap da campanha; chip bar de filtro por camada no Buscador de Leads; badge da camada no card de cada lead; modal "Por que esse lead virou X?" com drill-down + Djow Collect Hint.',
+      'Substituídos pela Audiência V2 (wizard "Definir Audiência" + catálogo de Átomos + catálogo de Consequências + ConsumerEngine). A V2 é mais limpa, versionada, e adaptativa por arquétipo — pele aplicada no Card de Velocidade e no Djow lateral na V40.13.0.',
+      'Arquivos removidos: src/engines/audienceTransmutationEngine.js, src/engines/audienceCollectionAdvisor.js, src/modules/audienceLayerDrillModal.js, api/djow-audience-collect-hint.js.',
+      'Edits cirúrgicos em 5 arquivos consumidores: products.js, campaignFlowModal.js, leads.js, appActions.js, state.js. Tile da campanha vira "Em breve" pra preservar layout.'
+    ]
+  },
+  {
     version: 'V40.13.0',
     date: '2026-06-23',
     title: 'Audiência V2 · Camada 2 — pele adaptativa nos consumidores',

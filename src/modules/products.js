@@ -212,8 +212,6 @@ var ProductsModule = {
         </div>
         ${this._healthScoreRow(product)}
         ${this._strategicMapSummary(product)}
-        ${this._audienceSummary(product)}
-        ${this._audienceCollectionHealth(product)}
         ${this._audienceCta(product)}
         <div class="lj-product-card-actions grid grid-cols-2 gap-2">
           <button onclick="event.stopPropagation(); Actions.prepareCampaignForProduct(${product.id})" style="color:#fff!important;" class="px-3 py-2 rounded-2xl bg-slate-900 text-white text-xs font-black lj-dark-button">Criar Campanha para este produto</button>
@@ -257,62 +255,6 @@ var ProductsModule = {
       <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0"></i><span class="truncate">Definir audiência</span></span>
       <span class="text-[10px] font-bold opacity-70 shrink-0">Obrigatório</span>
     </button>`;
-  },
-
-  // V38.1.46 — Saúde da coleta: mostra cobertura agregada e top campos
-  // mais bloqueados no produto. Aparece logo abaixo do summary.
-  _audienceCollectionHealth(product) {
-    if (!product?.audience?.configured) return '';
-    if (!window.AudienceCollectionAdvisor) return '';
-    const health = AudienceCollectionAdvisor.productCollectionHealth(product.id);
-    if (!health || !health.totalFields) return '';
-    const tone = health.coveragePct >= 70 ? 'emerald' : health.coveragePct >= 40 ? 'amber' : 'rose';
-    const top3 = (health.bloqueados || []).slice(0, 3).map(b => {
-      const meta = b.strategyMeta || {};
-      return `<div class="flex items-center gap-1.5 text-[10px]">
-        <i data-lucide="${meta.icon || 'help-circle'}" class="w-2.5 h-2.5 text-${meta.tone || 'slate'}-600 shrink-0"></i>
-        <span class="text-slate-700 truncate flex-1">${Utils.escape(b.label)}</span>
-        <span class="font-black text-${b.pctMissing >= 80 ? 'rose' : b.pctMissing >= 50 ? 'amber' : 'slate'}-700 shrink-0">${b.pctMissing}% sem dado</span>
-      </div>`;
-    }).join('');
-    return `<div class="rounded-2xl border border-slate-200 bg-white px-3 py-2 space-y-1.5">
-      <div class="flex items-center gap-2">
-        <i data-lucide="lightbulb" class="w-3.5 h-3.5 text-${tone}-600 shrink-0"></i>
-        <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest flex-1">Saúde da coleta</p>
-        <span class="text-[10px] font-black text-${tone}-700">${health.coveragePct}% cobertos</span>
-      </div>
-      <div class="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-        <div class="h-full bg-${tone}-500" style="width:${health.coveragePct}%;"></div>
-      </div>
-      ${top3 ? `<div class="space-y-0.5 pt-1">${top3}</div>` : ''}
-      ${(health.bloqueados || []).length ? `<p class="text-[9px] text-slate-400 italic pt-1">Clique numa badge de camada no lead pra ver sugestões de coleta detalhadas.</p>` : ''}
-    </div>`;
-  },
-
-  // V38.1.41 — Sumário de transmutação de audiência no card do produto.
-  // Mostra distribuição Suspect/PA/ICP/BP dos leads vinculados às campanhas
-  // do produto. Só aparece se: audience configurada + tem leads.
-  _audienceSummary(product) {
-    if (!product?.audience?.configured) return '';
-    if (!window.AudienceTransmutationEngine) return '';
-    const s = AudienceTransmutationEngine.summarize(product.id);
-    if (!s || !s.total) return '';
-    const pct = (n) => Math.round((n / s.total) * 100);
-    const seg = (label, n, tone) => n > 0
-      ? `<div class="flex-1 min-w-0" style="flex-grow:${n};" title="${label}: ${n} (${pct(n)}%)"><div class="h-2 rounded-full bg-${tone}-500"></div><div class="text-[9px] font-black text-${tone}-700 uppercase tracking-wider mt-0.5 truncate">${label} ${n}</div></div>`
-      : '';
-    return `<div class="rounded-2xl border border-slate-200 bg-white px-3 py-2">
-      <div class="flex items-center justify-between mb-1.5">
-        <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Audiência (${s.total} leads)</p>
-        <p class="text-[9px] font-bold text-slate-400">Limiar 80%</p>
-      </div>
-      <div class="flex items-stretch gap-1">
-        ${seg('Suspect', s.suspect, 'slate')}
-        ${seg('PA',      s.pa,      'violet')}
-        ${seg('ICP',     s.icp,     'pink')}
-        ${seg('BP',      s.bp,      'amber')}
-      </div>
-    </div>`;
   },
 
   // V38.1.36 — Badge de status do ICP no header do card.

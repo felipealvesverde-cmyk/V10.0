@@ -1035,81 +1035,10 @@ var Actions = {
         App.save(); App.render();
         Utils.toast('Perfil limpo.');
       },
-      // V38.1.42 — Filtro de camada de audiência (Suspect/PA/ICP/BP) na lista de leads.
-      setLeadAudienceFilter(layer) {
-        const valid = ['all','lj-suspect','lj-pa','lj-icp','lj-bp'];
-        App.state.leadAudienceFilter = valid.includes(layer) ? layer : 'all';
-        App.save(); App.render();
-      },
-      // V38.1.43 — Modal "Por que esse lead virou X?" drill-down do ICP.
-      openAudienceDrillModal(leadId, productId) {
-        App.state.audienceDrillModal = { open: true, leadId, productId: productId || null, djowHints: {} };
-        App.save(); App.render();
-      },
-      closeAudienceDrillModal() {
-        App.state.audienceDrillModal = null;
-        App.save(); App.render();
-      },
-      // V38.1.46 — Pede ao Djow uma sugestão dinâmica pra uma estratégia de coleta
-      // dentro do drill-down. Resposta vai pra App.state.audienceDrillModal.djowHints[strategyKey].
-      async djowAudienceCollectHint(strategyKey) {
-        const m = App.state.audienceDrillModal;
-        if (!m || !m.open) return;
-        m.djowHints = m.djowHints || {};
-        const slot = m.djowHints[strategyKey] = { loading: true, hint: null, error: null };
-        App.save(); App.render();
-
-        try {
-          if (!window.AudienceCollectionAdvisor || !window.AudienceTransmutationEngine) {
-            slot.loading = false;
-            slot.error = 'Engines de audiência não carregadas.';
-            App.save(); App.render();
-            return;
-          }
-          const lead = []
-            .concat(App.state.globalLeads || [])
-            .concat((App.state.actions || []).flatMap(a => a.leads || []))
-            .find(l => String(l.id) === String(m.leadId));
-          if (!lead) { slot.loading = false; slot.error = 'Lead não encontrado.'; App.save(); App.render(); return; }
-          const result = AudienceTransmutationEngine.getLayerForLead(lead, m.productId);
-          if (!result) { slot.loading = false; slot.error = 'Produto sem audiência configurada.'; App.save(); App.render(); return; }
-          const product = (App.state.products || []).find(p => Number(p.id) === Number(m.productId));
-          const allMissing = [
-            ...(result.details.pa.missing || []),
-            ...(result.details.icp.missing || []),
-            ...(result.details.bp.missing || [])
-          ];
-          const groups = AudienceCollectionAdvisor.groupByStrategy(allMissing);
-          const group = groups[strategyKey];
-          if (!group || !group.fields.length) {
-            slot.loading = false;
-            slot.error = 'Sem campos faltando nessa estratégia.';
-            App.save(); App.render();
-            return;
-          }
-          const token = localStorage.getItem('lj_jwt');
-          const r = await fetch('/api/djow-audience-collect-hint', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              strategyKey,
-              fields: group.fields.map(f => ({ key: f.key, label: f.label, type: f.type })),
-              productName: product?.name || '',
-              modeloNegocio: product?.audience?.modeloNegocio || '',
-              modeloOperacional: product?.audience?.modeloOperacional || ''
-            })
-          });
-          const data = await r.json();
-          slot.loading = false;
-          if (!data.ok) { slot.error = data.message || `HTTP ${r.status}`; App.save(); App.render(); return; }
-          slot.hint = data.hint || '';
-          App.save(); App.render();
-        } catch (err) {
-          slot.loading = false;
-          slot.error = err.message || String(err);
-          App.save(); App.render();
-        }
-      },
+      // V40.13.1 — 4 actions de audiência+coleta removidas (engine legada):
+      //   - setLeadAudienceFilter, openAudienceDrillModal, closeAudienceDrillModal,
+      //     djowAudienceCollectHint. Substituídas pela Audiência V2 (wizard +
+      //     archetype + consumerEngine).
       // V37.0.9 — Sem mais preencher leadsText/leadInputMode/rdListName/scoreId
       // no draft (mailing inline removido). Cliente cria a ação a partir do
       // perfil e anexa base depois pelo Lead Import Wizard se quiser.

@@ -40,28 +40,13 @@ var CampaignFlowModal = {
     const fromColor = this._areaVar(fromArea), toColor = this._areaVar(toArea);
     return `<div class="rounded-2xl p-4 flex items-center justify-between gap-4 border border-white/10 bg-white/[0.055] backdrop-blur-xl"><div><p class="text-xs font-bold"><span style="color:${fromColor};">${from}</span> <span class="text-slate-400">→</span> <span style="color:${toColor};">${to}</span></p><p class="text-2xl font-black mt-1">${Utils.escape(this._numberFormatter.format(Number(value || 0)))}</p></div><div class="w-11 h-11 rounded-2xl bg-white/10 grid place-items-center text-slate-300"><i data-lucide="${icon}"></i></div></div>`;
   },
-  // V38.1.50 — 4 colunas (Em rastreamento / PA / ICP / BP) com % real da campanha.
-  // Funde col-span-2 (espaço do antigo tile "Score Gerado") pra caber lado a lado.
-  // Lê de AudienceTransmutationEngine.summarizeLeadsAgainstProduct — null se produto não tem audiência.
+  // V40.13.1 — icpMetric removido (engine Audiência+Coleta legada).
+  // Tile vira "Em breve" pra reservar espaço sem prometer dado.
+  // Lugar onde ficavam Suspect/PA/ICP/BP. Razão da remoção: a engine
+  // de transmutação (lj-suspect/lj-pa/lj-icp/lj-bp) ficou desalinhada
+  // com a Audiência V2 (arquétipos + consequências adaptativas).
   icpMetric(leads, product) {
-    const hasAudience = !!(product && product.audience?.configured && product.audience?.schema);
-    const summary = (window.AudienceTransmutationEngine && hasAudience)
-      ? AudienceTransmutationEngine.summarizeLeadsAgainstProduct(leads || [], product.id)
-      : null;
-    const header = `<div class="flex items-center justify-between gap-3 mb-3"><p class="text-xs text-slate-400 font-bold">Audiência</p><div class="w-7 h-7 rounded-xl bg-white/10 grid place-items-center text-violet-300"><i data-lucide="target" class="w-3.5 h-3.5"></i></div></div>`;
-    if (!summary) {
-      const msg = product
-        ? 'Defina a audiência do produto pra ver a composição.'
-        : 'Sem produto vinculado à campanha.';
-      const cta = product
-        ? `<button onclick="Actions.openAudienceWizardForExisting(${product.id})" class="mt-2 text-[10px] font-black text-amber-300 hover:text-amber-200 underline">Definir audiência →</button>`
-        : '';
-      return `<div class="md:col-span-2 xl:col-span-2 rounded-2xl p-4 border border-white/10 bg-white/[0.055] backdrop-blur-xl">${header}<p class="text-[11px] text-slate-400 leading-snug">${msg}</p>${cta}</div>`;
-    }
-    const total = summary.total || 0;
-    const pct = (n) => total ? Math.round((n / total) * 1000) / 10 : 0;
-    const col = (tag, label, count, color) => `<div class="flex flex-col items-center justify-end gap-0.5 text-center"><span class="text-[9px] font-black tracking-widest uppercase text-${color}-300 leading-none">${tag}</span><span class="text-[10px] text-slate-400 leading-tight">${label}</span><span class="text-lg font-black text-white leading-none mt-1">${pct(count)}%</span><span class="text-[9px] text-slate-500 leading-none">${this._numberFormatter.format(count)}</span></div>`;
-    return `<div class="md:col-span-2 xl:col-span-2 rounded-2xl p-4 border border-white/10 bg-white/[0.055] backdrop-blur-xl">${header}<div class="grid grid-cols-4 gap-2">${col('Suspect', 'Em rastreamento', summary.suspect, 'slate')}${col('PA', 'Público-alvo', summary.pa, 'cyan')}${col('ICP', 'ICP', summary.icp, 'violet')}${col('BP', 'Buyer Persona', summary.bp, 'emerald')}</div></div>`;
+    return `<div class="md:col-span-2 xl:col-span-2 rounded-2xl p-4 border border-white/5 bg-white/[0.02] backdrop-blur-xl opacity-50"><div class="flex items-center justify-between gap-3 mb-3"><p class="text-xs text-slate-500 font-bold">Audiência</p><div class="w-7 h-7 rounded-xl bg-white/5 grid place-items-center text-slate-500"><i data-lucide="target" class="w-3.5 h-3.5"></i></div></div><p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Em breve</p></div>`;
   },
   actionCard(action, flow) {
     if (!flow) flow = FlowResolutionEngine.buildActionFlow(action);
