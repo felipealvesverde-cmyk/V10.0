@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.0',
+    date: '2026-06-23',
+    title: 'Audiência V2 · Sprint 1 — Catálogo de Átomos externalizado + versionamento na fusão',
+    bullets: [
+      'Onda V2 do "Definir Audiência" arrancou (cravada por Felipe 2026-06-23). Esta primeira sprint é fundação técnica: NADA muda visualmente, mas o engine ganha estrutura pra crescer sem refactor.',
+      'Os 9 Átomos (NUCLEO_COMUM + 4 Negócio + 5 Operacional) + incompatibilidades + dedupe pairs saíram do engine e viraram catálogo externo em `src/data/audienceAtomsCatalog.js`. Editar átomo agora = editar 1 arquivo de dados, sem mexer em engine.',
+      'Catálogo carrega versões: `CATALOG_VERSION` (1.0.0) e `RULES_VERSION` (1.0.0). Engine carrega versão própria (`ENGINE_VERSION` 2.0.0).',
+      'Audiência salva no produto agora carimba `audience.versions = {atoms, rules, engine, fusedAt}` — base pra Sprint 2 propor refusão quando bumpar catálogo.',
+      'Retrocompat 100%: comportamento idêntico ao V38.1.39. Getters legados (`AudienceFusionEngine.ATOMS_NEGOCIO`, etc) continuam funcionando — só leem do catálogo externalizado.',
+      'Próximos sprints: +4 átomos (ticket/ciclo/time/tracking) + 4 modelos operacionais (Atacado, Consultoria, Manufatura, Agribusiness) na Sprint 2; Step 5 de Conclusão na Sprint 3; auditoria + UI Master na Sprint 4. ~4-5 semanas no total.'
+    ]
+  },
+  {
     version: 'V40.11.35',
     date: '2026-06-23',
     title: 'RevOps Equilíbrio · EBITDA projetado da cascata passa a bater com a DRE (extras DRE entram na conta)',
