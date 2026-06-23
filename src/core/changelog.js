@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.35',
+    date: '2026-06-23',
+    title: 'RevOps Equilíbrio · EBITDA projetado da cascata passa a bater com a DRE (extras DRE entram na conta)',
+    bullets: [
+      'Antes a cascata Equilíbrio mostrava "EBITDA projetado" como `folga × MSU` — aproximação que IGNORAVA extras cadastradas direto na DRE (Inadimplência, Frete sobre venda, descontos comerciais, etc).',
+      'Resultado: cascata Equilíbrio dizia R$ 2.160.345 e a DRE dizia R$ 2.149.800 — diferença de R$ 10.545 sem explicação. Cliente comparava os 2 lugares e não fechava.',
+      'Fix: cascata Equilíbrio agora consulta `evaluateDRE.totals.lucroLiquido` (verdade final da DRE) como número de EBITDA projetado.',
+      'Microcopy adapta automaticamente: quando há extras DRE, mostra decomposição completa "Folga × MSU = R$ X marginal − R$ Y extras DRE = R$ Z final"; quando não há extras, mostra fórmula simples (sem ruído).',
+      'Vale pra todos os tenants — cascata e DRE sempre concordam.'
+    ]
+  },
+  {
     version: 'V40.11.34',
     date: '2026-06-23',
     title: 'Fix CORE · DRE: linhas extras "depois de Deduções" voltam a aparecer (eram somadas mas invisíveis)',

@@ -2599,7 +2599,18 @@
       else if (folgaPct >= 100)  bkHealth = { cls: 'amber',   msg: `previstas ${previstasFmt} = ${bkRatio} · operação respira justo` };
       else                       bkHealth = { cls: 'rose',    msg: `previstas ${previstasFmt} = ${bkRatio} · operação queima caixa` };
       const folgaVendas = previstas - breakeven;
-      const ebitdaProjetado = folgaVendas * msu;
+      const ebitdaMarginal = folgaVendas * msu;  // contribuição das vendas acima do breakeven
+      // V40.11.35 — EBITDA projetado da cascata Equilíbrio passa a usar o
+      // mesmo número que a DRE entrega no `lucroLiquido`. Antes era só
+      // `folgaVendas × msu` — uma APROXIMAÇÃO que ignorava extras DRE
+      // (Inadimplência, Frete sobre venda, descontos, etc). Divergência
+      // chegou a R$ 10.560 no Pilsen quando Felipe comparou os 2 lugares.
+      // Agora cascata Equilíbrio e DRE conversam — mesmo número final.
+      const dreSnapshot = window.RevopsWhitelabelEngine?.evaluateDRE
+        ? RevopsWhitelabelEngine.evaluateDRE(cfg, ev)
+        : null;
+      const ebitdaProjetado = dreSnapshot?.totals?.lucroLiquido ?? ebitdaMarginal;
+      const extrasDreAjuste = ebitdaMarginal - ebitdaProjetado;  // > 0 quando extras descontam
 
       // V40.11.33 — Seção "KPIs Personalizados" removida da UI. Felipe confirmou
       // que ninguém usa (feature de fórmula livre era poder demais pra pouco uso).
@@ -2633,7 +2644,7 @@
               'Soma do bucket Fixos (G&A). Mensalidade pra existir — vendas em qualquer volume não mudam esse número.')}
             ${this._cascadeArrow('↓')}
 
-            ${this._cascadeBreakeven(breakeven, msu, fixedTotal, bkHealth, folgaVendas, ebitdaProjetado)}
+            ${this._cascadeBreakeven(breakeven, msu, fixedTotal, bkHealth, folgaVendas, ebitdaProjetado, ebitdaMarginal, extrasDreAjuste)}
 
             ${this._kpisAvancadosSection(productId, ev)}
           </section>
@@ -3079,7 +3090,11 @@
     // V32.11.1 — Leonardo: Breakeven highlight final. Gradient violet-50→white
     // + left-border violet 600 (espessa, é o destino da cascata). Health pill
     // sóbria, com Lucide icon de status.
-    _cascadeBreakeven(breakeven, msu, fixedTotal, health, folgaVendas, ebitdaProjetado) {
+    // V40.11.35 — Recebe `ebitdaMarginal` (folga × MSU) e `extrasDreAjuste`
+    // (diferença com a DRE real). Quando há extras DRE não-triviais, mostra
+    // decomposição "marginal → ajuste extras DRE → EBITDA da DRE" pra cliente
+    // entender de onde veio cada R$.
+    _cascadeBreakeven(breakeven, msu, fixedTotal, health, folgaVendas, ebitdaProjetado, ebitdaMarginal, extrasDreAjuste) {
       const tone = this._cascadeTone('violet');
       const healthMap = {
         emerald: { bg: 'bg-emerald-500/10', border: 'border-emerald-400/30', text: 'text-emerald-800', icon: 'check-circle-2' },
@@ -3111,7 +3126,9 @@
               <div class="min-w-0">
                 <p class="text-[11px] font-black">${health.msg}</p>
                 ${folgaVendas > 0
-                  ? `<p class="text-[11px] mt-1 font-bold">Folga: ${folgaVendas.toLocaleString('pt-BR')} vendas × ${this._moneySmart(msu)} = <b>${this._money(ebitdaProjetado)} de EBITDA projetado</b></p>`
+                  ? (Math.abs(extrasDreAjuste || 0) >= 1
+                      ? `<p class="text-[11px] mt-1 font-bold">Folga: ${folgaVendas.toLocaleString('pt-BR')} vendas × ${this._moneySmart(msu)} = ${this._money(ebitdaMarginal)} marginal · ${extrasDreAjuste > 0 ? '−' : '+'} ${this._money(Math.abs(extrasDreAjuste))} de extras DRE = <b>${this._money(ebitdaProjetado)} de EBITDA projetado</b></p>`
+                      : `<p class="text-[11px] mt-1 font-bold">Folga: ${folgaVendas.toLocaleString('pt-BR')} vendas × ${this._moneySmart(msu)} = <b>${this._money(ebitdaProjetado)} de EBITDA projetado</b></p>`)
                   : folgaVendas < 0
                   ? `<p class="text-[11px] mt-1 font-bold">Faltam ${Math.abs(folgaVendas).toLocaleString('pt-BR')} vendas pra cobrir os fixos. Prejuízo projetado: <b>${this._money(Math.abs(ebitdaProjetado))}</b></p>`
                   : ''}
