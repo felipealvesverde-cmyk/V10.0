@@ -125,12 +125,12 @@ var ProductAudienceModal = {
   // de "Editar audiência · Passo X de Y"). H2 fica só com o título do passo
   // (sem em-dash). Dots viraram progress bar contínua + "X / Y" tabular.
   _header(w, step) {
-    const titles = ['O que é ICP?', 'Modelo de Negócio', 'Modelo Operacional', 'Refinamento', 'Quadro de Audiência', 'Confirmação'];
+    const titles = ['O que é Arquétipo de Vendas?', 'Modelo de Negócio', 'Modelo Operacional', 'Refinamento', 'Quadro de Audiência', 'Confirmação'];
     const totalSteps = titles.length;
     const productName = w.mode === 'existingProduct'
       ? (App.state.products.find(p => Number(p.id) === Number(w.productId))?.name || 'Produto')
       : (w.pendingDraft?.name || 'Novo produto');
-    const prefix = w.mode === 'existingProduct' ? 'Editar audiência' : 'Definir audiência';
+    const prefix = w.mode === 'existingProduct' ? 'Editar arquétipo de vendas' : 'Definir arquétipo de vendas';
     const pct = Math.round((step / (totalSteps - 1)) * 100);
     return `<header class="text-white p-6 flex items-start justify-between gap-4" style="background: linear-gradient(135deg, var(--lj-revops) 0%, var(--lj-revops-deep) 100%);">
       <div class="min-w-0 flex-1">
@@ -306,18 +306,70 @@ var ProductAudienceModal = {
     </div>`;
   },
 
+  // V40.14.1 — Passo 0 reescrito por Djow + Felipe.
+  // Antes: mini aula sobre ICP (Público-Alvo / ICP / Buyer Persona como 3 camadas).
+  // Problema: o wizard cresceu — hoje mapeia o MODELO DE VENDAS do produto, não o
+  // ICP. Modelo de Negócio + Operacional + Canal + Refinamento são dimensões da
+  // máquina de vendas. O ICP vira CONSEQUÊNCIA (camadas C/B/A no passo 5).
+  // Lei [[feedback_djow_no_tech_jargon]]: linguagem humana de gestão.
   _step0() {
     return `<div class="space-y-5">
-      <div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 p-5">
-        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-2">Mini aula</p>
-        <p class="text-sm text-slate-700 leading-relaxed">Definir bem a <b>audiência</b> de um produto é o que separa marketing que gera atenção de marketing que <b>fecha venda</b>. O LJ trabalha com 3 camadas que se acumulam: cada uma é um filtro mais fino sobre a anterior.</p>
+      <!-- Banner principal: o que o wizard é -->
+      <div class="rounded-2xl bg-white border border-slate-200 p-5" style="border-left: 4px solid var(--lj-revops);">
+        <p class="text-[10px] font-black uppercase tracking-widest mb-2" style="color: var(--lj-revops);">Mini aula</p>
+        <p class="text-sm text-slate-700 leading-relaxed">Esse wizard mapeia o <b>arquétipo de vendas</b> do seu produto — o jeito como ele faz dinheiro. Em 4 perguntas, o LJ entende a máquina e se calibra inteiro pra ela.</p>
       </div>
-      <div class="grid md:grid-cols-3 gap-3">
-        ${this._layerCard(0, 'C', 'Público-Alvo', 'Quem TEM CHANCE de virar lead. Firmografia e demografia bruta: setor, porte, geografia, faixa de renda.', 'violet')}
-        ${this._layerCard(1, 'B', 'ICP', 'Quem é VIÁVEL de fechar. PA + sinais comportamentais e contextuais: uso de categoria, momento de compra, orçamento.', 'pink')}
-        ${this._layerCard(2, 'A', 'Buyer Persona', 'COMO falar com quem decide. ICP + pessoa: cargo decisor, dor declarada, prioridades, processo de decisão.', 'amber')}
+
+      <!-- 4 dimensões que serão mapeadas -->
+      <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-2">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500">As 4 perguntas que vou te fazer</p>
+        <div class="grid sm:grid-cols-2 gap-x-3 gap-y-1.5 text-[12px] text-slate-700 leading-relaxed">
+          <p>1. <b>Pra quem você vende?</b> Empresa, consumidor ou intermediário.</p>
+          <p>2. <b>Como faz dinheiro?</b> Assinatura, venda única, ticket por pedido, projeto.</p>
+          <p>3. <b>Por onde fecha?</b> Checkout digital, vendedor com contrato, ou os dois.</p>
+          <p>4. <b>Em qual ritmo?</b> Ticket, ciclo, time comercial, granularidade do tracking.</p>
+        </div>
       </div>
-      <p class="text-xs text-slate-500 leading-relaxed">Esse wizard vai te guiar a definir os 3. Depois, o LJ usa essas definições pra classificar automaticamente cada lead que entra na campanha desse produto.</p>
+
+      <!-- 5 áreas que vão ser calibradas -->
+      <div class="rounded-2xl bg-slate-50 border border-slate-200 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Quando você cravar, o LJ se calibra em 5 áreas</p>
+        <div class="grid grid-cols-5 gap-2">
+          <div class="text-center">
+            <div class="w-9 h-9 rounded-xl mx-auto grid place-items-center mb-1" style="background: color-mix(in srgb, var(--lj-sales) 14%, white); color: var(--lj-sales);"><i data-lucide="zap" class="w-4 h-4"></i></div>
+            <p class="text-[10px] font-black leading-tight" style="color: var(--lj-sales);">Velocidade</p>
+          </div>
+          <div class="text-center">
+            <div class="w-9 h-9 rounded-xl mx-auto grid place-items-center mb-1" style="background: color-mix(in srgb, var(--lj-marketing) 14%, white); color: var(--lj-marketing);"><i data-lucide="target" class="w-4 h-4"></i></div>
+            <p class="text-[10px] font-black leading-tight" style="color: var(--lj-marketing);">Score</p>
+          </div>
+          <div class="text-center">
+            <div class="w-9 h-9 rounded-xl mx-auto grid place-items-center mb-1" style="background: color-mix(in srgb, var(--lj-revops) 14%, white); color: var(--lj-revops);"><i data-lucide="message-circle" class="w-4 h-4"></i></div>
+            <p class="text-[10px] font-black leading-tight" style="color: var(--lj-revops);">Djow</p>
+          </div>
+          <div class="text-center">
+            <div class="w-9 h-9 rounded-xl mx-auto grid place-items-center mb-1" style="background: color-mix(in srgb, var(--lj-revenue) 14%, white); color: var(--lj-revenue);"><i data-lucide="trending-up" class="w-4 h-4"></i></div>
+            <p class="text-[10px] font-black leading-tight" style="color: var(--lj-revenue);">RevOps</p>
+          </div>
+          <div class="text-center">
+            <div class="w-9 h-9 rounded-xl mx-auto grid place-items-center mb-1" style="background: color-mix(in srgb, var(--lj-cs) 14%, white); color: var(--lj-cs);"><i data-lucide="map" class="w-4 h-4"></i></div>
+            <p class="text-[10px] font-black leading-tight" style="color: var(--lj-cs);">Mapa</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Spoiler do quadro PA/ICP/BP como brinde -->
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">E como brinde, você ganha um Quadro de Audiência derivado</p>
+        <p class="text-[12px] text-slate-600 leading-relaxed mb-3">Do arquétipo, o LJ deriva 3 camadas de audiência (PA → ICP → BP) — quem é seu cliente, cada uma aprofundando a anterior.</p>
+        <div class="grid md:grid-cols-3 gap-3">
+          ${this._layerCard(0, 'C', 'Público-Alvo', 'Quem TEM CHANCE de virar lead. Firmografia bruta.', 'violet')}
+          ${this._layerCard(1, 'B', 'ICP', 'Quem é VIÁVEL de fechar. PA + sinais comportamentais.', 'pink')}
+          ${this._layerCard(2, 'A', 'Buyer Persona', 'COMO falar com quem decide. ICP + persona.', 'amber')}
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-500 leading-relaxed">Em 6 passos a gente termina o mapeamento. Pode <b>Continuar</b>.</p>
     </div>`;
   },
 

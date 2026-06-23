@@ -1799,7 +1799,7 @@ Object.assign(Actions, {
       );
       App.state.audienceWizard = null;
       App.save(); App.render();
-      Utils.toast('Audiência (ICP) salva no rascunho. Sobe pro LJ ao clicar "Salvar esteira".');
+      Utils.toast('Arquétipo de vendas salvo no rascunho. Sobe pro LJ ao clicar "Salvar esteira".');
       setTimeout(() => { try { if (window.ActionFlowBuilder) ActionFlowBuilder.attach(); } catch (_) {} }, 0);
       return;
     }

@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.1',
+    date: '2026-06-23',
+    title: 'Wizard "Definir Audiência" virou "Definir Arquétipo de Vendas"',
+    bullets: [
+      'Reposicionamento conceitual: o wizard começou querendo te ensinar ICP, mas cresceu pra mapear o MODELO DE VENDAS do produto (modelo de negócio + operacional + canal + refinamento). O ICP virou consequência, não protagonista. Renomeamos o wizard pra refletir isso.',
+      'Passo 0 (mini aula) reescrito: agora explica que o LJ vai te perguntar 4 coisas (pra quem vende, como faz dinheiro, por onde fecha, em qual ritmo) pra calibrar 5 áreas (Velocidade, Score, Djow, RevOps, Mapa). O Quadro de Audiência (C/B/A) vira "brinde derivado", não centro.',
+      'Card do produto: "AUDIÊNCIA (ICP)" virou "ARQUÉTIPO DE VENDAS". Pílula "ICP · B2B2C · ATACADO" virou "ARQUÉTIPO · B2B2C · ATACADO". Botão "Editar audiência (ICP)" virou "Editar arquétipo de vendas". Botão de produto sem arquétipo "Definir audiência (ICP) — obrigatório" virou "Definir arquétipo de vendas — obrigatório".',
+      'Header do wizard: "Definir audiência" / "Editar audiência" → "Definir arquétipo de vendas" / "Editar arquétipo de vendas". Título do passo 0 mudou de "O que é ICP?" pra "O que é Arquétipo de Vendas?"',
+      'Mudança alcança também o canvas Action Flow Builder (botão Definir + label) e o toast quando salva rascunho do flow.',
+      'Mudança apenas semântica/textual — não toca lógica do wizard nem do AudienceFusionEngine. Audiências já salvas continuam funcionando — só os rótulos na UI mudaram.'
+    ]
+  },
+  {
     version: 'V40.14.0',
     date: '2026-06-23',
     title: 'Removida engine legada de Audiência + Coleta (substituída pela Audiência V2)',

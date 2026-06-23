@@ -793,19 +793,19 @@ window.ActionFlowBuilder = {
       if (a && a.configured) {
         const tags = [a.modeloNegocio, a.modeloOperacional].filter(Boolean).map(s => String(s).toUpperCase()).join(' · ');
         icpPill = `<button onclick="Actions.openFlowBuilderAudienceWizard('${node.id}')" class="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl bg-emerald-500/15 border border-emerald-400/40 text-emerald-100 hover:bg-emerald-500/25 transition">
-          <span class="flex items-center gap-2 min-w-0"><i data-lucide="target" class="w-4 h-4 shrink-0"></i><span class="text-xs font-black truncate">ICP ${Utils.escape(tags)}</span></span>
+          <span class="flex items-center gap-2 min-w-0"><i data-lucide="target" class="w-4 h-4 shrink-0"></i><span class="text-xs font-black truncate">Arquétipo ${Utils.escape(tags)}</span></span>
           <span class="text-[11px] font-black">Editar</span>
         </button>`;
       } else {
         icpPill = `<button onclick="Actions.openFlowBuilderAudienceWizard('${node.id}')" class="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-2xl bg-slate-950 border border-white/15 text-slate-300 hover:bg-white/[0.06] transition">
-          <span class="flex items-center gap-2"><i data-lucide="target" class="w-4 h-4"></i><span class="text-xs font-black">Definir audiência (ICP)</span></span>
+          <span class="flex items-center gap-2"><i data-lucide="target" class="w-4 h-4"></i><span class="text-xs font-black">Definir arquétipo de vendas</span></span>
           <i data-lucide="chevron-right" class="w-4 h-4"></i>
         </button>`;
       }
       return `${nameInput}
-        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider mt-3 block">Audiência (ICP)</label>
+        <label class="text-[11px] font-black text-slate-400 uppercase tracking-wider mt-3 block">Arquétipo de Vendas</label>
         <div class="mt-1">${icpPill}</div>
-        <p class="text-[10px] text-slate-500 mt-1">Rascunho até salvar — o ICP só entra no LJ quando você clicar <b>Salvar esteira</b>.</p>
+        <p class="text-[10px] text-slate-500 mt-1">Rascunho até salvar — o arquétipo só entra no LJ quando você clicar <b>Salvar esteira</b>.</p>
 
         <div class="grid grid-cols-2 gap-2 mt-3">
           <div>

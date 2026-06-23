@@ -40,7 +40,7 @@ var ProductsModule = {
             <input value="${Utils.escape(draft.name || '')}" oninput="Actions.updateNewProductWithMapaField('name', this.value)" autofocus placeholder="Ex: Diagnóstico Comercial" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900" />
           </div>
           <div>
-            <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Audiência (ICP)</label>
+            <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Arquétipo de Vendas</label>
             ${this._mapaPopupAudienceButton(draft)}
           </div>
           <div>
@@ -145,7 +145,7 @@ var ProductsModule = {
             <input value="${Utils.escape(d.name || '')}" oninput="App.state.productDraft.name=this.value; App.save();" placeholder="Ex: Diagnóstico Comercial" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm" />
           </div>
           <div>
-            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Audiência (ICP)</label>
+            <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Arquétipo de Vendas</label>
             ${this._draftAudienceButton(d)}
           </div>
           <div class="col-span-2">
@@ -228,12 +228,12 @@ var ProductsModule = {
     if (a && a.configured) {
       const tags = [a.modeloNegocio, a.modeloOperacional].filter(Boolean).map(s => String(s).toUpperCase()).join(' · ');
       return `<button onclick="Actions.openAudienceWizardForMapaPopup()" class="mt-1 w-full px-4 py-3 rounded-2xl border-2 border-emerald-300 bg-emerald-50 text-emerald-900 font-black text-sm text-left flex items-center justify-between gap-2 hover:bg-emerald-100 transition">
-        <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="target" class="w-4 h-4 shrink-0"></i><span class="truncate">ICP ${Utils.escape(tags)}</span></span>
+        <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="target" class="w-4 h-4 shrink-0"></i><span class="truncate">Arquétipo ${Utils.escape(tags)}</span></span>
         <span class="text-xs font-bold opacity-70 shrink-0">Editar</span>
       </button>`;
     }
     return `<button onclick="Actions.openAudienceWizardForMapaPopup()" class="mt-1 w-full px-4 py-3 rounded-2xl border-2 border-amber-300 bg-amber-50 text-amber-900 font-black text-sm text-left flex items-center justify-between gap-2 hover:bg-amber-100 transition">
-      <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i><span class="truncate">Definir audiência</span></span>
+      <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="alert-triangle" class="w-4 h-4 shrink-0"></i><span class="truncate">Definir arquétipo de vendas</span></span>
       <span class="text-xs font-bold opacity-70 shrink-0">Obrigatório</span>
     </button>`;
   },
@@ -247,12 +247,12 @@ var ProductsModule = {
     if (a && a.configured) {
       const tags = [a.modeloNegocio, a.modeloOperacional].filter(Boolean).map(s => String(s).toUpperCase()).join(' · ');
       return `<button onclick="Actions.openAudienceWizardForDraft()" class="w-full px-3 py-2.5 rounded-xl border-2 border-emerald-300 bg-emerald-50 text-emerald-900 font-black text-xs text-left flex items-center justify-between gap-2 hover:bg-emerald-100 transition">
-        <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="target" class="w-3.5 h-3.5 shrink-0"></i><span class="truncate">ICP ${Utils.escape(tags)}</span></span>
+        <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="target" class="w-3.5 h-3.5 shrink-0"></i><span class="truncate">Arquétipo ${Utils.escape(tags)}</span></span>
         <span class="text-[10px] font-bold opacity-70 shrink-0">Editar</span>
       </button>`;
     }
     return `<button onclick="Actions.openAudienceWizardForDraft()" class="w-full px-3 py-2.5 rounded-xl border-2 border-amber-300 bg-amber-50 text-amber-900 font-black text-xs text-left flex items-center justify-between gap-2 hover:bg-amber-100 transition">
-      <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0"></i><span class="truncate">Definir audiência</span></span>
+      <span class="flex items-center gap-1.5 min-w-0"><i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0"></i><span class="truncate">Definir arquétipo de vendas</span></span>
       <span class="text-[10px] font-bold opacity-70 shrink-0">Obrigatório</span>
     </button>`;
   },
@@ -262,9 +262,9 @@ var ProductsModule = {
     const a = product.audience || {};
     if (a.configured) {
       const tags = [a.modeloNegocio, a.modeloOperacional].filter(Boolean).map(s => s.toUpperCase()).join(' · ');
-      return `<span class="shrink-0 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1"><i data-lucide="target" class="w-3 h-3"></i> ICP${tags ? ' · ' + Utils.escape(tags) : ''}</span>`;
+      return `<span class="shrink-0 px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-400/30 text-emerald-700 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1"><i data-lucide="target" class="w-3 h-3"></i> Arquétipo${tags ? ' · ' + Utils.escape(tags) : ''}</span>`;
     }
-    return `<span class="shrink-0 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-400/40 text-amber-800 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1"><i data-lucide="alert-triangle" class="w-3 h-3"></i> ICP não definido</span>`;
+    return `<span class="shrink-0 px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-400/40 text-amber-800 text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1"><i data-lucide="alert-triangle" class="w-3 h-3"></i> Arquétipo não definido</span>`;
   },
 
   // V38.1.36 — CTA pra Definir/Editar Audiência. Aparece sempre — pra produto
@@ -273,12 +273,12 @@ var ProductsModule = {
     const a = product.audience || {};
     if (a.configured) {
       return `<button onclick="event.stopPropagation(); Actions.openAudienceWizardForExisting(${product.id})" class="w-full text-left px-3 py-2 rounded-2xl border border-emerald-200 bg-emerald-50/60 text-emerald-800 text-xs font-black flex items-center justify-between hover:bg-emerald-100/60 transition">
-        <span class="flex items-center gap-1.5"><i data-lucide="target" class="w-3.5 h-3.5"></i> Editar audiência (ICP)</span>
+        <span class="flex items-center gap-1.5"><i data-lucide="target" class="w-3.5 h-3.5"></i> Editar arquétipo de vendas</span>
         <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
       </button>`;
     }
     return `<button onclick="event.stopPropagation(); Actions.openAudienceWizardForExisting(${product.id})" class="w-full text-left px-3 py-2 rounded-2xl border-2 border-amber-300 bg-amber-50 text-amber-900 text-xs font-black flex items-center justify-between hover:bg-amber-100 transition">
-      <span class="flex items-center gap-1.5"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Definir audiência (ICP) — obrigatório</span>
+      <span class="flex items-center gap-1.5"><i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> Definir arquétipo de vendas — obrigatório</span>
       <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
     </button>`;
   },
