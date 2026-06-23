@@ -18234,6 +18234,11 @@ Object.assign(Actions, {
   // end-to-end. Sub-wizard de customs + fluxo dedicado e-commerce vêm depois.
 
   async loadGa4Status() {
+    // V40.12.10 — Guard de loop: caller no topBar.js render() pode disparar
+    // setTimeout a cada re-render. Se fetch ainda está pendente, retornar
+    // cedo evita acúmulo de calls concorrentes.
+    if (App.state._ga4StatusLoading) return;
+    App.state._ga4StatusLoading = true;
     const token = localStorage.getItem('lj_jwt');
     try {
       const r = await fetch('/api/ga4-config', { headers: { Authorization: `Bearer ${token}` } });
@@ -18241,6 +18246,7 @@ Object.assign(Actions, {
       App.state.ga4Status = data;
       App.render();
     } catch (_) {}
+    finally { App.state._ga4StatusLoading = false; }
   },
 
   openGa4Wizard() {

@@ -27,7 +27,11 @@ window.TopBar = {
       if (window.Actions?._processKrSnapshots) {
         setTimeout(() => Actions._processKrSnapshots(), 300);
       }
-      if (App.state.ga4Status === null && window.Actions?.loadGa4Status) {
+      // V40.12.10 — Mesma vulnerabilidade do governance-closings (V40.12.9):
+      // sem guard de loading, render durante fetch pendente disparava nova
+      // chamada. Hoje não estourou porque ga4-config geralmente responde
+      // rápido — mas em cold start do Railway pode virar loop. Fechar a porta.
+      if (App.state.ga4Status === null && !App.state._ga4StatusLoading && window.Actions?.loadGa4Status) {
         setTimeout(() => Actions.loadGa4Status(), 350);
       }
       // V40.12.9 — Guard de loop: sem checar `loadedAt` e `loading`, cada

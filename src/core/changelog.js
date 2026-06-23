@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.10',
+    date: '2026-06-23',
+    title: 'Fix preventivo no loadGa4Status (mesma vulnerabilidade do governance-closings)',
+    bullets: [
+      'Aplicado o mesmo guard de loop em loadGa4Status. Tinha estrutura idêntica ao governance-closings: TopBar render dispara setTimeout sem checar se fetch já está em curso.',
+      'Hoje nunca estourou porque ga4-config geralmente responde rápido — mas em cold start do Railway (como aconteceu hoje), poderia entrar no mesmo padrão de loop infinito.',
+      'Agora topBar.js só agenda nova chamada se o estado não está em loading, e a função retorna cedo se já tem fetch pendente. Defesa em profundidade.'
+    ]
+  },
+  {
     version: 'V40.12.9',
     date: '2026-06-23',
     title: 'Fix loop infinito de /api/governance-closings (estava travando o app)',
