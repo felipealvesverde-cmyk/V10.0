@@ -3229,6 +3229,18 @@
           blocks.push(this._dreBaseCard(productId, l, collapseKey));
           if (!isCollapsed) {
             blocks.push(this._dreFlatDeducoes(productId, variableItems, dre.deducoesInsideExtras || []));
+            // V40.11.34 — Renderizar extras + grupos ancorados em afterStep='deducoes'
+            // E o botão "+ inserir linha". Antes, o `continue` abaixo pulava esses 3
+            // passos, escondendo linhas extras válidas (ex: Inadimplência, descontos
+            // de parceria). Engine sempre considerou esses extras no cumulativo
+            // (sumExtras('deducoes')), mas a UI omitia silenciosamente. Bug global.
+            for (const ex of (extrasByStep[l.id] || [])) {
+              blocks.push(this._dreExtraCard(productId, ex));
+            }
+            for (const g of (groupsByStep[l.id] || [])) {
+              blocks.push(this._dreExtraGroupBlock(productId, g));
+            }
+            blocks.push(this._dreAddLineBtn(productId, l.id));
           }
           continue;
         }

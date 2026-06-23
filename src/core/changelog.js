@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.11.34',
+    date: '2026-06-23',
+    title: 'Fix CORE · DRE: linhas extras "depois de Deduções" voltam a aparecer (eram somadas mas invisíveis)',
+    bullets: [
+      'Bug estrutural global: qualquer linha extra ancorada em "depois de Deduções" (afterStep=deducoes) ficava INVISÍVEL na DRE, mesmo sendo descontada matematicamente no cumulativo da Venda Líquida.',
+      'Causa: o card de Deduções tem renderização especial (3 sub-cards CMV + extras_inside), mas o `continue` no fim do bloco pulava 3 coisas que TODOS os outros cards renderizam — extras desse step, grupos desse step e o botão "+ inserir linha".',
+      'Sintoma: na DRE da Pilsen, a linha "Inadimplência R$ 2.640" estava cadastrada e descontada, mas não aparecia em lugar nenhum. Cliente via Venda Líquida R$ 2.452.020 e não conseguia entender de onde sumiram R$ 2.640.',
+      'Fix: 1 linha de código adicional dentro do bloco especial — renderiza extras + grupos + botão "+ inserir linha" também pra Deduções.',
+      'Pra TODOS os tenants que tenham linha extra ancorada em "deducoes": volta a aparecer. Quem nunca cadastrou, nada muda.'
+    ]
+  },
+  {
     version: 'V40.11.33',
     date: '2026-06-22',
     title: 'RevOps Equilíbrio · Removida seção "KPIs Personalizados" (fórmula livre) — substituída pelos KPIs Avançados',
