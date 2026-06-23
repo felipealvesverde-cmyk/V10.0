@@ -14,14 +14,54 @@
 var RevopsVelocityModule = {
   render() {
     const products = (App.state.products || []).filter(p => p.archived !== true);
+    // V40.12.3 — Limpa cache do AudienceConsumerEngine antes de renderizar.
+    // Senão mudanças na Audiência só refletem após F5.
+    if (window.AudienceConsumerEngine) AudienceConsumerEngine.clearCache();
     return `<div class="space-y-4">
       ${this.velocityLayer(products)}
+      ${this._audienceStaleBanner(products)}
       <div class="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
         <h2 class="text-xl font-black mb-1">Diagnóstico por produto</h2>
-        <p class="text-sm text-slate-500 mb-5">Cada card mostra a velocidade da máquina (R$/dia) decomposta em Visitas × Conversão × Ticket / Ciclo. Clique pra expandir o diagnóstico em prosa + simulador.</p>
+        <p class="text-sm text-slate-500 mb-5">Cada card mostra a velocidade da máquina (R$/dia) decomposta em V × C × L / T. Quando o produto tem Audiência definida, os 4 nomes adaptam (Sessões/MQLs/Estabelecimentos/etc).</p>
         ${products.length === 0
           ? Components.empty('Cadastre um produto antes de ver diagnóstico.')
           : `<div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">${products.map(p => this.productCard(p)).join('')}</div>`}
+      </div>
+    </div>`;
+  },
+
+  // V40.12.3 — Sprint 4: banner não-bloqueante quando há produtos com Audiência
+  // legada ou desatualizada. Lista produtos afetados + botão pra abrir o wizard.
+  // Sem audiência configurada já é alertado em cada card individualmente (status
+  // 'blocked'), aqui é só pra V40.12.0/V40.12.1 sem archetypeKey.
+  _audienceStaleBanner(products) {
+    if (!window.AudienceConsumerEngine) return '';
+    const stale = products
+      .map(p => ({ product: p, diag: AudienceConsumerEngine.diagnoseStaleness(p.id) }))
+      .filter(x => x.diag && x.diag.status !== 'no_audience');
+    if (!stale.length) return '';
+    const total = stale.length;
+    return `<div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 p-4">
+      <div class="flex items-start gap-3">
+        <div class="w-8 h-8 rounded-xl bg-violet-100 grid place-items-center shrink-0">
+          <i data-lucide="sparkles" class="w-4 h-4 text-violet-700"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-[11px] font-black text-violet-700 uppercase tracking-widest">Atualize a Audiência</p>
+          <p class="text-sm text-slate-700 mt-0.5 leading-relaxed">
+            ${total === 1
+              ? `Tem <b>1 produto</b> com Audiência num formato antigo. Refunde pra destravar labels adaptativos no Card de Velocidade (V·C·L·T falando a língua do seu negócio).`
+              : `Tem <b>${total} produtos</b> com Audiência num formato antigo. Refunde cada um pra destravar labels adaptativos.`}
+          </p>
+          <div class="mt-2 flex flex-wrap gap-2">
+            ${stale.slice(0, 6).map(({ product }) => `
+              <button onclick="Actions.openAudienceWizardForExisting(${product.id})" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-violet-300 text-[11px] font-black text-violet-700 hover:bg-violet-100">
+                <i data-lucide="edit-3" class="w-3 h-3"></i>${Utils.escape(product.name)}
+              </button>
+            `).join('')}
+            ${stale.length > 6 ? `<span class="text-[11px] text-slate-500 self-center">+${stale.length - 6} outros</span>` : ''}
+          </div>
+        </div>
       </div>
     </div>`;
   },
@@ -105,6 +145,9 @@ var RevopsVelocityModule = {
 
     // ok — desenha card padrão com 4 letras
     // V39.7.0 — header neutro (slate) quando R$/dia = 0 evita "verde mentindo"
+    // V40.12.3 — Sprint 4 da Onda V2 de Audiência: card adaptativo. Labels
+    // V·C·L·T leem do arquétipo da Audiência do produto. Sem audiência ou
+    // arquétipo, cai em labels genéricos (compat retrátil).
     const isZero = (s.velocity || 0) <= 0;
     const semColor = isZero
       ? 'slate'
@@ -112,15 +155,39 @@ var RevopsVelocityModule = {
         ? (s.gargalo === 'C' || s.gargalo === 'T' ? 'amber' : 'violet')
         : 'emerald';
     const heroColor = isZero ? 'text-slate-400' : `text-${semColor}-700`;
+
+    // V40.12.3 — Lê labels adaptativos. Quando produto NÃO tem audiência
+    // configurada ou tem audiência sem archetypeKey, retorna labels genéricos.
+    const labels = window.AudienceConsumerEngine
+      ? AudienceConsumerEngine.getVelocityLabels(product.id)
+      : { V: 'Visitas', C: 'Conversão', L: 'Ticket', T: 'Ciclo' };
+    const archKey = window.AudienceConsumerEngine
+      ? AudienceConsumerEngine.getArchetypeKey(product.id)
+      : null;
+    const arch = window.AudienceConsumerEngine
+      ? AudienceConsumerEngine.getArchetype(product.id)
+      : null;
+
     const customersTxt = this._pluralize(s.customersCount, 'customer', 'customers', 'nenhum customer');
-    const visitasTxt = this._pluralize(s.V, 'visita', 'visitas', 'nenhuma visita');
+    // V40.12.3 — pluralização do "visita" também adapta. Pega 1ª palavra do label V.
+    const vNoun = (labels.V || 'Visitas').split(/[\s/]/)[0].toLowerCase();
+    const visitasTxt = this._pluralize(s.V, vNoun, vNoun + (vNoun.endsWith('s') ? '' : 's'), `nenhum${vNoun.endsWith('a') ? 'a' : ''} ${vNoun}`);
     const vendasTxt = this._pluralize(s.approvedCount, 'venda processada', 'vendas processadas', 'nenhuma venda processada');
+
+    // V40.12.3 — Badge do arquétipo (etiqueta sutil no header do card).
+    const archBadge = arch && archKey
+      ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-${semColor}-100 border border-${semColor}-200 text-[9px] font-black text-${semColor}-700 uppercase tracking-widest" title="${Utils.escape(arch.tagline || '')}"><i data-lucide="target" class="w-2.5 h-2.5"></i>${Utils.escape(arch.label || '')}</span>`
+      : '';
+
     return `<div class="rounded-3xl bg-${semColor}-50 border border-${semColor}-200 border-l-4 border-l-${semColor}-500 overflow-hidden">
       <button onclick="Actions.toggleRevopsVelocityProduct(${product.id})" class="w-full text-left p-4 hover:bg-${semColor}-100/40 transition">
         <div class="flex items-start justify-between gap-3 mb-3">
           <div class="min-w-0 flex-1">
             <p class="text-[10px] font-black text-${semColor}-700 uppercase tracking-wider mb-0.5">Velocity · ${s.yyyymm || ''}</p>
-            <h3 class="font-black text-base truncate">${Utils.escape(product.name)}</h3>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="font-black text-base truncate">${Utils.escape(product.name)}</h3>
+              ${archBadge}
+            </div>
             <p class="text-xs text-slate-600 mt-1">${customersTxt} em ${visitasTxt} · ${vendasTxt}</p>
           </div>
           <div class="shrink-0 flex items-start gap-2">
@@ -134,10 +201,10 @@ var RevopsVelocityModule = {
           </div>
         </div>
         <div class="grid grid-cols-4 gap-1.5">
-          ${this._letterMini('V', 'Visitas', String(s.V), s.gargalo === 'V')}
-          ${this._letterMini('C', 'Conversão', PipelineVelocityEngine.fmtPct(s.C), s.gargalo === 'C')}
-          ${this._letterMini('L', 'Ticket', PipelineVelocityEngine.fmtMoney(s.L), s.gargalo === 'L')}
-          ${this._letterMini('T', 'Ciclo', `${s.T.toFixed(1)}d`, s.gargalo === 'T')}
+          ${this._letterMini('V', labels.V, String(s.V), s.gargalo === 'V')}
+          ${this._letterMini('C', labels.C, PipelineVelocityEngine.fmtPct(s.C), s.gargalo === 'C')}
+          ${this._letterMini('L', labels.L, PipelineVelocityEngine.fmtMoney(s.L), s.gargalo === 'L')}
+          ${this._letterMini('T', labels.T, `${s.T.toFixed(1)}d`, s.gargalo === 'T')}
         </div>
       </button>
       ${expanded ? this._expandedBlock(s, product) : ''}

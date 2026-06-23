@@ -18,6 +18,22 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.3',
+    date: '2026-06-23',
+    title: 'Audiência V2 · Sprint 4 — Card de Velocidade adaptativo + banner pra audiências legadas',
+    bullets: [
+      'Cumprimos a promessa do Step 5: as consequências da Audiência finalmente CHEGAM nos módulos. Card de Velocidade adapta labels V·C·L·T conforme arquétipo do produto.',
+      'Pra produto com Audiência B2B Atacado: V vira "Estabelecimentos abordados", C vira "Abordagem → 1º pedido", L vira "Ticket médio do pedido", T vira "Dias a semanas (relacionamento)".',
+      'Pra produto com Audiência B2C E-commerce Impulso (Pilsen D2C): V vira "Sessões únicas no site", C vira "Sessão → compra", L vira "Ticket médio (carrinho)", T vira "Minutos a horas (impulso)".',
+      'Pra produto SaaS B2B Enterprise: V vira "MQLs / SQLs no CRM", L vira "ACV (Annual Contract Value)", T vira "Semanas a meses (ciclo de venda)".',
+      'Etiqueta do arquétipo aparece sutilmente ao lado do nome do produto no card.',
+      'Pluralização da prosa também adapta: "nenhuma sessão" vs "nenhum estabelecimento" vs "nenhum MQL" — conforme o V do arquétipo.',
+      'Quando produto NÃO tem Audiência ou tem Audiência antiga (sem archetypeKey), fallback genérico (Visitas/Conversão/Ticket/Ciclo) — sem quebrar nada.',
+      'Banner não-bloqueante "Atualize a Audiência" aparece quando há produtos legados — lista nominalmente até 6 deles com botão direto pra reabrir o wizard.',
+      'Novo engine `AudienceConsumerEngine` em src/engines/audienceConsumerEngine.js — helper compartilhado pra TODOS os módulos consumidores. Sprints futuras vão usar pra Djow lateral, RevOps Equilíbrio, Score Engine e Mapa da Receita.'
+    ]
+  },
+  {
     version: 'V40.12.2',
     date: '2026-06-23',
     title: 'Audiência V2 · Sprint 3 — Step 5 "Confirmação" + Confidence Score + Catálogo de Consequências',
