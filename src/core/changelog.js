@@ -18,6 +18,20 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.11',
+    date: '2026-06-23',
+    title: 'Wizard Audiência · Lote 1 Leonardo (6 ajustes cosméticos seguros)',
+    bullets: [
+      'Retomada controlada da onda Leonardo após o rollback da V40.12.8. 6 mudanças por lote, snapshot manual entre cada um, pra você reverter só o que quebrar se algo der errado.',
+      'Botão Fechar do wizard agora usa o ícone Lucide (consistente com o resto do app) e ganhou aria-label pra acessibilidade.',
+      'Botão Continuar desabilitado virou estado limpo (slate cinza claro com cursor proibido) em vez de opacity bruta que destoava do resto.',
+      'Refinamento (passo 4): removida a badge "opcional" repetida em cada um dos 4 grupos. Só mostra o ✓ verde quando preenchido — o aviso "opcional" já existe no topo do passo.',
+      'No quadro PA/ICP/BP (passo 5), as tags FIT/DADO viraram pontinhos coloridos com tooltip — mais legíveis que badges de 9px que estavam fora do limite confortável.',
+      'Confidence score (% no passo 6) com tabular-nums — não pula mais entre 85% e 100% conforme a largura do dígito.',
+      'Pílulas/badges em todo o wizard padronizadas em rounded-full.'
+    ]
+  },
+  {
     version: 'V40.12.10',
     date: '2026-06-23',
     title: 'Fix preventivo no loadGa4Status (mesma vulnerabilidade do governance-closings)',

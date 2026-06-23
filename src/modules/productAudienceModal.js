@@ -1,5 +1,14 @@
 // V38.1.36 — Wizard "Definir Audiência" (ICP do produto).
 //
+// V40.12.11 — Lote 1 Leonardo (6 ajustes visuais cosméticos cirúrgicos —
+// re-tentativa pós-rollback V40.12.8 em lotes seguros):
+//   1. Botão fechar com ícone Lucide (rounded-full, aria-label)
+//   2. Continuar disabled limpo (slate-200/slate-400 + pointer-events-none)
+//   3. Refinamento sem badge "opcional" redundante (só ✓ verde quando preenchido)
+//   4. Tags FIT/DADO viraram pontinhos coloridos com tooltip (10px legível)
+//   5. Confidence score com tabular-nums (não pula entre 85% e 100%)
+//   6. Border-radius disciplinado (pílulas/badges sempre rounded-full)
+//
 // Hard bloqueante: produto não nasce sem audience.configured=true.
 //
 // V40.12.5 — 6 steps (refinamento ganha passo próprio pra aliviar scroll do
@@ -81,7 +90,7 @@ var ProductAudienceModal = {
         <h2 class="text-2xl font-black mt-1 truncate">${Utils.escape(productName)} <span class="text-violet-200 font-normal">— ${Utils.escape(titles[step])}</span></h2>
         <div class="flex items-center gap-1.5 mt-3">${dots}</div>
       </div>
-      <button onclick="Actions.cancelAudienceWizard()" title="Fechar (produto não será criado)" class="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-black text-xl">×</button>
+      <button onclick="Actions.cancelAudienceWizard()" aria-label="Fechar (produto não será criado)" title="Fechar (produto não será criado)" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white grid place-items-center shrink-0 transition"><i data-lucide="x" class="w-5 h-5"></i></button>
     </header>`;
   },
 
@@ -101,9 +110,14 @@ var ProductAudienceModal = {
     const backLabel = step === 0 ? 'Cancelar' : 'Voltar';
     const backAction = step === 0 ? 'Actions.cancelAudienceWizard()' : 'Actions.audienceWizardBack()';
     const advanceAction = isLast ? 'Actions.audienceWizardFinish()' : 'Actions.audienceWizardNext()';
-    return `<footer class="bg-slate-50 border-t border-slate-200 p-5 flex items-center justify-between">
-      <button onclick="${backAction}" class="px-5 py-3 rounded-2xl bg-white border border-slate-300 text-slate-700 font-black">${backLabel}</button>
-      <button onclick="${advanceAction}" ${canAdvance ? '' : 'disabled style="opacity:.4;cursor:not-allowed;"'} class="px-5 py-3 rounded-2xl bg-violet-700 hover:bg-violet-800 text-white font-black">${advanceLabel}</button>
+    // V40.12.11 — Lote 1 Leonardo: disabled limpo (sem opacity bruta inline) +
+    // pílulas rounded-full nos dois botões.
+    const advanceCls = canAdvance
+      ? 'bg-violet-700 hover:bg-violet-800 text-white cursor-pointer'
+      : 'bg-slate-200 text-slate-400 cursor-not-allowed pointer-events-none';
+    return `<footer class="bg-slate-50 border-t border-slate-200 p-5 flex items-center justify-between gap-3">
+      <button onclick="${backAction}" class="px-5 py-3 rounded-full bg-white border border-slate-300 text-slate-700 font-black hover:bg-slate-100 transition">${backLabel}</button>
+      <button onclick="${advanceAction}" class="px-5 py-3 rounded-full font-black transition ${advanceCls}">${advanceLabel}</button>
     </footer>`;
   },
 
@@ -187,7 +201,7 @@ var ProductAudienceModal = {
         </div>
         <div class="text-right shrink-0">
           <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Confiança</p>
-          <p class="text-2xl font-black text-${confTone}-700">${pct}%</p>
+          <p class="text-2xl font-black tabular-nums text-${confTone}-700">${pct}%</p>
           <p class="text-[10px] font-black text-${confTone}-700 uppercase">${confLabel}</p>
         </div>
       </div>
@@ -316,7 +330,7 @@ var ProductAudienceModal = {
             <p class="text-[11px] font-black text-violet-700 uppercase tracking-widest">${Utils.escape(meta.label)}</p>
             <p class="text-[10px] text-slate-500">${Utils.escape(meta.tagline || '')}</p>
           </div>
-          ${selected ? '<span class="text-[10px] font-black text-emerald-700 inline-flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i>preenchido</span>' : '<span class="text-[10px] text-slate-400">opcional</span>'}
+          ${selected ? '<span class="text-[10px] font-black text-emerald-700 inline-flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i>preenchido</span>' : ''}
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           ${opcoes.map(op => {
@@ -466,21 +480,23 @@ var ProductAudienceModal = {
   // V38.1.44 — Aceita layerKey opcional pra suportar custom fields (botão +).
   _layerColumn(tag, title, fields, requiredCount, tone, layerKey) {
     const items = (fields || []).map(f => {
-      const tagBadge = f.type === 'fit'
-        ? `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700 border border-emerald-200 shrink-0">FIT</span>`
-        : `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 shrink-0">DADO</span>`;
+      // V40.12.11 — Lote 1 Leonardo: FIT/DADO viraram pontinhos com tooltip
+      // (mais legíveis, menos ruído visual). OPC vira pílula 10px rounded-full.
+      const fitDot = f.type === 'fit'
+        ? `<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="FIT — sinal de aderência ao ICP"></span>`
+        : `<span class="w-1.5 h-1.5 rounded-full bg-slate-400 shrink-0" title="DADO — campo de firmografia/contexto"></span>`;
       const optionalBadge = f.optional
-        ? `<span class="text-[9px] font-black px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200 shrink-0">OPC</span>`
+        ? `<span class="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 shrink-0" title="Opcional">opc</span>`
         : '';
       const customBadge = f.custom
-        ? `<button onclick="event.stopPropagation(); Actions.removeCustomAudienceField('${layerKey}', '${Utils.escape(f.key)}')" title="Remover campo custom" class="text-[10px] font-black px-1 py-0.5 rounded text-rose-500 hover:bg-rose-100 shrink-0">×</button>`
+        ? `<button onclick="event.stopPropagation(); Actions.removeCustomAudienceField('${layerKey}', '${Utils.escape(f.key)}')" title="Remover campo custom" class="text-[10px] font-black px-1 py-0.5 rounded-full text-rose-500 hover:bg-rose-100 shrink-0">×</button>`
         : '';
       const tooltip = (f.tooltip || '') + (f.criterio ? ' Critério: ' + f.criterio : '') + (f.inferenciaRd ? ' Origem: ' + f.inferenciaRd : '');
       const customCls = f.custom ? 'border-violet-300 bg-violet-50/30' : 'border-slate-200 bg-white';
-      return `<div title="${Utils.escape(tooltip)}" class="rounded-xl border ${customCls} px-2.5 py-2 flex items-center gap-1.5">
+      return `<div title="${Utils.escape(tooltip)}" class="rounded-xl border ${customCls} px-2.5 py-2 flex items-center gap-2">
+        ${fitDot}
         <span class="text-[11px] font-bold text-slate-700 truncate flex-1">${Utils.escape(f.label || f.key)}</span>
         ${optionalBadge}
-        ${tagBadge}
         ${customBadge}
       </div>`;
     }).join('');
