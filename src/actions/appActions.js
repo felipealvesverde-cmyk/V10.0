@@ -1724,7 +1724,11 @@ Object.assign(Actions, {
     // V38.1.39 — Funde via AudienceFusionEngine pra salvar schema completo
     // (snapshot, não delta — flag customized: false até cliente editar).
     // V38.1.44 — Custom fields do draft do wizard mesclam no schema final.
+    // V40.12.0 — Carimba versions do catálogo + engine pra rastreabilidade
+    // futura (Sprint 1 da Onda V2 de Audiência). Permite saber qual versão
+    // fundiu cada Audiência quando catálogo bumpar.
     let schema = null;
+    let fusionVersions = null;
     const customFields = (w.customFields && typeof w.customFields === 'object')
       ? { pa: w.customFields.pa || [], icp: w.customFields.icp || [], bp: w.customFields.bp || [] }
       : { pa: [], icp: [], bp: [] };
@@ -1748,6 +1752,7 @@ Object.assign(Actions, {
           },
           notas: fused.notas
         };
+        fusionVersions = fused.versions || null;
       }
     }
     const audience = {
@@ -1761,6 +1766,10 @@ Object.assign(Actions, {
       schema,
       customFields,
       customized: totalCustom > 0,
+      // V40.12.0 — Carimbo de versões do catálogo+engine usados na fusão.
+      // Quando catálogo bumpar (Sprint 2 com átomos novos), audiências antigas
+      // mantêm sua versão original — banner pode oferecer refusão opcional.
+      versions: fusionVersions,
       // Retrocompat (V38.1.36) — arrays vazios até a próxima onda permitir custom
       quadroPA: Array.isArray(w.quadroPA) ? w.quadroPA : [],
       quadroICP: Array.isArray(w.quadroICP) ? w.quadroICP : [],
