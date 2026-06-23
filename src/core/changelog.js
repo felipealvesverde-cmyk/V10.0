@@ -18,6 +18,22 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.8',
+    date: '2026-06-23',
+    title: 'Wizard Audiência · onda Leonardo (23 ajustes visuais)',
+    bullets: [
+      'Refinamento profundo do wizard "Definir Audiência" — proporção, hierarquia, cor, silêncio. 23 ajustes pontuais em uma onda.',
+      'Header agora em roxo RevOps (paleta semântica oficial) com gradiente sutil. Nome do produto desceu pra eyebrow, título do passo ganhou a linha principal. Pontilhados de progresso viraram barra contínua + "5 / 6" tabular.',
+      'Steps 1 (modelo de negócio) e 2 (modelo operacional) ganharam grid 2-col — scroll caiu pela metade. Canal de venda em grid 3-col lado a lado.',
+      'Cards C/B/A (Passo 0 e Passo 5) com peso visual decrescente sugerindo afunilamento. Tags FIT/DADO/OPC viraram pontinhos coloridos com tooltip (mais legíveis em mobile).',
+      'Cards de consequência (Passo 6) mapeados pra paleta semântica oficial: Velocidade=Vendas, Score=Marketing, Djow=RevOps, RevOps=Receita, Mapa=CS. Card Mapa ocupa linha inteira evitando assimetria.',
+      'Lei do side-accent (faixa lateral colorida) aplicada universalmente em todos os cards do wizard.',
+      'Header do quadro (Passo 5) trocou chips empilhados por prosa fluida. Refinadores ganharam hierarquia tipográfica refinada (tagline em medium/slate-500). Card preto final virou slate-900/96 com accent RevOps.',
+      'Animação de entrada suave (fade + lift de 8px). Largura do modal adaptativa: 3xl nos passos curtos, 5xl no quadro e na confirmação. Min-height previne footer flutuando em passos curtos.',
+      'Botão Continuar disabled limpo (sem opacity bruta). Botão fechar usa ícone Lucide. Botões em pill (rounded-full). Confidence com tabular-nums (não pula entre 85% e 100%).'
+    ]
+  },
+  {
     version: 'V40.12.7',
     date: '2026-06-23',
     title: 'Wizard Audiência · blindagem contra modelos legados + seed do demo corrigido',
