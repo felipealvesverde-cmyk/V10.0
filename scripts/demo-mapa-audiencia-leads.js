@@ -125,11 +125,18 @@ function buildStrategicMaps(campaigns) {
 // AUDIÊNCIA COMPOSICIONAL
 // ============================================================
 
+// V40.12.7 — modeloNegocio/Operacional/salesChannel agora batem com IDs
+// canônicos do AudienceAtomsCatalog. Antes estavam como strings PT-BR
+// ("B2B2C", "híbrido", "multi-canal") que faziam o motor de fusão recusar
+// audience e o wizard mostrar "Modelo inválido" no rosto do cliente.
+// Pilsen/Weiss/Chopp são cervejarias B2B2C (vendem pra bar/restaurante que
+// revende pro consumidor), operam no canal Atacado (caixa/fardo), Pilsen é
+// híbrido (D2C + B2B), Weiss e Chopp só CRM.
 const AUDIENCE_CONFIG = {
   [PRODUCT_IDS.PILSEN]: {
-    modeloNegocio: 'B2B2C',
-    modeloOperacional: 'híbrido',
-    salesChannel: 'multi-canal',
+    modeloNegocio: 'b2b2c',
+    modeloOperacional: 'atacado',
+    salesChannel: 'hybrid',
     schema: 'cpg-cervejaria',
     quadroPA: [
       { id: uid('pa'), titulo: 'Bar de bairro fiel',           descricao: 'Bar de bairro com clientela cativa, fatura R$ 30-60k/mês, dono pessoalmente no caixa, valoriza relação direta com fornecedor.', tags: ['B2B', 'bar', 'tradicional'] },
@@ -147,9 +154,9 @@ const AUDIENCE_CONFIG = {
     ]
   },
   [PRODUCT_IDS.WEISS]: {
-    modeloNegocio: 'B2B2C',
-    modeloOperacional: 'híbrido',
-    salesChannel: 'gastronômico',
+    modeloNegocio: 'b2b2c',
+    modeloOperacional: 'atacado',
+    salesChannel: 'crm',
     schema: 'cpg-cervejaria-premium',
     quadroPA: [
       { id: uid('pa'), titulo: 'Gastrobar curado',     descricao: 'Gastrobar com curadoria de cervejas, sommelier residente, pega festivais cervejeiros.', tags: ['premium', 'gourmet'] },
@@ -167,9 +174,9 @@ const AUDIENCE_CONFIG = {
     ]
   },
   [PRODUCT_IDS.CHOPP]: {
-    modeloNegocio: 'B2B2C',
-    modeloOperacional: 'híbrido',
-    salesChannel: 'alta-gastronomia',
+    modeloNegocio: 'b2b2c',
+    modeloOperacional: 'atacado',
+    salesChannel: 'crm',
     schema: 'cpg-bebida-luxo',
     quadroPA: [
       { id: uid('pa'), titulo: 'Restaurante de chef',      descricao: 'Restaurante de chef estrelado/Michelin, carta de vinhos curada, busca elementos diferenciadores únicos.', tags: ['estrelado', 'inovação'] },
