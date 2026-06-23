@@ -26,6 +26,14 @@
 //  17. Card RevOps em var(--lj-revenue) (amarelo-ouro #F6DB5C)
 //  18. Card Mapa em var(--lj-cs) (azul-céu #6BBEF9)
 //
+// V40.12.14 — Lote 4 Leonardo (5 refinos finais — fecha a onda):
+//  19. Nome do produto migrou pra eyebrow (junto de "Editar audiência · Passo X")
+//  20. Dots → progress bar contínua + "X / Y" tabular abaixo
+//  21. Cards C/B/A com paddings/tag-size decrescentes (Fibonacci-ish)
+//  22. Card "Isso faz sentido?" virou slate-900/96 com accent RevOps-soft
+//  23. Animação de entrada (fade backdrop + lift modal) via design-director.css
+//      em vez de <style> injetado no innerHTML — fecha a lição da V40.12.8
+//
 // Hard bloqueante: produto não nasce sem audience.configured=true.
 //
 // V40.12.5 — 6 steps (refinamento ganha passo próprio pra aliviar scroll do
@@ -102,18 +110,27 @@ var ProductAudienceModal = {
 
   // V40.12.5 — 6 steps (0..5). Refinamento ganhou passo próprio (3); quadro
   // virou 4; confirmação "esfregando na cara" virou 5.
+  // V40.12.14 — Lote 4 Leonardo: nome do produto migrou pra eyebrow (junto
+  // de "Editar audiência · Passo X de Y"). H2 fica só com o título do passo
+  // (sem em-dash). Dots viraram progress bar contínua + "X / Y" tabular.
   _header(w, step) {
     const titles = ['O que é ICP?', 'Modelo de Negócio', 'Modelo Operacional', 'Refinamento', 'Quadro de Audiência', 'Confirmação'];
     const totalSteps = titles.length;
-    const dots = titles.map((_, i) => `<span class="w-2 h-2 rounded-full ${i <= step ? 'bg-white' : 'bg-white/25'}"></span>`).join('');
     const productName = w.mode === 'existingProduct'
       ? (App.state.products.find(p => Number(p.id) === Number(w.productId))?.name || 'Produto')
       : (w.pendingDraft?.name || 'Novo produto');
+    const prefix = w.mode === 'existingProduct' ? 'Editar audiência' : 'Definir audiência';
+    const pct = Math.round((step / (totalSteps - 1)) * 100);
     return `<header class="text-white p-6 flex items-start justify-between gap-4" style="background: linear-gradient(135deg, var(--lj-revops) 0%, var(--lj-revops-deep) 100%);">
-      <div class="min-w-0">
-        <p class="text-[10px] font-black uppercase tracking-widest" style="color: var(--lj-revops-soft);">${w.mode === 'existingProduct' ? 'Editar audiência' : 'Definir audiência'} · Passo ${step + 1} de ${totalSteps}</p>
-        <h2 class="text-2xl font-black mt-1 truncate">${Utils.escape(productName)} <span class="font-normal" style="color: var(--lj-revops-soft);">— ${Utils.escape(titles[step])}</span></h2>
-        <div class="flex items-center gap-1.5 mt-3">${dots}</div>
+      <div class="min-w-0 flex-1">
+        <p class="text-[10px] font-black uppercase tracking-widest" style="color: var(--lj-revops-soft);">${prefix} · <span class="text-white/90">${Utils.escape(productName)}</span></p>
+        <h2 class="text-2xl font-black mt-1 truncate">${Utils.escape(titles[step])}</h2>
+        <div class="flex items-center gap-3 mt-3">
+          <div class="flex-1 h-1 rounded-full bg-white/15 overflow-hidden">
+            <div class="h-full bg-white rounded-full transition-all duration-300" style="width: ${pct}%;"></div>
+          </div>
+          <span class="text-[11px] font-black text-white/90 tabular-nums shrink-0">${step + 1} / ${totalSteps}</span>
+        </div>
       </div>
       <button onclick="Actions.cancelAudienceWizard()" aria-label="Fechar (produto não será criado)" title="Fechar (produto não será criado)" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white grid place-items-center shrink-0 transition"><i data-lucide="x" class="w-5 h-5"></i></button>
     </header>`;
@@ -270,8 +287,8 @@ var ProductAudienceModal = {
         </div>
       </div>
 
-      <!-- Validação -->
-      <div class="rounded-2xl bg-slate-900 text-white p-4">
+      <!-- Validação final — slate-900/96 com accent RevOps e inner shadow sutil -->
+      <div class="rounded-2xl text-white p-4" style="background: rgba(15, 23, 42, 0.96); border-left: 4px solid var(--lj-revops-soft); box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);">
         <p class="text-sm font-black mb-1">Isso faz sentido pro seu negócio?</p>
         <p class="text-[12px] text-slate-300">Se clicar Confirmar, o LJ vai aplicar essas premissas em todos os módulos. Se algo soou estranho, volta e ajusta — ou pede pro Djow refletir.</p>
       </div>
@@ -285,18 +302,22 @@ var ProductAudienceModal = {
         <p class="text-sm text-slate-700 leading-relaxed">Definir bem a <b>audiência</b> de um produto é o que separa marketing que gera atenção de marketing que <b>fecha venda</b>. O LJ trabalha com 3 camadas que se acumulam: cada uma é um filtro mais fino sobre a anterior.</p>
       </div>
       <div class="grid md:grid-cols-3 gap-3">
-        ${this._layerCard('C', 'Público-Alvo', 'Quem TEM CHANCE de virar lead. Firmografia e demografia bruta: setor, porte, geografia, faixa de renda.', 'violet')}
-        ${this._layerCard('B', 'ICP', 'Quem é VIÁVEL de fechar. PA + sinais comportamentais e contextuais: uso de categoria, momento de compra, orçamento.', 'pink')}
-        ${this._layerCard('A', 'Buyer Persona', 'COMO falar com quem decide. ICP + pessoa: cargo decisor, dor declarada, prioridades, processo de decisão.', 'amber')}
+        ${this._layerCard(0, 'C', 'Público-Alvo', 'Quem TEM CHANCE de virar lead. Firmografia e demografia bruta: setor, porte, geografia, faixa de renda.', 'violet')}
+        ${this._layerCard(1, 'B', 'ICP', 'Quem é VIÁVEL de fechar. PA + sinais comportamentais e contextuais: uso de categoria, momento de compra, orçamento.', 'pink')}
+        ${this._layerCard(2, 'A', 'Buyer Persona', 'COMO falar com quem decide. ICP + pessoa: cargo decisor, dor declarada, prioridades, processo de decisão.', 'amber')}
       </div>
       <p class="text-xs text-slate-500 leading-relaxed">Esse wizard vai te guiar a definir os 3. Depois, o LJ usa essas definições pra classificar automaticamente cada lead que entra na campanha desse produto.</p>
     </div>`;
   },
 
-  _layerCard(tag, title, body, tone) {
-    return `<div class="rounded-2xl bg-white border border-slate-200 border-l-4 border-l-${tone}-500 p-4">
+  // V40.12.14 — Lote 4 Leonardo: paddings decrescentes (5/4/3) e tag-size
+  // decrescente (8/7/6) sugerem afunilamento C → B → A.
+  _layerCard(idx, tag, title, body, tone) {
+    const paddings = ['p-5', 'p-4', 'p-3'];
+    const tagSizes = ['w-8 h-8 text-sm', 'w-7 h-7 text-xs', 'w-6 h-6 text-[11px]'];
+    return `<div class="rounded-2xl bg-white border border-slate-200 border-l-4 border-l-${tone}-500 ${paddings[idx]}">
       <div class="flex items-center gap-2 mb-2">
-        <span class="w-6 h-6 rounded-lg bg-${tone}-100 text-${tone}-700 grid place-items-center text-xs font-black">${tag}</span>
+        <span class="${tagSizes[idx]} rounded-lg bg-${tone}-100 text-${tone}-700 grid place-items-center font-black">${tag}</span>
         <p class="font-black text-slate-900">${title}</p>
       </div>
       <p class="text-xs text-slate-600 leading-relaxed">${body}</p>

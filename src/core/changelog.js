@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.14',
+    date: '2026-06-23',
+    title: 'Wizard Audiência · Lote 4 Leonardo (refinos finais — onda fechada)',
+    bullets: [
+      'Fecha a onda Leonardo no wizard. 23 ajustes visuais entregues em 4 lotes seguros (V40.12.11/12/13/14) com snapshot manual entre cada — diferente da tentativa anterior na V40.12.8 que foi tudo de uma vez.',
+      'Nome do produto desceu pra eyebrow no header (junto de "Editar audiência · Passo X"). H2 fica só com o título do passo — leitura mais clara.',
+      'Pontilhados de progresso viraram barra contínua + "X / Y" tabular do lado. Mapa de progresso real, não ornamento.',
+      'Cards Público-Alvo / ICP / Buyer Persona (passos 1 e 5) com paddings e tag-size decrescentes (5/4/3 e 8/7/6) sugerindo afunilamento C → B → A.',
+      'Card final "Isso faz sentido pro seu negócio?" no passo 6 ganhou fundo slate quase preto com inner shadow sutil e accent RevOps na borda esquerda — dramatiza o momento da decisão.',
+      'Animação de entrada (fade backdrop 180ms + lift modal 220ms) definida em CSS estático (design-director.css), não injetada inline — fecha a lição da V40.12.8.'
+    ]
+  },
+  {
     version: 'V40.12.13',
     date: '2026-06-23',
     title: 'Wizard Audiência · Lote 3 Leonardo (6 ajustes de cor semântica)',

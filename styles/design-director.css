@@ -77,6 +77,24 @@
   backdrop-filter: blur(18px);
 }
 
+/* V40.12.14 — Animação de entrada do wizard "Definir Audiência".
+   Definido em CSS estático (não inline no innerHTML) pra evitar
+   problema que tentamos diagnosticar na V40.12.8. */
+@keyframes ljAudWizBackdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes ljAudWizModalIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#audienceWizardBackdrop {
+  animation: ljAudWizBackdropIn 180ms ease-out;
+}
+#audienceWizardBackdrop > div {
+  animation: ljAudWizModalIn 220ms cubic-bezier(.22, 1, .36, 1);
+}
+
 .lj-card-clickable {
   transition: transform var(--lj-motion), background var(--lj-motion), border-color var(--lj-motion);
   cursor: pointer;
