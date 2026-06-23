@@ -9,6 +9,14 @@
 //   5. Confidence score com tabular-nums (não pula entre 85% e 100%)
 //   6. Border-radius disciplinado (pílulas/badges sempre rounded-full)
 //
+// V40.12.12 — Lote 2 Leonardo (6 ajustes de layout):
+//   7. Min-height [440px] no inner — footer não cola em passos curtos
+//   8. Step 1 (negócio) em grid 2×2 — 4 cards lado a lado
+//   9. Step 2 (operacional 9 cards) em grid 2-col + canal de venda em grid 3-col
+//  10. Headers das 2 seções do Step 2 padronizados (label + sub-frase)
+//  11. Modal width adaptativo (max-w-3xl em 0-3, max-w-5xl em 4-5)
+//  12. Card Mapa da Receita ocupa linha inteira (lg:col-span-2)
+//
 // Hard bloqueante: produto não nasce sem audience.configured=true.
 //
 // V40.12.5 — 6 steps (refinamento ganha passo próprio pra aliviar scroll do
@@ -55,14 +63,22 @@ var ProductAudienceModal = {
     { id: 'hybrid',   label: 'Os dois caminhos',   tagline: 'Híbrido (checkout + CRM)',  body: 'Esse produto vende dos dois jeitos. Ex: SaaS com plano self-service + plano enterprise.' }
   ],
 
+  // V40.12.12 — Lote 2 Leonardo: largura adaptativa por passo. Passos 4-5
+  // carregam tabelas (3 colunas PA/ICP/BP, 5 cards de consequência) que
+  // pedem mais ar.
+  _modalWidth(step) {
+    return step >= 4 ? 'max-w-5xl' : 'max-w-3xl';
+  },
+
   render() {
     const w = App.state.audienceWizard;
     if (!w || !w.open) return '';
     const step = Number(w.step || 0);
+    const widthCls = this._modalWidth(step);
     return `<div id="audienceWizardBackdrop" class="fixed inset-0 z-[9999] bg-slate-950/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div class="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-3xl mx-auto mt-8 overflow-hidden">
+      <div class="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full ${widthCls} mx-auto mt-8 overflow-hidden">
         ${this._header(w, step)}
-        <div class="p-6 lg:p-8">
+        <div class="p-6 lg:p-8 min-h-[440px]">
           ${step === 0 ? this._step0() : ''}
           ${step === 1 ? this._step1(w) : ''}
           ${step === 2 ? this._step2(w) : ''}
@@ -165,9 +181,11 @@ var ProductAudienceModal = {
     const confTone = confidence >= 0.8 ? 'emerald' : confidence >= 0.5 ? 'amber' : 'rose';
     const confLabel = confidence >= 0.8 ? 'alta' : confidence >= 0.5 ? 'média' : 'baixa';
 
-    // Card de uma consequência
-    const consequenciaCard = (icon, title, content, tone) => `
-      <div class="rounded-2xl border border-${tone}-200 bg-${tone}-50/40 p-4">
+    // V40.12.12 — Lote 2 Leonardo: helper aceita opcional `span` (ex: 'lg:col-span-2')
+    // pra último card (Mapa) ocupar a linha inteira e evitar assimetria com 5 cards
+    // num grid de 2 colunas.
+    const consequenciaCard = (icon, title, content, tone, span) => `
+      <div class="${span || ''} rounded-2xl border border-${tone}-200 bg-${tone}-50/40 p-4">
         <div class="flex items-center gap-2 mb-2">
           <div class="w-7 h-7 rounded-lg bg-${tone}-100 grid place-items-center">
             <i data-lucide="${icon}" class="w-4 h-4 text-${tone}-700"></i>
@@ -239,7 +257,7 @@ var ProductAudienceModal = {
           ${consequenciaCard('map', 'Mapa da Receita', `
             <p><b>KR-mãe sugerido:</b> ${Utils.escape(mapa.kr_mae_sugerido || '—')}</p>
             ${mapa.krs_secundarios?.length ? `<p class="mt-1"><b>Secundários:</b> ${mapa.krs_secundarios.map(k => Utils.escape(k)).join(', ')}</p>` : ''}
-          `, 'amber')}
+          `, 'amber', 'lg:col-span-2')}
         </div>
       </div>
 
@@ -276,25 +294,38 @@ var ProductAudienceModal = {
     </div>`;
   },
 
+  // V40.12.12 — Lote 2 Leonardo: 4 cards de negócio em grid 2×2.
   _step1(w) {
     return `<div class="space-y-3">
       <p class="text-sm text-slate-600 mb-4">Como esse produto chega no comprador?</p>
-      ${this.BUSINESS_MODELS.map(m => this._choiceCard('modeloNegocio', m, w.modeloNegocio === m.id)).join('')}
+      <div class="grid md:grid-cols-2 gap-3">
+        ${this.BUSINESS_MODELS.map(m => this._choiceCard('modeloNegocio', m, w.modeloNegocio === m.id)).join('')}
+      </div>
     </div>`;
   },
 
+  // V40.12.12 — Lote 2 Leonardo: modelo operacional em grid 2-col (9 cards),
+  // canal de venda em grid 3-col (3 cards lado a lado), header das duas
+  // seções padronizado com sub-frase explicativa.
   _step2(w) {
-    return `<div class="space-y-5">
+    return `<div class="space-y-6">
       <div class="space-y-3">
-        <p class="text-sm text-slate-600">Qual o modelo operacional e de receita?</p>
-        ${this.OPERATIONAL_MODELS.map(m => this._choiceCard('modeloOperacional', m, w.modeloOperacional === m.id)).join('')}
+        <div>
+          <p class="text-sm text-slate-600 font-black">Qual o modelo operacional e de receita?</p>
+          <p class="text-[11px] text-slate-500 mt-0.5">Define como esse produto faz dinheiro — assinatura, venda única, comissão, ticket por pedido.</p>
+        </div>
+        <div class="grid md:grid-cols-2 gap-3">
+          ${this.OPERATIONAL_MODELS.map(m => this._choiceCard('modeloOperacional', m, w.modeloOperacional === m.id)).join('')}
+        </div>
       </div>
       <div class="pt-5 border-t border-slate-200 space-y-3">
         <div>
-          <p class="text-sm text-slate-600">Como esse produto vende?</p>
+          <p class="text-sm text-slate-600 font-black">Como esse produto vende?</p>
           <p class="text-[11px] text-slate-500 mt-0.5">Define a fonte do Forecast × Realizado em Resultados e o ponto crítico que o tenant monitora.</p>
         </div>
-        ${this.SALES_CHANNELS.map(m => this._choiceCard('salesChannel', m, w.salesChannel === m.id)).join('')}
+        <div class="grid md:grid-cols-3 gap-3">
+          ${this.SALES_CHANNELS.map(m => this._choiceCard('salesChannel', m, w.salesChannel === m.id)).join('')}
+        </div>
       </div>
     </div>`;
   },

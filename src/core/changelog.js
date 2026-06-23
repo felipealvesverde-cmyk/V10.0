@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.12',
+    date: '2026-06-23',
+    title: 'Wizard Audiência · Lote 2 Leonardo (6 ajustes de layout)',
+    bullets: [
+      'Step 1 (Modelo de Negócio): 4 cards em grid 2×2 lado a lado, mais fácil de comparar.',
+      'Step 2 (Modelo Operacional + Canal): 9 modelos operacionais em grid 2-col (scroll caiu pela metade) e 3 canais de venda em grid 3-col lado a lado.',
+      'Step 2 ganhou sub-frase explicativa em ambas as seções, padronizando ritmo.',
+      'Modal agora adapta largura ao passo: 3xl nos passos curtos, 5xl nos passos 5 (Quadro PA/ICP/BP) e 6 (Confirmação) que carregam mais conteúdo.',
+      'Inner do modal com min-height pra footer não flutuar colado ao último card em passos curtos.',
+      'Card "Mapa da Receita" no passo 6 ocupa linha inteira no grid de consequências, evitando assimetria (era 5 cards num grid de 2 com um sozinho na última fileira).'
+    ]
+  },
+  {
     version: 'V40.12.11',
     date: '2026-06-23',
     title: 'Wizard Audiência · Lote 1 Leonardo (6 ajustes cosméticos seguros)',
