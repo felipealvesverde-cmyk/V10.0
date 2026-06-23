@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.16',
+    date: '2026-06-23',
+    title: 'Wizard Audiência · Lote 5 Leonardo (5 resíduos finos da onda)',
+    bullets: [
+      'Card "Atacado / Wholesale" (e qualquer outro com tagline longa) não quebra mais letra-por-letra. A tagline agora cai pra linha de baixo inteira quando não cabe ao lado do label.',
+      'Cabeçalho do passo 5 (Quadro de Audiência) virou prosa fluida — "Esse produto é B2B × SaaS · unidade base: PJ" — em vez de 3 chips empilhados com separadores.',
+      'Banner "Combinação rara" no passo 6 ficou matter-of-fact: faixa lateral âmbar discreta, texto sem alarme. Não compete mais com a Confiança 80% verde do lado.',
+      'Refinamento (passo 4) ganhou hierarquia tipográfica na tagline (medium/slate-500, mt-0.5). Label fica destacado; tagline respira.',
+      'Side-accent law universal: card "Arquétipo identificado" agora tem faixa lateral RevOps-soft, e o card "O que você escolheu" virou branco com border-left RevOps puro (coerente com o resto).'
+    ]
+  },
+  {
     version: 'V40.12.15',
     date: '2026-06-23',
     title: 'Wizard Audiência · removida animação de entrada (estava piscando a cada clique)',

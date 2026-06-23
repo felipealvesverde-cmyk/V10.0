@@ -33,6 +33,17 @@
 //  22. Card "Isso faz sentido?" virou slate-900/96 com accent RevOps-soft
 //  23. Animação de entrada (fade backdrop + lift modal) via design-director.css
 //      em vez de <style> injetado no innerHTML — fecha a lição da V40.12.8
+//      (REMOVIDA em V40.12.15 — piscava a cada clique por causa do innerHTML)
+//
+// V40.12.16 — Lote 5 Leonardo (5 resíduos pós-prints — onda fina-fina):
+//  24. _choiceCard com flex-wrap (Atacado/Wholesale: tagline quebrava dentro de si)
+//      + items-baseline (harmonia tipográfica entre label e tagline) + tagline
+//      em text-[11px] font-medium text-slate-500 (era 10px font-bold)
+//  25. Cabeçalho do Quadro em prosa fluida (não mais chips empilhados)
+//  26. Banner âmbar "Combinação rara" suavizado (border-l + tom matter-of-fact)
+//  27. Refinamento — tagline em medium/slate-500 com mt-0.5 (era 10px sem peso)
+//  28. Side-accent law universal: card Arquétipo+Confidence ganhou border-l +
+//      card "O que você escolheu" padronizado pra var(--lj-revops)
 //
 // Hard bloqueante: produto não nasce sem audience.configured=true.
 //
@@ -229,15 +240,15 @@ var ProductAudienceModal = {
 
     return `<div class="space-y-5">
       <!-- Espelho de escolhas -->
-      <div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 p-4">
-        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-2">O que você escolheu</p>
+      <div class="rounded-2xl bg-white border border-slate-200 p-4" style="border-left: 4px solid var(--lj-revops);">
+        <p class="text-[10px] font-black uppercase tracking-widest mb-2" style="color: var(--lj-revops);">O que você escolheu</p>
         <p class="text-sm text-slate-800 leading-relaxed">
           Esse produto é <b>${Utils.escape(negocio.label || '—')}</b> · <b>${Utils.escape(operacional.label || '—')}</b>${salesCh.label ? `, vendendo por <b>${Utils.escape(salesCh.label)}</b>` : ''}${refsLista ? `, com refinamento de <b>${Utils.escape(refsLista)}</b>` : ' <span class="text-slate-500">(refinamento não preenchido)</span>'}.
         </p>
       </div>
 
       <!-- Arquétipo + Confidence -->
-      <div class="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 border border-slate-200 p-4">
+      <div class="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 border border-slate-200 p-4" style="border-left: 4px solid var(--lj-revops-soft);">
         <div class="min-w-0">
           <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Arquétipo identificado</p>
           <p class="text-sm font-black text-slate-900 mt-0.5">${Utils.escape(arch.label || 'Não classificado')}</p>
@@ -250,7 +261,7 @@ var ProductAudienceModal = {
         </div>
       </div>
 
-      ${cls?.fallback ? `<div class="rounded-2xl bg-amber-50 border border-amber-300 p-3 text-[11px] text-amber-900"><b>⚠ Combinação rara:</b> nenhum arquétipo bateu 100%. LJ vai usar defaults genéricos. Você pode seguir mesmo assim — Sprint 4 vai permitir Master cravar arquétipos customizados.</div>` : ''}
+      ${cls?.fallback ? `<div class="rounded-2xl bg-white border border-slate-200 p-3 text-[12px] text-slate-700" style="border-left: 4px solid var(--lj-warning);"><b>Combinação ainda sem arquétipo cravado.</b> LJ usa defaults genéricos por enquanto — você pode seguir mesmo assim. Master pode cravar arquétipos customizados em sprint futura.</div>` : ''}
 
       <!-- O que o LJ vai assumir em cada módulo -->
       <div>
@@ -389,7 +400,7 @@ var ProductAudienceModal = {
         <div class="flex items-baseline justify-between mb-2">
           <div>
             <p class="text-[11px] font-black text-violet-700 uppercase tracking-widest">${Utils.escape(meta.label)}</p>
-            <p class="text-[10px] text-slate-500">${Utils.escape(meta.tagline || '')}</p>
+            <p class="text-[11px] font-medium text-slate-500 mt-0.5">${Utils.escape(meta.tagline || '')}</p>
           </div>
           ${selected ? '<span class="text-[10px] font-black text-emerald-700 inline-flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i>preenchido</span>' : ''}
         </div>
@@ -397,9 +408,9 @@ var ProductAudienceModal = {
           ${opcoes.map(op => {
             const isSelected = selected === op.id;
             return `<button onclick="Actions.audienceWizardRefinamento('${key}', '${op.id}')" class="text-left rounded-xl border-2 p-2.5 transition ${isSelected ? 'border-violet-600 bg-violet-50' : 'border-slate-200 bg-white hover:bg-slate-50'}">
-              <div class="flex items-baseline gap-1.5 mb-0.5">
+              <div class="flex items-baseline gap-1.5 mb-0.5 flex-wrap">
                 <p class="text-[12px] font-black text-slate-900">${Utils.escape(op.label)}</p>
-                <span class="text-[10px] font-bold text-slate-500">${Utils.escape(op.tagline || '')}</span>
+                <span class="text-[11px] font-medium text-slate-500">${Utils.escape(op.tagline || '')}</span>
               </div>
               <p class="text-[11px] text-slate-600 leading-snug">${Utils.escape(op.description || '')}</p>
             </button>`;
@@ -409,14 +420,19 @@ var ProductAudienceModal = {
     }).join('');
   },
 
+  // V40.12.16 — Lote 5 Leonardo: flex-wrap no header do card faz tagline cair
+  // pra próxima linha quando label+tagline não cabem (caso Atacado/Wholesale).
+  // Sem isso, tagline quebrava dentro de si com letras espremidas.
+  // items-baseline alinha label e tagline pelo baseline tipográfico (mais
+  // elegante quando os dois têm tamanhos diferentes).
   _choiceCard(field, m, selected) {
     return `<button onclick="Actions.audienceWizardChoose('${field}', '${m.id}')" class="w-full text-left rounded-2xl border-2 p-4 transition ${selected ? 'border-violet-600 bg-violet-50' : 'border-slate-200 bg-white hover:bg-slate-50'}">
       <div class="flex items-start gap-3">
         <div class="w-9 h-9 rounded-xl grid place-items-center font-black text-sm shrink-0 ${selected ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-700'}">${m.label[0]}</div>
-        <div class="min-w-0">
-          <div class="flex items-center gap-2 mb-0.5">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-baseline gap-2 mb-0.5 flex-wrap">
             <p class="font-black text-slate-900">${m.label}</p>
-            <span class="text-[10px] font-bold text-slate-500">${m.tagline}</span>
+            <span class="text-[11px] font-medium text-slate-500">${m.tagline}</span>
           </div>
           <p class="text-xs text-slate-600 leading-relaxed">${m.body}</p>
         </div>
@@ -471,15 +487,17 @@ var ProductAudienceModal = {
     const reqIcp = icpAll.filter(f => !f.optional).length;
     const reqBp  = bpAll.filter(f => !f.optional).length;
 
+    // V40.12.16 — Lote 5 Leonardo: cabeçalho em prosa fluida (era 3 chips
+    // empilhados + 2 separadores + 4 labels uppercase numa linha só).
+    const negocioLabel = Utils.escape(fused.negocioLabel);
+    const operacionalLabel = Utils.escape(fused.operacionalLabel);
+    const unidade = Utils.escape(fused.unidade);
     return `<div class="space-y-3">
-      <div class="rounded-2xl bg-slate-100 border border-slate-200 p-3 flex items-center gap-2 flex-wrap">
-        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Combinação</span>
-        <span class="px-2.5 py-0.5 rounded-full bg-white border border-violet-300 text-violet-700 text-[11px] font-black">${Utils.escape(fused.negocioLabel)}</span>
-        <span class="text-slate-400">×</span>
-        <span class="px-2.5 py-0.5 rounded-full bg-white border border-pink-300 text-pink-700 text-[11px] font-black">${Utils.escape(fused.operacionalLabel)}</span>
-        <span class="text-slate-300">|</span>
-        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Unidade</span>
-        <span class="px-2.5 py-0.5 rounded-full bg-white border border-slate-300 text-slate-700 text-[11px] font-black">${Utils.escape(fused.unidade)}</span>
+      <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3 text-sm text-slate-700" style="border-left: 4px solid var(--lj-revops-soft);">
+        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Combinação </span>
+        Esse produto é <b style="color: var(--lj-revops);">${negocioLabel}</b> × <b style="color: var(--lj-sales);">${operacionalLabel}</b>
+        <span class="text-slate-400">·</span>
+        <span class="text-[12px] text-slate-600">unidade base: <b>${unidade}</b></span>
       </div>
 
       ${notasIncompatHtml ? `<div class="space-y-1.5">${notasIncompatHtml}</div>` : ''}
