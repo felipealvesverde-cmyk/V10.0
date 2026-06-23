@@ -1632,8 +1632,8 @@ Object.assign(Actions, {
     if (w.step === 1 && !w.modeloNegocio) return Utils.toast('Escolha um modelo de negócio.');
     if (w.step === 2 && !w.modeloOperacional) return Utils.toast('Escolha um modelo operacional.');
     if (w.step === 2 && !w.salesChannel) return Utils.toast('Escolha como esse produto vende.');
-    // V40.12.2 — Sprint 3: 5 steps (0..4). Step 4 é Conclusão "esfregando na cara".
-    w.step = Math.min(4, Number(w.step || 0) + 1);
+    // V40.12.5 — 6 steps (0..5). Refinamento agora é passo 3; Quadro=4; Conclusão=5.
+    w.step = Math.min(5, Number(w.step || 0) + 1);
     App.save(); App.render();
   },
   audienceWizardBack() {

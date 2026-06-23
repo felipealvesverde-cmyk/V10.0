@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.5',
+    date: '2026-06-23',
+    title: 'Definir Audiência · Refinamento ganha passo próprio (de 5 → 6 passos)',
+    bullets: [
+      'O Passo 3 do wizard "Definir Audiência" estava carregando demais: 9 modelos operacionais + 3 canais de venda + 4 grupos de refinamento × 5 opções cada. Virava um scroll-monstro.',
+      'Agora o wizard tem 6 passos. O Refinamento ganhou tela própria (Passo 4): "Opcional — pode preencher agora ou clicar Continuar e voltar depois." Cliente que já sabe o modelo segue em 2 cliques; quem quer triangular fino tem espaço pra escolher.',
+      'Nova ordem: 1) O que é ICP? · 2) Modelo de Negócio · 3) Modelo Operacional + Canal de Venda · 4) Refinamento · 5) Quadro de Audiência · 6) Confirmação.',
+      'Nada muda em quem já tem Audiência configurada — só a forma como o wizard apresenta as escolhas pra quem está configurando.'
+    ]
+  },
+  {
     version: 'V40.12.4',
     date: '2026-06-23',
     title: 'Audiência V2 · Sprint 5 — RevOps Equilíbrio adaptativo + Djow lateral adaptativo',
