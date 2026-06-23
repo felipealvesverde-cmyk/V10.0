@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.13',
+    date: '2026-06-23',
+    title: 'Wizard Audiência · Lote 3 Leonardo (6 ajustes de cor semântica)',
+    bullets: [
+      'Header do wizard agora usa o roxo oficial RevOps (var(--lj-revops)) com gradient sutil — não mais o violet do Tailwind genérico.',
+      'Os 5 cards de consequência no passo 6 agora mapeiam a paleta semântica oficial do LJ: Card de Velocidade=Vendas (turquesa), Score Engine=Marketing (rosa), Djow Lateral=RevOps (roxo), RevOps & Cascata=Receita (amarelo), Mapa da Receita=CS (azul).',
+      'Cada card ganha faixa lateral colorida (4px) na cor da área + ícone, eyebrow e bg tintado de 14% pela mesma cor (via CSS color-mix).',
+      'Cliente identifica visualmente em que área cada consequência vai impactar — sem precisar ler o título.'
+    ]
+  },
+  {
     version: 'V40.12.12',
     date: '2026-06-23',
     title: 'Wizard Audiência · Lote 2 Leonardo (6 ajustes de layout)',

@@ -17,6 +17,15 @@
 //  11. Modal width adaptativo (max-w-3xl em 0-3, max-w-5xl em 4-5)
 //  12. Card Mapa da Receita ocupa linha inteira (lg:col-span-2)
 //
+// V40.12.13 — Lote 3 Leonardo (6 ajustes de cor semântica — RISCO MAIOR pq usa
+// color-mix CSS):
+//  13. Header em gradient var(--lj-revops) → var(--lj-revops-deep)
+//  14. Card Velocidade em var(--lj-sales) (turquesa #00CBCC)
+//  15. Card Score em var(--lj-marketing) (rosa-magenta #F472B6)
+//  16. Card Djow em var(--lj-revops) (roxo #AB3ED8)
+//  17. Card RevOps em var(--lj-revenue) (amarelo-ouro #F6DB5C)
+//  18. Card Mapa em var(--lj-cs) (azul-céu #6BBEF9)
+//
 // Hard bloqueante: produto não nasce sem audience.configured=true.
 //
 // V40.12.5 — 6 steps (refinamento ganha passo próprio pra aliviar scroll do
@@ -100,10 +109,10 @@ var ProductAudienceModal = {
     const productName = w.mode === 'existingProduct'
       ? (App.state.products.find(p => Number(p.id) === Number(w.productId))?.name || 'Produto')
       : (w.pendingDraft?.name || 'Novo produto');
-    return `<header class="bg-violet-700 text-white p-6 flex items-start justify-between gap-4">
+    return `<header class="text-white p-6 flex items-start justify-between gap-4" style="background: linear-gradient(135deg, var(--lj-revops) 0%, var(--lj-revops-deep) 100%);">
       <div class="min-w-0">
-        <p class="text-[10px] font-black text-violet-200 uppercase tracking-widest">${w.mode === 'existingProduct' ? 'Editar audiência' : 'Definir audiência'} · Passo ${step + 1} de ${totalSteps}</p>
-        <h2 class="text-2xl font-black mt-1 truncate">${Utils.escape(productName)} <span class="text-violet-200 font-normal">— ${Utils.escape(titles[step])}</span></h2>
+        <p class="text-[10px] font-black uppercase tracking-widest" style="color: var(--lj-revops-soft);">${w.mode === 'existingProduct' ? 'Editar audiência' : 'Definir audiência'} · Passo ${step + 1} de ${totalSteps}</p>
+        <h2 class="text-2xl font-black mt-1 truncate">${Utils.escape(productName)} <span class="font-normal" style="color: var(--lj-revops-soft);">— ${Utils.escape(titles[step])}</span></h2>
         <div class="flex items-center gap-1.5 mt-3">${dots}</div>
       </div>
       <button onclick="Actions.cancelAudienceWizard()" aria-label="Fechar (produto não será criado)" title="Fechar (produto não será criado)" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white grid place-items-center shrink-0 transition"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -181,16 +190,16 @@ var ProductAudienceModal = {
     const confTone = confidence >= 0.8 ? 'emerald' : confidence >= 0.5 ? 'amber' : 'rose';
     const confLabel = confidence >= 0.8 ? 'alta' : confidence >= 0.5 ? 'média' : 'baixa';
 
-    // V40.12.12 — Lote 2 Leonardo: helper aceita opcional `span` (ex: 'lg:col-span-2')
-    // pra último card (Mapa) ocupar a linha inteira e evitar assimetria com 5 cards
-    // num grid de 2 colunas.
-    const consequenciaCard = (icon, title, content, tone, span) => `
-      <div class="${span || ''} rounded-2xl border border-${tone}-200 bg-${tone}-50/40 p-4">
+    // V40.12.13 — Lote 3 Leonardo: card de consequência usa CSS vars semânticas
+    // oficiais (cada módulo ganha sua cor da paleta) via inline style + color-mix
+    // pra tint suave de 14% do fundo do ícone.
+    const consequenciaCard = (icon, title, content, accentVar, span) => `
+      <div class="${span || ''} rounded-2xl border border-slate-200 bg-white p-4" style="border-left: 4px solid ${accentVar};">
         <div class="flex items-center gap-2 mb-2">
-          <div class="w-7 h-7 rounded-lg bg-${tone}-100 grid place-items-center">
-            <i data-lucide="${icon}" class="w-4 h-4 text-${tone}-700"></i>
+          <div class="w-8 h-8 rounded-xl grid place-items-center" style="background: color-mix(in srgb, ${accentVar} 14%, white);">
+            <i data-lucide="${icon}" class="w-4 h-4" style="color: ${accentVar};"></i>
           </div>
-          <p class="text-[11px] font-black text-${tone}-700 uppercase tracking-widest">${title}</p>
+          <p class="text-[11px] font-black uppercase tracking-widest" style="color: ${accentVar};">${title}</p>
         </div>
         <div class="text-[12px] text-slate-700 leading-relaxed space-y-1">${content}</div>
       </div>`;
@@ -236,28 +245,28 @@ var ProductAudienceModal = {
             <p>• <b>L · ${Utils.escape(vel.l_label || '—')}</b></p>
             <p>• <b>T · ${Utils.escape(vel.t_label || '—')}</b></p>
             <p class="text-slate-500 mt-1.5 text-[11px]">Fonte: ${Utils.escape(vel.v_source || '—')}</p>
-          `, 'violet')}
+          `, 'var(--lj-sales)')}
 
           ${consequenciaCard('target', 'Score Engine', `
             ${score.weights ? Object.entries(score.weights).map(([k,v]) => `<p>• <b>${Utils.escape(k.replace(/_/g, ' '))}:</b> ${Math.round(v*100)}%</p>`).join('') : '<p>—</p>'}
             <p class="text-slate-500 mt-1.5 text-[11px]">Threshold de cliente saudável: ${score.threshold || '—'}</p>
-          `, 'sky')}
+          `, 'var(--lj-marketing)')}
 
           ${consequenciaCard('message-circle', 'Djow Lateral', `
             <p><b>Tom:</b> ${Utils.escape(djow.tone || '—')}</p>
             <p class="mt-1"><b>Foco:</b> ${Utils.escape(djow.focus || '—')}</p>
-          `, 'rose')}
+          `, 'var(--lj-revops)')}
 
           ${consequenciaCard('trending-up', 'RevOps & Cascata', `
             <p><b>Payback saudável:</b> ${Utils.escape(revops.payback_saudavel || '—')}</p>
             ${revops.roas_min ? `<p><b>ROAS mínimo:</b> ${revops.roas_min}×</p>` : ''}
             <p class="mt-1"><b>Foco:</b> ${Utils.escape(revops.foco || '—')}</p>
-          `, 'emerald')}
+          `, 'var(--lj-revenue)')}
 
           ${consequenciaCard('map', 'Mapa da Receita', `
             <p><b>KR-mãe sugerido:</b> ${Utils.escape(mapa.kr_mae_sugerido || '—')}</p>
             ${mapa.krs_secundarios?.length ? `<p class="mt-1"><b>Secundários:</b> ${mapa.krs_secundarios.map(k => Utils.escape(k)).join(', ')}</p>` : ''}
-          `, 'amber', 'lg:col-span-2')}
+          `, 'var(--lj-cs)', 'lg:col-span-2')}
         </div>
       </div>
 
