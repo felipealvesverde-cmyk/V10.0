@@ -2,12 +2,14 @@
 //
 // Hard bloqueante: produto não nasce sem audience.configured=true.
 //
-// 5 steps:
+// V40.12.5 — 6 steps (refinamento ganha passo próprio pra aliviar scroll do
+// passo Operacional que carregava 9 modelos + 3 canais + 4 grupos × 5 opções):
 //   0 — Apresentação (mini aula ICP base Olyng)
 //   1 — Modelo de Negócio (B2B/B2C/B2B2C/C2C)
-//   2 — Modelo Operacional (SaaS/E-commerce/Agência/Marketplace/Freemium)
-//   3 — Quadro PA/ICP/BP (Djow sugere — placeholder até KB chegar)
-//   4 — Finalizar
+//   2 — Modelo Operacional + Canal de Venda
+//   3 — Refinamento (Átomos refinadores — opcional)
+//   4 — Quadro PA/ICP/BP (Djow sugere)
+//   5 — Confirmação "esfregando na cara"
 //
 // State: App.state.audienceWizard = {
 //   open, mode: 'createProduct'|'createProductMapa'|'existingProduct',
@@ -57,16 +59,17 @@ var ProductAudienceModal = {
           ${step === 2 ? this._step2(w) : ''}
           ${step === 3 ? this._step3(w) : ''}
           ${step === 4 ? this._step4(w) : ''}
+          ${step === 5 ? this._step5(w) : ''}
         </div>
         ${this._footer(w, step)}
       </div>
     </div>`;
   },
 
-  // V40.12.2 — Sprint 3: 5 steps (passos 0 a 4). Step 4 é a Conclusão
-  // "esfregando na cara" que valida consequências com cliente ANTES de salvar.
+  // V40.12.5 — 6 steps (0..5). Refinamento ganhou passo próprio (3); quadro
+  // virou 4; confirmação "esfregando na cara" virou 5.
   _header(w, step) {
-    const titles = ['O que é ICP?', 'Modelo de Negócio', 'Modelo Operacional', 'Quadro de Audiência', 'Confirmação'];
+    const titles = ['O que é ICP?', 'Modelo de Negócio', 'Modelo Operacional', 'Refinamento', 'Quadro de Audiência', 'Confirmação'];
     const totalSteps = titles.length;
     const dots = titles.map((_, i) => `<span class="w-2 h-2 rounded-full ${i <= step ? 'bg-white' : 'bg-white/25'}"></span>`).join('');
     const productName = w.mode === 'existingProduct'
@@ -87,9 +90,10 @@ var ProductAudienceModal = {
                        (step === 1 && !!w.modeloNegocio) ||
                        (step === 2 && !!w.modeloOperacional && !!w.salesChannel) ||
                        (step === 3) ||
-                       (step === 4);
-    // V40.12.2 — Step 4 (Conclusão) é o último — botão vira "Confirmar".
-    const isLast = step === 4;
+                       (step === 4) ||
+                       (step === 5);
+    // V40.12.5 — Step 5 (Confirmação) é o último — botão vira "Confirmar".
+    const isLast = step === 5;
     const isExisting = w.mode === 'existingProduct';
     const advanceLabel = isLast
       ? (isExisting ? 'Confirmar e salvar' : 'Confirmar e criar produto')
@@ -103,11 +107,12 @@ var ProductAudienceModal = {
     </footer>`;
   },
 
-  // V40.12.2 — Sprint 3: Step 5 (índice 4) — Conclusão "esfregando na cara".
+  // V40.12.5 — Step 6 (índice 5) — Conclusão "esfregando na cara".
+  // (Era _step4 na arquitetura de 5 passos; ganhou +1 com Refinamento próprio.)
   // Cliente vê em uma tela só TODAS as consequências da Audiência (Velocidade,
   // Score, Djow, RevOps, Mapa) antes de salvar. Lei "transparência ativa de
   // inferência" cravada por Felipe — cliente valida ANTES de o LJ agir.
-  _step4(w) {
+  _step5(w) {
     if (!window.AudienceFusionEngine || !window.AudienceConsequencesCatalog) {
       return `<div class="rounded-2xl bg-amber-50 border border-amber-300 p-4 text-sm text-amber-900">Catálogo de consequências não carregado. Recarregue a página.</div>`;
     }
@@ -277,19 +282,30 @@ var ProductAudienceModal = {
         </div>
         ${this.SALES_CHANNELS.map(m => this._choiceCard('salesChannel', m, w.salesChannel === m.id)).join('')}
       </div>
-      ${this._refinamentoSection(w)}
     </div>`;
   },
 
-  // V40.12.1 — Sprint 2: seção de Átomos Refinadores. Aparece ao final do
-  // Step 2 com 4 grupos (ticket, ciclo, time, tracking). OPCIONAL — cliente
-  // pode pular. Quando preenchido, alimenta os módulos consumidores (card de
-  // Velocidade muda V/C/L/T conforme combinação; Djow ajusta tom; etc).
-  _refinamentoSection(w) {
+  // V40.12.5 — Refinamento ganhou passo próprio. Opcional — cliente pode
+  // só clicar Continuar e seguir. Quando preenchido, alimenta consumidores
+  // (Velocidade muda V/C/L/T, Djow ajusta tom, RevOps muda ranges).
+  _step3(w) {
+    return `<div class="space-y-5">
+      <div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 p-4">
+        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-1">Opcional</p>
+        <p class="text-sm text-slate-700 leading-relaxed">4 escolhas que ajudam o LJ a <b>triangular melhor</b> a partir do modelo que você escolheu. Cada combinação muda como o card de Velocidade fala com você, como o Djow sugere ações e quais ranges o RevOps usa.</p>
+        <p class="text-[11px] text-slate-500 mt-1.5">Pode preencher agora ou clicar <b>Continuar</b> e voltar depois.</p>
+      </div>
+      ${this._refinamentoCards(w)}
+    </div>`;
+  },
+
+  // V40.12.5 — Cards dos 4 grupos refinadores (ticket, ciclo, time, tracking).
+  // Intro/contexto vive no _step3 que chama esta função.
+  _refinamentoCards(w) {
     if (!window.AudienceFusionEngine) return '';
     const refinamento = w.refinamento || {};
     const groups = ['ticket', 'ciclo', 'time_comercial', 'tracking_maduro'];
-    const cards = groups.map(key => {
+    return groups.map(key => {
       const meta = AudienceFusionEngine.refinamentoMeta(key);
       const opcoes = AudienceFusionEngine.refinamentoOpcoes(key);
       if (!meta || !opcoes.length) return '';
@@ -316,14 +332,6 @@ var ProductAudienceModal = {
         </div>
       </div>`;
     }).join('');
-
-    return `<div class="pt-5 border-t border-slate-200 space-y-3">
-      <div>
-        <p class="text-sm text-slate-600 font-black">Refinamento</p>
-        <p class="text-[11px] text-slate-500 mt-0.5">4 escolhas que ajudam o LJ a triangular melhor. Opcionais — pode preencher agora ou voltar depois. Cada combinação muda como o card de Velocidade fala com você, como o Djow sugere ações e quais ranges o RevOps usa.</p>
-      </div>
-      ${cards}
-    </div>`;
   },
 
   _choiceCard(field, m, selected) {
@@ -341,7 +349,9 @@ var ProductAudienceModal = {
     </button>`;
   },
 
-  _step3(w) {
+  // V40.12.5 — Step 5 (índice 4) — Quadro de Audiência (PA/ICP/BP).
+  // (Era _step3 na arquitetura de 5 passos; deslocado +1 com Refinamento próprio.)
+  _step4(w) {
     if (!window.AudienceFusionEngine) {
       return `<div class="rounded-2xl bg-amber-50 border border-amber-300 p-4 text-sm text-amber-900">Motor de fusão de audiência não carregado. Recarregue a página.</div>`;
     }
