@@ -1635,12 +1635,18 @@ Object.assign(Actions, {
     // V40.12.5 — 6 steps (0..5). Refinamento agora é passo 3; Quadro=4; Conclusão=5.
     w.step = Math.min(5, Number(w.step || 0) + 1);
     App.save(); App.render();
+    // V40.12.6 — Ao trocar de step, scroll do backdrop volta pro topo do novo
+    // step. Sem isso, herdaria scroll preservado pelo App.render() (que serve
+    // pros cliques dentro do mesmo step).
+    requestAnimationFrame(() => { const el = document.getElementById('audienceWizardBackdrop'); if (el) el.scrollTop = 0; });
   },
   audienceWizardBack() {
     const w = App.state.audienceWizard;
     if (!w || !w.open) return;
     w.step = Math.max(0, Number(w.step || 0) - 1);
     App.save(); App.render();
+    // V40.12.6 — mesma razão do Next: trocar de step zera scroll.
+    requestAnimationFrame(() => { const el = document.getElementById('audienceWizardBackdrop'); if (el) el.scrollTop = 0; });
   },
   // V38.1.40 — Pede análise do Djow no Step 3 do wizard de Audiência.
   // Backend: /api/djow-audience-analyze

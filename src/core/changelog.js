@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.6',
+    date: '2026-06-23',
+    title: 'Wizard Audiência · fix scroll voltando pro topo a cada clique',
+    bullets: [
+      'Bug: clicar em modelo de negócio, modelo operacional, canal de venda ou refinamento fazia o scroll do wizard voltar pro topo. Cada clique re-renderiza a tela, e o modal não estava preservando o scroll do próprio backdrop.',
+      'Fix: backdrop do wizard ganhou identificador e entrou na lista de scroll preservado (mesma técnica usada no modal de Configurações). Agora clicar em qualquer card mantém você na posição onde estava.',
+      'Bonus: ao avançar/voltar de passo, o scroll vai pro topo do novo passo (intencional — você quer ver o começo da próxima decisão).',
+      'Limpeza de código morto (função `_step4Deprecated` legada da arquitetura de 4 passos do wizard).'
+    ]
+  },
+  {
     version: 'V40.12.5',
     date: '2026-06-23',
     title: 'Definir Audiência · Refinamento ganha passo próprio (de 5 → 6 passos)',
