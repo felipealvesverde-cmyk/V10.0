@@ -32,6 +32,10 @@
     b2c_ecommerce_impulso: {
       label: 'E-commerce B2C de Impulso',
       tagline: 'Consumidor compra direto no site',
+      // V40.13.0 — Onda 2 da Audiência. Cor semântica do arquétipo, consumida
+      // pelos módulos visualmente adaptativos (Velocidade, Djow lateral).
+      // Impulso B2C atrai pela comunicação → Marketing (rosa-magenta).
+      accent: 'var(--lj-marketing)',
       matches: [
         { negocio: 'b2c', operacional: 'ecommerce', when: { ciclo: ['impulso', 'curto'], ticket: ['micro', 'medio'] } }
       ],
@@ -53,6 +57,8 @@
     b2b_atacado_consultivo: {
       label: 'B2B Atacado / Wholesale',
       tagline: 'SDR vende em pedido fechado pra estabelecimento',
+      // Comercial, SDR consultivo, relacionamento de campo → Vendas (turquesa).
+      accent: 'var(--lj-sales)',
       matches: [
         { negocio: 'b2b', operacional: 'atacado' },
         { negocio: 'b2b2c', operacional: 'atacado' }
@@ -75,6 +81,8 @@
     b2b_saas_plg: {
       label: 'SaaS B2B Product-Led',
       tagline: 'Cliente entra no freemium e cresce sozinho',
+      // Growth product-led, ativação direta → Vendas (turquesa).
+      accent: 'var(--lj-sales)',
       matches: [
         { negocio: 'b2b', operacional: 'freemium' },
         { negocio: 'b2b', operacional: 'saas', when: { time_comercial: ['autoatendimento', 'hibrido'], ticket: ['medio'] } }
@@ -97,6 +105,8 @@
     b2b_saas_enterprise: {
       label: 'SaaS B2B Enterprise',
       tagline: 'Vendas com SDR/AE pra alto ticket',
+      // ARR, governança comercial complexa, longo ciclo → RevOps (roxo).
+      accent: 'var(--lj-revops)',
       matches: [
         { negocio: 'b2b', operacional: 'saas', when: { ticket: ['alto', 'enterprise'], time_comercial: ['outbound', 'inbound', 'hibrido'] } }
       ],
@@ -118,6 +128,8 @@
     b2b_consultoria_premium: {
       label: 'Consultoria Estratégica',
       tagline: 'Projeto alto ticket, decisor sênior',
+      // Estratégico, decisor sênior, narrativa de transformação → RevOps (roxo).
+      accent: 'var(--lj-revops)',
       matches: [
         { negocio: 'b2b', operacional: 'consultoria' },
         { negocio: 'b2c', operacional: 'consultoria' }
@@ -140,6 +152,8 @@
     b2b_manufatura_industrial: {
       label: 'Manufatura B2B Industrial',
       tagline: 'Indústria → indústria, com homologação',
+      // Homologação, confiança técnica de longo prazo → CS (azul-céu).
+      accent: 'var(--lj-cs)',
       matches: [
         { negocio: 'b2b', operacional: 'manufatura' }
       ],
@@ -161,6 +175,8 @@
     b2b_agribusiness: {
       label: 'Agribusiness',
       tagline: 'Cadeia agro com janela de safra',
+      // Safra, ciclo grande de receita, retenção entre janelas → Receita (amarelo).
+      accent: 'var(--lj-revenue)',
       matches: [
         { negocio: 'b2b', operacional: 'agribusiness' },
         { negocio: 'b2b2c', operacional: 'agribusiness' }
@@ -183,6 +199,8 @@
     marketplace_bilateral: {
       label: 'Marketplace Bilateral',
       tagline: 'Plataforma equilibra oferta + demanda',
+      // Atração dual (oferta + demanda), liquidez de plataforma → Marketing (rosa).
+      accent: 'var(--lj-marketing)',
       matches: [
         { negocio: 'c2c', operacional: 'marketplace' },
         { negocio: 'b2b', operacional: 'marketplace' },
@@ -209,6 +227,9 @@
   const FALLBACK = {
     label: 'Operação Não Classificada',
     tagline: 'Combinação rara — usando defaults genéricos',
+    // FALLBACK genérico → slate puro (sem cor da paleta semântica). Sinal
+    // visual sutil pro Master "ainda não classificamos pra alimentar pele".
+    accent: '#64748B',
     velocidade: {
       v_label: 'Visitas',
       c_label: 'Visita → cliente',
@@ -224,7 +245,9 @@
   };
 
   window.AudienceConsequencesCatalog = {
-    CONSEQUENCES_VERSION: '1.0.0',
+    // V40.13.0 — Bump pra 1.1.0: campo `accent` adicionado em todos os arquétipos.
+    // Semver minor — não quebra consumidores antigos (campo opcional).
+    CONSEQUENCES_VERSION: '1.1.0',
     ARCHETYPES,
     FALLBACK
   };

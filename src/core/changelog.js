@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.13.0',
+    date: '2026-06-23',
+    title: 'Audiência V2 · Camada 2 — pele adaptativa nos consumidores',
+    bullets: [
+      'O que antes era adaptativo só no comportamento (V/C/L/T mudando palavras, Djow ajustando tom) agora é adaptativo TAMBÉM na pele. Cada arquétipo ganhou cor semântica oficial e os módulos consumidores leem essa cor pra se pintar.',
+      'Mapa cromático cravado: B2C E-commerce Impulso → Marketing rosa; B2B Atacado → Vendas turquesa; SaaS PLG → Vendas turquesa; SaaS Enterprise → RevOps roxo; Consultoria Premium → RevOps roxo; Manufatura Industrial → CS azul; Agribusiness → Receita amarelo; Marketplace Bilateral → Marketing rosa; Fallback → slate.',
+      'Card de Velocidade ganhou faixa fina no topo na cor do arquétipo + badge do arquétipo agora em cor cheia (não mais derivado do gargalo). Bg/borda esquerda continuam pintando o gargalo (slate/amber/violet/emerald) — dois canais semânticos distintos coexistem.',
+      'Djow lateral: faixa topo do painel + badge do arquétipo no header em texto colorido sobre branco. O card "Eu vou te responder com:" (intro) ganhou side-accent law no arquétipo.',
+      'Catálogo de Consequências bumped pra v1.1.0 (semver minor — campo `accent` opcional). AudienceConsumerEngine ganhou `getAccent(productId)` que retorna a CSS var pronta pra inline style.',
+      'Próximo: Camada 3 (sprints dormentes — Score Engine adaptativo, Mapa da Receita adaptativo, UI Master do catálogo, Trilha de auditoria) e Camada 4 (decidir se "produto = canal-modelo" vira lei de UI).'
+    ]
+  },
+  {
     version: 'V40.12.16',
     date: '2026-06-23',
     title: 'Wizard Audiência · Lote 5 Leonardo (5 resíduos finos da onda)',

@@ -167,6 +167,13 @@ var RevopsVelocityModule = {
     const arch = window.AudienceConsumerEngine
       ? AudienceConsumerEngine.getArchetype(product.id)
       : null;
+    // V40.13.0 — Pele adaptativa: accent do arquétipo pinta linha topo do
+    // card + chip do badge. Convive com semColor (gargalo) — dois canais
+    // semânticos: faixa topo = identidade do arquétipo; bg+borda esquerda =
+    // status do gargalo.
+    const accent = window.AudienceConsumerEngine
+      ? AudienceConsumerEngine.getAccent(product.id)
+      : '#64748B';
 
     const customersTxt = this._pluralize(s.customersCount, 'customer', 'customers', 'nenhum customer');
     // V40.12.3 — pluralização do "visita" também adapta. Pega 1ª palavra do label V.
@@ -174,12 +181,16 @@ var RevopsVelocityModule = {
     const visitasTxt = this._pluralize(s.V, vNoun, vNoun + (vNoun.endsWith('s') ? '' : 's'), `nenhum${vNoun.endsWith('a') ? 'a' : ''} ${vNoun}`);
     const vendasTxt = this._pluralize(s.approvedCount, 'venda processada', 'vendas processadas', 'nenhuma venda processada');
 
-    // V40.12.3 — Badge do arquétipo (etiqueta sutil no header do card).
+    // V40.13.0 — Badge do arquétipo agora ganha cor do arquétipo (substitui
+    // a derivação do semColor — antes badge "vendas" mas pintada de violet
+    // por ser gargalo C). Pílula full-color com texto branco pra contraste.
     const archBadge = arch && archKey
-      ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-${semColor}-100 border border-${semColor}-200 text-[9px] font-black text-${semColor}-700 uppercase tracking-widest" title="${Utils.escape(arch.tagline || '')}"><i data-lucide="target" class="w-2.5 h-2.5"></i>${Utils.escape(arch.label || '')}</span>`
+      ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black text-white uppercase tracking-widest" style="background: ${accent};" title="${Utils.escape(arch.tagline || '')}"><i data-lucide="target" class="w-2.5 h-2.5"></i>${Utils.escape(arch.label || '')}</span>`
       : '';
 
     return `<div class="rounded-3xl bg-${semColor}-50 border border-${semColor}-200 border-l-4 border-l-${semColor}-500 overflow-hidden">
+      <!-- V40.13.0 — Faixa topo do arquétipo (identidade adaptativa). -->
+      <div class="h-1" style="background: ${accent};" title="Arquétipo: ${Utils.escape(arch?.label || '—')}"></div>
       <button onclick="Actions.toggleRevopsVelocityProduct(${product.id})" class="w-full text-left p-4 hover:bg-${semColor}-100/40 transition">
         <div class="flex items-start justify-between gap-3 mb-3">
           <div class="min-w-0 flex-1">

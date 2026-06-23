@@ -32,17 +32,24 @@ window.DjowRevOpsPanel = {
     const stepLabel = selected ? this._stepLabel(selected.afterStep) : null;
 
     // V40.12.4 — Sprint 5: badge do arquétipo no header.
+    // V40.13.0 — Ganha cor semântica do arquétipo (texto colorido sobre fundo
+    // branco — destaca contra o gradient violet+fuchsia do header sem competir).
     const arch = window.AudienceConsumerEngine
       ? AudienceConsumerEngine.getArchetype(productId)
       : null;
     const archKey = window.AudienceConsumerEngine
       ? AudienceConsumerEngine.getArchetypeKey(productId)
       : null;
+    const accent = window.AudienceConsumerEngine
+      ? AudienceConsumerEngine.getAccent(productId)
+      : '#64748B';
     const archHeaderBadge = arch && archKey
-      ? `<span class="hidden md:inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/15 border border-white/20 text-[9px] font-black text-white uppercase tracking-widest" title="${Utils.escape(arch.tagline || '')}"><i data-lucide="target" class="w-2.5 h-2.5"></i>${Utils.escape(arch.label || '')}</span>`
+      ? `<span class="hidden md:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/95 text-[9px] font-black uppercase tracking-widest" style="color: ${accent};" title="${Utils.escape(arch.tagline || '')}"><i data-lucide="target" class="w-2.5 h-2.5"></i>${Utils.escape(arch.label || '')}</span>`
       : '';
 
     return `<div class="rounded-3xl border-2 border-violet-200 shadow-md overflow-hidden flex flex-col" style="background:#f5f3f0;color-scheme:light;max-height:calc(100vh - 6rem);">
+      <!-- V40.13.0 — Faixa topo do arquétipo (pele adaptativa). -->
+      ${arch && archKey ? `<div class="h-1" style="background: ${accent};" title="Arquétipo: ${Utils.escape(arch.label || '—')}"></div>` : ''}
       <header class="bg-gradient-to-br from-violet-600 to-fuchsia-600 px-4 py-3 flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-white/20 border border-white/30 grid place-items-center shrink-0">
           <i data-lucide="sparkles" class="w-4 h-4 text-white"></i>
@@ -128,9 +135,14 @@ window.DjowRevOpsPanel = {
     const djowConfig = window.AudienceConsumerEngine
       ? AudienceConsumerEngine.getDjowConfig(productId)
       : null;
+    // V40.13.0 — Hint adaptativo ganha pele do arquétipo (border-left do
+    // accent + eyebrow na cor do accent).
+    const introAccent = window.AudienceConsumerEngine
+      ? AudienceConsumerEngine.getAccent(productId)
+      : '#64748B';
     const adaptiveHint = djowConfig?.tone
-      ? `<div class="rounded-xl bg-white border border-violet-200 p-2.5 mb-2">
-          <p class="text-[10px] font-black text-violet-700 uppercase tracking-wider mb-1">Eu vou te responder com:</p>
+      ? `<div class="rounded-xl bg-white border border-slate-200 p-2.5 mb-2" style="border-left: 4px solid ${introAccent};">
+          <p class="text-[10px] font-black uppercase tracking-wider mb-1" style="color: ${introAccent};">Eu vou te responder com:</p>
           <p class="text-[11px] text-stone-700 leading-relaxed"><b>Tom:</b> ${Utils.escape(djowConfig.tone)}</p>
           ${djowConfig.focus ? `<p class="text-[11px] text-stone-700 leading-relaxed mt-0.5"><b>Foco:</b> ${Utils.escape(djowConfig.focus)}</p>` : ''}
         </div>`

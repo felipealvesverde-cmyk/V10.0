@@ -104,6 +104,15 @@
       return arch?.mapa || null;
     },
 
+    // V40.13.0 — Cor semântica do arquétipo pra pele dos consumidores
+    // visualmente adaptativos (Card de Velocidade, Djow lateral, etc).
+    // Quando arquétipo não tem `accent` definido (FALLBACK) ou catálogo
+    // legado (V1.0.0 sem o campo), retorna slate genérico.
+    getAccent(productId) {
+      const arch = this.getArchetype(productId);
+      return arch?.accent || '#64748B';
+    },
+
     // Detecta Audiência legada/desatualizada — Sprint 4 final: mostra banner.
     // Critérios:
     //   - Produto não tem audience configurada → 'no_audience'
