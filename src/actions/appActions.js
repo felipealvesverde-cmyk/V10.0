@@ -1632,6 +1632,7 @@ Object.assign(Actions, {
     if (w.step === 1 && !w.modeloNegocio) return Utils.toast('Escolha um modelo de negócio.');
     if (w.step === 2 && !w.modeloOperacional) return Utils.toast('Escolha um modelo operacional.');
     if (w.step === 2 && !w.salesChannel) return Utils.toast('Escolha como esse produto vende.');
+    // V40.12.2 — Sprint 3: 5 steps (0..4). Step 4 é Conclusão "esfregando na cara".
     w.step = Math.min(4, Number(w.step || 0) + 1);
     App.save(); App.render();
   },
@@ -1773,6 +1774,25 @@ Object.assign(Actions, {
         fusionVersions = fused.versions || null;
       }
     }
+    // V40.12.2 — Sprint 3: classifica arquétipo + calcula confidence. Salva
+    // ambos na Audiência pra módulos consumidores (Velocidade, RevOps, Djow,
+    // Score, Mapa) consultarem direto.
+    const audienceLite = {
+      modeloNegocio: w.modeloNegocio,
+      modeloOperacional: w.modeloOperacional,
+      salesChannel: w.salesChannel || null,
+      refinamento: w.refinamento || null
+    };
+    let archetypeKey = null;
+    let confidence = 0;
+    let fusedForClassify = null;
+    if (window.AudienceFusionEngine && window.AudienceConsequencesCatalog) {
+      fusedForClassify = AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional, w.refinamento || null);
+      const cls = AudienceFusionEngine.classifyArchetype(audienceLite);
+      archetypeKey = cls?.archetypeKey || null;
+      confidence = AudienceFusionEngine.confidenceScore(audienceLite, fusedForClassify);
+    }
+
     const audience = {
       configured: true,
       modeloNegocio: w.modeloNegocio,
@@ -1790,6 +1810,12 @@ Object.assign(Actions, {
         time_comercial:   w.refinamento.time_comercial || null,
         tracking_maduro:  w.refinamento.tracking_maduro || null
       } : null,
+      // V40.12.2 — Sprint 3: arquétipo identificado + confidence. Módulos
+      // leem `audience.archetypeKey` e consultam AudienceConsequencesCatalog
+      // pra adaptar comportamento. Null = combinação rara → fallback genérico.
+      archetypeKey,
+      confidence,
+      consequencesVersion: (window.AudienceConsequencesCatalog?.CONSEQUENCES_VERSION) || null,
       schema,
       customFields,
       customized: totalCustom > 0,

@@ -56,23 +56,25 @@ var ProductAudienceModal = {
           ${step === 1 ? this._step1(w) : ''}
           ${step === 2 ? this._step2(w) : ''}
           ${step === 3 ? this._step3(w) : ''}
+          ${step === 4 ? this._step4(w) : ''}
         </div>
         ${this._footer(w, step)}
       </div>
     </div>`;
   },
 
-  // V38.1.44 — Steps 3 e 4 fundidos (Step 4 dispensado: contagem de
-  // obrigatórios já aparece nos chips de cada coluna do Step 3).
+  // V40.12.2 — Sprint 3: 5 steps (passos 0 a 4). Step 4 é a Conclusão
+  // "esfregando na cara" que valida consequências com cliente ANTES de salvar.
   _header(w, step) {
-    const titles = ['O que é ICP?', 'Modelo de Negócio', 'Modelo Operacional', 'Quadro de Audiência'];
-    const dots = [0,1,2,3].map(i => `<span class="w-2 h-2 rounded-full ${i <= step ? 'bg-white' : 'bg-white/25'}"></span>`).join('');
+    const titles = ['O que é ICP?', 'Modelo de Negócio', 'Modelo Operacional', 'Quadro de Audiência', 'Confirmação'];
+    const totalSteps = titles.length;
+    const dots = titles.map((_, i) => `<span class="w-2 h-2 rounded-full ${i <= step ? 'bg-white' : 'bg-white/25'}"></span>`).join('');
     const productName = w.mode === 'existingProduct'
       ? (App.state.products.find(p => Number(p.id) === Number(w.productId))?.name || 'Produto')
       : (w.pendingDraft?.name || 'Novo produto');
     return `<header class="bg-violet-700 text-white p-6 flex items-start justify-between gap-4">
       <div class="min-w-0">
-        <p class="text-[10px] font-black text-violet-200 uppercase tracking-widest">${w.mode === 'existingProduct' ? 'Editar audiência' : 'Definir audiência'} · Passo ${step + 1} de 4</p>
+        <p class="text-[10px] font-black text-violet-200 uppercase tracking-widest">${w.mode === 'existingProduct' ? 'Editar audiência' : 'Definir audiência'} · Passo ${step + 1} de ${totalSteps}</p>
         <h2 class="text-2xl font-black mt-1 truncate">${Utils.escape(productName)} <span class="text-violet-200 font-normal">— ${Utils.escape(titles[step])}</span></h2>
         <div class="flex items-center gap-1.5 mt-3">${dots}</div>
       </div>
@@ -84,11 +86,13 @@ var ProductAudienceModal = {
     const canAdvance = (step === 0) ||
                        (step === 1 && !!w.modeloNegocio) ||
                        (step === 2 && !!w.modeloOperacional && !!w.salesChannel) ||
-                       (step === 3);
-    const isLast = step === 3;
+                       (step === 3) ||
+                       (step === 4);
+    // V40.12.2 — Step 4 (Conclusão) é o último — botão vira "Confirmar".
+    const isLast = step === 4;
     const isExisting = w.mode === 'existingProduct';
     const advanceLabel = isLast
-      ? (isExisting ? 'Salvar audiência' : 'Salvar e criar produto')
+      ? (isExisting ? 'Confirmar e salvar' : 'Confirmar e criar produto')
       : 'Continuar';
     const backLabel = step === 0 ? 'Cancelar' : 'Voltar';
     const backAction = step === 0 ? 'Actions.cancelAudienceWizard()' : 'Actions.audienceWizardBack()';
@@ -97,6 +101,135 @@ var ProductAudienceModal = {
       <button onclick="${backAction}" class="px-5 py-3 rounded-2xl bg-white border border-slate-300 text-slate-700 font-black">${backLabel}</button>
       <button onclick="${advanceAction}" ${canAdvance ? '' : 'disabled style="opacity:.4;cursor:not-allowed;"'} class="px-5 py-3 rounded-2xl bg-violet-700 hover:bg-violet-800 text-white font-black">${advanceLabel}</button>
     </footer>`;
+  },
+
+  // V40.12.2 — Sprint 3: Step 5 (índice 4) — Conclusão "esfregando na cara".
+  // Cliente vê em uma tela só TODAS as consequências da Audiência (Velocidade,
+  // Score, Djow, RevOps, Mapa) antes de salvar. Lei "transparência ativa de
+  // inferência" cravada por Felipe — cliente valida ANTES de o LJ agir.
+  _step4(w) {
+    if (!window.AudienceFusionEngine || !window.AudienceConsequencesCatalog) {
+      return `<div class="rounded-2xl bg-amber-50 border border-amber-300 p-4 text-sm text-amber-900">Catálogo de consequências não carregado. Recarregue a página.</div>`;
+    }
+
+    // Funde + classifica + calcula confidence
+    const fused = AudienceFusionEngine.fuse(w.modeloNegocio, w.modeloOperacional, w.refinamento || null);
+    const audienceLite = {
+      modeloNegocio: w.modeloNegocio,
+      modeloOperacional: w.modeloOperacional,
+      salesChannel: w.salesChannel,
+      refinamento: w.refinamento || null
+    };
+    const cls = AudienceFusionEngine.classifyArchetype(audienceLite);
+    const confidence = AudienceFusionEngine.confidenceScore(audienceLite, fused);
+    const arch = cls?.archetype || window.AudienceConsequencesCatalog.FALLBACK;
+
+    // Espelho de escolhas em prosa
+    const negocio = (this.BUSINESS_MODELS.find(b => b.id === w.modeloNegocio) || {});
+    const operacional = (this.OPERATIONAL_MODELS.find(o => o.id === w.modeloOperacional) || {});
+    const salesCh = (this.SALES_CHANNELS.find(s => s.id === w.salesChannel) || {});
+    const r = w.refinamento || {};
+    const refLabel = (key) => {
+      const opcoes = AudienceFusionEngine.refinamentoOpcoes(key);
+      const m = opcoes.find(o => o.id === r[key]);
+      return m ? m.label : null;
+    };
+    const refsLista = [
+      r.ticket          ? `ticket ${refLabel('ticket')}` : null,
+      r.ciclo           ? `ciclo ${refLabel('ciclo')}` : null,
+      r.time_comercial  ? `time ${refLabel('time_comercial')}` : null,
+      r.tracking_maduro ? `tracking ${refLabel('tracking_maduro')}` : null
+    ].filter(Boolean).join(', ');
+
+    // Badge de confidence
+    const pct = Math.round(confidence * 100);
+    const confTone = confidence >= 0.8 ? 'emerald' : confidence >= 0.5 ? 'amber' : 'rose';
+    const confLabel = confidence >= 0.8 ? 'alta' : confidence >= 0.5 ? 'média' : 'baixa';
+
+    // Card de uma consequência
+    const consequenciaCard = (icon, title, content, tone) => `
+      <div class="rounded-2xl border border-${tone}-200 bg-${tone}-50/40 p-4">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="w-7 h-7 rounded-lg bg-${tone}-100 grid place-items-center">
+            <i data-lucide="${icon}" class="w-4 h-4 text-${tone}-700"></i>
+          </div>
+          <p class="text-[11px] font-black text-${tone}-700 uppercase tracking-widest">${title}</p>
+        </div>
+        <div class="text-[12px] text-slate-700 leading-relaxed space-y-1">${content}</div>
+      </div>`;
+
+    const vel = arch.velocidade || {};
+    const score = arch.score || {};
+    const djow = arch.djow || {};
+    const revops = arch.revops || {};
+    const mapa = arch.mapa || {};
+
+    return `<div class="space-y-5">
+      <!-- Espelho de escolhas -->
+      <div class="rounded-2xl bg-violet-50 border border-violet-200 border-l-4 border-l-violet-600 p-4">
+        <p class="text-[10px] font-black text-violet-700 uppercase tracking-widest mb-2">O que você escolheu</p>
+        <p class="text-sm text-slate-800 leading-relaxed">
+          Esse produto é <b>${Utils.escape(negocio.label || '—')}</b> · <b>${Utils.escape(operacional.label || '—')}</b>${salesCh.label ? `, vendendo por <b>${Utils.escape(salesCh.label)}</b>` : ''}${refsLista ? `, com refinamento de <b>${Utils.escape(refsLista)}</b>` : ' <span class="text-slate-500">(refinamento não preenchido)</span>'}.
+        </p>
+      </div>
+
+      <!-- Arquétipo + Confidence -->
+      <div class="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 border border-slate-200 p-4">
+        <div class="min-w-0">
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Arquétipo identificado</p>
+          <p class="text-sm font-black text-slate-900 mt-0.5">${Utils.escape(arch.label || 'Não classificado')}</p>
+          <p class="text-[11px] text-slate-600">${Utils.escape(arch.tagline || '')}</p>
+        </div>
+        <div class="text-right shrink-0">
+          <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Confiança</p>
+          <p class="text-2xl font-black text-${confTone}-700">${pct}%</p>
+          <p class="text-[10px] font-black text-${confTone}-700 uppercase">${confLabel}</p>
+        </div>
+      </div>
+
+      ${cls?.fallback ? `<div class="rounded-2xl bg-amber-50 border border-amber-300 p-3 text-[11px] text-amber-900"><b>⚠ Combinação rara:</b> nenhum arquétipo bateu 100%. LJ vai usar defaults genéricos. Você pode seguir mesmo assim — Sprint 4 vai permitir Master cravar arquétipos customizados.</div>` : ''}
+
+      <!-- O que o LJ vai assumir em cada módulo -->
+      <div>
+        <p class="text-[11px] font-black text-slate-700 uppercase tracking-widest mb-2">🔍 O que o LJ vai assumir em cada módulo</p>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          ${consequenciaCard('zap', 'Card de Velocidade', `
+            <p>• <b>V · ${Utils.escape(vel.v_label || '—')}</b></p>
+            <p>• <b>C · ${Utils.escape(vel.c_label || '—')}</b></p>
+            <p>• <b>L · ${Utils.escape(vel.l_label || '—')}</b></p>
+            <p>• <b>T · ${Utils.escape(vel.t_label || '—')}</b></p>
+            <p class="text-slate-500 mt-1.5 text-[11px]">Fonte: ${Utils.escape(vel.v_source || '—')}</p>
+          `, 'violet')}
+
+          ${consequenciaCard('target', 'Score Engine', `
+            ${score.weights ? Object.entries(score.weights).map(([k,v]) => `<p>• <b>${Utils.escape(k.replace(/_/g, ' '))}:</b> ${Math.round(v*100)}%</p>`).join('') : '<p>—</p>'}
+            <p class="text-slate-500 mt-1.5 text-[11px]">Threshold de cliente saudável: ${score.threshold || '—'}</p>
+          `, 'sky')}
+
+          ${consequenciaCard('message-circle', 'Djow Lateral', `
+            <p><b>Tom:</b> ${Utils.escape(djow.tone || '—')}</p>
+            <p class="mt-1"><b>Foco:</b> ${Utils.escape(djow.focus || '—')}</p>
+          `, 'rose')}
+
+          ${consequenciaCard('trending-up', 'RevOps & Cascata', `
+            <p><b>Payback saudável:</b> ${Utils.escape(revops.payback_saudavel || '—')}</p>
+            ${revops.roas_min ? `<p><b>ROAS mínimo:</b> ${revops.roas_min}×</p>` : ''}
+            <p class="mt-1"><b>Foco:</b> ${Utils.escape(revops.foco || '—')}</p>
+          `, 'emerald')}
+
+          ${consequenciaCard('map', 'Mapa da Receita', `
+            <p><b>KR-mãe sugerido:</b> ${Utils.escape(mapa.kr_mae_sugerido || '—')}</p>
+            ${mapa.krs_secundarios?.length ? `<p class="mt-1"><b>Secundários:</b> ${mapa.krs_secundarios.map(k => Utils.escape(k)).join(', ')}</p>` : ''}
+          `, 'amber')}
+        </div>
+      </div>
+
+      <!-- Validação -->
+      <div class="rounded-2xl bg-slate-900 text-white p-4">
+        <p class="text-sm font-black mb-1">Isso faz sentido pro seu negócio?</p>
+        <p class="text-[12px] text-slate-300">Se clicar Confirmar, o LJ vai aplicar essas premissas em todos os módulos. Se algo soou estranho, volta e ajusta — ou pede pro Djow refletir.</p>
+      </div>
+    </div>`;
   },
 
   _step0() {
