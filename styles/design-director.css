@@ -77,23 +77,12 @@
   backdrop-filter: blur(18px);
 }
 
-/* V40.12.14 — Animação de entrada do wizard "Definir Audiência".
-   Definido em CSS estático (não inline no innerHTML) pra evitar
-   problema que tentamos diagnosticar na V40.12.8. */
-@keyframes ljAudWizBackdropIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-@keyframes ljAudWizModalIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-#audienceWizardBackdrop {
-  animation: ljAudWizBackdropIn 180ms ease-out;
-}
-#audienceWizardBackdrop > div {
-  animation: ljAudWizModalIn 220ms cubic-bezier(.22, 1, .36, 1);
-}
+/* V40.12.15 — Removida animação de entrada do wizard.
+   Problema: arquitetura de innerHTML do app recria #audienceWizardBackdrop
+   a cada App.render() (disparado por cada click no card de escolha). Browser
+   vê como elemento novo e reaplica animation → tela pisca em cada interação.
+   Sem animação = sem piscar. Refazer em uma onda futura quando o app migrar
+   pra Virtual DOM ou DOM diffing. */
 
 .lj-card-clickable {
   transition: transform var(--lj-motion), background var(--lj-motion), border-color var(--lj-motion);

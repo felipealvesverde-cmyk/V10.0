@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.15',
+    date: '2026-06-23',
+    title: 'Wizard Audiência · removida animação de entrada (estava piscando a cada clique)',
+    bullets: [
+      'Bug: a animação de entrada do wizard (V40.12.14) disparava toda vez que você clicava num card de escolha. Tela piscava a cada interação.',
+      'Causa: a arquitetura do app re-renderiza o modal inteiro a cada clique (innerHTML completo). O browser via como elemento novo e reaplica a animação CSS — sem como segurar "já animou" sem migração maior.',
+      'Fix: animação removida. O wizard abre sem efeito de entrada — mas sem piscar a cada clique. Refazer em onda futura quando o app evoluir pra diffing de DOM.'
+    ]
+  },
+  {
     version: 'V40.12.14',
     date: '2026-06-23',
     title: 'Wizard Audiência · Lote 4 Leonardo (refinos finais — onda fechada)',
