@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.12.2',
+    date: '2026-06-23',
+    title: 'Audiência V2 · Sprint 3 — Step 5 "Confirmação" + Confidence Score + Catálogo de Consequências',
+    bullets: [
+      'O wizard "Definir Audiência" cresceu de 4 → 5 passos. O novo Step 5 é a CONFIRMAÇÃO — cliente vê em UMA tela TODAS as consequências da Audiência ANTES de salvar. Lei "transparência ativa de inferência" cravada por Felipe.',
+      'Espelho de escolhas em linguagem corrida: "Esse produto é B2B · Atacado/Wholesale, vendendo por CRM, com refinamento de ticket Alto, ciclo Médio, time Outbound consultivo, tracking Parcial."',
+      'Arquétipo identificado + Confidence Score visíveis. 8 arquétipos cobrem 95% dos casos (B2C E-commerce Impulso, B2B Atacado, SaaS PLG, SaaS Enterprise, Consultoria Premium, Manufatura Industrial, Agribusiness, Marketplace Bilateral).',
+      'Catálogo de Consequências por arquétipo em `src/data/audienceConsequencesCatalog.js` (CONSEQUENCES_VERSION 1.0.0). Cada arquétipo descreve como Velocidade/Score/Djow/RevOps/Mapa devem se comportar.',
+      'Step 5 mostra 5 cards de consequências: Card de Velocidade (V·C·L·T labels + fonte sugerida), Score Engine (pesos do RFV), Djow Lateral (tom + foco), RevOps (Payback saudável, ROAS mínimo), Mapa da Receita (KR-mãe sugerido).',
+      'Confidence Score (0-100%) calculado por heurística simples: modelos preenchidos (30%) + refinamento completo (30%) + arquétipo bateu (20%) + sem incompatibilidades (20%). Badge no Step 5: verde 80%+, amber 50-79%, rose <50%.',
+      'Audiência salva carimba `archetypeKey` + `confidence` + `consequencesVersion`. Próximos sprints: módulos consumidores leem essa info e adaptam comportamento (Sprint 4 cobre Velocidade adaptativa).',
+      'Detector `isAudienceStale()` cravado no engine — Sprint 4 vai usar pra mostrar banner não-bloqueante "Atualize sua Audiência" pra clientes com catálogo desatualizado.'
+    ]
+  },
+  {
     version: 'V40.12.1',
     date: '2026-06-23',
     title: 'Audiência V2 · Sprint 2 — +4 modelos operacionais (Atacado, Consultoria, Manufatura, Agribusiness) + 4 Átomos Refinadores',

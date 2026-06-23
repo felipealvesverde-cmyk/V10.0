@@ -70,6 +70,68 @@ var AudienceFusionEngine = {
     return { label: a.label, tagline: a.tagline };
   },
 
+  // V40.12.2 — Sprint 3: classifica Audiência em 1 dos arquétipos do
+  // AudienceConsequencesCatalog. Retorna { archetype, archetypeKey, fallback }.
+  // Quando nenhum arquétipo bate, retorna FALLBACK genérico (Audiência funciona
+  // mas perde adaptatividade — sinal pra Master cravar arquétipo customizado).
+  classifyArchetype(audience) {
+    const catalog = window.AudienceConsequencesCatalog;
+    if (!catalog) return null;
+    if (!audience || !audience.modeloNegocio || !audience.modeloOperacional) {
+      return { archetype: catalog.FALLBACK, archetypeKey: null, fallback: true };
+    }
+    const refinamento = audience.refinamento || {};
+    for (const [key, arch] of Object.entries(catalog.ARCHETYPES)) {
+      for (const m of (arch.matches || [])) {
+        if (m.negocio !== audience.modeloNegocio) continue;
+        if (m.operacional !== audience.modeloOperacional) continue;
+        if (m.when) {
+          let ok = true;
+          for (const [field, allowedValues] of Object.entries(m.when)) {
+            if (!refinamento[field] || !allowedValues.includes(refinamento[field])) {
+              ok = false;
+              break;
+            }
+          }
+          if (!ok) continue;
+        }
+        return { archetype: arch, archetypeKey: key, fallback: false };
+      }
+    }
+    return { archetype: catalog.FALLBACK, archetypeKey: null, fallback: true };
+  },
+
+  // V40.12.2 — Sprint 3: confidence score 0.0-1.0 sobre a Audiência fundida.
+  // Heurística simples (4 fatores) — peso por átomo individual fica pra V2.
+  //   +0.30  modelos preenchidos (negócio + operacional + salesChannel)
+  //   +0.30  refinamento completo (4/4 átomos refinadores preenchidos)
+  //   +0.20  arquétipo bateu (não caiu no FALLBACK)
+  //   +0.20  sem incompatibilidades ativas no resultado da fusão
+  // Audiência ideal = 1.0. Audiência mínima viável = 0.3 (só modelos).
+  confidenceScore(audience, fused) {
+    if (!audience) return 0;
+    let score = 0;
+    if (audience.modeloNegocio && audience.modeloOperacional && audience.salesChannel) score += 0.30;
+    const r = audience.refinamento || {};
+    const refCount = ['ticket', 'ciclo', 'time_comercial', 'tracking_maduro'].filter(k => r[k]).length;
+    score += 0.30 * (refCount / 4);
+    const cls = this.classifyArchetype(audience);
+    if (cls && !cls.fallback) score += 0.20;
+    const notasIncompat = (fused?.notas || []).filter(n => n.origem === 'incompatibilidade');
+    if (notasIncompat.length === 0) score += 0.20;
+    return Math.min(1, Math.max(0, score));
+  },
+
+  // V40.12.2 — Sprint 4 prep: detecta Audiência fundida com catálogo desatualizado.
+  // Retorna true quando audience.versions.atoms < CATALOG_VERSION atual.
+  // Permite UI mostrar banner "Atualize sua Audiência" opcional não-bloqueante.
+  isAudienceStale(audience) {
+    if (!audience || !audience.versions) return true;  // legados pré-V40.12.0 = stale
+    const current = this._atomsVersion();
+    const carimbo = audience.versions.atoms || '0.0.0';
+    return carimbo !== current;
+  },
+
   // V40.12.0 — Retrocompat: expõe getters pros consumidores que ainda
   // referenciam ATOMS_NEGOCIO/ATOMS_OPERACIONAL etc direto no engine.
   // Auditei o código antes de remover: audienceCollectionAdvisor.js, modal,
