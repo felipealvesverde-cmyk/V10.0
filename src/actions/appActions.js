@@ -1490,6 +1490,40 @@ Object.assign(Actions, {
       return { ok: false, message: err.message };
     }
   },
+  // V40.14.14 — Reset pristine de um produto no demo. Mantém estrutura comercial
+  // (produto + campanhas + ações + execuções) e zera audience, RevOps & Equilíbrio,
+  // metas KPI, Hotmart approved e deals CRM. Pra recomeçar configuração de uma
+  // operação que ficou inconsistente entre legados de modelos diferentes.
+  async resetProductPristine(productId) {
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/admin-reset-product-pristine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ productId: Number(productId) })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        console.error('[resetProductPristine] erro:', data.message);
+        Utils.toast(`Erro ao resetar produto: ${data.message}`);
+        return data;
+      }
+      console.log('[resetProductPristine] OK:', data);
+      Utils.toast(`✅ ${data.productName} resetado. Recarregando state…`);
+      if (window.App?._loadStateWithRemoteFallback) {
+        await App._loadStateWithRemoteFallback();
+      }
+      if (window.Actions?.loadPipelineVelocitySummary) Actions.loadPipelineVelocitySummary({ force: true });
+      if (window.Actions?.loadForecastRealizedSummary) Actions.loadForecastRealizedSummary({ force: true });
+      if (window.Actions?.loadEfficiencySummary) Actions.loadEfficiencySummary({ force: true });
+      if (App.render) App.render();
+      return data;
+    } catch (err) {
+      console.error('[resetProductPristine] erro:', err);
+      Utils.toast(`Erro: ${err.message}`);
+      return { ok: false, message: err.message };
+    }
+  },
   // V39.6.0 — Refresh unificado dos 3 caches da Onda A em paralelo.
   refreshOndaA() {
     if (window.Actions?.loadForecastRealizedSummary) Actions.loadForecastRealizedSummary({ force: true });

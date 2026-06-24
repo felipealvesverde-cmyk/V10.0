@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.14',
+    date: '2026-06-24',
+    title: 'Action master: reset pristine de produto no demo',
+    bullets: [
+      'Quando um produto vira frankenstein no demo (legado de Checkout misturado com ajustes manuais de Atacado, painel RevOps inconsistente, vendas históricas competindo com deals novos), você ganha uma forma rápida de voltar ao estado pristine sem perder a estrutura comercial que já tinha cravado.',
+      'Nova action Actions.resetProductPristine(productId) mantém produto + campanhas + ações + execuções intactos e zera: arquétipo (audience), RevOps & Equilíbrio inteiro (Custos, Ofertas, Resultado, Fechamento), metas KPI, vendas Hotmart e deals CRM emulados do produto.',
+      'Após rodar, o produto volta a aparecer no Pulso da Receita pedindo "configure o arquétipo" e o painel RevOps & Equilíbrio fica em branco pra você preencher do zero — coerente com o modelo que você quer pra ele agora.'
+    ]
+  },
+  {
     version: 'V40.14.13',
     date: '2026-06-24',
     title: 'Fix: detecção de "demo tem dados reais" agora cobre CRM, não só Checkout',
