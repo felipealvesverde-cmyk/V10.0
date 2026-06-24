@@ -18,6 +18,22 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.16.2',
+    date: '2026-06-24',
+    title: 'Onda 4 do audit do Mapa: 9 bugs (validações e silent failures)',
+    bullets: [
+      'Wizard de KR de 7 passos agora valida cada passo antes de salvar — antes você podia pular o passo 4 (Meta) e o LJ salvava KR com target=0 silenciosamente, fazendo rollup dividir por zero e mostrar 100%/Infinity. Cada gate aponta o passo específico que faltou ("Passo 3 incompleto: digite o valor atual"), assim você sabe pra onde voltar.',
+      'Inputs de número do wizard (Atual, Meta) agora aceitam decimais. Antes "3.5" virava "35" porque cada keystroke era convertido em Number na hora; agora a string crua é preservada até o save final.',
+      'State.normalize valida selectedProductId/selectedCampaignId/selectedActionId contra a coleção real — antes, se você apagasse o produto via DB/admin/impersonation, o ID fantasma ficava no state e a UI mostrava branco/dropdown selecionado em ID inexistente até dar refresh manual.',
+      'Modal "Criar KR-mãe custom" agora valida valores numéricos explicitamente em vez de aceitar string vazia como 0. Antes você podia clicar Confirmar sem preencher atual/meta segura/avançada e o KR nascia 0/0/0 sem aviso.',
+      'createCampaign e createAction ganharam String() defensivo nos campos opcionais — se o draft tivesse name/objective/owner undefined (legacy ou state corrompido), o submit congelava com TypeError silencioso antes do toast.',
+      'submitTaskCreation em modo edit agora relaxa as validações de assignees/due_date — você só precisa preencher Nome pra editar uma task antiga que tinha esses campos vazios na origem ClickUp.',
+      'Campo "Points" da task creation agora avisa quando o valor digitado é inválido (texto, negativo, decimal). Antes virava no-op silencioso e a task no ClickUp nascia sem points.',
+      'newProductWithMapaPopup + 11 outros modais transitentes do Mapa agora estão em State.initial e normalize — F5 mid-flight não dropa mais o que você estava preenchendo.',
+      'Total do audit: 45 dos 73 bugs fechados (62%). Restam 28 em 2 ondas: navegação/overlap (Onda 5) e state drift residual (Onda 6). Trigger: "ataca onda 5 do audit do mapa".'
+    ]
+  },
+  {
     version: 'V40.16.1',
     date: '2026-06-24',
     title: 'Onda 3 do audit do Mapa: 14 bugs (reset bombs, sub-modais zumbi, destrutivos)',

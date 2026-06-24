@@ -2085,10 +2085,14 @@ Object.assign(Actions, {
   },
 
   createCampaign() {
-    const d = App.state.campaignDraft;
-    if (!d.name.trim()) return Utils.toast('Digite o nome da campanha.');
+    // V40.16.2 — Bug #55 do audit: String() defensivo. Antes, se draft tivesse
+    // name/objective/owner undefined (legacy/normalize), `d.name.trim()` jogava
+    // TypeError antes do toast — UI congelava sem feedback.
+    const d = App.state.campaignDraft || {};
+    const name = String(d.name || '').trim();
+    if (!name) return Utils.toast('Digite o nome da campanha.');
     if (!d.productId) return Utils.toast('Selecione o produto vinculado.');
-    const campaign = { id: Date.now(), productId: Number(d.productId), name: d.name.trim(), objective: d.objective.trim(), owner: d.owner.trim(), sector: d.sector || 'Marketing', status: 'Ativa', createdAt: new Date().toISOString() };
+    const campaign = { id: Date.now(), productId: Number(d.productId), name, objective: String(d.objective || '').trim(), owner: String(d.owner || '').trim(), sector: d.sector || 'Marketing', status: 'Ativa', createdAt: new Date().toISOString() };
     App.state.campaigns.unshift(campaign);
     App.state.selectedCampaignId = campaign.id;
     App.state.selectedProductId = Number(d.productId);
@@ -2148,13 +2152,14 @@ Object.assign(Actions, {
     const action = {
       id: Date.now(),
       campaignId: App.state.selectedCampaignId,
-      name: d.name.trim(),
+      name: cleanName,
       channel: d.channel,
       actionType: d.actionType || 'Post',
       sector, funnel,
       originSector, originFunnel, destinationSector, destinationFunnel,
-      conversionObjective: d.conversionObjective || d.objective || '',
-      objective: d.objective.trim(),
+      // V40.16.2 — Bug #57 do audit: String() defensivo em conversionObjective/objective.
+      conversionObjective: String(d.conversionObjective || d.objective || '').trim(),
+      objective: String(d.objective || '').trim(),
       expectedConversion: Number(d.expectedConversion || 25),
       mailingDefined: false,
       okrs: baseOkrs.map(okr => ({ ...okr, stageId: okr.stageId || flowPath[0] })),
@@ -13463,23 +13468,46 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V40.16.2 — Bug #49 do audit: gates de validação cravados. Antes, cliente
+  // que pulava o passo 4/7 (Onde quer chegar) salvava KR com target=0. Rollup
+  // dividia por zero ou mostrava 100%/Infinity. Cada gate aponta o passo
+  // específico pulado pra cliente conseguir voltar e completar.
   saveStrategicOkrDraft() {
     const productId = App.state.strategicMapProductId;
     const draft = App.state.strategicOkrDraft;
     if (!productId || !draft) return;
-    if (!String(draft.name || '').trim()) return Utils.toast('Dê um nome ao OKR.');
+    const name = String(draft.name || '').trim();
+    if (!name) return Utils.toast('Passo 1 incompleto: dê um nome ao número.');
+    const current = Number(draft.current);
+    if (!Number.isFinite(current) || Number(draft.current || 0) === 0 && draft.current !== 0 && draft.current !== '0') {
+      // permite zero literal, mas avisa se vazio/NaN
+      if (draft.current === '' || draft.current == null) {
+        return Utils.toast('Passo 3 incompleto: digite o valor atual (pode ser 0).');
+      }
+    }
+    const target = Number(draft.target);
+    if (!Number.isFinite(target) || target === 0) {
+      return Utils.toast('Passo 4 incompleto: digite onde você quer chegar (meta).');
+    }
+    if (!String(draft.deadline || '').trim()) {
+      return Utils.toast('Passo 4 incompleto: defina o prazo (data).');
+    }
+    if (draft.area && !draft.commitmentType) {
+      return Utils.toast('Passo 5 incompleto: escolha Meta Segura ou Avançada.');
+    }
     // V31.2.10 — Roteia baseado em draft.area (V29 productKr) vs draft.objectiveId (legacy V28).
     if (draft.area) {
-      const target = Number(draft.target || 0);
       const tipo = draft.commitmentType === 'committed' ? 'committed' : 'stretch';
       StrategicMapEngine.addProductKr(Number(productId), {
         area: draft.area,
-        name: draft.name,
+        name,
         metric: draft.metric || 'quantidade',
+        current,
         // commitmentType decide se 'target' vai pra targetCommitted (seguro) ou targetStretch (avançado)
         targetCommitted: tipo === 'committed' ? target : null,
         targetStretch: tipo === 'stretch' ? target : null,
         period: 90,
+        deadline: draft.deadline,
         owner: String(draft.owner || '').trim()
       });
     } else {
@@ -15295,12 +15323,21 @@ Object.assign(Actions, {
     const m = App.state.taskCreationModal;
     if (!m) return;
     const d = m.draft;
-    // Validação Normal
+    // V40.16.2 — Bug #56 do audit: detecta edit mode ANTES das validações.
+    // Em edit, relaxa pra só nome obrigatório — antes forçava assignees/due_date
+    // mesmo em task antiga que tinha campos vazios na origem ClickUp.
+    const editingTaskEarly = m.editingTaskId && window.ExecutionTaskStore
+      ? ExecutionTaskStore.byId(m.editingTaskId)
+      : null;
+    const isEditMode = !!editingTaskEarly;
+    // Validação — name sempre obrigatório
     if (!String(d.name || '').trim()) return Utils.toast('Nome é obrigatório.');
-    if (!String(d.description || '').trim()) return Utils.toast('Descrição é obrigatória.');
-    if (!Array.isArray(d.assignees) || !d.assignees.length) return Utils.toast('Selecione pelo menos 1 responsável.');
-    // V32.14.0 — Data de entrega obrigatória (alimenta Etapa 6 acompanhamento).
-    if (!String(d.due_date || '').trim()) return Utils.toast('Data de entrega é obrigatória pra acompanhar atrasos na Etapa 6.');
+    // Em CREATE, validações completas. Em EDIT, só name.
+    if (!isEditMode) {
+      if (!String(d.description || '').trim()) return Utils.toast('Descrição é obrigatória.');
+      if (!Array.isArray(d.assignees) || !d.assignees.length) return Utils.toast('Selecione pelo menos 1 responsável.');
+      if (!String(d.due_date || '').trim()) return Utils.toast('Data de entrega é obrigatória pra acompanhar atrasos na Etapa 6.');
+    }
 
     // V32.14.8 — Custom fields ClickUp NÃO são obrigatórios no LJ (Felipe
     // alinhou): cliente pode criar a task sem preencher categorias.
@@ -15323,7 +15360,16 @@ Object.assign(Actions, {
     if (d.start_date) { payload.start_date = d.start_date; payload.start_date_time = !!d.start_date_time; }
     if (Array.isArray(d.tags) && d.tags.length) payload.tags = d.tags;
     if (d.time_estimate_hours && Number(d.time_estimate_hours) > 0) payload.time_estimate = Math.round(Number(d.time_estimate_hours) * 3600000);
-    if (d.points !== '' && Number.isFinite(Number(d.points))) payload.points = Number(d.points);
+    // V40.16.2 — Bug #58 do audit: avisa quando points é inválido. Antes virava
+    // no-op silencioso (task no ClickUp nascia sem points sem cliente saber).
+    if (d.points !== '' && d.points != null) {
+      const ptsNum = Number(d.points);
+      if (Number.isFinite(ptsNum) && ptsNum >= 0 && Number.isInteger(ptsNum)) {
+        payload.points = ptsNum;
+      } else {
+        Utils.toast('Points deve ser número inteiro ≥ 0 — campo ignorado.');
+      }
+    }
     if (d.parent) payload.parent = d.parent;
     if (d.links_to) payload.links_to = d.links_to;
     if (d.markdown_content && d.markdown_content.trim()) payload.markdown_content = d.markdown_content.trim();
@@ -15339,9 +15385,8 @@ Object.assign(Actions, {
     // via clickup-proxy. Se tem editingTaskId mas SEM provider_task_id (task
     // local/duplicada/em revisão), cria primeira vez no ClickUp e atualiza a
     // task local pra apontar pro novo provider_task_id.
-    const editingTask = m.editingTaskId && window.ExecutionTaskStore
-      ? ExecutionTaskStore.byId(m.editingTaskId)
-      : null;
+    // V40.16.2 — Reusa editingTaskEarly declarado no topo (bug #56).
+    const editingTask = editingTaskEarly;
     const isEditWithProvider = editingTask && editingTask.provider_task_id;
 
     try {
@@ -17557,6 +17602,15 @@ Prioridade: ${d.priority}
     if (!m || !m.open) return;
     const name = String(m.name || '').trim();
     if (!name) return Utils.toast('Digite o nome do KR-mãe.');
+    // V40.16.2 — Bug #54 do audit: empty string virava 0 silencioso porque
+    // `Number(m.current || 0)` colapsa "" em 0. Salvava KR com 0/0/0 sem aviso.
+    // Validamos antes de qualquer await pra economizar chamadas ao Djow.
+    if (m.current === '' || m.current == null) return Utils.toast('Digite o valor ATUAL do número.');
+    if (m.targetCommitted === '' || m.targetCommitted == null) return Utils.toast('Digite a meta SEGURA.');
+    if (m.targetStretch === '' || m.targetStretch == null) return Utils.toast('Digite a meta AVANÇADA.');
+    if (!Number.isFinite(Number(m.current))) return Utils.toast('Valor atual inválido.');
+    if (!Number.isFinite(Number(m.targetCommitted))) return Utils.toast('Meta segura inválida.');
+    if (!Number.isFinite(Number(m.targetStretch))) return Utils.toast('Meta avançada inválida.');
     if (!window.StrategicMapEngine) return;
 
     // V40.16.0 — Bug #23/#73 do audit: snapshot dos campos ANTES do await + opId

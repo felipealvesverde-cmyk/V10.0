@@ -758,6 +758,21 @@ var State = {
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '', audience: null },
       audienceWizard: null,
+      // V40.16.2 — Bug #53 do audit: modais transitentes do Mapa precisam
+      // estar em State.initial pra normalize não dropá-los silenciosamente em
+      // F5 mid-flight. [[feedback_new_state_fields_must_normalize]].
+      newProductWithMapaPopup: null,
+      connectActionWizard: null,
+      connectActionToKrsModal: null,
+      pluggedActionsModal: null,
+      activateCatalogKrModal: null,
+      createCustomKrModal: null,
+      strategicCampaignPrompt: null,
+      strategicCreateCampaignPopup: null,
+      strategicHandoffPopup: null,
+      strategicExecuteMetricsPopup: null,
+      strategicUnlockCeoPopup: null,
+      customActionEngine: null,
       // V39.1.0 — Force-prompt no boot pra produtos pré-V39.1 que têm audience
       // configurado mas falta `salesChannel`. open=true bloqueia modal até o
       // cliente preencher TODOS. Snooze persiste só dentro da sessão.
@@ -987,7 +1002,14 @@ var State = {
     const scores = Array.isArray(raw.scores) && raw.scores.length ? raw.scores.map((score, index) => this.normalizeScore(score, index)) : [this.normalizeScore(Config.defaultScore)];
     const fallbackScoreId = scores[0].id;
     const products = Array.isArray(raw.products) && raw.products.length ? raw.products.map((product, index) => ProductRevenueEngine.normalize(product, index)) : base.products;
-    const selectedProductId = raw.selectedProductId || products[0]?.id || base.selectedProductId;
+    // V40.16.2 — Bug #52 do audit: valida selectedProductId contra coleção real.
+    // Antes, padrão `raw.selectedProductId || products[0]?.id` só cobria falsy.
+    // ID válido apontando pra entidade INEXISTENTE (produto deletado via DB,
+    // impersonation, F5 pós-delete) era preservado e UI mostrava em branco.
+    const productIdsSet = new Set(products.map(p => Number(p.id)));
+    const selectedProductId = productIdsSet.has(Number(raw.selectedProductId))
+      ? raw.selectedProductId
+      : (products[0]?.id || base.selectedProductId);
     // V31.2.9 — Spread preserva campos extras das campanhas (description, budget,
     // startDate, endDate, funnel, stage, leadTarget, isStrategicHost, etc.) que
     // sejam adicionados em futuras versões. Antes só os 10 campos explícitos.
@@ -1046,8 +1068,13 @@ var State = {
       railwayShowPassword: false,
       showRailwaySnapshotPrompt: false,
       selectedProductId,
-      selectedCampaignId: raw.selectedCampaignId || base.selectedCampaignId,
-      selectedActionId: raw.selectedActionId || null,
+      // V40.16.2 — Bug #52 do audit: idem pros 2 outros selectedXId.
+      selectedCampaignId: (new Set((Array.isArray(raw.campaigns) ? raw.campaigns : []).map(c => Number(c?.id)))).has(Number(raw.selectedCampaignId))
+        ? raw.selectedCampaignId
+        : ((Array.isArray(raw.campaigns) && raw.campaigns[0]?.id) || base.selectedCampaignId),
+      selectedActionId: (new Set((Array.isArray(raw.actions) ? raw.actions : []).map(a => Number(a?.id)))).has(Number(raw.selectedActionId))
+        ? raw.selectedActionId
+        : null,
       selectedScoreId: raw.selectedScoreId || fallbackScoreId,
       selectedDashboardCampaignId: raw.selectedDashboardCampaignId || null,
       selectedOkrId: raw.selectedOkrId || null,
@@ -1611,6 +1638,21 @@ var State = {
         return merged;
       })(),
       audienceWizard: (raw.audienceWizard && typeof raw.audienceWizard === 'object' && raw.audienceWizard.open) ? raw.audienceWizard : null,
+      // V40.16.2 — Bug #53 do audit: preserva modais transitentes do Mapa quando
+      // têm conteúdo (open=true ou objeto não-vazio). Antes F5 droppava
+      // silenciosamente.
+      newProductWithMapaPopup: (raw.newProductWithMapaPopup && typeof raw.newProductWithMapaPopup === 'object') ? raw.newProductWithMapaPopup : null,
+      connectActionWizard: (raw.connectActionWizard && typeof raw.connectActionWizard === 'object') ? raw.connectActionWizard : null,
+      connectActionToKrsModal: (raw.connectActionToKrsModal && typeof raw.connectActionToKrsModal === 'object') ? raw.connectActionToKrsModal : null,
+      pluggedActionsModal: (raw.pluggedActionsModal && typeof raw.pluggedActionsModal === 'object') ? raw.pluggedActionsModal : null,
+      activateCatalogKrModal: (raw.activateCatalogKrModal && typeof raw.activateCatalogKrModal === 'object') ? raw.activateCatalogKrModal : null,
+      createCustomKrModal: (raw.createCustomKrModal && typeof raw.createCustomKrModal === 'object') ? raw.createCustomKrModal : null,
+      strategicCampaignPrompt: (raw.strategicCampaignPrompt && typeof raw.strategicCampaignPrompt === 'object') ? raw.strategicCampaignPrompt : null,
+      strategicCreateCampaignPopup: (raw.strategicCreateCampaignPopup && typeof raw.strategicCreateCampaignPopup === 'object') ? raw.strategicCreateCampaignPopup : null,
+      strategicHandoffPopup: (raw.strategicHandoffPopup && typeof raw.strategicHandoffPopup === 'object') ? raw.strategicHandoffPopup : null,
+      strategicExecuteMetricsPopup: (raw.strategicExecuteMetricsPopup && typeof raw.strategicExecuteMetricsPopup === 'object') ? raw.strategicExecuteMetricsPopup : null,
+      strategicUnlockCeoPopup: (raw.strategicUnlockCeoPopup && typeof raw.strategicUnlockCeoPopup === 'object') ? raw.strategicUnlockCeoPopup : null,
+      customActionEngine: (raw.customActionEngine && typeof raw.customActionEngine === 'object') ? raw.customActionEngine : null,
       // V39.1.0 — Modal de force-prompt pra salesChannel não persiste entre boots:
       // sempre começa fechado e o init() do main.js decide se reabre.
       salesChannelPrompt: { open: false, currentProductId: null, choice: null },

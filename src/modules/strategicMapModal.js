@@ -3245,13 +3245,13 @@ window.StrategicMapModal = {
       ` : step === 3 ? `
         <div>
           <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Qual é o valor atual desse número hoje?</label>
-          <input id="okr-draft-current" data-focus-key="okr-draft-current" type="number" value="${Number(draft.current || 0)}" oninput="Actions.updateStrategicOkrDraft('current', Number(this.value || 0)); Actions.updateStrategicOkrDraft('startValue', Number(this.value || 0));" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-2xl font-black" />
+          <input id="okr-draft-current" data-focus-key="okr-draft-current" type="text" inputmode="decimal" value="${Utils.escape(draft.current != null ? String(draft.current) : '')}" oninput="Actions.updateStrategicOkrDraft('current', this.value); Actions.updateStrategicOkrDraft('startValue', this.value);" placeholder="0" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-2xl font-black" />
           <p class="text-[11px] text-slate-400 mt-2">💡 Se não souber exato, chuta — dá pra ajustar depois. Sem ponto de partida, não dá pra mostrar progresso.</p>
         </div>
       ` : step === 4 ? `
         <div>
           <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">E aonde você quer chegar até <b class="text-emerald-300">${draft.deadline || '<defina o prazo>'}</b>?</label>
-          <input id="okr-draft-target" data-focus-key="okr-draft-target" type="number" value="${Number(draft.target || 0)}" oninput="Actions.updateStrategicOkrDraft('target', Number(this.value || 0))" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-2xl font-black" />
+          <input id="okr-draft-target" data-focus-key="okr-draft-target" type="text" inputmode="decimal" value="${Utils.escape(draft.target != null ? String(draft.target) : '')}" oninput="Actions.updateStrategicOkrDraft('target', this.value)" placeholder="0" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-2xl font-black" />
           <div class="mt-2 flex gap-1.5">
             <span class="text-[11px] text-slate-400 self-center">Atalhos:</span>
             <button onclick="Actions.updateStrategicOkrDraft('target', (Number(App.state.strategicOkrDraft.current||0))*2); App.render();" class="px-2 py-1 rounded-lg bg-violet-500/15 hover:bg-violet-500/25 border border-violet-400/30 text-violet-200 text-[10px] font-bold">2x</button>
