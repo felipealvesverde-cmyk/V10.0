@@ -18,6 +18,23 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.16.3',
+    date: '2026-06-24',
+    title: 'Onda 5 do audit do Mapa: 8 bugs (navegação e overlap entre modais)',
+    bullets: [
+      'Tecla Esc agora respeita a pilha de modais — fecha o sub-modal mais alto (Djow chat, criar KR custom, conectar ação a KRs, mind-map editor, etc) em vez de só desativar o setor ativo silenciosamente.',
+      'Sub-modais filhos do Mapa têm mutex agora: abrir "Conectar ação a KRs", "Criar KR custom", "Engine de ação custom", "Plugadas" ou "Editar ação" fecha qualquer outro sub-modal aberto antes. Acabou o "janelas em segundo plano" do Felipe.',
+      'z-index do modal "Editar ação" baixou de z-[999] (cobria TUDO) pra z-[100] — agora respeita TaskCreation (z-98) e Djow chat (z-99). Modal-on-modal natural.',
+      'Abrir Mapa do menu Produtos agora sempre cai na etapa 1 (Visão). Antes redirecionava direto pra primeira campanha — quem tinha 1 campanha NUNCA mais voltava pra etapa 1 sem clicar especificamente lá.',
+      'Criar task pra um número (botão no Mapa) não fecha mais o Mapa — TaskCreation abre por cima (z-98 > z-80) e quando fecha o Mapa continua do jeito que estava.',
+      'Clicar numa ação dentro do Mapa pra ver detalhe agora salva o contexto (produto/campanha/zoom) em `_returnToMapa`. Nova action `Actions.returnToMapa()` reabre exatamente onde estava — desbloqueia caminho de volta.',
+      'Botão "Abrir no Mapa" da ação operacional não pisca mais nem race com setTimeout. `openStrategicMapForCampaign` ganhou parâmetros opcionais `zoom` e `activeAreaId` — passa tudo direto, sem janela de 50ms.',
+      'Popup "Criar produto com Mapa" ganhou flag `submitting` pra rejeitar double-click. Em conexão lenta, antes podia criar 2 produtos ou abrir Mapa no produto errado.',
+      'Helper novo `_closeStrategicChildModals(except)` em Actions — versão leve do _closeAllStrategicSubModals (preserva popups CEO/Handoff que podem coexistir intencionalmente). Usado em todos os `openX` de sub-modal.',
+      'Total do audit: 53 dos 73 bugs fechados (73%). Restam 20 em 1 onda: state drift residual. Trigger: "ataca onda 6 do audit do mapa".'
+    ]
+  },
+  {
     version: 'V40.16.2',
     date: '2026-06-24',
     title: 'Onda 4 do audit do Mapa: 9 bugs (validações e silent failures)',

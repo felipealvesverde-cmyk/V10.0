@@ -2056,8 +2056,14 @@ Object.assign(Actions, {
   confirmNewProductWithMapa() {
     const draft = App.state.newProductWithMapaPopup;
     if (!draft) return;
+    // V40.16.3 — Bug #48/#71 do audit: flag submitting pra evitar double-finalize.
+    // Em conexão lenta, double-click no botão Criar abria 2 produtos ou abria
+    // Mapa no produto errado. Agora rejeita re-entrada enquanto submitting.
+    if (draft.submitting) return;
     const name = String(draft.name || '').trim();
     if (!name) return Utils.toast('Digite um nome pro produto.');
+    draft.submitting = true;
+    App.render();
     const pendingDraft = {
       name,
       type: String(draft.type || '').trim(),
@@ -2072,11 +2078,10 @@ Object.assign(Actions, {
       App.state.newProductWithMapaPopup = null;
       const product = this._finalizeProductCreation(pendingDraft, audience);
       if (product) {
-        setTimeout(() => {
-          Actions.openStrategicMap(product.id);
-          if (window.StrategicZoomNavigation) StrategicZoomNavigation.set('vision');
-          App.save(); App.render();
-        }, 80);
+        // V40.16.3 — setTimeout(80ms) eliminado. Sequencial direto.
+        Actions.openStrategicMap(product.id);
+        if (window.StrategicZoomNavigation) StrategicZoomNavigation.set('vision');
+        App.save(); App.render();
       }
       return;
     }
@@ -8847,6 +8852,29 @@ Object.assign(Actions, {
     App.state.strategicExecuteMetricsPopup = null;
     App.state.strategicUnlockCeoPopup = null;
   },
+  // V40.16.3 — Bug #43 do audit: mutex pra sub-modais filhos. Cada openX
+  // de sub-modal chama este helper no início pra fechar outros já abertos —
+  // evita "janelas em segundo plano" relatado pelo Felipe. Versão mais leve
+  // que _closeAllStrategicSubModals (não toca popups CEO/Handoff que podem
+  // coexistir intencionalmente com modais filhos por design).
+  _closeStrategicChildModals(except) {
+    const keys = [
+      'strategicMindMapActionEditor',
+      'createCustomKrModal',
+      'activateCatalogKrModal',
+      'connectActionToKrsModal',
+      'connectActionWizard',
+      'pluggedActionsModal',
+      'customActionEngine',
+      'strategicActionDetailModalId',
+      'orphanActionResolver',
+      'strategicKrPickerOpen'
+    ];
+    for (const k of keys) {
+      if (k === except) continue;
+      App.state[k] = null;
+    }
+  },
   _isAlreadyOnSameMapa(productId, campaignId) {
     if (!App.state.showStrategicMap) return false;
     if (Number(App.state.strategicMapProductId) !== Number(productId)) return false;
@@ -8858,19 +8886,13 @@ Object.assign(Actions, {
 
   openStrategicMap(productId) {
     if (!productId) return Utils.toast('Selecione um produto.');
-    // V31.0.5 — Demo abria direto na primeira branch pra ver etapas 4-6 com conteúdo.
-    // V31.1.1 — Aplicado a TODOS users: se produto tem branches, abre na primeira
-    // (sem CEO/Gestor distinction = "criar livre"). Se não tem branches, abre em
-    // mode='product' (estado inicial) — etapa 4 hub vai oferecer criar campanha.
-    const branchesForRedirect = window.StrategicMapEngine?.getBranchesByProduct
-      ? StrategicMapEngine.getBranchesByProduct(Number(productId))
-      : [];
-    if (branchesForRedirect.length) {
-      return Actions.openStrategicMapForCampaign(branchesForRedirect[0].campaignId);
-    }
-    // V40.16.1 — Bug #30/#37/#66 do audit: guard de identidade. Se Mapa já está
-    // aberto no MESMO produto em modo 'product', não reseta drafts (cliente pode
-    // estar no meio de KR draft de 7 passos). Apenas re-renderiza.
+    // V40.16.3 — Bug #44 do audit: redirect automático pra primeira campanha
+    // (V31.0.5/V31.1.1) REMOVIDO. Era resíduo de demo; deixava cliente que já
+    // tinha 1 campanha sem caminho pra voltar à Visão pelo menu Produtos.
+    // Agora sempre abre em mode='product' / zoom='vision' (etapa 1). Quem
+    // quiser ir direto pra campanha usa Actions.openStrategicMapForCampaign.
+    // V40.16.1 — Guard de identidade. Se Mapa já está aberto no MESMO produto
+    // em modo 'product', não reseta drafts. Apenas re-renderiza.
     if (Actions._isAlreadyOnSameMapa(productId, null)) {
       App.render();
       return;
@@ -13247,7 +13269,9 @@ Object.assign(Actions, {
       `Ação operacional: ${action.name}`,
       kr.owner ? `Responsável sugerido: ${kr.owner}` : null
     ].filter(Boolean).join('\n');
-    App.state.showStrategicMap = false;
+    // V40.16.3 — Bug #45 do audit: NÃO fecha o Mapa pra abrir TaskCreation.
+    // Modal-on-modal funciona (TaskCreation z-98 > Mapa z-80). Antes o user
+    // perdia contexto e caía pra Home/aba qualquer depois de criar a task.
     Actions.openCreateClickupTaskModal({
       summary: `OKR "${kr.name}" · Ação "${action.name}"`,
       productId, objectiveId, okrId, actionId: Number(actionId),
@@ -13789,6 +13813,7 @@ Object.assign(Actions, {
   // input.value com state antigo, ZERANDO o texto digitado. Felipe descrevia
   // como "texto some sozinho". Agora draft separado, controlled, silent.
   openMindMapActionEditor(actionId) {
+    Actions._closeStrategicChildModals('strategicMindMapActionEditor');
     const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
     if (!action) return;
     const campaignId = Number(action.campaignId);
@@ -14233,12 +14258,17 @@ Object.assign(Actions, {
   },
 
   // V29.0.0 — Abre Mapa em vista CAMPANHA (5 etapas da branch).
-  openStrategicMapForCampaign(campaignId) {
+  // V40.16.3 — Bug #47/#70 do audit: aceita opts={ zoom, activeAreaId } pra
+  // setar zoom + área antes do render inicial (sem setTimeout race).
+  openStrategicMapForCampaign(campaignId, opts) {
     const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
     if (!campaign) return Utils.toast('Campanha não encontrada.');
+    const o = opts || {};
     // V40.16.1 — Bug #30/#37/#66 do audit: guard de identidade. Se já está nessa
     // exata campanha em modo 'campaign', no-op pra preservar drafts em andamento.
     if (Actions._isAlreadyOnSameMapa(campaign.productId, campaignId)) {
+      if (o.zoom) App.state.strategicMapZoom = o.zoom;
+      if (o.activeAreaId !== undefined) App.state.strategicActiveArea = o.activeAreaId;
       App.render();
       return;
     }
@@ -14247,7 +14277,8 @@ Object.assign(Actions, {
     App.state.strategicMapCampaignId = Number(campaignId);   // V29 — vista campanha
     App.state.strategicMapMode = 'campaign';                  // V29
     App.state.showStrategicMap = true;
-    App.state.strategicMapZoom = 'campaign'; // V29.1.0 — Gestor abre na etapa Campanha (onde pluga KRs)
+    App.state.strategicMapZoom = o.zoom || 'campaign'; // V29.1.0 — default 'campaign'
+    if (o.activeAreaId !== undefined) App.state.strategicActiveArea = o.activeAreaId;
     // V31.2.16 — Quando o Mapa é aberto VINDO de uma campanha (card de campanha,
     // Djow, action, etc.), pula o welcome — só aparece pelo caminho 'Mapa da
     // Receita' do menu Produtos ou 'Criar Produto com Mapa'.
@@ -16232,14 +16263,41 @@ Prioridade: ${d.priority}
 
   // V31.1.0 — Abre ação operacional desde o Mapa da Receita (caminho inverso).
   // Fecha o Mapa, navega pra aba Ações de Campanha, seleciona a campanha + ação.
+  // V40.16.3 — Bug #46 do audit: salva _returnToMapa em App.state pra cliente
+  // poder voltar. Sem isso, cliente clicava em ação no Mapa pra ver detalhe e
+  // ficava preso na aba Ações sem caminho de volta.
   openActionFromMap(actionId) {
+    Actions._closeStrategicChildModals();
     const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
     if (!action) return Utils.toast('Ação não encontrada.');
+    App.state._returnToMapa = {
+      productId: App.state.strategicMapProductId,
+      campaignId: App.state.strategicMapCampaignId,
+      mode: App.state.strategicMapMode,
+      zoom: App.state.strategicMapZoom
+    };
     App.state.showStrategicMap = false;
     App.state.selectedActionId = Number(actionId);
     App.state.selectedCampaignId = action.campaignId;
     App.state.activeTab = 'actions';
     App.save(); App.render();
+  },
+
+  // V40.16.3 — Reabre o Mapa no mesmo produto/campanha/zoom de antes da
+  // navegação. Usado pelo botão "Voltar ao Mapa" na aba Ações.
+  returnToMapa() {
+    const ret = App.state._returnToMapa;
+    if (!ret || !ret.productId) return;
+    if (ret.mode === 'campaign' && ret.campaignId) {
+      Actions.openStrategicMapForCampaign(Number(ret.campaignId));
+    } else {
+      Actions.openStrategicMap(Number(ret.productId));
+    }
+    if (ret.zoom) {
+      App.state.strategicMapZoom = ret.zoom;
+      App.render();
+    }
+    App.state._returnToMapa = null;
   },
 
   // V31.1.0 — Wizard "Conectar ao Mapa da Receita" (Frente → KR-mãe → Confirmar).
@@ -16399,24 +16457,26 @@ Prioridade: ${d.priority}
 
   // V31.2.21 — "Abrir no Mapa" do retângulo azul (_strategicTag) leva direto
   // pra etapa 5 "Ações" da campanha da ação, NÃO mais pra etapa 4 hub.
+  // V40.16.3 — Bug #47/#70 do audit: setTimeout(50ms) eliminado. Passa zoom +
+  // activeArea direto pro openStrategicMapForCampaign. Antes a UI piscava no
+  // zoom 'campaign' por 50ms antes de pular pra 'operations'.
   openActionOnMap(productId, actionId) {
     const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
     if (!action) return Utils.toast('Ação não encontrada.');
     const campaignId = Number(action.campaignId);
     if (!campaignId) return Utils.toast('Ação sem campanha.');
-    // Abre na branch da campanha + etapa Ações
-    Actions.openStrategicMapForCampaign(campaignId);
-    setTimeout(() => {
-      if (window.StrategicZoomNavigation) StrategicZoomNavigation.set('operations');
-      App.state.strategicActiveArea = action.strategicAreaId || null;
-      App.state.strategicSkipOnboarding = true;
-      App.save(); App.render();
-    }, 50);
+    Actions.openStrategicMapForCampaign(campaignId, {
+      zoom: 'operations',
+      activeAreaId: action.strategicAreaId || null
+    });
+    App.state.strategicSkipOnboarding = true;
+    App.save(); App.render();
   },
 
   // V31.2.20 — Modal-on-modal "Ver ações plugadas": mini-dashboard + lista
   // de ações conectadas a um KR-mãe (across todas branches do produto).
   openPluggedActionsModal(pkrId) {
+    Actions._closeStrategicChildModals('pluggedActionsModal');
     App.state.pluggedActionsModal = { open: true, pkrId };
     App.render();
   },
@@ -16428,6 +16488,7 @@ Prioridade: ${d.priority}
   // V31.2.21 — Modal "Conectar ação a KRs" (pra ação já existente, sem KR vinculado).
   openConnectActionToKrsModal(actionId) {
     if (this._demoGuard && this._demoGuard('Conectar ação a KRs')) return;
+    Actions._closeStrategicChildModals('connectActionToKrsModal');
     App.state.connectActionToKrsModal = { open: true, actionId: Number(actionId), selectedKrIds: [] };
     App.render();
   },
@@ -16499,6 +16560,7 @@ Prioridade: ${d.priority}
   // V29.3.0 — Abre a engine de criação de ação custom no contexto de um KR.
   // V31.2.18 — Adicionado selectedKrIds (multi-select). Pre-marca o KR de origem.
   openCustomActionEngine(areaId, parentProductKrId) {
+    Actions._closeStrategicChildModals('customActionEngine');
     const productId = App.state.strategicMapProductId;
     const productKr = StrategicMapEngine.getProductKrs(productId).find(k => k.id === parentProductKrId);
     App.state.customActionEngine = {
@@ -17029,6 +17091,7 @@ Prioridade: ${d.priority}
   // confirmed:true direto, sem etapa intermediária de edição inline.
   openActivateCatalogKrModal(productId, area, catalogId) {
     if (this._demoGuard && this._demoGuard('Ativar KR-mãe do catálogo')) return;
+    Actions._closeStrategicChildModals('activateCatalogKrModal');
     App.state.activateCatalogKrModal = {
       open: true,
       productId: Number(productId),
@@ -17085,6 +17148,7 @@ Prioridade: ${d.priority}
   // adiciona ao customKpiCatalog[area] (base de conhecimento aprendida).
   async openCreateCustomKrModal(productId, area) {
     if (this._demoGuard && this._demoGuard('Criar KR-mãe customizado')) return;
+    Actions._closeStrategicChildModals('createCustomKrModal');
     // V35.8.0-alpha4 — Mapeia area pro setor que o backend espera.
     const setorMap = { marketing: 'marketing', vendas: 'vendas', cs: 'cs' };
     const setor = setorMap[String(area).toLowerCase()] || String(area).toLowerCase();

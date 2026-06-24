@@ -317,13 +317,56 @@ var App = {
             // V38.1.30 — ESC sai da edição do SETOR ativo no Mapa
             // (Marketing/Vendas/CS na Etapa 4). Antes saía da campanha
             // inteira — não era o comportamento esperado.
-            if (e.key === 'Escape' && App.state.showStrategicMap) {
+            //
+            // V40.16.3 — Bug #42 do audit: stack ordenado. ESC pega o modal
+            // mais alto na pilha (sub-modal topmost) antes de mexer em
+            // strategicActiveArea. Antes Esc no createCustomKrModal não
+            // fechava o modal — desativava strategicActiveArea silencioso.
+            if (e.key === 'Escape') {
               const tag = (document.activeElement?.tagName || '').toLowerCase();
               if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
-              if (App.state.strategicActiveArea) {
+              // Ordem do topmost ao mais baixo (sub-modais primeiro).
+              if (App.state.djowTaskChat) {
+                e.preventDefault();
+                if (window.Actions?.closeDjowTaskChat) return Actions.closeDjowTaskChat();
+              }
+              if (App.state.taskCreationModal?.open) {
+                e.preventDefault();
+                if (window.Actions?.closeTaskCreationModal) return Actions.closeTaskCreationModal();
+              }
+              if (App.state.showActionEditModal) {
+                e.preventDefault();
+                if (window.Actions?.closeActionEditModal) return Actions.closeActionEditModal();
+              }
+              if (App.state.createCustomKrModal?.open) {
+                e.preventDefault();
+                if (window.Actions?.closeCreateCustomKrModal) return Actions.closeCreateCustomKrModal();
+              }
+              if (App.state.activateCatalogKrModal?.open) {
+                e.preventDefault();
+                if (window.Actions?.closeActivateCatalogKrModal) return Actions.closeActivateCatalogKrModal();
+              }
+              if (App.state.connectActionToKrsModal?.open) {
+                e.preventDefault();
+                if (window.Actions?.closeConnectActionToKrsModal) return Actions.closeConnectActionToKrsModal();
+              }
+              if (App.state.pluggedActionsModal?.open) {
+                e.preventDefault();
+                if (window.Actions?.closePluggedActionsModal) return Actions.closePluggedActionsModal();
+              }
+              if (App.state.strategicMindMapActionEditor) {
+                e.preventDefault();
+                if (window.Actions?.closeMindMapActionEditor) return Actions.closeMindMapActionEditor();
+              }
+              if (App.state.customActionEngine) {
+                e.preventDefault();
+                if (window.Actions?.closeCustomActionEngine) return Actions.closeCustomActionEngine();
+              }
+              // Comportamento legado V38.1.30 — só dispara se nenhum sub-modal acima.
+              if (App.state.showStrategicMap && App.state.strategicActiveArea) {
                 e.preventDefault();
                 if (window.Actions?.setStrategicActiveArea) {
-                  Actions.setStrategicActiveArea(App.state.strategicActiveArea); // toggle off
+                  Actions.setStrategicActiveArea(App.state.strategicActiveArea);
                 }
               }
             }

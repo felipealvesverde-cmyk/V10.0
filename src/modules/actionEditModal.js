@@ -10,7 +10,10 @@ var ActionEditModal = {
       draft.destinationFunnel || draft.funnel
     );
     const kpis = Array.isArray(draft.okrs) ? draft.okrs : [];
-    return `<div class="fixed inset-0 z-[999] bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto">
+    // V40.16.3 — Bug #41 do audit: z-[999] cobria TaskCreation (z-98) e
+    // DjowChat (z-99). Abaixado pra z-[100] na faixa coerente com Mapa (80)
+    // e demais sub-modais. Modal-on-modal natural agora.
+    return `<div class="fixed inset-0 z-[100] bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto">
       <div class="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-3xl mx-auto mt-8 overflow-hidden">
         <header class="bg-slate-900 text-white p-5 flex items-start justify-between gap-3">
           <div>
