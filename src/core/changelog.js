@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.4',
+    date: '2026-06-24',
+    title: 'Wizard Arquétipo de Vendas: respira ~20% mais largo',
+    bullets: [
+      'O wizard cresceu horizontalmente pra ~1280px (antes 1024-1152px). Vale especialmente pro passo Modelo Operacional, onde os 9 cards em grid 3×3 estavam apertados — o body do Atacado/Wholesale criava muito vazio vertical pra caber no espaço estreito.',
+      'Cards do passo 1 (4 cards 2×2) e do passo 3 (3 cards de Canal) também ganham respiração. Steps 5-6 (Quadro e Confirmação) sobem proporcionalmente menos porque já estavam mais largos, mas continuam coerentes com o resto.'
+    ]
+  },
+  {
     version: 'V40.14.3',
     date: '2026-06-24',
     title: 'Wizard Arquétipo de Vendas: onda Leonardo + painel navegável + roletas + corte honesto',

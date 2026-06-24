@@ -94,12 +94,13 @@ var ProductAudienceModal = {
   STEP_SHORT_LABELS: ['Apresentação', 'Modelo de Negócio', 'Modelo Operacional', 'Canal de Venda', 'Refinamento', 'Quadro', 'Confirmação'],
   TOTAL_STEPS: 7,
 
-  // V40.14.3 — Modal mais largo agora por causa do painel lateral (~224px
-  // a esquerda). max-w-5xl em todos os passos exceto passo 5 (Quadro com
-  // 3 colunas PA/ICP/BP) e passo 6 (Confirmação com 3 cards consequência)
-  // que ganham max-w-6xl pra dar respiro.
+  // V40.14.4 — Wizard cresce horizontalmente pra ~1280px em todos os steps.
+  // Antes: steps 0-4 em max-w-5xl (1024px), 5-6 em max-w-6xl (1152px).
+  // O step Operacional (grid 3×3 com 9 cards) ficava espremido — body do
+  // Atacado/Wholesale criava muito vazio vertical pra caber. Subir pra
+  // max-w-7xl dá respiro pra todos sem quebrar a coerência visual.
   _modalWidth(step) {
-    return step >= 5 ? 'max-w-6xl' : 'max-w-5xl';
+    return 'max-w-7xl';
   },
 
   render() {
