@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.16',
+    date: '2026-06-24',
+    title: 'Import master ganha modo merge: trazer SÓ produtos específicos do backup',
+    bullets: [
+      'Antes, importar um backup .json substituía o state inteiro do user — quem tivesse criado coisa nova depois do backup perdia tudo. Útil pra recovery total, ruim pra merge cirúrgico.',
+      'Agora o endpoint admin-import-tenant-state aceita um modo merge: { onlyProductIds: [...] }. Quando presente, ele NÃO sobrescreve o state — pega só os produtos especificados do backup e adiciona ao state atual, junto com tudo ligado a eles (campanhas, ações, RevOps & Equilíbrio, mapa estratégico, KRs).',
+      'Skip de IDs duplicados em todos os níveis (produto, campanha, ação) — produto novo que você criou depois do backup fica intacto. customKpiCatalog e customActionCatalog também são mesclados sem duplicar IDs.',
+      'Útil pro caso clássico: cliente perdeu um produto antigo por bug, criou um produto novo, e quer trazer só o antigo de volta sem perder o novo.'
+    ]
+  },
+  {
     version: 'V40.14.15',
     date: '2026-06-24',
     title: 'Endpoint master: importar state de arquivo JSON direto pro tenant',
