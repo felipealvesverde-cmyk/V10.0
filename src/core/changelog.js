@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.13',
+    date: '2026-06-24',
+    title: 'Fix: detecção de "demo tem dados reais" agora cobre CRM, não só Checkout',
+    bullets: [
+      'Bug acumulado de versões anteriores: o endpoint de Velocidade tem um modo demo que decide entre "usar dados reais" e "usar mock estático" verificando se existem vendas Hotmart aprovadas. Quando o populate de CRM desplugou o Hotmart do Pilsen, o restante do demo continuou sem Hotmart e a verificação caiu pra zero — fazendo o endpoint devolver mock estático que não inclui os deals do CRM.',
+      'Resultado prático: você populava deals via Actions.populateDemoCrmDeals, eles ficavam gravados no banco, mas o painel nunca enxergava — porque o mock sobrescrevia tudo.',
+      'Corrigido. A verificação agora pergunta "tem alguma fonte real?" — Hotmart approved OU deals CRM. Se qualquer uma tem dados, vai pro path real e o painel finalmente lê os deals do Pilsen Atacado.'
+    ]
+  },
+  {
     version: 'V40.14.12',
     date: '2026-06-24',
     title: 'Fix: cache do funil CRM agora chega no painel da Home',

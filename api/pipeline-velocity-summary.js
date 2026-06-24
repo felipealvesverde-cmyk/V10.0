@@ -34,23 +34,38 @@ module.exports = async function handler(req, res) {
         state = stateRow.rows[0]?.state_json || {};
       }
 
-      // Tenta query real se tabela existir + tiver dados pra esse user
+      // V40.14.13 — Detecção de "tem dado real" agora cobre 2 fontes:
+      //   1. lj_hotmart_purchases approved (Checkout)
+      //   2. lj_rd_deals (CRM)
+      // Quando o populate de CRM despluga Hotmart de um produto, só o restante
+      // mantém approved. Mas se o demo NUNCA teve outros produtos plugados em
+      // Hotmart, a contagem zera e o branch caía no mock estático — que não
+      // tem byProductCrm, mascarando todos os deals que estão na lj_rd_deals.
       if (req.tenantDb) {
         try {
-          const hasRealData = await req.tenantDb.query(
+          const hotmartCount = await req.tenantDb.query(
             `SELECT COUNT(*)::int AS n FROM lj_hotmart_purchases
               WHERE user_id = $1 AND purchase_status = 'approved'
               LIMIT 1`,
             [demoUserId]
           );
-          if (hasRealData.rows[0]?.n > 0) {
-            // Tem dados reais → deixa cair no path real (não retorna mock)
-            console.log(`[pipeline-velocity-summary demo] usando query real (${hasRealData.rows[0].n} purchases approved)`);
+          let dealsCount = { rows: [{ n: 0 }] };
+          try {
+            dealsCount = await req.tenantDb.query(
+              `SELECT COUNT(*)::int AS n FROM lj_rd_deals
+                WHERE user_id = $1 LIMIT 1`,
+              [demoUserId]
+            );
+          } catch (_) {
+            // Tabela lj_rd_deals pode não existir — n = 0
+          }
+          const hasReal = (hotmartCount.rows[0]?.n > 0) || (dealsCount.rows[0]?.n > 0);
+          if (hasReal) {
+            console.log(`[pipeline-velocity-summary demo] usando query real (hotmart=${hotmartCount.rows[0].n}, deals=${dealsCount.rows[0].n})`);
           } else {
             return res.status(200).json(buildDemoVelocityMock(state));
           }
         } catch (probeErr) {
-          // Tabela não existe ou outro erro → fallback mock
           return res.status(200).json(buildDemoVelocityMock(state));
         }
       } else {
