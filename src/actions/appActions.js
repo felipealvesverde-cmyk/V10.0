@@ -1305,11 +1305,16 @@ Object.assign(Actions, {
     });
     App.save(); App.render();
   },
+  // V40.16.1 — Bug #28 do audit: confirm cravado. Adicionar custom audience
+  // field exigia 3 prompts (assimétrico). Remover saía com 1 clique no "x".
   removeCustomAudienceField(layer, key) {
     const w = App.state.audienceWizard;
     if (!w || !w.open) return;
     if (!['pa','icp','bp'].includes(layer)) return;
     w.customFields = w.customFields || { pa: [], icp: [], bp: [] };
+    const field = (w.customFields[layer] || []).find(f => f.key === key);
+    const fieldLabel = field?.label || field?.key || 'este campo';
+    if (!confirm(`Apagar o campo customizado "${fieldLabel}"? Vai sair da Audiência deste produto.`)) return;
     w.customFields[layer] = (w.customFields[layer] || []).filter(f => f.key !== key);
     App.save(); App.render();
   },
@@ -2413,9 +2418,14 @@ Object.assign(Actions, {
     }
   },
 
+  // V40.16.1 — Bug #26 do audit: confirm cravado. Delete dispara cascade no
+  // ClickUp (mirror externo irreversível) — não pode ir sem aviso.
   deleteActionFromEdit() {
     const draft = App.state.actionEditDraft;
     if (!draft) return;
+    const actionName = draft.name || 'esta ação';
+    const msg = `Excluir ação "${actionName}" permanentemente?\n\nVai apagar também a task espelhada no ClickUp (cascade externo). Sem desfazer.`;
+    if (!confirm(msg)) return;
     const deletedId = draft.id;
     App.state.actions = (App.state.actions || []).filter(a => Number(a.id) !== Number(draft.id));
     if (Number(App.state.selectedActionId) === Number(draft.id)) App.state.selectedActionId = null;
@@ -2609,6 +2619,13 @@ Object.assign(Actions, {
   },
   prepareCampaignForProduct(id) {
     if (!id) return Utils.toast('Selecione um produto para criar campanha.');
+    // V40.16.1 — Bug #32 do audit: confirm se draft tinha conteúdo. Antes
+    // sobrescrevia rascunho de outra campanha em andamento sem aviso.
+    const d = App.state.campaignDraft || {};
+    const hadContent = !!(String(d.name || '').trim() || String(d.objective || '').trim() || String(d.owner || '').trim());
+    if (hadContent) {
+      if (!confirm('Você tem um rascunho de campanha em andamento que será descartado. Continuar?')) return;
+    }
     App.state.selectedProductId = Number(id);
     App.state.campaignDraft = { ...App.state.campaignDraft, productId: Number(id), name: '', objective: '', owner: '', sector: 'Marketing' };
     App.state.showProductCampaignsModal = false;
@@ -2710,6 +2727,12 @@ Object.assign(Actions, {
   prepareActionForCampaign(id) {
     const campaign = (App.state.campaigns || []).find(item => Number(item.id) === Number(id));
     if (!campaign) return Utils.toast('Campanha não encontrada.');
+    // V40.16.1 — Bug #32 do audit: confirm se actionDraft tinha conteúdo.
+    const d = App.state.actionDraft || {};
+    const hadContent = !!(String(d.name || '').trim() || String(d.objective || '').trim());
+    if (hadContent) {
+      if (!confirm('Você tem um rascunho de ação em andamento que será descartado. Continuar?')) return;
+    }
     App.state.selectedCampaignId = Number(campaign.id);
     App.state.selectedProductId = Number(campaign.productId || App.state.selectedProductId || 0) || App.state.selectedProductId;
     App.state.actionDraft = { ...State.initialActionDraft(), campaignId: Number(campaign.id), scoreId: App.state.scores[0]?.id || 1 };
@@ -8785,6 +8808,49 @@ Object.assign(Actions, {
     App.save(); App.render();
   },
 
+  // V40.16.1 — Helpers Onda 3 do audit do Mapa.
+  //
+  // _resetMapaDrafts: zera os 6 drafts que viraram "reset bomb" do Mapa
+  // (bug #30/#37/#66). Chamado SÓ em troca real de produto/campanha.
+  // _closeAllStrategicSubModals: fecha os 18 sub-modais que ficavam zumbi
+  // após closeStrategicMap (bug #39/#40/#64/#67).
+  _resetMapaDrafts() {
+    App.state.strategicObjectiveDraft = null;
+    App.state.strategicOkrDraft = null;
+    App.state.strategicActiveArea = null;
+    App.state.strategicCampaignPrompt = null;
+    App.state.strategicVisionEditDraft = null;
+    App.state.strategicVisionInTutorial = false;
+  },
+  _closeAllStrategicSubModals() {
+    App.state.strategicKrPickerOpen = null;
+    App.state.strategicMindMapActionEditor = null;
+    App.state.orphanActionResolver = null;
+    App.state.executionTaskDetail = null;
+    App.state.acompanhamentoKrDetail = null;
+    App.state.acompanhamentoActionDetail = null;
+    App.state.strategicActionDetailModalId = null;
+    App.state.createCustomKrModal = null;
+    App.state.activateCatalogKrModal = null;
+    App.state.connectActionToKrsModal = null;
+    App.state.connectActionWizard = null;
+    App.state.pluggedActionsModal = null;
+    App.state.customActionEngine = null;
+    App.state.strategicCampaignPrompt = null;
+    App.state.strategicHandoffPopup = null;
+    App.state.strategicCreateCampaignPopup = null;
+    App.state.strategicExecuteMetricsPopup = null;
+    App.state.strategicUnlockCeoPopup = null;
+  },
+  _isAlreadyOnSameMapa(productId, campaignId) {
+    if (!App.state.showStrategicMap) return false;
+    if (Number(App.state.strategicMapProductId) !== Number(productId)) return false;
+    if (campaignId == null) {
+      return App.state.strategicMapMode === 'product';
+    }
+    return App.state.strategicMapMode === 'campaign' && Number(App.state.strategicMapCampaignId) === Number(campaignId);
+  },
+
   openStrategicMap(productId) {
     if (!productId) return Utils.toast('Selecione um produto.');
     // V31.0.5 — Demo abria direto na primeira branch pra ver etapas 4-6 com conteúdo.
@@ -8797,20 +8863,20 @@ Object.assign(Actions, {
     if (branchesForRedirect.length) {
       return Actions.openStrategicMapForCampaign(branchesForRedirect[0].campaignId);
     }
+    // V40.16.1 — Bug #30/#37/#66 do audit: guard de identidade. Se Mapa já está
+    // aberto no MESMO produto em modo 'product', não reseta drafts (cliente pode
+    // estar no meio de KR draft de 7 passos). Apenas re-renderiza.
+    if (Actions._isAlreadyOnSameMapa(productId, null)) {
+      App.render();
+      return;
+    }
+    Actions._resetMapaDrafts();
     App.state.strategicMapProductId = Number(productId);
     App.state.strategicMapCampaignId = null;        // V29 — vista produto, não campanha
     App.state.strategicMapMode = 'product';         // V29 — 'product' | 'campaign'
     App.state.showStrategicMap = true;
     App.state.strategicMapZoom = 'vision'; // V29.1.0 — CEO comeca pelo Objetivo (etapa 1)
     App.state.strategicSkipOnboarding = false; // V31.2.0 — welcome screen sempre aparece
-    App.state.strategicObjectiveDraft = null;
-    App.state.strategicOkrDraft = null;
-    App.state.strategicActiveArea = null;
-    App.state.strategicCampaignPrompt = null;
-    // V36.9.0 — Reset modo edição/tutorial da etapa 1. inTutorial = true só se
-    // o produto não tem vision ainda (cliente novo). Senão revisão direto.
-    App.state.strategicVisionEditDraft = null;
-    App.state.strategicVisionInTutorial = false; // será setado abaixo após ensure
     if (window.StrategicMapEngine) {
       StrategicMapEngine.ensure(Number(productId));
       if (typeof StrategicMapEngine.migrateLegacyStrategicCampaigns === 'function') {
@@ -8843,9 +8909,13 @@ Object.assign(Actions, {
   },
 
   closeStrategicMap() {
+    // V40.16.1 — Bug #39/#64/#67 do audit: fecha TODOS os 18 sub-modais que
+    // ficavam zumbi. Antes só limpava 3 campos (showStrategicMap + 2 drafts),
+    // deixando createCustomKrModal/strategicMindMapActionEditor/etc abertos.
+    // Reabrir Mapa em outra campanha mostrava o sub-modal antigo piscando.
     App.state.showStrategicMap = false;
-    App.state.strategicObjectiveDraft = null;
-    App.state.strategicOkrDraft = null;
+    Actions._resetMapaDrafts();
+    Actions._closeAllStrategicSubModals();
     App.save(); App.render();
   },
 
@@ -13269,19 +13339,34 @@ Object.assign(Actions, {
 
   // V28.0.0 — Carrega as 4 batalhas da Cacau Show direto como objetivos salvos.
   // O usuário usa como ponto de partida e ajusta dono/prazo depois.
+  // V40.16.1 — Bug #27 do audit: dedupe + confirm se já tem frentes.
+  // Antes inseria 4 objectives JUNTO com os existentes, duplicando
+  // Marketing/Vendas/CS se cliente já tinha customizado.
   loadCacauShowBatalhasExample() {
     const productId = App.state.strategicMapProductId;
     if (!productId || !window.StrategicObjectiveEngine) return;
+    const map = StrategicMapEngine.getForProduct(productId);
+    const existingObjectives = map?.objectives || [];
+    if (existingObjectives.length > 0) {
+      if (!confirm(`Este produto já tem ${existingObjectives.length} frente(s). Adicionar mais 4 do exemplo Cacau Show? (Frentes com o mesmo nome serão puladas pra evitar duplicata.)`)) return;
+    }
     const exemplos = [
       'Estar presente em mais bairros do Brasil',
       'Fazer cada cliente voltar mais vezes no ano',
       'Garantir que todo mundo lembre da gente nas datas comemorativas',
       'Conquistar quem hoje compra chocolate importado'
     ];
-    exemplos.forEach(label => StrategicObjectiveEngine.add(productId, { label, owner: '', deadline: '' }));
+    const existingLabels = new Set(existingObjectives.map(o => String(o.label || '').trim().toLowerCase()));
+    let added = 0;
+    let skipped = 0;
+    for (const label of exemplos) {
+      if (existingLabels.has(label.trim().toLowerCase())) { skipped++; continue; }
+      StrategicObjectiveEngine.add(productId, { label, owner: '', deadline: '' });
+      added++;
+    }
     App.state.strategicObjectiveDraft = null;
     App.save(); App.render();
-    Utils.toast('4 batalhas Cacau Show carregadas como rascunho. Ajuste dono e prazo de cada uma.');
+    Utils.toast(skipped > 0 ? `${added} batalha(s) adicionada(s). ${skipped} pulada(s) por já existirem.` : `${added} batalhas Cacau Show carregadas. Ajuste dono e prazo.`);
   },
 
   // V40.16.0 — Bug #22 do audit: confirm cravado. Era a operação mais destrutiva
@@ -14123,6 +14208,13 @@ Object.assign(Actions, {
   openStrategicMapForCampaign(campaignId) {
     const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(campaignId));
     if (!campaign) return Utils.toast('Campanha não encontrada.');
+    // V40.16.1 — Bug #30/#37/#66 do audit: guard de identidade. Se já está nessa
+    // exata campanha em modo 'campaign', no-op pra preservar drafts em andamento.
+    if (Actions._isAlreadyOnSameMapa(campaign.productId, campaignId)) {
+      App.render();
+      return;
+    }
+    Actions._resetMapaDrafts();
     App.state.strategicMapProductId = Number(campaign.productId);
     App.state.strategicMapCampaignId = Number(campaignId);   // V29 — vista campanha
     App.state.strategicMapMode = 'campaign';                  // V29
@@ -14132,10 +14224,6 @@ Object.assign(Actions, {
     // Djow, action, etc.), pula o welcome — só aparece pelo caminho 'Mapa da
     // Receita' do menu Produtos ou 'Criar Produto com Mapa'.
     App.state.strategicSkipOnboarding = true;
-    App.state.strategicObjectiveDraft = null;
-    App.state.strategicOkrDraft = null;
-    App.state.strategicActiveArea = null;
-    App.state.strategicCampaignPrompt = null;
     if (window.StrategicMapEngine) {
       StrategicMapEngine.ensure(Number(campaign.productId));
       StrategicMapEngine.ensureBranchMap(Number(campaignId), Number(campaign.productId));
@@ -16226,8 +16314,20 @@ Prioridade: ${d.priority}
 
   // V31.2.10 — Tabs Mkt/Vendas/CS na etapa "Os Números do Produto".
   setStrategicNumberAreaTab(areaId) {
+    // V40.16.1 — Bug #31 do audit: confirm pra preservar wizard de 7 passos.
+    // Antes, click na pill de outra área (Marketing→Vendas) zerava draft sem aviso.
+    const draft = App.state.strategicOkrDraft;
+    const hasContent = !!(draft && (
+      String(draft.name || '').trim() ||
+      Number(draft.current) || Number(draft.target) ||
+      Number(draft.targetCommitted) || Number(draft.targetStretch) ||
+      String(draft.owner || '').trim() || String(draft.impact || '').trim()
+    ));
+    if (hasContent) {
+      if (!confirm('Você vai perder o número que estava criando. Trocar de área mesmo?')) return;
+    }
     App.state.strategicNumberAreaTab = String(areaId);
-    App.state.strategicOkrDraft = null; // limpa draft ao trocar de aba
+    App.state.strategicOkrDraft = null;
     App.render();
   },
 
@@ -16614,6 +16714,11 @@ Prioridade: ${d.priority}
   // V31.2.22 — Desconecta TODOS os Actions desta custom na campanha atual:
   // remove vínculos com KRs (toggleAction off) + remove os registros de App.state.actions.
   // V31.2.23 — Colapsa o card do parentProductKrId após desplugar.
+  // V40.16.1 — Bug #25 do audit: confirm cravado. Botão "Desplugar" parecia
+  // desfazer vínculo do chip, mas na verdade APAGAVA todas as instâncias da
+  // ação na campanha inteira (filter destrutivo abaixo). "Replugar" depois
+  // exigia recriar do zero. Agora o nome do botão corresponde ao impacto real
+  // (delete) e cliente vê o impacto antes de confirmar.
   unplugCoverageChip(customId, areaId, parentProductKrId) {
     const productId = App.state.strategicMapProductId;
     const campaignId = App.state.strategicMapCampaignId;
@@ -16625,6 +16730,10 @@ Prioridade: ${d.priority}
       App.render();
       return Utils.toast('Essa ação não está plugada nesta campanha.');
     }
+    const custom = (App.state.customActionCatalog || []).find(c => c.id === customId);
+    const customName = custom?.name || 'esta ação';
+    const msg = `Apagar a ação "${customName}" desta campanha?\n\n${matching.length} registro(s) vão ser removidos e o vínculo com os KRs desfeito. Pra usar a ação de novo nesta campanha, precisará recriar do zero.\n\nSem desfazer.`;
+    if (!confirm(msg)) return;
     const branch = StrategicMapEngine.getBranchMap(campaignId);
     matching.forEach(action => {
       if (branch && window.StrategicOkrEngine) {
@@ -17800,13 +17909,30 @@ Prioridade: ${d.priority}
 
   // V28.3.0 — Remove uma ação estratégica: tira de App.state.actions
   // E remove o vínculo de todos os KRs que apontavam pra ela.
+  // V40.16.1 — Bug #24/#59 do audit: confirm + cross-branch cleanup.
+  // Antes: deletava sem confirm + esquecia de limpar connectedActionIds em
+  // strategicCampaignMaps (outras branches do mesmo produto), customActionCatalog,
+  // selectedActionId. Resultado: ação fantasma reaparecia em outras campanhas
+  // e "Ação não encontrada" abria depois.
   removeStrategicCatalogAction(actionId) {
     const productId = App.state.strategicMapProductId;
     if (!productId) return;
     const numId = Number(actionId);
-    App.state.actions = (App.state.actions || []).filter(a => Number(a.id) !== numId);
-    // Limpa connectedActionIds em todos os KRs do produto.
+    const action = (App.state.actions || []).find(a => Number(a.id) === numId);
+    const actionName = action?.name || 'esta ação';
+    let krsLigados = 0;
     const map = StrategicMapEngine.getForProduct(productId);
+    for (const o of (map?.objectives || [])) {
+      for (const kr of (o.okrs || [])) {
+        if ((kr.connectedActionIds || []).map(Number).includes(numId)) krsLigados++;
+      }
+    }
+    let msg = `Remover ação "${actionName}"?`;
+    if (krsLigados > 0) msg += `\n\n${krsLigados} número(s) vão perder o vínculo com esta ação.`;
+    msg += '\n\nSem desfazer.';
+    if (!confirm(msg)) return;
+    App.state.actions = (App.state.actions || []).filter(a => Number(a.id) !== numId);
+    // 1. Limpa connectedActionIds em todos os KRs do produto (legacy objectives)
     const objectives = (map?.objectives || []).map(o => ({
       ...o,
       okrs: (o.okrs || []).map(kr => ({
@@ -17815,8 +17941,29 @@ Prioridade: ${d.priority}
       }))
     }));
     StrategicMapEngine.save(productId, { objectives });
+    // 2. Cross-branch cleanup: limpa em todos os strategicCampaignMaps
+    const cmaps = { ...(App.state.strategicCampaignMaps || {}) };
+    for (const [cid, branch] of Object.entries(cmaps)) {
+      if (!branch?.objectives) continue;
+      cmaps[cid] = {
+        ...branch,
+        objectives: (branch.objectives || []).map(o => ({
+          ...o,
+          okrs: (o.okrs || []).map(kr => ({
+            ...kr,
+            connectedActionIds: (kr.connectedActionIds || []).filter(id => Number(id) !== numId)
+          }))
+        }))
+      };
+    }
+    App.state.strategicCampaignMaps = cmaps;
+    // 3. Zera selectedActionId se apontava pra ação deletada
+    if (Number(App.state.selectedActionId) === numId) App.state.selectedActionId = null;
+    if (App.state.acompanhamentoActionDetail?.actionId === numId) App.state.acompanhamentoActionDetail = null;
+    // 4. Limpa entrada do customActionCatalog (catálogo aprendido)
+    App.state.customActionCatalog = (App.state.customActionCatalog || []).filter(c => !(c.pendingActionId && Number(c.pendingActionId) === numId));
     App.save(); App.render();
-    Utils.toast('Ação removida.');
+    Utils.toast(krsLigados > 0 ? `Ação removida. ${krsLigados} número(s) desplugado(s).` : 'Ação removida.');
   },
 
   // V28.2.1 — Reabre um número confirmado pra edição.

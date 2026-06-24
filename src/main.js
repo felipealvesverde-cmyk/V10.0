@@ -181,6 +181,29 @@ var App = {
         // V23.0.0 — Carrega state remoto se em produção; fallback pra localStorage.
         await this._loadStateWithRemoteFallback();
         this.ensureRuntimeStateV1301();
+        // V40.16.1 — Bug #38 do audit: beforeunload warning quando drafts
+        // estratégicos têm conteúdo non-empty. F5 acidental, restart, deploy
+        // não dropa mais o wizard de KR/Visão/Objetivo sem aviso.
+        if (!window._ljMapaUnloadWarningInstalled) {
+          window._ljMapaUnloadWarningInstalled = true;
+          window.addEventListener('beforeunload', (ev) => {
+            try {
+              const s = window.App?.state;
+              if (!s) return;
+              const okrDraft = s.strategicOkrDraft;
+              const objDraft = s.strategicObjectiveDraft;
+              const visDraft = s.strategicVisionEditDraft;
+              const hasKr = okrDraft && (String(okrDraft.name || '').trim() || Number(okrDraft.current) || Number(okrDraft.target));
+              const hasObj = objDraft && String(objDraft.label || '').trim();
+              const hasVision = visDraft && String(visDraft.value || visDraft.text || '').trim();
+              if (hasKr || hasObj || hasVision) {
+                ev.preventDefault();
+                ev.returnValue = 'Você tem um rascunho no Mapa da Receita que vai ser descartado.';
+                return ev.returnValue;
+              }
+            } catch (_) { /* defensive */ }
+          });
+        }
         // V35.3.10 — Primeira vez que o user vê este sistema de changelog?
         // Marca todas as releases existentes como "vistas" pra evitar badge
         // 14 no primeiro acesso (releases retroativas populadas em V35.3.8).
@@ -702,6 +725,17 @@ var App = {
         // V25.0.0 — Para a rotação de produto se o user sair da aba Início.
         if (this.state.activeTab === 'home' && tab !== 'home' && window.HomeModule?.stopRotation) {
           try { HomeModule.stopRotation(); } catch (_) {}
+        }
+        // V40.16.1 — Bug #40 do audit: setTab pra fora do escopo do Mapa fecha
+        // o Mapa E todos os 18 sub-modais. Antes, Dashboard/Plugins/RevOps
+        // deixavam Mapa + sub-modais zumbis vivos, que reapareciam piscando
+        // quando user voltava pra Home/Produtos/Campanhas/Ações.
+        // Escopo do Mapa = home, products, campaigns, actions.
+        const MAPA_TABS = ['home', 'products', 'campaigns', 'actions'];
+        if (this.state.showStrategicMap && !MAPA_TABS.includes(tab) && window.Actions?._closeAllStrategicSubModals) {
+          this.state.showStrategicMap = false;
+          Actions._closeAllStrategicSubModals();
+          if (Actions._resetMapaDrafts) Actions._resetMapaDrafts();
         }
         this.state.activeTab = tab;
         this.save();

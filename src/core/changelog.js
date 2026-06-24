@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.16.1',
+    date: '2026-06-24',
+    title: 'Onda 3 do audit do Mapa: 14 bugs (reset bombs, sub-modais zumbi, destrutivos)',
+    bullets: [
+      'Reset bombs anuladas: openStrategicMap, openStrategicMapForCampaign e openPulsoStation agora têm guard de identidade — se você já está no mesmo produto/campanha, eles preservam os rascunhos em vez de zerar. Voltar pra Home pelo Pulso, clicar no card de campanha ou trocar de zoom não apaga mais o wizard de KR de 7 passos.',
+      'closeStrategicMap agora fecha os 18 sub-modais que ficavam zumbi (createCustomKrModal, mindMapEditor, connectActionToKrs, etc) — antes só limpava 3 campos e os sub-modais reapareciam piscando ao reabrir o Mapa em outra campanha.',
+      'setTab pra fora do escopo do Mapa (Dashboard, Plugins, Configurações, RevOps) agora fecha o Mapa e todos os sub-modais. Antes o Mapa ficava vivo em background e você via state quebrado ao voltar pra Home/Produtos/Campanhas/Ações.',
+      'Troca de aba do wizard de KR (Marketing → Vendas) agora pede confirm se o rascunho tem conteúdo (#31). prepareCampaignForProduct e prepareActionForCampaign idem — não sobrescrevem rascunho em andamento sem aviso (#32).',
+      'F5/restart agora avisa antes de sair se há rascunho do Mapa em andamento (objetivo, KR ou visão com conteúdo digitado) — beforeunload nativo do navegador.',
+      'Operações destrutivas ganharam confirm e cleanup: removeStrategicCatalogAction lista KRs ligados antes de apagar E faz cross-branch cleanup (sem mais ação fantasma reaparecendo em outra campanha). Botão "Desplugar" chip de cobertura mostra agora que é DELETE permanente, não desfazer-vínculo. deleteActionFromEdit avisa sobre cascade ClickUp. removeCustomAudienceField pede confirm (antes era 3 prompts pra criar, 1 clique pra apagar).',
+      'Carregar exemplo Cacau Show agora dedupa frentes existentes em vez de duplicar Marketing/Vendas/CS.',
+      'Total acumulado do audit: 36 dos 73 bugs fechados (5 críticos + 19 inputs + 14 reset/cleanup/destrutivos). Restam 37 bugs em 3 ondas (validação, navegação/overlap, state drift residual). Trigger: "ataca onda 4 do audit do mapa".'
+    ]
+  },
+  {
     version: 'V40.16.0',
     date: '2026-06-24',
     title: 'Ondas 1+2 da varredura do Mapa da Receita: 22 bugs fechados (críticos + foco perdido em batch)',
