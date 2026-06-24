@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.6',
+    date: '2026-06-24',
+    title: 'Wizard Arquétipo: confidence honesta + incompatibilidades visíveis + painel raio-X',
+    bullets: [
+      'BUG: a Confiança mostrava "80% ALTA" verde mesmo pra combinações que o LJ NÃO conseguia classificar (caiu em arquétipo "Não Classificado"). Agora quando o LJ não acha arquétipo cravado, Confiança trava em no máximo 50% (média/baixa) — sinal honesto pro cliente: sem classificação, não há confiança alta possível.',
+      'No passo Confirmação, notas de incompatibilidade da combinação agora aparecem em destaque (banner âmbar). Antes só apareciam no passo Quadro de Audiência — cliente podia chegar no Confirmar sem ver o aviso. Confirmação é o último gate antes de cravar, então incompat tem que ser visível ali.',
+      'Painel lateral esquerdo agora vira raio-X completo da escolha. No item Refinamento, em vez de só "4 de 4 ajustes", aparece a escolha de cada um dos 4 átomos (Ticket · Médio · Ciclo · Curto · Time · Inbound · Tracking · Parcial). Cliente vê o resumo inteiro do mapeamento sem precisar voltar pelos steps.'
+    ]
+  },
+  {
     version: 'V40.14.5',
     date: '2026-06-24',
     title: 'Roletas do Refinamento: aperto vertical pra eliminar vazios',

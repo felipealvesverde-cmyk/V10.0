@@ -119,7 +119,14 @@ var AudienceFusionEngine = {
     if (cls && !cls.fallback) score += 0.20;
     const notasIncompat = (fused?.notas || []).filter(n => n.origem === 'incompatibilidade');
     if (notasIncompat.length === 0) score += 0.20;
-    return Math.min(1, Math.max(0, score));
+    const total = Math.min(1, Math.max(0, score));
+    // V40.14.6 — Se o LJ caiu em fallback (não classificou em arquétipo cravado),
+    // confidence NÃO pode ser alta. Trava em 50% (média). Antes essa fórmula
+    // somava +20% por "sem incompatibilidade cravada" + 30% modelos + 30% refinamento
+    // = 80% ALTA pra combinações que o LJ não sabia identificar (caso B2C+Atacado).
+    // Honestidade ativa: sem classificação, não há confiança alta possível.
+    if (cls && cls.fallback) return Math.min(0.5, total);
+    return total;
   },
 
   // V40.12.2 — Sprint 4 prep: detecta Audiência fundida com catálogo desatualizado.

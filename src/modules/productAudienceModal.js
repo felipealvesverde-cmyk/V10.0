@@ -187,9 +187,19 @@ var ProductAudienceModal = {
       circleCls = 'bg-stone-200 text-slate-400';
       labelCls = 'text-slate-400 font-medium';
     }
-    const choiceHtml = choice
-      ? `<p class="text-[10px] ${isCurrent ? 'text-violet-700' : 'text-slate-600'} ml-7 mt-0.5 truncate font-medium" title="${Utils.escape(choice)}">${Utils.escape(choice)}</p>`
-      : (isVisited && !isCurrent ? `<p class="text-[10px] text-slate-400 ml-7 mt-0.5 italic">—</p>` : '');
+    // V40.14.6 — choice pode ser string OU objeto {type:'list', items:[]} (raio-X
+    // do Refinamento). String renderiza inline simples; lista renderiza sub-linhas.
+    let choiceHtml = '';
+    const valueCls = isCurrent ? 'text-violet-700' : 'text-slate-600';
+    if (choice && typeof choice === 'object' && choice.type === 'list') {
+      choiceHtml = `<div class="ml-7 mt-1 space-y-0.5">
+        ${choice.items.map(it => `<p class="text-[10px] ${valueCls} truncate" title="${Utils.escape(it.atom)} · ${Utils.escape(it.value)}"><span class="font-black uppercase tracking-wider text-[9px] text-slate-400">${Utils.escape(it.atom)}</span> <span class="font-medium">${Utils.escape(it.value)}</span></p>`).join('')}
+      </div>`;
+    } else if (choice) {
+      choiceHtml = `<p class="text-[10px] ${valueCls} ml-7 mt-0.5 truncate font-medium" title="${Utils.escape(choice)}">${Utils.escape(choice)}</p>`;
+    } else if (isVisited && !isCurrent) {
+      choiceHtml = `<p class="text-[10px] text-slate-400 ml-7 mt-0.5 italic">—</p>`;
+    }
     return `<div ${onclick} class="${containerCls}" style="border-left: 3px solid ${isCurrent ? 'var(--lj-revops)' : 'transparent'};">
       <div class="flex items-center gap-2">
         <span class="w-5 h-5 rounded-full grid place-items-center text-[10px] font-black shrink-0 ${circleCls}">${circleContent}</span>
@@ -199,19 +209,39 @@ var ProductAudienceModal = {
     </div>`;
   },
 
+  // V40.14.6 — Refinamento agora vira raio-X no painel lateral: mostra cada
+  // um dos 4 átomos com sua escolha (Ticket · Médio · Ciclo · Curto · etc).
+  // Felipe: "Aquilo vai servir tbm como raio-x de tudo oq ele selecionou."
+  // Choice agora pode ser string (simples) OU objeto {type:'list', items:[]}.
   _sidebarChoices(w) {
     const bus = this.BUSINESS_MODELS.find(b => b.id === w.modeloNegocio);
     const op = this.OPERATIONAL_MODELS.find(b => b.id === w.modeloOperacional);
     const sc = this.SALES_CHANNELS.find(b => b.id === w.salesChannel);
     const r = w.refinamento || {};
-    const refKeys = ['ticket','ciclo','time_comercial','tracking_maduro'];
-    const refCount = refKeys.filter(k => r[k]).length;
+    const refSpec = [
+      { key: 'ticket',          short: 'Ticket' },
+      { key: 'ciclo',           short: 'Ciclo' },
+      { key: 'time_comercial',  short: 'Time' },
+      { key: 'tracking_maduro', short: 'Tracking' }
+    ];
+    const refItems = [];
+    if (window.AudienceFusionEngine) {
+      for (const { key, short } of refSpec) {
+        if (!r[key]) continue;
+        const opcoes = AudienceFusionEngine.refinamentoOpcoes(key);
+        const opt = opcoes.find(o => o.id === r[key]);
+        if (opt) refItems.push({ atom: short, value: opt.label });
+      }
+    }
+    const refChoice = refItems.length > 0
+      ? { type: 'list', items: refItems }
+      : null;
     return [
       null,
       bus?.label || null,
       op?.label || null,
       sc?.label || null,
-      refCount > 0 ? `${refCount} de 4 ajustes` : null,
+      refChoice,
       null,
       null
     ];
@@ -468,6 +498,11 @@ var ProductAudienceModal = {
     const arch = cls?.archetype || window.AudienceConsequencesCatalog.FALLBACK;
     const archAccent = arch.accent || 'var(--lj-revops)';
 
+    // V40.14.6 — Notas de incompatibilidade aparecem aqui também (não só no
+    // passo Quadro). Confirmação é o último gate antes de cravar — incompat
+    // não pode passar batido.
+    const notasIncompat = (fused?.notas || []).filter(n => n.origem === 'incompatibilidade');
+
     const pct = Math.round(confidence * 100);
     const confTone = confidence >= 0.8 ? 'emerald' : confidence >= 0.5 ? 'amber' : 'rose';
     const confLabel = confidence >= 0.8 ? 'alta' : confidence >= 0.5 ? 'média' : 'baixa';
@@ -505,6 +540,13 @@ var ProductAudienceModal = {
       </div>
 
       ${cls?.fallback ? `<div class="rounded-2xl bg-white border border-stone-200 p-3 text-[12px] text-slate-700" style="border-left: 4px solid var(--lj-warning);"><b>Combinação ainda sem arquétipo cravado.</b> LJ usa defaults genéricos por enquanto — você pode seguir mesmo assim. Master pode cravar arquétipos customizados em sprint futura.</div>` : ''}
+
+      ${notasIncompat.length ? `<div class="space-y-1.5">
+        ${notasIncompat.map(n => `<div class="rounded-2xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2" style="border-left: 4px solid var(--lj-warning);">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-700 mt-0.5 shrink-0"></i>
+          <p class="text-[12px] text-amber-900 leading-relaxed">${Utils.escape(n.texto)}</p>
+        </div>`).join('')}
+      </div>` : ''}
 
       <!-- Só os 3 módulos que consomem o arquétipo hoje (Velocidade, Djow, RevOps) -->
       <div>
