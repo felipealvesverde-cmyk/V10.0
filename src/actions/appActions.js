@@ -1205,7 +1205,8 @@ Object.assign(Actions, {
     return product;
   },
 
-  // V38.1.36 — Wizard "Definir Audiência" (ICP do produto).
+  // V38.1.36 — Wizard "Definir Audiência" (renomeado pra "Arquétipo de Vendas" em V40.14.1).
+  // V40.14.3 — visited[] pro painel lateral navegável (zigzag entre steps já passados).
   openAudienceWizardForNewProduct(pendingDraft, mode) {
     App.state.audienceWizard = {
       open: true,
@@ -1216,8 +1217,10 @@ Object.assign(Actions, {
       modeloNegocio: null,
       modeloOperacional: null,
       salesChannel: null,
+      refinamento: null,
       quadroPA: [], quadroICP: [], quadroBP: [],
-      customFields: { pa: [], icp: [], bp: [] }
+      customFields: { pa: [], icp: [], bp: [] },
+      visited: [0]
     };
     App.save(); App.render();
   },
@@ -1227,21 +1230,27 @@ Object.assign(Actions, {
     const popup = App.state.newProductWithMapaPopup || null;
     if (!popup || !popup.open) return;
     const a = popup.audience && typeof popup.audience === 'object' ? popup.audience : {};
+    // V40.14.3 — Se já tem audience configurada, abre direto no Quadro (step 5)
+    // em vez do velho step 3 — 7 steps agora (Apresentação · Negócio · Operacional ·
+    // Canal · Refinamento · Quadro · Confirmação).
+    const initialStep = a.configured ? 5 : 0;
     App.state.audienceWizard = {
       open: true,
       mode: 'mapaPopupDraft',
-      step: a.configured ? 3 : 0,
+      step: initialStep,
       productId: null,
       pendingDraft: null,
       modeloNegocio: a.modeloNegocio || null,
       modeloOperacional: a.modeloOperacional || null,
       salesChannel: a.salesChannel || null,
+      refinamento: (a.refinamento && typeof a.refinamento === 'object') ? { ...a.refinamento } : null,
       quadroPA: Array.isArray(a.quadroPA) ? [...a.quadroPA] : [],
       quadroICP: Array.isArray(a.quadroICP) ? [...a.quadroICP] : [],
       quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : [],
       customFields: (a.customFields && typeof a.customFields === 'object')
         ? { pa: a.customFields.pa || [], icp: a.customFields.icp || [], bp: a.customFields.bp || [] }
-        : { pa: [], icp: [], bp: [] }
+        : { pa: [], icp: [], bp: [] },
+      visited: Array.from({ length: initialStep + 1 }, (_, i) => i)
     };
     App.save(); App.render();
   },
@@ -1251,21 +1260,25 @@ Object.assign(Actions, {
   openAudienceWizardForDraft() {
     const d = App.state.productDraft || {};
     const a = d.audience && typeof d.audience === 'object' ? d.audience : {};
+    // V40.14.3 — 7 steps. Já configurado abre no Quadro (step 5).
+    const initialStep = a.configured ? 5 : 0;
     App.state.audienceWizard = {
       open: true,
       mode: 'draft',
-      step: a.configured ? 3 : 0,
+      step: initialStep,
       productId: null,
       pendingDraft: null,
       modeloNegocio: a.modeloNegocio || null,
       modeloOperacional: a.modeloOperacional || null,
       salesChannel: a.salesChannel || null,
+      refinamento: (a.refinamento && typeof a.refinamento === 'object') ? { ...a.refinamento } : null,
       quadroPA: Array.isArray(a.quadroPA) ? [...a.quadroPA] : [],
       quadroICP: Array.isArray(a.quadroICP) ? [...a.quadroICP] : [],
       quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : [],
       customFields: (a.customFields && typeof a.customFields === 'object')
         ? { pa: a.customFields.pa || [], icp: a.customFields.icp || [], bp: a.customFields.bp || [] }
-        : { pa: [], icp: [], bp: [] }
+        : { pa: [], icp: [], bp: [] },
+      visited: Array.from({ length: initialStep + 1 }, (_, i) => i)
     };
     App.save(); App.render();
   },
@@ -1305,14 +1318,12 @@ Object.assign(Actions, {
     if (!product) return;
     const a = product.audience || {};
     // V39.1.0 — Se o produto existente já tem audience configurado mas falta
-    // salesChannel (pré-V39.1), abre direto no Step 2 pra o cliente escolher.
+    // salesChannel (pré-V39.1), abre direto no Canal de Venda pra o cliente
+    // escolher. V40.14.3 — Canal virou step 3 (separado do Operacional).
     const needsSalesChannel = a.configured && !a.salesChannel;
     // V40.12.7 — Defesa contra modelos legados/inválidos. Audiência salva pode
-    // ter IDs não-canônicos (ex: seed antigo do demo com 'B2B2C'/'híbrido' em
-    // vez de 'b2b2c'/'atacado'). Sem validar, o wizard abre no step 3+ e o
-    // motor de fusão devolve "Modelo de Negócio ou Operacional inválido"
-    // no rosto do cliente. Em vez disso: normaliza pra lowercase, valida
-    // contra o catálogo e rebobina pro step 1 quando algum modelo é inválido.
+    // ter IDs não-canônicos. Normaliza pra lowercase, valida contra catálogo
+    // e rebobina pro step 1 quando algum modelo é inválido.
     const catalog = window.AudienceAtomsCatalog || {};
     const negocioMap = catalog.ATOMS_NEGOCIO || {};
     const operacionalMap = catalog.ATOMS_OPERACIONAL || {};
@@ -1324,10 +1335,12 @@ Object.assign(Actions, {
     const operacionalValid = operacionalRaw && operacionalMap[operacionalRaw];
     const channelValid = channelRaw && validChannels.includes(channelRaw);
     const hasInvalidLegacy = a.configured && (!negocioValid || !operacionalValid || !channelValid);
+    // V40.14.3 — Steps remapeados: 7 passos agora (0..6). Configurado abre
+    // no Quadro (step 5). Falta canal abre no Canal (step 3).
     let initialStep;
     if (hasInvalidLegacy) initialStep = 1;
-    else if (needsSalesChannel) initialStep = 2;
-    else if (a.configured) initialStep = 3;
+    else if (needsSalesChannel) initialStep = 3;
+    else if (a.configured) initialStep = 5;
     else initialStep = 0;
     App.state.audienceWizard = {
       open: true,
@@ -1344,7 +1357,8 @@ Object.assign(Actions, {
       quadroBP: Array.isArray(a.quadroBP) ? [...a.quadroBP] : [],
       customFields: (a.customFields && typeof a.customFields === 'object')
         ? { pa: a.customFields.pa || [], icp: a.customFields.icp || [], bp: a.customFields.bp || [] }
-        : { pa: [], icp: [], bp: [] }
+        : { pa: [], icp: [], bp: [] },
+      visited: Array.from({ length: initialStep + 1 }, (_, i) => i)
     };
     App.save(); App.render();
     if (hasInvalidLegacy) Utils.toast('A audiência deste produto foi configurada num formato antigo. Vamos refazer rapidamente.');
@@ -1582,15 +1596,22 @@ Object.assign(Actions, {
   audienceWizardNext() {
     const w = App.state.audienceWizard;
     if (!w || !w.open) return;
+    // V40.14.3 — 7 steps (0..6). Operacional e Canal separados em 2 steps.
     if (w.step === 1 && !w.modeloNegocio) return Utils.toast('Escolha um modelo de negócio.');
     if (w.step === 2 && !w.modeloOperacional) return Utils.toast('Escolha um modelo operacional.');
-    if (w.step === 2 && !w.salesChannel) return Utils.toast('Escolha como esse produto vende.');
-    // V40.12.5 — 6 steps (0..5). Refinamento agora é passo 3; Quadro=4; Conclusão=5.
-    w.step = Math.min(5, Number(w.step || 0) + 1);
+    if (w.step === 3 && !w.salesChannel) return Utils.toast('Escolha como esse produto vende.');
+    const next = Math.min(6, Number(w.step || 0) + 1);
+    // V40.14.3 — Ao entrar no step Refinamento (4) com refinamento vazio,
+    // popula defaults razoáveis pras 4 roletas. Cliente refina o que destoa.
+    if (next === 4 && (!w.refinamento || Object.keys(w.refinamento).length === 0)) {
+      w.refinamento = { ticket: 'medio', ciclo: 'curto', time_comercial: 'autoatendimento', tracking_maduro: 'parcial' };
+    }
+    w.step = next;
+    // V40.14.3 — visited tracking pro painel lateral navegável (zigzag).
+    w.visited = Array.isArray(w.visited) ? w.visited : [0];
+    if (!w.visited.includes(next)) w.visited.push(next);
     App.save(); App.render();
-    // V40.12.6 — Ao trocar de step, scroll do backdrop volta pro topo do novo
-    // step. Sem isso, herdaria scroll preservado pelo App.render() (que serve
-    // pros cliques dentro do mesmo step).
+    // V40.12.6 — Ao trocar de step, scroll do backdrop volta pro topo.
     requestAnimationFrame(() => { const el = document.getElementById('audienceWizardBackdrop'); if (el) el.scrollTop = 0; });
   },
   audienceWizardBack() {
@@ -1598,8 +1619,55 @@ Object.assign(Actions, {
     if (!w || !w.open) return;
     w.step = Math.max(0, Number(w.step || 0) - 1);
     App.save(); App.render();
-    // V40.12.6 — mesma razão do Next: trocar de step zera scroll.
     requestAnimationFrame(() => { const el = document.getElementById('audienceWizardBackdrop'); if (el) el.scrollTop = 0; });
+  },
+  // V40.14.3 — Painel lateral navegável: cliente clica num step já visitado
+  // pra editar sem voltar 3× no botão. Só permite pular pra steps que estão
+  // no Set de visited (gating). Steps futuros ficam locked.
+  audienceWizardJumpTo(step) {
+    const w = App.state.audienceWizard;
+    if (!w || !w.open) return;
+    const target = Number(step);
+    if (isNaN(target) || target < 0 || target > 6) return;
+    const visited = new Set(Array.isArray(w.visited) ? w.visited : [0]);
+    if (!visited.has(target)) return;
+    // Mesma lógica do Next: se pula pra Refinamento e está vazio, popula defaults.
+    if (target === 4 && (!w.refinamento || Object.keys(w.refinamento).length === 0)) {
+      w.refinamento = { ticket: 'medio', ciclo: 'curto', time_comercial: 'autoatendimento', tracking_maduro: 'parcial' };
+    }
+    w.step = target;
+    App.save(); App.render();
+    requestAnimationFrame(() => { const el = document.getElementById('audienceWizardBackdrop'); if (el) el.scrollTop = 0; });
+  },
+  // V40.14.3 — Roleta do Refinamento: avança/volta uma posição (circular).
+  // delta = +1 (próximo) ou -1 (anterior). Loop perfeito — passa do último
+  // volta pro primeiro.
+  audienceWizardRoletaStep(key, delta) {
+    const w = App.state.audienceWizard;
+    if (!w || !w.open) return;
+    if (!['ticket', 'ciclo', 'time_comercial', 'tracking_maduro'].includes(key)) return;
+    if (!window.AudienceFusionEngine) return;
+    const opcoes = AudienceFusionEngine.refinamentoOpcoes(key);
+    if (!opcoes.length) return;
+    w.refinamento = w.refinamento && typeof w.refinamento === 'object' ? w.refinamento : {};
+    const defaults = { ticket: 'medio', ciclo: 'curto', time_comercial: 'autoatendimento', tracking_maduro: 'parcial' };
+    const currentId = w.refinamento[key] || defaults[key] || opcoes[0].id;
+    let idx = opcoes.findIndex(o => o.id === currentId);
+    if (idx < 0) idx = 0;
+    const len = opcoes.length;
+    const nextIdx = ((idx + Number(delta)) % len + len) % len;
+    w.refinamento[key] = opcoes[nextIdx].id;
+    App.save(); App.render();
+  },
+  // V40.14.3 — Roleta do Refinamento: pula direto pra opção específica
+  // (cliente clica num dot).
+  audienceWizardRoletaJump(key, value) {
+    const w = App.state.audienceWizard;
+    if (!w || !w.open) return;
+    if (!['ticket', 'ciclo', 'time_comercial', 'tracking_maduro'].includes(key)) return;
+    w.refinamento = w.refinamento && typeof w.refinamento === 'object' ? w.refinamento : {};
+    w.refinamento[key] = String(value || '') || null;
+    App.save(); App.render();
   },
   // V38.1.40 — Pede análise do Djow no Step 3 do wizard de Audiência.
   // Backend: /api/djow-audience-analyze

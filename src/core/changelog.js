@@ -18,6 +18,25 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.3',
+    date: '2026-06-24',
+    title: 'Wizard Arquétipo de Vendas: onda Leonardo + painel navegável + roletas + corte honesto',
+    bullets: [
+      'Botão Continuar/Confirmar agora é preto (slate-900) em vez de roxo — quebra a ressonância cromática com o header roxo, contraste preto×branco crava o gesto.',
+      'Fundo do modal off-white (creme suave) em vez de branco puro. Cards internos viram brancos, criando "ilhas claras sobre creme" — mais glamoroso e elegante.',
+      'Passo 0 reescrito: o bloco "brinde — Quadro de Audiência derivado" saiu (o quadro PA/ICP/BP continua existindo, só aparece no passo 5 quando você cravar as 4 dimensões). Mensagem-mestre virou prosa de boas-vindas no peso certo, em vez de empacotada num card "mini aula".',
+      'O wizard era de 6 passos, virou 7 — Modelo Operacional e Canal de Venda ganharam steps separados (antes vinham empilhados no mesmo step com scroll comprido). Agora as "4 perguntas" prometidas no passo 0 viram literalmente 4 steps após Apresentação.',
+      'Modelo Operacional em grid 3×3 (3 linhas de 3 cards) — resolve o órfão Agribusiness que ficava sozinho no antigo grid 2-col com 9 cards.',
+      'NOVO: Painel lateral navegável à esquerda do conteúdo. Mostra os 7 steps com a escolha de cada um. Você pode clicar em qualquer step JÁ VISITADO pra editar sem precisar voltar 3× no botão. Steps futuros ficam locked. Navegação em zigzag.',
+      'Refinamento virou 4 ROLETAS (Faixa de Ticket, Ciclo, Time Comercial, Tracking Maduro). Em vez de 16 cards empilhados, agora cada eixo aparece 1 opção por vez com descrição ao vivo abaixo. Setas pra girar + pontinhos clicáveis pra pular direto. Defaults razoáveis pré-setados (Médio/Curto/Autoatendimento/Parcial) — você refina só o que destoa.',
+      'Quadro de Audiência: o card "Combinação" do topo saiu — essa info já vive no painel lateral, sem duplicação.',
+      'Confirmação: o card "O que você escolheu" também saiu (mesmo motivo). O card do Arquétipo Identificado agora é o HERÓI da tela, com a cor do próprio arquétipo (border-l 6px na paleta) — Agribusiness vibra em amarelo, Atacado Consultivo em turquesa, etc.',
+      'Confirmação: cortados os cards de Score Engine e Mapa da Receita. Eles apareciam prometendo "o LJ vai assumir 30% escala produtiva no Score" mas o Score Engine ainda não lê o arquétipo. Promessa que ninguém cumpre é placeholder — fora. Quando Score e Mapa virarem adaptativos em sprints futuras, voltam automaticamente.',
+      'Card escuro "Isso faz sentido pro seu negócio?": contraste subido. O texto cinza-clarinho sobre fundo escuro estava abaixo do WCAG (5.4:1) — agora text-slate-100 dá 13:1, leitura confortável. Copy simplificada também (removida a referência ao "pede pro Djow refletir" que era ação sem botão).',
+      'Sob o capô: nova lei dos Consumidores cravada em CALIBRATED_AREAS. Todo módulo que ganhar pele adaptativa entra nesse registry, e os passos 0 e 6 leem dele — promessa e entrega ficam sincronizadas por design.'
+    ]
+  },
+  {
     version: 'V40.14.2',
     date: '2026-06-23',
     title: 'Fix: botões "Definir arquétipo de vendas" estavam truncando',
