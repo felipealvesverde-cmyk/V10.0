@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.9',
+    date: '2026-06-24',
+    title: 'Novo arquétipo: Eventos B2B Anuais (feira, congresso, summit)',
+    bullets: [
+      'O LJ ganhou um novo arquétipo cravado: Eventos B2B Anuais. Cobre empresas que vendem cota de stand pra outras empresas exporem em feira, congresso ou summit — modelo onde a receita é concentrada em pico anual e o ciclo de venda é longo.',
+      'Antes, eventos B2B caíam (incorretamente) em "Marketplace Bilateral" do catálogo — que foi cravado pensando em marketplace digital tipo Uber/OLX. As labels não batiam ("Cadastros ativos", "Take rate") com a realidade da venda de cota.',
+      'Agora o LJ entende: V = "Empresas expositoras prospectadas", C = "Prospecção → contrato de cota", L = "Ticket médio da cota", T = "Meses (6-12 antes do evento)". KR-mãe sugerido = "Receita da próxima edição".',
+      'Tom do Djow adaptado: "comercial sazonal, retenção de expositor histórico". Foco em calendário concentrado em janela anual, vagas premium primeiro, renovação ano a ano.',
+      'Acionado automaticamente quando você marca B2B (ou B2B2C) + Marketplace + ticket alto/enterprise + ciclo longo no wizard.'
+    ]
+  },
+  {
     version: 'V40.14.8',
     date: '2026-06-24',
     title: 'Confirmação: banner enriquecido quando o LJ não classifica + sugestões de edição',

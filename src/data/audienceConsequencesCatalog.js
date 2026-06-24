@@ -219,6 +219,33 @@
       djow:  { tone: 'product manager de marketplace, equilíbrio', focus: 'liquidez por lado, matching, retention, GMV growth' },
       revops:{ payback_saudavel: '< 6 meses', roas_min: 4.0, foco: 'CAC por lado + take rate + GMV growth' },
       mapa:  { kr_mae_sugerido: 'GMV mensal', krs_secundarios: ['Liquidez por lado', 'Take rate', 'Repeat purchase rate'] }
+    },
+
+    // V40.14.9 — Arquétipo "Eventos B2B Anuais" (feiras, congressos, summits).
+    // Cravado depois que o Pilsen+similares revelaram que `marketplace_bilateral`
+    // não cabia em evento físico-temporal (digital ≠ anual). Match exige
+    // ticket alto/enterprise + ciclo longo, diferenciando de marketplace digital.
+    b2b_eventos_anuais: {
+      label: 'Eventos B2B Anuais',
+      tagline: 'Cota de stand em evento físico — feira, congresso, summit',
+      // Receita concentrada em pico anual → Revenue (amarelo-ouro).
+      accent: 'var(--lj-revenue)',
+      matches: [
+        { negocio: 'b2b',   operacional: 'marketplace', when: { ticket: ['alto', 'enterprise'], ciclo: ['longo'] } },
+        { negocio: 'b2b2c', operacional: 'marketplace', when: { ticket: ['alto', 'enterprise'], ciclo: ['longo'] } }
+      ],
+      velocidade: {
+        v_label: 'Empresas expositoras prospectadas',
+        c_label: 'Prospecção → contrato de cota',
+        l_label: 'Ticket médio da cota',
+        t_label: 'Meses (6-12 antes do evento)',
+        v_source: 'CRM + agenda comercial + base de expositores históricos',
+        diagnostico: 'V baixo → base de expositores históricos não foi reativada ou cobertura de prospecção fraca. C baixo → cota muito cara ou pacote pouco atrativo (categorias premium não preenchem). L baixo → desconto demais pra fechar (ticket cai). T alto → ciclo corporativo (verba de marketing aprovada com atraso).'
+      },
+      score: { weights: { interesse_categoria: 0.4, ticket_compativel: 0.3, historico_exposicao: 0.3 }, threshold: 75 },
+      djow:  { tone: 'comercial sazonal, retenção de expositor histórico', focus: 'calendário de venda concentrado em janela anual, vagas premium primeiro, renovação ano a ano' },
+      revops:{ payback_saudavel: '1-2 edições', roas_min: null, foco: 'CAC por canal de prospecção + retenção de expositor + ticket por categoria' },
+      mapa:  { kr_mae_sugerido: 'Receita da próxima edição (R$)', krs_secundarios: ['Cota vendida pré-evento (%)', 'Retenção de expositor ano a ano', 'Ticket médio da cota', 'Visitantes qualificados no evento'] }
     }
   };
 
@@ -246,8 +273,10 @@
 
   window.AudienceConsequencesCatalog = {
     // V40.13.0 — Bump pra 1.1.0: campo `accent` adicionado em todos os arquétipos.
-    // Semver minor — não quebra consumidores antigos (campo opcional).
-    CONSEQUENCES_VERSION: '1.1.0',
+    // V40.14.9 — Bump pra 1.2.0: +1 arquétipo `b2b_eventos_anuais` (cobertura
+    // de feiras/congressos/summits que antes caíam erroneamente em marketplace_bilateral).
+    // Semver minor — não quebra consumidores antigos.
+    CONSEQUENCES_VERSION: '1.2.0',
     ARCHETYPES,
     FALLBACK
   };
