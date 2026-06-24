@@ -169,6 +169,15 @@ var App = {
           this._showLoginScreen();
           return;
         }
+        // V40.15.0 — Camada 2 do bug cross-tenant: se a identidade do user logado
+        // mudou desde o último boot (mesmo navegador, mesmo localStorage), purga
+        // o state local ANTES de carregar do servidor. Sem isso, o navegador pode
+        // misturar memória da sessão antiga (App.state, localStorage do State) com
+        // a nova identidade e mandar push contaminado pro tenant errado. O guard
+        // V40.14.17 no servidor já rejeita o save, mas evitar a contaminação na
+        // raiz fecha o ciclo. Detalhes em [[bug_client_state_leak_between_tenants]].
+        this._purgeLocalIfIdentityChanged();
+
         // V23.0.0 — Carrega state remoto se em produção; fallback pra localStorage.
         await this._loadStateWithRemoteFallback();
         this.ensureRuntimeStateV1301();
@@ -383,6 +392,35 @@ var App = {
       },
 
       // V23.0.0 — Verifica sessão JWT chamando /api/auth-me.
+      // V40.15.0 — Detecta troca de identidade e purga state local.
+      // Caso de uso: navegador estava logado como user A no tenant X. User trocou
+      // (logout impróprio, troca de aba, impersonation, login direto sem logout
+      // antes). Boot atual carrega user B no tenant Y. Sem purgar, App.state em
+      // memória + localStorage do State ainda têm produtos/campanhas/configs de
+      // A. Auto-save no debounce manda esse lixo pro DB do user B. Felipe perdeu
+      // Atira.Pro do Sansone em 2026-06-24 exatamente assim.
+      _purgeLocalIfIdentityChanged() {
+        try {
+          if (!this.currentUser?.id) return;
+          const currentId = String(this.currentUser.id);
+          const currentTenant = this.currentUser.tenantId != null ? String(this.currentUser.tenantId) : '';
+          const lastId = localStorage.getItem('lj_last_user_id');
+          const lastTenant = localStorage.getItem('lj_last_tenant_id') || '';
+          if (lastId && (lastId !== currentId || lastTenant !== currentTenant)) {
+            console.warn('[init] 🚨 Identidade trocou (last vs current):', {
+              last_user: lastId, last_tenant: lastTenant,
+              current_user: currentId, current_tenant: currentTenant
+            }, '— purgando state local.');
+            try { StorageAdapter?.clear?.(); } catch (_) {}
+            this.state = null;
+          }
+          localStorage.setItem('lj_last_user_id', currentId);
+          localStorage.setItem('lj_last_tenant_id', currentTenant);
+        } catch (e) {
+          console.warn('[_purgeLocalIfIdentityChanged] falhou:', e);
+        }
+      },
+
       async _checkSession() {
         const token = localStorage.getItem('lj_jwt');
         if (!token) return false;
@@ -589,6 +627,35 @@ var App = {
       save() {
         // V23.0.0 — Marca timestamp pro conflict resolution remoto.
         if (this.state) this.state.lastSavedAt = new Date().toISOString();
+
+        // V40.15.0 — Camada 2: bloqueia push se state.user.tenantId/id divergem
+        // do currentUser do JWT. Proteção dupla com o guard 409 do servidor
+        // (V40.14.17) — evita ida ao servidor, evita rejeição barulhenta, e
+        // tampouco persiste em localStorage o state contaminado.
+        try {
+          const u = this.state?.user;
+          const c = this.currentUser;
+          if (u && c) {
+            const stateTenant = u.tenantId != null ? Number(u.tenantId) : null;
+            const stateId = u.id != null ? Number(u.id) : null;
+            const jwtTenant = c.tenantId != null ? Number(c.tenantId) : null;
+            const jwtId = c.id != null ? Number(c.id) : null;
+            const tenantMismatch = stateTenant != null && jwtTenant != null && stateTenant !== jwtTenant;
+            const userMismatch = stateId != null && jwtId != null && stateId !== jwtId;
+            if (tenantMismatch || userMismatch) {
+              console.error('[App.save] 🚨 BLOQUEADO V40.15.0 — state.user diverge do currentUser (cross-tenant/user).', {
+                state_user: { id: stateId, tenantId: stateTenant },
+                jwt_user: { id: jwtId, tenantId: jwtTenant }
+              });
+              try {
+                if (window.Utils?.toast) {
+                  window.Utils.toast('⚠ Save bloqueado — state contaminado. Feche esta aba e abra de novo.');
+                }
+              } catch (_) {}
+              return;
+            }
+          }
+        } catch (_) { /* defensive */ }
 
         // V36.7.2 — Guard anti-perda: bloqueia o save E o push se state aparenta
         // vazio MAS o remoto recém-carregado tinha dados. Defesa antes mesmo do

@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.15.0',
+    date: '2026-06-24',
+    title: 'Camada 2 do bug cross-tenant: purga client-side na troca de identidade',
+    bullets: [
+      'Fecha o ciclo do incidente do dia 24/06 (perda de Atira.Pro do Sansone) com purga estrutural no client. Antes, o navegador acumulava lixo de sessões antigas (App.state JS + localStorage do State) entre logins — bastava trocar de conta sem fechar a aba pra contaminar o tenant novo.',
+      'Boot agora detecta troca de identidade: marca lj_last_user_id e lj_last_tenant_id no localStorage. Se o user que está logando agora diverge do último marcado, o LJ purga state local ANTES de carregar do servidor, garantindo que nada da sessão antiga vaze.',
+      'App.save() ganha proteção dupla: antes de qualquer push, valida que state.user.tenantId e state.user.id batem com o currentUser do JWT. Mismatch → save bloqueado, toast crítico, console.error com detalhe — sem nem ir ao servidor.',
+      'Logout normal e logoutWithBackup agora limpam os marcadores de identidade pra evitar purge falso no próximo login do mesmo user.',
+      'Combinado com o guard de servidor V40.14.17 (que bloqueia o save no /api/state-sync se identity divergir), o ciclo está fechado: cliente não envia lixo, servidor não aceita lixo. O operador pode finalmente trocar de conta no mesmo navegador sem risco de contaminação.'
+    ]
+  },
+  {
     version: 'V40.14.17',
     date: '2026-06-24',
     title: 'Guard de tenant identity: servidor bloqueia save com state de outra conta',

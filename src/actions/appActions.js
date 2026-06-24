@@ -4604,6 +4604,10 @@ Object.assign(Actions, {
     // 3. Limpa auth cache.
     localStorage.removeItem('lj_jwt');
     localStorage.removeItem('lj_user');
+    // V40.15.0 — Limpa marcadores de identidade pra próximo login não disparar
+    // purge falso. Purge só deve disparar quando user muda DE FATO entre logins.
+    localStorage.removeItem('lj_last_user_id');
+    localStorage.removeItem('lj_last_tenant_id');
     window.location.reload();
   },
 
@@ -4726,6 +4730,9 @@ Object.assign(Actions, {
     try { StorageAdapter?.clear?.(); } catch (_) {}
     localStorage.removeItem('lj_jwt');
     localStorage.removeItem('lj_user');
+    // V40.15.0 — Limpa marcadores de identidade.
+    localStorage.removeItem('lj_last_user_id');
+    localStorage.removeItem('lj_last_tenant_id');
     window.location.reload();
   },
 
