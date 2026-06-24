@@ -13284,12 +13284,24 @@ Object.assign(Actions, {
     Utils.toast('4 batalhas Cacau Show carregadas como rascunho. Ajuste dono e prazo de cada uma.');
   },
 
+  // V40.16.0 — Bug #22 do audit: confirm cravado. Era a operação mais destrutiva
+  // do Mapa, 1 clique: deletava Frente comercial inteira (Marketing/Vendas/CS)
+  // + TODOS os KRs + ligações com ações em cascata, sem aviso.
   removeStrategicObjective(objectiveId) {
     const productId = App.state.strategicMapProductId;
     if (!productId) return;
+    const map = StrategicMapEngine.getForProduct(productId);
+    const obj = (map?.objectives || []).find(o => o.id === objectiveId);
+    const objLabel = obj?.label || obj?.area || 'esta frente';
+    const krsCount = Array.isArray(obj?.okrs) ? obj.okrs.length : 0;
+    const acoesCount = (obj?.okrs || []).reduce((s, k) => s + (Array.isArray(k.connectedActionIds) ? k.connectedActionIds.length : 0), 0);
+    let msg = `Remover frente "${objLabel}"?`;
+    if (krsCount > 0) msg += `\n\n${krsCount} número(s) e ${acoesCount} ligação(ões) com ações vão ser apagados em cascata.`;
+    msg += '\n\nSem desfazer.';
+    if (!confirm(msg)) return;
     StrategicObjectiveEngine.remove(productId, objectiveId);
     App.save(); App.render();
-    Utils.toast('Frente removida.');
+    Utils.toast(krsCount > 0 ? `Frente removida. ${krsCount} número(s) apagado(s).` : 'Frente removida.');
   },
 
   // V28.1.1 — Toggle de balão de ajuda (?) em qualquer etapa do Mapa.
@@ -13393,12 +13405,23 @@ Object.assign(Actions, {
     Utils.toast('Número adicionado.');
   },
 
+  // V40.16.0 — Bug #21 do audit: confirm cravado. Antes 5 botões (incluindo um
+  // "x" que parecia "fechar") deletavam KR + connectedActionIds inteiros em 1
+  // clique sem aviso.
   removeStrategicOkr(objectiveId, okrId) {
     const productId = App.state.strategicMapProductId;
     if (!productId) return;
+    const okrs = StrategicOkrEngine.list(productId, objectiveId);
+    const okr = okrs.find(k => k.id === okrId);
+    const okrName = okr?.name || 'este número';
+    const connCount = Array.isArray(okr?.connectedActionIds) ? okr.connectedActionIds.length : 0;
+    let msg = `Remover número "${okrName}"?`;
+    if (connCount > 0) msg += `\n\n${connCount} ação(ões) conectada(s) vão perder o vínculo com este número.`;
+    msg += '\n\nSem desfazer.';
+    if (!confirm(msg)) return;
     StrategicOkrEngine.remove(productId, objectiveId, okrId);
     App.save(); App.render();
-    Utils.toast('Número removido.');
+    Utils.toast(connCount > 0 ? `Número removido. ${connCount} ação(ões) desplugada(s).` : 'Número removido.');
   },
 
   // V28.2 — Ativa um número do catálogo guiado (Marketing/Vendas/CS).
@@ -13647,8 +13670,37 @@ Object.assign(Actions, {
   // V32.13.12 — Editor de ação acionado pelo click no card do mind-map.
   // Visual do Print 1 (KR plugado + checkboxes outros KRs + nome + onde
   // começa + pra onde leva + canal). Opera sobre action EXISTENTE (não cria).
+  // V40.16.0 — Bug #29 do audit (CRITICAL): inputs do editor mind-map eram
+  // UNCONTROLLED — value interpolado direto de action.X no render. Qualquer
+  // App.render() paralelo (health check 30s, sininho, autosave) sobrescrevia
+  // input.value com state antigo, ZERANDO o texto digitado. Felipe descrevia
+  // como "texto some sozinho". Agora draft separado, controlled, silent.
   openMindMapActionEditor(actionId) {
-    App.state.strategicMindMapActionEditor = { actionId: Number(actionId) };
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(actionId));
+    if (!action) return;
+    const campaignId = Number(action.campaignId);
+    const branch = window.StrategicMapEngine?.getBranchMap?.(campaignId);
+    const objective = (branch?.objectives || []).find(o => o.area === action.strategicAreaId);
+    const initialSelectedKrIds = [];
+    if (objective) {
+      for (const kr of (objective.okrs || [])) {
+        if (Array.isArray(kr.connectedActionIds) && kr.connectedActionIds.some(id => Number(id) === Number(actionId))) {
+          if (kr.parentProductKrId) initialSelectedKrIds.push(String(kr.parentProductKrId));
+        }
+      }
+    }
+    App.state.strategicMindMapActionEditor = {
+      actionId: Number(actionId),
+      draft: {
+        name: action.name || '',
+        channel: action.channel || '',
+        actionType: action.actionType || '',
+        funnelPoint: action.funnelPoint || '',
+        destSector: action.destSector || '',
+        destFunnelPoint: action.destFunnelPoint || '',
+        selectedKrIds: initialSelectedKrIds
+      }
+    };
     App.render();
   },
 
@@ -13657,14 +13709,31 @@ Object.assign(Actions, {
     App.render();
   },
 
+  // V40.16.0 — Setter SILENT (sem render) dos campos do draft do mind-map editor.
+  // Cada keystroke escreve no draft sem disparar re-render — preserva foco e
+  // conteúdo digitado mesmo que outro App.render() rode em paralelo.
+  updateMindMapEditorDraftField(field, value) {
+    const ed = App.state.strategicMindMapActionEditor;
+    if (!ed?.draft) return;
+    ed.draft[field] = value;
+  },
+  toggleMindMapEditorDraftKr(parentKrId, checked) {
+    const ed = App.state.strategicMindMapActionEditor;
+    if (!ed?.draft) return;
+    const set = new Set((ed.draft.selectedKrIds || []).map(String));
+    if (checked) set.add(String(parentKrId)); else set.delete(String(parentKrId));
+    ed.draft.selectedKrIds = [...set];
+  },
+
   // Salva edição da action stub. Atualiza nome + canal + actionType +
   // funnelPoint + destSector + destFunnelPoint + KRs vinculados.
+  // V40.16.0 — Lê do ed.draft (preferencial) com fallback pro payload legado.
   saveMindMapAction(payload) {
     const ed = App.state.strategicMindMapActionEditor;
     if (!ed?.actionId) return;
     const action = (App.state.actions || []).find(a => Number(a.id) === Number(ed.actionId));
     if (!action) return Utils.toast('Ação não encontrada.');
-    const data = payload || {};
+    const data = ed.draft || payload || {};
     // Validação básica
     if (!String(data.name || '').trim()) return Utils.toast('Dê um nome à ação.');
     if (!data.channel) return Utils.toast('Escolha o canal.');
@@ -16865,8 +16934,14 @@ Prioridade: ${d.priority}
     // V35.8.0-alpha4 — Mapeia area pro setor que o backend espera.
     const setorMap = { marketing: 'marketing', vendas: 'vendas', cs: 'cs' };
     const setor = setorMap[String(area).toLowerCase()] || String(area).toLowerCase();
+    // V40.16.0 — Bug #23/#35/#36/#69/#72/#73 do audit: opId pra invalidar mutações
+    // pós-await quando user fecha/reabre o modal. Sem isso, fetch resolve com
+    // sessionId/djow info de uma sessão antiga e contamina o modal atual,
+    // criando KR fantasma em background.
+    const opId = `op_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
     App.state.createCustomKrModal = {
       open: true,
+      _opId: opId,
       productId: Number(productId),
       area: String(area),
       name: '',
@@ -16902,11 +16977,14 @@ Prioridade: ${d.priority}
         body: JSON.stringify({ step: 'start', setor, productId: Number(productId) })
       });
       const data = await r.json();
-      if (data.ok && data.sessionId && App.state.createCustomKrModal?.open) {
+      // V40.16.0 — opId guard: só escreve se ainda for o MESMO modal (mesmo opId).
+      // Se user fechou e abriu outro entre o open e o resolve, abandona silencioso.
+      if (data.ok && data.sessionId && App.state.createCustomKrModal?.open && App.state.createCustomKrModal._opId === opId) {
         App.state.createCustomKrModal.djow.sessionId = data.sessionId;
       }
     } catch (_) { /* offline ou erro — segue com mock local */ }
-    if (App.state.createCustomKrModal?.open) {
+    // V40.16.0 — opId guard final: só desligar starting se ainda for o mesmo modal.
+    if (App.state.createCustomKrModal?.open && App.state.createCustomKrModal._opId === opId) {
       App.state.createCustomKrModal.djow.starting = false;
       App.render();
     }
@@ -17372,11 +17450,33 @@ Prioridade: ${d.priority}
     if (!name) return Utils.toast('Digite o nome do KR-mãe.');
     if (!window.StrategicMapEngine) return;
 
+    // V40.16.0 — Bug #23/#73 do audit: snapshot dos campos ANTES do await + opId
+    // guard. Race anterior: user clicava Criar, backend demorava, fechava o modal
+    // achando que travou — pouco depois KR fantasma aparecia no Mapa porque o
+    // path pós-await continuava executando com referência a `m` capturado.
+    const opId = m._opId;
+    const snapshot = {
+      productId: m.productId,
+      area: m.area,
+      metric: m.metric,
+      current: m.current,
+      targetCommitted: m.targetCommitted,
+      targetStretch: m.targetStretch,
+      sessionId: m.djow?.sessionId || null,
+      djowLocal: m.djow ? {
+        layerOptions: m.djow.layerOptions,
+        selectedIds: m.djow.selectedIds,
+        classification: m.djow.classification,
+        krMeta: m.djow.krMeta,
+        reconciliationRule: m.djow.reconciliationRule
+      } : null
+    };
+
     // V35.10.0-alpha1 — Tenta finalizar sessão Djow (best-effort) pra
     // pegar kr_payload com selected_sources e fórmula. Se backend cair,
     // monta djowMeta com o que o frontend tem na sessão local.
     let djowMeta = null;
-    if (m.djow?.sessionId) {
+    if (snapshot.sessionId) {
       try {
         const token = localStorage.getItem('lj_jwt');
         // step numbers (se ainda não rodou validação no backend)
@@ -17385,42 +17485,48 @@ Prioridade: ${d.priority}
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             step: 'numbers',
-            sessionId: m.djow.sessionId,
-            atual: Number(m.current || 0),
-            segura: Number(m.targetCommitted || 0),
-            avancada: Number(m.targetStretch || 0)
+            sessionId: snapshot.sessionId,
+            atual: Number(snapshot.current || 0),
+            segura: Number(snapshot.targetCommitted || 0),
+            avancada: Number(snapshot.targetStretch || 0)
           })
         });
+        // V40.16.0 — opId guard pós-await: se modal foi fechado/reaberto, aborta.
+        if (App.state.createCustomKrModal?._opId !== opId) return;
         // step confirm — recebe kr_payload final estruturado pelo backend
         const r = await fetch('/api/djow-kr-infer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ step: 'confirm', sessionId: m.djow.sessionId })
+          body: JSON.stringify({ step: 'confirm', sessionId: snapshot.sessionId })
         });
+        if (App.state.createCustomKrModal?._opId !== opId) return;
         const data = await r.json();
+        if (App.state.createCustomKrModal?._opId !== opId) return;
         if (data.ok && data.kr_payload) {
           djowMeta = {
-            classification: data.kr_payload.type || m.djow.classification || 'manual',
+            classification: data.kr_payload.type || snapshot.djowLocal?.classification || 'manual',
             natureId: data.kr_payload.nature_id || null,
             formulaId: data.kr_payload.formula_id || null,
             formulaDisplay: data.kr_payload.formula_display || null,
             formulaSymbolic: data.kr_payload.formula_symbolic || null,
             selectedSources: Array.isArray(data.kr_payload.selected_sources) ? data.kr_payload.selected_sources : [],
-            createdSession: data.kr_payload.created_by_djow_session || m.djow.sessionId,
-            direction: data.kr_payload.direction || m.djow.krMeta?.direction || 'higher'
+            createdSession: data.kr_payload.created_by_djow_session || snapshot.sessionId,
+            direction: data.kr_payload.direction || snapshot.djowLocal?.krMeta?.direction || 'higher'
           };
         }
       } catch (_) { /* fallback abaixo */ }
     }
-    // Fallback local: monta djowMeta com o que tá na sessão do frontend
-    if (!djowMeta && m.djow?.layerOptions?.length) {
-      const selectedOptions = (m.djow.layerOptions || []).filter(o => (m.djow.selectedIds || []).includes(o.id));
+    // V40.16.0 — Última checagem antes da escrita de fato: modal ainda aberto + mesmo opId.
+    if (!App.state.createCustomKrModal?.open || App.state.createCustomKrModal._opId !== opId) return;
+    // Fallback local: monta djowMeta com o que tá na sessão do frontend (do snapshot)
+    if (!djowMeta && snapshot.djowLocal?.layerOptions?.length) {
+      const selectedOptions = (snapshot.djowLocal.layerOptions || []).filter(o => (snapshot.djowLocal.selectedIds || []).includes(o.id));
       djowMeta = {
-        classification: m.djow.classification || 'atomic',
-        natureId: m.djow.krMeta?.nature_id || null,
-        formulaId: m.djow.krMeta?.formula_id || null,
-        formulaDisplay: m.djow.krMeta?.formula_display || null,
-        formulaSymbolic: m.djow.krMeta?.formula_symbolic || null,
+        classification: snapshot.djowLocal.classification || 'atomic',
+        natureId: snapshot.djowLocal.krMeta?.nature_id || null,
+        formulaId: snapshot.djowLocal.krMeta?.formula_id || null,
+        formulaDisplay: snapshot.djowLocal.krMeta?.formula_display || null,
+        formulaSymbolic: snapshot.djowLocal.krMeta?.formula_symbolic || null,
         // V35.11.4 — Backstop: se integration_id/field vierem null, deriva
         // do prefixo do id (gads::X, rd::X). Garante que mocks futuros que
         // esqueçam de setar os campos não quebrem o engine ao vivo.
@@ -17434,42 +17540,42 @@ Prioridade: ${d.priority}
             aggregation: o.aggregation || 'sum'
           };
         }),
-        createdSession: m.djow.sessionId || null,
-        direction: m.djow.krMeta?.direction || 'higher',
+        createdSession: snapshot.sessionId || null,
+        direction: snapshot.djowLocal.krMeta?.direction || 'higher',
         // V36.0 — Reconciliation rule (sempre presente, default sum).
-        reconciliationRule: m.djow.reconciliationRule || { mode: 'sum', primarySourceId: null, fallbackSourceIds: [], contextSourceIds: [] }
+        reconciliationRule: snapshot.djowLocal.reconciliationRule || { mode: 'sum', primarySourceId: null, fallbackSourceIds: [], contextSourceIds: [] }
       };
     }
     // V36.0 — Garante que mesmo o caminho do backend persista a rule local.
-    if (djowMeta && !djowMeta.reconciliationRule && m.djow?.reconciliationRule) {
-      djowMeta.reconciliationRule = m.djow.reconciliationRule;
+    if (djowMeta && !djowMeta.reconciliationRule && snapshot.djowLocal?.reconciliationRule) {
+      djowMeta.reconciliationRule = snapshot.djowLocal.reconciliationRule;
     }
 
     // 1. Adiciona ao customKpiCatalog (base de conhecimento global)
-    const learnedKpi = StrategicMapEngine.addCustomKpiToCatalog(m.area, {
+    const learnedKpi = StrategicMapEngine.addCustomKpiToCatalog(snapshot.area, {
       name,
-      metric: m.metric || 'quantidade',
-      description: `Custom criado em ${m.area}`,
+      metric: snapshot.metric || 'quantidade',
+      description: `Custom criado em ${snapshot.area}`,
       handoff: false
     });
     // 2. Cria productKr no produto atual já confirmed + djowMeta
-    StrategicMapEngine.addProductKr(m.productId, {
-      area: m.area,
+    StrategicMapEngine.addProductKr(snapshot.productId, {
+      area: snapshot.area,
       catalogId: learnedKpi ? learnedKpi.id : null,
       name,
-      metric: m.metric || 'quantidade',
-      catalogDescription: `Custom (aprendido) em ${m.area}`,
+      metric: snapshot.metric || 'quantidade',
+      catalogDescription: `Custom (aprendido) em ${snapshot.area}`,
       isHandoff: false,
-      current: m.current !== '' ? Number(m.current) : null,
-      targetCommitted: m.targetCommitted !== '' ? Number(m.targetCommitted) : null,
-      targetStretch: m.targetStretch !== '' ? Number(m.targetStretch) : null,
+      current: snapshot.current !== '' ? Number(snapshot.current) : null,
+      targetCommitted: snapshot.targetCommitted !== '' ? Number(snapshot.targetCommitted) : null,
+      targetStretch: snapshot.targetStretch !== '' ? Number(snapshot.targetStretch) : null,
       period: 90,
       owner: '',
       confirmed: true,
       djowMeta
     }, 'ceo');
     // V36.9.5 — Garante que a frente fica expandida pra cliente ver o novo KR.
-    Actions._ensureStrategicOkrsAreaExpanded(m.area);
+    Actions._ensureStrategicOkrsAreaExpanded(snapshot.area);
     App.state.createCustomKrModal = null;
     App.save(); App.render();
     Utils.toast(`✓ "${name}" criado${djowMeta ? ' e conectado à fonte' : ''}.`);
@@ -17595,11 +17701,38 @@ Prioridade: ${d.priority}
   },
 
   // V29.0.0 — Remove KR-mãe (e desvincula filhas).
+  // V40.16.0 — Bug #20 do audit: confirm cravado. Antes deletava + cascateava
+  // filhas órfãs com 1 clique, toast só avisava DEPOIS do estrago.
   removeProductKrAction(productId, krId) {
     if (!productId || !window.StrategicMapEngine) return;
+    const map = StrategicMapEngine.getForProduct(productId);
+    const pkr = (map?.productKrs || []).find(k => k.id === krId);
+    const pkrName = pkr?.name || 'este KR-mãe';
+    const branches = (typeof StrategicMapEngine.getBranchesByProduct === 'function')
+      ? StrategicMapEngine.getBranchesByProduct(productId) || []
+      : [];
+    let filhasCount = 0;
+    const campanhasComFilhas = new Set();
+    for (const b of branches) {
+      for (const obj of (b.objectives || [])) {
+        for (const okr of (obj.okrs || [])) {
+          if (Number(okr.parentProductKrId) === Number(krId)) {
+            filhasCount++;
+            campanhasComFilhas.add(b.campaignName || b.campaignId);
+          }
+        }
+      }
+    }
+    let msg = `Remover KR-mãe "${pkrName}"?`;
+    if (filhasCount > 0) {
+      msg += `\n\nVão virar órfãs ${filhasCount} filha(s) em ${campanhasComFilhas.size} campanha(s):\n• ${[...campanhasComFilhas].slice(0, 5).join('\n• ')}`;
+      if (campanhasComFilhas.size > 5) msg += `\n• ...e mais ${campanhasComFilhas.size - 5}`;
+    }
+    msg += '\n\nSem desfazer.';
+    if (!confirm(msg)) return;
     StrategicMapEngine.removeProductKr(productId, krId);
     App.save(); App.render();
-    Utils.toast('KR-mãe removido. Filhas viraram órfãs.');
+    Utils.toast(filhasCount > 0 ? `KR-mãe removido. ${filhasCount} filha(s) viraram órfãs.` : 'KR-mãe removido.');
   },
 
   // V28.4.1 — Renomeia a campanha estratégica via UI no header da etapa Ações.

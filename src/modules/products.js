@@ -37,7 +37,7 @@ var ProductsModule = {
         <div class="p-5 space-y-3">
           <div>
             <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Nome do produto</label>
-            <input value="${Utils.escape(draft.name || '')}" oninput="Actions.updateNewProductWithMapaField('name', this.value)" autofocus placeholder="Ex: Diagnóstico Comercial" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900" />
+            <input id="new-product-with-mapa-name" data-focus-key="new-product-with-mapa-name" value="${Utils.escape(draft.name || '')}" oninput="Actions.updateNewProductWithMapaField('name', this.value)" autofocus placeholder="Ex: Diagnóstico Comercial" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900" />
           </div>
           <div>
             <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Arquétipo de Vendas</label>
@@ -142,7 +142,7 @@ var ProductsModule = {
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Nome</label>
-            <input value="${Utils.escape(d.name || '')}" oninput="App.state.productDraft.name=this.value; App.save();" placeholder="Ex: Diagnóstico Comercial" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm" />
+            <input id="product-draft-name" data-focus-key="product-draft-name" value="${Utils.escape(d.name || '')}" oninput="App.state.productDraft.name=this.value; App.save();" placeholder="Ex: Diagnóstico Comercial" class="w-full px-3 py-2.5 rounded-xl bg-slate-100 font-semibold text-sm" />
           </div>
           <div>
             <label class="text-[10px] font-black text-slate-500 uppercase tracking-wide">Arquétipo de Vendas</label>
@@ -469,11 +469,11 @@ var ProductsModule = {
           <button onclick="Actions.closeProductEditModal()" class="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-black text-xl">×</button>
         </header>
         <div class="p-5 grid md:grid-cols-2 gap-3">
-          <div class="md:col-span-2"><label class="text-xs font-black text-slate-500">Nome do produto</label><input value="${Utils.escape(product.name || '')}" oninput="Actions.updateEditingProductField('name', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-          <div><label class="text-xs font-black text-slate-500">Tipo de produto</label><input value="${Utils.escape(product.type || '')}" oninput="Actions.updateEditingProductField('type', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-          <div><label class="text-xs font-black text-slate-500">Preço</label><input value="${Utils.escape(product.price || '')}" oninput="Actions.updateEditingProductField('price', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-          <div><label class="text-xs font-black text-slate-500">Recorrência ou venda única</label><select onchange="Actions.updateEditingProductField('revenueModel', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold"><option value="Venda única" ${model === 'Venda única' ? 'selected' : ''}>Venda única</option><option value="Recorrente" ${model === 'Recorrente' ? 'selected' : ''}>Recorrente</option></select></div>
-          <div><label class="text-xs font-black text-slate-500">Custo operacional</label><input value="${Utils.escape(product.operationalCost || '')}" oninput="Actions.updateEditingProductField('operationalCost', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
+          <div class="md:col-span-2"><label class="text-xs font-black text-slate-500">Nome do produto</label><input id="editing-product-name" data-focus-key="editing-product-name" value="${Utils.escape(product.name || '')}" oninput="Actions.updateEditingProductField('name', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
+          <div><label class="text-xs font-black text-slate-500">Tipo de produto</label><input id="editing-product-type" data-focus-key="editing-product-type" value="${Utils.escape(product.type || '')}" oninput="Actions.updateEditingProductField('type', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
+          <div><label class="text-xs font-black text-slate-500">Preço</label><input id="editing-product-price" data-focus-key="editing-product-price" value="${Utils.escape(product.price || '')}" oninput="Actions.updateEditingProductField('price', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
+          <div><label class="text-xs font-black text-slate-500">Recorrência ou venda única</label><select id="editing-product-revenue-model" onchange="Actions.updateEditingProductField('revenueModel', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold"><option value="Venda única" ${model === 'Venda única' ? 'selected' : ''}>Venda única</option><option value="Recorrente" ${model === 'Recorrente' ? 'selected' : ''}>Recorrente</option></select></div>
+          <div><label class="text-xs font-black text-slate-500">Custo operacional</label><input id="editing-product-cost" data-focus-key="editing-product-cost" value="${Utils.escape(product.operationalCost || '')}" oninput="Actions.updateEditingProductField('operationalCost', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
           <div class="md:col-span-2 flex flex-col md:flex-row gap-2 justify-end pt-2 border-t border-slate-100">
             ${/* V32.5.7 — Deletar redireciona pra Configurações → Minha Conta →
                  Produtos (não deleta inline). Caminho centralizado de gerenciamento

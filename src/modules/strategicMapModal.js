@@ -903,8 +903,18 @@ window.StrategicMapModal = {
       .filter(kr => (kr.connectedActionIds || []).map(Number).includes(Number(action.id)))
       .map(kr => kr.parentProductKrId)
       .filter(Boolean);
-    // Selected via input
-    const sel = new Set(linkedKrIds.map(String));
+    // V40.16.0 — Bug #29 do audit: lê do draft (controlled) com fallback pros
+    // KRs vinculados quando draft ainda não tem selectedKrIds.
+    const editorDraft = App.state.strategicMindMapActionEditor?.draft || null;
+    const draftSel = Array.isArray(editorDraft?.selectedKrIds) ? editorDraft.selectedKrIds : linkedKrIds;
+    const sel = new Set(draftSel.map(String));
+    // Valores controlled — preferimos do draft, fallback action pra primeiro render legado
+    const valName = editorDraft?.name != null ? editorDraft.name : (action.name || '');
+    const valChannel = editorDraft?.channel != null ? editorDraft.channel : (action.channel || '');
+    const valActionType = editorDraft?.actionType != null ? editorDraft.actionType : (action.actionType || '');
+    const valFunnelPoint = editorDraft?.funnelPoint != null ? editorDraft.funnelPoint : (action.funnelPoint || '');
+    const valDestSector = editorDraft?.destSector != null ? editorDraft.destSector : (action.destSector || area?.label || '');
+    const valDestFunnelPoint = editorDraft?.destFunnelPoint != null ? editorDraft.destFunnelPoint : (action.destFunnelPoint || '');
     // Channels disponíveis (genérico)
     const channels = ['RD Station', 'Meta Ads', 'Google Ads', 'Email', 'WhatsApp', 'Site/Blog', 'Evento', 'Webinar', 'Outro'];
     const actionTypes = ['Post', 'Anúncio', 'Email', 'Vídeo', 'E-book', 'Webinar', 'Reunião', 'Outro'];
@@ -940,7 +950,7 @@ window.StrategicMapModal = {
                   const isChecked = sel.has(String(kr.id));
                   const krColor = StrategicMapEngine.krColorFromId(kr.id);
                   return `<label class="flex items-start gap-2 px-2.5 py-1.5 rounded-lg ${isChecked ? `bg-${tone}-500/10` : 'bg-slate-800/40'} border ${isChecked ? `border-${tone}-400/30` : 'border-white/5'} cursor-pointer hover:bg-slate-800/60">
-                    <input type="checkbox" id="${handlePrefix}kr-${kr.id}" ${isChecked ? 'checked' : ''} data-kr-id="${kr.id}" class="mt-1 accent-violet-500" />
+                    <input type="checkbox" id="${handlePrefix}kr-${kr.id}" ${isChecked ? 'checked' : ''} data-kr-id="${kr.id}" onchange="Actions.toggleMindMapEditorDraftKr('${kr.id}', this.checked)" class="mt-1 accent-violet-500" />
                     <div class="min-w-0 flex-1">
                       <div class="flex items-center gap-1.5">
                         <span class="shrink-0 w-2 h-2 rounded-full" style="background:${krColor};"></span>
@@ -960,27 +970,28 @@ window.StrategicMapModal = {
 
             <div>
               <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Nome da ação</label>
-              <input type="text" id="${handlePrefix}name" value="${Utils.escape(action.name || '')}" placeholder="Ex: Webinar trimestral pra C-level"
+              <input type="text" id="${handlePrefix}name" data-focus-key="mm-editor-name" value="${Utils.escape(valName)}" placeholder="Ex: Webinar trimestral pra C-level"
+                oninput="Actions.updateMindMapEditorDraftField('name', this.value)"
                 class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[13px] focus:border-${tone}-400 outline-none" />
             </div>
 
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Onde começa</label>
-                <select id="${handlePrefix}funnelPoint" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[13px] outline-none">
+                <select id="${handlePrefix}funnelPoint" data-focus-key="mm-editor-funnelPoint" onchange="Actions.updateMindMapEditorDraftField('funnelPoint', this.value)" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[13px] outline-none">
                   <option value="">— escolha —</option>
-                  ${funnelPoints.map(fp => `<option value="${fp}" ${action.funnelPoint === fp ? 'selected' : ''}>${fp}</option>`).join('')}
+                  ${funnelPoints.map(fp => `<option value="${fp}" ${valFunnelPoint === fp ? 'selected' : ''}>${fp}</option>`).join('')}
                 </select>
               </div>
               <div>
                 <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Pra onde leva</label>
                 <div class="grid grid-cols-2 gap-1.5">
-                  <select id="${handlePrefix}destSector" class="px-2 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[12px] outline-none">
-                    ${sectors.map(s => `<option value="${s}" ${(action.destSector || area?.label) === s ? 'selected' : ''}>${s}</option>`).join('')}
+                  <select id="${handlePrefix}destSector" data-focus-key="mm-editor-destSector" onchange="Actions.updateMindMapEditorDraftField('destSector', this.value)" class="px-2 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[12px] outline-none">
+                    ${sectors.map(s => `<option value="${s}" ${valDestSector === s ? 'selected' : ''}>${s}</option>`).join('')}
                   </select>
-                  <select id="${handlePrefix}destFunnelPoint" class="px-2 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[12px] outline-none">
+                  <select id="${handlePrefix}destFunnelPoint" data-focus-key="mm-editor-destFunnelPoint" onchange="Actions.updateMindMapEditorDraftField('destFunnelPoint', this.value)" class="px-2 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[12px] outline-none">
                     <option value="">— funil —</option>
-                    ${funnelPoints.map(fp => `<option value="${fp}" ${action.destFunnelPoint === fp ? 'selected' : ''}>${fp}</option>`).join('')}
+                    ${funnelPoints.map(fp => `<option value="${fp}" ${valDestFunnelPoint === fp ? 'selected' : ''}>${fp}</option>`).join('')}
                   </select>
                 </div>
               </div>
@@ -989,34 +1000,23 @@ window.StrategicMapModal = {
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Canal</label>
-                <select id="${handlePrefix}channel" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[13px] outline-none">
+                <select id="${handlePrefix}channel" data-focus-key="mm-editor-channel" onchange="Actions.updateMindMapEditorDraftField('channel', this.value)" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[13px] outline-none">
                   <option value="">— escolha —</option>
-                  ${channels.map(c => `<option value="${c}" ${action.channel === c ? 'selected' : ''}>${c}</option>`).join('')}
+                  ${channels.map(c => `<option value="${c}" ${valChannel === c ? 'selected' : ''}>${c}</option>`).join('')}
                 </select>
               </div>
               <div>
                 <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Tipo</label>
-                <select id="${handlePrefix}actionType" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[13px] outline-none">
+                <select id="${handlePrefix}actionType" data-focus-key="mm-editor-actionType" onchange="Actions.updateMindMapEditorDraftField('actionType', this.value)" class="w-full px-3 py-2 rounded-lg bg-slate-800 border border-white/10 text-white text-[13px] outline-none">
                   <option value="">— escolha —</option>
-                  ${actionTypes.map(t => `<option value="${t}" ${action.actionType === t ? 'selected' : ''}>${t}</option>`).join('')}
+                  ${actionTypes.map(t => `<option value="${t}" ${valActionType === t ? 'selected' : ''}>${t}</option>`).join('')}
                 </select>
               </div>
             </div>
 
             <div class="flex justify-end gap-2 pt-2">
               <button onclick="Actions.closeMindMapActionEditor()" class="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[12px] font-bold">Cancelar</button>
-              <button onclick="(function(){
-                const sel = Array.from(document.querySelectorAll('[id^=&quot;${handlePrefix}kr-&quot;]:checked')).map(el => el.dataset.krId);
-                Actions.saveMindMapAction({
-                  name: document.getElementById('${handlePrefix}name').value,
-                  channel: document.getElementById('${handlePrefix}channel').value,
-                  actionType: document.getElementById('${handlePrefix}actionType').value,
-                  funnelPoint: document.getElementById('${handlePrefix}funnelPoint').value,
-                  destSector: document.getElementById('${handlePrefix}destSector').value,
-                  destFunnelPoint: document.getElementById('${handlePrefix}destFunnelPoint').value,
-                  selectedKrIds: sel
-                });
-              })()" class="px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-700 text-white text-[12px] font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
+              <button onclick="Actions.saveMindMapAction()" class="px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-700 text-white text-[12px] font-black inline-flex items-center gap-1.5" style="color:#fff!important;">
                 <i data-lucide="plus" class="w-3.5 h-3.5"></i> Criar Ação
               </button>
             </div>
@@ -1469,6 +1469,8 @@ window.StrategicMapModal = {
           <div>
             <label class="text-[10px] font-black text-slate-400 uppercase tracking-wide">Nome do número</label>
             <input
+              id="create-custom-kr-name"
+              data-focus-key="create-custom-kr-name"
               value="${Utils.escape(m.name || '')}"
               oninput="Actions.updateCreateCustomKrModalField('name', this.value)"
               onkeydown="if (event.key === 'Enter') { event.preventDefault(); Actions.djowProcessKrName(this.value); }"
@@ -1648,7 +1650,7 @@ window.StrategicMapModal = {
           </div>
           <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-3 space-y-2">
             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Nome da campanha</label>
-            <input value="${Utils.escape(draft.newName || '')}" oninput="Actions.updateStrategicCreateCampaignDraft('newName', this.value)" placeholder="Ex: Lançamento Q2 — Maio Verde" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" autofocus />
+            <input id="strategic-create-campaign-name" data-focus-key="strategic-create-campaign-name" value="${Utils.escape(draft.newName || '')}" oninput="Actions.updateStrategicCreateCampaignDraft('newName', this.value)" placeholder="Ex: Lançamento Q2 — Maio Verde" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" autofocus />
           </div>
           <div class="flex flex-col sm:flex-row gap-2 justify-end pt-1">
             <button onclick="Actions.dismissStrategicCreateCampaignPopup()" class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-300 text-xs font-black">Cancelar</button>
@@ -1718,7 +1720,7 @@ window.StrategicMapModal = {
 
           <div class="rounded-2xl bg-white/[0.04] border border-white/10 p-3 space-y-2">
             <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider">Criar uma nova</label>
-            <input value="${Utils.escape(newName)}" oninput="Actions.updateStrategicCampaignDraft('newName', this.value)" placeholder="${Utils.escape(placeholder)}" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" />
+            <input id="strategic-campaign-prompt-name" data-focus-key="strategic-campaign-prompt-name" value="${Utils.escape(newName)}" oninput="Actions.updateStrategicCampaignDraft('newName', this.value)" placeholder="${Utils.escape(placeholder)}" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold placeholder:text-slate-500" />
             <button onclick="Actions.confirmStrategicCampaign('new')" class="w-full mt-1 px-3 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-black flex items-center justify-center gap-1.5" style="color:#fff!important;"><i data-lucide="plus" class="w-3.5 h-3.5"></i> Criar e usar essa</button>
           </div>
 
@@ -1982,7 +1984,7 @@ window.StrategicMapModal = {
     return `<div class="rounded-2xl bg-${area.color}-500/5 border border-${area.color}-400/20 p-3">
       <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
         <p class="text-[10px] font-black text-${area.color}-200 uppercase tracking-wider"><i data-lucide="${area.icon}" class="w-3 h-3 inline-block"></i> ${Utils.escape(area.label)}</p>
-        <label class="flex items-center gap-1.5 text-[10px] text-slate-400">Dono (compartilhado): <input value="${Utils.escape(owner)}" oninput="Actions.setStrategicAreaOwner(${product.id}, '${area.id}', this.value)" placeholder="quem responde" class="px-2 py-0.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold w-32" /></label>
+        <label class="flex items-center gap-1.5 text-[10px] text-slate-400">Dono (compartilhado): <input id="area-owner-ceo-${product.id}-${area.id}" data-focus-key="area-owner-ceo-${area.id}" value="${Utils.escape(owner)}" oninput="Actions.setStrategicAreaOwner(${product.id}, '${area.id}', this.value)" placeholder="quem responde" class="px-2 py-0.5 rounded bg-slate-900 border border-white/10 text-white text-[11px] font-bold w-32" /></label>
       </div>
       ${areaKrs.length === 0 ? '<p class="text-[11px] text-slate-500 italic">Sem KRs-mãe nesta área.</p>' : '<div class="space-y-2">' + areaKrs.map(kr => this._productKrCard(product, kr, area.color)).join('') + '</div>'}
       ${(availableCurated.length || availableLearned.length) ? `<div class="mt-2 pt-2 border-t border-${area.color}-400/20">
@@ -3226,7 +3228,7 @@ window.StrategicMapModal = {
       ${step === 1 ? `
         <div>
           <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Qual número descreve essa batalha?</label>
-          <input value="${Utils.escape(draft.name || '')}" oninput="Actions.updateStrategicOkrDraft('name', this.value)" placeholder="Ex: Lojas abertas no ano" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-base font-bold placeholder:text-slate-500" />
+          <input id="okr-draft-name" data-focus-key="okr-draft-name" value="${Utils.escape(draft.name || '')}" oninput="Actions.updateStrategicOkrDraft('name', this.value)" placeholder="Ex: Lojas abertas no ano" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-base font-bold placeholder:text-slate-500" />
           <p class="text-[11px] text-slate-400 mt-2">💡 Pode ser uma métrica que vc já acompanha, ou uma nova que quer começar a medir.</p>
           <div class="mt-3 flex flex-wrap gap-1.5">
             ${['Lojas abertas no ano', 'Cidades atendidas', 'Vendas no horário do almoço (%)', 'Frequência de compra por cliente'].map(ex => `<button onclick="Actions.updateStrategicOkrDraft('name', ${JSON.stringify(ex).replace(/"/g, '&quot;')}); App.render();" class="px-2 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-400/20 text-emerald-200 text-[10px] font-bold">${Utils.escape(ex)}</button>`).join('')}
@@ -3243,20 +3245,20 @@ window.StrategicMapModal = {
       ` : step === 3 ? `
         <div>
           <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Qual é o valor atual desse número hoje?</label>
-          <input type="number" value="${Number(draft.current || 0)}" oninput="Actions.updateStrategicOkrDraft('current', Number(this.value || 0)); Actions.updateStrategicOkrDraft('startValue', Number(this.value || 0));" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-2xl font-black" />
+          <input id="okr-draft-current" data-focus-key="okr-draft-current" type="number" value="${Number(draft.current || 0)}" oninput="Actions.updateStrategicOkrDraft('current', Number(this.value || 0)); Actions.updateStrategicOkrDraft('startValue', Number(this.value || 0));" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-2xl font-black" />
           <p class="text-[11px] text-slate-400 mt-2">💡 Se não souber exato, chuta — dá pra ajustar depois. Sem ponto de partida, não dá pra mostrar progresso.</p>
         </div>
       ` : step === 4 ? `
         <div>
           <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">E aonde você quer chegar até <b class="text-emerald-300">${draft.deadline || '<defina o prazo>'}</b>?</label>
-          <input type="number" value="${Number(draft.target || 0)}" oninput="Actions.updateStrategicOkrDraft('target', Number(this.value || 0))" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-2xl font-black" />
+          <input id="okr-draft-target" data-focus-key="okr-draft-target" type="number" value="${Number(draft.target || 0)}" oninput="Actions.updateStrategicOkrDraft('target', Number(this.value || 0))" class="w-full px-3 py-3 rounded-xl bg-slate-900 border border-white/15 text-white text-2xl font-black" />
           <div class="mt-2 flex gap-1.5">
             <span class="text-[11px] text-slate-400 self-center">Atalhos:</span>
             <button onclick="Actions.updateStrategicOkrDraft('target', (Number(App.state.strategicOkrDraft.current||0))*2); App.render();" class="px-2 py-1 rounded-lg bg-violet-500/15 hover:bg-violet-500/25 border border-violet-400/30 text-violet-200 text-[10px] font-bold">2x</button>
             <button onclick="Actions.updateStrategicOkrDraft('target', (Number(App.state.strategicOkrDraft.current||0))*3); App.render();" class="px-2 py-1 rounded-lg bg-violet-500/15 hover:bg-violet-500/25 border border-violet-400/30 text-violet-200 text-[10px] font-bold">3x</button>
             <button onclick="Actions.updateStrategicOkrDraft('target', Math.round(Number(App.state.strategicOkrDraft.current||0)*1.5)); App.render();" class="px-2 py-1 rounded-lg bg-violet-500/15 hover:bg-violet-500/25 border border-violet-400/30 text-violet-200 text-[10px] font-bold">+50%</button>
           </div>
-          <input type="date" value="${Utils.escape(draft.deadline || '')}" oninput="Actions.updateStrategicOkrDraft('deadline', this.value)" class="mt-3 w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold" style="color-scheme:dark;" placeholder="Prazo" />
+          <input id="okr-draft-deadline" data-focus-key="okr-draft-deadline" type="date" value="${Utils.escape(draft.deadline || '')}" oninput="Actions.updateStrategicOkrDraft('deadline', this.value)" class="mt-3 w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold" style="color-scheme:dark;" placeholder="Prazo" />
           <p class="text-[11px] text-slate-400 mt-2">💡 Esse é o destino. Pensa grande mas com pé no chão.</p>
         </div>
       ` : step === 5 ? `
@@ -3281,11 +3283,11 @@ window.StrategicMapModal = {
         <div class="space-y-3">
           <div>
             <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Quem é o dono desse número?</label>
-            <input value="${Utils.escape(draft.owner || '')}" oninput="Actions.updateStrategicOkrDraft('owner', this.value)" placeholder="Ex: Maria, Time de Marketing" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold" />
+            <input id="okr-draft-owner" data-focus-key="okr-draft-owner" value="${Utils.escape(draft.owner || '')}" oninput="Actions.updateStrategicOkrDraft('owner', this.value)" placeholder="Ex: Maria, Time de Marketing" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-bold" />
           </div>
           <div>
             <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-2">Qual o impacto se bater? <span class="text-slate-500 font-normal">(opcional)</span></label>
-            <textarea oninput="Actions.updateStrategicOkrDraft('impact', this.value)" placeholder="O que muda no negócio?" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[60px]">${Utils.escape(draft.impact || '')}</textarea>
+            <textarea id="okr-draft-impact" data-focus-key="okr-draft-impact" oninput="Actions.updateStrategicOkrDraft('impact', this.value)" placeholder="O que muda no negócio?" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-white/15 text-white text-sm font-semibold min-h-[60px]">${Utils.escape(draft.impact || '')}</textarea>
             <p class="text-[11px] text-slate-400 mt-1">💡 Pula se quiser, dá pra preencher depois.</p>
           </div>
         </div>
@@ -4906,7 +4908,7 @@ window.StrategicMapModal = {
 
       <div>
         <label class="block text-[9px] font-black text-slate-400 uppercase mb-0.5">Nome da ação</label>
-        <input value="${Utils.escape(eng.name || '')}" oninput="Actions.updateCustomActionEngineField('name', this.value)" placeholder="Ex: Webinar trimestral pra C-level" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[12px] font-bold placeholder:text-slate-600" />
+        <input id="custom-action-engine-name" data-focus-key="custom-action-engine-name" value="${Utils.escape(eng.name || '')}" oninput="Actions.updateCustomActionEngineField('name', this.value)" placeholder="Ex: Webinar trimestral pra C-level" class="w-full px-2 py-1.5 rounded bg-slate-900 border border-white/10 text-white text-[12px] font-bold placeholder:text-slate-600" />
       </div>
 
       <div class="grid grid-cols-2 gap-2">
@@ -4938,7 +4940,7 @@ window.StrategicMapModal = {
           ${channels.map(c => `<option value="${Utils.escape(c)}" ${eng.channel === c ? 'selected' : ''}>${Utils.escape(c)}</option>`).join('')}
           <option value="Outro" ${eng.channel === 'Outro' ? 'selected' : ''}>Outro (digitar)</option>
         </select>
-        ${eng.channel === 'Outro' ? `<input value="${Utils.escape(eng.channelOther || '')}" oninput="Actions.updateCustomActionEngineField('channelOther', this.value)" placeholder="Nome do canal customizado" class="w-full mt-1 px-2 py-1.5 rounded bg-slate-900 border border-amber-400/40 text-white text-[11px] font-bold placeholder:text-slate-600" />` : ''}
+        ${eng.channel === 'Outro' ? `<input id="custom-action-engine-channel-other" data-focus-key="custom-action-engine-channel-other" value="${Utils.escape(eng.channelOther || '')}" oninput="Actions.updateCustomActionEngineField('channelOther', this.value)" placeholder="Nome do canal customizado" class="w-full mt-1 px-2 py-1.5 rounded bg-slate-900 border border-amber-400/40 text-white text-[11px] font-bold placeholder:text-slate-600" />` : ''}
       </div>
 
       <div class="flex justify-end gap-1.5 pt-1">

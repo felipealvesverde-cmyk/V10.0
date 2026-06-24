@@ -23,7 +23,7 @@ window.QuickActionModal = {
         <div class="p-5 space-y-3">
           <div>
             <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Nome da ação</label>
-            <input value="${Utils.escape(draft.name || '')}" oninput="Actions.updateQuickActionDraft('name', this.value)" placeholder="Ex: Post orgânico Instagram" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900" autofocus />
+            <input id="quick-action-name" data-focus-key="quick-action-name" value="${Utils.escape(draft.name || '')}" oninput="Actions.updateQuickActionDraft('name', this.value)" placeholder="Ex: Post orgânico Instagram" class="mt-1 w-full px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 font-semibold text-slate-900" autofocus />
           </div>
           ${campaigns.length > 1 ? `<div>
             <label class="text-xs font-black text-slate-500 uppercase tracking-wide">Campanha</label>

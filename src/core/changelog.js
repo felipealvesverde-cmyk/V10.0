@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.16.0',
+    date: '2026-06-24',
+    title: 'Ondas 1+2 da varredura do Mapa da Receita: 22 bugs fechados (críticos + foco perdido em batch)',
+    bullets: [
+      'Resultado de varredura adversarial de 143 agentes que mapeou 73 bugs confirmados no Mapa da Receita. Esta versão entrega as duas primeiras ondas, atacando as raízes mais críticas (perda de trabalho silenciosa).',
+      'ONDA 1 — Críticos: 5 ações destrutivas e races corrigidas. Remover KR-mãe, número e Frente agora pedem confirm listando impacto cascade (filhas órfãs, ações desplugadas, contagem de números apagados). Criar KR custom ganha opId guard pra evitar KR fantasma criado em background quando user fecha o modal mid-await. Mind-map editor (o pior bug) sai de inputs UNCONTROLLED pra draft controlled — texto digitado não some mais quando outro render roda em paralelo (autosave, sininho, health check).',
+      'ONDA 2 — Foco perdido em batch: 19 inputs em modais/wizards do Mapa receberam id + data-focus-key. Cobre wizard "Novo número" (6 inputs em 4 steps), modal "Criar KR-mãe customizado", popup "Criar campanha CEO", modal "Antes de ativar a ação", engine de ação custom, form de criar ação plugada (nome + 3 inputs por linha OKR), form de novo produto clássico, popup "Criar produto e entrar no Mapa", modal "Editar produto" (4 inputs) e modal Quick Action.',
+      'Sintoma resolvido: "escreve 2 letras e sai" não rola mais nesses 19 inputs — o _captureFocus do app consegue restaurar o foco usando o id como chave de identidade do input entre re-renders.',
+      'Ainda pendente do audit: 51 bugs em 4 ondas restantes (reset bombs do openStrategicMap, closeStrategicMap deixando 18 sub-modais zumbi, validações e silent failures, navegação e modal overlap, state drift residual). Trigger pra retomar: "ataca onda 3 do audit do mapa" / "continua audit do mapa".'
+    ]
+  },
+  {
     version: 'V40.15.0',
     date: '2026-06-24',
     title: 'Camada 2 do bug cross-tenant: purga client-side na troca de identidade',
