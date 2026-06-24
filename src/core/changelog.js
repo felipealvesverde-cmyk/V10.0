@@ -18,6 +18,19 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.10',
+    date: '2026-06-24',
+    title: 'Velocity destravada pra produto via CRM (emulação Pilsen Atacado no demo)',
+    bullets: [
+      'O card de Velocidade agora destrava V/C/L/T pra produto que vende via CRM, não só checkout. Antes mostrava só a frase "Modo CRM: depende do pipeline RD persistido + Fechamento mensal declarado, próximas ondas." Agora calcula tudo direto da nova tabela lj_rd_deals.',
+      'Pra o demo: nova action master Actions.populateDemoCrmDeals(productId) emula 500 deals em pipeline CRM ao longo de 6 meses — 50 contratos fechados (won), 150 em pipeline aberto, 300 perdidos. Distribuição estratificada em perfis B2B realistas: 6 distribuidoras grandes (1200 cervejas/mês cada), 8 hotéis, 10 restaurantes, 10 bares, 12 barzinhos, 2 mercados, 2 eventos.',
+      'Volume total mantido próximo do Hotmart anterior (~122k cervejas / R$ 2.7M contratados), mas agora distribuído em 50 clientes B2B com nomes realistas (Distribuidora Sul Bebidas, Hotel Beira Mar, Boteco do Seu João, etc).',
+      'Quando você roda a action, vendas Hotmart do produto somem (despluga checkout) e aparecem as métricas CRM: V = "Estabelecimentos abordados", C = "Abordagem → 1º pedido", L = "Ticket médio do pedido", T = "Dias do ciclo" — labels adaptativos do arquétipo b2b_atacado_consultivo.',
+      'Benchmarks específicos pro CRM: conversão saudável 10-20% (atacado B2B é mais difícil que checkout), ciclo médio 30-45 dias. Identifica gargalo com thresholds diferentes do checkout.',
+      'Híbrido continua pending — onda futura cravará a fusão checkout + CRM. Forecast × Realizado e Eficiência também continuam pending pra CRM até V40.14.11 (próxima parte da onda).'
+    ]
+  },
+  {
     version: 'V40.14.9',
     date: '2026-06-24',
     title: 'Novo arquétipo: Eventos B2B Anuais (feira, congresso, summit)',

@@ -153,6 +153,75 @@ module.exports = async function handler(req, res) {
       [userId, ninetyDaysAgo]
     );
 
+    // V40.14.10 — Branch CRM: agrega lj_rd_deals pra produtos com salesChannel='crm'.
+    // Tabela pode não existir (cliente nunca rodou populate ou nunca usou CRM).
+    // No catch silencioso, byProductCrm fica array vazio — engine front-end
+    // continua entregando 'pending' pra esses produtos (lei [[feedback_no_source_no_dash]]).
+    let byProductCrmRows = [];
+    try {
+      const byProductCrmR = await req.tenantDb.query(
+        `WITH deals_recent AS (
+           SELECT
+             product_id_lj,
+             created_at,
+             closed_at,
+             won,
+             deal_value_cents
+           FROM lj_rd_deals
+           WHERE user_id = $1
+             AND product_id_lj IS NOT NULL
+             AND created_at >= $2::date
+         ),
+         abordagens_mes AS (
+           SELECT product_id_lj, COUNT(*) AS n
+           FROM deals_recent
+           WHERE created_at >= $3::date
+             AND created_at <= ($4::date + INTERVAL '1 day')
+           GROUP BY product_id_lj
+         ),
+         won_mes AS (
+           SELECT product_id_lj, COUNT(*) AS n
+           FROM deals_recent
+           WHERE won = TRUE
+             AND closed_at >= $3::date
+             AND closed_at <= ($4::date + INTERVAL '1 day')
+           GROUP BY product_id_lj
+         ),
+         ticket_90d AS (
+           SELECT product_id_lj, AVG(deal_value_cents) AS avg_cents
+           FROM deals_recent
+           WHERE won = TRUE
+           GROUP BY product_id_lj
+         ),
+         cycle_90d AS (
+           SELECT
+             product_id_lj,
+             PERCENTILE_CONT(0.5) WITHIN GROUP (
+               ORDER BY EXTRACT(EPOCH FROM (closed_at - created_at)) / 86400.0
+             ) AS median_days
+           FROM deals_recent
+           WHERE won = TRUE AND closed_at IS NOT NULL
+           GROUP BY product_id_lj
+         )
+         SELECT
+           COALESCE(a.product_id_lj, w.product_id_lj, t.product_id_lj, c.product_id_lj) AS product_id_lj,
+           COALESCE(a.n, 0) AS abordagens_mes,
+           COALESCE(w.n, 0) AS won_mes,
+           COALESCE(t.avg_cents, 0) AS avg_ticket_cents,
+           COALESCE(c.median_days, 0) AS cycle_days
+         FROM abordagens_mes a
+         FULL OUTER JOIN won_mes   w ON w.product_id_lj = a.product_id_lj
+         FULL OUTER JOIN ticket_90d t ON t.product_id_lj = COALESCE(a.product_id_lj, w.product_id_lj)
+         FULL OUTER JOIN cycle_90d  c ON c.product_id_lj = COALESCE(a.product_id_lj, w.product_id_lj, t.product_id_lj)`,
+        [userId, ninetyDaysAgo, fromDate, toDate]
+      );
+      byProductCrmRows = byProductCrmR.rows || [];
+    } catch (crmErr) {
+      // Tabela lj_rd_deals provavelmente não existe ainda — silenciosamente
+      // retorna vazio. Cliente que nunca usou CRM segue funcionando como antes.
+      console.log('[pipeline-velocity-summary] lj_rd_deals não disponível:', crmErr.message);
+    }
+
     res.json({
       ok: true,
       period: { yyyymm, daysInMonth: lastDay, daysPassed },
@@ -160,7 +229,13 @@ module.exports = async function handler(req, res) {
         conversion_avg: 0.03,           // 3% — referência genérica de conversão site/checkout
         conversion_good: 0.05,
         cycle_days_avg: 14,             // ciclo médio mercado infoproduto
-        cycle_days_good: 7
+        cycle_days_good: 7,
+        // V40.14.10 — Benchmarks separados pro CRM (atacado B2B): ciclo MUITO
+        // mais longo, conversão MAIS BAIXA por natureza.
+        crm_conversion_avg: 0.10,       // 10% — atacado B2B abordagem→fechamento
+        crm_conversion_good: 0.20,
+        crm_cycle_days_avg: 45,         // 45 dias — média B2B atacado
+        crm_cycle_days_good: 30
       },
       byCampaign: byCampaignR.rows.map(r => ({
         campaign_id: Number(r.campaign_id),
@@ -172,6 +247,15 @@ module.exports = async function handler(req, res) {
         approved_count: Number(r.approved_count || 0),
         avg_ticket: Number(r.avg_value_cents || 0) / 100,
         cycle_days: Number(r.median_days || 0)
+      })),
+      // V40.14.10 — Branch CRM/Híbrido. Engine no front-end decide qual fonte
+      // consumir baseado em product.audience.salesChannel.
+      byProductCrm: byProductCrmRows.map(r => ({
+        product_id_lj: Number(r.product_id_lj),
+        abordagens_mes: Number(r.abordagens_mes || 0),
+        won_mes: Number(r.won_mes || 0),
+        avg_ticket: Number(r.avg_ticket_cents || 0) / 100,
+        cycle_days: Number(r.cycle_days || 0)
       }))
     });
   } catch (err) {

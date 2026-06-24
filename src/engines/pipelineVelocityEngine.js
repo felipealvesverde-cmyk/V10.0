@@ -27,8 +27,58 @@ window.PipelineVelocityEngine = {
     if (cache.loading) return { status: 'loading', salesChannel: channel };
     if (cache.error) return { status: 'error', salesChannel: channel, error: cache.error };
 
-    // Pra modo CRM/híbrido — ainda sem fonte cravada (deals RD persistido).
-    if (channel === 'crm' || channel === 'hybrid') {
+    // V40.14.10 — Modo CRM: lê de byProductCrm (agregação de lj_rd_deals do
+    // tenant DB). Quando há dados → calcula V/C/L/T do funil de vendas. Sem
+    // dados → pending honesto. Híbrido continua pending até onda futura que
+    // some Checkout + CRM.
+    if (channel === 'crm') {
+      const crmRow = (cache.byProductCrm || []).find(r => Number(r.product_id_lj) === Number(productId));
+      if (!crmRow) {
+        return { status: 'pending', salesChannel: channel };
+      }
+      const V = Number(crmRow.abordagens_mes) || 0;
+      const wonMes = Number(crmRow.won_mes) || 0;
+      const L = Number(crmRow.avg_ticket) || 0;
+      const T = Number(crmRow.cycle_days) || 0;
+      // V/C/L/T pro CRM: V = abordagens no mês, C = won/abordagens no mês.
+      // Pode dar > 1 em meses onde won veio de abordagem de mês anterior — clamp.
+      const C = V > 0 ? Math.min(wonMes / V, 1) : 0;
+      const safeT = T > 0 ? T : 1;
+      const velocity = V > 0 && C > 0 && L > 0 ? (V * C * L) / safeT : 0;
+
+      const benchmarks = cache.benchmarks || {};
+      const crmConvAvg = benchmarks.crm_conversion_avg ?? 0.10;
+      const crmCycleAvg = benchmarks.crm_cycle_days_avg ?? 45;
+
+      let gargalo = null;
+      const totalmenteZerado = V === 0 && wonMes === 0;
+      if (!totalmenteZerado) {
+        if (V === 0) gargalo = 'V';
+        else if (C === 0 || (C < crmConvAvg && C < 0.08)) gargalo = 'C';
+        else if (T === 0 || T > crmCycleAvg * 1.5) gargalo = 'T';
+        else if (L > 0 && L < 5000) gargalo = 'L';  // ticket B2B atacado < R$ 50
+      }
+
+      return {
+        status: 'ok',
+        salesChannel: channel,
+        V,
+        C,
+        L,
+        T,
+        velocity,
+        approvedCount: wonMes,
+        customersCount: wonMes,
+        gargalo,
+        benchmarks: { conversion_avg: crmConvAvg, conversion_good: benchmarks.crm_conversion_good ?? 0.20, cycle_days_avg: crmCycleAvg, cycle_days_good: benchmarks.crm_cycle_days_good ?? 30 },
+        yyyymm: cache.period?.yyyymm || '',
+        daysPassed: cache.period?.daysPassed || 0,
+        daysInMonth: cache.period?.daysInMonth || 30
+      };
+    }
+
+    // Híbrido continua pending — onda futura cravará a fusão checkout + CRM.
+    if (channel === 'hybrid') {
       return { status: 'pending', salesChannel: channel };
     }
 

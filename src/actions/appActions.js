@@ -1457,6 +1457,38 @@ Object.assign(Actions, {
     App.state.revopsWhitelabelActiveTab = 'offers';
     App.save(); App.render();
   },
+  // V40.14.10 — Master/demo: popula lj_rd_deals do produto com deals emulados
+  // em pipeline CRM (50 won + 150 pipeline aberto + 300 lost) ao longo de 6
+  // meses. Despluga vendas Hotmart do mesmo produto. Permite testar a Onda
+  // CRM da Velocity antes da infra real de sincronização RD.
+  //
+  // Chamar via console: `await Actions.populateDemoCrmDeals(1781869701831)`
+  async populateDemoCrmDeals(productId) {
+    if (!productId) { console.error('productId obrigatório'); return; }
+    try {
+      const token = localStorage.getItem('lj_jwt');
+      const r = await fetch('/api/admin-populate-demo-rd-deals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ productId: Number(productId) })
+      });
+      const data = await r.json();
+      if (!data.ok) {
+        console.error('[populateDemoCrmDeals] erro:', data.message);
+        Utils.toast(`Erro ao popular CRM: ${data.message}`);
+        return data;
+      }
+      console.log('[populateDemoCrmDeals] OK:', data);
+      Utils.toast(`✅ CRM emulado: ${data.insertedDeals} deals · ${data.totalCervejasContratadas?.toLocaleString('pt-BR')} cervejas contratadas`);
+      // Refresh caches afetados — Velocity destrava agora.
+      Actions.loadPipelineVelocitySummary({ force: true });
+      return data;
+    } catch (err) {
+      console.error('[populateDemoCrmDeals] erro:', err);
+      Utils.toast(`Erro: ${err.message}`);
+      return { ok: false, message: err.message };
+    }
+  },
   // V39.6.0 — Refresh unificado dos 3 caches da Onda A em paralelo.
   refreshOndaA() {
     if (window.Actions?.loadForecastRealizedSummary) Actions.loadForecastRealizedSummary({ force: true });
