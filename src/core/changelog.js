@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.15',
+    date: '2026-06-24',
+    title: 'Endpoint master: importar state de arquivo JSON direto pro tenant',
+    bullets: [
+      'Quando o cliente tem um arquivo .json de backup local (gerado pelo "Baixar snapshot" ou pre-manual) e precisa restaurar pra um user específico do tenant, o endpoint admin-restore-tenant-snapshot pode não servir — porque os snapshots no banco têm owner_user_id que pode ser diferente do user real, ou o backup local é mais recente que tudo o que tem no banco.',
+      'Novo endpoint POST /api/admin-import-tenant-state recebe { tenant_slug, user_id, state_json } e escreve direto no journey_state[user_id] do tenant. Cria automaticamente um snapshot pre-import-admin-* antes de gravar pra proteção.',
+      'Master-only. Valida que o user_id pertence ao tenant antes de importar.'
+    ]
+  },
+  {
     version: 'V40.14.14',
     date: '2026-06-24',
     title: 'Action master: reset pristine de produto no demo',
