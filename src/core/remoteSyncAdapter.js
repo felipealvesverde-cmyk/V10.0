@@ -196,6 +196,21 @@ window.RemoteSyncAdapter = {
         // App.state e localStorage.
         this._lastPushStatus = 'auth_expired';
         this._triggerAuthExpired();
+      } else if (res.status === 409) {
+        // V40.14.17 — Cross-tenant/cross-user write bloqueado pelo servidor.
+        // Significa que o navegador tem state contaminado de outra conta. NÃO
+        // tentar de novo (cada retry continuaria contaminado). Avisa o user
+        // crítico — única saída é fechar a aba e abrir de novo.
+        this._lastPushStatus = 'cross_tenant_blocked';
+        try {
+          const body = await res.json();
+          console.error('[RemoteSync] 🚨 Save BLOQUEADO V40.14.17 — cross-tenant/user mismatch.', body);
+          if (window.Utils?.toast) {
+            window.Utils.toast('⚠ Save bloqueado — state do navegador é de outra conta. Feche esta aba e abra de novo.');
+          }
+          // Para o agendador de push pra não martelar o servidor.
+          if (this._saveTimer) { clearTimeout(this._saveTimer); this._saveTimer = null; }
+        } catch (_) { /* defensive */ }
       } else {
         this._lastPushStatus = `error_${res.status}`;
       }

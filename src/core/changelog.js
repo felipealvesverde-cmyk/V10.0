@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.17',
+    date: '2026-06-24',
+    title: 'Guard de tenant identity: servidor bloqueia save com state de outra conta',
+    bullets: [
+      'Hoje a Atira.Pro do Sansone foi sobrescrita porque o navegador estava logado como master no tenant Sansone, com state em memória de uma sessão anterior em outro tenant. O auto-save mandou esse state contaminado pro servidor e ele aceitou. Bug de isolamento entre contas — defesa em profundidade era a regra mais elementar e estava faltando.',
+      'A partir desta versão, antes de gravar qualquer state vindo do navegador, o servidor compara state.user.tenantId e state.user.id com o JWT da requisição. Se não bate, retorna 409 e não grava NADA. Mesmo se o navegador tentar 1000 vezes, NADA persiste contaminado.',
+      'Cliente trata o 409 explicitamente: para o agendador de push (sem retry — todo retry continuaria contaminado), avisa toast crítico ("feche esta aba e abra de novo"), e loga no console o detalhe da divergência.',
+      'Camada 2 (próxima onda, V40.15.0): purga estrutural client-side — força reset de App.state no logout/login, valida JWT vs state.user no boot, marca último user em localStorage pra detectar troca. Sem essa camada, o navegador continua acumulando lixo de sessões antigas; o guard servidor protege escrita mas não evita o operador trabalhar achando que está no tenant certo.'
+    ]
+  },
+  {
     version: 'V40.14.16',
     date: '2026-06-24',
     title: 'Import master ganha modo merge: trazer SÓ produtos específicos do backup',

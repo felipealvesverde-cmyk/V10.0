@@ -87,6 +87,53 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ ok: false, message: 'Body precisa de { state: {...} }' });
     }
 
+    // V40.14.17 — GUARD DE TENANT IDENTITY (cross-tenant write block).
+    // Felipe perdeu Atira.Pro do Sansone em 2026-06-24 porque o navegador que
+    // estava logado como master no tenant Sansone fez auto-save com state da
+    // sessão anterior (state.user.tenantId divergente do JWT), sobrescrevendo
+    // o produto. Esse guard rejeita explicitamente qualquer save em que o
+    // state diz pertencer a outro tenant/user. Defesa em profundidade —
+    // a camada 2 (purga client-side no logout/login) vai pra V40.15.0.
+    const stateUser = state.user && typeof state.user === 'object' ? state.user : null;
+    if (stateUser) {
+      const stateTenantId = stateUser.tenantId != null ? Number(stateUser.tenantId) : null;
+      const jwtTenantId = resolvedTenantId != null ? Number(resolvedTenantId) : null;
+      if (stateTenantId != null && jwtTenantId != null && stateTenantId !== jwtTenantId) {
+        console.warn('[state-sync POST] 🚨 REJEITADO V40.14.17 — state.user.tenantId mismatch com JWT.', {
+          jwt_user: userId,
+          jwt_tenant: jwtTenantId,
+          state_tenant: stateTenantId,
+          state_user_id: stateUser.id
+        });
+        return res.status(409).json({
+          ok: false,
+          code: 'tenant_mismatch',
+          message: 'Cross-tenant write bloqueado. State do navegador pertence a outro tenant — faça logout completo (fechar aba) e relogin pra resetar.',
+          expected: { tenantId: jwtTenantId, userId },
+          received: { tenantId: stateTenantId, userId: stateUser.id }
+        });
+      }
+      const stateUserId = stateUser.id != null ? Number(stateUser.id) : null;
+      // Master pode ler state de qualquer user mas o auto-save normal não
+      // deveria gravar com user.id != JWT.sub. Bloqueia mesmo pra master —
+      // master que precisa importar state em outro user usa o endpoint
+      // admin-import-tenant-state explicitamente (que pula esse guard).
+      if (stateUserId != null && stateUserId !== Number(userId)) {
+        console.warn('[state-sync POST] 🚨 REJEITADO V40.14.17 — state.user.id mismatch com JWT.', {
+          jwt_user: userId,
+          state_user: stateUserId,
+          is_master: !!req.user.isMaster
+        });
+        return res.status(409).json({
+          ok: false,
+          code: 'user_mismatch',
+          message: 'State do navegador pertence a outro usuário. Faça logout completo (fechar aba) e relogin pra resetar.',
+          expected: { userId },
+          received: { userId: stateUserId }
+        });
+      }
+    }
+
     // V36.8.3 — GUARD DE EMERGÊNCIA: rejeita state malformado (proteção de
     // último nível, defesa em profundidade). Felipe perdeu Sansone em
     // 2026-06-08/09 porque runHealthCheck (V36.5.0) mandava body
