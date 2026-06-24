@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.12',
+    date: '2026-06-24',
+    title: 'Fix: cache do funil CRM agora chega no painel da Home',
+    bullets: [
+      'Bug introduzido na V40.14.10: o backend já entregava os dados do funil CRM (vendas fechadas no mês, ticket médio dos deals, ciclo) mas a função que monta o cache no navegador esquecia de copiar esses dados. Resultado: Velocidade do produto CRM rodava, mas o Pulso da Receita continuava lendo zerado.',
+      'Corrigido. Após F5, o cache passa a carregar os dados do CRM junto com os do Checkout, e o Pulso da Receita do Pilsen Atacado finalmente reflete os deals emulados: Vendas Atual ≠ 0, TM Atual com valor real, CAC Atual recalibrado.'
+    ]
+  },
+  {
     version: 'V40.14.11',
     date: '2026-06-24',
     title: 'Pulso da Receita fala a mesma língua do card de Velocidade pra produto CRM',

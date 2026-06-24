@@ -1429,7 +1429,8 @@ Object.assign(Actions, {
         period: data.period,
         benchmarks: data.benchmarks,
         byCampaign: data.byCampaign || [],
-        byProduct: data.byProduct || []
+        byProduct: data.byProduct || [],
+        byProductCrm: data.byProductCrm || []   // V40.14.12 — esquecido na V40.14.10
       };
       if (App.render) App.render();
     } catch (err) {
