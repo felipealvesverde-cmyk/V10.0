@@ -681,9 +681,41 @@
       if (!hasGroups && !hasOffersOrTicket) return null;
 
       const ev = this.evaluate(norm);
-      const realSales = (window.RevopsFinanceEngine?.productRealSales)
-        ? RevopsFinanceEngine.productRealSales(productId)
-        : 0;
+
+      // V40.14.11 — Branch por salesChannel pro Pulso da Receita falar a mesma
+      // língua do card de Velocidade. Quando produto é CRM-puro, "real" passa a
+      // ler dos deals fechados (lj_rd_deals.won_mes via byProductCrm). Antes
+      // disso, "realSales" era o somatório do simulador de funil das actions
+      // (productRealSales) — fantasia, não realidade. Lei [[no-source-no-dash]]:
+      // se a fonte certa existe, o painel olha pra ela.
+      //
+      // Checkout/null/hybrid continuam com o comportamento anterior (productRealSales
+      // do simulador) — onda futura cravará o realRevenue Checkout vindo de
+      // Hotmart approved direto, em vez do proxy.
+      const product = (window.App?.state?.products || []).find(p => Number(p.id) === Number(productId));
+      const channel = product?.audience?.salesChannel || null;
+      const velocityCache = window.App?.state?.pipelineVelocityCache;
+
+      let realSales = 0;
+      let realTicket = 0;
+      let realRevenue = 0;
+      if (channel === 'crm' && velocityCache && !velocityCache.loading && !velocityCache.error) {
+        const crmRow = (velocityCache.byProductCrm || []).find(r => Number(r.product_id_lj) === Number(productId));
+        if (crmRow) {
+          realSales = Number(crmRow.won_mes) || 0;
+          realTicket = Number(crmRow.avg_ticket) || 0;
+          realRevenue = realSales * realTicket;
+        }
+      } else {
+        realSales = (window.RevopsFinanceEngine?.productRealSales)
+          ? RevopsFinanceEngine.productRealSales(productId)
+          : 0;
+        realTicket = (window.RevopsFinanceEngine?.productCrmTicket)
+          ? RevopsFinanceEngine.productCrmTicket(productId)
+          : 0;
+        realRevenue = realSales * realTicket;
+      }
+
       const acquisitionTotal = ev.acquisitionTotal;
       // Fórmula igual à cascata do painel: CAC = CTC ÷ Total de Vendas.
       // Previsto usa sales projetado (igual ao que o painel mostra), atual usa real.
@@ -714,6 +746,9 @@
         msu,
         sales: ev.sales,
         realSales,
+        realTicket,             // V40.14.11 — TM Atual real (CRM: deals; Checkout: Hotmart via proxy)
+        realRevenue,            // V40.14.11 — Receita Atual real
+        salesChannel: channel,  // pra UI saber a fonte sem precisar reolhar product.audience
         breakevenSales,
         // Extras
         acquisitionTotal,

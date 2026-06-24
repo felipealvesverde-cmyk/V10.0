@@ -485,9 +485,11 @@ window.HomeModule = {
     const cacPrevistoFmt = fmtMoney(cacPrevisto);
     const cacRealFmt = cacRealRaw != null ? fmtMoney(cacRealRaw) : '—';
     // V35.13.1 — TM previsto (ofertas) + atual (receita real ÷ vendas reais).
-    // Atual só faz sentido com realSales > 0.
+    // V40.14.11 — Quando engine entrega realTicket > 0 (CRM com deals fechados),
+    // usa fonte real. Senão cai no proxy antigo (ticket previsto se houve realização).
     const tmPrevisto = Number(dash.ticket || 0);
-    const tmRealRaw = realizado > 0 ? tmPrevisto : null; // proxy — sem receita real granular, usa ticket
+    const tmRealEngine = Number(dash.realTicket || 0);
+    const tmRealRaw = tmRealEngine > 0 ? tmRealEngine : (realizado > 0 ? tmPrevisto : null);
     const tmPrevistoFmt = fmtMoney(tmPrevisto);
     const tmRealFmt = tmRealRaw != null ? fmtMoney(tmRealRaw) : '—';
 

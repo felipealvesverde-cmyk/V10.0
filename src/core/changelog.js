@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.11',
+    date: '2026-06-24',
+    title: 'Pulso da Receita fala a mesma língua do card de Velocidade pra produto CRM',
+    bullets: [
+      'Antes, no produto que vende por CRM (Pilsen Atacado no demo), o card de Velocidade lia dos deals fechados mas o Pulso da Receita continuava lendo de outro motor — um simulador antigo de funil das ações. Resultado: Velocidade dizia "50 contratos fechados no mês" e Vendas Atual do Pulso teimava em mostrar 117.000 (somatório fantasia do simulador).',
+      'A partir desta versão, quando o arquétipo do produto é CRM-puro, o Pulso lê as métricas reais dos deals: Vendas Atual = contratos fechados no mês, TM Atual = ticket médio dos deals fechados nos últimos 90 dias, Receita Atual = vendas × ticket. O painel da Home para de mentir o tamanho da máquina.',
+      'CAC Atual também se recalibra automaticamente: continua sendo Custo de Aquisição ÷ Vendas Reais, mas agora "Vendas Reais" são os contratos fechados de verdade, não a simulação. Se você lança "Time comercial Atacado" no painel RevOps & Equilíbrio, o CAC sai com a faixa real do modelo B2B.',
+      'Produto Checkout continua funcionando exatamente igual (o motor de funil simulado segue alimentando o Pulso). Híbrido fica pendente até onda futura unir checkout + CRM no mesmo card.'
+    ]
+  },
+  {
     version: 'V40.14.10',
     date: '2026-06-24',
     title: 'Velocity destravada pra produto via CRM (emulação Pilsen Atacado no demo)',
