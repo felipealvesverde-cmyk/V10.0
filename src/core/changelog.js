@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.8',
+    date: '2026-06-24',
+    title: 'Confirmação: banner enriquecido quando o LJ não classifica + sugestões de edição',
+    bullets: [
+      'Antes, quando o LJ não classificava sua combinação (caía em "Operação Não Classificada"), aparecia só um parágrafo genérico "LJ usa defaults genéricos por enquanto, master pode cravar arquétipos customizados em sprint futura". Pouco útil.',
+      'Agora o banner explica POR QUÊ caiu sem classificação (combinação rara ou desalinhamento entre Negócio e Operacional) E sugere 1-2 arquétipos mais próximos da sua escolha. Ex: se você cravou B2B + Atacado com refinamento que não bate, sugere "B2B Atacado / Wholesale — SDR vende em pedido fechado pra estabelecimento (modelo operacional bate)".',
+      'A sugestão é calculada por overlap automático: arquétipo que compartilha o mesmo Modelo Operacional ganha mais peso que os que só compartilham Negócio. Top 2 ordenados por proximidade.',
+      'Cliente vê em uma frase o que precisa ajustar (Modelo de Negócio ou Modelo Operacional) e pode usar o painel lateral pra pular direto pro step que precisa editar.'
+    ]
+  },
+  {
     version: 'V40.14.7',
     date: '2026-06-24',
     title: 'Wizard Arquétipo: +7 incompatibilidades pra combinações esquisitas com B2C',

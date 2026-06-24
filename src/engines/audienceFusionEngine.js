@@ -101,6 +101,35 @@ var AudienceFusionEngine = {
     return { archetype: catalog.FALLBACK, archetypeKey: null, fallback: true };
   },
 
+  // V40.14.8 — Sugere os arquétipos cravados mais PRÓXIMOS da escolha do
+  // cliente quando ele cai em fallback. Score por overlap:
+  //   - Operacional bate → +2 (mais distintivo)
+  //   - Negócio bate → +1
+  // Retorna top N (default 2) ordenados por score desc. Usado pelo banner
+  // de "Operação Não Classificada" pra dizer "talvez seja X ou Y".
+  suggestNearestArchetypes(audience, topN = 2) {
+    if (!audience || !audience.modeloNegocio || !audience.modeloOperacional) return [];
+    const catalog = window.AudienceConsequencesCatalog;
+    if (!catalog || !catalog.ARCHETYPES) return [];
+    const candidates = [];
+    for (const [key, arch] of Object.entries(catalog.ARCHETYPES)) {
+      let bestScore = 0;
+      let bestMatch = null;
+      for (const m of (arch.matches || [])) {
+        let score = 0;
+        if (m.negocio === audience.modeloNegocio) score += 1;
+        if (m.operacional === audience.modeloOperacional) score += 2;
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = m;
+        }
+      }
+      if (bestScore > 0) candidates.push({ key, arch, score: bestScore, match: bestMatch });
+    }
+    candidates.sort((a, b) => b.score - a.score);
+    return candidates.slice(0, topN);
+  },
+
   // V40.12.2 — Sprint 3: confidence score 0.0-1.0 sobre a Audiência fundida.
   // Heurística simples (4 fatores) — peso por átomo individual fica pra V2.
   //   +0.30  modelos preenchidos (negócio + operacional + salesChannel)

@@ -539,7 +539,7 @@ var ProductAudienceModal = {
         </div>
       </div>
 
-      ${cls?.fallback ? `<div class="rounded-2xl bg-white border border-stone-200 p-3 text-[12px] text-slate-700" style="border-left: 4px solid var(--lj-warning);"><b>Combinação ainda sem arquétipo cravado.</b> LJ usa defaults genéricos por enquanto — você pode seguir mesmo assim. Master pode cravar arquétipos customizados em sprint futura.</div>` : ''}
+      ${cls?.fallback ? this._fallbackBanner(audienceLite) : ''}
 
       ${notasIncompat.length ? `<div class="space-y-1.5">
         ${notasIncompat.map(n => `<div class="rounded-2xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2" style="border-left: 4px solid var(--lj-warning);">
@@ -578,6 +578,56 @@ var ProductAudienceModal = {
         <p class="text-sm font-black mb-1">Isso faz sentido pro seu negócio?</p>
         <p class="text-[13px] text-slate-100 leading-relaxed">Se clicar Confirmar, o LJ vai aplicar essas premissas em todos os módulos. Se algo destoa, volta e ajusta.</p>
       </div>
+    </div>`;
+  },
+
+  // V40.14.8 — Banner enriquecido quando o LJ cai em fallback ("Operação Não
+  // Classificada"). Antes era um único parágrafo genérico. Agora explica POR
+  // QUÊ (sua combinação não bate com nenhum dos arquétipos cravados) e
+  // SUGERE 1-2 caminhos próximos lidos via AudienceFusionEngine.suggestNearestArchetypes.
+  // Felipe: "ele precisa trazer uma mini explicação de o por que e sugerir uma edição."
+  _fallbackBanner(audienceLite) {
+    const negocio = this.BUSINESS_MODELS.find(b => b.id === audienceLite.modeloNegocio);
+    const operacional = this.OPERATIONAL_MODELS.find(o => o.id === audienceLite.modeloOperacional);
+    const negocioLabel = negocio?.label || audienceLite.modeloNegocio || '—';
+    const operacionalLabel = operacional?.label || audienceLite.modeloOperacional || '—';
+    const sugestoes = window.AudienceFusionEngine
+      ? AudienceFusionEngine.suggestNearestArchetypes(audienceLite, 2)
+      : [];
+    const sugestoesHtml = sugestoes.length
+      ? `<div class="mt-3 pt-3 border-t border-stone-200">
+          <p class="text-[11px] font-black uppercase tracking-widest text-slate-600 mb-2">Caminhos próximos</p>
+          <ul class="space-y-2">
+            ${sugestoes.map(s => {
+              const matchHint = s.score >= 3
+                ? 'compatibilidade total'
+                : s.score === 2
+                  ? 'modelo operacional bate'
+                  : 'modelo de negócio bate';
+              return `<li class="flex items-start gap-2">
+                <span class="text-amber-700 shrink-0 mt-0.5"><i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-[12px] font-black text-slate-900">${Utils.escape(s.arch.label || s.key)}</p>
+                  <p class="text-[11px] text-slate-600 leading-relaxed">${Utils.escape(s.arch.tagline || '')}</p>
+                  <p class="text-[10px] text-amber-700 font-medium mt-0.5">${matchHint}</p>
+                </div>
+              </li>`;
+            }).join('')}
+          </ul>
+          <p class="text-[11px] text-slate-500 mt-3 leading-relaxed">Pra ganhar arquétipo cravado, volte pros passos <b>Modelo de Negócio</b> ou <b>Modelo Operacional</b> e ajuste. Cada ajuste mostra Confiança nova em tempo real.</p>
+        </div>`
+      : '';
+    return `<div class="rounded-2xl bg-white border border-stone-200 p-4" style="border-left: 4px solid var(--lj-warning);">
+      <div class="flex items-start gap-2">
+        <i data-lucide="help-circle" class="w-4 h-4 text-amber-700 mt-0.5 shrink-0"></i>
+        <div class="flex-1 min-w-0">
+          <p class="text-[11px] font-black uppercase tracking-widest text-amber-700 mb-1">Por que caiu em "Não Classificado"</p>
+          <p class="text-[12px] text-slate-700 leading-relaxed">
+            Sua combinação <b>${Utils.escape(negocioLabel)}</b> × <b>${Utils.escape(operacionalLabel)}</b> não bate com nenhum dos arquétipos cravados hoje no LJ. Isso pode acontecer por dois motivos: a combinação é <b>real mas rara</b> (e o catálogo ainda não cobriu) ou houve um <b>desalinhamento</b> entre Modelo de Negócio e Operacional. Você pode seguir com defaults genéricos, mas as adaptações dos módulos (Velocidade, Djow, RevOps) serão neutras — sem a inteligência do arquétipo.
+          </p>
+        </div>
+      </div>
+      ${sugestoesHtml}
     </div>`;
   },
 
