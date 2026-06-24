@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.5',
+    date: '2026-06-24',
+    title: 'Roletas do Refinamento: aperto vertical pra eliminar vazios',
+    bullets: [
+      'Cabeçalho de cada roleta agora em UMA linha (label uppercase + tagline em prosa lado a lado), em vez de empilhado em 2 linhas. Mantém a caixa alta e a cor violeta — só junta na horizontal.',
+      'Card central (com a opção atual) deixou de ter altura mínima fixa que criava muito vazio quando a descrição era curta (caso típico: Ciclo "Curto · Dias · SaaS self-service…").',
+      'Paddings e espaços entre seções apertados (mb-3 → mb-2, mt-3 → mt-2, p-3 → p-2.5). O banner "Ajuste fino" também ficou mais compacto.',
+      'Espaço entre as 4 roletas reduzido (space-y-5 → space-y-3) — passo Refinamento inteiro cabe melhor sem scroll forte.'
+    ]
+  },
+  {
     version: 'V40.14.4',
     date: '2026-06-24',
     title: 'Wizard Arquétipo de Vendas: respira ~20% mais largo',

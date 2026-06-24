@@ -329,8 +329,8 @@ var ProductAudienceModal = {
   // específica. Cada roleta mostra label + tagline + descrição da opção
   // atual em tempo real.
   _step4(w) {
-    return `<div class="space-y-5">
-      <div class="rounded-2xl bg-white border border-stone-200 p-4" style="border-left: 4px solid var(--lj-revops);">
+    return `<div class="space-y-3">
+      <div class="rounded-2xl bg-white border border-stone-200 p-3" style="border-left: 4px solid var(--lj-revops);">
         <p class="text-[10px] font-black uppercase tracking-widest mb-1" style="color: var(--lj-revops);">Ajuste fino</p>
         <p class="text-sm text-slate-700 leading-relaxed">O LJ assume defaults razoáveis pra cada eixo. Refine o que destoa do seu produto — gira a roleta com as setas ou clica direto no ponto.</p>
       </div>
@@ -341,6 +341,13 @@ var ProductAudienceModal = {
     </div>`;
   },
 
+  // V40.14.5 — Aperto vertical das roletas:
+  //   - Header em UMA linha (label uppercase + tagline em prosa, flex baseline)
+  //     em vez de empilhados em 2 linhas (caixa alta + cor preservadas).
+  //   - Card central: min-h removido (era 110px, criava vazio quando descrição
+  //     curta tipo "Curto · Dias · SaaS self-service…"). Padding reduzido p-3 → p-2.5.
+  //   - mb-3 do header → mb-2; mt-3 dos dots → mt-2.
+  //   - space-y-5 entre roletas → space-y-3 no container.
   _roletaCard(key, w) {
     if (!window.AudienceFusionEngine) return '';
     const meta = AudienceFusionEngine.refinamentoMeta(key);
@@ -351,27 +358,27 @@ var ProductAudienceModal = {
     let currentIdx = opcoes.findIndex(o => o.id === currentId);
     if (currentIdx < 0) currentIdx = 0;
     const current = opcoes[currentIdx];
-    return `<div class="rounded-2xl border border-stone-200 bg-white p-4">
-      <div class="mb-3">
+    return `<div class="rounded-2xl border border-stone-200 bg-white p-3">
+      <div class="mb-2 flex items-baseline gap-2 flex-wrap">
         <p class="text-[11px] font-black uppercase tracking-widest" style="color: var(--lj-revops);">${Utils.escape(meta.label)}</p>
-        <p class="text-[11px] text-slate-500 mt-0.5">${Utils.escape(meta.tagline || '')}</p>
+        <p class="text-[11px] text-slate-500">${Utils.escape(meta.tagline || '')}</p>
       </div>
 
       <div class="flex items-stretch gap-2">
         <button onclick="Actions.audienceWizardRoletaStep('${key}', -1)" class="w-10 shrink-0 rounded-xl bg-stone-100 hover:bg-stone-200 text-slate-700 grid place-items-center transition" aria-label="Anterior" title="Anterior"><i data-lucide="chevron-left" class="w-5 h-5"></i></button>
 
-        <div class="flex-1 rounded-xl border border-stone-200 bg-stone-50 p-3 min-h-[110px] flex flex-col justify-center">
-          <div class="flex items-baseline gap-2 mb-1 flex-wrap">
+        <div class="flex-1 rounded-xl border border-stone-200 bg-stone-50 p-2.5">
+          <div class="flex items-baseline gap-2 mb-0.5 flex-wrap">
             <p class="text-sm font-black text-slate-900">${Utils.escape(current.label)}</p>
             <span class="text-[11px] font-medium text-slate-500">${Utils.escape(current.tagline || '')}</span>
           </div>
-          <p class="text-[12px] text-slate-600 leading-relaxed">${Utils.escape(current.description || '')}</p>
+          <p class="text-[12px] text-slate-600 leading-snug">${Utils.escape(current.description || '')}</p>
         </div>
 
         <button onclick="Actions.audienceWizardRoletaStep('${key}', 1)" class="w-10 shrink-0 rounded-xl bg-stone-100 hover:bg-stone-200 text-slate-700 grid place-items-center transition" aria-label="Próximo" title="Próximo"><i data-lucide="chevron-right" class="w-5 h-5"></i></button>
       </div>
 
-      <div class="flex justify-center gap-1.5 mt-3">
+      <div class="flex justify-center gap-1.5 mt-2">
         ${opcoes.map((o, i) => `<button onclick="Actions.audienceWizardRoletaJump('${key}', '${o.id}')" title="${Utils.escape(o.label)}" aria-label="${Utils.escape(o.label)}" class="h-2 rounded-full transition ${i === currentIdx ? 'w-6 bg-violet-700' : 'w-2 bg-stone-300 hover:bg-stone-400'}"></button>`).join('')}
       </div>
     </div>`;
