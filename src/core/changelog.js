@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.14.7',
+    date: '2026-06-24',
+    title: 'Wizard Arquétipo: +7 incompatibilidades pra combinações esquisitas com B2C',
+    bullets: [
+      '7 novas combinações de modelo agora disparam aviso "combinação rara" no Quadro de Audiência e no Confirmação: B2C+Atacado, B2C+Consultoria, B2C+Manufatura B2B, B2C+Agribusiness, B2C+Marketplace, B2B+E-commerce e C2C+Atacado.',
+      'Antes essas combinações passavam silenciosas — Confiança somava +20% como se fosse combinação OK, dava 80% ALTA enganoso. Agora dispara nota explicativa apontando o que seria o caminho mais natural ("talvez você queira B2C + E-commerce").',
+      'Catálogo de regras (RULES_VERSION) bumpou pra 1.1.0 — átomos do catálogo não mudaram, só as regras de incompatibilidade ganharam cobertura mais ampla.'
+    ]
+  },
+  {
     version: 'V40.14.6',
     date: '2026-06-24',
     title: 'Wizard Arquétipo: confidence honesta + incompatibilidades visíveis + painel raio-X',

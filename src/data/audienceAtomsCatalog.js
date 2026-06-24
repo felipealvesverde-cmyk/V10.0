@@ -318,6 +318,38 @@
     {
       par: { negocio: 'b2b', operacional: 'freemium' },
       acao: { rebaixar: [], remover: [], aviso: 'Modelo Product-Led B2B. Decisor pode demorar a aparecer — o usuário grátis costuma ser analista, não comprador.' }
+    },
+    // V40.14.7 — 7 incompatibilidades novas pra fechar lacunas que faziam
+    // confidence "ALTA" pra combinações que o LJ nunca havia visto. Antes
+    // dessas regras, B2C+Atacado passava silencioso e somava +20% bônus de
+    // "sem incompatibilidade" mesmo sendo conceitualmente errado.
+    {
+      par: { negocio: 'b2c', operacional: 'atacado' },
+      acao: { rebaixar: [], remover: [], aviso: 'Atacado vende pra estabelecimento (bar, mercado, distribuidor). Pra consumidor final é incomum — talvez você queira B2C + E-commerce.' }
+    },
+    {
+      par: { negocio: 'b2c', operacional: 'consultoria' },
+      acao: { rebaixar: [], remover: [], aviso: 'Consultoria costuma exigir decisor sênior B2B. Consultoria pra consumidor final é nicho — confirme se é isso mesmo.' }
+    },
+    {
+      par: { negocio: 'b2c', operacional: 'manufatura' },
+      acao: { rebaixar: [], remover: [], aviso: 'Manufatura B2B é indústria → indústria. Pra consumidor final o modelo natural é E-commerce.' }
+    },
+    {
+      par: { negocio: 'b2c', operacional: 'agribusiness' },
+      acao: { rebaixar: [], remover: [], aviso: 'Agribusiness atua na cadeia rural (produtor → cooperativa → mercado). Pra consumidor final, o modelo natural é E-commerce.' }
+    },
+    {
+      par: { negocio: 'b2c', operacional: 'marketplace' },
+      acao: { rebaixar: [], remover: [], aviso: 'Marketplace é plataforma bilateral (oferta + demanda). B2C puro costuma ser E-commerce — verifique.' }
+    },
+    {
+      par: { negocio: 'b2b', operacional: 'ecommerce' },
+      acao: { rebaixar: [], remover: [], aviso: 'B2B com E-commerce existe (atacadista digital, SaaS self-service), mas confirme — talvez seja Atacado ou SaaS.' }
+    },
+    {
+      par: { negocio: 'c2c', operacional: 'atacado' },
+      acao: { rebaixar: [], remover: [], aviso: 'Atacado pede vendedor visitando estabelecimento. C2C raramente comporta isso — verifique se não seria Marketplace.' }
     }
   ];
 
@@ -334,7 +366,11 @@
     // Retrocompat 100% — campos antigos continuam funcionando. Audiências
     // fundidas em 1.0.0 ficam dormentes; banner opcional pode oferecer refusão.
     CATALOG_VERSION: '1.1.0',
-    RULES_VERSION:   '1.0.0',
+    // V40.14.7 — Bump 1.0.0 → 1.1.0: +7 pares de incompatibilidade pra
+    // cobrir combinações B2C-esquisitas (Atacado/Consultoria/Manufatura/
+    // Agribusiness/Marketplace), B2B+E-commerce e C2C+Atacado. Átomos não
+    // mudaram — só regras.
+    RULES_VERSION:   '1.1.0',
     NUCLEO_COMUM,
     ATOMS_NEGOCIO,
     ATOMS_OPERACIONAL,
