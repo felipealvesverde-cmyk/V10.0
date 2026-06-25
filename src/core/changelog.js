@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.3',
+    date: '2026-06-25',
+    title: 'Diagnóstico master — ver o que sobrou no banco de cada integração',
+    bullets: [
+      'Novo endpoint master GET /api/admin-debug-tenant-credentials?tenant_slug=X retorna read-only o estado das 5 tabelas de credentials do tenant.',
+      'Diz se Client ID/Secret do OAuth ainda estão salvos criptografados (mesmo sem token), se OAuth foi completado, qual workspace/property/account está conectado.',
+      'Caso de uso: cliente perdeu credentials e queremos saber se basta refazer só a autorização (Client ID/Secret preservados) ou se precisa começar do zero.',
+    ],
+  },
+  {
     version: 'V41.0.2',
     date: '2026-06-25',
     title: 'Snapshot completo — integrações voltam junto no restore',
