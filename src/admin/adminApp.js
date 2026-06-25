@@ -184,6 +184,24 @@ window.AdminApp = {
     };
     this.render();
   },
+  async purgeTenantIntegrationCache(tenantSlug) {
+    if (!confirm('Zerar cache stale das 5 integrações? O cliente vai precisar fazer F5 pra status fresco ser carregado.')) return;
+    this.state.tenantDiagnosticModal.loading = true;
+    this.render();
+    const r = await this.fetch('/api/admin-purge-tenant-integration-cache', {
+      method: 'POST',
+      body: JSON.stringify({ tenant_slug: tenantSlug })
+    });
+    this.state.tenantDiagnosticModal.loading = false;
+    if (r?.ok && r.data?.ok) {
+      this.toast(r.data.message || 'Cache zerado.', 'ok');
+      // Re-roda diagnóstico pra confirmar que tudo ficou consistente
+      await this.openTenantDiagnosticModal(tenantSlug, this.state.tenantDiagnosticModal.tenantName);
+    } else {
+      this.toast(r?.data?.message || 'Falha ao zerar cache.', 'err');
+      this.render();
+    }
+  },
   setTenantUsersMode(mode) {
     this.state.tenantUsersModal.mode = mode;
     if (mode === 'create') {
@@ -813,13 +831,16 @@ window.AdminApp = {
     const m = this.state.tenantDiagnosticModal;
     return `<div class="fixed inset-0 z-[80] bg-slate-950/85 backdrop-blur-sm grid place-items-center p-4">
       <div class="admin-card w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
-          <div>
+        <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between gap-3">
+          <div class="min-w-0 flex-1">
             <p class="text-[10px] font-black text-cyan-300 uppercase tracking-wider">Diagnóstico de integrações</p>
             <h3 class="text-xl font-black text-white">${this._escape(m.tenantName || m.tenantSlug)}</h3>
-            <p class="text-xs text-slate-400 mt-0.5">Estado das 5 tabelas no banco. Se mostra "CONECTADO" mas o cliente vê "desconectado", é cache stale do client (mande rodar resync ou F5).</p>
+            <p class="text-xs text-slate-400 mt-0.5">Estado das 5 tabelas no banco. Se mostra "CONECTADO" mas o cliente vê "desconectado", é cache stale — clique "Forçar resync" e peça F5.</p>
           </div>
-          <button onclick="AdminApp.closeTenantDiagnosticModal()" class="p-2 rounded-lg hover:bg-white/10 text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+          <div class="flex items-center gap-2 shrink-0">
+            <button onclick="AdminApp.purgeTenantIntegrationCache('${this._escape(m.tenantSlug || '')}')" title="Zera os 5 campos de status (clickupStatus, googleAdsStatus, ga4Status, hotmartStatus, rdConnectionStatus) no state_json do owner. Cliente faz F5 → boot re-fetcha status fresco do servidor." class="px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/30 text-amber-100 text-[11px] font-black flex items-center gap-1.5"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i> Forçar resync</button>
+            <button onclick="AdminApp.closeTenantDiagnosticModal()" class="p-2 rounded-lg hover:bg-white/10 text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+          </div>
         </div>
         <div class="flex-1 overflow-y-auto px-6 py-4">
           ${m.loading

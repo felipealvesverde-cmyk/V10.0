@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.6',
+    date: '2026-06-25',
+    title: 'Botão "Forçar resync" no diagnóstico — fix de cache stale em 1 click',
+    bullets: [
+      'Modal de diagnóstico ganhou botão "Forçar resync" no header. Zera os 5 campos de status de integração (clickupStatus, googleAdsStatus, ga4Status, hotmartStatus, rdConnectionStatus) no state_json do owner.',
+      'Cliente faz F5 → boot re-fetcha status fresco do servidor → desconexão fantasma some.',
+      'Antes era diagnóstico + console hack manual (await Actions.loadClickupStatus()). Agora é 1 click no master + F5 do cliente.',
+    ],
+  },
+  {
     version: 'V41.0.5',
     date: '2026-06-25',
     title: 'Botão "Diagnóstico de integrações" no card de tenant',
