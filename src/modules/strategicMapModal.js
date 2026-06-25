@@ -2,6 +2,16 @@
 // Cada etapa tem critério de conclusão, CTA "Próximo passo →" e Djow lateral.
 // A etapa Executar fecha o ciclo: a partir de um OKR, abre o DjowModal V16.3
 // pré-preenchido para criar tarefa no provider operacional ativo (ClickUp/Trello/etc).
+
+// V41.0.7 — Classificação dos custom fields tipo drop_down da list ClickUp:
+// alguns custom fields nunca devem aparecer no modal de criação de task
+// (poluição visual), outros movem pro avançado pra não dominar o Normal.
+// Match case-insensitive e sem acento (NFD + strip combining diacriticals).
+const _normalizeClickupFieldName = (s) =>
+  String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+const CLICKUP_HIDDEN_CATEGORY_NAMES = new Set(['channel', 'publicacao', 'tipo', 'grupo']);
+const CLICKUP_ADVANCED_CATEGORY_NAMES = new Set(['criacao', 'canais', 'redacao']);
+
 window.StrategicMapModal = {
   render() {
     if (!App.state.showStrategicMap) return '';
@@ -88,7 +98,7 @@ window.StrategicMapModal = {
     const c = App.state.djowTaskChat;
     if (!c || !c.open) return '';
     const messages = c.messages || [];
-    return `<div class="fixed inset-0 z-[99] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target === this) Actions.closeDjowTaskChat()">
+    return `<div class="fixed inset-0 z-[99] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4" onmousedown="if(event.target === this){ window.__djowChatBackdropArmed = true; }" onclick="if(event.target === this && window.__djowChatBackdropArmed){ window.__djowChatBackdropArmed=false; if((App.state.djowTaskChat?.messages||[]).length>0 && !confirm('Fechar e perder a conversa com Djow?')) return; Actions.closeDjowTaskChat(); }">
       <div class="bg-slate-950 border border-violet-400/40 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
         <div class="p-4 border-b border-white/10 flex items-center justify-between gap-3">
           <div class="flex items-center gap-2">
@@ -157,7 +167,7 @@ window.StrategicMapModal = {
       { v: 'normal', l: '🔵 Normal' },
       { v: 'low', l: '⚪ Baixa' }
     ];
-    return `<div class="fixed inset-0 z-[98] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onclick="if(event.target === this) Actions.closeTaskCreationModal()">
+    return `<div class="fixed inset-0 z-[98] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onmousedown="if(event.target === this){ window.__taskModalBackdropArmed = true; }" onclick="if(event.target === this && window.__taskModalBackdropArmed){ window.__taskModalBackdropArmed=false; const dd=App.state.taskCreationModal?.draft||{}; const dirty=dd.name||dd.description||(dd.assignees||[]).length||dd.due_date||dd.start_date||dd.markdown_content||Object.keys(dd.custom_fields||{}).length; if(dirty && !confirm('Descartar o que voce preencheu?')) return; Actions.closeTaskCreationModal(); }">
       <div class="bg-slate-950 border border-purple-400/30 rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-auto shadow-2xl">
         <!-- Header -->
         <div class="p-5 border-b border-white/10 flex items-start justify-between gap-3 sticky top-0 bg-slate-950 z-10">
@@ -177,15 +187,15 @@ window.StrategicMapModal = {
           <div class="space-y-3">
             <div>
               <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Nome *</label>
-              <input value="${Utils.escape(d.name)}" oninput="Actions.updateTaskDraft('name', this.value)" placeholder="Ex: Lançar campanha de e-mail" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[13px]" />
+              <input id="task-create-name" data-focus-key="task-create-name" value="${Utils.escape(d.name)}" oninput="Actions.updateTaskDraft('name', this.value)" placeholder="Ex: Lançar campanha de e-mail" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[13px]" />
             </div>
             <div>
               <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Descrição *</label>
-              <textarea oninput="Actions.updateTaskDraft('description', this.value)" placeholder="O que precisa ser feito + critério de pronto." rows="3" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[13px] resize-y">${Utils.escape(d.description)}</textarea>
+              <textarea id="task-create-description" data-focus-key="task-create-description" oninput="Actions.updateTaskDraft('description', this.value)" placeholder="O que precisa ser feito + critério de pronto." rows="3" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[13px] resize-y">${Utils.escape(d.description)}</textarea>
             </div>
             <div>
               <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Responsáveis * <span class="text-slate-500 font-normal">(${d.assignees.length} selecionado(s))</span></label>
-              ${meta.members.length === 0 ? `<p class="text-[11px] text-slate-500 italic px-3 py-2 rounded-lg bg-slate-900/50 border border-white/5">${meta.loaded ? 'Nenhum membro encontrado no workspace.' : 'Carregando membros...'}</p>` : `<div class="rounded-lg bg-slate-900 border border-white/10 p-2 max-h-44 overflow-y-auto space-y-0.5">
+              ${meta.members.length === 0 ? `<p class="text-[11px] text-slate-500 italic px-3 py-2 rounded-lg bg-slate-900/50 border border-white/5">${meta.loaded ? 'Nenhum membro encontrado no workspace.' : 'Carregando membros...'}</p>` : `<div id="task-create-assignees-scroll" class="rounded-lg bg-slate-900 border border-white/10 p-2 max-h-44 overflow-y-auto space-y-0.5">
                 ${meta.members.map(mem => {
                   const checked = d.assignees.includes(mem.id);
                   return `<label class="flex items-center gap-2 p-1.5 rounded hover:bg-white/5 cursor-pointer">
@@ -201,12 +211,12 @@ window.StrategicMapModal = {
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Data de entrega <span class="text-rose-400">*</span></label>
-                <input type="datetime-local" value="${Utils.escape(d.due_date)}" oninput="Actions.updateTaskDraft('due_date', this.value); Actions.updateTaskDraft('due_date_time', this.value.includes('T'))" required class="w-full px-2 py-2 rounded-lg bg-slate-900 border ${d.due_date ? 'border-white/10' : 'border-amber-400/40'} text-white text-[12px]" style="color-scheme:dark;" />
+                <input id="task-create-due-date" data-focus-key="task-create-due-date" type="datetime-local" value="${Utils.escape(d.due_date)}" oninput="Actions.updateTaskDraft('due_date', this.value); Actions.updateTaskDraft('due_date_time', this.value.includes('T'))" required class="w-full px-2 py-2 rounded-lg bg-slate-900 border ${d.due_date ? 'border-white/10' : 'border-amber-400/40'} text-white text-[12px]" style="color-scheme:dark;" />
                 ${!d.due_date ? `<p class="text-[9px] text-amber-300 mt-0.5 inline-flex items-center gap-1"><i data-lucide="alert-triangle" class="w-2.5 h-2.5"></i> Obrigatório pra acompanhar atrasos.</p>` : ''}
               </div>
               <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Data de início</label>
-                <input type="datetime-local" value="${Utils.escape(d.start_date)}" oninput="Actions.updateTaskDraft('start_date', this.value); Actions.updateTaskDraft('start_date_time', this.value.includes('T'))" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;" />
+                <input id="task-create-start-date" data-focus-key="task-create-start-date" type="datetime-local" value="${Utils.escape(d.start_date)}" oninput="Actions.updateTaskDraft('start_date', this.value); Actions.updateTaskDraft('start_date_time', this.value.includes('T'))" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;" />
               </div>
             </div>
 
@@ -219,14 +229,19 @@ window.StrategicMapModal = {
               if (targetListId && !cached && !App._listFieldsAutoload?.has(targetListId)) {
                 if (!App._listFieldsAutoload) App._listFieldsAutoload = new Set();
                 App._listFieldsAutoload.add(targetListId);
-                setTimeout(() => Actions.loadClickupListFields?.(targetListId), 50);
+                // V41.0.7 — Auto-load movido pra openTaskCreationModal. Render não dispara IO.
               }
               const fields = (cached?.fields && cached.fields.length) ? cached.fields : (meta.customFields || []);
               if (cached?.loading) {
                 return `<div class="text-[11px] text-slate-400 italic flex items-center gap-1.5"><i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Carregando campos do ClickUp…</div>`;
               }
-              // Só drop_down no Normal (outros tipos ficam no Avançado pra não poluir)
-              const dropdowns = fields.filter(f => f.type === 'drop_down' && Array.isArray(f.options) && f.options.length);
+              // V41.0.7 — Só drop_down no Normal, MENOS os escondidos (channel,
+              // publicação, tipo, grupo) e os avançados (criação, canais, redação).
+              const dropdowns = fields.filter(f => {
+                if (f.type !== 'drop_down' || !Array.isArray(f.options) || !f.options.length) return false;
+                const nm = _normalizeClickupFieldName(f.name);
+                return !CLICKUP_HIDDEN_CATEGORY_NAMES.has(nm) && !CLICKUP_ADVANCED_CATEGORY_NAMES.has(nm);
+              });
               if (dropdowns.length === 0) return '';
               return `<div class="space-y-2 pt-2 border-t border-white/5">
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider inline-flex items-center gap-1.5">
@@ -249,8 +264,14 @@ window.StrategicMapModal = {
           </div>
 
           <!-- Toggle Avançado -->
+          <!-- V41.0.7 — Badge com contagem dos campos preenchidos no Avançado.
+               Evita dissonância: user colapsa Avançado e esquece que priority/
+               parent/etc continuam no payload. -->
           <button onclick="Actions.toggleTaskAdvanced()" class="w-full px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-[12px] font-black flex items-center justify-between">
-            <span>${m.showAdvanced ? '▴' : '▾'} Campos avançados (opcionais)</span>
+            ${(() => {
+              const advancedCount = [d.priority, d.status, (d.tags||[]).length, d.time_estimate_hours, d.points, d.parent, d.links_to, d.markdown_content, Object.keys(d.custom_fields||{}).length].filter(Boolean).length;
+              return `<span>${m.showAdvanced ? '▴' : '▾'} Campos avançados ${advancedCount > 0 ? `<span class='ml-2 px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[9px] font-black'>${advancedCount} preenchido(s)</span>` : '(opcionais)'}</span>`;
+            })()}
             <span class="text-[10px] font-normal text-slate-500">${m.showAdvanced ? 'esconder' : 'expandir'}</span>
           </button>
 
@@ -274,11 +295,11 @@ window.StrategicMapModal = {
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Estimativa (horas)</label>
-                <input type="number" min="0" step="0.5" value="${Utils.escape(String(d.time_estimate_hours))}" oninput="Actions.updateTaskDraft('time_estimate_hours', this.value)" placeholder="ex: 2.5" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" />
+                <input id="task-create-time-estimate" data-focus-key="task-create-time-estimate" type="number" min="0" step="0.5" value="${Utils.escape(String(d.time_estimate_hours))}" oninput="Actions.updateTaskDraft('time_estimate_hours', this.value)" placeholder="ex: 2.5" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" />
               </div>
               <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Pontos (Sprint)</label>
-                <input type="number" min="0" value="${Utils.escape(String(d.points))}" oninput="Actions.updateTaskDraft('points', this.value)" placeholder="ex: 3" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" />
+                <input id="task-create-points" data-focus-key="task-create-points" type="number" min="0" value="${Utils.escape(String(d.points))}" oninput="Actions.updateTaskDraft('points', this.value)" placeholder="ex: 3" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" />
               </div>
             </div>
 
@@ -295,17 +316,17 @@ window.StrategicMapModal = {
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Subtask de (parent task ID)</label>
-                <input value="${Utils.escape(d.parent)}" oninput="Actions.updateTaskDraft('parent', this.value)" placeholder="ex: abc123def" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-mono" />
+                <input id="task-create-parent" data-focus-key="task-create-parent" value="${Utils.escape(d.parent)}" oninput="Actions.updateTaskDraft('parent', this.value)" placeholder="ex: abc123def" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-mono" />
               </div>
               <div>
                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Dependência de (task ID)</label>
-                <input value="${Utils.escape(d.links_to)}" oninput="Actions.updateTaskDraft('links_to', this.value)" placeholder="ex: xyz789" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-mono" />
+                <input id="task-create-links-to" data-focus-key="task-create-links-to" value="${Utils.escape(d.links_to)}" oninput="Actions.updateTaskDraft('links_to', this.value)" placeholder="ex: xyz789" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-mono" />
               </div>
             </div>
 
             <div>
               <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">Markdown (sobrescreve descrição se preenchido)</label>
-              <textarea oninput="Actions.updateTaskDraft('markdown_content', this.value)" rows="3" placeholder="# Título\n- bullet\n- outra coisa" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-mono resize-y">${Utils.escape(d.markdown_content)}</textarea>
+              <textarea id="task-create-markdown" data-focus-key="task-create-markdown" oninput="Actions.updateTaskDraft('markdown_content', this.value)" rows="3" placeholder="# Título\n- bullet\n- outra coisa" class="w-full px-3 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px] font-mono resize-y">${Utils.escape(d.markdown_content)}</textarea>
             </div>
 
             ${(() => {
@@ -318,27 +339,49 @@ window.StrategicMapModal = {
               if (targetListId && !cached && !App._listFieldsAutoload?.has(targetListId)) {
                 if (!App._listFieldsAutoload) App._listFieldsAutoload = new Set();
                 App._listFieldsAutoload.add(targetListId);
-                setTimeout(() => Actions.loadClickupListFields?.(targetListId), 50);
+                // V41.0.7 — Auto-load movido pra openTaskCreationModal. Render não dispara IO.
               }
               const fields = (cached?.fields && cached.fields.length) ? cached.fields : (meta.customFields || []);
-              // V32.14.3 / V32.14.8 — drop_downs no Normal. Avançado tem só
-              // não-dropdown (texto, número). Todos OPCIONAIS no LJ.
-              const nonDropdownFields = fields.filter(f => f.type !== 'drop_down');
+              // V41.0.7 — Avançado agora inclui:
+              //   (a) drop_downs marcados como "avançados" (criação, canais, redação)
+              //   (b) custom fields não-dropdown (texto, número) — exceto os escondidos
+              // Tudo opcional. Drop_downs escondidos (channel, publicação, tipo, grupo)
+              // não entram em lugar nenhum.
+              const advancedDropdowns = fields.filter(f => {
+                if (f.type !== 'drop_down' || !Array.isArray(f.options) || !f.options.length) return false;
+                return CLICKUP_ADVANCED_CATEGORY_NAMES.has(_normalizeClickupFieldName(f.name));
+              });
+              const nonDropdownFields = fields.filter(f => {
+                if (f.type === 'drop_down') return false;
+                return !CLICKUP_HIDDEN_CATEGORY_NAMES.has(_normalizeClickupFieldName(f.name));
+              });
               if (cached?.loading) {
                 return `<div class="text-[11px] text-slate-400 italic flex items-center gap-1.5"><i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Verificando custom fields da list…</div>`;
               }
-              if (nonDropdownFields.length === 0) return '';
+              if (advancedDropdowns.length === 0 && nonDropdownFields.length === 0) return '';
               return `<div>
                 <p class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Outros custom fields da list <span class="text-slate-500 font-normal normal-case tracking-normal">(opcionais)</span></p>
-                <div class="space-y-2">
+                ${advancedDropdowns.length ? `<div class="grid ${advancedDropdowns.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2 mb-2">
+                  ${advancedDropdowns.map(cf => {
+                    const value = String((d.custom_fields || {})[cf.id] || '');
+                    return `<div>
+                      <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1">${Utils.escape(cf.name)}</label>
+                      <select onchange="Actions.updateClickupCustomField('${cf.id}', this.value)" class="w-full px-2 py-2 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" style="color-scheme:dark;">
+                        <option value="">— escolha (opcional) —</option>
+                        ${cf.options.map(o => `<option value="${Utils.escape(o.id)}" ${value === o.id ? 'selected' : ''}>${Utils.escape(o.name)}</option>`).join('')}
+                      </select>
+                    </div>`;
+                  }).join('')}
+                </div>` : ''}
+                ${nonDropdownFields.length ? `<div class="space-y-2">
                   ${nonDropdownFields.map(cf => {
                     const value = String((d.custom_fields || {})[cf.id] || '');
                     return `<div>
                       <label class="block text-[10px] font-bold text-slate-400 mb-0.5">${Utils.escape(cf.name)} <span class="text-slate-500">(${Utils.escape(cf.type)})</span></label>
-                      <input value="${Utils.escape(value)}" oninput="Actions.updateClickupCustomField('${cf.id}', this.value)" placeholder="valor (opcional)" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" />
+                      <input id="task-create-cf-${Utils.escape(cf.id)}" data-focus-key="task-create-cf-${Utils.escape(cf.id)}" value="${Utils.escape(value)}" oninput="Actions.updateClickupCustomField('${cf.id}', this.value)" placeholder="valor (opcional)" class="w-full px-2 py-1.5 rounded-lg bg-slate-900 border border-white/10 text-white text-[12px]" />
                     </div>`;
                   }).join('')}
-                </div>
+                </div>` : ''}
               </div>`;
             })()}
           </div>` : ''}

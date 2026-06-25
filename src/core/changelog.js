@@ -18,6 +18,21 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.7',
+    date: '2026-06-25',
+    title: 'Modal "Ação → ClickUp" — varredura adversarial (~23 bugs fechados, pisca/desseleciona/fecha sozinho extintos)',
+    bullets: [
+      'Felipe relatou "modal pisca, clica e no meio da digitação desseleciona, reset, fecha sozinho". Workflow adversarial de 85 agentes em 3 fases (Hunt → Verify cético → Synthesize) confirmou 27 bugs, fechados em 6 categorias numa onda só.',
+      'Categorias do ClickUp organizadas (lei Felipe): Channel/Publicação/Tipo/Grupo agora ESCONDIDOS do modal (poluição); Criação/Canais/Redação MOVIDOS pro Avançado. Status default cravado em "pendente".',
+      '**Foco preservado (10 inputs):** Nome, Descrição, Data de entrega, Data de início, Estimativa, Pontos, Subtask (parent), Dependência (links_to), Markdown e custom fields não-dropdown — todos ganharam id + data-focus-key (lei `feedback_modal_inputs_need_ids`). "Desseleciona no meio da digitação" extinto.',
+      '**Backdrop não fecha mais por acidente:** modal pai e overlay do chat Djow agora usam onmousedown-armed (padrão React/MUI) + confirm se draft sujo ou se chat tem conversa. Antes, drag-from-inside-to-outside fechava sem pedir nada.',
+      '**Pisca eliminado:** loadClickupListFields não renderiza mais em `loading:true` (spinner ~50ms que ninguém via roubava o foco). setTimeout(50) que disparava IO do render foi movido pra `openTaskCreationModal` — render não dispara IO. loadClickupMetadata defere render via requestAnimationFrame pra liberar foco antes do reflow.',
+      '**Race conditions blindadas:** closeTaskCreationModal agora limpa djowTaskChat órfão (sem isso ficava overlay fantasma z-99 interceptando Esc). sendDjowTaskMessage ganhou opId + actionId guard (resposta tardia de chat fechado/trocado é descartada). applyDjowDraftToTask valida que actionId do chat bate com o do modal — draft de Ação A não pode mais cair em Ação B.',
+      '**Validação cravada:** start_date depois de due_date agora bloqueia submit (antes task nascia "atrasada antes de começar" e disparava red flag fantasma na Etapa 6).',
+      '**UX polida:** Toggle "Campos avançados" mostra badge âmbar "N preenchido(s)" quando colapsado (evita dissonância de "esqueci que tinha priority/parent no payload"). Lista de membros (assignees) agora preserva scroll entre toggles — workspace 50+ não rola pro topo a cada click.',
+    ],
+  },
+  {
     version: 'V41.0.6',
     date: '2026-06-25',
     title: 'Botão "Forçar resync" no diagnóstico — fix de cache stale em 1 click',

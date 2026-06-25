@@ -866,7 +866,7 @@ var App = {
         // "Definir Audiência" — clicar num modelo/canal/refinador re-renderizava
         // e zerava o scroll do modal. Inner do wizard é overflow-hidden, scroll
         // vive no backdrop.
-        ['djowHomeRecent', 'djowMessages', 'strategicMapScrollContainer', 'settingsModalScroll', 'settingsModalBackdrop', 'audienceWizardBackdrop'].forEach(id => {
+        ['djowHomeRecent', 'djowMessages', 'strategicMapScrollContainer', 'settingsModalScroll', 'settingsModalBackdrop', 'audienceWizardBackdrop', 'task-create-assignees-scroll'].forEach(id => {
           const el = document.getElementById(id);
           if (el) {
             const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;

@@ -15161,8 +15161,11 @@ Object.assign(Actions, {
           customFields: data.customFields || []
         };
         App.save();
-        // Re-render se modal de task já tá aberto (pra preencher os dropdowns).
-        if (App.state.taskCreationModal?.open) App.render();
+        // V41.0.7 — defer pra liberar foco do input ativo antes de re-render
+        // (sem isso, member metadata chegando enquanto user digita rouba foco).
+        if (App.state.taskCreationModal?.open) {
+          requestAnimationFrame(() => { if (App.state.taskCreationModal?.open) App.render(); });
+        }
       } else {
         console.warn('[clickup] loadMetadata falhou:', data.message);
       }
@@ -15205,6 +15208,12 @@ Object.assign(Actions, {
     if (!action) return Utils.toast('Ação não encontrada.');
     // Pre-fetch metadata se ainda não tem
     if (!App.state.clickupMeta?.loaded) this.loadClickupMetadata();
+    // V41.0.7 — Pre-fetch custom fields da list ANTES do render (era setTimeout
+    // 50ms dentro do render — causava pisca + foco perdido).
+    const targetListId = this._resolveClickupTargetList?.({ actionId: Number(actionId) });
+    if (targetListId && !App.state.clickupListFieldsCache?.[targetListId]?.fetchedAt) {
+      this.loadClickupListFields?.(targetListId);
+    }
 
     // Modo edit: lê task existente
     const editingTask = editingTaskId && window.ExecutionTaskStore
@@ -15218,7 +15227,9 @@ Object.assign(Actions, {
         : `Ação operacional: ${action.name}. Canal: ${action.channel || '—'}.`,
       assignees: [],
       priority: '',
-      status: '',
+      // V41.0.7 — Default cravado pra 'pendente' (lei Felipe). Backend mapeia
+      // pro status equivalente da list de destino se 'pendente' não existir.
+      status: 'pendente',
       due_date: '',
       due_date_time: false,
       start_date: '',
@@ -15257,6 +15268,9 @@ Object.assign(Actions, {
 
   closeTaskCreationModal() {
     App.state.taskCreationModal = null;
+    // V41.0.7 — chat órfão sem modal pai vira fantasma com z-99. Evita
+    // cross-contamination com próximo modal de outra ação.
+    App.state.djowTaskChat = null;
     App.render();
   },
 
@@ -15324,21 +15338,32 @@ Object.assign(Actions, {
     if (!c || c.loading) return;
     const text = String(c.input || '').trim();
     if (!text) return;
+    // V41.0.7 — opId guard: chat fechado/trocado descarta resposta tardia.
+    // Sem isso, {...null} silenciosamente cria fantasma sem `open:true` que
+    // intercepta Esc (main.js stack).
+    if (!c._opId) c._opId = `chat_${new Date().getTime()}_${Math.floor(Math.random()*1e6).toString(36)}`;
+    const opId = c._opId;
+    const actionId = c.actionId;
     const userMsg = { role: 'user', content: text };
     const newMessages = [...(c.messages || []), userMsg];
     App.state.djowTaskChat = { ...c, messages: newMessages, input: '', loading: true };
     App.render();
+    const stillSame = () => {
+      const cur = App.state.djowTaskChat;
+      return cur && cur._opId === opId && Number(cur.actionId) === Number(actionId);
+    };
     try {
       const token = localStorage.getItem('lj_jwt');
       const r = await fetch('/api/djow-task-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          actionId: c.actionId,
+          actionId,
           messages: newMessages.map(m => ({ role: m.role, content: m.content }))
         })
       });
       const data = await r.json();
+      if (!stillSame()) return;
       if (data.ok) {
         const assistantMsg = { role: 'assistant', content: data.reply || '...', _draft: data.draft || null };
         App.state.djowTaskChat = {
@@ -15356,6 +15381,7 @@ Object.assign(Actions, {
         App.render();
       }
     } catch (err) {
+      if (!stillSame()) return;
       App.state.djowTaskChat = {
         ...App.state.djowTaskChat,
         messages: [...newMessages, { role: 'assistant', content: `Erro de rede: ${err.message}` }],
@@ -15369,8 +15395,18 @@ Object.assign(Actions, {
   // os campos preenchidos pelo Djow — não toca o que o user já tinha digitado
   // se o draft veio sem aquele campo.
   applyDjowDraftToTask(draft) {
-    if (!App.state.taskCreationModal?.open || !draft) return;
-    const cur = App.state.taskCreationModal.draft;
+    const m = App.state.taskCreationModal;
+    const c = App.state.djowTaskChat;
+    if (!m?.open || !draft) return;
+    // V41.0.7 — Defense-in-depth: draft de Ação A não pode cair em modal de Ação B
+    // (race: user fecha+reabre modal entre clicks, chat ainda tem actionId velho).
+    if (c && Number(c.actionId) !== Number(m.actionId)) {
+      Utils.toast('Esse draft é de outra ação. Descartado.');
+      App.state.djowTaskChat = null;
+      App.render();
+      return;
+    }
+    const cur = m.draft;
     const next = { ...cur };
     if (draft.name) next.name = draft.name;
     if (draft.description) next.description = draft.description;
@@ -15428,6 +15464,16 @@ Object.assign(Actions, {
       if (!String(d.description || '').trim()) return Utils.toast('Descrição é obrigatória.');
       if (!Array.isArray(d.assignees) || !d.assignees.length) return Utils.toast('Selecione pelo menos 1 responsável.');
       if (!String(d.due_date || '').trim()) return Utils.toast('Data de entrega é obrigatória pra acompanhar atrasos na Etapa 6.');
+    }
+    // V41.0.7 — start_date depois de due_date faz task nascer "atrasada antes de
+    // começar" e dispara red flag fantasma na Etapa 6. ClickUp não bloqueia, então
+    // valida cliente-side.
+    if (d.start_date && d.due_date) {
+      const sd = new Date(d.start_date).getTime();
+      const dd = new Date(d.due_date).getTime();
+      if (Number.isFinite(sd) && Number.isFinite(dd) && sd > dd) {
+        return Utils.toast('Data de início é depois da data de entrega — corrija.');
+      }
     }
 
     // V32.14.8 — Custom fields ClickUp NÃO são obrigatórios no LJ (Felipe
@@ -15613,7 +15659,9 @@ Object.assign(Actions, {
     const existing = App.state.clickupListFieldsCache[lid];
     if (existing && existing.fetchedAt && !existing.error) return; // cache hit
     App.state.clickupListFieldsCache[lid] = { fields: [], fetchedAt: null, loading: true, error: null };
-    App.render();
+    // V41.0.7 — NÃO renderiza em loading:true. Spinner ~50ms causa pisca + foco perdido
+    // em quem está digitando. Bloco loading:true só tem UI consumível depois do user
+    // expandir Avançado; render final cobre.
     try {
       const token = localStorage.getItem('lj_jwt');
       const r = await fetch(`/api/clickup-list-fields?list_id=${encodeURIComponent(lid)}`, {
