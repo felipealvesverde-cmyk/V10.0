@@ -3,19 +3,27 @@
 // logar (incidente Sansone: dados perdidos, cliente externo não consegue ir
 // no LJ recuperar).
 //
-// Body: { tenant_slug, snapshot_id, target_user_id? }
+// Body: { tenant_slug, snapshot_id, target_user_id?, restore_credentials? }
 //   tenant_slug: slug do tenant
 //   snapshot_id: id do snapshot a restaurar
 //   target_user_id: opcional. Se omitido, usa owner_user_id do snapshot.
+//   restore_credentials: opcional (default true). Se snapshot tem credentials_json,
+//     aplica nas 5 tabelas (clickup, google_ads, ga4, hotmart, rd).
+//
+// V41.0.2 — Snapshot agora inclui credentials_json. Restore restaura ambos.
+// Snapshots antigos (sem credentials_json) seguem só com state_json — fallback
+// silencioso.
 //
 // Comportamento:
 //   1. Localiza tenant + abre pool
-//   2. Busca snapshot por id
-//   3. Cria pre-restore-admin-* automático do journey_state atual (proteção)
+//   2. Busca snapshot por id (state_json + credentials_json)
+//   3. Cria pre-restore-admin-* automático do journey_state ATUAL + credentials atuais
 //   4. Aplica snapshot.state_json no journey_state[target_user_id]
-//   5. Retorna confirmação com diff de contagem (antes vs depois)
+//   5. Se snapshot.credentials_json existe e restore_credentials=true, aplica nas 5 tabelas
+//   6. Retorna confirmação com diff de contagem + credentials restauradas
 
 const tenantPoolHelper = require('../lib/tenant-pool');
+const { dumpCredentialsForUser, restoreCredentialsForUser, ensureCredentialsColumn } = require('../lib/credentials-snapshot');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
@@ -26,6 +34,7 @@ module.exports = async function handler(req, res) {
   const tenantSlug = String(req.body?.tenant_slug || '').trim().toLowerCase();
   const snapshotId = Number(req.body?.snapshot_id);
   const requestedTargetUserId = req.body?.target_user_id != null ? Number(req.body.target_user_id) : null;
+  const restoreCredentials = req.body?.restore_credentials !== false;
   if (!tenantSlug) return res.status(400).json({ ok: false, message: 'tenant_slug obrigatório.' });
   if (!snapshotId) return res.status(400).json({ ok: false, message: 'snapshot_id obrigatório.' });
 
@@ -47,9 +56,12 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({ ok: false, message: `Falha pool: ${err.message}` });
     }
 
-    // 3. Busca snapshot
+    // V41.0.2 — garante coluna credentials_json antes do SELECT (idempotente)
+    await ensureCredentialsColumn(tenantPool);
+
+    // 3. Busca snapshot (state_json + credentials_json — null em snapshots antigos)
     const snapRes = await tenantPool.query(
-      'SELECT id, state_json, label, owner_user_id FROM journey_snapshots WHERE id = $1',
+      'SELECT id, state_json, credentials_json, label, owner_user_id FROM journey_snapshots WHERE id = $1',
       [snapshotId]
     );
     if (!snapRes.rows.length) return res.status(404).json({ ok: false, message: `Snapshot ${snapshotId} não encontrado neste tenant.` });
@@ -59,7 +71,7 @@ module.exports = async function handler(req, res) {
     const targetUserId = requestedTargetUserId || snapshot.owner_user_id;
     if (!targetUserId) return res.status(400).json({ ok: false, message: 'Sem target_user_id e snapshot sem owner.' });
 
-    // 5. Backup do state atual ANTES de restaurar (proteção)
+    // 5. Backup do state atual + credentials atuais ANTES de restaurar (proteção)
     const currentRes = await tenantPool.query(
       'SELECT state_json FROM journey_state WHERE user_id = $1',
       [targetUserId]
@@ -72,15 +84,20 @@ module.exports = async function handler(req, res) {
         campaigns: (cs.campaigns || []).length,
         actions: (cs.actions || []).length
       };
-      // Pre-restore snapshot
+      // V41.0.2 — pre-restore snapshot agora dumpa credentials atuais também,
+      // pra que se o restore quebrar algo, dá pra voltar 100% do estado anterior.
+      let currentCredentials = null;
+      try {
+        currentCredentials = await dumpCredentialsForUser(tenantPool, targetUserId);
+      } catch (_) { /* segue */ }
       await tenantPool.query(
-        `INSERT INTO journey_snapshots (state_json, label, triggered_by_user_id, owner_user_id)
-         VALUES ($1, $2, $3, $4)`,
-        [cs, `pre-restore-admin-${new Date().toISOString().slice(0, 19)}-by-${req.user.sub}`, req.user.sub, targetUserId]
+        `INSERT INTO journey_snapshots (state_json, label, triggered_by_user_id, owner_user_id, credentials_json)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [cs, `pre-restore-admin-${new Date().toISOString().slice(0, 19)}-by-${req.user.sub}`, req.user.sub, targetUserId, currentCredentials]
       );
     }
 
-    // 6. Aplica snapshot
+    // 6. Aplica state_json
     await tenantPool.query(
       `INSERT INTO journey_state (user_id, state_json, updated_at, updated_by_user_id)
        VALUES ($1, $2, NOW(), $3)
@@ -90,6 +107,21 @@ module.exports = async function handler(req, res) {
          updated_by_user_id = EXCLUDED.updated_by_user_id`,
       [targetUserId, snapshot.state_json, req.user.sub]
     );
+
+    // 7. V41.0.2 — Aplica credentials se snapshot tiver e flag estiver on
+    let credentialsResult = { applied: false, tables: 0, rows: 0, skipped: 0, reason: null };
+    if (snapshot.credentials_json && restoreCredentials) {
+      try {
+        const r = await restoreCredentialsForUser(tenantPool, targetUserId, snapshot.credentials_json);
+        credentialsResult = { applied: true, ...r };
+      } catch (err) {
+        credentialsResult = { applied: false, tables: 0, rows: 0, skipped: 0, reason: `erro: ${err.message}` };
+      }
+    } else if (!snapshot.credentials_json) {
+      credentialsResult.reason = 'snapshot sem credentials (criado antes de V41.0.2 ou owner sem integrações)';
+    } else if (!restoreCredentials) {
+      credentialsResult.reason = 'restore_credentials=false no body';
+    }
 
     const afterCounts = {
       products: (snapshot.state_json?.products || []).length,
@@ -104,7 +136,8 @@ module.exports = async function handler(req, res) {
       targetUserId,
       snapshotLabel: snapshot.label,
       before: beforeCounts,
-      after: afterCounts
+      after: afterCounts,
+      credentials: credentialsResult
     });
   } catch (err) {
     console.error('[admin-restore-tenant-snapshot]', err);

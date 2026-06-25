@@ -7,12 +7,17 @@
 //   4. Insere snapshot em journey_snapshots com label 'deploy-V32.X.Y-TIMESTAMP'
 //   5. Retention: mantém só os 10 últimos snapshots de prefix 'deploy-' por owner
 //
+// V41.0.2 — Snapshot agora inclui credentials_json (5 tabelas de integração).
+// Restore via admin-restore-tenant-snapshot recupera operacional + integrações.
+// Tokens permanecem criptografados (ENCRYPTION_KEY do servidor) durante o dump.
+//
 // Master-only. Retorna estatísticas: { tenants, snapshots, skipped, errors }.
 //
 // Workflow cravado: TODA vez que Felipe disser "subir/aplica/promove pra prod",
 // o dev chama este endpoint PRIMEIRO, depois git push origin main.
 
 const tenantPoolHelper = require('../lib/tenant-pool');
+const { dumpCredentialsForUser, ensureCredentialsColumn } = require('../lib/credentials-snapshot');
 
 const DEPLOY_LABEL_PREFIX = 'deploy-';
 const RETENTION_PER_OWNER = 10;
@@ -35,6 +40,7 @@ module.exports = async function handler(req, res) {
     snapshotsCreated: 0,
     snapshotsSkippedEmpty: 0,
     snapshotsDeleted: 0,
+    credentialsDumped: 0,
     errors: []
   };
 
@@ -68,6 +74,9 @@ module.exports = async function handler(req, res) {
         continue;
       }
 
+      // V41.0.2 — garante coluna credentials_json antes do primeiro INSERT no tenant
+      await ensureCredentialsColumn(tenantPool);
+
       for (const userRow of users) {
         stats.usersScanned++;
         const state = userRow.state_json;
@@ -80,12 +89,22 @@ module.exports = async function handler(req, res) {
           continue;
         }
 
+        // V41.0.2 — dump das credentials do user (5 tabelas). Null se nenhuma
+        // tabela tem linha — campo fica NULL no snapshot e restore não toca.
+        let credentialsJson = null;
+        try {
+          credentialsJson = await dumpCredentialsForUser(tenantPool, userRow.user_id);
+          if (credentialsJson) stats.credentialsDumped++;
+        } catch (err) {
+          stats.errors.push({ tenant: tenant.slug, userId: userRow.user_id, step: 'dump_credentials', message: err.message });
+        }
+
         try {
           // Insere snapshot
           await tenantPool.query(
-            `INSERT INTO journey_snapshots (state_json, label, triggered_by_user_id, owner_user_id)
-             VALUES ($1, $2, $3, $4)`,
-            [state, label, req.user.sub, userRow.user_id]
+            `INSERT INTO journey_snapshots (state_json, label, triggered_by_user_id, owner_user_id, credentials_json)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [state, label, req.user.sub, userRow.user_id, credentialsJson]
           );
           stats.snapshotsCreated++;
 

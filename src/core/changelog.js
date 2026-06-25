@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.2',
+    date: '2026-06-25',
+    title: 'Snapshot completo — integrações voltam junto no restore',
+    bullets: [
+      'Antes, restore de snapshot só voltava produtos/campanhas/ações/RevOps. As 5 integrações (ClickUp, Google Ads, GA4, Hotmart, RD Station) viviam em tabelas próprias e ficavam de fora — restaurou um snapshot, todas apareciam desconectadas e você precisava reconectar uma a uma.',
+      'Agora o snapshot dumpa também as credenciais criptografadas (tokens já vêm criptografados com a ENCRYPTION_KEY do servidor — restore só funciona dentro do mesmo Railway).',
+      'Restore aplica state + credenciais de uma vez. Snapshots antigos (pré-V41.0.2) seguem restaurando só state, sem quebrar.',
+      'Bonus: o pre-restore-admin-* automático que protege contra restore errado agora também salva as credenciais atuais — dá pra desfazer 100%, não 70%.',
+    ],
+  },
+  {
     version: 'V41.0.1',
     date: '2026-06-25',
     title: 'Criar número personalizado virou pill — saiu do rodapé escondido',

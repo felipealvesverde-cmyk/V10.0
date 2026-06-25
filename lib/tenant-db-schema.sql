@@ -50,6 +50,12 @@ CREATE TABLE IF NOT EXISTS journey_snapshots (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   triggered_by_user_id INT
 );
+-- V41.0.2 — credentials_json guarda dump das 5 tabelas de integrações por owner
+-- (clickup, google_ads, ga4, hotmart, rd). Snapshots antigos têm NULL → restore
+-- mantém credentials atuais. Tokens permanecem criptografados durante o dump.
+-- A coluna é criada self-healing em runtime via lib/credentials-snapshot.js
+-- (ensureCredentialsColumn), então este ALTER é só pra schema base.
+ALTER TABLE journey_snapshots ADD COLUMN IF NOT EXISTS credentials_json JSONB;
 
 CREATE INDEX IF NOT EXISTS idx_journey_snapshots_owner
   ON journey_snapshots(owner_user_id, created_at DESC);
