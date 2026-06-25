@@ -461,7 +461,10 @@ var ProductsModule = {
   editProductModal() {
     const product = (App.state.products || []).find(item => Number(item.id) === Number(App.state.editProductId));
     if (!App.state.showProductEditModal || !product) return '';
-    const model = product.revenueModel || 'Venda única';
+    // V40.16.4 — Bug #65 do audit: lê do productEditDraft (clone-on-open).
+    // Fallback pro product real (1o render legacy ou estado degradado).
+    const draft = App.state.productEditDraft || product;
+    const model = draft.revenueModel || 'Venda única';
     return `<div class="fixed inset-0 z-[999] bg-slate-950/70 backdrop-blur-sm p-4 overflow-y-auto">
       <div class="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-2xl mx-auto mt-8 overflow-hidden">
         <header class="bg-slate-900 text-white p-5 flex items-start justify-between gap-3">
@@ -469,11 +472,11 @@ var ProductsModule = {
           <button onclick="Actions.closeProductEditModal()" class="w-10 h-10 rounded-2xl bg-white/10 hover:bg-white/15 text-white font-black text-xl">×</button>
         </header>
         <div class="p-5 grid md:grid-cols-2 gap-3">
-          <div class="md:col-span-2"><label class="text-xs font-black text-slate-500">Nome do produto</label><input id="editing-product-name" data-focus-key="editing-product-name" value="${Utils.escape(product.name || '')}" oninput="Actions.updateEditingProductField('name', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-          <div><label class="text-xs font-black text-slate-500">Tipo de produto</label><input id="editing-product-type" data-focus-key="editing-product-type" value="${Utils.escape(product.type || '')}" oninput="Actions.updateEditingProductField('type', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
-          <div><label class="text-xs font-black text-slate-500">Preço</label><input id="editing-product-price" data-focus-key="editing-product-price" value="${Utils.escape(product.price || '')}" oninput="Actions.updateEditingProductField('price', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
+          <div class="md:col-span-2"><label class="text-xs font-black text-slate-500">Nome do produto</label><input id="editing-product-name" data-focus-key="editing-product-name" value="${Utils.escape(draft.name || '')}" oninput="Actions.updateEditingProductField('name', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
+          <div><label class="text-xs font-black text-slate-500">Tipo de produto</label><input id="editing-product-type" data-focus-key="editing-product-type" value="${Utils.escape(draft.type || '')}" oninput="Actions.updateEditingProductField('type', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
+          <div><label class="text-xs font-black text-slate-500">Preço</label><input id="editing-product-price" data-focus-key="editing-product-price" value="${Utils.escape(draft.price || '')}" oninput="Actions.updateEditingProductField('price', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
           <div><label class="text-xs font-black text-slate-500">Recorrência ou venda única</label><select id="editing-product-revenue-model" onchange="Actions.updateEditingProductField('revenueModel', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold"><option value="Venda única" ${model === 'Venda única' ? 'selected' : ''}>Venda única</option><option value="Recorrente" ${model === 'Recorrente' ? 'selected' : ''}>Recorrente</option></select></div>
-          <div><label class="text-xs font-black text-slate-500">Custo operacional</label><input id="editing-product-cost" data-focus-key="editing-product-cost" value="${Utils.escape(product.operationalCost || '')}" oninput="Actions.updateEditingProductField('operationalCost', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
+          <div><label class="text-xs font-black text-slate-500">Custo operacional</label><input id="editing-product-cost" data-focus-key="editing-product-cost" value="${Utils.escape(draft.operationalCost || '')}" oninput="Actions.updateEditingProductField('operationalCost', this.value)" class="w-full px-4 py-3 rounded-2xl bg-slate-100 font-semibold" /></div>
           <div class="md:col-span-2 flex flex-col md:flex-row gap-2 justify-end pt-2 border-t border-slate-100">
             ${/* V32.5.7 — Deletar redireciona pra Configurações → Minha Conta →
                  Produtos (não deleta inline). Caminho centralizado de gerenciamento

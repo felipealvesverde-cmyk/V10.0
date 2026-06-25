@@ -103,6 +103,36 @@ var Actions = {
           App.state.selectedActionId = null;
         }
 
+        // V40.16.4 — Bug #62 do audit: cleanup de drafts e modal-ids em memória
+        // que referenciavam o produto/campanhas/ações deletados. Antes ficavam
+        // stale e a próxima criação saía órfã.
+        if (App.state.campaignDraft?.productId === pid) {
+          App.state.campaignDraft = { ...(App.state.campaignDraft || {}), productId: App.state.selectedProductId, name: '', objective: '', owner: '' };
+        }
+        if (campaignIds.has(Number(App.state.actionDraft?.campaignId))) {
+          App.state.actionDraft = { ...(App.state.actionDraft || {}), campaignId: App.state.selectedCampaignId, name: '', objective: '' };
+        }
+        if (Number(App.state.editProductId) === pid) App.state.editProductId = null;
+        if (campaignIds.has(Number(App.state.editCampaignId))) App.state.editCampaignId = null;
+        if (Number(App.state.audienceWizard?.productId) === pid) App.state.audienceWizard = null;
+        if (App.state.newProductWithMapaPopup) App.state.newProductWithMapaPopup = null;
+        if (Number(App.state.revopsSelectedProductId) === pid) App.state.revopsSelectedProductId = App.state.selectedProductId;
+        if (Number(App.state.productCampaignsModalId) === pid) {
+          App.state.productCampaignsModalId = null;
+          App.state.showProductCampaignsModal = false;
+        }
+        if (Number(App.state.productTotalFlowProductId) === pid) App.state.productTotalFlowProductId = null;
+        if (Number(App.state.revenueOverviewProductId) === pid) App.state.revenueOverviewProductId = null;
+        if (Number(App.state.strategicMapProductId) === pid) {
+          App.state.strategicMapProductId = null;
+          App.state.showStrategicMap = false;
+        }
+        if (campaignIds.has(Number(App.state.strategicMapCampaignId))) App.state.strategicMapCampaignId = null;
+        if (App.state.acompanhamentoActionDetail?.actionId != null && actionIds.has(Number(App.state.acompanhamentoActionDetail.actionId))) {
+          App.state.acompanhamentoActionDetail = null;
+        }
+        if (App.state.acompanhamentoKrDetail?.productId === pid) App.state.acompanhamentoKrDetail = null;
+
         // 6. Limpa o pending + persiste
         App.state.adminDeleteProductPending = null;
         App.save(); App.render();
@@ -2121,11 +2151,28 @@ Object.assign(Actions, {
       });
     }
   },
+  // V40.16.4 — Bug #68 do audit: preserva OKRs editados pelo cliente em vez de
+  // substituir TUDO via OkrSuggestionEngine.defaultFor a cada troca de Setor/
+  // Funil/Canal/Tipo. Merge condicional: se cliente já editou um OKR (name OU
+  // target OU current preenchido), mantém intacto. Vazios viram sugestão da
+  // engine. Resolve perda silenciosa de texto digitado no form de criar ação.
   updateActionContext(field, value) {
     App.state.actionDraft[field] = value;
     if (field === 'sector') App.state.actionDraft.originSector = value;
     if (field === 'funnel') App.state.actionDraft.originFunnel = value;
-    App.state.actionDraft.okrs = OkrSuggestionEngine.defaultFor(App.state.actionDraft.sector, App.state.actionDraft.funnel, App.state.actionDraft.channel, App.state.actionDraft.actionType);
+    const sugeridos = OkrSuggestionEngine.defaultFor(App.state.actionDraft.sector, App.state.actionDraft.funnel, App.state.actionDraft.channel, App.state.actionDraft.actionType) || [];
+    const atuais = Array.isArray(App.state.actionDraft.okrs) ? App.state.actionDraft.okrs : [];
+    const merged = sugeridos.map((sug, i) => {
+      const at = atuais[i];
+      if (!at) return sug;
+      const editado = String(at.name || '').trim() || String(at.target || '').trim() || String(at.current || '').trim();
+      return editado ? at : sug;
+    });
+    // Preserva OKRs adicionados manualmente além do template
+    if (atuais.length > sugeridos.length) {
+      for (let i = sugeridos.length; i < atuais.length; i++) merged.push(atuais[i]);
+    }
+    App.state.actionDraft.okrs = merged;
     App.save(); App.render();
   },
   updateActionDraftOkr(index, field, value) {
@@ -2774,36 +2821,42 @@ Object.assign(Actions, {
 
 // V12.3.1 - Edit product and campaign modals.
 Object.assign(Actions, {
+  // V40.16.4 — Bug #65 do audit: clone-on-open. Antes updateEditingProductField
+  // mutava App.state.products direto a cada keystroke + chamava App.save();
+  // se cliente fechava sem confirmar, mudanças ficavam aplicadas. Agora draft
+  // separado: edit escreve em App.state.productEditDraft, save aplica, close
+  // descarta. Mesmo padrão de actionEditDraft.
   openProductEditModal(id) {
     const product = (App.state.products || []).find(item => Number(item.id) === Number(id));
     if (!product) return Utils.toast('Produto não encontrado.');
     App.state.editProductId = Number(id);
+    App.state.productEditDraft = { ...product };
     App.state.showProductEditModal = true;
     App.save(); App.render();
   },
   closeProductEditModal() {
     App.state.showProductEditModal = false;
     App.state.editProductId = null;
+    App.state.productEditDraft = null;
     App.save(); App.render();
   },
   updateEditingProductField(field, value) {
-    const index = (App.state.products || []).findIndex(item => Number(item.id) === Number(App.state.editProductId));
-    if (index < 0) return;
-    App.state.products[index] = { ...App.state.products[index], [field]: value };
-    App.save();
+    if (!App.state.productEditDraft) return;
+    App.state.productEditDraft = { ...App.state.productEditDraft, [field]: value };
   },
   saveProductEdit() {
+    const draft = App.state.productEditDraft;
+    if (!draft) return Utils.toast('Edição perdida — reabra o modal.');
     const index = (App.state.products || []).findIndex(item => Number(item.id) === Number(App.state.editProductId));
     if (index < 0) return Utils.toast('Produto não encontrado.');
-    const current = App.state.products[index];
-    if (!String(current.name || '').trim()) return Utils.toast('Digite o nome do produto.');
-    const oldName = String(current.name).trim();
-    const newName = oldName; // current.name já foi atualizado por updateEditingProductField; este é o nome final salvo
-    App.state.products[index] = ProductRevenueEngine.normalize({ ...current, name: newName }, index);
+    if (!String(draft.name || '').trim()) return Utils.toast('Digite o nome do produto.');
+    const newName = String(draft.name).trim();
+    App.state.products[index] = ProductRevenueEngine.normalize({ ...draft, name: newName }, index);
     App.state.selectedProductId = App.state.products[index].id;
     const productId = App.state.products[index].id;
     App.state.showProductEditModal = false;
     App.state.editProductId = null;
+    App.state.productEditDraft = null;
     App.save(); App.render(); Utils.toast('Produto atualizado.');
     // V32.2.0 — Sync rename pro ClickUp (mirror). Async, não-bloqueante.
     this._syncRenameToClickup('product', productId, newName);
@@ -15354,6 +15407,13 @@ Object.assign(Actions, {
     const m = App.state.taskCreationModal;
     if (!m) return;
     const d = m.draft;
+    // V40.16.4 — Bug #34 do audit: opId pra evitar ressuscitar modal fechado.
+    // Antes, se cliente clicava Criar e fechava o modal antes do backend
+    // responder, o path de erro re-setava taskCreationModal com draft antigo
+    // (modal voltava do nada). E no path feliz, task era criada sem feedback
+    // visual.
+    if (!m._opId) m._opId = `op_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+    const opId = m._opId;
     // V40.16.2 — Bug #56 do audit: detecta edit mode ANTES das validações.
     // Em edit, relaxa pra só nome obrigatório — antes forçava assignees/due_date
     // mesmo em task antiga que tinha campos vazios na origem ClickUp.
@@ -15456,12 +15516,17 @@ Object.assign(Actions, {
             assignees: payload.assignees || []
           });
           // TODO: atualizar custom_fields requer PUT individual por campo (API ClickUp)
-          App.state.taskCreationModal = null;
+          if (App.state.taskCreationModal?._opId === opId) {
+            App.state.taskCreationModal = null;
+          }
           App.save(); App.render();
           Utils.toast(`✓ Task atualizada no ClickUp.`);
         } else {
-          App.state.taskCreationModal = { ...m, submitting: false };
-          App.render();
+          // V40.16.4 — Bug #34: só atualiza submitting se modal ainda é o mesmo.
+          if (App.state.taskCreationModal?._opId === opId) {
+            App.state.taskCreationModal = { ...App.state.taskCreationModal, submitting: false };
+            App.render();
+          }
           Utils.toast(`Falhou atualizar: ${data.message || data.data?.err || 'erro desconhecido'}`);
         }
       } else {
@@ -15504,17 +15569,23 @@ Object.assign(Actions, {
               Utils.toast(`✓ Task criada no ClickUp${data.externalUrl ? '. Clique no toast pra abrir.' : '.'}`);
             }
           }
-          App.state.taskCreationModal = null;
+          if (App.state.taskCreationModal?._opId === opId) {
+            App.state.taskCreationModal = null;
+          }
           App.save(); App.render();
         } else {
-          App.state.taskCreationModal = { ...m, submitting: false };
-          App.render();
+          if (App.state.taskCreationModal?._opId === opId) {
+            App.state.taskCreationModal = { ...App.state.taskCreationModal, submitting: false };
+            App.render();
+          }
           Utils.toast(`Falhou: ${data.message || 'erro desconhecido'}`);
         }
       }
     } catch (err) {
-      App.state.taskCreationModal = { ...m, submitting: false };
-      App.render();
+      if (App.state.taskCreationModal?._opId === opId) {
+        App.state.taskCreationModal = { ...App.state.taskCreationModal, submitting: false };
+        App.render();
+      }
       Utils.toast(`Erro de rede: ${err.message}`);
     }
   },
@@ -16254,9 +16325,22 @@ Prioridade: ${d.priority}
       `Esta operação é IRREVERSÍVEL. Confirma?`
     );
     if (!ok) return;
-    App.state.executionTasks = (App.state.executionTasks || []).filter(t => Number(t.linked_action_id) !== Number(actionId));
-    App.state.actions = (App.state.actions || []).filter(a => Number(a.id) !== Number(actionId));
+    const numId = Number(actionId);
+    App.state.executionTasks = (App.state.executionTasks || []).filter(t => Number(t.linked_action_id) !== numId);
+    App.state.actions = (App.state.actions || []).filter(a => Number(a.id) !== numId);
     App.state.strategicActionDetailModalId = null;
+    // V40.16.4 — Bug #61 do audit: cleanup amplo de referências. Antes só
+    // limpava strategicActionDetailModalId — selectedActionId/acompanhamento
+    // ficavam apontando pro id deletado, modal de edição abria vazio,
+    // Acompanhamento mostrava "Ação não encontrada".
+    if (Number(App.state.selectedActionId) === numId) App.state.selectedActionId = null;
+    if (Number(App.state.selectedResultActionId) === numId) App.state.selectedResultActionId = null;
+    if (App.state.acompanhamentoActionDetail?.actionId === numId) App.state.acompanhamentoActionDetail = null;
+    if (App.state.executionListFilter?.actionId === numId) App.state.executionListFilter = { ...App.state.executionListFilter, actionId: null };
+    // Sync delete pro ClickUp (espelha pattern do deleteActionFromEdit).
+    if (this._syncDeleteToClickup) {
+      try { this._syncDeleteToClickup('action', actionId); } catch (_) {}
+    }
     App.save(); App.render();
     Utils.toast(`Ação "${action.name}" deletada.`);
   },
@@ -16509,8 +16593,16 @@ Prioridade: ${d.priority}
     const m = App.state.connectActionToKrsModal;
     if (!m) return;
     if (!m.selectedKrIds || !m.selectedKrIds.length) return Utils.toast('Marque pelo menos um KR.');
-    const productId = App.state.strategicMapProductId;
-    const campaignId = App.state.strategicMapCampaignId;
+    // V40.16.4 — Bug #60 do audit: deriva productId/campaignId da action em vez
+    // de ler state global. Modal pode ter sido aberto sobre branch X (produto
+    // P1) e em paralelo Pulso trocou strategicMapProductId pra P2. Submit
+    // antigo lia P2 e KRs não casavam.
+    const action = (App.state.actions || []).find(a => Number(a.id) === Number(m.actionId));
+    if (!action) return Utils.toast('Ação não encontrada.');
+    const campaign = (App.state.campaigns || []).find(c => Number(c.id) === Number(action.campaignId));
+    if (!campaign) return Utils.toast('Campanha da ação não encontrada.');
+    const productId = Number(campaign.productId);
+    const campaignId = Number(action.campaignId);
     if (!productId || !campaignId) return Utils.toast('Sem branch ativa.');
     const branch = StrategicMapEngine.getBranchMap(campaignId);
     if (!branch) return Utils.toast('Branch não encontrada.');
@@ -16700,8 +16792,21 @@ Prioridade: ${d.priority}
   // V31.2.23 — Expande o card plugado pra mostrar engine + chips. Default
   // dos cards plugados é colapsado (visual igual aos desplugados, só com pills).
   // Auto-abre a engine ao expandir (matches "+ Criar ação" mental model).
+  // V40.16.4 — Bug #33 do audit: se já existe engine ativa pro mesmo pkr,
+  // preserva (cliente pode ter digitado nome de ação). Se é outro pkr e a
+  // engine atual tem conteúdo digitado, pede confirm antes de sobrescrever.
   expandPluggedKrCard(areaId, pkrId) {
     App.state.strategicKrCardOpen = { ...(App.state.strategicKrCardOpen || {}), [pkrId]: true };
+    const eng = App.state.customActionEngine;
+    if (eng?.parentProductKrId === pkrId) {
+      App.render();
+      return;
+    }
+    if (eng && String(eng.name || '').trim()) {
+      if (!confirm('Você tem uma ação custom em andamento que será descartada. Continuar?')) {
+        return App.render();
+      }
+    }
     this.openCustomActionEngine(areaId, pkrId);
   },
 
@@ -17221,9 +17326,14 @@ Prioridade: ${d.priority}
   // V35.8.0-alpha3 — STUB inicial.
   // V35.8.0-alpha4 — Chama endpoint real /api/djow-kr-infer step='name'.
   // Mantém mock local como fallback se backend falhar (offline, 500, etc).
+  // V40.16.4 — Bug #36/#69/#72 do audit: opId guard pós-await. Antes
+  // djowProcessKrName escrevia em createCustomKrModal mesmo se modal foi
+  // recriado entre open e resolução (ex: cliente fechou e abriu de novo
+  // pra outro KR). Resultado: indicador Djow "vazava" pro novo modal.
   async djowProcessKrName(rawName) {
     const m = App.state.createCustomKrModal;
     if (!m || !m.open) return;
+    const opId = m._opId;
     const name = String(rawName || '').trim();
     if (!name) return;
     if (!m.djow) return;
@@ -17242,13 +17352,14 @@ Prioridade: ${d.priority}
           body: JSON.stringify({ step: 'name', sessionId: m.djow.sessionId, nome: name })
         });
         const data = await r.json();
-        if (data.ok && App.state.createCustomKrModal?.open) {
+        // opId guard: só escreve se ainda for o MESMO modal (cliente não fechou/reabriu).
+        if (data.ok && App.state.createCustomKrModal?.open && App.state.createCustomKrModal._opId === opId) {
           const mm = App.state.createCustomKrModal;
           mm.djow.classification = data.classification;
           mm.djow.falaHistory = data.fala_history || [];
           mm.djow.layerOptions = data.layer_options || [];
           mm.djow.selectedIds = [];
-          mm.djow.numbersUnlocked = (data.layer_options || []).length === 0;  // manual = libera direto
+          mm.djow.numbersUnlocked = (data.layer_options || []).length === 0;
           mm.djow.krMeta = data.kr_meta || null;
           mm.djow.analyzing = false;
           if (data.kr_meta?.unit) mm.metric = data.kr_meta.unit;
@@ -17260,7 +17371,7 @@ Prioridade: ${d.priority}
 
     // Fallback: mock local (mantém usabilidade quando backend indisponível)
     Actions._djowProcessKrNameMockLocal(name);
-    if (App.state.createCustomKrModal?.open) {
+    if (App.state.createCustomKrModal?.open && App.state.createCustomKrModal._opId === opId) {
       App.state.createCustomKrModal.djow.analyzing = false;
       App.render();
     }

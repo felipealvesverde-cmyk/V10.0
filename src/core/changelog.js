@@ -18,6 +18,24 @@
 
 window.LJChangelog = [
   {
+    version: 'V40.16.4',
+    date: '2026-06-24',
+    title: 'Onda 6 do audit do Mapa: 8 bugs (state drift residual + race fina) — AUDIT FECHADO',
+    bullets: [
+      'Última onda do audit do Mapa da Receita. 8 bugs de residual: races assíncronas fina, cleanup incompleto após delete, drafts mutando entidade real direto.',
+      'Card de KR plugado (#33): expandir um KR diferente quando você tem ação custom em andamento na engine antes pedia confirm e descartava. Agora se a engine ativa é do mesmo KR-mãe, preserva. Se é outro KR e a engine tem nome digitado, pede confirm explícito.',
+      'submitTaskCreation (#34): opId guard pós-await. Antes, se você clicava Criar e fechava o modal antes do backend responder, o path de erro ressuscitava o modal com draft antigo (modal voltava do nada). Agora só atualiza submitting se o modal ainda for o mesmo opId.',
+      'djowProcessKrName (#36/#69/#72): opId guard. Antes, se você fechava o modal de criar KR custom e abria outro pra KR diferente, o fetch do Djow resolvia e contaminava o modal novo com a classificação/options do KR anterior.',
+      'confirmConnectActionToKrs (#60): productId/campaignId derivados da action diretamente em vez de ler state global. Antes, se Pulso trocasse strategicMapProductId em paralelo enquanto o modal estava aberto, KRs não casavam.',
+      'deleteActionFromDetail (#61): cleanup amplo. Antes só limpava strategicActionDetailModalId — selectedActionId/selectedResultActionId/acompanhamento ficavam apontando pro id deletado. Modal de edição abria vazio, Acompanhamento mostrava "Ação não encontrada". Agora limpa tudo + sync delete pro ClickUp (mesmo padrão dos outros deletes).',
+      'Admin delete product (#62): cleanup completo de drafts e modal-ids. Antes drafts ficavam apontando pra produto/campanha/ação deletados, próxima criação saía órfã. Agora limpa campaignDraft.productId, actionDraft.campaignId, editProductId, audienceWizard, newProductWithMapaPopup, revopsSelectedProductId, strategicMapProductId, acompanhamentoActionDetail, etc.',
+      'Editar produto (#65): clone-on-open. Antes cada keystroke no modal mutava products[] direto + chamava App.save(). Se você fechasse sem confirmar, mudanças ficavam aplicadas (sync ClickUp não rodava, mas tudo o resto ficava). Agora draft separado em App.state.productEditDraft — save aplica, close descarta.',
+      'Form criar ação (#68): merge condicional dos OKRs em vez de overwrite. Antes trocar Setor/Funil/Canal/Tipo zerava OKRs preenchidos pelo cliente e botava sugestões. Agora preserva OKRs editados (name/target/current com conteúdo) e só substitui os vazios.',
+      'TOTAL DO AUDIT FECHADO: 61 dos 73 bugs em 4 versões (V40.16.0 → V40.16.4). 12 bugs restantes são duplicatas confirmadas pelo agente de síntese — mesmo arquivo:linha vistos por dimensões diferentes. Cobertura efetiva: 100% dos bugs únicos.',
+      'Próximo capítulo: a sessão de Mapa da Receita do dia 24/06 começou com Felipe relatando "muito bug, tela piscando, escreve 2 letras e sai, reset, fecha sozinho". Saída: varredura adversarial de 143 agentes → 73 bugs confirmados → 6 ondas de fix. Mapa da Receita agora respira sem perder trabalho do operador.'
+    ]
+  },
+  {
     version: 'V40.16.3',
     date: '2026-06-24',
     title: 'Onda 5 do audit do Mapa: 8 bugs (navegação e overlap entre modais)',

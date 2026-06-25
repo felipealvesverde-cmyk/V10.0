@@ -757,6 +757,9 @@ var State = {
       leadDraft: { name: '', phone: '', email: '', idade: '', estado: '', cidade: '', estadoCivil: '', sexo: '', faixaSalarial: '', tags: '' },
       manualLeads: [],
       productDraft: { name: '', type: '', price: '', revenueModel: 'Venda única', operationalCost: '', audience: null },
+      // V40.16.4 — Bug #65 do audit: clone-on-open. Edição de produto antes
+      // mutava products[] direto a cada keystroke. Agora draft separado.
+      productEditDraft: null,
       audienceWizard: null,
       // V40.16.2 — Bug #53 do audit: modais transitentes do Mapa precisam
       // estar em State.initial pra normalize não dropá-los silenciosamente em
@@ -1638,6 +1641,7 @@ var State = {
         return merged;
       })(),
       audienceWizard: (raw.audienceWizard && typeof raw.audienceWizard === 'object' && raw.audienceWizard.open) ? raw.audienceWizard : null,
+      productEditDraft: (raw.productEditDraft && typeof raw.productEditDraft === 'object') ? raw.productEditDraft : null,
       // V40.16.2 — Bug #53 do audit: preserva modais transitentes do Mapa quando
       // têm conteúdo (open=true ou objeto não-vazio). Antes F5 droppava
       // silenciosamente.
