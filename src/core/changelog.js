@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.9',
+    date: '2026-06-25',
+    title: 'Djow ganhou base de raciocínio de receita + RevOps',
+    bullets: [
+      'Nova base interna de raciocínio para o Djow propor KRs, metas e itens de RevOps com lente de receita (outside-in, estágios de maturidade, conciliação por proximidade da transação, teste "toca o cliente?", metas combinadas, efeito dominó).',
+      'Uso 100% interno — Djow continua falando humano, sem citar frameworks ou jargão.',
+      'Vive em knowledge-base/revops/ (mesma pasta de marketing/sales/cs/financial-ops).',
+    ],
+  },
+  {
     version: 'V41.0.8',
     date: '2026-06-25',
     title: 'Modal Tarefa — responsável removido do workspace não trava mais o submit',
