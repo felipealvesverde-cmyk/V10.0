@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.4',
+    date: '2026-06-25',
+    title: 'Debug de credenciais aceita membro do próprio tenant',
+    bullets: [
+      'admin-debug-tenant-credentials antes era master-only. Agora também aceita quem é membro do tenant pedido (req.user.tenantId === tenant.id).',
+      'Caso de uso: cliente logado consegue diagnosticar a si mesmo sem precisar do master trocar de conta.',
+    ],
+  },
+  {
     version: 'V41.0.3',
     date: '2026-06-25',
     title: 'Diagnóstico master — ver o que sobrou no banco de cada integração',

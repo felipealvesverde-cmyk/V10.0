@@ -1,9 +1,12 @@
 // V41.0.3 — GET /api/admin-debug-tenant-credentials?tenant_slug=<slug>
 //
-// Master-only. Diagnóstico read-only: lista, pro owner do tenant, qual o
-// estado das 5 tabelas de credentials (clickup, google_ads, ga4, hotmart, rd).
-// Retorna SÓ metadata não-sensível (workspace_name, configured, oauth_completed,
+// Diagnóstico read-only: lista, pro owner do tenant, qual o estado das 5
+// tabelas de credentials (clickup, google_ads, ga4, hotmart, rd). Retorna SÓ
+// metadata não-sensível (workspace_name, configured, oauth_completed,
 // last_sync_at, etc) — NUNCA campos _enc nem tokens em claro.
+//
+// V41.0.4 — Aceita master OU owner do próprio tenant (pra cliente conseguir
+// diagnosticar a si mesmo sem precisar do master).
 //
 // Cenário: cliente perdeu credentials e queremos saber se Client ID/Secret
 // ainda existem criptografados no banco (clickup_config tem linha mas
@@ -15,7 +18,6 @@ const tenantPoolHelper = require('../lib/tenant-pool');
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ ok: false, message: 'Use GET.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
-  if (!req.user.isMaster) return res.status(403).json({ ok: false, message: 'Apenas master.' });
   if (!req.db) return res.status(503).json({ ok: false, message: 'Control plane não configurado.' });
 
   const tenantSlug = String(req.query?.tenant_slug || '').trim().toLowerCase();
@@ -28,6 +30,12 @@ module.exports = async function handler(req, res) {
     );
     if (!tenantRes.rows.length) return res.status(404).json({ ok: false, message: `Tenant "${tenantSlug}" não encontrado.` });
     const tenant = tenantRes.rows[0];
+
+    // V41.0.4 — autorização: master sempre passa; non-master só passa se for
+    // membro do tenant pedido (req.user.tenantId === tenant.id).
+    if (!req.user.isMaster && Number(req.user.tenantId) !== Number(tenant.id)) {
+      return res.status(403).json({ ok: false, message: 'Apenas master ou membro do tenant.' });
+    }
 
     let tenantPool;
     try {
