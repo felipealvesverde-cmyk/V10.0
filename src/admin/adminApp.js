@@ -44,6 +44,18 @@ window.AdminApp = {
       passwordTargetUser: null, // user obj quando mode='editPassword'
       passwordDraft: ''
     },
+    // V41.0.5 — Modal de diagnóstico de integrações (5 tabelas: clickup,
+    // google_ads, ga4, hotmart, rd). Mostra o que sobrou no banco do tenant
+    // pra decidir se é cache stale do client ou desconexão real.
+    tenantDiagnosticModal: {
+      open: false,
+      tenantSlug: null,
+      tenantName: null,
+      diagnostics: [],
+      summary: '',
+      loading: false,
+      error: null
+    },
     toast: null,
     plugDbDraft: { tenantId: null, connString: '' }
   },
@@ -144,6 +156,31 @@ window.AdminApp = {
     this.state.tenantUsersModal = {
       open: false, tenantId: null, users: [], totalAiCostUsd: 0,
       loading: false, mode: 'list', passwordTargetUser: null, passwordDraft: ''
+    };
+    this.render();
+  },
+
+  // ===== V41.0.5 — MODAL DE DIAGNÓSTICO DE INTEGRAÇÕES =====
+  async openTenantDiagnosticModal(tenantSlug, tenantName) {
+    this.state.tenantDiagnosticModal = {
+      open: true, tenantSlug, tenantName, diagnostics: [], summary: '',
+      loading: true, error: null
+    };
+    this.render();
+    const r = await this.fetch(`/api/admin-debug-tenant-credentials?tenant_slug=${encodeURIComponent(tenantSlug)}`);
+    this.state.tenantDiagnosticModal.loading = false;
+    if (r?.ok && r.data?.ok) {
+      this.state.tenantDiagnosticModal.diagnostics = r.data.diagnostics || [];
+      this.state.tenantDiagnosticModal.summary = r.data.summary || '';
+    } else {
+      this.state.tenantDiagnosticModal.error = r?.data?.message || 'Falha no diagnóstico';
+    }
+    this.render();
+  },
+  closeTenantDiagnosticModal() {
+    this.state.tenantDiagnosticModal = {
+      open: false, tenantSlug: null, tenantName: null, diagnostics: [], summary: '',
+      loading: false, error: null
     };
     this.render();
   },
@@ -619,6 +656,7 @@ window.AdminApp = {
           : this.state.activeScreen === 'billing' ? this._billingScreen()
           : this._snapshotsScreen()}
       ${this.state.tenantUsersModal.open ? this._tenantUsersModal() : ''}
+      ${this.state.tenantDiagnosticModal.open ? this._tenantDiagnosticModal() : ''}
       </main>
       ${this.state.showCreateTenantModal ? this._createTenantModal() : ''}
       ${this.state.showCreateUserModal ? this._createUserModal() : ''}
@@ -701,6 +739,7 @@ window.AdminApp = {
           ? `<button onclick="AdminApp.unplugDb(${t.id})" class="px-3 py-2 rounded-xl bg-red-500/15 hover:bg-red-500/25 border border-red-400/30 text-red-200 text-[10px] font-black flex items-center justify-center gap-1"><i data-lucide="database-zap" class="w-3.5 h-3.5"></i> Desplugar DB</button>`
           : `<button onclick="AdminApp.openPlugDb(${t.id})" class="px-3 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-400/30 text-emerald-200 text-[10px] font-black flex items-center justify-center gap-1"><i data-lucide="database" class="w-3.5 h-3.5"></i> Plugar DB</button>`
         }
+        <button onclick="AdminApp.openTenantDiagnosticModal('${this._escape(t.slug)}', '${this._escape(t.name)}')" title="Diagnosticar integrações deste tenant (read-only, ver o que sobrou no banco)" class="col-span-2 px-3 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/30 text-cyan-100 text-[10px] font-black flex items-center justify-center gap-1.5"><i data-lucide="stethoscope" class="w-3.5 h-3.5"></i> Diagnóstico de integrações</button>
       </div>
     </div>`;
   },
@@ -766,6 +805,83 @@ window.AdminApp = {
           <button onclick="AdminApp.submitPlugDb()" class="admin-btn-primary px-4 py-2.5 rounded-xl text-sm">Plugar</button>
         </div>
       </div>
+    </div>`;
+  },
+
+  // ===== V41.0.5 — MODAL DE DIAGNÓSTICO DE INTEGRAÇÕES =====
+  _tenantDiagnosticModal() {
+    const m = this.state.tenantDiagnosticModal;
+    return `<div class="fixed inset-0 z-[80] bg-slate-950/85 backdrop-blur-sm grid place-items-center p-4">
+      <div class="admin-card w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div class="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+          <div>
+            <p class="text-[10px] font-black text-cyan-300 uppercase tracking-wider">Diagnóstico de integrações</p>
+            <h3 class="text-xl font-black text-white">${this._escape(m.tenantName || m.tenantSlug)}</h3>
+            <p class="text-xs text-slate-400 mt-0.5">Estado das 5 tabelas no banco. Se mostra "CONECTADO" mas o cliente vê "desconectado", é cache stale do client (mande rodar resync ou F5).</p>
+          </div>
+          <button onclick="AdminApp.closeTenantDiagnosticModal()" class="p-2 rounded-lg hover:bg-white/10 text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <div class="flex-1 overflow-y-auto px-6 py-4">
+          ${m.loading
+            ? '<div class="text-center py-12"><i data-lucide="loader-2" class="w-6 h-6 mx-auto text-cyan-300 spin"></i><p class="text-sm text-slate-400 mt-2">Lendo banco do tenant...</p></div>'
+            : m.error
+              ? `<div class="rounded-xl bg-red-500/15 border border-red-400/30 p-4 text-red-100 text-sm font-semibold">${this._escape(m.error)}</div>`
+              : this._tenantDiagnosticBody(m)}
+        </div>
+      </div>
+    </div>`;
+  },
+
+  _tenantDiagnosticBody(m) {
+    if (!m.diagnostics.length) return '<p class="text-sm text-slate-400 italic">Nenhum user com journey_state neste tenant.</p>';
+    return m.diagnostics.map(d => this._tenantDiagnosticUserCard(d)).join('');
+  },
+
+  _tenantDiagnosticUserCard(d) {
+    const row = (label, status, detail) => {
+      const color = status === 'ok' ? 'emerald' : status === 'partial' ? 'amber' : 'slate';
+      const icon = status === 'ok' ? 'check-circle-2' : status === 'partial' ? 'alert-triangle' : 'circle';
+      return `<div class="flex items-center gap-3 py-2 border-b border-white/5 last:border-b-0">
+        <i data-lucide="${icon}" class="w-4 h-4 text-${color}-400 shrink-0"></i>
+        <div class="min-w-0 flex-1">
+          <p class="text-[12px] font-black text-white">${label}</p>
+          <p class="text-[11px] text-slate-400 truncate">${detail}</p>
+        </div>
+      </div>`;
+    };
+    const cuStatus = d.clickup.conectado ? 'ok' : (d.clickup.oauthAppCadastrado ? 'partial' : 'none');
+    const cuDetail = d.clickup.conectado
+      ? `CONECTADO · ${d.clickup.workspaceName || ''} (${d.clickup.tokenType || ''}) · raiz ${d.clickup.rootName || '—'}`
+      : d.clickup.oauthAppCadastrado
+        ? 'Client ID/Secret PRESERVADOS — só refazer autorização (Step 3 do wizard)'
+        : 'Nada salvo';
+    const gaStatus = d.googleAds.oauthCompletado ? 'ok' : (d.googleAds.credentialsCadastradas ? 'partial' : 'none');
+    const gaDetail = d.googleAds.oauthCompletado
+      ? `CONECTADO · Customer ${d.googleAds.customerId || ''} · ${d.googleAds.accountName || ''}`
+      : d.googleAds.credentialsCadastradas
+        ? 'Credentials PRESERVADAS — só refazer OAuth'
+        : 'Nada salvo';
+    const ga4Status = d.ga4.oauthCompletado ? 'ok' : (d.ga4.credentialsCadastradas ? 'partial' : 'none');
+    const ga4Detail = d.ga4.oauthCompletado
+      ? `CONECTADO · ${d.ga4.propertyName || ''} (${d.ga4.propertyId || ''})`
+      : d.ga4.credentialsCadastradas
+        ? 'Credentials PRESERVADAS — só refazer OAuth'
+        : 'Nada salvo';
+    const hmStatus = d.hotmart.hottokCadastrado ? 'ok' : 'none';
+    const hmDetail = d.hotmart.hottokCadastrado
+      ? `HOTTOK salvo · ${d.hotmart.oauthOpcionalConfigurado ? 'OAuth configurado' : 'só HOTTOK'} · janela ${d.hotmart.syncWindowDays || '?'}d`
+      : 'Nada salvo';
+    const rdStatus = d.rd.tokens.length ? 'ok' : 'none';
+    const rdDetail = d.rd.tokens.length
+      ? d.rd.tokens.map(t => `${t.tokenType}=${t.status || 'salvo'}`).join(' · ')
+      : 'Nada salvo';
+    return `<div class="rounded-xl bg-slate-900/50 border border-white/10 p-4 mb-3">
+      <p class="text-[10px] font-black text-indigo-300 uppercase tracking-wider mb-2">User ${d.userId}</p>
+      ${row('ClickUp', cuStatus, cuDetail)}
+      ${row('Google Ads', gaStatus, gaDetail)}
+      ${row('GA4', ga4Status, ga4Detail)}
+      ${row('Hotmart', hmStatus, hmDetail)}
+      ${row('RD Station', rdStatus, rdDetail)}
     </div>`;
   },
 

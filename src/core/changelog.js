@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.5',
+    date: '2026-06-25',
+    title: 'Botão "Diagnóstico de integrações" no card de tenant',
+    bullets: [
+      'Cockpit Operacional → Tenants → cada card ganhou botão "Diagnóstico de integrações".',
+      'Abre modal com tabela das 5 integrações do tenant (ClickUp, Google Ads, GA4, Hotmart, RD): mostra o que está CONECTADO no banco, o que tem só credentials preservadas (basta refazer OAuth), e o que está zerado.',
+      'Caso típico: cliente reportou "X desconectou" — abre o diagnóstico antes de mandar reconectar. Se servidor diz CONECTADO, é só cache stale do client (resolve com F5 ou resync). Se servidor diz PRESERVADO, basta autorizar de novo sem criar app/credenciais novas.',
+    ],
+  },
+  {
     version: 'V41.0.4',
     date: '2026-06-25',
     title: 'Debug de credenciais aceita membro do próprio tenant',
