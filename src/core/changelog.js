@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.8',
+    date: '2026-06-25',
+    title: 'Modal Tarefa — responsável removido do workspace não trava mais o submit',
+    bullets: [
+      'loadClickupMetadata agora detecta member que sumiu do workspace (foi removido, saiu) e tira ele silenciosamente do draft de assignees, com toast avisando "N responsável removido (não está mais no workspace)".',
+      'Antes: você selecionava o responsável, alguém saía do workspace entre a abertura do modal e o submit, ClickUp retornava 400 com mensagem genérica e você não sabia qual responsável era o problema.',
+      'F5 com modal aberto e Esc stack já estavam blindados — verificado e mantido.',
+    ],
+  },
+  {
     version: 'V41.0.7',
     date: '2026-06-25',
     title: 'Modal "Ação → ClickUp" — varredura adversarial (~23 bugs fechados, pisca/desseleciona/fecha sozinho extintos)',

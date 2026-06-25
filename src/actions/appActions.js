@@ -15149,17 +15149,34 @@ Object.assign(Actions, {
       const r = await fetch('/api/clickup-metadata', { headers: { Authorization: `Bearer ${token}` } });
       const data = await r.json();
       if (data.ok) {
+        const newMembers = data.members || [];
         App.state.clickupMeta = {
           loaded: true,
           loadedAt: Date.now(),
           workspaceId: data.workspaceId,
           listId: data.listId,
           spaceId: data.spaceId,
-          members: data.members || [],
+          members: newMembers,
           statuses: data.statuses || [],
           tags: data.tags || [],
           customFields: data.customFields || []
         };
+        // V41.0.8 — Se modal aberto e d.assignees referencia member que sumiu
+        // do workspace (saiu, foi removido), remove silenciosamente do draft
+        // pra evitar 400 do ClickUp no submit + toast avisando user.
+        const m = App.state.taskCreationModal;
+        if (m?.open && Array.isArray(m.draft?.assignees) && m.draft.assignees.length) {
+          const validIds = new Set(newMembers.map(mem => Number(mem.id)));
+          const stillValid = m.draft.assignees.filter(id => validIds.has(Number(id)));
+          if (stillValid.length !== m.draft.assignees.length) {
+            const dropped = m.draft.assignees.length - stillValid.length;
+            App.state.taskCreationModal = {
+              ...m,
+              draft: { ...m.draft, assignees: stillValid }
+            };
+            Utils.toast(`${dropped} responsável removido (não está mais no workspace).`);
+          }
+        }
         App.save();
         // V41.0.7 — defer pra liberar foco do input ativo antes de re-render
         // (sem isso, member metadata chegando enquanto user digita rouba foco).
