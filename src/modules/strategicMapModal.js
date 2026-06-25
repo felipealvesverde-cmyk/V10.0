@@ -2585,11 +2585,6 @@ window.StrategicMapModal = {
         ${(App.state.strategicOkrsCatalogExpandedAreas || []).includes(area.id) ? `
           <div class="lj-catalog-expand mt-3 pt-3 border-t border-stone-200">
             ${this._productKrsCatalogLight(product, area, areaKrs)}
-            <div class="mt-3 pt-3 border-t border-stone-200">
-              <button onclick="event.stopPropagation(); Actions.openCreateCustomKrModal(${product.id}, '${area.id}')" class="text-[11px] text-stone-600 hover:text-slate-900 transition inline-flex items-center gap-1.5">
-                <i data-lucide="zap" class="w-3 h-3"></i> Não achou? Crie um número personalizado
-              </button>
-            </div>
           </div>
         ` : ''}
       </div>` : ''}
@@ -2663,25 +2658,36 @@ window.StrategicMapModal = {
     const availableCurated = curated.filter(c => !activatedIds.has(c.id));
     const availableLearned = learned.filter(c => !activatedIds.has(c.id));
     const total = availableCurated.length + availableLearned.length;
-    if (total === 0) {
-      return `<p class="text-[11px] text-stone-500 italic">Você já ativou todas as sugestões pra ${Utils.escape(area.label)}. Pode criar um personalizado abaixo.</p>`;
-    }
     const tone = area.color;
+    // V41.0.1 — pill "Criar número personalizado" promovida do link discreto pra pill
+    // dashed com faísca. Irmã visual do card "+ Adicionar mais um" (mesma linguagem
+    // dashed pra "aberto, sem preenchimento prévio"). Vocabulário "número" alinhado
+    // com o resto da tela.
+    const customPill = `<button onclick="event.stopPropagation(); Actions.openCreateCustomKrModal(${product.id}, '${area.id}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border-2 border-dashed border-stone-400 text-slate-900 text-[11px] font-bold inline-flex items-center gap-1.5"><i data-lucide="zap" class="w-3 h-3"></i> Criar número personalizado</button>`;
+    if (total === 0) {
+      return `<div>
+        <p class="text-[11px] text-stone-500 italic mb-2">Você já ativou todas as sugestões pra ${Utils.escape(area.label)}.</p>
+        <div class="flex flex-wrap gap-1.5">${customPill}</div>
+      </div>`;
+    }
     return `<div>
       <p class="text-[11px] font-bold text-slate-900 mb-1">Sugestões pra ${Utils.escape(area.label)}</p>
       <p class="text-[11px] text-stone-600 mb-3 leading-relaxed">Ative uma → defina a meta → na Etapa 4 você liga ações pra mover ela.</p>
       ${availableCurated.length ? `
         <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">Sugeridos pelo LJ</p>
-        <div class="flex flex-wrap gap-1.5 ${availableLearned.length ? 'mb-3' : ''}">
+        <div class="flex flex-wrap gap-1.5 ${availableLearned.length ? 'mb-3' : 'mb-3'}">
           ${availableCurated.map(c => `<button onclick="event.stopPropagation(); Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || '')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border border-${tone}-200 text-${tone}-800 text-[11px] font-bold">+ ${Utils.escape(c.name)}</button>`).join('')}
+          ${!availableLearned.length ? customPill : ''}
         </div>
       ` : ''}
       ${availableLearned.length ? `
         <p class="text-[9px] font-bold text-stone-500 uppercase tracking-wider mb-1.5">✨ Da sua experiência (aprendidos de produtos anteriores)</p>
         <div class="flex flex-wrap gap-1.5">
           ${availableLearned.map(c => `<button onclick="event.stopPropagation(); Actions.openActivateCatalogKrModal(${product.id}, '${area.id}', '${c.id}')" title="${Utils.escape(c.description || 'Sugerido a partir de um KR custom criado anteriormente')}" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-50 border-2 border-dashed border-${tone}-300 text-${tone}-800 text-[11px] font-bold inline-flex items-center gap-1">✨ ${Utils.escape(c.name)}</button>`).join('')}
+          ${customPill}
         </div>
       ` : ''}
+      ${!availableCurated.length && !availableLearned.length ? `<div class="flex flex-wrap gap-1.5">${customPill}</div>` : ''}
     </div>`;
   },
 

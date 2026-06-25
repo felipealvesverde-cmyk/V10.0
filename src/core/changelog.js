@@ -18,6 +18,16 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.1',
+    date: '2026-06-25',
+    title: 'Criar número personalizado virou pill — saiu do rodapé escondido',
+    bullets: [
+      'Quando você clicava em "Adicionar mais um" no Mapa da Receita, aparecia o catálogo de sugestões + um link discreto no rodapé "Não achou? Crie um número personalizado". Aquele link era fácil de perder.',
+      'Agora "Criar número personalizado" virou uma pill ao lado das sugestões, com a faísca preservada e borda tracejada — mesma linguagem visual do card "+ Adicionar mais um" pra sinalizar "isso aqui é livre, as outras são cardápio".',
+      'Vocabulário ajustado: "número" no lugar de "KR", coerente com o resto da tela ("X números confirmados").',
+    ],
+  },
+  {
     version: 'V41.0.0',
     date: '2026-06-25',
     title: 'V41 — Cockpit operacional, Arquétipo de Vendas como motor adaptativo, e Mapa da Receita que respira',
