@@ -18,6 +18,15 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.13',
+    date: '2026-06-26',
+    title: 'admin-reseed-demo: aceita o próprio user demo (alinhamento com restore-demo-state)',
+    bullets: [
+      'O endpoint que força re-seed da empresa demo (Engenho Norte) só aceitava master. Agora também aceita o user demo@leadjourney.app — alinhado com admin-restore-demo-state e admin-add-demo-products que já seguem esse padrão.',
+      'Caso de uso direto: limpar contaminação cross-tenant no demo sem precisar trocar de login pra master.',
+    ],
+  },
+  {
     version: 'V41.0.12',
     date: '2026-06-26',
     title: 'Cross-tenant: defesa em profundidade (read-side guard, coleções keyed, audit log, mais 1 endpoint)',

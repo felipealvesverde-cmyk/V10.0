@@ -1,6 +1,11 @@
 // V31.0.10 — Endpoint admin pra FORÇAR re-seed da empresa demo (Engenho Norte).
-// Só master pode chamar. Útil quando o auto-seed no startup do server falha
-// silenciosamente e o user demo fica com state antigo (v1, v2, ...).
+// Útil quando o auto-seed no startup do server falha silenciosamente e o user
+// demo fica com state antigo (v1, v2, ...), OU quando precisa limpar state
+// contaminado (entidade cross-tenant que sobreviveu).
+//
+// V41.0.13 — Aceita master global OU o próprio user demo (admin do tenant
+// engenho-norte). Alinhamento com admin-restore-demo-state e
+// admin-add-demo-products (mesmo padrão).
 //
 // POST /api/admin-reseed-demo
 // Body: {} (vazio)
@@ -10,7 +15,8 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
   if (!req.db) return res.status(503).json({ ok: false, message: 'Banco não configurado.' });
   if (!req.user) return res.status(401).json({ ok: false, message: 'Não autenticado.' });
-  if (!req.user.isMaster) return res.status(403).json({ ok: false, message: 'Apenas master pode forçar re-seed.' });
+  const isAllowed = req.user.isMaster || req.user.username === 'demo@leadjourney.app';
+  if (!isAllowed) return res.status(403).json({ ok: false, message: 'Permissão negada.' });
 
   try {
     const { buildEngenhoNorteState, DEMO_SEED_VERSION } = require('../scripts/seed-demo-engenho-norte');
