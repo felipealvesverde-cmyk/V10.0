@@ -733,7 +733,8 @@ var App = {
           const jwtTenant = this.currentUser?.tenantId != null ? Number(this.currentUser.tenantId) : null;
           if (jwtTenant != null) {
             const entityErrors = [];
-            ['products', 'campaigns', 'actions'].forEach(key => {
+            // V41.0.11 — Cobre TODAS as coleções de dados do tenant.
+            ['products', 'campaigns', 'actions', 'executions', 'leads', 'manualLeads'].forEach(key => {
               const list = this.state?.[key];
               if (!Array.isArray(list)) return;
               list.forEach(entity => {

@@ -24,6 +24,7 @@
 //   4. Retorna diff de contagem (products antes vs depois)
 
 const tenantPoolHelper = require('../lib/tenant-pool');
+const { stampAndValidateState, forceRestampState } = require('../lib/tenant-stamp');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
@@ -199,6 +200,32 @@ module.exports = async function handler(req, res) {
     } else {
       // SOBRESCREVE: comportamento original V40.14.15
       stateToSave = incomingState;
+    }
+
+    // V41.0.11 — Validação por entidade ANTES de gravar. Snapshot/JSON pode
+    // ter entidades com _originTenantId divergente. Se vier entidade marcada
+    // com outro tenant, BLOQUEIA. Master pode forçar conscientemente com
+    // body.force_restamp=true (restamp pro tenant alvo).
+    const forceRestamp = !!req.body?.force_restamp;
+    const targetTenantId = Number(tenant.id);
+    if (forceRestamp) {
+      const { restamped } = forceRestampState(stateToSave, targetTenantId);
+      console.log(`[admin-import-tenant-state] force_restamp=true — ${restamped} entidades re-estampadas pro tenant ${targetTenantId}`);
+    } else {
+      const { errors, stamped } = stampAndValidateState(stateToSave, targetTenantId);
+      if (errors.length) {
+        return res.status(409).json({
+          ok: false,
+          code: 'entity_tenant_mismatch',
+          message: `${errors.length} entidade(s) no JSON pertencem a outro tenant. Re-rode com force_restamp:true se quiser sobrescrever o stamp.`,
+          entities: errors.slice(0, 10),
+          totalErrors: errors.length,
+          targetTenantId
+        });
+      }
+      if (stamped > 0) {
+        console.log(`[admin-import-tenant-state] V41.0.11 — stamped silently: ${stamped} entidades legacy com _originTenantId = ${targetTenantId}`);
+      }
     }
 
     const updateRes = await tenantPool.query(

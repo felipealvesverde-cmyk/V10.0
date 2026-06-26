@@ -13,6 +13,7 @@
 // pristine.
 
 const tenantPoolHelper = require('../lib/tenant-pool');
+const { stampAndValidateState } = require('../lib/tenant-stamp');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -81,6 +82,24 @@ module.exports = async function handler(req, res) {
       metasResultado: newMetasResultado,
       lastSavedAt: new Date().toISOString()
     };
+
+    // V41.0.11 — Antes de gravar, valida que TODAS as entidades do state estão
+    // stampadas pro tenant atual. Detecta contaminação pré-existente (entidade
+    // de outro tenant escondida no state do demo).
+    if (tenantId) {
+      const { errors, stamped } = stampAndValidateState(newState, tenantId);
+      if (errors.length) {
+        return res.status(409).json({
+          ok: false,
+          code: 'entity_tenant_mismatch',
+          message: `${errors.length} entidade(s) no demo pertencem a outro tenant. Reset abortado — limpe a contaminação primeiro.`,
+          entities: errors.slice(0, 10)
+        });
+      }
+      if (stamped > 0) {
+        console.log(`[admin-reset-product-pristine] V41.0.11 — stamped silently: ${stamped} entidades legacy com _originTenantId = ${tenantId}`);
+      }
+    }
 
     await req.db.query(
       `UPDATE journey_state SET state_json = $1, updated_at = NOW(), updated_by_user_id = $2 WHERE user_id = $2`,

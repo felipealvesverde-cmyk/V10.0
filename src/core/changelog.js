@@ -18,6 +18,17 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.11',
+    date: '2026-06-26',
+    title: 'Cross-tenant: cobertura completa (executions/leads/manualLeads + 3 endpoints admin)',
+    bullets: [
+      'Onda A — Camadas 1.5 (servidor) e 2.5 (cliente) agora cobrem executions, leads e manualLeads além de products/campaigns/actions. Antes essas 3 coleções podiam vazar entre tenants mesmo com a blindagem V41.0.10 ativa.',
+      'Onda B — 3 endpoints admin ganharam validação por entidade: admin-import-tenant-state, admin-reset-product-pristine, admin-restore-tenant-snapshot. Snapshot/JSON com stamps de outro tenant é bloqueado por 409.',
+      'Flag de escape pra master: body `force_restamp:true` re-estampa todas as entidades pro tenant alvo (recovery consciente). Sem essa flag, qualquer divergência é bloqueada.',
+      'Helper centralizado em lib/tenant-stamp.js — `stampAndValidateState()` + `forceRestampState()` reusados nos 4 endpoints. Adicionar nova coleção estampada = mexer só no array `STAMPED_COLLECTIONS` da lib.',
+    ],
+  },
+  {
     version: 'V41.0.10',
     date: '2026-06-26',
     title: 'Cross-tenant: blindagem por entidade (cada produto/campanha/ação carrega o tenant de origem)',

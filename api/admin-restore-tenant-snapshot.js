@@ -24,6 +24,7 @@
 
 const tenantPoolHelper = require('../lib/tenant-pool');
 const { dumpCredentialsForUser, restoreCredentialsForUser, ensureCredentialsColumn } = require('../lib/credentials-snapshot');
+const { stampAndValidateState, forceRestampState } = require('../lib/tenant-stamp');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
@@ -97,6 +98,33 @@ module.exports = async function handler(req, res) {
       );
     }
 
+    // V41.0.11 — Validação por entidade do state do snapshot ANTES de gravar.
+    // Snapshot pode ter sido criado pra outro tenant (ex: master fez snapshot
+    // de Sansone e tenta restaurar pro demo). Bloqueia se stamps divergem.
+    // Master pode forçar com body.force_restamp=true (restamp pro tenant alvo).
+    const forceRestamp = !!req.body?.force_restamp;
+    const targetTenantId = Number(tenant.id);
+    const stateToRestore = snapshot.state_json || {};
+    if (forceRestamp) {
+      const { restamped } = forceRestampState(stateToRestore, targetTenantId);
+      console.log(`[admin-restore-tenant-snapshot] force_restamp=true — ${restamped} entidades re-estampadas pro tenant ${targetTenantId}`);
+    } else {
+      const { errors, stamped } = stampAndValidateState(stateToRestore, targetTenantId);
+      if (errors.length) {
+        return res.status(409).json({
+          ok: false,
+          code: 'entity_tenant_mismatch',
+          message: `${errors.length} entidade(s) no snapshot pertencem a outro tenant. Re-rode com force_restamp:true se quiser sobrescrever o stamp.`,
+          entities: errors.slice(0, 10),
+          totalErrors: errors.length,
+          targetTenantId
+        });
+      }
+      if (stamped > 0) {
+        console.log(`[admin-restore-tenant-snapshot] V41.0.11 — stamped silently: ${stamped} entidades legacy com _originTenantId = ${targetTenantId}`);
+      }
+    }
+
     // 6. Aplica state_json
     await tenantPool.query(
       `INSERT INTO journey_state (user_id, state_json, updated_at, updated_by_user_id)
@@ -105,7 +133,7 @@ module.exports = async function handler(req, res) {
          state_json = EXCLUDED.state_json,
          updated_at = NOW(),
          updated_by_user_id = EXCLUDED.updated_by_user_id`,
-      [targetUserId, snapshot.state_json, req.user.sub]
+      [targetUserId, stateToRestore, req.user.sub]
     );
 
     // 7. V41.0.2 — Aplica credentials se snapshot tiver e flag estiver on
