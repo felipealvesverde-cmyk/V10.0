@@ -28,6 +28,32 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET') {
     try {
+      // V41.0.12 — Read-side guard: antes de devolver o state, filtra entidades
+      // com _originTenantId divergente. Se o banco tiver lixo legacy ou foi
+      // contaminado por algum vetor não-coberto, NUNCA entrega pro client.
+      const { filterAlienEntities } = require('../lib/tenant-stamp');
+      const jwtTenantId = Number(resolvedTenantId);
+
+      const finalize = (rawState, updatedAt, source) => {
+        if (!rawState || jwtTenantId == null || Number.isNaN(jwtTenantId)) {
+          return res.status(200).json({ ok: true, state: rawState, updatedAt, mode: req.user.mode || 'sandbox', source });
+        }
+        const { clean, removed } = filterAlienEntities(rawState, jwtTenantId);
+        if (removed.total > 0) {
+          console.warn(`[state-sync GET] V41.0.12 — filtrou ${removed.total} entidades alien antes de retornar`, {
+            user_id: userId, jwt_tenant: jwtTenantId, removed: removed.byKey, source
+          });
+        }
+        return res.status(200).json({
+          ok: true,
+          state: clean,
+          updatedAt,
+          mode: req.user.mode || 'sandbox',
+          source,
+          filteredAlienCount: removed.total
+        });
+      };
+
       // V37.4.29 — Lê tenant_state PRIMEIRO. Fallback pra journey_state se
       // tenant ainda não migrou (tabela inexistente OU sem row pro tenant).
       if (resolvedTenantId) {
@@ -38,13 +64,7 @@ module.exports = async function handler(req, res) {
           );
           if (tsResult.rows.length) {
             const row = tsResult.rows[0];
-            return res.status(200).json({
-              ok: true,
-              state: row.state_json,
-              updatedAt: row.updated_at,
-              mode: req.user.mode || 'sandbox',
-              source: 'tenant_state'
-            });
+            return finalize(row.state_json, row.updated_at, 'tenant_state');
           }
         } catch (err) {
           // Tabela ainda não existe (migration não rodou) — cai pro fallback abaixo.
@@ -63,13 +83,7 @@ module.exports = async function handler(req, res) {
       if (!row) {
         return res.status(200).json({ ok: true, state: null, updatedAt: null, mode: req.user.mode || 'sandbox', source: 'none' });
       }
-      return res.status(200).json({
-        ok: true,
-        state: row.state_json,
-        updatedAt: row.updated_at,
-        mode: req.user.mode || 'sandbox',
-        source: 'journey_state_legacy'
-      });
+      return finalize(row.state_json, row.updated_at, 'journey_state_legacy');
     } catch (err) {
       console.error('[state-sync GET]', err);
       return res.status(500).json({ ok: false, message: err.message });

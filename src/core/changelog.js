@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.12',
+    date: '2026-06-26',
+    title: 'Cross-tenant: defesa em profundidade (read-side guard, coleções keyed, audit log, mais 1 endpoint)',
+    bullets: [
+      'Read-side guard no GET /api/state-sync: antes de devolver o state pro client, filtra entidades com _originTenantId divergente do tenant atual. Se o banco tiver lixo legacy (ou contaminação que escapou), o cliente NUNCA recebe.',
+      'Coleções keyed (revopsFinanceV2, revopsFinance, strategicMaps, strategicCampaignMaps, metasResultado) agora também recebem stamp + validação. Antes só arrays eram cobertos — esses objetos {productId: data} passavam silenciosamente.',
+      'Audit log forensics — nova tabela tenant_audit_log registra cada operação cross-tenant nos 3 endpoints admin (import, reset, restore-snapshot): quem disparou, endpoint, tenant alvo, entidades afetadas, se foi force_restamp. Sem isso, master podia forçar restamp sem rastro.',
+      'api/snapshots-restore.js (user-facing) agora valida stamps antes de restaurar — defesa também no endpoint que o próprio cliente dispara via UI.',
+      'Endpoints leads-impute-to-campaign, djow-chat e cron-monthly-closing são read-only no journey_state, então sem necessidade de blindagem. Demo populators escrevem só no demo e ganham stamp automaticamente na próxima save normal via Camada 1.5.',
+    ],
+  },
+  {
     version: 'V41.0.11',
     date: '2026-06-26',
     title: 'Cross-tenant: cobertura completa (executions/leads/manualLeads + 3 endpoints admin)',

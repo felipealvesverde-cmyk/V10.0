@@ -3,6 +3,12 @@
 // Restaura o state daquele snapshot pra journey_state do user autenticado.
 // Cria um snapshot "pre-restore" automaticamente antes.
 // Master pode restaurar qualquer snapshot que possua; outros users só os seus.
+//
+// V41.0.12 — Stamp + validação por entidade. Snapshot legacy (sem stamps)
+// ganha stamp do tenant atual. Snapshot com stamps de outro tenant é bloqueado
+// (defesa contra restore cruzado mesmo sendo do próprio user).
+const { stampAndValidateState } = require('../lib/tenant-stamp');
+
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
@@ -32,6 +38,24 @@ module.exports = async function handler(req, res) {
       );
     }
 
+    // V41.0.12 — Validação por entidade ANTES de gravar
+    const jwtTenantId = req.user.tenantId != null ? Number(req.user.tenantId) : null;
+    const stateToRestore = snap.rows[0].state_json || {};
+    if (jwtTenantId != null) {
+      const { errors, stamped } = stampAndValidateState(stateToRestore, jwtTenantId);
+      if (errors.length) {
+        return res.status(409).json({
+          ok: false,
+          code: 'entity_tenant_mismatch',
+          message: `${errors.length} entidade(s) no snapshot pertencem a outro tenant. Restore abortado.`,
+          entities: errors.slice(0, 10)
+        });
+      }
+      if (stamped > 0) {
+        console.log(`[snapshots-restore] V41.0.12 — stamped ${stamped} entidades legacy com _originTenantId = ${jwtTenantId}`);
+      }
+    }
+
     // 3. Restaura
     await req.tenantDb.query(
       `INSERT INTO journey_state (user_id, state_json, updated_at, updated_by_user_id)
@@ -40,7 +64,7 @@ module.exports = async function handler(req, res) {
          state_json = EXCLUDED.state_json,
          updated_at = NOW(),
          updated_by_user_id = EXCLUDED.updated_by_user_id`,
-      [userId, snap.rows[0].state_json]
+      [userId, stateToRestore]
     );
 
     return res.status(200).json({

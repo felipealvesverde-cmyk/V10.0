@@ -24,7 +24,7 @@
 //   4. Retorna diff de contagem (products antes vs depois)
 
 const tenantPoolHelper = require('../lib/tenant-pool');
-const { stampAndValidateState, forceRestampState } = require('../lib/tenant-stamp');
+const { stampAndValidateState, forceRestampState, logTenantAudit } = require('../lib/tenant-stamp');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, message: 'Use POST.' });
@@ -208,8 +208,10 @@ module.exports = async function handler(req, res) {
     // body.force_restamp=true (restamp pro tenant alvo).
     const forceRestamp = !!req.body?.force_restamp;
     const targetTenantId = Number(tenant.id);
+    let auditEntitiesAffected = 0;
     if (forceRestamp) {
       const { restamped } = forceRestampState(stateToSave, targetTenantId);
+      auditEntitiesAffected = restamped;
       console.log(`[admin-import-tenant-state] force_restamp=true — ${restamped} entidades re-estampadas pro tenant ${targetTenantId}`);
     } else {
       const { errors, stamped } = stampAndValidateState(stateToSave, targetTenantId);
@@ -226,7 +228,18 @@ module.exports = async function handler(req, res) {
       if (stamped > 0) {
         console.log(`[admin-import-tenant-state] V41.0.11 — stamped silently: ${stamped} entidades legacy com _originTenantId = ${targetTenantId}`);
       }
+      auditEntitiesAffected = stamped;
     }
+    // V41.0.12 — audit log forensics
+    await logTenantAudit(req.db, {
+      actor_user_id: req.user.sub,
+      endpoint: 'admin-import-tenant-state',
+      target_tenant_id: targetTenantId,
+      target_user_id: targetUserId,
+      force_restamp: forceRestamp,
+      entities_affected: auditEntitiesAffected,
+      details: { mode: mergeCfg ? 'merge' : 'overwrite' }
+    });
 
     const updateRes = await tenantPool.query(
       `UPDATE journey_state

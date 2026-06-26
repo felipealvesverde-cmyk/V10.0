@@ -13,7 +13,7 @@
 // pristine.
 
 const tenantPoolHelper = require('../lib/tenant-pool');
-const { stampAndValidateState } = require('../lib/tenant-stamp');
+const { stampAndValidateState, logTenantAudit } = require('../lib/tenant-stamp');
 
 module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
@@ -105,6 +105,17 @@ module.exports = async function handler(req, res) {
       `UPDATE journey_state SET state_json = $1, updated_at = NOW(), updated_by_user_id = $2 WHERE user_id = $2`,
       [newState, demoUserId]
     );
+
+    // V41.0.12 — audit log forensics
+    await logTenantAudit(req.db, {
+      actor_user_id: req.user.sub,
+      endpoint: 'admin-reset-product-pristine',
+      target_tenant_id: tenantId,
+      target_user_id: demoUserId,
+      force_restamp: false,
+      entities_affected: 1,
+      details: { product_id: productIdNum, product_name: productName }
+    });
 
     // 2) Limpa fontes físicas de vendas/deals do produto no tenant DB
     const delHotmart = await tenantDb.query(
