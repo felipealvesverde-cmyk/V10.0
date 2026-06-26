@@ -134,6 +134,57 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // V41.0.10 — CAMADA 1.5: stamp + validação por ENTIDADE.
+    // V40.14.17 valida só state.user — mas state.user pode estar consistente
+    // com o JWT (mesmo user/tenant logado) e mesmo assim os produtos/campanhas
+    // dentro do state vieram contaminados de outra sessão (memória do navegador
+    // misturada antes da Camada 2 disparar). Esse guard valida cada entidade
+    // individualmente via campo _originTenantId. Entidades sem stamp (legacy)
+    // ganham stamp silencioso = tenant atual. Entidades com stamp divergente
+    // rejeitam o save inteiro com 409.
+    {
+      const jwtTenantId = Number(resolvedTenantId);
+      const entityErrors = [];
+      let stamped = 0;
+      ['products', 'campaigns', 'actions'].forEach(key => {
+        const list = state[key];
+        if (!Array.isArray(list)) return;
+        list.forEach(entity => {
+          if (!entity || typeof entity !== 'object') return;
+          if (entity._originTenantId == null) {
+            entity._originTenantId = jwtTenantId;
+            stamped++;
+          } else if (Number(entity._originTenantId) !== jwtTenantId) {
+            entityErrors.push({
+              key,
+              id: entity.id,
+              name: entity.name || null,
+              stampedTenant: Number(entity._originTenantId),
+              currentTenant: jwtTenantId
+            });
+          }
+        });
+      });
+      if (entityErrors.length) {
+        console.warn('[state-sync POST] 🚨 REJEITADO V41.0.10 — entidades pertencem a outro tenant.', {
+          jwt_user: userId,
+          jwt_tenant: jwtTenantId,
+          entity_errors: entityErrors.slice(0, 10),
+          total_errors: entityErrors.length
+        });
+        return res.status(409).json({
+          ok: false,
+          code: 'entity_tenant_mismatch',
+          message: `${entityErrors.length} entidade(s) pertencem a outro tenant. State do navegador está contaminado — faça logout completo (fechar TODAS as abas) e relogin.`,
+          entities: entityErrors.slice(0, 10),
+          totalErrors: entityErrors.length
+        });
+      }
+      if (stamped > 0) {
+        console.log('[state-sync POST] V41.0.10 — stamped silently:', stamped, 'entidades legacy com _originTenantId =', jwtTenantId);
+      }
+    }
+
     // V36.8.3 — GUARD DE EMERGÊNCIA: rejeita state malformado (proteção de
     // último nível, defesa em profundidade). Felipe perdeu Sansone em
     // 2026-06-08/09 porque runHealthCheck (V36.5.0) mandava body

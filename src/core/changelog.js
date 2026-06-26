@@ -18,6 +18,18 @@
 
 window.LJChangelog = [
   {
+    version: 'V41.0.10',
+    date: '2026-06-26',
+    title: 'Cross-tenant: blindagem por entidade (cada produto/campanha/ação carrega o tenant de origem)',
+    bullets: [
+      'Felipe encontrou hoje Atira.Pro (Sansone) dentro do tenant demo, no banco. As Camadas 1 e 2 anteriores (V40.14.17 + V40.15.0) validavam só state.user — quando o user no state estava consistente com o JWT mas os produtos vieram contaminados, passava.',
+      'Camada 1.5 server: api/state-sync valida `_originTenantId` em cada produto/campanha/ação. Sem stamp = legacy, stampa silencioso com o tenant atual. Stamp divergente = 409 entity_tenant_mismatch.',
+      'Camada 2.5 client: App.save() faz a mesma validação antes de mandar pro servidor. Se detectar contaminação, bloqueia o save + toast "feche TODAS as abas e abra de novo".',
+      'Backward compat: na primeira save após a V41.0.10, produtos/campanhas/ações legacy ganham stamp do tenant atual silenciosamente. A partir daí, qualquer contaminação futura é bloqueada por entidade individual.',
+      'Atira.Pro removido manualmente do tenant demo (via console autorizado). Sem perda.',
+    ],
+  },
+  {
     version: 'V41.0.9',
     date: '2026-06-25',
     title: 'Djow ganhou base de raciocínio de receita + RevOps',

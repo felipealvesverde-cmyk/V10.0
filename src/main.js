@@ -723,6 +723,43 @@ var App = {
           }
         } catch (_) { /* defensive */ }
 
+        // V41.0.10 — Camada 2.5: stamp + validação por ENTIDADE.
+        // V40.15.0 bloqueia push se state.user diverge. Mas state.user pode estar
+        // consistente E os produtos/campanhas dentro virem de outra sessão (memória
+        // do navegador misturada). Esse guard valida cada entidade via _originTenantId.
+        // Entidades sem stamp ganham stamp = tenant atual. Entidades com stamp
+        // divergente bloqueiam o save inteiro.
+        try {
+          const jwtTenant = this.currentUser?.tenantId != null ? Number(this.currentUser.tenantId) : null;
+          if (jwtTenant != null) {
+            const entityErrors = [];
+            ['products', 'campaigns', 'actions'].forEach(key => {
+              const list = this.state?.[key];
+              if (!Array.isArray(list)) return;
+              list.forEach(entity => {
+                if (!entity || typeof entity !== 'object') return;
+                if (entity._originTenantId == null) {
+                  entity._originTenantId = jwtTenant;
+                } else if (Number(entity._originTenantId) !== jwtTenant) {
+                  entityErrors.push({ key, id: entity.id, name: entity.name, stamped: entity._originTenantId, current: jwtTenant });
+                }
+              });
+            });
+            if (entityErrors.length) {
+              console.error('[App.save] 🚨 BLOQUEADO V41.0.10 — entidade(s) pertencem a outro tenant.', {
+                count: entityErrors.length,
+                sample: entityErrors.slice(0, 5)
+              });
+              try {
+                if (window.Utils?.toast) {
+                  window.Utils.toast(`⚠ Save bloqueado — ${entityErrors.length} entidade(s) de outro tenant. Feche TODAS as abas e abra de novo.`);
+                }
+              } catch (_) {}
+              return;
+            }
+          }
+        } catch (_) { /* defensive */ }
+
         // V36.7.2 — Guard anti-perda: bloqueia o save E o push se state aparenta
         // vazio MAS o remoto recém-carregado tinha dados. Defesa antes mesmo do
         // localStorage (sem isso, save zera localStorage que ScoreEngine e outros
